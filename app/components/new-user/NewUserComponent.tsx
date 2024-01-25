@@ -1,5 +1,5 @@
 "use client"
-import React, { FC, useEffect, useState } from 'react'
+import React, { FC, useCallback, useEffect, useState } from 'react'
 import { Input } from '../ui/input'
 import { getCsrfToken, getProviders, signIn, useSession } from 'next-auth/react'
 import { GetServerSidePropsContext, InferGetServerSidePropsType } from 'next'
@@ -14,15 +14,19 @@ import { STEPS } from '@/app/(auth)/new-user/page'
 interface NewUserComponentProps {
   body: React.ReactNode,
   step:number
-  handleNext:()=>void,
+  onSubmit:()=>void,
   handleBack:()=>void
+  disabled?:boolean
 }
 
 
-const NewUserComponent:FC<NewUserComponentProps> =  ({body,step,handleNext,handleBack}) => {
+const NewUserComponent:FC<NewUserComponentProps> =  ({body,step,disabled,onSubmit,handleBack}) => {
   
 const router = useRouter();
-
+const handleSubmit = useCallback(()=>{
+  console.log("HEYY");
+ onSubmit();
+},[onSubmit])
 
   return (
     <AnimatePresence>
@@ -34,8 +38,8 @@ const router = useRouter();
     className='p-6 bg-slate-100 rounded-lg'>
       {body}
       <div className="w-full flex items-center justify-between gap-6 mt-12">
-    {step > STEPS.START && <Button onClick={handleBack} variant="outline" className="w-full border-slate-700 rounded-md py-2">Back</Button>}
-      <Button onClick={handleNext} className="w-full bg-red-500 text-white rounded-md py-2">{step ===  STEPS.COLOUR ? "Finish":"Continue"}</Button>
+    {step > STEPS.START && <Button disabled={disabled} onClick={handleBack} variant="outline" className="w-full border-slate-700 rounded-md py-2">Back</Button>}
+      <Button onClick={handleSubmit} disabled={disabled} className="w-full bg-red-500 text-white rounded-md py-2">{step ===  STEPS.COLOUR ? "Finish":"Continue"}</Button>
       </div>
   </motion.div>
   </AnimatePresence>

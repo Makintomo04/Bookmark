@@ -54,7 +54,7 @@ const SignInWithOAuthButton: FC<SignInButtonProps> = ({provider}) => {
     // sign in
   }
   return <div className='w-full'><Button variant="outline" size={'lg'} className='w-full flex gap-3' onClick={()=>onSubmit()} >
-  <span></span> {provider === "Google" ? <FaGoogle/> : <FaGithub/> }
+  <span></span> {provider === "Google" ? <FaGoogle size={18}/> : <FaGithub size={20}/> }
 </Button></div>
 }
 

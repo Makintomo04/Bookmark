@@ -11,6 +11,7 @@ import SignInWithOAuthButton from './SignInWithOAuthButton'
 import { Button } from '../ui/button'
 import { useRouter } from 'next/navigation'
 import { motion,AnimatePresence } from 'framer-motion'
+import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 
 interface SignInComponentProps {
   
@@ -20,8 +21,23 @@ const SignInComponent =  () => {
 
   const router = useRouter()
 
-  
+  const { 
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    getValues,
+    formState:{errors},
+    reset} = useForm<FieldValues>({
+    defaultValues: {
+      email: "",
+      password:"",
+    },
+  })
 
+  const onSubmit:SubmitHandler<FieldValues> = async (data) => {
+    console.log(data);
+  }
   return (
     <AnimatePresence>
     <motion.div
@@ -46,14 +62,14 @@ const SignInComponent =  () => {
                   </button> */}
                 {/* </div>
               ))} */}
-    <form action="" className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
-        <Input type="email" name="email" id="email" className=""/>
+        <Input register={register} errors={errors} type="email" name="email" id="email" className=""/>
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor="password">Password</label>
-        <Input type="password" name="password" id="password" className="w-full"/>
+        <Input register={register} errors={errors} type="password" name="password" id="password" className="w-full"/>
       </div>
       <Button className="bg-red-500 text-white rounded-md py-2">Sign in</Button>
     </form>

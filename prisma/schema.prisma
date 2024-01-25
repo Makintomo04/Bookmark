@@ -39,14 +39,16 @@ model Session {
 
 model User {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?
-  // username      String?   @unique
+  name          String?   
+  username      String?   @unique @default(cuid())
   email         String?   @unique
   emailVerified DateTime?
   password      String?
   hashedPassword String?
   bio           String?
   image         String?
+  banner         String?
+  favColour     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   favGenres String[] @db.String
