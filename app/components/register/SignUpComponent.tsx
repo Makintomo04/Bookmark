@@ -43,7 +43,7 @@ const onSubmit:SubmitHandler<FieldValues> = async (data) => {
     animate={{ opacity: 1,y:0 }}
     transition={{ ease: "circIn" }}
     exit={{ opacity: 1,y:50 }}
-    className='p-6 bg-slate-100 rounded-lg'>
+    className='p-6 bg-slate-100 dark:bg-background rounded-lg'>
       <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='logo'/>
       {/* <h1 className="font-bold text-2xl">Bookmark</h1> */}

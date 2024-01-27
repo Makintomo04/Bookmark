@@ -53,7 +53,7 @@ const SignInWithOAuthButton: FC<SignInButtonProps> = ({provider}) => {
     // popupCenter("https://accounts.google.com/o/oauth2/v2/auth/oauthchooseaccount?client_id=321426932384-3g17vdealskg87civvfcp6sf8k5tnk56.apps.googleusercontent.com&scope=openid%20email%20profile&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapi%2Fauth%2Fcallback%2Fgoogle&state=HOKGZnvLf8jKi6rPM8pgiGONqCsGjSv7ApqERCi2PTA&code_challenge=1Wx-I5BlAGTRtcwrRCHiVcjGYpqHuKk6-2XU07AGCPQ&code_challenge_method=S256&service=lso&o2v=2&theme=glif&flowName=GeneralOAuthFlow", "Sample Sign In")
     // sign in
   }
-  return <div className='w-full'><Button variant="outline" size={'lg'} className='w-full flex gap-3' onClick={()=>onSubmit()} >
+  return <div className='w-full'><Button variant="outline" size={'lg'} className='w-full flex gap-3 dark:border-slate-100/50' onClick={()=>onSubmit()} >
   <span></span> {provider === "Google" ? <FaGoogle size={18}/> : <FaGithub size={20}/> }
 </Button></div>
 }

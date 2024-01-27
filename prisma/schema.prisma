@@ -72,15 +72,16 @@ model Book {
   userId String @db.ObjectId
   title String
   author String
-  description String
+  description String?
   coverImage String
-  status Status
-  genre String
-  rating Int
+  cardColour String?
+  status Status @default(NOT_STARTED)
+  genre String?
+  rating Float?
   notes Note[]
   quotes String[]
   pages Int
-  currentChapter Int
+  currentPage Int? @default(0)
   createdAt DateTime @default(now())
   startedAt DateTime?
   completedAt DateTime?

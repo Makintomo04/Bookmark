@@ -44,7 +44,7 @@ const page: FC<pageProps> = ({}) => {
   const [step, setStep] = useState(STEPS.START);
   const [imageLink, setImageLink] = useState("");
   const [coverImageLink, setCoverImageLink] = useState("");
-  const [color, setColor] = useState<RGBAColor>({ r: 241, g: 205, b: 60, a: 1
+  const [color, setColor] = useState<RGBAColor>({ r: 241, g: 60, b: 60, a: 1
   });
   const [selectedColor, setSelectedColor] = useState("#F13C3C");
   const [showColorPicker, setShowColorPicker] = useState(false);

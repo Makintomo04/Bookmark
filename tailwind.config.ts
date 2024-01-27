@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss"
 import { withUt } from "uploadthing/tw";
+const {nextui} = require("@nextui-org/theme");
 
 const config = {
   darkMode: ["class"],
@@ -8,6 +9,7 @@ const config = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
+    'node_modules/flowbite-react/lib/esm/**/*.js',
 	],
   prefix: "",
   theme: {
@@ -75,7 +77,7 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"),require('flowbite/plugin'),nextui()],
 } satisfies Config
 
 export default withUt(config)

@@ -10,13 +10,15 @@ if (!currentUser) {
   return NextResponse.error();
 }
 
-const books = await prisma.book.findMany({
-  where:{
-    userId: currentUser.id
-  },
-  include:{
-     
-  }
-})
-return NextResponse.json(books)
+const readingStats = await prisma.book.aggregate({
+  // _count: {
+  //   status: true, // Use the $sum operator within the _count field
+  // },
+  // include:{
+  //   _count:{
+  //     status:true
+  //   }
+  // }
+});
+return NextResponse.json(readingStats)
 }

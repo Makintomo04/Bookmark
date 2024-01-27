@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Montserrat } from "next/font/google";
+import { Montserrat,Inter } from "next/font/google";
 import "./globals.css";
+import {NextUIProvider} from "@nextui-org/system";
 import Header from "./components/Header";
 import { Providers } from "./providers/provider";
 import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
@@ -9,7 +10,7 @@ import { ToastContainer } from 'react-toastify';
 import { ourFileRouter } from "@/app/api/uploadthing/core";
 import 'react-toastify/dist/ReactToastify.css';
 import getCurrentUser from "./actions/getCurrentUser";
-const font = Montserrat({ subsets: ["latin"] });
+const font = Inter({ subsets: ["latin"] });
 
 export const dynamic = 'auto';
 
@@ -31,7 +32,7 @@ export default async function RootLayout({
         <ToastContainer />
         <NextSSRPlugin
           routerConfig={extractRouterConfig(ourFileRouter)}
-        />
+          />
         {children}
         </Providers>
         </body>
