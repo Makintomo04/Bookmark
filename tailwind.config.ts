@@ -19,6 +19,7 @@ const config = {
       screens: {
         "2xl": "1200px",
       },
+      
     },
     extend: {
       colors: {

@@ -10,6 +10,8 @@ import {Progress} from "flowbite-react"
 import { FiBook,FiBookOpen  } from "react-icons/fi";
 import { TbBook,TbBook2  } from "react-icons/tb";
 import useUser from '@/app/hooks/useUser';
+import Marquee from '../Marquee';
+import { Check } from 'lucide-react';
 interface BookCardProps {
   book: Book
 }
@@ -41,6 +43,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
     const randomIndex = Math.floor(Math.random() * contrastingColors.length);
     return contrastingColors[randomIndex];
   }
+  console.log("8888",title,moment(new Date(startedAt!)));
   const [isOpen, setIsOpen] = useState(false);
   let ref = useRef(null);
   console.log();
@@ -49,7 +52,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
     closed: { opacity: 1, y: 0 },
   }
   const easing = cubicBezier(.35,.17,.3,.86)
-  function calculatePercentageComplete(totalPages, currentPage) {
+  function calculatePercentageComplete(totalPages:number, currentPage:number) {
     if (totalPages === 0) {
       // Handle potential division by zero
       return 0;
@@ -58,16 +61,29 @@ const BookCard: FC<BookCardProps> = ({book}) => {
     const percentage = (currentPage / totalPages) * 100;
     return Math.round(percentage); // Round to whole number percentage
   }
-
+  // console.log(title.length);
+  const isLongTitle = title.length > 15;
   return (
     <div style={{background:`${cardColour}`}} className={`cursor-pointer h-[350px] w-full xl:w-[275px] overflow-hidden rounded-[20px] p-6 relative`}>
-      
+      {status === Status.COMPLETED && (
+        <div className="absolute flex justify-center items-center bottom-0 h-24 w-full bg-slate-300/60 pointer-events-none z-10 left-0">
+          <div className="h-12 w-12 rounded-full bg-slate-100 flex justify-center items-center shadow-md">
+            <Check size={30} className='text-slate-800'/>
+          </div>
+        </div>
+        )}
       <div className="absolute top-4 right-4 z-10">
         <div className="h-5 w-5 relative cursor-pointer ">
         <Image src="/images/bookmark_inactive.svg" alt="" fill  layout="fixed" className="w-full h-full"/>
         </div>
       </div>
-      <h2 className='leading-none font-bold text-[28px] text-white mb-2'>{title}</h2>
+      <div className="overflow-hidden max-w-52">
+
+      {isLongTitle ? (
+        <Marquee>{title}</Marquee>):
+      (<h2 className='leading-none font-bold text-[26px] max-w-[190px] text-white mb-2'>{title}</h2>)
+      }
+      </div>
       <div className="flex gap-4 items-center">
       <p className='font-medium text-[16px] text-white'>{author}</p>
      {rating && <div className="flex gap-1 items-center">
@@ -75,15 +91,19 @@ const BookCard: FC<BookCardProps> = ({book}) => {
         <p className='font-semibold text-white text-[16px]'>{rating}</p>
       </div>}
       </div>
-     {status !== Status.NOT_STARTED ?
+     { status === Status.STARTED ?
      (<div className="flex gap-2 items-center mt-4">
         <TbBook  color='white' size={16}/>
-        <p className='font-medium uppercase text-slate-100 text-xs'>Started On { moment(startedAt).format('L')}</p>
-      </div>):(<div  className="flex gap-2 items-center mt-4">
+        <p className='font-medium uppercase text-slate-100 text-xs'>Started On { moment(new Date(startedAt!), 'DD.MM.YYYY').format('DD/MM/YYYY')}</p>
+      </div>):status === Status.NOT_STARTED ? (
+        <div  className="flex gap-2 items-center mt-4">
         <TbBook2   color='white' size={16}/>
         <p className='font-medium uppercase text-slate-100 text-xs'>Not Started</p>
-      </div>)
-    }
+      </div>):status === Status.COMPLETED ? (<div  className="flex gap-2 items-center mt-4">
+      <Check   color='white' size={16}/>
+      <p className='font-medium uppercase text-slate-100 text-xs'>Completed</p>
+    </div>):null
+      }
        <>
       <div className="mt-4 flex items-center gap-3">
       <p className="text-sm text-white"><span className="font-bold">0</span> Notes</p>
@@ -96,8 +116,8 @@ const BookCard: FC<BookCardProps> = ({book}) => {
           {/* <Progress progress={calculatePercentageComplete(pages,currentPage)} className='flex-1 w-full text-[#9b59b6]' size="sm" color='red' /> */}
           <progress 
           style={{color:"#be1e2d"}}
-          className='h-[8px] rounded-full overflow-hidden' value={currentPage} max={pages}>70 %</progress>
-          <p className='font-semibold text-white'>{calculatePercentageComplete(pages,currentPage)}%</p>
+          className='h-[8px] rounded-full overflow-hidden' value={currentPage!} max={pages}>70 %</progress>
+          <p className='font-semibold text-white'>{calculatePercentageComplete(pages,currentPage!)}%</p>
         </div>
       )
 

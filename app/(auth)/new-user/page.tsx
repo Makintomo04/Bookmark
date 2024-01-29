@@ -105,10 +105,10 @@ const page: FC<pageProps> = ({}) => {
 
   
   const onNext = () => {
-    if(step === STEPS.USERNAME) {
-      // form.handleSubmit(onSubmit)
-      console.log("Submitted",getValues())
-    }
+    // if(step === STEPS.USERNAME) {
+    //   // form.handleSubmit(onSubmit)
+    //   console.log("Submitted",getValues())
+    // }
     setStep((step)=>step + 1)
   }
   const onBack = () => {

@@ -1,7 +1,7 @@
 "use client"
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { User } from '@prisma/client'
-import { FC } from 'react'
+import { FC, useState } from 'react'
 import Avatar from './Avatar'
 import useSWR from 'swr'
 import useUser from '@/app/hooks/useUser'
@@ -14,14 +14,16 @@ interface ProfileHeadProps {
 }
 
 const ProfileHead: FC<ProfileHeadProps> =  ({imgSrc,bannerSrc, color}) => {
- 
+ const {user,isError,isLoading} = useUser()
+//  const [colour,setColour] = useState<string>(user.favColour)
+ console.log("@@@@",user.favColour);
   return (<div className='w-full relative'>
     <div className="h-48 overflow-hidden rounded-[25px] relative">
         <EditButton/>
 
       <div className="h-full w-full">
         {
-          bannerSrc ? <Image src={bannerSrc} layout="fill" objectFit="cover" alt="banner" /> : <div className="w-full h-full bg-pink-400"></div>
+          bannerSrc ? <Image src={bannerSrc} layout="fill" objectFit="cover" alt="banner" /> : <div style={{background:`${user.favColour}`}} className="w-full h-full"></div>
         }
         
       </div>

@@ -15,6 +15,7 @@ import { IoClose } from "react-icons/io5";
 import BookEntryModal from "../components/modals/BookEntryModal";
 import { IoAddOutline } from "react-icons/io5";
 import useBookEntryModal from "../hooks/useBookEntryModal";
+import { Book } from "@prisma/client";
 
 
 
@@ -33,9 +34,13 @@ export default function  Home () {
       </div>
     )
   }
-  
+  const sortedBooks = books.slice().sort((a:Book, b:Book) =>  {
+    const dateA = new Date(a.createdAt);
+    const dateB = new Date(b.createdAt);
+    return dateB.getTime() - dateA.getTime()
+})
   return (
-    <main className="h-screen bg-background">
+    <main className="h-full bg-background">
       <Container>
         <BookEntryModal/>
         <EditProfileModal/>
@@ -62,7 +67,7 @@ export default function  Home () {
 
       {/* /**CARDS */ }
 <div className="grid grid-cols-1 xs:grid-cols-4  sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-10 lg:grid-cols-4 ">
-{books.map((book:any) => (
+{sortedBooks.map((book:any) => (
   <BookCard key={book.id} book={book}/>
 ))}
 </div>

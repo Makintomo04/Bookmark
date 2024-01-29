@@ -67,3 +67,47 @@ progress[value],progress[value]::-webkit-progress-bar  {
   background-size: 35px 20px, 100% 100%, 100% 100%;
   color:red; 
 }
+button.react-calendar__tile--active{
+  background: #F13C3C;
+}
+button.react-calendar__tile--active:enabled:focus{
+  background: #F13C3C;
+}
+button.react-calendar__tile--active:enabled:focus:hover{
+  background: #F13C3C;
+}
+abbr{
+  color: black;
+}
+button.react-calendar__tile--now{
+  background: black;
+  color:white
+  
+}
+button.react-calendar__tile--now>abbr{
+  color:white
+  
+}
+
+.marquee {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.marquee:hover {
+  overflow: visible;
+  text-overflow: initial;
+  white-space: nowrap;
+  animation: marquee 3s linear infinite alternate;
+  /* animation-delay: 0.5s; */
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-100%); /* Adjust based on title length and container width */
+  }
+}
