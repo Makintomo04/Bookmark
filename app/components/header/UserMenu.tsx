@@ -31,6 +31,11 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
   
     return initials.toUpperCase(); // Uppercase for consistency
   }
+  const handleClick = (e:React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    setShowMenu(false)
+  }
+
   const {user} = useUser()
   if (user) {
     return (
@@ -44,7 +49,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
       <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
     </Avatar>
         {showMenu && <div className="w-60 bg-background shadow-md absolute z-50 right-0 rounded-lg overflow-hidden top-10 mt-2 ">
-            <div onClick={()=>setShowMenu(false)} className="h-screen w-screen fixed inset-0 bg-red-700/0 -z-50"></div>
+            <div onClick={(e)=>handleClick(e)} className="h-screen w-screen fixed inset-0 bg-red-700/0 -z-50"></div>
             <div className="z-10">
           <p className='font-semibold text-md p-4'>Hello,<span> {user?.username}</span></p>
           <hr className=''/>

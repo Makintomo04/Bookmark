@@ -33,7 +33,7 @@ export default async function RootLayout({
         <NextSSRPlugin
           routerConfig={extractRouterConfig(ourFileRouter)}
           />
-          <div className="h-auto pb-24 bg-background">
+          <div className="h-auto bg-background">
         {children}
 
           </div>

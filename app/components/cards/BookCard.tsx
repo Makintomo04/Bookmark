@@ -12,6 +12,8 @@ import { TbBook,TbBook2  } from "react-icons/tb";
 import useUser from '@/app/hooks/useUser';
 import Marquee from '../Marquee';
 import { Check } from 'lucide-react';
+import useBookUpdateModal from '@/app/hooks/useBookUpdateModal';
+import { calculatePercentageComplete } from '@/utils/helpers';
 interface BookCardProps {
   book: Book
 }
@@ -21,6 +23,9 @@ const BookCard: FC<BookCardProps> = ({book}) => {
   var color = randomColor(); 
   const {title, author, coverImage, description, pages,currentPage,startedAt,status,cardColour,rating} = book
   const {user,isLoading,isError,mutate} = useUser();
+
+  const bookUpdateModal = useBookUpdateModal()
+
   function getRandomContrastingColor() {
     const contrastingColors = [
       "#ffcc99", // Peach
@@ -43,7 +48,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
     const randomIndex = Math.floor(Math.random() * contrastingColors.length);
     return contrastingColors[randomIndex];
   }
-  console.log("8888",title,moment(new Date(startedAt!)));
+  // console.log("8888",title,moment(new Date(startedAt!)));
   const [isOpen, setIsOpen] = useState(false);
   let ref = useRef(null);
   console.log();
@@ -52,19 +57,19 @@ const BookCard: FC<BookCardProps> = ({book}) => {
     closed: { opacity: 1, y: 0 },
   }
   const easing = cubicBezier(.35,.17,.3,.86)
-  function calculatePercentageComplete(totalPages:number, currentPage:number) {
-    if (totalPages === 0) {
-      // Handle potential division by zero
-      return 0;
-    }
-  
-    const percentage = (currentPage / totalPages) * 100;
-    return Math.round(percentage); // Round to whole number percentage
-  }
   // console.log(title.length);
   const isLongTitle = title.length > 15;
+  const handleOpenBookModal = () => {
+    bookUpdateModal.setBook(book, book.status === Status.COMPLETED ? true : false)
+    bookUpdateModal.onOpen(book.id)
+  }
+  const handleCoverImageClick = (e:React.MouseEvent<HTMLDivElement>) => {
+      e.stopPropagation()
+      setIsOpen(isOpen => !isOpen)
+ 
+  }
   return (
-    <div style={{background:`${cardColour}`}} className={`cursor-pointer h-[350px] w-full xl:w-[275px] overflow-hidden rounded-[20px] p-6 relative`}>
+    <div style={{background:`${cardColour}`}} onClick={handleOpenBookModal} className={`cursor-pointer h-[350px] w-full xl:w-[275px] overflow-hidden rounded-[20px] p-6 relative`}>
       {status === Status.COMPLETED && (
         <div className="absolute flex justify-center items-center bottom-0 h-24 w-full bg-slate-300/60 pointer-events-none z-10 left-0">
           <div className="h-12 w-12 rounded-full bg-slate-100 flex justify-center items-center shadow-md">
@@ -123,16 +128,16 @@ const BookCard: FC<BookCardProps> = ({book}) => {
 
       }
       <motion.div 
-      // animate={isOpen ? "open" : "closed"}
-      // variants={variants}
+      animate={isOpen ? "open" : "closed"}
+      variants={variants}
        
-      // transition={{ ease: "circInOut",duration: .15 }}
+      transition={{ ease: "circInOut",duration: .15 }}
       // whileHover={{
       //   y: -180,scale:1.25
       // }}
       ref={ref} 
       className="h-full w-[calc(100%_-_48px)] absolute -bottom-48 hover:-translate-y-10 transition"
-      onClick={() => setIsOpen(isOpen => !isOpen)}>
+      onClick={(e) => handleCoverImageClick(e)}>
         <Image src={coverImage} alt="" layout='fill' objectFit='cover' className=' w-full h-full rounded-[20px] mt-4'/>
       </motion.div>
     </div>

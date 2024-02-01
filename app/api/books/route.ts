@@ -1,7 +1,6 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
-import { parse } from "path";
 
 export async function GET(req:Request, res:Response) {
 

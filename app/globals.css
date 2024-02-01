@@ -108,6 +108,9 @@ button.react-calendar__tile--now>abbr{
   }
 
   100% {
-    transform: translateX(-100%); /* Adjust based on title length and container width */
+    transform: translateX(-150%); /* Adjust based on title length and container width */
   }
 }
+progress::-moz-progress-bar { background: black; }
+progress::-webkit-progress-value { background: black; }
+progress { color: black;width: 100%; }

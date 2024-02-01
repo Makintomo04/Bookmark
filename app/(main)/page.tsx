@@ -16,6 +16,7 @@ import BookEntryModal from "../components/modals/BookEntryModal";
 import { IoAddOutline } from "react-icons/io5";
 import useBookEntryModal from "../hooks/useBookEntryModal";
 import { Book } from "@prisma/client";
+import BookUpdateModal from "../components/modals/BookUpdateModal";
 
 
 
@@ -42,6 +43,7 @@ export default function  Home () {
   return (
     <main className="h-full bg-background">
       <Container>
+        <BookUpdateModal/>
         <BookEntryModal/>
         <EditProfileModal/>
       <ProfileHead imgSrc={user?.image} bannerSrc={user?.banner} color={user?.favColour}/>
@@ -63,7 +65,7 @@ export default function  Home () {
       <ReadingStats books={books}/>
       </div>
       </div>
-      <hr className="my-12"/>
+      <hr className="my-12"/> 
 
       {/* /**CARDS */ }
 <div className="grid grid-cols-1 xs:grid-cols-4  sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-10 lg:grid-cols-4 ">
