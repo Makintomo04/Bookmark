@@ -1,6 +1,5 @@
 "use client"
 import Container from '@/app/components/Container'
-import { OurUploadDropzone } from '@/app/components/ImageUploader'
 import Heading from '@/app/components/new-user/Heading'
 import NewUserComponent from '@/app/components/new-user/NewUserComponent'
 import { Button } from '@/app/components/ui/button'
@@ -21,18 +20,11 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { error } from 'console'
 import axios from 'axios'
 import { useRouter } from 'next/navigation'
-
+import { STEPS } from '@/utils/helpers'
 interface pageProps {
   
 }
-export enum STEPS {
-  START= 0,
-  USERNAME= 1,
-  IMAGE= 2,
-  BANNER= 3,
-  BIO= 4,
-  COLOUR= 5
-}  
+
 interface RGBAColor {
   r: number; // Red channel, value between 0 and 255
   g: number; // Green channel, value between 0 and 255
@@ -40,7 +32,7 @@ interface RGBAColor {
   a: number; // Alpha channel (opacity), value between 0 (transparent) and 1 (opaque)
 }
 
-const page: FC<pageProps> = ({}) => {
+const Page: FC<pageProps> = ({}) => {
   const [step, setStep] = useState(STEPS.START);
   const [imageLink, setImageLink] = useState("");
   const [coverImageLink, setCoverImageLink] = useState("");
@@ -402,4 +394,4 @@ const page: FC<pageProps> = ({}) => {
   )
 }
 
-export default page
+export default Page

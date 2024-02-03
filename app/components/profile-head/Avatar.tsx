@@ -1,6 +1,7 @@
 import useUser from '@/app/hooks/useUser';
 import { FC, useState } from 'react'
 import { Lightbox } from "react-modal-image";
+import Image from 'next/image'
 
 interface AvatarProps {
   src: string
@@ -15,8 +16,8 @@ const Avatar: FC<AvatarProps> = ({src}) => {
     <div onClick={()=>setShowLightbox(true)} className="cursor-pointer w-32 h-32 rounded-[50px] border-[5px] border-white dark:border-background  overflow-hidden">
       {/* Avatar */}
       <div className="w-full h-full relative overflow-hidden">
-        {user?.image ? <img src={user?.image} alt="avatar" className="w-full h-full object-cover  overflow-hidden "/>
-        : <img src="/images/avatar.jpg" alt="avatar" className="w-full h-full object-cover  "/>}
+        {user?.image ? <Image sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" priority src={user?.image} alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover  overflow-hidden "/>
+        : <Image sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" priority src="/images/avatar.jpg" alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover  "/>}
         </div>
     </div>
     {showLightbox && <Lightbox

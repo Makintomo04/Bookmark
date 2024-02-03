@@ -1,18 +1,20 @@
+import useBooks from '@/app/hooks/useBooks';
 import { Book } from '@prisma/client'
 import { FC } from 'react'
 
 interface ReadingStatsProps {
-  books: Book[]
+  
 }
 
-const ReadingStats: FC<ReadingStatsProps> = ({books}) => {
+const ReadingStats: FC<ReadingStatsProps> = ({}) => {
+  const {books,isLoading:isLoadingBooks,isError:isErrorBooks} = useBooks();
   const bookCounts = {
     completed: 0,
     started: 0,
     notStarted: 0,
   };
   
-  books.forEach((book) => {
+  books?.forEach((book:Book) => {
     switch (book.status) {
       case "COMPLETED":
         bookCounts.completed++;
@@ -24,8 +26,9 @@ const ReadingStats: FC<ReadingStatsProps> = ({books}) => {
         bookCounts.notStarted++;
     }
   });
+  // if(!books) return (<p>No books</p>)
   return (
-    <div className="flex gap-6 items-center mt-6 md:mt-0 px-6 md:self-end md:px-12">
+    <div className="flex self-start sm:self-auto gap-6 items-center jus md:mt-0 px-0 md:self-end">
       <div className="flex flex-col gap-1 items-start">
       <p className='text-xs'>Books</p>
       <h3 className="text-2xl font-bold">{books?.length}</h3>

@@ -10,7 +10,7 @@ import { Button } from '../ui/button'
 import { useRouter } from 'next/navigation'
 import { motion,AnimatePresence } from 'framer-motion'
 import Heading from './Heading'
-import { STEPS } from '@/app/(auth)/new-user/page'
+import { STEPS } from '@/utils/helpers'
 interface NewUserComponentProps {
   body: React.ReactNode,
   step:number
@@ -24,7 +24,7 @@ const NewUserComponent:FC<NewUserComponentProps> =  ({body,step,disabled,onSubmi
   
 const router = useRouter();
 const handleSubmit = useCallback(()=>{
-  console.log("HEYY");
+  // console.log("HEYY");
  onSubmit();
 },[onSubmit])
 

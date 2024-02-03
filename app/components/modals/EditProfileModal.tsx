@@ -1,5 +1,5 @@
-
-import { FC, use, useState } from 'react'
+"use client"
+import { FC, use, useEffect, useState } from 'react'
 import Modal from './Modal'
 import EditAvatar from './EditAvatar'
 import useUser from '@/app/hooks/useUser'
@@ -18,6 +18,7 @@ import axios from 'axios'
 import { useRouter } from 'next/navigation'
 import Loader from '../Loader'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
+import { set } from 'zod'
 
 interface EditProfileModalProps {
   
@@ -26,6 +27,7 @@ interface EditProfileModalProps {
 const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   const {user,isLoading:isUserLoading,isError,mutate} = useUser()
   const editProfileModal = useEditProfileModal()
+  console.log(user);
   const { 
     register,
     handleSubmit,
@@ -34,24 +36,36 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
     getValues,
     formState:{errors},
     reset} = useForm<FieldValues>({
-    defaultValues: {
-      username: user.username,
-      imageSrc: user.image,
-      bannerSrc: user.banner,
-      bio: user.bio,
-      color:user.favColour
+    defaultValues: async ()=>{
+      return {
+        username: user?.username,
+        bio: user?.bio,
+        imageSrc: user?.image,
+        bannerSrc: user?.banner,
+        color: user?.favColour,
+      }
     },
-  })
+  },)
   const imageSrc = watch("imageSrc");
   const bannerSrc = watch("bannerSrc");
   const colorSrc = watch("color");
   const [color, setColor] = useState(colorSrc);
-  console.log("!!!!",colorSrc);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [coverImageLink, setImageLink] = useState(imageSrc || "");
-  const [imageLink, setCoverImageLink] = useState(bannerSrc || "");
+  const [coverImageLink, setImageLink] = useState(user?.image || "");
+  const [imageLink, setCoverImageLink] = useState(user?.banner || "");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter()
+  useEffect(() => {
+    // console.log("1111",user?.username,user?.bio);
+    let defaultValues:FieldValues = {};
+    defaultValues.username = user?.username;
+    defaultValues.bio = user?.bio;
+    defaultValues.imageSrc = user?.image;
+    defaultValues.bannerSrc = user?.banner;
+    defaultValues.color = user?.favColour;
+    reset({ ...defaultValues });
+
+  },[user?.username,user?.bio,user?.image,user?.banner,user?.favColour])
   const handleClick = () => {
     setShowColorPicker((state) => !state)
   };
@@ -117,7 +131,7 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   )
   
   const body = (
-    user ? <div
+    isUserLoading ? <h1>hi</h1>:<div
       className="w-full h-full px-6"
     >
       <div className="h-full w-full flex flex-col sm:flex-row gap-6">
@@ -191,8 +205,8 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
             <div>
               <div className="flex items-center justify-center mb-4">
               {
-      coverImageLink && coverImageLink !== "" && <div className="h-32 w-full relative">
-     <Image fill className='rounded-md h-full w-full object-cover' src={bannerSrc} alt='cover image'/>
+      <div className="h-32 w-full relative">
+     <Image priority layout="fill" objectFit="cover"  className='rounded-md h-full w-full object-cover' src={bannerSrc} alt='cover image'/>
       
     </div>
       }
@@ -233,13 +247,8 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   </div>
           </div>
       
-      </div> : <div></div>
+      </div>
   )
-  if(isUserLoading){
-    return (
-      <Loader/>
-    )
-  }
   return (
     <Modal
       title="Edit Profile"

@@ -5,6 +5,7 @@ import { useSession, signIn, signOut } from "next-auth/react"
 import { useRouter } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
 import { ThemeSwitcher } from '../ThemeSwitcher'
+import Link from 'next/link'
 interface UserMenuProps {
   
 }
@@ -53,7 +54,9 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <div className="z-10">
           <p className='font-semibold text-md p-4'>Hello,<span> {user?.username}</span></p>
           <hr className=''/>
-          <div className="flex flex-col gap-4 text-left">
+          <div className="flex flex-col text-left">
+            <Link className='text-left text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full p-4'href="/">Home</Link>
+            <Link className='text-left text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full p-4'href="/favourites">Favourites</Link>
             <button className='text-left text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full p-4' onClick={() => signOut({
           callbackUrl: 'http://localhost:3000/signin'
         })}>Logout</button>

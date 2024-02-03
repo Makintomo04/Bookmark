@@ -1,3 +1,4 @@
+"use client"
 import { FC, use, useEffect, useState } from 'react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
@@ -23,6 +24,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import { calculatePercentageComplete } from '@/utils/helpers'
 import { Book } from '@prisma/client'
+import useBookById from '@/app/hooks/useBookById'
 
 interface BookUpdateModalProps {
   
@@ -31,12 +33,18 @@ interface BookUpdateModalProps {
 const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
   const {user,isLoading:isUserLoading,isError,mutate} = useUser()
   const { books, isLoading:isBooksLoading, isError:isBooksError, mutate:booksMutate } = useBooks();
+  const { myBooks, onOpen, onClose,getBook,bookId,getBookIsOpen,setBookIdState,book,setBook,getBookId } = useBookUpdateModal();
   const [isLoading, setIsLoading] = useState(false);
+  const [bookCompletion,setBookCompletion] = useState({
+    id: "",
+    isComplete: false,
+  })
   // const [step, setStep] = useState(STEPS.BOOK_INFO);
   // const [coverImageLink, setCoverImageLink] = useState("");
   const [colour,setColour] = useState<string>()
- const bookUpdateModal = useBookUpdateModal()
- const { myBooks, onOpen, onClose,getBook,getBookIsOpen,book,setBook,getBookId } = useBookUpdateModal();
+  const bookUpdateModal = useBookUpdateModal()
+  const { specificBook, isLoading:isSpecificBookLoading, isError:isSpecificBookError, mutate:specificBookMutate } = useBookById(bookId);
+ if(!isSpecificBookLoading)console.log("888777",specificBook);
  const { 
    register,
    handleSubmit,
@@ -46,17 +54,20 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
    formState:{errors},
    reset} = useForm<FieldValues>({
      defaultValues: {
-      id: "",
+      id: specificBook?.id,
       pagesUpdate: null,
-      isComplete: book && book?.status === "COMPLETED" ? true : false,
+      isStarted: specificBook?.status === "NOT_STARTED" ? false : true,
+      isComplete: specificBook?.status === "COMPLETED" ? true : false,
       },
     })
     
     const isComplete = watch("isComplete");
+    const isStarted = watch("isStarted");
     const id = watch("id");
-    console.log("4444",id);
+    console.log("4444",specificBook,bookId);
     const [isCompleted, setIsCompleted] = useState<boolean>(book?.isComplete);
     useEffect(() => {
+      console.log("5556666",isComplete);
       if(books && books.length > 0){
         useBookUpdateModal.getState().myBooks = books.map((book:Book) => ({
           id: book.id,
@@ -68,13 +79,17 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
     useEffect(() => {
     },[onClose])
     useEffect(() => {
-      setIsCompleted(book?.isComplete)
-      console.log("HHHHHHHHHH",getValues("isComplete"),book);
-      reset()
-      setValue("isComplete",isCompleted)
-      setValue("id",getBookId(book?.id,useBookUpdateModal.getState()))
-      console.log("8888",getBookId(book?.id,useBookUpdateModal.getState()))
-    },[book?.id])
+      
+      // setIsCompleted(book?.isComplete)
+      setValue("isComplete",specificBook?.status === "COMPLETED" ? true : false)
+      setValue("isStarted",specificBook?.status === "NOT_STARTED" ? false : true)
+    //   console.log("HHHHHHHHHH",getValues("isComplete"),book);
+    setValue("id",bookId)
+    // console.log("hi");
+    // reset()
+    //  console.log("000000",getValues("isComplete"),getValues("id"));
+      // console.log("8888",getBookId(book?.id,useBookUpdateModal.getState()))
+    },[book?.id,isSpecificBookLoading])
     
     const setCustomValue = (id: string, value: any) => {
       setValue(id, value, {
@@ -94,12 +109,17 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
        return toast.info(res.data.error,{ position: "bottom-center" })
         
      }
-    toast.success("Book Progress Updated.",{ position: "bottom-center" })
-    reset();
+     if(res.data.message === "Book Started"){
+        toast.success("New Book Started.",{ position: "bottom-center" })
+      }else{
+        toast.success("Book Progress Updated.",{ position: "bottom-center" })
+      }
+    reset({ ...data});
     booksMutate();
+    specificBookMutate();
     mutate();
     
-    onClose(book?.id)
+    onClose(bookId)
     
    }).catch((err)=>{
      toast.error("Something went wrong!",{ position: "bottom-center" })
@@ -110,9 +130,12 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
    })
    }
    const handleChange = (val:boolean) => {
-    console.log("5555555555555",val);
     setIsCompleted(val)
-    // setValue("isComplete", val);
+    setValue("isComplete", val);
+   }
+   const handleIsStartedChange = (val:boolean) => {
+    setIsCompleted(val)
+    setValue("isStarted", val);
    }
 let body = (
   <div
@@ -121,7 +144,7 @@ let body = (
   <div className="h-full w-full flex flex-col sm:flex-row gap-8">
     <div className=" h-full w-full flex-col-reverse mb-3 flex gap-6">
 
-        <div className="h-full w-full rounded-[20px] overflow-hidden relative" style={{background:`${book?.cardColour}`}}>
+        <div className="h-full w-full rounded-[20px] overflow-hidden relative" >
           {book ? <Image src={book.coverImage} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
             <div style={{background:`${user?.favColour}`}} className="h-full w-full"></div>
           )}
@@ -140,7 +163,7 @@ let body = (
         <div className="my-4">
           <h2 className=' text-md font-semibold'>Progress</h2>
           {/* <Progress progress={calculatePercentageComplete(pages,currentPage)} className='flex-1 w-full text-[#9b59b6]' size="sm" color='red' /> */}
-        <div className="flex gap-2 items-center w-full">
+        <div className="flex gap-2 items-center w-5/6">
           <progress 
           style={{color:"#be1e2d"}}
           className='h-[8px] rounded-full overflow-hidden' value={bookUpdateModal?.book?.currentPage!} max={bookUpdateModal?.book?.pages}>70 %</progress>
@@ -154,9 +177,13 @@ let body = (
         <Input register={register} errors={errors}  name="pagesUpdate" id="pagesUpdate" autoComplete='off' className="max-w-16"/>
         </div>
         <div className="flex gap-2 items-center mt-auto">
-        <Label className="text-md font-bold" htmlFor="title">Mark as Completed?</Label>
-        <Checkbox register={register} errors={errors} checked={isCompleted} 
-                  onCheckedChange={(val)=>handleChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/>
+        {specificBook?.status === "NOT_STARTED" ? (
+        <><Label className="text-md font-bold" htmlFor="title">Mark as Started?</Label>
+        <Checkbox register={register} errors={errors} checked={isStarted} 
+                  onCheckedChange={(val)=>handleIsStartedChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></>) : (<><Label className="text-md font-bold" htmlFor="title">Mark as Completed?</Label>
+        <Checkbox register={register} errors={errors} checked={isComplete} 
+                  onCheckedChange={(val)=>handleChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></>)
+                  }
         </div>
         </div>
         </div>
@@ -173,8 +200,6 @@ const footer = (
     </div>
   </div>
 )
-if(book){
-  console.log("1111",getBook(book.id,useBookUpdateModal.getState()));}
   return (
     <Modal
       title="Update Progress"
