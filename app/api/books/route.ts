@@ -41,7 +41,7 @@ const book = await prisma.book.create({
     startedAt: readingStatus === "NOT_STARTED" ? null : new Date(startedAt),
     pages:parseInt(pages),
     status: readingStatus,
-    currentPage:parseInt(currentPage),
+    currentPage: readingStatus === "NOT_STARTED" ? 0 : parseInt(currentPage),
     cardColour, 
   }
 })

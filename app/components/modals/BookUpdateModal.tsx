@@ -79,16 +79,9 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
     useEffect(() => {
     },[onClose])
     useEffect(() => {
-      
-      // setIsCompleted(book?.isComplete)
       setValue("isComplete",specificBook?.status === "COMPLETED" ? true : false)
       setValue("isStarted",specificBook?.status === "NOT_STARTED" ? false : true)
-    //   console.log("HHHHHHHHHH",getValues("isComplete"),book);
-    setValue("id",bookId)
-    // console.log("hi");
-    // reset()
-    //  console.log("000000",getValues("isComplete"),getValues("id"));
-      // console.log("8888",getBookId(book?.id,useBookUpdateModal.getState()))
+      setValue("id",bookId)
     },[book?.id,isSpecificBookLoading])
     
     const setCustomValue = (id: string, value: any) => {
@@ -115,9 +108,9 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
         toast.success("Book Progress Updated.",{ position: "bottom-center" })
       }
     reset({ ...data});
-    booksMutate();
-    specificBookMutate();
     mutate();
+    booksMutate();
+    // specificBookMutate();
     
     onClose(bookId)
     
@@ -145,8 +138,8 @@ let body = (
     <div className=" h-full w-full flex-col-reverse mb-3 flex gap-6">
 
         <div className="h-full w-full rounded-[20px] overflow-hidden relative" >
-          {book ? <Image src={book.coverImage} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
-            <div style={{background:`${user?.favColour}`}} className="h-full w-full"></div>
+          {book?.coverImage ? <Image src={book?.coverImage} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
+            <div style={{background:`${book?.cardColour}`}} className="h-full w-full"></div>
           )}
         </div>
         

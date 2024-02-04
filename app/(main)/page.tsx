@@ -18,13 +18,37 @@ import useBookEntryModal from "../hooks/useBookEntryModal";
 import { Book } from "@prisma/client";
 import BookUpdateModal from "../components/modals/BookUpdateModal";
 import BookList from "../components/books/BookList";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 
 // import getCurrentUser from "../actions/getCurrentUser";
 
 export default function  Home () {
+  const router = useRouter()
+  const {data:session,status} = useSession()
+
+  // useEffect(() => {
+  //   if(!session)
+  //   {
+  //     router.replace("/signin")
+  //   }
+  //   return () => {
+      
+  //   }
+  // }, [status])
+  // console.log(session,status);
+  // if(status === "loading"){
+  //   return (
+  //     <div className="w-full h-full">
+
+  //         <Loader/>
+       
+  //     </div>
+  //   )
+  // }
+  // if(session)
   return (
     <main className="pb-24 h-auto flex-grow min-h-[calc(100vh_-_180px)] bg-background">
       <Container>

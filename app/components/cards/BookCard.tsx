@@ -18,8 +18,6 @@ import { calculatePercentageComplete } from '@/utils/helpers';
 import useFavourite from '@/app/hooks/useFavourite';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import useBookById from '@/app/hooks/useBookById';
-import { BsCalendar } from 'react-icons/bs';
 import { cn } from '@/lib/utils';
 import EditButton from '../profile-head/EditButton';
 import CardMenu from './CardMenu';
@@ -37,8 +35,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
   const {favourites,hasFavourited, isLoading:isFavLoading,isError:isFavError,mutate:mutateFav} = useFavourite();
   const bookUpdateModal = useBookUpdateModal()
   const [bookId, setBookId] = useState<string>("")
-  // const { specificBook, isLoading:isSpecificBookLoading, isError:isSpecificBookError, mutate:specificBookMutate } = useBookById(bookId);
-  // console.log("8888",title,moment(new Date(startedAt!)));
+
   const [isOpen, setIsOpen] = useState(false);
   let ref = useRef(null);
   console.log();
@@ -187,7 +184,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
       ref={ref} 
       className="h-full w-[calc(100%_-_48px)] absolute -bottom-48 hover:-translate-y-10 transition"
       onClick={(e) => handleCoverImageClick(e)}>
-        <Image priority src={coverImage} alt="" layout='fill' objectFit='cover' className=' w-full h-full rounded-[20px] mt-4'/>
+        {coverImage?<Image priority src={coverImage} alt="" layout='fill' objectFit='cover' className=' w-full h-full rounded-[20px] mt-4'/>:<div style={{background:`${user?.favColour}`}} className="w-full h-full rounded-[20px] mt-4"></div>}
       </motion.div>
     </div>
   )

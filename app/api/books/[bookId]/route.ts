@@ -16,9 +16,9 @@ export async function GET( request: Request,
       id: bookId
     }
   })
-  console.log(book);
+  console.log("ELOOOOO",book,bookId);
   if(!book){
-    return NextResponse.error();
+    return NextResponse.json({ error: 'No Book Found' }, { status: 400 });
   }
   return NextResponse.json(book)
 }

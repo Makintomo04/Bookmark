@@ -35,7 +35,7 @@ const handleSubmit = useCallback(()=>{
     // animate={{ opacity: 1,y:0 }}
     // transition={{ ease: "circIn" }}
     // exit={{ opacity: 1,y:-50 }} 
-    className='p-6 bg-slate-100 rounded-lg'>
+    className='p-6 bg-slate-100 dark:bg-background rounded-lg'>
       {body}
       <div className="w-full flex items-center justify-between gap-6 mt-12">
     {step > STEPS.START && <Button disabled={disabled} onClick={handleBack} variant="outline" className="w-full border-slate-700 rounded-md py-2">Back</Button>}

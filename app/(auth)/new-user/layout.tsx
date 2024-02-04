@@ -6,7 +6,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
   const user = await getCurrentUser();
   const session = await getSession();
   
-    console.log("USER",session);
+    console.log("USER",user,session);
+ 
   return (
     <>
       <main className="">{children}</main>

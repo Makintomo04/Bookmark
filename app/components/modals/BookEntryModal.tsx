@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { Textarea } from '../ui/textarea'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
-import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
+import { FieldErrors, FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import Image from 'next/image'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { Button } from '../ui/button'
@@ -18,10 +18,12 @@ import { ST } from 'next/dist/shared/lib/utils'
 import { CirclePicker } from 'react-color'
 import { set } from 'zod'
 import axios from 'axios'
+import { ErrorMessage } from "@hookform/error-message"
 // import "primereact/resources/themes/lara-light-cyan/theme.css";
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import useBooks from '@/app/hooks/useBooks'
+import ErrorMessageComponent from '../ErrorMessageComponent'
 
 interface BookEntryModalProps {
   
@@ -49,6 +51,7 @@ const BookEntryModal: FC<BookEntryModalProps> = ({}) => {
    setValue,
    watch,
    getValues,
+   setError,
    formState:{errors},
    reset} = useForm<FieldValues>({
      defaultValues: {
@@ -74,14 +77,14 @@ const BookEntryModal: FC<BookEntryModalProps> = ({}) => {
         shouldTouch: true
       });
     }
+
     const onSubmit:SubmitHandler<FieldValues> =(data) =>{
-    
+    console.log("Hello");
      console.log("@@@@2",data);
+     console.log("PPPP",imageSrc);
      if(step !== STEPS.BOOK_COLOUR) {
        return onNext()
      }
-   
-   
    axios.post("/api/books",data).then((res)=>{
     setIsLoading(true)
     console.log("££££",res);
@@ -139,15 +142,15 @@ let body = (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
         <Label className="text-md font-bold" htmlFor="title">Book Title</Label>
-        <Input register={register} errors={errors}  name="title" id="title" placeholder='e.g. The Great Gatsby' autoComplete='off' className="max-w-lg"/>
+        <Input register={register} inputValidation={{required:true,message:"Book title required"}} errors={errors}  name="title" id="title" placeholder='e.g. The Great Gatsby' disabled={isLoading} autoComplete='off' className="max-w-lg" required/>
         </div>
         <div className="flex flex-col gap-2">
         <Label className="text-md font-bold" htmlFor="author">Author</Label>
-        <Input register={register} errors={errors}  name="author" id="author" autoComplete='off' className="max-w-lg" placeholder='e.g. F. Scott Fitzgerald'/>
+        <Input register={register} inputValidation={{required:true,message:"Author name required"}} errors={errors}  name="author" id="author" autoComplete='off' className="max-w-lg" disabled={isLoading} placeholder='e.g. F. Scott Fitzgerald' required/>
         </div> 
         <div className="flex flex-col gap-2">
         <Label className="text-md font-bold" htmlFor="pages">Total Pages</Label>
-        <Input register={register} errors={errors}  name="pages" id="pages" autoComplete='off' className="w-[100px]"/>
+        <Input register={register} errors={errors} inputValidation={{min:1,required:true,message:"Number of Total pages must be greater than 0"}}  name="pages" id="pages" autoComplete='off' className="w-[100px]" disabled={isLoading} required/>
         </div> 
         <div className="min-w-max">
         <h2 className='text-md font-bold mb-2'>Upload Book Cover</h2>
@@ -185,13 +188,14 @@ let body = (
   </div>
         </div>
     </div>
-    <div className=" h-full w-full flex-col-reverse mb-3 flex gap-6">
+    <div className=" h-full w-full flex-col mb-3 flex gap-6">
 
         <div className="h-full w-full rounded-[20px] overflow-hidden relative" style={{background:`${user?.favColour}`}}>
           {imageSrc ? <Image src={imageSrc} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
             <div style={{background:`${user?.favColour}`}} className="h-full w-full"></div>
-          )}
+            )}
         </div>
+            <ErrorMessageComponent errors={errors} name="coverImgSrc"/>
         
 </div>
       </div>

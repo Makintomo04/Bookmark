@@ -46,7 +46,7 @@ if(selectedBook.status === "NOT_STARTED"){
   // return NextResponse.json({error:"Book not started"});
 }
 console.log("yooo",isComplete,parseInt(pagesUpdate) ,typeof(parseInt(pagesUpdate) ));
-if(!isComplete && isNaN(parseInt(pagesUpdate))){
+if(selectedBook.status === "STARTED" && !isComplete && isNaN(parseInt(pagesUpdate))){
   return NextResponse.json({error:"Pages to increment must be greater than 0"});
 }
 const book = await prisma.book.update({
@@ -55,7 +55,7 @@ const book = await prisma.book.update({
   },
   data:{  
     currentPage: pagesUpdate && !isComplete ? increment(selectedBook.currentPage ?? 0,pagesUpdate) : selectedBook.pages,
-    status: isComplete ? "COMPLETED" : selectedBook.status,
+    status: isComplete ? "COMPLETED" : selectedBook.status ==="COMPLETED" && !isComplete ? "STARTED": selectedBook.status,
     completedAt: isComplete ? new Date() : selectedBook.completedAt,
   }
 })

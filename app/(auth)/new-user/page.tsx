@@ -21,6 +21,7 @@ import { error } from 'console'
 import axios from 'axios'
 import { useRouter } from 'next/navigation'
 import { STEPS } from '@/utils/helpers'
+import getCurrentUser from '@/app/actions/getCurrentUser'
 interface pageProps {
   
 }
@@ -47,6 +48,7 @@ const Page: FC<pageProps> = ({}) => {
     username: z.string().min(2).max(50),
   })
   
+  
     // 1. Define your form.
     const { 
       register,
@@ -57,7 +59,7 @@ const Page: FC<pageProps> = ({}) => {
       formState:{errors},
       reset} = useForm<FieldValues>({
       defaultValues: {
-        username: "mikey199",
+        username: "",
         imageSrc:"",
         bannerSrc:"",
         bio:"",
@@ -149,7 +151,7 @@ const Page: FC<pageProps> = ({}) => {
     <div className="min-w-96">
      
       {/* <FormLabel>Username</FormLabel> */}
-        <Input register={register} errors={errors} id="username" placeholder="e.g. Bookworm99" autoComplete='off'  />
+        <Input register={register} errors={errors} id="username" inputValidation={{required:true, message:"Username required"}} placeholder="e.g. Bookworm99" autoComplete='off' required  />
       <p className='text-sm text-slate-600 mt-2'>This is your public display name. (you can change this later)</p>
       {/* <FormMessage /> */}
 

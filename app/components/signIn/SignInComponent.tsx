@@ -12,6 +12,7 @@ import { Button } from '../ui/button'
 import { useRouter } from 'next/navigation'
 import { motion,AnimatePresence } from 'framer-motion'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
+import { toast } from 'react-toastify'
 
 interface SignInComponentProps {
   
@@ -36,7 +37,18 @@ const SignInComponent =  () => {
   })
 
   const onSubmit:SubmitHandler<FieldValues> = async (data) => {
-    console.log(data);
+    try {
+      await signIn("credentials", {
+        
+        email: data.email,
+        password: data.password,
+        callbackUrl: `${window.location.origin}/`
+      })
+    }
+    catch (error) {
+      console.log(error);
+      toast.error("Invalid email or password",{position:"bottom-center"})
+    }
   }
   return (
     <AnimatePresence>

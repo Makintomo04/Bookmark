@@ -29,11 +29,11 @@ const BookList: FC<BookListProps> = ({}) => {
 })
 const favouritesList = user?.favouriteIds
 const myFavBooks:Book[] = []
-const favBooks:Book[] = books.forEach((book:Book) => {
+const favBooks:Book[] = books?.forEach((book:Book) => {
   favouritesList?.includes(book.id) && myFavBooks.push(book)
 });
 console.log(myFavBooks);
-if(myFavBooks.length === 0) return (
+if(myFavBooks?.length === 0) return (
 <div className="">
 <p className='text-lg'>You have no books favourited, visit <Link href="/" className='text-[#F13c3d] hover:underline transition'>Home</Link> to view your books or create an entry.</p>
 </div>
