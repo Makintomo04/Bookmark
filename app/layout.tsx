@@ -16,7 +16,7 @@ import BookUpdateModal from "./components/modals/BookUpdateModal";
 const font = Inter({ subsets: ["latin"] });
 
 export const dynamic = 'force-dynamic';
-
+export const runtime = 'edge'
 export const metadata: Metadata = {
   title: {
     default:"Bookmark",
