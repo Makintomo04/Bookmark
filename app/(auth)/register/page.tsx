@@ -7,7 +7,7 @@ interface pageProps {
   
 }
 
-const page: FC<pageProps> = ({}) => {
+const Page: FC<pageProps> = ({}) => {
   return (
     <div className="w-screen h-screen bg-red-400">
       <Container>
@@ -22,4 +22,4 @@ const page: FC<pageProps> = ({}) => {
   )
 }
 
-export default page
+export default Page
