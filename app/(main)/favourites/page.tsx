@@ -9,7 +9,7 @@ interface pageProps {
   
 }
 
-const page: FC<pageProps> = ({}) => {
+const Page: FC<pageProps> = ({}) => {
   // const {books, isLoading, isError} = useBooks()
   return <div className='mt-12'>
     <Container>
@@ -23,4 +23,4 @@ const page: FC<pageProps> = ({}) => {
   </div>
 }
 
-export default page
+export default Page

@@ -11,7 +11,7 @@ interface pageProps {
   
 }
 
-const page: FC<pageProps> = ({}) => {
+const Page: FC<pageProps> = ({}) => {
   const router = useRouter()
   const {data:session,status} = useSession()
 
@@ -50,4 +50,4 @@ const page: FC<pageProps> = ({}) => {
     
 }
 
-export default page
+export default Page
