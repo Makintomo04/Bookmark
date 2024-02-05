@@ -39,10 +39,20 @@ const SignInComponent =  () => {
   const onSubmit:SubmitHandler<FieldValues> = async (data) => {
     try {
       await signIn("credentials", {
-        
+        redirect: false,
         email: data.email,
         password: data.password,
-        callbackUrl: `${window.location.origin}/`
+        
+      }).then((res)=>{
+        console.log("22222",res)
+        if(res?.ok){
+          router.push("/")
+        }
+        else{
+          console.log("11111",res?.error);
+          toast.error(res?.error,{position:"bottom-center"})
+        }
+      }).catch((error:Error)=>{
       })
     }
     catch (error) {
@@ -77,11 +87,11 @@ const SignInComponent =  () => {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
-        <Input register={register} errors={errors} type="email" name="email" id="email" className=""/>
+        <Input register={register} errors={errors} inputValidation={{required:true, message:"Email Required"}} type="email" name="email" id="email" className="" required/>
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor="password">Password</label>
-        <Input register={register} errors={errors} type="password" name="password" id="password" className="w-full"/>
+        <Input register={register} errors={errors} inputValidation={{required:true, message:"Password Required"}} type="password" name="password" id="password" className="w-full" required/>
       </div>
       <Button className="bg-red-500 text-white rounded-md py-2">Sign in</Button>
     </form>

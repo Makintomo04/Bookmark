@@ -22,6 +22,8 @@ import axios from 'axios'
 import { useRouter } from 'next/navigation'
 import { STEPS } from '@/utils/helpers'
 import getCurrentUser from '@/app/actions/getCurrentUser'
+import useUser from '@/app/hooks/useUser'
+import Loader from '@/app/components/Loader'
 interface pageProps {
   
 }
@@ -34,6 +36,8 @@ interface RGBAColor {
 }
 
 const Page: FC<pageProps> = ({}) => {
+  const {user,isLoading:isUserLoading} = useUser();
+  const router = useRouter()
   const [step, setStep] = useState(STEPS.START);
   const [imageLink, setImageLink] = useState("");
   const [coverImageLink, setCoverImageLink] = useState("");
@@ -41,14 +45,24 @@ const Page: FC<pageProps> = ({}) => {
   });
   const [selectedColor, setSelectedColor] = useState("#F13C3C");
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-
-
   const formSchema = z.object({
     username: z.string().min(2).max(50),
   })
-  
-  
+  useEffect(() => {
+    setIsPageLoading(true)
+    if(user){
+      if(user?.favColour) {
+        router.push("/")
+      }
+      else{
+        setIsPageLoading(false)
+      }
+    }
+    console.log(user,isLoading,"£££££");
+  }, [user,isUserLoading])
+
     // 1. Define your form.
     const { 
       register,
@@ -71,13 +85,12 @@ const Page: FC<pageProps> = ({}) => {
     const bio = watch("bio");
     const colorSrc = watch("colorSrc");
    
-    const router = useRouter()
     // 2. Define a submit handler.
     const onSubmit:SubmitHandler<FieldValues> =(data) =>{
       if (step !== STEPS.COLOUR) {
-        console.log("@@@@",data);
         return onNext();
       }
+      console.log("@@@@",data);
       
       axios.post("/api/new-user",data).then((res)=>{
         setIsLoading(true)
@@ -375,7 +388,11 @@ const Page: FC<pageProps> = ({}) => {
     )
 
   }
-
+if(isPageLoading) return (
+<div className="h-screen w-full">
+<Loader/>
+</div>
+)
   return (
     <div className="w-screen h-screen bg-red-400">
       <Container>

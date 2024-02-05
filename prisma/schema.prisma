@@ -48,7 +48,7 @@ model User {
   bio           String?
   image         String?
   banner         String?
-  favColour     String?
+  favColour     String? 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   favGenres String[] @db.String

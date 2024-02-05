@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export function middleware(request:NextRequest){
  const currentUser = request.cookies.get('next-auth.session-token');
  const path = request.nextUrl.pathname;
-
+console.log(currentUser);
  if (!currentUser && path !== '/signin' && path !== '/register') {
    const url = request.nextUrl.clone();
    url.pathname = '/signin'; // Redirect to sign-in page

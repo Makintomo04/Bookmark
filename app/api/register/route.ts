@@ -4,6 +4,9 @@ import bcrypt from 'bcrypt';
 export async function POST(req:Request, res:Response) {
   const body = await req.json();
   const { email, password } = body;
+  if(!email || !password){
+    return NextResponse.error();
+  }
   const hashedPassword = bcrypt.hashSync(password, 10);
   const user = await prisma.user.create({
     data: {

@@ -11,6 +11,7 @@ export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   pages: {
     signIn: '/signin',
+    error: '/signin',
     // signOut: '/signin',
     newUser: '/new-user',
   },

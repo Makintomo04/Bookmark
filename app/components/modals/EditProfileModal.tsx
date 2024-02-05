@@ -204,7 +204,7 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
             <h2 className='text-md font-bold mb-2'>Banner</h2>
             <div>
               <div className="flex items-center justify-center mb-4">
-              {
+              {bannerSrc &&
       <div className="h-32 w-full relative">
      <Image priority layout="fill" objectFit="cover"  className='rounded-md h-full w-full object-cover' src={bannerSrc} alt='cover image'/>
       

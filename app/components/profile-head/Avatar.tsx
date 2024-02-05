@@ -22,8 +22,8 @@ const Avatar: FC<AvatarProps> = ({src}) => {
     </div>
     {showLightbox && <Lightbox
     className='cursor-pointer'
-    small={user?.image}
-    large={user?.image}
+    small={user?.image || "/images/avatar.jpg"}
+    large={user?.image || "/images/avatar.jpg"}
     alt="Display Photo"
     hideDownload={true}
    /** @ts-ignore */

@@ -18,7 +18,7 @@ import useBookEntryModal from "../hooks/useBookEntryModal";
 import { Book } from "@prisma/client";
 import BookUpdateModal from "../components/modals/BookUpdateModal";
 import BookList from "../components/books/BookList";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -28,27 +28,30 @@ import { useRouter } from "next/navigation";
 export default function  Home () {
   const router = useRouter()
   const {data:session,status} = useSession()
+  const {user,isLoading} = useUser();
+  const [isPageLoading, setIsPageLoading] = useState(true)
+  useEffect(() => {
+    if(user){
+      if(!user?.favColour) {
+        router.push("/new-user")
+      }
+      else{
+        setIsPageLoading(false)
+      }
+    }
+    console.log(user,isLoading,"£££££");
+  }, [user,isLoading])
+  console.log(session,status);
+  if(isPageLoading){
+    return (
+      <div className="w-full h-full">
 
-  // useEffect(() => {
-  //   if(!session)
-  //   {
-  //     router.replace("/signin")
-  //   }
-  //   return () => {
-      
-  //   }
-  // }, [status])
-  // console.log(session,status);
-  // if(status === "loading"){
-  //   return (
-  //     <div className="w-full h-full">
-
-  //         <Loader/>
+          <Loader/>
        
-  //     </div>
-  //   )
-  // }
-  // if(session)
+      </div>
+    )
+  }
+  if(session)
   return (
     <main className="pb-24 h-auto flex-grow min-h-[calc(100vh_-_180px)] bg-background">
       <Container>

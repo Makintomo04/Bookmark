@@ -88,15 +88,15 @@ console.log("666666666666666666",data.email,data.password);
       <p>{}</p>
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
-        <Input register={register} errors={errors} type="email" name="email" id="email" className=""/>
+        <Input register={register} required inputValidation={{required:true,message:"Email Required"}} errors={errors} type="email" name="email" id="email" className=""/>
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor="password">Password</label>
-        <Input register={register} errors={errors} type="password" name="password" id="password" className="w-full"/>
+        <Input register={register} required inputValidation={{required:true,message:"Password Required"}} errors={errors} type="password" name="password" id="password" className="w-full"/>
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor="repeatPassword">Repeat Password</label>
-        <Input register={register} errors={errors} type="password" name="repeatPassword" id="repeatPassword" className="w-full"/>
+        <Input register={register} required inputValidation={{required:true,message:"Password Confirmation Required"}} errors={errors} type="password" name="repeatPassword" id="repeatPassword" className="w-full"/>
       </div>
       <Button className="bg-red-500 text-white rounded-md py-2">Sign up</Button>
     </form>
