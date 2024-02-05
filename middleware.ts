@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request:NextRequest){
- const currentUser = request.cookies.get('next-auth.session-token');
+ const currentUser = request.cookies.get('__Secure-next-auth.session-token');
  const path = request.nextUrl.pathname;
 console.log(currentUser);
  if (!currentUser && path !== '/signin' && path !== '/register') {
