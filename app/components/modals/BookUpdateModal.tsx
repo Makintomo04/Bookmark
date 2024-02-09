@@ -144,12 +144,12 @@ let body = (
         </div>
         
 </div>
-    <div className="h-full w-full">
+    <div className="h-screen w-full">
       <div className="flex flex-col h-full gap-4">
         <div className="flex flex-col gap-2">
           <div className="mb-3">
-          <h2 className='text-3xl font-bold'>{bookUpdateModal?.book?.title}</h2>
-          <h2 className='text-lg font-semibold text-muted-foreground'>{bookUpdateModal?.book?.author}</h2>
+          <h2 className='text-5xl md:text-3xl font-bold'>{bookUpdateModal?.book?.title}</h2>
+          <h2 className='text-xl md:text-lg font-semibold text-muted-foreground'>{bookUpdateModal?.book?.author}</h2>
           </div>
           <h2 className='text-xl font-bold'>{bookUpdateModal?.book?.currentPage}/{bookUpdateModal?.book?.pages} <span className='font-medium'>Pages Read</span></h2>
         </div>

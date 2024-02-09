@@ -50,8 +50,8 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,onSubmit,title,body,footer,action
       "
     >
         {/* <Container> */}
-      <div  onClick={(e) => e.stopPropagation()}  className="w-full sm:w-[650px] md:w-[800px] lg:w-[900px] h-full md:rounded-lg md:h-auto min-h-[580px] bg-background shadow-md relative">
-        <div className="p-6 pb-0 h-full">
+      <div  onClick={(e) => e.stopPropagation()}  className="w-full pb-5 sm:w-[650px] md:w-[800px] lg:w-[900px] h-screen overflow-scroll md:rounded-lg sm:h-auto min-h-[580px] bg-background shadow-md relative">
+        <div className="p-6 pb-0 h-auto md:h-full">
           <div className="flex justify-between items-center">
           <h1 className='text-3xl font-bold'>{title}</h1>
           <div className="p-2 bg-slate-200 dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer transition rounded-full" onClick={handleClose}>
@@ -60,18 +60,16 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,onSubmit,title,body,footer,action
           </div>
         </div>
           <hr className='my-6 border-1 border-slate-400/40'/>
-          <div className="flex flex-col h-full min-h-[500px] justify-between w-full relative">
+          <div className="flex flex-col min-h-[500px] justify-between w-full relative">
         <div className="h-full grid place-items-center flex-1">
           
         {body}
         </div>
         <div className="">
         <hr className='mt-4 border-1 border-slate-400/40'/>
-       
-
+      
         {footer}
       
-
           </div>
         </div>
       </div>

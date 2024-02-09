@@ -190,7 +190,7 @@ let body = (
     </div>
     <div className=" h-full w-full flex-col mb-3 flex gap-6">
 
-        <div className="h-full w-full rounded-[20px] overflow-hidden relative" style={{background:`${user?.favColour}`}}>
+        <div className="h-full w-full min-h-[200px] rounded-[20px] overflow-hidden relative" style={{background:`${user?.favColour}`}}>
           {imageSrc ? <Image src={imageSrc} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
             <div style={{background:`${user?.favColour}`}} className="h-full w-full"></div>
             )}

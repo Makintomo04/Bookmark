@@ -29,6 +29,14 @@ const currentUser = await getCurrentUser()
 if (!currentUser) {
   return NextResponse.error();
 }
+const user = await prisma.user.findUnique({
+  where:{
+    id:currentUser.id
+  }
+})
+if(!user){
+  return NextResponse.error();
+}
 
 const readingStatus = isStarted ? "STARTED" : "NOT_STARTED"
 console.log(typeof(parseInt(pages)));
@@ -42,7 +50,7 @@ const book = await prisma.book.create({
     pages:parseInt(pages),
     status: readingStatus,
     currentPage: readingStatus === "NOT_STARTED" ? 0 : parseInt(currentPage),
-    cardColour, 
+    cardColour: cardColour || "#f44336" 
   }
 })
 return NextResponse.json(book)

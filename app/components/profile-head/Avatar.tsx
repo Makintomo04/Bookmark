@@ -17,7 +17,7 @@ const Avatar: FC<AvatarProps> = ({src}) => {
       {/* Avatar */}
       <div className="w-full h-full relative overflow-hidden">
         {user?.image ? <Image sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" priority src={user?.image} alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover  overflow-hidden "/>
-        : <Image sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" priority src="/images/avatar.jpg" alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover  "/>}
+        : <Image sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" priority src="/images/avatar.jpg" alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover"/>}
         </div>
     </div>
     {showLightbox && <Lightbox
