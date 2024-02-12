@@ -162,23 +162,34 @@ let body = (
         
 </div>
     <div className="h-auto sm:h-full w-full">
-      <div className="flex flex-col h-auto gap-4">
+      <div className="flex flex-col h-auto gap-3">
         <div className="flex flex-col gap-2">
           <div className="mb-3">
           <h2 className='text-5xl md:text-3xl font-bold text-pretty'>{bookUpdateModal?.book?.title}</h2>
           <h2 className='text-xl md:text-lg font-semibold text-muted-foreground'>{bookUpdateModal?.book?.author}</h2>
           </div>
-          <h2 className='text-xl font-bold'>{bookUpdateModal?.book?.currentPage}/{bookUpdateModal?.book?.pages} <span className='font-medium'>Pages Read</span></h2>
-        </div>
-        <div className="my-4">
+          
+          {specificBook?.status === "NOT_STARTED" ? (
+            <div className='flex items-center gap-2'><Label className="text-xl font-semibold text-muted-foreground" htmlFor="title">Mark as Started?</Label>
+        <Checkbox register={register} errors={errors} checked={isStarted} 
+                  onCheckedChange={(val)=>handleIsStartedChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></div>) : (<div className='flex items-center gap-2'><Label className="text-xl font-semibold text-muted-foreground" htmlFor="title">Mark as Completed?</Label>
+        <Checkbox register={register} errors={errors} checked={isComplete} 
+                  onCheckedChange={(val)=>handleChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></div>)
+                }
+        
+          </div>
+          <div className="flex flex-col items-start gap-0 justify-between my-2 w-full">
+                <h2 className='text-xl font-bold'>{bookUpdateModal?.book?.currentPage}/{bookUpdateModal?.book?.pages} <span className='font-medium'>Pages Read</span></h2>
+         <div className="w-full">
           <h2 className=' text-md font-semibold'>Progress</h2>
           {/* <Progress progress={calculatePercentageComplete(pages,currentPage)} className='flex-1 w-full text-[#9b59b6]' size="sm" color='red' /> */}
-        <div className="flex gap-2 items-center w-5/6">
+        <div className="flex gap-2 items-center w-full sm:w-5/6">
           <progress 
           style={{color:"#be1e2d"}}
           className='h-[8px] rounded-full overflow-hidden' value={bookUpdateModal?.book?.currentPage!} max={bookUpdateModal?.book?.pages}>70 %</progress>
           <p className='font-semibold ml-2 text-lg'>{calculatePercentageComplete(bookUpdateModal?.book?.pages,bookUpdateModal?.book?.currentPage!)}%</p>
         </div>
+         </div>
         </div>
         <div className="h-auto flex flex-col justify-between">
 
@@ -187,13 +198,7 @@ let body = (
         <Input register={register} errors={errors}  name="pagesUpdate" id="pagesUpdate" autoComplete='off' className="max-w-16"/>
         </div>
         <div className="flex gap-2 items-center mt-5">
-        {specificBook?.status === "NOT_STARTED" ? (
-        <><Label className="text-md font-bold" htmlFor="title">Mark as Started?</Label>
-        <Checkbox register={register} errors={errors} checked={isStarted} 
-                  onCheckedChange={(val)=>handleIsStartedChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></>) : (<><Label className="text-md font-bold" htmlFor="title">Mark as Completed?</Label>
-        <Checkbox register={register} errors={errors} checked={isComplete} 
-                  onCheckedChange={(val)=>handleChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></>)
-                  }
+        
         </div>
         </div>
         </div>
