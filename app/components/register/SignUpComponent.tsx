@@ -58,15 +58,25 @@ console.log("666666666666666666",data.email,data.password);
     setIsLoading(false)
   }
 }
+let initial = {};
+let animate = {};
+let transition = {};
+let exit = {};
 
+const isMobile = window.innerWidth < 640; //Add the width you want to check for here (now 768px)
+if (!isMobile) {
+
+    initial={ opacity: 1,y:50 },
+    animate={ opacity: 1,y:0 },
+    transition={ ease: "circIn" },
+    exit={ opacity: 1,y:50 }
+  
+} 
   return (
     <AnimatePresence>
     <motion.div
-    initial={{ opacity: 1,y:50 }}
-    animate={{ opacity: 1,y:0 }}
-    transition={{ ease: "circIn" }}
-    exit={{ opacity: 1,y:50 }}
-    className='p-6 bg-slate-100 dark:bg-background rounded-lg'>
+    {...{initial,animate,transition,exit}}
+    className='w-screen h-dvh sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>
       <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='logo'/>
       {/* <h1 className="font-bold text-2xl">Bookmark</h1> */}
@@ -75,7 +85,7 @@ console.log("666666666666666666",data.email,data.password);
     <h1 className="text-2xl font-bold mb-10 text-center">Create Account</h1>
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
-  <div className="min-w-96">
+  <div className="">
   {/* {providers &&
               Object.values(providers).map(provider => (
                 <div key={provider.name} style={{ marginBottom: 0 }}> */}

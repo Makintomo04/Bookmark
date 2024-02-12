@@ -60,13 +60,26 @@ const SignInComponent =  () => {
       toast.error("Invalid email or password",{position:"bottom-center"})
     }
   }
+  let initial = {};
+  let animate = {};
+  let transition = {};
+  let exit = {};
+
+  const isMobile = window.innerWidth < 640; //Add the width you want to check for here (now 768px)
+  if (!isMobile) {
+
+      initial={ opacity: 1,y:-50 },
+      animate={ opacity: 1,y:0 },
+      transition={ ease: "circIn" },
+      exit={ opacity: 1,y:-50 }
+    
+  } 
+
   return (
     <AnimatePresence>
     <motion.div
-    initial={{ opacity: 1,y:-50 }}
-    animate={{ opacity: 1,y:0 }}
-    transition={{ ease: "circIn" }}
-    exit={{ opacity: 1,y:-50 }} className='p-6 bg-slate-100 dark:bg-background rounded-lg'>
+    {...{initial,animate,transition,exit}}
+    className='w-screen h-dvh sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>
       <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='logo'/>
       {/* <h1 className="font-bold text-2xl">Bookmark</h1> */}
@@ -75,7 +88,7 @@ const SignInComponent =  () => {
     <h1 className="text-2xl font-bold mb-10 text-center">Welcome Back</h1>
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
-  <div className="min-w-96">
+  <div className="">
   {/* {providers &&
               Object.values(providers).map(provider => (
                 <div key={provider.name} style={{ marginBottom: 0 }}> */}
@@ -84,10 +97,10 @@ const SignInComponent =  () => {
                   </button> */}
                 {/* </div>
               ))} */}
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
-        <Input register={register} errors={errors} inputValidation={{required:true, message:"Email Required"}} type="email" name="email" id="email" className="" required/>
+        <Input register={register} errors={errors} inputValidation={{required:true, message:"Email Required"}} type="email" name="email" id="email" className="w-full" required/>
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor="password">Password</label>
@@ -95,7 +108,7 @@ const SignInComponent =  () => {
       </div>
       <Button className="bg-red-500 text-white rounded-md py-2">Sign in</Button>
     </form>
-    <div className="flex gap-3 items-center justify-center my-6">
+    <div className="flex gap-3 items-center justify-center my-6 w-full">
       <hr className='border-1 border-slate-400/50 w-full'/>
       <span className='text-sm font-semibold text-slate-400'>OR</span>
       <hr className='border-1 border-slate-400/50 w-full'/>
