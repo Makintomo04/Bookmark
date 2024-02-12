@@ -50,7 +50,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,onSubmit,title,body,footer,action
       "
     >
         {/* <Container> */}
-      <div  onClick={(e) => e.stopPropagation()}  className="w-full pb-5 sm:w-[650px] md:w-[800px] lg:w-[900px] h-screen overflow-scroll md:rounded-lg sm:h-auto min-h-[580px] bg-background shadow-md relative">
+      <div  onClick={(e) => e.stopPropagation()}  className="flex flex-col w-full pb-5 sm:w-[650px] md:w-[800px] lg:w-[900px] h-dvh max-h-dvh overflow-hidden md:rounded-lg sm:h-auto min-h-[580px] bg-background shadow-md relative">
         <div className="p-6 pb-0 h-auto md:h-full">
           <div className="flex justify-between items-center">
           <h1 className='text-3xl font-bold'>{title}</h1>
@@ -58,10 +58,10 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,onSubmit,title,body,footer,action
           <IoClose size={24} />
           </div>
           </div>
-        </div>
           <hr className='my-6 border-1 border-slate-400/40'/>
-          <div className="flex flex-col min-h-[500px] justify-between w-full relative">
-        <div className="h-full grid place-items-center flex-1">
+        </div>
+          <div className="flex flex-col min-h-[500px] justify-between w-full h-full relative">
+        <div className="h-auto grid place-items-baseline sm:place-items-center overflow-y-auto flex-grow sm:min-h-0  max-h-max">
           
         {body}
         </div>

@@ -25,6 +25,7 @@ import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import { calculatePercentageComplete } from '@/utils/helpers'
 import { Book } from '@prisma/client'
 import useBookById from '@/app/hooks/useBookById'
+import useFavourite from '@/app/hooks/useFavourite'
 
 interface BookUpdateModalProps {
   
@@ -34,6 +35,7 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
   const {user,isLoading:isUserLoading,isError,mutate} = useUser()
   const { books, isLoading:isBooksLoading, isError:isBooksError, mutate:booksMutate } = useBooks();
   const { myBooks, onOpen, onClose,getBook,bookId,getBookIsOpen,setBookIdState,book,setBook,getBookId } = useBookUpdateModal();
+  const {favourites,hasFavourited, isLoading:isFavLoading,isError:isFavError,mutate:mutateFav} = useFavourite();
   const [isLoading, setIsLoading] = useState(false);
   const [bookCompletion,setBookCompletion] = useState({
     id: "",
@@ -92,6 +94,21 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
       });
       // if(book){setCustomValue("id", getBook(book.id,useBookUpdateModal.getState())?.id)}
     }
+    const handleRemove = () => {
+      console.log("remove clicked",book.id);
+      axios.delete(`/api/books/${book.id}`).then((res) => {
+        console.log(res.data);
+        bookUpdateModal.onClose(book.id)
+        toast.success("Book Removed!",{ position: "bottom-center" })
+        // mutateFav()
+      }).catch((err) => {
+        toast.error("Something went wrong!!",{ position: "bottom-center" })
+      }).finally(() => {
+        booksMutate()
+        mutateFav()
+      })
+    }
+    
     const onSubmit:SubmitHandler<FieldValues> =(data) =>{
     
    
@@ -132,20 +149,20 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
    }
 let body = (
   <div
-  className="w-full h-full px-6"
+  className="w-full h-auto min-h-[500px] sm:min-h-0 px-6"
 >
   <div className="h-full w-full flex flex-col sm:flex-row gap-8">
     <div className=" h-full w-full flex-col-reverse mb-3 flex gap-6">
 
-        <div className="h-full w-full rounded-[20px] overflow-hidden relative" >
+        <div className="h-[300px] w-full rounded-[20px] overflow-hidden relative" >
           {book?.coverImage ? <Image src={book?.coverImage} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
             <div style={{background:`${book?.cardColour}`}} className="h-full w-full"></div>
           )}
         </div>
         
 </div>
-    <div className="h-screen w-full">
-      <div className="flex flex-col h-full gap-4">
+    <div className="h-auto sm:h-full w-full">
+      <div className="flex flex-col h-auto gap-4">
         <div className="flex flex-col gap-2">
           <div className="mb-3">
           <h2 className='text-5xl md:text-3xl font-bold'>{bookUpdateModal?.book?.title}</h2>
@@ -163,13 +180,13 @@ let body = (
           <p className='font-semibold ml-2 text-lg'>{calculatePercentageComplete(bookUpdateModal?.book?.pages,bookUpdateModal?.book?.currentPage!)}%</p>
         </div>
         </div>
-        <div className="h-full flex flex-col justify-between">
+        <div className="h-auto flex flex-col justify-between">
 
         <div className="flex flex-col gap-3">
         <Label className="text-md font-bold" htmlFor="title">How many pages did you read today?</Label>
         <Input register={register} errors={errors}  name="pagesUpdate" id="pagesUpdate" autoComplete='off' className="max-w-16"/>
         </div>
-        <div className="flex gap-2 items-center mt-auto">
+        <div className="flex gap-2 items-center mt-5">
         {specificBook?.status === "NOT_STARTED" ? (
         <><Label className="text-md font-bold" htmlFor="title">Mark as Started?</Label>
         <Checkbox register={register} errors={errors} checked={isStarted} 
@@ -187,8 +204,9 @@ let body = (
 )
 
 const footer = (
-  <div className="w-full h-full mt-auto p-6">
+  <div className="w-full p-6">
     <div className="flex items-center gap-3 justify-end mt-auto">
+    <Button style={{border:`2px solid ${user?.favColour}`,background:"transparent",color:`${user?.favColour}`}} onClick={handleRemove}>Remove</Button>
     <Button style={{background:`${user?.favColour}`}} onClick={handleSubmit(onSubmit)}>Update</Button>
     </div>
   </div>

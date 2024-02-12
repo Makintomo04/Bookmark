@@ -114,3 +114,50 @@ button.react-calendar__tile--now>abbr{
 progress::-moz-progress-bar { background: black; }
 progress::-webkit-progress-value { background: black; }
 progress { color: black;width: 100%; }
+
+/* .react-calendar__navigation{
+  color: #000 !important;
+} */
+@media (prefers-color-scheme: dark) {
+.react-calendar__navigation > button{
+  color: red;
+}
+.react-calendar{
+  background: #fff;
+  /* color: #fff !important; */
+}
+}
+
+@media (prefers-color-scheme: light) {
+  .react-calendar__navigation > button{
+    color: #fff ;
+  }
+  .react-calendar{
+    background: #000 !important;
+    /* color: #fff !important; */
+  }
+  .react-calendar abbr{
+    color: #fff;
+  }
+  button.react-calendar__tile--now{
+    background: white;
+    
+  }
+  button.react-calendar__tile--now abbr{
+    color:black;
+    
+  }
+}
+
+  .react-calendar abbr{
+    color: #fff;
+  }
+  button.react-calendar__tile--now{
+    background: white;
+    
+  }
+  button.react-calendar__tile--now abbr{
+    color:black;
+    
+  }
+

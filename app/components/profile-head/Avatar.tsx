@@ -13,7 +13,7 @@ const Avatar: FC<AvatarProps> = ({src}) => {
   const closeLightBox = () => setShowLightbox(false)
   return (
     <>
-    <div onClick={()=>setShowLightbox(true)} className="cursor-pointer w-32 h-32 rounded-[50px] border-[5px] border-white dark:border-background  overflow-hidden">
+    <div onClick={()=>setShowLightbox(true)} className="cursor-pointer size-32 rounded-[50px] border-[5px] border-white dark:border-background  overflow-hidden">
       {/* Avatar */}
       <div className="w-full h-full relative overflow-hidden">
         {user?.image ? <Image sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" priority src={user?.image} alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover  overflow-hidden "/>

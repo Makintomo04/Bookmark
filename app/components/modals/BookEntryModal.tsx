@@ -319,7 +319,7 @@ step === STEPS.SET_PAGES && (
           <Calendar  value={startedAt} onChange={(value) => handleCalenderChange(value)} />
        
     </div>
-          <div className="flex flex-col justify-center items-center gap-2">
+          <div className="flex flex-col justify-center items-center gap-2 pb-2">
           <Label className="text-md font-bold" htmlFor="currentPage">What page are you on?</Label>
           <Input register={register} errors={errors}  name="currentPage" id="currentPage" autoComplete='off' className="w-[100px]"/>
        
