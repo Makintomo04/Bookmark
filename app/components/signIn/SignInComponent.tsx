@@ -82,7 +82,7 @@ const SignInComponent =  () => {
     <AnimatePresence>
     <motion.div
     {...{initial,animate,transition,exit}}
-    className='w-screen h-dvh sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>
+    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>
       <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='logo'/>
       {/* <h1 className="font-bold text-2xl">Bookmark</h1> */}
