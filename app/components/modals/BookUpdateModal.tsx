@@ -154,7 +154,7 @@ let body = (
   <div className="h-full w-full flex flex-col sm:flex-row gap-8">
     <div className=" h-full w-full flex-col-reverse mb-3 flex gap-6">
 
-        <div className="h-[300px] w-full rounded-[20px] overflow-hidden relative" >
+        <div className="h-[250px] sm:h-[400px] w-full rounded-[20px] overflow-hidden relative" >
           {book?.coverImage ? <Image src={book?.coverImage} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
             <div style={{background:`${book?.cardColour}`}} className="h-full w-full"></div>
           )}
@@ -165,7 +165,7 @@ let body = (
       <div className="flex flex-col h-auto gap-4">
         <div className="flex flex-col gap-2">
           <div className="mb-3">
-          <h2 className='text-5xl md:text-3xl font-bold'>{bookUpdateModal?.book?.title}</h2>
+          <h2 className='text-5xl md:text-3xl font-bold text-pretty'>{bookUpdateModal?.book?.title}</h2>
           <h2 className='text-xl md:text-lg font-semibold text-muted-foreground'>{bookUpdateModal?.book?.author}</h2>
           </div>
           <h2 className='text-xl font-bold'>{bookUpdateModal?.book?.currentPage}/{bookUpdateModal?.book?.pages} <span className='font-medium'>Pages Read</span></h2>

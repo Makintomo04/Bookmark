@@ -52,7 +52,7 @@
     "swr": "^2.2.4",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
-    "uploadthing": "^6.3.0",
+    "uploadthing": "^6.3.3",
     "zod": "^3.22.4",
     "zustand": "^4.5.0"
   },
