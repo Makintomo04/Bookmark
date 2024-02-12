@@ -50,7 +50,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,onSubmit,title,body,footer,action
       "
     >
         {/* <Container> */}
-      <div  onClick={(e) => e.stopPropagation()}  className="flex flex-col w-full pb-5 sm:w-[650px] md:w-[800px] lg:w-[900px] h-dvh max-h-dvh overflow-hidden md:rounded-lg sm:h-auto min-h-[580px] bg-background shadow-md relative">
+      <div  onClick={(e) => e.stopPropagation()}  className="flex flex-col w-full pb-5 sm:w-[650px] md:w-[800px] lg:w-[900px] h-screen max-h-screen overflow-hidden md:rounded-lg sm:h-auto min-h-[580px] bg-background shadow-md relative">
         <div className="p-6 pb-0 h-auto md:h-full">
           <div className="flex justify-between items-center">
           <h1 className='text-3xl font-bold'>{title}</h1>
