@@ -63,7 +63,8 @@ let animate = {};
 let transition = {};
 let exit = {};
 
-const isMobile = window.innerWidth < 640; //Add the width you want to check for here (now 768px)
+if (typeof window !== "undefined") {
+const isMobile = window.innerWidth < 640; 
 if (!isMobile) {
 
     initial={ opacity: 1,y:50 },
@@ -72,6 +73,8 @@ if (!isMobile) {
     exit={ opacity: 1,y:50 }
   
 } 
+} 
+
   return (
     <AnimatePresence>
     <motion.div
