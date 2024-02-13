@@ -27,5 +27,7 @@ console.log("yaa",currentUser);
 export const config = {
   matcher:["/",
   "/signin",
-  "/register",],
+  "/register",
+  "/new-user",
+],
 }
