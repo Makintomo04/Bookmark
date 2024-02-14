@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat,Inter } from "next/font/google";
 import "./globals.css";
 import {NextUIProvider} from "@nextui-org/system";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import Header from "./components/Header";
 import { Providers } from "./providers/provider";
 import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
@@ -33,9 +34,15 @@ export default async function RootLayout({
   
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/favicon.ico" sizes="any"/>
+        <link rel="icon" href="/favicon.ico" type="image/<generated>" sizes="any"/>
+        <link rel="apple-touch-icon" href="/favicon.ico" type="image/<generated>"  sizes="any"/>
+      </head>
       <body className={font.className}>
         <Providers>
         <ToastContainer />
+        <SpeedInsights/>
         <NextSSRPlugin
           routerConfig={extractRouterConfig(ourFileRouter)}
           />
