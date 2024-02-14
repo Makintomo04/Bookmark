@@ -14,6 +14,8 @@ import getCurrentUser from "./actions/getCurrentUser";
 import EditProfileModal from "./components/modals/EditProfileModal";
 import BookEntryModal from "./components/modals/BookEntryModal";
 import BookUpdateModal from "./components/modals/BookUpdateModal";
+import { Analytics } from '@vercel/analytics/react';
+
 const font = Inter({ subsets: ["latin"] });
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +50,7 @@ export default async function RootLayout({
           />
           <div className="h-auto bg-background">
         {children}
-
+        <Analytics />
           </div>
         </Providers>
         </body>
