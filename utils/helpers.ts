@@ -14,5 +14,6 @@ export enum STEPS {
   IMAGE= 2,
   BANNER= 3,
   BIO= 4,
-  COLOUR= 5
+  COLOUR= 5,
+  COMPLETE= 6
 }  

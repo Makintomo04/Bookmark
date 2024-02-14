@@ -35,12 +35,14 @@ const handleSubmit = useCallback(()=>{
     // animate={{ opacity: 1,y:0 }}
     // transition={{ ease: "circIn" }}
     // exit={{ opacity: 1,y:-50 }} 
-    className='p-6 bg-slate-100 dark:bg-background rounded-lg'>
+    
+    className='flex flex-col justify-between items-center w-screen h-screen sm:h-auto sm:w-auto bg-slate-100 dark:bg-background 
+    rounded-none sm:rounded-lg pt-36 p-8 sm:p-6'>
       {body}
-      <div className="w-full flex items-center justify-between gap-6 mt-12">
+     {step !== STEPS.COMPLETE && <div className="w-full flex items-center justify-between gap-6 mt-12">
     {step > STEPS.START && <Button disabled={disabled} onClick={handleBack} variant="outline" className="w-full border-slate-700 rounded-md py-2">Back</Button>}
       <Button onClick={handleSubmit} disabled={disabled} className="w-full bg-red-500 text-white rounded-md py-2">{step ===  STEPS.COLOUR ? "Finish":"Continue"}</Button>
-      </div>
+      </div>}
   </motion.div>
   </AnimatePresence>
   )

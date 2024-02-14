@@ -90,16 +90,15 @@ const Page: FC<pageProps> = ({}) => {
       if (step !== STEPS.COLOUR) {
         return onNext();
       }
-      console.log("@@@@",data);
+      // console.log("@@@@",data);
       
       axios.post("/api/new-user",data).then((res)=>{
         setIsLoading(true)
         toast.success("Profile Created!",{ position: "bottom-center" })
         router.push("/")
         reset();
-        setStep(STEPS.START)
+        setStep(STEPS.COMPLETE)
         console.log(res);
-        setIsLoading(false);
       }).catch((err)=>{
         toast.error("Something went wrong!",{ position: "bottom-center" })
         console.log(err);
@@ -152,7 +151,7 @@ const Page: FC<pageProps> = ({}) => {
 
   if(step === STEPS.USERNAME) {
     bodyContent = (
-      <div className="">
+      <div className="w-full">
       <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
         <Image src='/logo.svg' width={40} height={40} alt='logo'/>
         {/* <h1 className="font-bold text-2xl">Bookmark</h1> */}
@@ -161,7 +160,7 @@ const Page: FC<pageProps> = ({}) => {
      <Heading title="What shall we call you?" subtitle=""/>
       {/* <p className="text-gray-500">Sign in to your account</p> */}
     </div>
-    <div className="min-w-96">
+    <div className="sm:min-w-96">
      
       {/* <FormLabel>Username</FormLabel> */}
         <Input register={register} errors={errors} id="username" inputValidation={{required:true, message:"Username required"}} placeholder="e.g. Bookworm99" autoComplete='off' required  />
@@ -177,7 +176,7 @@ const Page: FC<pageProps> = ({}) => {
   
   if(step === STEPS.IMAGE) {
     bodyContent = (
-      <div className="">
+      <div className="w-full">
     <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='logo'/>
       </div>
@@ -191,7 +190,7 @@ const Page: FC<pageProps> = ({}) => {
     <Image fill className='rounded-full h-full w-full object-cover' src={imageLink === "" ? "/images/pfp.png": imageLink} alt='profile image'/>
     </div>
   </div>
-  <div className="min-w-96">
+  <div className="sm:min-w-96">
 
   <UploadButton
         // appearance={{button:{
@@ -227,7 +226,7 @@ const Page: FC<pageProps> = ({}) => {
   }
   if(step === STEPS.BANNER) {
     bodyContent = (
-      <div className="">
+      <div className="w-full">
     <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='logo'/>
       </div>
@@ -244,7 +243,7 @@ const Page: FC<pageProps> = ({}) => {
     </div>
       }
   </div>
-  <div className="min-w-96">
+  <div className="sm:min-w-96">
 
   <UploadButton
         className='ut-button:bg-[#F13C3C] ut-button:ut-uploading:bg-[#ae1818]'
@@ -280,7 +279,7 @@ const Page: FC<pageProps> = ({}) => {
   }
   if(step === STEPS.BIO) {
     bodyContent = (
-      <div className="">
+      <div className="w-full">
     <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='logo'/>
       </div>
@@ -291,7 +290,7 @@ const Page: FC<pageProps> = ({}) => {
   <div className="">
   
   </div>
-  <div className="min-w-96">
+  <div className="w-full sm:min-w-96">
 
   <form action="" className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
@@ -300,6 +299,28 @@ const Page: FC<pageProps> = ({}) => {
         </div>
         
       </form>
+  </div>
+  </div>
+
+    )
+
+  }
+  if(step === STEPS.COMPLETE) {
+    bodyContent = (
+      <div className="w-full">
+    <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
+      <Image src='/logo.svg' width={40} height={40} alt='logo'/>
+      </div>
+    <div className="w-full">
+   <Heading title="Creating your profile..." subtitle="Hold tight, as we fix you up with a profile!"/>
+    {/* <p className="text-gray-500">Sign in to your account</p> */}
+  </div>
+  <div className="">
+  
+  </div>
+  <div className="w-full sm:min-w-96 pb-6">
+ <Loader notScreen/>
+  {/* <h3 className="">Creating your profile...</h3> */}
   </div>
   </div>
 
@@ -346,7 +367,7 @@ const Page: FC<pageProps> = ({}) => {
   // console.log(color);
   if(step === STEPS.COLOUR) {
     bodyContent = (
-      <div className="">
+      <div className="w-full">
     <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='logo'/>
       </div>
@@ -357,7 +378,7 @@ const Page: FC<pageProps> = ({}) => {
   <div className="">
   
   </div>
-  <div className="min-w-96">
+  <div className="sm:min-w-96">
       {/* <ColorPickerComponent/> */}
   {/* <BlockPicker
   className='w-[100%_!important]'
