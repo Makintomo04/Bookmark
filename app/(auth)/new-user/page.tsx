@@ -353,14 +353,15 @@ const Page: FC<pageProps> = ({}) => {
   className={cn(`hover:scale-105 transition cursor-pointer text-center h-24 w-24 ring-4 ring-[#f13c3c] ring-offset-4 rounded-full -mt-3 `)} onClick={handleClick}></div>
 
   </div>
-  { showColorPicker ? <div style={{position: 'absolute',
-    zIndex: '2'} }>
+  { showColorPicker ? <div style={{position: 'fixed', zIndex: 60, top: '50%', left: '50%', transform: 'translate(-50%, -50%)'} }>
           <div style={{position: 'fixed',
     top: '0px',
     right: '0px',
     bottom: '0px',
     left: '0px'}} onClick={ handleClose }/>
+          <div style={{position: 'relative'}}>
           <ChromePicker color={color} onChange={onChangeMethod}/>
+          </div>
         </div> : null }
 
      

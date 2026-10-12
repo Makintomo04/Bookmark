@@ -136,7 +136,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
     </div>
       <div  className="flex gap-2 items-center mt-2">
       <TbBook2   color='white' size={16}/>
-      <p className='font-medium uppercase text-slate-100 text-xs'>Finished On {moment(book?.completedAt).format("L")}</p>
+      <p className='font-medium uppercase text-slate-100 text-xs'>Finished On {moment(book?.completedAt).format("DD/MM/YYYY")}</p>
     </div>
     </>
     ):null

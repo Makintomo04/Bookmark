@@ -178,14 +178,15 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   className={cn(`hover:scale-105 transition cursor-pointer text-center h-16 w-16 ring-4  ring-slate-300/50 rounded-full mt-3 `)} onClick={handleClick}></div>
 
   </div>
-  { showColorPicker ? <div style={{position: 'absolute',
-    zIndex: '2'} }>
+  { showColorPicker ? <div style={{position: 'fixed', zIndex: 60, top: '50%', left: '50%', transform: 'translate(-50%, -50%)'} }>
           <div style={{position: 'fixed',
     top: '0px',
     right: '0px',
     bottom: '0px',
     left: '0px'}} onClick={ handleClose }/>
+          <div style={{position: 'relative'}}>
           <ChromePicker color={color} onChange={onChangeMethod}/>
+          </div>
         </div> : null }
   <div className="flex flex-col mb-8">
             <h2 className='text-md font-bold mb-2'>Banner</h2>
