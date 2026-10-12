@@ -9,9 +9,10 @@ import { FaBook, FaBookmark } from 'react-icons/fa';
 import useFavourite from '@/app/hooks/useFavourite';
 import { Book } from '@prisma/client';
 import Link from 'next/link';
+import ReadingGoalWidget from './ReadingGoalWidget';
 
 interface ProfileHeadDetailsProps {
-  
+
 }
 
 const ProfileHeadDetails: FC<ProfileHeadDetailsProps> = ({}) => {
@@ -46,7 +47,10 @@ const ProfileHeadDetails: FC<ProfileHeadDetailsProps> = ({}) => {
     <ReadingStats />
     </div>
     </div>
-    <hr className="my-12"/> 
+    <div className="mt-6">
+    <ReadingGoalWidget />
+    </div>
+    <hr className="my-12"/>
     </>
   )
 }
