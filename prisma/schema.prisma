@@ -57,6 +57,20 @@ model User {
   accounts      Account[]
   sessions      Session[]
   readingGoals  ReadingGoal[]
+  following     Follow[] @relation("UserFollows")
+  followers     Follow[] @relation("UserFollowedBy")
+}
+
+model Follow {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  followerId String @db.ObjectId
+  followingId String @db.ObjectId
+  createdAt DateTime @default(now())
+
+  follower User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowedBy", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
 }
 
 model ReadingGoal {
