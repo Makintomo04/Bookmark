@@ -1,5 +1,6 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
+import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
 export async function POST(req:Request,res:Response){
   const body = await req.json();
@@ -19,6 +20,6 @@ export async function POST(req:Request,res:Response){
       bio,
       favColour:color
     }
-})   
-return NextResponse.json(user)
+})
+return NextResponse.json(sanitizeUser(user))
 }

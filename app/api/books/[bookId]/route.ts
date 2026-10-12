@@ -1,4 +1,5 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
+import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
@@ -60,7 +61,7 @@ export async function DELETE( request: Request,
 
   let updatedUser = {}
   if(user?.favouriteIds.includes(bookId)){
-    updatedUser = await prisma.user.update({
+    const rawUpdatedUser = await prisma.user.update({
       where:{
         id:currentUser.id
       },
@@ -68,6 +69,7 @@ export async function DELETE( request: Request,
         favouriteIds: user.favouriteIds.filter(favId => favId !== bookId)
       }
     })
+    updatedUser = sanitizeUser(rawUpdatedUser)
   }
   return NextResponse.json({book,updatedUser})
 }

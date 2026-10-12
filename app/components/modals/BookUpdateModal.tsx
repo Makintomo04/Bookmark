@@ -122,8 +122,8 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
     reset({ ...data});
     mutate();
     booksMutate();
-    // specificBookMutate();
-    
+    specificBookMutate();
+
     onClose(bookId)
     
    }).catch((err)=>{
