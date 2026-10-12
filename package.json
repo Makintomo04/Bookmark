@@ -62,6 +62,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/d3-ease": "^3.0.2",
     "@types/node": "^20.11.16",
+    "@types/nodemailer": "^8.0.2",
     "@types/randomcolor": "^0.5.9",
     "@types/react": "^18",
     "@types/react-color": "^3.0.11",

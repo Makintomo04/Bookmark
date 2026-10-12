@@ -95,6 +95,7 @@ const SignInComponent =  () => {
         <label htmlFor="password">Password</label>
         <Input register={register} errors={errors} inputValidation={{required:true, message:"Password Required"}} type="password" name="password" id="password" className="w-full" required/>
       </div>
+      <Link href="/forgot-password" className='text-sm text-[#F13C3C] hover:underline self-end -mt-2'>Forgot password?</Link>
       <Button className="bg-red-500 text-white rounded-md py-2">Sign in</Button>
     </form>
     <div className="flex gap-3 items-center justify-center my-6 w-full">
