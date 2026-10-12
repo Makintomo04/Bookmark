@@ -16,6 +16,7 @@ import Image from 'next/image'
 import { Button } from '../ui/button'
 import axios from 'axios'
 import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import Loader from '../Loader'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import { set } from 'zod'
@@ -53,7 +54,21 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   const [coverImageLink, setImageLink] = useState(user?.image || "");
   const [imageLink, setCoverImageLink] = useState(user?.banner || "");
   const [isLoading, setIsLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter()
+
+  const handleDeleteAccount = () => {
+    setIsDeleting(true)
+    axios.delete("/api/user")
+      .then(() => {
+        signOut({ callbackUrl: `${window.location.origin}/` })
+      })
+      .catch(() => {
+        toast.error("Something went wrong deleting your account.", { position: "bottom-center" })
+        setIsDeleting(false)
+      })
+  }
   useEffect(() => {
     let defaultValues:FieldValues = {};
     defaultValues.username = user?.username;
@@ -231,8 +246,25 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
             </div>
             </div>
   </div>
+  <div className="flex flex-col gap-2 border border-red-500/30 rounded-lg p-4">
+    <h2 className="text-md font-bold text-red-500">Danger Zone</h2>
+    {!showDeleteConfirm ? (
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">Permanently delete your account and all your data.</p>
+        <Button type="button" variant="outline" className="border-red-500 text-red-500 hover:bg-red-500/10 flex-shrink-0" onClick={() => setShowDeleteConfirm(true)}>Delete Account</Button>
+      </div>
+    ) : (
+      <div className="flex flex-col gap-3">
+        <p className="text-xs text-muted-foreground">This can&apos;t be undone. All your books, notes, goals, and followers will be permanently deleted. Are you sure?</p>
+        <div className="flex gap-2">
+          <Button type="button" disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDeleteAccount}>{isDeleting ? "Deleting..." : "Yes, delete my account"}</Button>
+          <Button type="button" variant="outline" disabled={isDeleting} onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+        </div>
+      </div>
+    )}
+  </div>
           </div>
-      
+
       </div>
   )
   return (

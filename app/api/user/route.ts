@@ -74,3 +74,23 @@ if (Object.keys(updatedData).length > 0) {
 
 
 }
+
+export async function DELETE(req: Request) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.error();
+  }
+
+  // Mongo doesn't enforce cascade deletes at the database level the way a
+  // relational DB would, so clean up everything referencing this user
+  // explicitly rather than relying on the schema's onDelete: Cascade alone.
+  await prisma.note.deleteMany({ where: { book: { userId: currentUser.id } } });
+  await prisma.book.deleteMany({ where: { userId: currentUser.id } });
+  await prisma.readingGoal.deleteMany({ where: { userId: currentUser.id } });
+  await prisma.follow.deleteMany({ where: { OR: [{ followerId: currentUser.id }, { followingId: currentUser.id }] } });
+  await prisma.account.deleteMany({ where: { userId: currentUser.id } });
+  await prisma.session.deleteMany({ where: { userId: currentUser.id } });
+  await prisma.user.delete({ where: { id: currentUser.id } });
+
+  return NextResponse.json({ message: "Account deleted." });
+}
