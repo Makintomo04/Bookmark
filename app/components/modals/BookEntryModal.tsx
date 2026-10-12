@@ -1,5 +1,5 @@
 "use client"
-import { FC, use, useState } from 'react'
+import { FC, use, useEffect, useRef, useState } from 'react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
@@ -24,6 +24,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import useBooks from '@/app/hooks/useBooks'
 import ErrorMessageComponent from '../ErrorMessageComponent'
+import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 
 interface BookEntryModalProps {
   
@@ -69,13 +70,62 @@ const BookEntryModal: FC<BookEntryModalProps> = ({}) => {
     const isStarted = watch("isStarted");
     const cardColour = watch("cardColour");
     const startedAt = watch("startedAt");
-    
+    const titleValue = watch("title");
+
     const setCustomValue = (id: string, value: any) => {
       setValue(id, value, {
         shouldValidate: true,
         shouldDirty: true,
         shouldTouch: true
       });
+    }
+
+    const [searchResults, setSearchResults] = useState<BookSearchResult[]>([])
+    const [isSearching, setIsSearching] = useState(false)
+    const [showResults, setShowResults] = useState(false)
+    const skipNextSearch = useRef(false)
+    const searchContainerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+      if (skipNextSearch.current) {
+        skipNextSearch.current = false
+        return
+      }
+      if (!titleValue || titleValue.length < 3) {
+        setSearchResults([])
+        setShowResults(false)
+        return
+      }
+      const timeout = setTimeout(() => {
+        setIsSearching(true)
+        axios.get(`/api/books/search?q=${encodeURIComponent(titleValue)}`)
+          .then((res) => {
+            setSearchResults(res.data)
+            setShowResults(true)
+          })
+          .catch(() => {})
+          .finally(() => setIsSearching(false))
+      }, 400)
+      return () => clearTimeout(timeout)
+    }, [titleValue])
+
+    useEffect(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+          setShowResults(false)
+        }
+      }
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    const handleSelectSearchResult = (result: BookSearchResult) => {
+      skipNextSearch.current = true
+      setCustomValue("title", result.title)
+      setCustomValue("author", result.author)
+      if (result.pages) setCustomValue("pages", result.pages)
+      if (result.coverUrl) setCustomValue("coverImgSrc", result.coverUrl)
+      setShowResults(false)
     }
 
     const onSubmit:SubmitHandler<FieldValues> =(data) =>{
@@ -132,9 +182,12 @@ let body = (
   <div className="h-full w-full flex flex-col sm:flex-row gap-12">
     <div className="h-full w-full">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 relative" ref={searchContainerRef}>
         <Label className="text-md font-bold" htmlFor="title">Book Title</Label>
-        <Input register={register} inputValidation={{required:true,message:"Book title required"}} errors={errors}  name="title" id="title" placeholder='e.g. The Great Gatsby' disabled={isLoading} autoComplete='off' className="max-w-lg" required/>
+        <Input register={register} inputValidation={{required:true,message:"Book title required"}} errors={errors}  name="title" id="title" placeholder='e.g. The Great Gatsby' disabled={isLoading} autoComplete='off' className="max-w-lg"
+          onFocus={() => { if (searchResults.length > 0) setShowResults(true) }} required/>
+        <p className='text-xs text-muted-foreground -mt-1'>Start typing to search and autofill details</p>
+        {showResults && <BookSearchResults results={searchResults} isLoading={isSearching} onSelect={handleSelectSearchResult}/>}
         </div>
         <div className="flex flex-col gap-2">
         <Label className="text-md font-bold" htmlFor="author">Author</Label>

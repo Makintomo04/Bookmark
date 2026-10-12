@@ -1,7 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['utfs.io',"images-na.ssl-images-amazon.com","images3.penguinrandomhouse.com","images1.penguinrandomhouse.com"],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'utfs.io' },
+      { protocol: 'https', hostname: 'images-na.ssl-images-amazon.com' },
+      { protocol: 'https', hostname: 'images3.penguinrandomhouse.com' },
+      { protocol: 'https', hostname: 'images1.penguinrandomhouse.com' },
+      { protocol: 'https', hostname: 'covers.openlibrary.org' },
+    ],
   },
 };
 
