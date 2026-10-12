@@ -1,11 +1,9 @@
 "use client"
 import { FC, useState } from 'react'
 import { Input } from '../ui/input'
-import { getCsrfToken, getProviders, signIn } from 'next-auth/react'
-import { GetServerSidePropsContext, InferGetServerSidePropsType } from 'next'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/pages/api/auth/[...nextauth]'
+import { signIn } from 'next-auth/react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Button } from '../ui/button'
 import SignInWithOAuthButton from '../signIn/SignInWithOAuthButton'
 import { useRouter } from 'next/navigation'
@@ -36,14 +34,12 @@ const {
 })
 
 const onSubmit:SubmitHandler<FieldValues> = async (data) => {
-  console.log(data);
   if(data.password !== data.repeatPassword){
     alert("Passwords do not match.")
     return
   }
   try {
     setIsLoading(true)
-console.log("666666666666666666",data.email,data.password);
     await axios.post("/api/register", data)
     toast.success("Account created.",{ position: "bottom-center" })
     signIn("credentials",
@@ -52,8 +48,7 @@ console.log("666666666666666666",data.email,data.password);
     
   } catch (error) {
     toast.error("Something went wrong.")
-    console.log(error);
-  } 
+  }
   finally{
     setIsLoading(false)
   }
@@ -89,14 +84,6 @@ if (!isMobile) {
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
   <div className="">
-  {/* {providers &&
-              Object.values(providers).map(provider => (
-                <div key={provider.name} style={{ marginBottom: 0 }}> */}
-                  {/* <button onClick={() => signIn()} >
-                    Sign in with
-                  </button> */}
-                {/* </div>
-              ))} */}
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <p>{}</p>
       <div className="flex flex-col gap-2">
@@ -122,7 +109,7 @@ if (!isMobile) {
               <SignInWithOAuthButton provider="Google"/>
               <SignInWithOAuthButton provider="Github"/>
     </div>
-    <p className='text-sm mt-4'>Already have an account? <span onClick={()=>router.push("/signin")} className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</span></p>
+    <p className='text-sm mt-4'>Already have an account? <Link href="/signin" className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</Link></p>
   </div>
   </motion.div>
   </AnimatePresence>

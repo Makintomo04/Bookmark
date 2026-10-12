@@ -17,7 +17,6 @@ export interface InputProps
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ id,className, type,register ,errors,inputValidation,disabled,required, ...props}, ref) => {
-    console.log("3333",errors,errors[id]);
     return (
       <>
       <input
@@ -30,7 +29,6 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           errors[id] ? 'border-rose-500' : 'border-neutral-300',
           className
         )}
-        // ref={ref}
         {...props}
       />
       {errors[id] && <p className="text-rose-500 text-sm mt-1">{inputValidation?.message as string}</p>}

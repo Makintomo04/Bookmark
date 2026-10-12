@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import getCurrentUser from "../../actions/getCurrentUser";
+import { sanitizeUser } from "@/lib/sanitizeUser";
 import { User } from "@prisma/client";
 export async function GET (req:Request, res:Response) {
 const currentUser = await getCurrentUser();
@@ -14,8 +15,11 @@ const user = await prisma.user.findUnique({
     id: currentUser.id
   }
 })
+if(!user){
+  return NextResponse.json({ error: 'User Not Found' }, { status: 404 });
+}
 
-return NextResponse.json(user)
+return NextResponse.json(sanitizeUser(user))
 
 
 }
@@ -47,8 +51,14 @@ if (color !== currentUser.favColour) {
   updatedData["favColour"] = color;
 }
 
+if (updatedData.username) {
+  const existingUser = await prisma.user.findUnique({ where: { username: updatedData.username } });
+  if (existingUser && existingUser.id !== currentUser.id) {
+    return NextResponse.json({ error: "That username is already taken." }, { status: 409 });
+  }
+}
+
 // Only perform the update if there are changes
-console.log(updatedData);
 if (Object.keys(updatedData).length > 0) {
   const user = await prisma.user.update({
     where: {
@@ -57,7 +67,7 @@ if (Object.keys(updatedData).length > 0) {
     data: updatedData,
   });
 
-  return NextResponse.json(user);
+  return NextResponse.json(sanitizeUser(user));
 } else {
   return NextResponse.json({ message: "No changes made." }); // Or handle as needed
 }

@@ -1,7 +1,6 @@
 "use client";
 import { FC, useCallback, useEffect, useState } from 'react'
 import { IoClose } from 'react-icons/io5';
-import Container from '../Container';
 
 interface ModalProps {
   isOpen?: boolean;
@@ -32,7 +31,6 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,onSubmit,title,body,footer,action
   return (
     <div
     onClick={handleClose}
-    // onClick={handleClose}
       className="
         justify-center 
         items-center 
@@ -49,14 +47,13 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,onSubmit,title,body,footer,action
         
       "
     >
-        {/* <Container> */}
       <div  onClick={(e) => e.stopPropagation()}  className="flex flex-col mb-auto sm:my-auto w-full sm:w-[650px] md:w-[800px] lg:w-[900px] h-full max-h-dvh overflow-hidden md:rounded-lg sm:h-auto min-h-[580px] bg-background shadow-md relative">
         <div className="p-6 pb-0 h-auto md:h-full overflow-hidden">
           <div className="flex justify-between items-center">
           <h1 className='text-3xl font-bold'>{title}</h1>
-          <div className="p-2 bg-slate-200 dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer transition rounded-full" onClick={handleClose}>
+          <button type="button" aria-label="Close" className="p-2 bg-slate-200 dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer transition rounded-full" onClick={handleClose}>
           <IoClose size={24} />
-          </div>
+          </button>
           </div>
           <hr className='my-6 border-1 border-slate-400/40'/>
         </div>
@@ -73,7 +70,6 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,onSubmit,title,body,footer,action
           </div>
         </div>
       </div>
-        {/* </Container> */}
     </div>
   )
 }

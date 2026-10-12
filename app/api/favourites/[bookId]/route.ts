@@ -1,4 +1,5 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
+import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
@@ -20,7 +21,10 @@ if(!bookId){
     }
   })
   if(!book){
-    return NextResponse.error();
+    return NextResponse.json({ error: 'No Book Found' }, { status: 404 });
+  }
+  if(book.userId !== currentUser.id){
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const user = await prisma.user.findUnique({
     where:{
@@ -39,5 +43,5 @@ if(!user){
     }
   })
 
-  return NextResponse.json(updatedUser)
+  return NextResponse.json(sanitizeUser(updatedUser))
 }

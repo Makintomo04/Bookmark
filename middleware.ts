@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export function middleware(request:NextRequest){
-//  const currentUser = request.cookies.get('__Secure-next-auth.session-token'||'next-auth.session-token');
- const currentUser = process.env.DEV === "1" ? request.cookies.get('next-auth.session-token'):request.cookies.get('__Secure-next-auth.session-token');
+export async function middleware(request:NextRequest){
+ const token = await getToken({
+   req: request,
+   secret: process.env.NEXTAUTH_JWT_SECRET,
+   secureCookie: process.env.DEV !== "1",
+ });
+ const currentUser = !!token;
  const path = request.nextUrl.pathname;
-console.log("yaa",currentUser);
  if (!currentUser && path !== '/signin' && path !== '/register') {
    const url = request.nextUrl.clone();
    url.pathname = '/signin'; // Redirect to sign-in page

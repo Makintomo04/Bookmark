@@ -46,8 +46,7 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
   const [colour,setColour] = useState<string>()
   const bookUpdateModal = useBookUpdateModal()
   const { specificBook, isLoading:isSpecificBookLoading, isError:isSpecificBookError, mutate:specificBookMutate } = useBookById(bookId);
- if(!isSpecificBookLoading)console.log("888777",specificBook);
- const { 
+ const {
    register,
    handleSubmit,
    setValue,
@@ -66,10 +65,8 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
     const isComplete = watch("isComplete");
     const isStarted = watch("isStarted");
     const id = watch("id");
-    console.log("4444",specificBook,bookId);
     const [isCompleted, setIsCompleted] = useState<boolean>(book?.isComplete);
     useEffect(() => {
-      console.log("5556666",isComplete);
       if(books && books.length > 0){
         useBookUpdateModal.getState().myBooks = books.map((book:Book) => ({
           id: book.id,
@@ -95,9 +92,8 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
       // if(book){setCustomValue("id", getBook(book.id,useBookUpdateModal.getState())?.id)}
     }
     const handleRemove = () => {
-      console.log("remove clicked",book.id);
+      if(!book) return;
       axios.delete(`/api/books/${book.id}`).then((res) => {
-        console.log(res.data);
         bookUpdateModal.onClose(book.id)
         toast.success("Book Removed!",{ position: "bottom-center" })
         // mutateFav()
@@ -114,7 +110,6 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
    
    axios.post("/api/book-progress",data).then((res)=>{
     setIsLoading(true)
-    console.log("££££",res);
      if (res.data.error){
        return toast.info(res.data.error,{ position: "bottom-center" })
         
@@ -133,9 +128,7 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
     
    }).catch((err)=>{
      toast.error("Something went wrong!",{ position: "bottom-center" })
-     console.log(err);
    }).finally(()=>{
-     console.log("Done");
      setIsLoading(false);
    })
    }
@@ -171,8 +164,8 @@ let body = (
           
           {specificBook?.status === "NOT_STARTED" ? (
             <div className='flex items-center gap-2'><Label className="text-xl font-semibold text-muted-foreground" htmlFor="title">Mark as Started?</Label>
-        <Checkbox register={register} errors={errors} checked={isStarted} 
-                  onCheckedChange={(val)=>handleIsStartedChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></div>) : (<div className='flex items-center gap-2'><Label className="text-xl font-semibold text-muted-foreground" htmlFor="title">Mark as Completed?</Label>
+        <Checkbox register={register} errors={errors} checked={isStarted}
+                  onCheckedChange={(val)=>handleIsStartedChange(val as boolean)} name="isStarted" id="isStarted" className="max-w-24 h-5 w-5"/></div>) : (<div className='flex items-center gap-2'><Label className="text-xl font-semibold text-muted-foreground" htmlFor="title">Mark as Completed?</Label>
         <Checkbox register={register} errors={errors} checked={isComplete} 
                   onCheckedChange={(val)=>handleChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></div>)
                 }

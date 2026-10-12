@@ -18,7 +18,6 @@ const ProfileHeadDetails: FC<ProfileHeadDetailsProps> = ({}) => {
   const {user,isLoading,isError,mutate} = useUser();
   const {favourites,hasFavourited, isLoading:isFavLoading,isError:isFavError,mutate:mutateFav} = useFavourite();
   const {books,isLoading:isLoadingBooks,isError:isErrorBooks} = useBooks();
-  console.log("3333",books);
   const completedBookCount = useCallback(
     books?.reduce((count:number, book:Book) => {
     return book.status === "COMPLETED" ? count + 1 : count;

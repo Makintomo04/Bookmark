@@ -1,12 +1,9 @@
 "use client"
 import { FC, useEffect } from 'react'
 import { Input } from '../ui/input'
-import { getCsrfToken, getProviders, signIn, useSession } from 'next-auth/react'
-import { GetServerSidePropsContext, InferGetServerSidePropsType } from 'next'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/pages/api/auth/[...nextauth]'
-import SignInWithGoogleButton from './SignInWithOAuthButton'
+import { signIn } from 'next-auth/react'
 import Image from 'next/image'
+import Link from 'next/link'
 import SignInWithOAuthButton from './SignInWithOAuthButton'
 import { Button } from '../ui/button'
 import { useRouter } from 'next/navigation'
@@ -44,19 +41,16 @@ const SignInComponent =  () => {
         password: data.password,
         
       }).then((res)=>{
-        console.log("22222",res)
         if(res?.ok){
           router.push("/")
         }
         else{
-          console.log("11111",res?.error);
           toast.error(res?.error,{position:"bottom-center"})
         }
       }).catch((error:Error)=>{
       })
     }
     catch (error) {
-      console.log(error);
       toast.error("Invalid email or password",{position:"bottom-center"})
     }
   }
@@ -92,14 +86,6 @@ const SignInComponent =  () => {
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
   <div className="">
-  {/* {providers &&
-              Object.values(providers).map(provider => (
-                <div key={provider.name} style={{ marginBottom: 0 }}> */}
-                  {/* <button onClick={() => signIn()} >
-                    Sign in with
-                  </button> */}
-                {/* </div>
-              ))} */}
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
@@ -120,7 +106,7 @@ const SignInComponent =  () => {
               <SignInWithOAuthButton provider="Google"/>
               <SignInWithOAuthButton provider="Github"/>
     </div>
-    <p className='text-sm mt-4'>First time using Bookmark? <span onClick={()=>router.push("/register")} className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Create an account</span></p>
+    <p className='text-sm mt-4'>First time using Bookmark? <Link href="/register" className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Create an account</Link></p>
   </div>
   </motion.div>
   </AnimatePresence>

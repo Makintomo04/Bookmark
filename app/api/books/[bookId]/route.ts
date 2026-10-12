@@ -1,10 +1,10 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+
 export async function GET( request: Request,
   { params }: { params: { bookId: string } }) {
   const bookId = params.bookId
-  console.log("pppppp",bookId);
   const currentUser = await getCurrentUser()
 
   if (!currentUser) {
@@ -16,20 +16,34 @@ export async function GET( request: Request,
       id: bookId
     }
   })
-  console.log("ELOOOOO",book,bookId);
   if(!book){
-    return NextResponse.json({ error: 'No Book Found' }, { status: 400 });
+    return NextResponse.json({ error: 'No Book Found' }, { status: 404 });
+  }
+  if(book.userId !== currentUser.id){
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   return NextResponse.json(book)
 }
 export async function DELETE( request: Request,
   { params }: { params: { bookId: string } }) {
   const bookId = params.bookId
- 
+
   const currentUser = await getCurrentUser()
 
   if (!currentUser) {
     return NextResponse.error();
+  }
+
+  const book = await prisma.book.findUnique({
+    where: {
+      id: bookId
+    }
+  })
+  if(!book){
+    return NextResponse.json({ error: 'No Book Found' }, { status: 404 });
+  }
+  if(book.userId !== currentUser.id){
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const user = await prisma.user.findUnique({
@@ -38,11 +52,12 @@ export async function DELETE( request: Request,
     }
   })
 
-  const book = await prisma.book.delete({
+  await prisma.book.delete({
     where: {
       id: bookId
     }
   })
+
   let updatedUser = {}
   if(user?.favouriteIds.includes(bookId)){
     updatedUser = await prisma.user.update({
@@ -53,10 +68,6 @@ export async function DELETE( request: Request,
         favouriteIds: user.favouriteIds.filter(favId => favId !== bookId)
       }
     })
-  }
-  console.log(book);
-  if(!book||!user){
-    return NextResponse.error();
   }
   return NextResponse.json({book,updatedUser})
 }

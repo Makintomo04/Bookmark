@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect, useRef, useState } from 'react'
+import { FC, useRef, useState } from 'react'
 import { Status, type Book } from '@prisma/client';
 import { IoIosStar } from "react-icons/io";
 import { FaRegCalendar } from "react-icons/fa6";
@@ -27,8 +27,7 @@ interface BookCardProps {
 }
 
 const BookCard: FC<BookCardProps> = ({book}) => {
-  // console.log(book);
-  var color = randomColor(); 
+  var color = randomColor();
   const {title, author, coverImage, description, pages,currentPage,startedAt,status,cardColour,rating} = book
   const {user,isLoading,isError,mutate} = useUser();
   const {books,isLoading:isLoadingBooks,isError:isErrorBooks,mutate:booksMutate} = useBooks();
@@ -38,18 +37,12 @@ const BookCard: FC<BookCardProps> = ({book}) => {
 
   const [isOpen, setIsOpen] = useState(false);
   let ref = useRef(null);
-  console.log();
   const variants = {
     open: { opacity: 1, y: -180,scale:1.25 },
     closed: { opacity: 1, y: 0 },
   }
   const easing = cubicBezier(.35,.17,.3,.86)
-  // console.log(title.length);
   const isLongTitle = title.length > 15;
-  useEffect(() => {
-    // specificBookMutate()
-    // console.log("ARSENAL",specificBook);
-  },[])
   const handleOpenBookModal = () => {
     setBookId(book.id)
     bookUpdateModal.setBookIdState(book.id)
@@ -63,16 +56,13 @@ const BookCard: FC<BookCardProps> = ({book}) => {
   }
   const handleFavClick = (e:React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
-    console.log("fav clicked",book.id);
     axios.post(`/api/favourites/${book.id}`).then((res) => {
-      console.log(res.data);
       if(!hasFavourited(book.id)){
       toast.success("Added to Favourites!",{ position: "bottom-center" })
       }
       else{
         toast.success("Removed from Favourites!",{ position: "bottom-center" })
       }
-      // mutateFav()
     }).catch((err) => {
       toast.error("Error Adding to Favourites!",{ position: "bottom-center" })
     }).finally(() => {
@@ -85,16 +75,12 @@ const BookCard: FC<BookCardProps> = ({book}) => {
   const handleEditClick = (e:React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
     setIsEditOpen(isEditOpen => !isEditOpen)
-    console.log("edit clicked",book.id);
   }
-  
+
   const handleRemove = (e:React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
-    console.log("remove clicked",book.id);
     axios.delete(`/api/books/${book.id}`).then((res) => {
-      console.log(res.data);
       toast.success("Book Removed!",{ position: "bottom-center" })
-      // mutateFav()
     }).catch((err) => {
       toast.error("Something went wrong!!",{ position: "bottom-center" })
     }).finally(() => {
@@ -155,12 +141,6 @@ const BookCard: FC<BookCardProps> = ({book}) => {
     </>
     ):null
       }
-       {/* <>
-      <div className="mt-4 flex items-center gap-3">
-      <p className="text-sm text-white"><span className="font-bold">0</span> Notes</p>
-      <p className="text-sm text-white"><span className="font-bold">0</span> Quotes</p>
-      </div>
-      </> */}
       {status === Status.STARTED &&
       (
         <div className="my-4 flex gap-2 items-center w-full">

@@ -27,8 +27,7 @@ interface EditProfileModalProps {
 const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   const {user,isLoading:isUserLoading,isError,mutate} = useUser()
   const editProfileModal = useEditProfileModal()
-  console.log(user);
-  const { 
+  const {
     register,
     handleSubmit,
     setValue,
@@ -56,7 +55,6 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter()
   useEffect(() => {
-    // console.log("1111",user?.username,user?.bio);
     let defaultValues:FieldValues = {};
     defaultValues.username = user?.username;
     defaultValues.bio = user?.bio;
@@ -64,6 +62,7 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
     defaultValues.bannerSrc = user?.banner;
     defaultValues.color = user?.favColour;
     reset({ ...defaultValues });
+    if (user?.favColour) setColor(user.favColour as any);
 
   },[user?.username,user?.bio,user?.image,user?.banner,user?.favColour])
   const handleClick = () => {
@@ -74,16 +73,11 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
     setShowColorPicker(false)
   };
   const onSubmit:SubmitHandler<FieldValues> =(data) =>{
-
-      console.log("@@@@",data);
-      
-    
     axios.post("/api/user",data).then((res)=>{
       setIsLoading(true)
-      console.log("££££",res);
       if(res?.data?.id){
       toast.success("Profile Updated!",{ position: "bottom-center" })
-    } 
+    }
       if(res?.data?.message){
         toast.info(res.data.message,{ position: "bottom-center" })
 
@@ -91,13 +85,10 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
       if(res?.data?.id){
         mutate({...data})
       }
-      console.log(res);
       setIsLoading(false);
     }).catch((err)=>{
       toast.error("Something went wrong!",{ position: "bottom-center" })
-      console.log(err);
     }).finally(()=>{
-      console.log("Done");
       setIsLoading(false);
     })
   }
@@ -110,9 +101,6 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   }
 
   const onChangeMethod = (color:any) => {
-    // console.log([...color.rgb]);
-    // console.log(color.rgb.r,color.rgb.b,color.rgb.g,color.rgb.a);
-    console.log(color.rgb.r);
     setColor({
       r: color.rgb.r,
       g: color.rgb.g,
@@ -154,7 +142,6 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
         }}
         onClientUploadComplete={(res) => {
           // Do something with the response
-          console.log("Files: ", res);
           setImageLink(res[0]?.url)
           setCustomValue("imageSrc",res[0]?.url)
           toast.success("Upload completed",{
@@ -224,7 +211,6 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
         }}
         onClientUploadComplete={(res) => {
           // Do something with the response
-          console.log("Files: ", res);
           setCoverImageLink(res[0]?.url)
           setCustomValue("bannerSrc",res[0]?.url)
           toast.success("Upload completed",{
@@ -239,7 +225,6 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
             {
               position: "bottom-center"
             })
-          alert(`ERROR! ${error.message}`);
         }}
       />
             </div>

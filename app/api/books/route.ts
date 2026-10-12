@@ -39,7 +39,6 @@ if(!user){
 }
 
 const readingStatus = isStarted ? "STARTED" : "NOT_STARTED"
-console.log(typeof(parseInt(pages)));
 const book = await prisma.book.create({
   data:{  
     userId: currentUser.id,

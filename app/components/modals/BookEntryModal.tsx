@@ -79,16 +79,11 @@ const BookEntryModal: FC<BookEntryModalProps> = ({}) => {
     }
 
     const onSubmit:SubmitHandler<FieldValues> =(data) =>{
-    console.log("Hello");
-     console.log("@@@@2",data);
-     console.log("PPPP",imageSrc);
      if(step !== STEPS.BOOK_COLOUR) {
        return onNext()
      }
    axios.post("/api/books",data).then((res)=>{
     setIsLoading(true)
-    console.log("££££",res);
-     
     toast.success("Book Entry Created.",{ position: "bottom-center" })
     reset();
     booksMutate();
@@ -97,16 +92,13 @@ const BookEntryModal: FC<BookEntryModalProps> = ({}) => {
     bookEntryModal.onClose()
    }).catch((err)=>{
      toast.error("Something went wrong!",{ position: "bottom-center" })
-     console.log(err);
    }).finally(()=>{
-     console.log("Done");
      setIsLoading(false);
    })
    }
     const onNext = () => {
-    
+
      if(step === STEPS.READING_PROGRESS) {
-       console.log(getValues("isStarted"));
        if(getValues("isStarted") === true) {
          return setStep(STEPS.SET_PAGES)
          
@@ -166,23 +158,17 @@ let body = (
       setIsLoading(true);
     }}
     onClientUploadComplete={(res) => {
-      // Do something with the response
-      console.log("Files: ", res);
-      // setCoverImageLink(res[0]?.url)
       setCustomValue("coverImgSrc",res[0]?.url)
       toast.success("Upload completed",{
         position: "bottom-center"
       })
       setIsLoading(false);
-      // alert("Upload Completed");
     }}
     onUploadError={(error: Error) => {
-      // Do something with the error.
       toast.error(error.message,
         {
           position: "bottom-center"
         })
-      alert(`ERROR! ${error.message}`);
     }}
   /> 
   </div>
@@ -203,7 +189,6 @@ let body = (
   </div>
 )
 const onValChange = (val:any) => {
-  console.log(val);
   if(val == 'true') {
     // setCustomValue("isStarted",true)
     setValue("isStarted",true)
@@ -259,24 +244,7 @@ step === STEPS.READING_PROGRESS && (
   )
 )
 const handleChange =(color:any)=> {
-  // setColour(color.hex)
   setValue("cardColour",color.hex)
-  console.log(cardColour);
-  // color = {
-  //   hex: '#333',
-  //   rgb: {
-  //     r: 51,
-  //     g: 51,
-  //     b: 51,
-  //     a: 1,
-  //   },
-  //   hsl: {
-  //     h: 0,
-  //     s: 0,
-  //     l: .20,
-  //     a: 1,
-  //   },
-  // }
 }
 step === STEPS.BOOK_COLOUR && (
   body = (
@@ -303,7 +271,6 @@ step === STEPS.BOOK_COLOUR && (
   )
 )
 const handleCalenderChange = (value:any) => {
-  console.log(new Date(value));
   setCustomValue("startedAt",value)
 }
 step === STEPS.SET_PAGES && (
