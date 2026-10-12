@@ -77,7 +77,11 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
     )
     }
   return (
-    null
+    <div className="flex gap-2 items-center">
+      <ThemeSwitcher/>
+      <Link href="/signin" className="text-sm font-semibold hover:underline">Sign in</Link>
+      <Link href="/register" className="text-sm font-semibold text-white bg-[#F13C3C] rounded-md px-4 py-2 hover:bg-[#d93333] transition">Sign up</Link>
+    </div>
   )
 }
 

@@ -1,6 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Book } from '@prisma/client'
 import axios from 'axios'
 import { toast } from 'react-toastify'
@@ -57,9 +58,15 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
         </div>
         {!profile.isSelf && (
           <div className="px-6 md:px-12 mt-4 lg:mt-0">
-            <Button disabled={isFollowLoading} style={{ background: profile.isFollowing ? "transparent" : user?.favColour, border: `2px solid ${user?.favColour}`, color: profile.isFollowing ? user?.favColour : "white" }} onClick={handleFollowToggle}>
-              {profile.isFollowing ? "Following" : "Follow"}
-            </Button>
+            {user ? (
+              <Button disabled={isFollowLoading} style={{ background: profile.isFollowing ? "transparent" : user?.favColour, border: `2px solid ${user?.favColour}`, color: profile.isFollowing ? user?.favColour : "white" }} onClick={handleFollowToggle}>
+                {profile.isFollowing ? "Following" : "Follow"}
+              </Button>
+            ) : (
+              <Button asChild style={{ background: profile.favColour || "#f44336" }}>
+                <Link href="/register">Sign up to follow</Link>
+              </Button>
+            )}
           </div>
         )}
       </div>

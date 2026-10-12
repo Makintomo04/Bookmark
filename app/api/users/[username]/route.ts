@@ -6,10 +6,9 @@ export async function GET(
   req: Request,
   { params }: { params: { username: string } }
 ) {
+  // Public profile - viewable by anyone, logged in or not. currentUser is
+  // only used to compute viewer-specific fields (isFollowing/isSelf) below.
   const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.error();
-  }
 
   const profileUser = await prisma.user.findUnique({
     where: { username: params.username },
@@ -28,14 +27,16 @@ export async function GET(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const isFollowing = !!(await prisma.follow.findUnique({
-    where: {
-      followerId_followingId: {
-        followerId: currentUser.id,
-        followingId: profileUser.id,
-      },
-    },
-  }));
+  const isFollowing = currentUser
+    ? !!(await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: currentUser.id,
+            followingId: profileUser.id,
+          },
+        },
+      }))
+    : false;
 
   return NextResponse.json({
     id: profileUser.id,
@@ -49,6 +50,6 @@ export async function GET(
     followerCount: profileUser._count.followers,
     followingCount: profileUser._count.following,
     isFollowing,
-    isSelf: profileUser.id === currentUser.id,
+    isSelf: currentUser ? profileUser.id === currentUser.id : false,
   });
 }
