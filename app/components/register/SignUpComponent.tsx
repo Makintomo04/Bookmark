@@ -110,6 +110,7 @@ if (!isMobile) {
               <SignInWithOAuthButton provider="Github"/>
     </div>
     <p className='text-sm mt-4'>Already have an account? <Link href="/signin" className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</Link></p>
+    <p className='text-xs text-muted-foreground mt-3'>By signing up, you agree to our <Link href="/terms" className='hover:underline'>Terms</Link> and <Link href="/privacy" className='hover:underline'>Privacy Policy</Link>.</p>
   </div>
   </motion.div>
   </AnimatePresence>
