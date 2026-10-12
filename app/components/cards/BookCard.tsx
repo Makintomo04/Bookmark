@@ -7,7 +7,6 @@ import moment from 'moment'
 import Image from 'next/image';
 import randomColor from 'randomcolor';
 import {motion,cubicBezier} from 'framer-motion';
-import {Progress} from "flowbite-react"
 import { FiBook,FiBookOpen  } from "react-icons/fi";
 import { TbBook,TbBook2  } from "react-icons/tb";
 import useUser from '@/app/hooks/useUser';
@@ -144,8 +143,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
       {status === Status.STARTED &&
       (
         <div className="my-4 flex gap-2 items-center w-full">
-          {/* <Progress progress={calculatePercentageComplete(pages,currentPage)} className='flex-1 w-full text-[#9b59b6]' size="sm" color='red' /> */}
-          <progress 
+          <progress
           style={{color:"#be1e2d"}}
           className='h-[8px] rounded-full overflow-hidden' value={currentPage!} max={pages}>70 %</progress>
           <p className='font-semibold text-white'>{calculatePercentageComplete(pages,currentPage!)}%</p>
