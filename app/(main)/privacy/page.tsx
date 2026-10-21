@@ -45,6 +45,7 @@ const Page: FC = () => {
 
         <Section title="Public profiles">
           <p>If your profile is public (the default), your username, bio, avatar, and the books you&apos;ve marked as reading or completed are visible to anyone with the link, including people without a Bookmark account. Books you haven&apos;t started, your email, and your password are never shown publicly.</p>
+          <p>Your yearly Wrapped (a summary of the books you finished that year, your top genre, favourite book, medals and goal result) is public whenever your profile is. Your full reading stats page is only visible to you.</p>
         </Section>
 
         <Section title="Cookies">

@@ -1,5 +1,5 @@
 "use client"
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
@@ -10,6 +10,7 @@ import { ThemeSwitcher } from '../ThemeSwitcher'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
 import { IoClose } from 'react-icons/io5'
+import { isWrappedSeason } from '@/lib/wrappedSeason'
 interface UserMenuProps {
   
 }
@@ -43,11 +44,21 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
 
   const {user} = useUser()
   const booksReadFor = useBooksReadFor()
+  // From 1 December, in the reader's own calendar. Set after mount, so the server's clock (UTC) never disagrees with the browser's at hydration.
+  const [wrappedYear, setWrappedYear] = useState<number | null>(null)
+  useEffect(() => {
+    if (isWrappedSeason()) setWrappedYear(new Date().getFullYear())
+  }, [])
   if (user) {
     return (
       <>
         {/* Signed in as {session?.user?.email} <br /> */}
         <div className="flex gap-2 relative items-center">
+            {wrappedYear && (
+              <Link href={`/wrapped/${wrappedYear}`} className="hidden sm:inline-flex h-9 items-center px-3 rounded-full text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+                Your {wrappedYear} Wrapped
+              </Link>
+            )}
             <ThemeSwitcher/>
             <NotificationBell/>
 
@@ -70,6 +81,8 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/favourites">Favourites</Link>
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/feed">Feed</Link>
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/discover">Discover</Link>
+            <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/stats">Stats</Link>
+            {wrappedYear && <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href={`/wrapped/${wrappedYear}`}>Your {wrappedYear} Wrapped</Link>}
             <button className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4' onClick={() => signOut({
           callbackUrl: `${window.location.origin}/signin`
         })}>Logout</button>
