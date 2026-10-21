@@ -1,4 +1,4 @@
-import { Library, ScrollText, Mountain, Flame, Target, Quote, Star, Award } from 'lucide-react';
+import { Library, ScrollText, Mountain, Flame, Target, Quote, Star, Award, Users, Crown } from 'lucide-react';
 import { AchievementKey } from '@/lib/achievements-catalog';
 
 export const ACHIEVEMENT_ICONS: Record<AchievementKey, typeof Award> = {
@@ -9,6 +9,8 @@ export const ACHIEVEMENT_ICONS: Record<AchievementKey, typeof Award> = {
   GOALS: Target,
   REVIEWS: Quote,
   RATINGS: Star,
+  BUDDY_READS_FINISHED: Users,
+  BUDDY_READS_HOSTED: Crown,
 };
 
 export function getAchievementIcon(key: string) {

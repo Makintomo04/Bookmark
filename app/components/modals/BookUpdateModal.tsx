@@ -17,6 +17,7 @@ import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookEditModal from '@/app/hooks/useBookEditModal'
+import BuddyReadEntry from '../buddy-reads/BuddyReadEntry'
 
 const QUICK_ADDS = [10, 25, 50]
 const PACE_MIN_DAYS = 7
@@ -454,6 +455,7 @@ const BookUpdateModal: FC = () => {
         {isActive && !finished && stopOptions}
         {(isClosed || finished || stopping) && ratingAndReview}
         {readHistory}
+        <BuddyReadEntry book={book} onNavigate={close} />
       </div>
     </div>
   )

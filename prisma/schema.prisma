@@ -266,6 +266,9 @@ model Notification {
   type NotificationType
   bookId String? @db.ObjectId
   achievementKey String?
+  // Buddy-read notifications: which buddy read, and how many joins or unlocked comments one row stands for.
+  buddyReadId String? @db.ObjectId
+  count Int?
   read Boolean @default(false)
   createdAt DateTime @default(now())
 
@@ -279,6 +282,12 @@ model Notification {
 enum NotificationType {
   NEW_FOLLOWER
   ACHIEVEMENT_EARNED
+  // A member asked you to read along.
+  BUDDY_READ_INVITE
+  // Someone joined a buddy read you host. Unread ones are batched: count says how many joined.
+  BUDDY_READ_JOINED
+  // Your progress passed other members' comments. Batched per buddy read: count says how many unlocked.
+  COMMENTS_UNLOCKED
 }
 
 model UserAchievement {
@@ -400,4 +409,137 @@ model ImportJob {
 
   // The reader's latest job, for resuming after a reload.
   @@index([userId, createdAt])
+}
+
+// ---- Buddy reads ---------------------------------------------------------------------------
+// Reading one book together. Each member reads their own shelf Book (editions differ, so progress is a
+// percent), and comments are pinned to a percent and stay locked until a reader gets there.
+// Users and Books are referenced by scalar ids, not relations, so those models stay untouched:
+// lookups go through the indexes below, and a missing user or book is skipped when reading.
+
+enum BuddyReadStatus {
+  ACTIVE
+  FINISHED
+  ARCHIVED
+}
+
+model BuddyRead {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // A snapshot of the host's book, so the invite page and joiners don't depend on anyone's shelf.
+  workKey String?
+  title String
+  author String
+  coverImage String?
+  cardColour String?
+  // The host's edition, used as the page count when a joiner gets the book added to their shelf.
+  pages Int
+  hostId String @db.ObjectId
+  startsAt DateTime
+  // Optional reading plan: [{ label: "Chapters 1-5", until: 20, due: "2026-11-01" }], until being a percent.
+  schedule Json?
+  status BuddyReadStatus @default(ACTIVE)
+  inviteCode String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members BuddyReadMember[]
+  comments BuddyReadComment[]
+  invites BuddyReadInvite[]
+
+  // Hosted buddy reads (the medal, and the host's list).
+  @@index([hostId, createdAt])
+}
+
+model BuddyReadMember {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String @db.ObjectId
+  userId String @db.ObjectId
+  // The member's own shelf Book; their progress is its currentPage / pages.
+  bookId String @db.ObjectId
+  joinedAt DateTime @default(now())
+  // The furthest percent this member has been told about, so unlock notifications never repeat.
+  notifiedProgress Float @default(0)
+  // When their book first reached 100%.
+  finishedAt DateTime?
+
+  buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
+
+  // One membership each. The prefix covers the buddyReadId foreign key.
+  @@unique([buddyReadId, userId])
+  // "My buddy reads", and the finished-a-buddy-read medal.
+  @@index([userId, joinedAt])
+  // A progress update finds the buddy reads its book belongs to.
+  @@index([bookId])
+}
+
+model BuddyReadComment {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String @db.ObjectId
+  userId String @db.ObjectId
+  // Percent through the book, 0-100. Readers below it get a locked stub with no body.
+  position Float
+  pageLabel String?
+  chapterLabel String?
+  body String
+  // One level of replies: a reply's parent is always a top-level comment.
+  parentId String? @db.ObjectId
+  createdAt DateTime @default(now())
+  editedAt DateTime?
+  // Soft delete, so replies keep their place. The body is cleared.
+  deletedAt DateTime?
+
+  buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
+  parent BuddyReadComment? @relation("BuddyReadCommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies BuddyReadComment[] @relation("BuddyReadCommentReplies")
+  reactions BuddyReadReaction[]
+  reports BuddyReadCommentReport[]
+
+  // The timeline, in reading order; the prefix covers the buddyReadId foreign key.
+  @@index([buddyReadId, position])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model BuddyReadReaction {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  commentId String @db.ObjectId
+  userId String @db.ObjectId
+  // One of BUDDY_READ_EMOJI in lib/buddyReads.ts.
+  emoji String
+  createdAt DateTime @default(now())
+
+  comment BuddyReadComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  // One of each emoji per reader per comment; the prefix covers the commentId foreign key.
+  @@unique([commentId, userId, emoji])
+  @@index([userId])
+}
+
+// Like ListReport: one report per reader per comment, with a fixed reason.
+model BuddyReadCommentReport {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  commentId String @db.ObjectId
+  reporterId String @db.ObjectId
+  reason String
+  createdAt DateTime @default(now())
+
+  comment BuddyReadComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, reporterId])
+  @@index([reporterId])
+}
+
+// An in-app invite to a named reader (the invite link needs none). Shown on /buddy-reads until they join.
+model BuddyReadInvite {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String @db.ObjectId
+  inviterId String @db.ObjectId
+  inviteeId String @db.ObjectId
+  createdAt DateTime @default(now())
+
+  buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
+
+  @@unique([buddyReadId, inviteeId])
+  @@index([inviteeId, createdAt])
+  @@index([inviterId])
 }

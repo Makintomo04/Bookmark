@@ -17,16 +17,19 @@ export interface EarnedMilestone {
 
 // What just happened, so only the ladders it can move get recomputed. A page update can't change
 // books read or goals met, for example. "all" (the default) checks every ladder.
-export type AchievementTrigger = "progress" | "completion" | "rating" | "review" | "goal" | "all";
+export type AchievementTrigger = "progress" | "completion" | "rating" | "review" | "goal" | "buddyRead" | "all";
 
 const ALL_KEYS = ACHIEVEMENTS.map((a) => a.key);
 
 const LADDERS_FOR: Record<AchievementTrigger, AchievementKey[]> = {
-  progress: ["PAGES_READ", "STREAK"],
-  completion: ["BOOKS_READ", "PAGES_READ", "BIG_BOOKS", "STREAK", "GOALS"],
+  // Reaching the last page (or finishing) can finish a buddy read.
+  progress: ["PAGES_READ", "STREAK", "BUDDY_READS_FINISHED"],
+  completion: ["BOOKS_READ", "PAGES_READ", "BIG_BOOKS", "STREAK", "GOALS", "BUDDY_READS_FINISHED"],
   rating: ["RATINGS"],
   review: ["REVIEWS"],
   goal: ["GOALS"],
+  // Someone joined a buddy read you host.
+  buddyRead: ["BUDDY_READS_FINISHED", "BUDDY_READS_HOSTED"],
   all: ALL_KEYS,
 };
 
@@ -189,6 +192,26 @@ async function computeStats(userId: string, keys: AchievementKey[], ctx: StatsCo
       prisma.book.count({ where: { userId, rating: { gt: 0 } } }).then((n) => {
         stats.RATINGS = n;
       })
+    );
+  }
+
+  // A buddy read counts as finished once the member's book reached 100% (set by onBuddyReadProgress).
+  if (need.has("BUDDY_READS_FINISHED")) {
+    tasks.push(
+      prisma.buddyReadMember.count({ where: { userId, finishedAt: { not: null } } }).then((n) => {
+        stats.BUDDY_READS_FINISHED = n;
+      })
+    );
+  }
+
+  // Hosting counts once someone else has joined.
+  if (need.has("BUDDY_READS_HOSTED")) {
+    tasks.push(
+      prisma.buddyRead
+        .findMany({ where: { hostId: userId }, select: { _count: { select: { members: true } } } })
+        .then((hosted) => {
+          stats.BUDDY_READS_HOSTED = hosted.filter((b) => b._count.members >= 2).length;
+        })
     );
   }
 
