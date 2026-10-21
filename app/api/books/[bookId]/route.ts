@@ -2,6 +2,10 @@ import getCurrentUser from "@/app/actions/getCurrentUser";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { mirrorCover } from "@/lib/covers";
+
+// Copying a cover to UploadThing can take up to ~20s.
+export const maxDuration = 30;
 
 export async function GET( request: Request,
   { params }: { params: { bookId: string } }) {
@@ -60,7 +64,8 @@ export async function PATCH( request: Request,
       title,
       author,
       pages: parseInt(pages),
-      coverImage: coverImgSrc || book.coverImage,
+      // Only a newly chosen cover is copied; ones already saved are left to scripts/migrate-covers.ts.
+      coverImage: coverImgSrc && coverImgSrc !== book.coverImage ? await mirrorCover(coverImgSrc) : book.coverImage,
       cardColour: cardColour || book.cardColour,
       genre: genre || null,
     }
