@@ -8,6 +8,7 @@ import DiscoverSearch from '@/app/components/discover/DiscoverSearch'
 import GenreTile from '@/app/components/discover/GenreTile'
 import ListCard from '@/app/components/discover/ListCard'
 import { NewPickButton } from '@/app/components/discover/ListButtons'
+import ActiveQuestCard from '@/app/components/quests/ActiveQuestCard'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { GENRES } from '@/lib/genres'
 import { findLists, ListSummary } from '@/lib/lists'
@@ -75,6 +76,7 @@ const Page = async () => {
         <DiscoverSearch>
           <div className="flex flex-col gap-12">
             {featured[0] && <Spotlight list={featured[0]} />}
+            <ActiveQuestCard />
 
             <section aria-labelledby="genres-heading">
               <h2 id="genres-heading" className="text-xl font-bold">Browse by genre</h2>

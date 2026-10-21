@@ -9,6 +9,7 @@ import ProfileHead from './ProfileHead'
 import ProfileReviews from './ProfileReviews'
 import BookList from '../books/BookList'
 import ProfileLists from '../discover/ProfileLists'
+import OwnQuestMedals from '../quests/OwnQuestMedals'
 
 interface OwnerProfileProps {
   username: string
@@ -39,6 +40,7 @@ const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
     <div className="mt-12 px-4 sm:px-8">
       <BookList />
       <OwnReviews />
+      <OwnQuestMedals />
       <ProfileLists username={username} isSelf />
     </div>
   </SWRConfig>

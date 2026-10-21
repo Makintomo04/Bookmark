@@ -1,6 +1,7 @@
 import { booksReadCount } from "@/lib/readerTier";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
+import { questIdOf } from "@/lib/questRules";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -27,7 +28,18 @@ export async function GET(req: Request) {
   const buddyReadById = new Map(buddyReads.map((b) => [b.id, b]))
   const withBuddyReads = notifications.map((n) => (n.buddyReadId ? { ...n, buddyRead: buddyReadById.get(n.buddyReadId) ?? null } : n))
 
-  return NextResponse.json({ notifications: withBuddyReads, unreadCount })
+  // Quest medals name their quest: achievementKey is "QUEST:<questId>".
+  const questIds = Array.from(new Set(notifications.flatMap((n) => {
+    const id = n.type === "QUEST_COMPLETED" && n.achievementKey ? questIdOf(n.achievementKey) : null
+    return id && /^[a-f0-9]{24}$/.test(id) ? [id] : []
+  })))
+  const quests = questIds.length > 0
+    ? await prisma.quest.findMany({ where: { id: { in: questIds } }, select: { id: true, slug: true, title: true } })
+    : []
+  const questById = new Map(quests.map((q) => [q.id, { slug: q.slug, title: q.title }]))
+  const withQuests = withBuddyReads.map((n) => (n.type === "QUEST_COMPLETED" ? { ...n, quest: questById.get(questIdOf(n.achievementKey ?? "") ?? "") ?? null } : n))
+
+  return NextResponse.json({ notifications: withQuests, unreadCount })
 }
 
 export async function PATCH(req: Request) {

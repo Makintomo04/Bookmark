@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import { ACHIEVEMENTS, AchievementKey, AchievementDefinition, LEGACY_KEYS, Milestone, milestoneKey } from "@/lib/achievements-catalog";
+import { EarnedQuestMedal, syncQuests } from "@/lib/quests";
 import { DEFAULT_TIME_ZONE, TIME_ZONE_COOKIE, isValidTimeZone, localDay, previousDay } from "@/lib/timeZone";
 
 export { ACHIEVEMENTS, getAchievementTitle } from "@/lib/achievements-catalog";
@@ -32,6 +33,10 @@ const LADDERS_FOR: Record<AchievementTrigger, AchievementKey[]> = {
   buddyRead: ["BUDDY_READS_FINISHED", "BUDDY_READS_HOSTED"],
   all: ALL_KEYS,
 };
+
+// Finishing a book can complete a seasonal quest. Quests are checked on these only, and only the live
+// ones the reader hasn't earned, against reads finished inside their windows (lib/quests.ts).
+const QUEST_TRIGGERS = new Set<AchievementTrigger>(["completion", "all"]);
 
 // Real reading: these mark today as a reading day for the streak.
 const READING_TRIGGERS = new Set<AchievementTrigger>(["progress", "completion"]);
@@ -284,7 +289,7 @@ async function createMilestones(userId: string, keys: string[]): Promise<Set<str
 export async function syncAchievements(
   userId: string,
   options: AwardOptions & { fullStats?: boolean } = {}
-): Promise<{ awarded: EarnedMilestone[]; stats: Partial<AchievementStats> }> {
+): Promise<{ awarded: EarnedMilestone[]; stats: Partial<AchievementStats>; quests: EarnedQuestMedal[] }> {
   const triggers = Array.isArray(options.trigger) ? options.trigger : [options.trigger ?? "all"];
 
   const existing = await prisma.userAchievement.findMany({ where: { userId }, select: { id: true, key: true } });
@@ -344,7 +349,10 @@ export async function syncAchievements(
     });
   }
 
-  return { awarded, stats };
+  // Quest medals notify on their own (QUEST_COMPLETED), even on a first run: each one is news.
+  const quests = triggers.some((t) => QUEST_TRIGGERS.has(t)) ? await syncQuests(userId, earnedKeys) : [];
+
+  return { awarded, stats, quests };
 }
 
 // Backward compatible: awardNewAchievements(userId) still checks every ladder. Pass a trigger to

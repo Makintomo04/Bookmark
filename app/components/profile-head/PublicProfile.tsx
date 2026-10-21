@@ -12,6 +12,7 @@ import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from '../books/shelf'
 import ProfileLists from '../discover/ProfileLists'
+import ProfileQuestMedals from '../quests/ProfileQuestMedals'
 
 interface PublicProfileProps {
   profile: SerializedProfile
@@ -89,6 +90,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
             )}
           </>
         )}
+        <ProfileQuestMedals achievements={profile.achievements} />
         <ProfileLists username={profile.username} isSelf={false} />
       </div>
     </div>
