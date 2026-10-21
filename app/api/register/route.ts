@@ -1,6 +1,7 @@
 import prisma from '@/lib/db'
 import { sanitizeUser } from '@/lib/sanitizeUser';
 import { registerSchema } from '@/lib/authSchemas';
+import { sendVerificationEmail } from '@/lib/emailVerification';
 import { clientIp, rateLimit, tooManyRequestsMessage } from '@/lib/rateLimit';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
@@ -29,5 +30,12 @@ export async function POST(req: Request) {
       hashedPassword
     },
   });
+  // The account can't sign in until the emailed link is followed, so nobody can claim an inbox they don't own.
+  try {
+    await sendVerificationEmail(email);
+  } catch (error) {
+    // The account exists either way; the sign-in page can resend the link.
+    console.error('Failed to send verification email', error);
+  }
   return NextResponse.json(sanitizeUser(user));
 }

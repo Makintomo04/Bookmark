@@ -9,7 +9,7 @@ export async function middleware(request:NextRequest){
  });
  const currentUser = !!token;
  const path = request.nextUrl.pathname;
- const publicPaths = ['/', '/signin', '/register', '/forgot-password', '/reset-password'];
+ const publicPaths = ['/', '/signin', '/register', '/forgot-password', '/reset-password', '/verify-email'];
  if (!currentUser && !publicPaths.includes(path)) {
    const url = request.nextUrl.clone();
    url.pathname = '/signin'; // Redirect to sign-in page
@@ -29,5 +29,6 @@ export const config = {
   "/new-user",
   "/forgot-password",
   "/reset-password",
+  "/verify-email",
 ],
 }

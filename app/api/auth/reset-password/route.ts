@@ -3,6 +3,7 @@ import { hashResetToken } from "@/lib/passwordResetToken";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { passwordSchema } from "@/lib/authSchemas";
+import { verifyEmailIdentifier } from "@/lib/emailVerification";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
     data: { hashedPassword, emailVerified: user.emailVerified ?? new Date() },
   });
 
-  await prisma.verificationToken.deleteMany({ where: { identifier: email } });
+  await prisma.verificationToken.deleteMany({ where: { identifier: { in: [email, verifyEmailIdentifier(email)] } } });
 
   return NextResponse.json({ message: "Password updated." });
 }

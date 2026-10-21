@@ -16,3 +16,6 @@ export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
 });
+
+// Error code the Credentials provider throws for a correct password on an unverified email.
+export const EMAIL_NOT_VERIFIED = "EmailNotVerified";
