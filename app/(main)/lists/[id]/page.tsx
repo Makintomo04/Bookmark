@@ -11,6 +11,7 @@ import { FollowButton, ReportListButton } from '@/app/components/discover/ListBu
 import ListActions from '@/app/components/lists/ListActions'
 import RemixInfo from '@/app/components/lists/RemixInfo'
 import EmbedListButton from '@/app/components/embed/EmbedListButton'
+import InitialAvatar from '@/app/components/profile/InitialAvatar'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { genreBySlug } from '@/lib/genres'
 import { findList, toEditableList } from '@/lib/lists'
@@ -72,7 +73,9 @@ const Page = async ({ params }: PageProps) => {
           <div className="flex items-center justify-between gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 sm:max-w-md">
             <Link href={`/u/${owner.username}`} className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <div className="relative size-10 shrink-0 overflow-hidden rounded-[14px]" style={{ background: owner.favColour || "#D92D2D", ...tierRingStyle(booksReadOf(owner)) }}>
-                <Image src={owner.image || "/images/avatar.jpg"} alt="" fill sizes="40px" className="object-cover" />
+                {owner.image
+                  ? <Image src={owner.image} alt="" fill sizes="40px" className="object-cover" />
+                  : <InitialAvatar username={owner.username} favColour={owner.favColour} />}
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Curated by</p>

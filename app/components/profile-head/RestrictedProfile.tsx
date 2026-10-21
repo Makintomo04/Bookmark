@@ -31,7 +31,7 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
       <div className="px-4 sm:px-8">
         <div className="-mt-12 sm:-mt-14 flex items-end justify-between gap-4">
           {/* No tier frame: it would give away how many books they've read. */}
-          <TierAvatar image={profile.image} colour={accent} alt={`${profile.username}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
+          <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${profile.username}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
           {viewer && <div className="pb-1"><ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} /></div>}
         </div>
         <h1 className="mt-4 text-2xl sm:text-3xl font-bold leading-tight break-words">{profile.username}</h1>
