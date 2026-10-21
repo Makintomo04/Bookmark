@@ -16,6 +16,25 @@ export async function GET(
       books: {
         where: { status: { in: ["STARTED", "COMPLETED"] } },
         orderBy: { createdAt: "desc" },
+        // Explicit fields so `review` (private until reviews get a visibility setting) and `userId` stay out of the payload.
+        select: {
+          id: true,
+          title: true,
+          author: true,
+          description: true,
+          coverImage: true,
+          cardColour: true,
+          status: true,
+          genre: true,
+          rating: true,
+          timesRead: true,
+          pages: true,
+          currentPage: true,
+          createdAt: true,
+          startedAt: true,
+          completedAt: true,
+          workKey: true,
+        },
       },
       _count: {
         select: { followers: true, following: true },
@@ -42,7 +61,6 @@ export async function GET(
     : false;
 
   return NextResponse.json({
-    id: profileUser.id,
     username: profileUser.username,
     bio: profileUser.bio,
     image: profileUser.image,

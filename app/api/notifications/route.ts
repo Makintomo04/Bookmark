@@ -1,13 +1,11 @@
 import { booksReadCount } from "@/lib/readerTier";
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
-  const currentUser = await getCurrentUser()
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const [notifications, unreadCount] = await Promise.all([
     prisma.notification.findMany({
@@ -25,10 +23,8 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const currentUser = await getCurrentUser()
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const body = await req.json()
   const { id, all } = body

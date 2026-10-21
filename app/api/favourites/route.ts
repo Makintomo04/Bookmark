@@ -1,14 +1,11 @@
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 export async function GET(req:Request, res:Response,) {
 
-  const currentUser = await getCurrentUser()
-
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const user = await prisma.user.findUnique({
     where: {

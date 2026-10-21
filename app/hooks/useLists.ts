@@ -1,13 +1,13 @@
 import useSWR from "swr"
+import { fetcher, swrOptions } from "@/lib/fetcher"
 import type { ListSummary } from "@/lib/lists"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // Any list change (create, edit, add a book) revalidates every key under /api/lists.
 export const isListsKey = (key: unknown) => typeof key === "string" && key.startsWith("/api/lists")
 
 export function useOwnerLists(username?: string | null) {
-  const { data, isLoading, mutate } = useSWR<ListSummary[]>(username ? `/api/lists?owner=${encodeURIComponent(username)}&limit=50` : null, fetcher)
+  const { data, isLoading, mutate } = useSWR<ListSummary[]>(username ? `/api/lists?owner=${encodeURIComponent(username)}&limit=50` : null, fetcher, swrOptions)
   return { lists: Array.isArray(data) ? data : [], isLoading, mutate }
 }
 
@@ -19,6 +19,6 @@ export interface MyList {
 }
 
 export function useMyLists(enabled: boolean) {
-  const { data, isLoading, mutate } = useSWR<MyList[]>(enabled ? "/api/lists/mine" : null, fetcher)
+  const { data, isLoading, mutate } = useSWR<MyList[]>(enabled ? "/api/lists/mine" : null, fetcher, swrOptions)
   return { lists: Array.isArray(data) ? data : [], isLoading, mutate }
 }

@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { hashResetToken } from "@/lib/passwordResetToken";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
+import { passwordSchema } from "@/lib/authSchemas";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -9,8 +10,9 @@ export async function POST(req: Request) {
   if (!email || !token || !password) {
     return NextResponse.json({ error: "Email, token and new password are required." }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+  const parsedPassword = passwordSchema.safeParse(password);
+  if (!parsedPassword.success) {
+    return NextResponse.json({ error: parsedPassword.error.issues[0].message }, { status: 400 });
   }
 
   const hashedToken = hashResetToken(token);
@@ -27,10 +29,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "This reset link is invalid or has expired." }, { status: 400 });
   }
 
-  const hashedPassword = bcrypt.hashSync(password, 10);
+  const hashedPassword = await bcrypt.hash(parsedPassword.data, 10);
   await prisma.user.update({
     where: { id: user.id },
-    data: { hashedPassword },
+    // Following the emailed link proves the reader owns this inbox.
+    data: { hashedPassword, emailVerified: user.emailVerified ?? new Date() },
   });
 
   await prisma.verificationToken.deleteMany({ where: { identifier: email } });

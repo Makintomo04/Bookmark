@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import { findList } from "@/lib/lists";
 import { REPORT_REASONS } from "@/lib/listRules";
 
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Sign in to report a list." }, { status: 401 });
-  }
+  const { user: currentUser, response } = await requireUser("Sign in to report a list.");
+  if (response) return response;
   const list = await findList(params.id, currentUser);
   if (!list || list.isOwner) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });

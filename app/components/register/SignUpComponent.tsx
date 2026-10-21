@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { motion,AnimatePresence  } from 'framer-motion'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import axios from 'axios'
+import { PASSWORD_MIN } from '@/lib/authSchemas'
 import { toast } from 'react-toastify'
 interface SignUpComponentProps {
   
@@ -38,6 +39,10 @@ const onSubmit:SubmitHandler<FieldValues> = async (data) => {
     alert("Passwords do not match.")
     return
   }
+  if(data.password.length < PASSWORD_MIN){
+    toast.error(`Password must be at least ${PASSWORD_MIN} characters.`,{ position: "bottom-center" })
+    return
+  }
   try {
     setIsLoading(true)
     await axios.post("/api/register", data)
@@ -47,7 +52,7 @@ const onSubmit:SubmitHandler<FieldValues> = async (data) => {
   )
     
   } catch (error) {
-    toast.error("Something went wrong.")
+    toast.error(axios.isAxiosError(error) && error.response?.data?.error || "Something went wrong.")
   }
   finally{
     setIsLoading(false)

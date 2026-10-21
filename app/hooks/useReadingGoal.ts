@@ -1,8 +1,8 @@
 import useSWR from "swr";
+import { fetcher, swrOptions } from "@/lib/fetcher"
 
 export default function useReadingGoal(year: number = new Date().getFullYear()) {
-  const fetcher = (url: string) => fetch(url).then((r) => r.json());
-  const { data, error, isLoading, mutate } = useSWR(`/api/reading-goal?year=${year}`, fetcher);
+  const { data, error, isLoading, mutate } = useSWR(`/api/reading-goal?year=${year}`, fetcher, swrOptions);
 
   return {
     goal: data,

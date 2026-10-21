@@ -9,6 +9,8 @@ import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import useFollowListModal from '@/app/hooks/useFollowListModal'
 import Loader from '../Loader'
+import FetchErrorState from '../FetchErrorState'
+import { FetchError } from '@/lib/fetcher'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import { cn } from '@/lib/utils'
 import BookCoverCard from '../cards/BookCoverCard'
@@ -23,11 +25,14 @@ interface PublicProfileProps {
 const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
   const { user } = useUser()
   const booksReadFor = useBooksReadFor()
-  const { profile, isLoading, mutate } = usePublicProfile(username)
+  const { profile, isLoading, isError, mutate } = usePublicProfile(username)
   const [isFollowLoading, setIsFollowLoading] = useState(false)
   const followListModal = useFollowListModal()
 
   if (isLoading) return <Loader />
+  if (isError instanceof FetchError && isError.status !== 404) {
+    return <div className="px-6 md:px-12"><FetchErrorState error={isError} what="this profile" onRetry={() => mutate()}/></div>
+  }
   if (!profile || profile.error) return <p className="px-6 md:px-12">This user couldn&apos;t be found.</p>
 
   const handleFollowToggle = () => {

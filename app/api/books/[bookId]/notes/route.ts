@@ -1,12 +1,10 @@
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request, { params }: { params: { bookId: string } }) {
-  const currentUser = await getCurrentUser()
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const book = await prisma.book.findUnique({ where: { id: params.bookId } })
   if (!book) {
@@ -24,10 +22,8 @@ export async function GET(request: Request, { params }: { params: { bookId: stri
 }
 
 export async function POST(request: Request, { params }: { params: { bookId: string } }) {
-  const currentUser = await getCurrentUser()
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const book = await prisma.book.findUnique({ where: { id: params.bookId } })
   if (!book) {

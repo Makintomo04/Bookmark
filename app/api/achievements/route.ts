@@ -1,14 +1,12 @@
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { ACHIEVEMENTS, milestoneKey } from "@/lib/achievements-catalog";
 import { awardNewAchievements, computeAchievementStats } from "@/lib/achievements";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   // Covers progress made before this feature existed, or any other gap
   // between a state change and its usual book-progress trigger.

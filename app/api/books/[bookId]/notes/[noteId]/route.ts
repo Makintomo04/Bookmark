@@ -1,4 +1,4 @@
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
 
@@ -17,10 +17,8 @@ async function getOwnedNote(bookId: string, noteId: string, currentUserId: strin
 }
 
 export async function PATCH(request: Request, { params }: { params: { bookId: string, noteId: string } }) {
-  const currentUser = await getCurrentUser()
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const { note, error } = await getOwnedNote(params.bookId, params.noteId, currentUser.id)
   if (error) return error
@@ -39,10 +37,8 @@ export async function PATCH(request: Request, { params }: { params: { bookId: st
 }
 
 export async function DELETE(request: Request, { params }: { params: { bookId: string, noteId: string } }) {
-  const currentUser = await getCurrentUser()
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const { error } = await getOwnedNote(params.bookId, params.noteId, currentUser.id)
   if (error) return error

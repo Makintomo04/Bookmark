@@ -7,13 +7,14 @@ import { Book } from '@prisma/client';
 import useBooks from '@/app/hooks/useBooks';
 import { IoAddOutline } from 'react-icons/io5';
 import BookGrid from './BookGrid';
+import FetchErrorState from '../FetchErrorState';
 
 interface BookListProps {
   
 }
 
 const BookList: FC<BookListProps> = ({}) => {
-  const {books,isLoading:isLoadingBooks,isError:isErrorBooks} = useBooks();
+  const {books,isLoading:isLoadingBooks,isError:isErrorBooks,mutate:mutateBooks} = useBooks();
   const {user,isLoading,isError} = useUser();
   const bookEntryModal = useBookEntryModal()
   // if (isLoadingBooks) {
@@ -28,6 +29,7 @@ const BookList: FC<BookListProps> = ({}) => {
     const dateB = new Date(b.createdAt);
     return dateB.getTime() - dateA.getTime()
 })
+if(isErrorBooks) return <FetchErrorState error={isErrorBooks} what="your books" onRetry={() => mutateBooks()}/>
 if(sortedBooks?.length === 0) return (
   <div className="flex px-4 justify-center items-center h-32 bg-slate-100/40 dark:bg-neutral-900/40 border border-dashed rounded-lg text-muted-foreground">
     <div className="flex gap-3 items-center">

@@ -1,4 +1,4 @@
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
@@ -10,11 +10,8 @@ export const maxDuration = 30;
 export async function GET( request: Request,
   { params }: { params: { bookId: string } }) {
   const bookId = params.bookId
-  const currentUser = await getCurrentUser()
-
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const book = await prisma.book.findUnique({
     where: {
@@ -32,11 +29,8 @@ export async function GET( request: Request,
 export async function PATCH( request: Request,
   { params }: { params: { bookId: string } }) {
   const bookId = params.bookId
-  const currentUser = await getCurrentUser()
-
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const book = await prisma.book.findUnique({
     where: {
@@ -76,11 +70,8 @@ export async function DELETE( request: Request,
   { params }: { params: { bookId: string } }) {
   const bookId = params.bookId
 
-  const currentUser = await getCurrentUser()
-
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const book = await prisma.book.findUnique({
     where: {

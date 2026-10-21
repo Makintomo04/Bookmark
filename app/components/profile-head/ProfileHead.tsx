@@ -15,11 +15,12 @@ import useFollowListModal from '@/app/hooks/useFollowListModal'
 import { Skeleton } from '../ui/skeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
+import FetchErrorState from '../FetchErrorState'
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
 const ProfileHead: FC = () => {
-  const { user, isError, isLoading } = useUser()
+  const { user, isError, isLoading, mutate: mutateUser } = useUser()
   const booksReadFor = useBooksReadFor()
   const { books } = useBooks()
   const { favourites } = useFavourite()
@@ -44,7 +45,7 @@ const ProfileHead: FC = () => {
   }
 
   if (isError || !user) {
-    return <p>Couldn&apos;t load your profile. Try refreshing the page.</p>
+    return <FetchErrorState error={isError} what="your profile" onRetry={() => mutateUser()}/>
   }
 
   const booksRead = books?.filter((book: Book) => book.status === "COMPLETED").length ?? 0

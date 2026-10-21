@@ -1,8 +1,8 @@
 import useSWR from "swr"
+import { fetcher, swrOptions } from "@/lib/fetcher"
 
 export default function useBooks () {
-  const fetcher = (url:string) => fetch(url).then(r => r.json())
-  const { data, error, isLoading,mutate } = useSWR(`/api/books/`, fetcher)
+  const { data, error, isLoading,mutate } = useSWR(`/api/books/`, fetcher, swrOptions)
  
   return {
     books: data,

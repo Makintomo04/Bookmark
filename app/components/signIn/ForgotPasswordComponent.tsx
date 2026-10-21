@@ -27,7 +27,7 @@ const ForgotPasswordComponent = () => {
       await axios.post("/api/auth/forgot-password", data)
       setIsSubmitted(true)
     } catch (error) {
-      toast.error("Something went wrong.")
+      toast.error(axios.isAxiosError(error) && error.response?.data?.error || "Something went wrong.")
     } finally {
       setIsLoading(false)
     }

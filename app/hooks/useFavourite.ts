@@ -1,8 +1,8 @@
 import useSWR from "swr";
+import { fetcher, swrOptions } from "@/lib/fetcher"
 
 export default function useFavourite() {
-  const fetcher = (url: string) => fetch(url).then((r) => r.json());
-  const { data, error, isLoading, mutate } = useSWR(`/api/favourites`, fetcher);
+  const { data, error, isLoading, mutate } = useSWR(`/api/favourites`, fetcher, swrOptions);
 
   const hasFavourited = (id:string) => {
     if(data?.favouriteIds?.includes(id)){

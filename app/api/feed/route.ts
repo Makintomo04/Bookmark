@@ -1,13 +1,11 @@
 import { booksReadCount } from "@/lib/readerTier";
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
-  const currentUser = await getCurrentUser()
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const follows = await prisma.follow.findMany({
     where: { followerId: currentUser.id },

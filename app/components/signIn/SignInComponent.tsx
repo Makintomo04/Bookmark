@@ -23,6 +23,16 @@ const SignInComponent =  () => {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
+  // NextAuth sends failed Google/GitHub sign-ins back here as ?error=...
+  const [authError, setAuthError] = useState<string | null>(null)
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error")
+    if (!code) return
+    setAuthError(code === "OAuthAccountNotLinked"
+      ? "An account with this email already exists. Sign in with the method you used to create it."
+      : "Sign-in failed. Please try again.")
+  }, [])
+
   const { 
     register,
     handleSubmit,
@@ -87,6 +97,7 @@ const SignInComponent =  () => {
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
   <div className="">
+    {authError && <p role="alert" className="mb-4 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm px-3 py-2">{authError}</p>}
     <form method="post" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>

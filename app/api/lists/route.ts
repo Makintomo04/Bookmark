@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import { findLists, OWN_LISTS_MAX, parseListInput } from "@/lib/lists";
 
 // Public: browsing lists works signed out.
@@ -20,10 +21,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Sign in to make a list." }, { status: 401 });
-  }
+  const { user: currentUser, response } = await requireUser("Sign in to make a list.");
+  if (response) return response;
   if (!currentUser.isStaff && (await prisma.list.count({ where: { ownerId: currentUser.id } })) >= OWN_LISTS_MAX) {
     return NextResponse.json({ error: `You can have up to ${OWN_LISTS_MAX} lists. Delete one to make room.` }, { status: 400 });
   }

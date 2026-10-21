@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { fetcher, swrOptions } from "@/lib/fetcher"
 
 export interface MilestoneItem {
   value: number;
@@ -17,8 +18,7 @@ export interface AchievementItem {
 }
 
 export default function useAchievements() {
-  const fetcher = (url: string) => fetch(url).then((r) => r.json());
-  const { data, error, isLoading, mutate } = useSWR<AchievementItem[]>("/api/achievements", fetcher);
+  const { data, error, isLoading, mutate } = useSWR<AchievementItem[]>("/api/achievements", fetcher, swrOptions);
 
   return {
     achievements: data ?? [],

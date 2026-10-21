@@ -1,16 +1,13 @@
 import { booksReadCount } from "@/lib/readerTier";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import getCurrentUser from "../../actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { User } from "@prisma/client";
 import { BIO_MAX, USERNAME_MAX, USERNAME_MIN } from "@/lib/profile";
 export async function GET (req:Request, res:Response) {
-const currentUser = await getCurrentUser();
-
-if (!currentUser) {
-  return NextResponse.error();
-}
+const { user: currentUser, response } = await requireUser();
+if (response) return response;
 
 const user = await prisma.user.findUnique({
   where: {
@@ -28,12 +25,10 @@ return NextResponse.json(sanitizeUser(user))
 }
 export async function POST (req:Request, res:Response) {
   const body = await req.json();
-const currentUser = await getCurrentUser();
+const { user: currentUser, response } = await requireUser();
 const {imageSrc,bannerSrc,bio,color} = body;
 const username = typeof body.username === "string" ? body.username.trim() : body.username;
-if (!currentUser) {
-  return NextResponse.error();
-}
+if (response) return response;
 
 if (typeof username !== "string" || username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
   return NextResponse.json({ error: `Usernames are ${USERNAME_MIN}–${USERNAME_MAX} characters.` }, { status: 400 });
@@ -87,10 +82,8 @@ if (Object.keys(updatedData).length > 0) {
 }
 
 export async function DELETE(req: Request) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   // Mongo doesn't enforce cascade deletes at the database level the way a
   // relational DB would, so clean up everything referencing this user

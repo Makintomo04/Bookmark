@@ -1,4 +1,4 @@
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { NextResponse } from "next/server";
@@ -9,13 +9,10 @@ export async function POST(req:Request, res:Response) {
   const {id,pagesUpdate,isComplete,isStarted,rating,review,isRestart,currentPage:targetPage} = body
   // An absolute page is idempotent, unlike pagesUpdate (an increment), so retries can't double-count.
   const hasTarget = typeof targetPage === "number" && Number.isFinite(targetPage)
-const currentUser = await getCurrentUser()
-
+const { user: currentUser, response } = await requireUser()
+if (response) return response
 if (!id) {
-  return NextResponse.error();
-}
-if (!currentUser) {
-  return NextResponse.error();
+  return NextResponse.json({ error: 'id is required' }, { status: 400 })
 }
 
 const selectedBook = await prisma.book.findUnique({

@@ -1,15 +1,24 @@
 import prisma from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { generateResetToken } from "@/lib/passwordResetToken";
+import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { email } = body;
-  if (!email) {
+  const body = await req.json().catch(() => null);
+  const email = body?.email;
+  if (!email || typeof email !== "string") {
     return NextResponse.json({ error: "Email is required." }, { status: 400 });
+  }
+
+  // Per IP to stop scripted floods, and per address so one inbox can't be spammed with reset mail.
+  const byIp = rateLimit(`forgot:ip:${clientIp(req.headers)}`, 10, 60 * 60 * 1000);
+  const byEmail = rateLimit(`forgot:email:${email.toLowerCase()}`, 3, 60 * 60 * 1000);
+  if (!byIp.ok || !byEmail.ok) {
+    const retryAfter = Math.max(byIp.ok ? 0 : byIp.retryAfterSeconds, byEmail.ok ? 0 : byEmail.retryAfterSeconds);
+    return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
   }
 
   const user = await prisma.user.findUnique({ where: { email } });

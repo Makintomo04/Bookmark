@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import { findList, parseListInput } from "@/lib/lists";
 
 type Params = { params: { id: string } };
@@ -15,10 +16,8 @@ export async function GET(req: Request, { params }: Params) {
 }
 
 export async function PATCH(req: Request, { params }: Params) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Sign in to edit this list." }, { status: 401 });
-  }
+  const { user: currentUser, response } = await requireUser("Sign in to edit this list.");
+  if (response) return response;
   const list = await findList(params.id, currentUser);
   if (!list || !list.canEdit) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
@@ -41,10 +40,8 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 export async function DELETE(req: Request, { params }: Params) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Sign in to delete this list." }, { status: 401 });
-  }
+  const { user: currentUser, response } = await requireUser("Sign in to delete this list.");
+  if (response) return response;
   const list = await findList(params.id, currentUser);
   if (!list || !list.canEdit) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });

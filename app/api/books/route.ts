@@ -1,4 +1,4 @@
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { mirrorCover } from "@/lib/covers";
@@ -19,11 +19,8 @@ export const maxDuration = 30;
 
 export async function GET(req:Request, res:Response) {
 
-const currentUser = await getCurrentUser()
-
-if (!currentUser) {
-  return NextResponse.error();
-}
+const { user: currentUser, response } = await requireUser();
+if (response) return response;
 
 const books = await prisma.book.findMany({
   where:{
@@ -39,11 +36,8 @@ export async function POST(req:Request, res:Response) {
 
   const body = await req.json()
   const { title, author, coverImgSrc, pages, status, currentPage, finishedThisYear, rating, genre, workKey, description } = body
-const currentUser = await getCurrentUser()
-
-if (!currentUser) {
-  return NextResponse.error();
-}
+const { user: currentUser, response } = await requireUser();
+if (response) return response;
 
 const totalPages = parseInt(pages)
 if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {

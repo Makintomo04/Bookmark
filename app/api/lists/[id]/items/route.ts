@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
 import { LIST_ITEMS_MAX } from "@/lib/lists";
 import { normaliseWorkKey, sameBook } from "@/lib/workKey";
 
@@ -8,10 +8,8 @@ type Params = { params: { id: string } };
 
 // Appends one book to the end of a list the reader owns, so "Add to list" doesn't need the whole list.
 export async function POST(req: Request, { params }: Params) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Sign in to add to a list." }, { status: 401 });
-  }
+  const { user: currentUser, response } = await requireUser("Sign in to add to a list.");
+  if (response) return response;
   if (!/^[0-9a-f]{24}$/i.test(params.id)) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
   }

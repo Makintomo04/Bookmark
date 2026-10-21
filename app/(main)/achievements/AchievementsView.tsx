@@ -4,9 +4,10 @@ import useAchievements from '@/app/hooks/useAchievements'
 import AchievementsGrid, { GRID_COLUMNS } from '@/app/components/achievements/AchievementsGrid'
 import AchievementDetail from '@/app/components/achievements/AchievementDetail'
 import { Skeleton } from '@/app/components/ui/skeleton'
+import FetchErrorState from '@/app/components/FetchErrorState'
 
 const AchievementsView: FC = () => {
-  const { achievements, isLoading, isError } = useAchievements()
+  const { achievements, isLoading, isError, mutate } = useAchievements()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
 
   if (isLoading) {
@@ -21,7 +22,7 @@ const AchievementsView: FC = () => {
   }
 
   if (isError || !Array.isArray(achievements)) {
-    return <p className="text-muted-foreground">Couldn&apos;t load your achievements. Try refreshing the page.</p>
+    return <FetchErrorState error={isError} what="your achievements" onRetry={() => mutate()}/>
   }
 
   const milestones = achievements.flatMap((a) => a.milestones)

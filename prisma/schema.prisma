@@ -78,6 +78,9 @@ model Follow {
   following User @relation("UserFollowedBy", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
+
+  // Followers list: followingId match, newest first. (followerId lookups use the unique index.)
+  @@index([followingId, createdAt])
 }
 
 model ReadingGoal {
@@ -124,6 +127,9 @@ model Book {
   workKey String?
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   activities Activity[]
+
+  // Shelf (userId) and public profile (userId + status in STARTED/COMPLETED). The prefix covers userId alone.
+  @@index([userId, status])
 }
 model Note {
   id String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -133,6 +139,8 @@ model Note {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
 }
 
 enum Status {
@@ -150,6 +158,11 @@ model Activity {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   book Book? @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  // Feed: activity from followed users, newest first.
+  @@index([userId, createdAt])
+  // Lets the cascade from a deleted book find its activity without a collection scan.
+  @@index([bookId])
 }
 
 enum ActivityType {
@@ -172,6 +185,9 @@ model Notification {
 
   user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
   actor User @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  // Bell: unread count and mark-all-read (userId + read), and the list (userId, sorted by createdAt).
+  @@index([userId, read, createdAt])
 }
 
 enum NotificationType {
@@ -215,6 +231,11 @@ model List {
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   items ListItem[]
   reports ListReport[]
+
+  // A reader's own lists, most recently updated first. The prefix covers ownerId alone (counts, ownership checks).
+  @@index([ownerId, updatedAt])
+  // Browsing and the sitemap: public, not hidden, most recently updated first.
+  @@index([visibility, hidden, updatedAt])
 }
 
 // One report per reader per list. Staff review reported lists and use `hidden` to take one down.
@@ -245,4 +266,7 @@ model ListItem {
   createdAt DateTime @default(now())
 
   list List @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  // Items are always loaded per list in position order.
+  @@index([listId, position])
 }
