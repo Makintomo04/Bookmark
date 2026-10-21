@@ -20,7 +20,7 @@ interface NotificationBellProps {
 const notificationCopy = (n: { type: string; achievementKey?: string | null }) => {
   switch (n.type) {
     case "NEW_FOLLOWER": return "started following you"
-    case "ACHIEVEMENT_EARNED": return `earned the "${getAchievementTitle(n.achievementKey ?? "")}" badge`
+    case "ACHIEVEMENT_EARNED": return `reached the "${getAchievementTitle(n.achievementKey ?? "")}" milestone`
     default: return "did something"
   }
 }
@@ -51,7 +51,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           <p className="p-3 text-sm text-muted-foreground">No notifications yet.</p>
         )}
         {notifications.map((n: any) => (
-          <Link key={n.id} href={`/u/${n.actor.username}`} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <Link key={n.id} href={n.type === "ACHIEVEMENT_EARNED" ? "/achievements" : `/u/${n.actor.username}`} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: n.actor.favColour || "#f44336" }}>
               {n.actor.image && <Image src={n.actor.image} alt="" fill className="object-cover"/>}
             </div>

@@ -1,20 +1,11 @@
 "use client"
 import { FC } from 'react'
+import { AchievementItem } from '@/app/hooks/useAchievements'
 import AchievementBadge from './AchievementBadge'
-
-interface AchievementItem {
-  key: string;
-  title: string;
-  description: string;
-  category: string;
-  threshold: number | null;
-  earned: boolean;
-  earnedAt?: string | null;
-  progress?: { current: number; target: number } | null;
-}
 
 interface AchievementsGridProps {
   achievements: AchievementItem[];
+  onSelect: (key: string) => void;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -25,32 +16,26 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORY_ORDER = ["reading", "consistency", "engagement"]
 
-const AchievementsGrid: FC<AchievementsGridProps> = ({ achievements }) => {
+export const GRID_COLUMNS = "grid grid-cols-2 min-[420px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+
+const AchievementsGrid: FC<AchievementsGridProps> = ({ achievements, onSelect }) => {
   return (
-    <div className="flex flex-col gap-10 w-full">
+    <div className="flex flex-col gap-12 w-full">
       {CATEGORY_ORDER.map((category) => {
         const items = achievements.filter((a) => a.category === category)
         if (items.length === 0) return null
-        const earnedInCategory = items.filter((a) => a.earned).length
+        const milestones = items.flatMap((a) => a.milestones)
+        const earnedInCategory = milestones.filter((m) => m.earned).length
         const headingId = `achievements-${category}`
         return (
           <section key={category} aria-labelledby={headingId}>
             <div className="flex items-baseline justify-between mb-4">
-              <h3 id={headingId} className="text-base font-semibold">{CATEGORY_LABELS[category] ?? category}</h3>
-              <p className="text-sm text-muted-foreground tabular-nums">{earnedInCategory} of {items.length} earned</p>
+              <h2 id={headingId} className="text-lg font-semibold">{CATEGORY_LABELS[category] ?? category}</h2>
+              <p className="text-sm text-muted-foreground tabular-nums">{earnedInCategory} of {milestones.length} milestones</p>
             </div>
-            <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-3 gap-y-7">
+            <ul className={`${GRID_COLUMNS} gap-x-3 gap-y-7`}>
               {items.map((a) => (
-                <AchievementBadge
-                  key={a.key}
-                  achievementKey={a.key}
-                  title={a.title}
-                  description={a.description}
-                  threshold={a.threshold}
-                  earned={a.earned}
-                  earnedAt={a.earnedAt}
-                  progress={a.progress}
-                />
+                <AchievementBadge key={a.key} achievement={a} onSelect={() => onSelect(a.key)} />
               ))}
             </ul>
           </section>

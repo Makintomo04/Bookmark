@@ -1,7 +1,7 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
-import { ACHIEVEMENTS } from "@/lib/achievements-catalog";
-import { awardNewAchievements, computeAchievementStats, getAchievementProgress } from "@/lib/achievements";
+import { ACHIEVEMENTS, milestoneKey } from "@/lib/achievements-catalog";
+import { awardNewAchievements, computeAchievementStats } from "@/lib/achievements";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -21,13 +21,17 @@ export async function GET() {
   const earnedByKey = new Map(earned.map((e) => [e.key, e.earnedAt]));
 
   const achievements = ACHIEVEMENTS.map((a) => {
-    const isEarned = earnedByKey.has(a.key);
-    const progress = isEarned ? null : getAchievementProgress(a.key, stats);
+    const milestones = a.milestones.map((m) => {
+      const earnedAt = earnedByKey.get(milestoneKey(a.key, m.value)) ?? null;
+      return { value: m.value, title: m.title, description: a.describe(m.value), earned: earnedAt !== null, earnedAt };
+    });
     return {
-      ...a,
-      earned: isEarned,
-      earnedAt: earnedByKey.get(a.key) ?? null,
-      progress: progress ? { current: Math.min(progress.current, progress.target), target: progress.target } : null,
+      key: a.key,
+      title: a.title,
+      category: a.category,
+      // Earned rungs stay earned even if the number later drops (a broken streak).
+      current: stats[a.key],
+      milestones,
     };
   });
 

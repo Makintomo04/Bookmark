@@ -1,76 +1,61 @@
 "use client"
 import { FC } from 'react'
-import moment from 'moment'
-import { cn } from '@/lib/utils'
-import { getAchievementIcon } from './achievementIcons'
-import { MEDAL_INK, getMedalColour, shade } from './achievementTheme'
+import { AchievementItem } from '@/app/hooks/useAchievements'
+import Medal from './Medal'
+import { getTierPillClass } from './achievementTheme'
+import { formatNumber, formatPill, summarise } from './achievementProgress'
 
 // The Bookmark logo stood upright: rounded top corners, and a bottom edge that
 // rises to a rounded notch, so every badge hangs on the brand's own shape.
-const BACKING_PATH = "M14 0H86C93.7 0 100 6.3 100 14V106Q100 120 87 114.8L55.6 102.2Q50 100 44.4 102.2L13 114.8Q0 120 0 106V14C0 6.3 6.3 0 14 0Z"
+export const BACKING_PATH = "M14 0H86C93.7 0 100 6.3 100 14V106Q100 120 87 114.8L55.6 102.2Q50 100 44.4 102.2L13 114.8Q0 120 0 106V14C0 6.3 6.3 0 14 0Z"
 
-export interface AchievementBadgeProps {
-  achievementKey: string
-  title: string
-  description: string
-  threshold: number | null
-  earned: boolean
-  earnedAt?: string | null
-  progress?: { current: number; target: number } | null
+interface AchievementBadgeProps {
+  achievement: AchievementItem
+  onSelect: () => void
 }
 
-const AchievementBadge: FC<AchievementBadgeProps> = ({ achievementKey, title, description, threshold, earned, earnedAt, progress }) => {
-  const Icon = getAchievementIcon(achievementKey)
-  const colour = getMedalColour(achievementKey)
-  const pill = threshold ?? new Date().getFullYear()
-  const percent = progress && progress.target > 0 ? Math.min(100, Math.round((progress.current / progress.target) * 100)) : 0
+const AchievementBadge: FC<AchievementBadgeProps> = ({ achievement, onSelect }) => {
+  const { earned, highest, next, percent, total } = summarise(achievement)
+  const pillValue = highest?.value ?? achievement.milestones[0].value
 
   return (
-    <li className="flex flex-col items-center text-center">
-      <div className="relative w-full max-w-[120px] aspect-[5/6]">
-        <svg viewBox="0 0 100 120" aria-hidden className="absolute inset-0 h-full w-full">
-          <path d={BACKING_PATH} className="fill-neutral-100 dark:fill-neutral-900" />
-        </svg>
-
-        <div className="absolute left-1/2 top-[11%] w-[66%] -translate-x-1/2">
-          <div className={cn("relative aspect-square", !earned && "grayscale opacity-40")}>
-            <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
-              <circle cx="50" cy="50" r="50" fill={shade(colour)} />
-              <circle cx="50" cy="50" r="44" fill={colour} />
-              <circle cx="50" cy="50" r="36.5" fill="none" stroke={MEDAL_INK} strokeOpacity="0.45" strokeWidth="1.5" />
-            </svg>
-            <div className="absolute inset-[30%]" aria-hidden>
-              <Icon className="h-full w-full" strokeWidth={1.75} color={MEDAL_INK} />
-            </div>
-          </div>
-          <span aria-hidden className="absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 rounded-full bg-neutral-600 px-2 py-0.5 text-xs font-bold text-white tabular-nums">
-            {pill}
-          </span>
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-label={`${achievement.title}: ${earned.length} of ${total} milestones earned. View milestones`}
+        className="group flex w-full flex-col items-center rounded-xl p-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+      >
+        <div className="relative w-full max-w-[120px] aspect-[5/6] transition-transform duration-200 group-hover:-translate-y-0.5">
+          <svg viewBox="0 0 100 120" aria-hidden className="absolute inset-0 h-full w-full">
+            <path d={BACKING_PATH} className="fill-neutral-100 transition-colors group-hover:fill-neutral-200/70 dark:fill-neutral-900 dark:group-hover:fill-neutral-800" />
+          </svg>
+          <Medal
+            achievementKey={achievement.key}
+            earned={earned.length > 0}
+            pill={formatPill(pillValue)}
+            pillClassName={getTierPillClass(earned.length, total)}
+            className="absolute left-1/2 top-[11%] w-[66%] -translate-x-1/2"
+          />
         </div>
-      </div>
 
-      <p className="mt-2 text-sm font-medium leading-snug line-clamp-2">{title}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        {earned
-          ? (earnedAt ? `Earned ${moment(earnedAt).format(moment(earnedAt).isSame(moment(), 'year') ? "D MMM" : "MMM YYYY")}` : "Earned")
-          : description}
-      </p>
-      {!earned && progress && progress.target > 0 && (
-        <div className="mt-2 flex w-full max-w-[120px] items-center gap-1.5">
-          <div
-            role="progressbar"
-            aria-label={`${title} progress`}
-            aria-valuenow={progress.current}
-            aria-valuemin={0}
-            aria-valuemax={progress.target}
-            className="h-1 flex-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
-          >
+        <p className="mt-2 text-sm font-medium leading-snug line-clamp-2">{highest?.title ?? achievement.title}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {highest ? `${achievement.title} · ${earned.length} of ${total}` : `${earned.length} of ${total} milestones`}
+        </p>
+        <div className="mt-2 flex w-full max-w-[120px] items-center gap-1.5" aria-hidden>
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
             <div className="h-full rounded-full bg-foreground" style={{ width: `${percent}%` }} />
           </div>
-          <span className="text-[11px] text-muted-foreground tabular-nums">{progress.current}/{progress.target}</span>
+          {next && (
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {formatPill(Math.min(achievement.current, next.value))}/{formatPill(next.value)}
+            </span>
+          )}
         </div>
-      )}
-      <span className="sr-only">{earned ? "Earned" : "Not earned yet"}</span>
+        {!next && <p className="mt-1 text-[11px] font-medium text-muted-foreground">All milestones earned</p>}
+        {next && <span className="sr-only">Next: {next.title}, {formatNumber(achievement.current)} of {formatNumber(next.value)}</span>}
+      </button>
     </li>
   )
 }

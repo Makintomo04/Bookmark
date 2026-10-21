@@ -10,7 +10,6 @@ import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
-import useAchievementsModal from '@/app/hooks/useAchievementsModal'
 import { Skeleton } from '../ui/skeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
@@ -25,7 +24,6 @@ const ProfileHead: FC = () => {
   const { profile } = usePublicProfile(user?.username ?? "")
   const bookEntryModal = useBookEntryModal()
   const editProfileModal = useEditProfileModal()
-  const achievementsModal = useAchievementsModal()
   const [showLightbox, setShowLightbox] = useState(false)
 
   if (isLoading) {
@@ -46,7 +44,7 @@ const ProfileHead: FC = () => {
   }
 
   const booksRead = books?.filter((book: Book) => book.status === "COMPLETED").length ?? 0
-  const earned = achievements.filter((a: { earned?: boolean }) => a.earned).length
+  const earned = achievements.flatMap((a) => a.milestones).filter((m) => m.earned).length
   const followers = profile?.followerCount ?? 0
   const following = profile?.followingCount ?? 0
 
@@ -64,7 +62,7 @@ const ProfileHead: FC = () => {
           { value: followers, label: plural(followers, "follower") },
           { value: following, label: "following" },
           { value: favourites.length, label: plural(favourites.length, "favourite"), href: "/favourites" },
-          { value: earned, label: plural(earned, "achievement"), onClick: achievementsModal.onOpen },
+          { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
         ]}
         actions={
           <>
