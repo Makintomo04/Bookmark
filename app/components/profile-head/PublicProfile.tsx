@@ -7,6 +7,7 @@ import { toast } from 'react-toastify'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
+import useFollowListModal from '@/app/hooks/useFollowListModal'
 import Loader from '../Loader'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import { cn } from '@/lib/utils'
@@ -24,6 +25,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
   const booksReadFor = useBooksReadFor()
   const { profile, isLoading, mutate } = usePublicProfile(username)
   const [isFollowLoading, setIsFollowLoading] = useState(false)
+  const followListModal = useFollowListModal()
 
   if (isLoading) return <Loader />
   if (!profile || profile.error) return <p className="px-6 md:px-12">This user couldn&apos;t be found.</p>
@@ -71,8 +73,8 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
         actions={followAction}
         stats={[
           { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },
-          { value: profile.followerCount, label: profile.followerCount === 1 ? "follower" : "followers" },
-          { value: profile.followingCount, label: "following" },
+          { value: profile.followerCount, label: profile.followerCount === 1 ? "follower" : "followers", onClick: () => followListModal.onOpen(profile.username, "followers") },
+          { value: profile.followingCount, label: "following", onClick: () => followListModal.onOpen(profile.username, "following") },
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements" },
         ]}
       />

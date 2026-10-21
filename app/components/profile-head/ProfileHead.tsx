@@ -11,6 +11,7 @@ import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
+import useFollowListModal from '@/app/hooks/useFollowListModal'
 import { Skeleton } from '../ui/skeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
@@ -26,6 +27,7 @@ const ProfileHead: FC = () => {
   const { profile } = usePublicProfile(user?.username ?? "")
   const bookEntryModal = useBookEntryModal()
   const editProfileModal = useEditProfileModal()
+  const followListModal = useFollowListModal()
   const [showLightbox, setShowLightbox] = useState(false)
 
   if (isLoading) {
@@ -62,8 +64,8 @@ const ProfileHead: FC = () => {
         onAvatarClick={() => setShowLightbox(true)}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
-          { value: followers, label: plural(followers, "follower") },
-          { value: following, label: "following" },
+          { value: followers, label: plural(followers, "follower"), onClick: () => followListModal.onOpen(user.username, "followers") },
+          { value: following, label: "following", onClick: () => followListModal.onOpen(user.username, "following") },
           { value: favourites.length, label: plural(favourites.length, "favourite"), href: "/favourites" },
           { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
         ]}

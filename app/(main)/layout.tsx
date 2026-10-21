@@ -8,6 +8,7 @@ import BookUpdateModal from "../components/modals/BookUpdateModal";
 import BookEntryModal from "../components/modals/BookEntryModal";
 import BookEditModal from "../components/modals/BookEditModal";
 import BookNotesModal from "../components/modals/BookNotesModal";
+import FollowListModal from "../components/modals/FollowListModal";
 import ListEditorModal from "../components/modals/ListEditorModal";
 import BookDetailsModal from "../components/modals/BookDetailsModal";
 import TierPreviewBadge from "../components/dev/TierPreviewBadge";
@@ -24,6 +25,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <BookEntryModal/>
         <BookEditModal/>
         <BookNotesModal/>
+        <FollowListModal/>
         <EditProfileModal/>
         <ListEditorModal/>
         <BookDetailsModal/>
