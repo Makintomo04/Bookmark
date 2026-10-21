@@ -1,6 +1,8 @@
 import prisma from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { cookies } from "next/headers";
 import { ACHIEVEMENTS, AchievementKey, AchievementDefinition, LEGACY_KEYS, Milestone, milestoneKey } from "@/lib/achievements-catalog";
+import { DEFAULT_TIME_ZONE, TIME_ZONE_COOKIE, isValidTimeZone, localDay, previousDay } from "@/lib/timeZone";
 
 export { ACHIEVEMENTS, getAchievementTitle } from "@/lib/achievements-catalog";
 export type { AchievementKey, AchievementDefinition } from "@/lib/achievements-catalog";
@@ -13,50 +15,203 @@ export interface EarnedMilestone {
   milestone: Milestone;
 }
 
-function computeStreak(activityDates: Date[]): number {
-  if (activityDates.length === 0) return 0;
-  const activeDays = new Set(activityDates.map((d) => d.toDateString()));
+// What just happened, so only the ladders it can move get recomputed. A page update can't change
+// books read or goals met, for example. "all" (the default) checks every ladder.
+export type AchievementTrigger = "progress" | "completion" | "rating" | "review" | "goal" | "all";
+
+const ALL_KEYS = ACHIEVEMENTS.map((a) => a.key);
+
+const LADDERS_FOR: Record<AchievementTrigger, AchievementKey[]> = {
+  progress: ["PAGES_READ", "STREAK"],
+  completion: ["BOOKS_READ", "PAGES_READ", "BIG_BOOKS", "STREAK", "GOALS"],
+  rating: ["RATINGS"],
+  review: ["REVIEWS"],
+  goal: ["GOALS"],
+  all: ALL_KEYS,
+};
+
+// Real reading: these mark today as a reading day for the streak.
+const READING_TRIGGERS = new Set<AchievementTrigger>(["progress", "completion"]);
+
+export interface AwardOptions {
+  // One trigger, or several when one request did several things (finished a book and rated it).
+  trigger?: AchievementTrigger | AchievementTrigger[];
+  // The reader's IANA zone, if the caller has it. Otherwise the browser's `tz` cookie, then the
+  // stored User.timeZone, then UTC. See lib/timeZone.ts.
+  timeZone?: string;
+}
+
+// ---- Time zone ---------------------------------------------------------------------------
+
+// The `tz` cookie set by the browser (VerifyEmailBanner). Only meaningful inside the signed-in
+// user's own request, which is where awardNewAchievements runs.
+function requestTimeZone(): string | undefined {
+  try {
+    const raw = cookies().get(TIME_ZONE_COOKIE)?.value;
+    const zone = raw ? decodeURIComponent(raw) : undefined;
+    return isValidTimeZone(zone) ? zone : undefined;
+  } catch {
+    // Outside a request (a script), or a malformed cookie.
+    return undefined;
+  }
+}
+
+// Stored zone, updated when the client reports a different valid one; UTC when there's neither.
+async function resolveTimeZone(userId: string, clientZone: string | undefined): Promise<string> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { timeZone: true } });
+  if (clientZone && clientZone !== user?.timeZone) {
+    await prisma.user.update({ where: { id: userId }, data: { timeZone: clientZone } });
+    return clientZone;
+  }
+  return user?.timeZone && isValidTimeZone(user.timeZone) ? user.timeZone : DEFAULT_TIME_ZONE;
+}
+
+// ---- Streak ------------------------------------------------------------------------------
+
+export async function recordReadingDay(userId: string, timeZone: string, at = new Date()) {
+  const day = localDay(at, timeZone);
+  try {
+    await prisma.readingDay.upsert({
+      where: { userId_day: { userId, day } },
+      create: { userId, day },
+      update: {},
+    });
+  } catch (e) {
+    // A concurrent request recorded the same day.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return;
+    throw e;
+  }
+}
+
+// Consecutive days, ending today or yesterday in `timeZone`, with real reading: a ReadingDay row
+// (page updates, recorded from now on) or a finished book (COMPLETED_BOOK activity, which also
+// covers history from before ReadingDay existed). Adding, rating or reviewing a book doesn't count.
+// `cap` stops counting there, so awarding only reads as many days as the next milestone needs.
+async function readingStreak(userId: string, timeZone: string, cap = Infinity): Promise<number> {
+  const today = localDay(new Date(), timeZone);
+  let since: string | undefined;
+  let sinceDate: Date | undefined;
+  if (Number.isFinite(cap)) {
+    since = today;
+    for (let i = 0; i <= cap; i++) since = previousDay(since);
+    // A day margin either side of the zone offset.
+    sinceDate = new Date(`${since}T00:00:00Z`);
+    sinceDate.setUTCDate(sinceDate.getUTCDate() - 1);
+  }
+
+  const [days, completions] = await Promise.all([
+    prisma.readingDay.findMany({ where: { userId, ...(since && { day: { gte: since } }) }, select: { day: true } }),
+    prisma.activity.findMany({
+      where: { userId, type: "COMPLETED_BOOK", ...(sinceDate && { createdAt: { gte: sinceDate } }) },
+      select: { createdAt: true },
+    }),
+  ]);
+  const active = new Set(days.map((d) => d.day));
+  for (const a of completions) active.add(localDay(a.createdAt, timeZone));
+
+  // Today isn't over, so a streak that reached yesterday is still alive until the reader's midnight.
+  let cursor = active.has(today) ? today : previousDay(today);
   let streak = 0;
-  const cursor = new Date();
-  while (activeDays.has(cursor.toDateString())) {
+  while (streak < cap && active.has(cursor)) {
     streak++;
-    cursor.setDate(cursor.getDate() - 1);
+    cursor = previousDay(cursor);
   }
   return streak;
 }
 
-export async function computeAchievementStats(userId: string): Promise<AchievementStats> {
-  const [books, goals, activities] = await Promise.all([
-    prisma.book.findMany({
-      where: { userId },
-      select: { status: true, pages: true, currentPage: true, completedAt: true, review: true, rating: true },
-    }),
-    prisma.readingGoal.findMany({ where: { userId }, select: { year: true, targetBooks: true } }),
-    prisma.activity.findMany({ where: { userId }, select: { createdAt: true } }),
-  ]);
+// ---- Stats -------------------------------------------------------------------------------
 
-  const completedBooks = books.filter((b) => b.status === "COMPLETED");
-  // Pages in a book still being read count too: they've been read.
-  const pagesRead = books.reduce((sum, b) => sum + (b.status === "COMPLETED" ? b.pages : b.status === "STARTED" ? (b.currentPage ?? 0) : 0), 0);
-
-  const completedByYear = new Map<number, number>();
-  for (const b of completedBooks) {
-    if (!b.completedAt) continue;
-    const year = b.completedAt.getFullYear();
-    completedByYear.set(year, (completedByYear.get(year) ?? 0) + 1);
-  }
-  const goalsMet = goals.filter((g) => g.targetBooks > 0 && (completedByYear.get(g.year) ?? 0) >= g.targetBooks).length;
-
-  return {
-    BOOKS_READ: completedBooks.length,
-    PAGES_READ: pagesRead,
-    BIG_BOOKS: completedBooks.reduce((max, b) => Math.max(max, b.pages), 0),
-    STREAK: computeStreak(activities.map((a) => a.createdAt)),
-    GOALS: goalsMet,
-    REVIEWS: books.filter((b) => typeof b.review === "string" && b.review.trim().length > 0).length,
-    RATINGS: books.filter((b) => typeof b.rating === "number" && b.rating > 0).length,
-  };
+interface StatsContext {
+  timeZone?: string;
+  // Per ladder, the value past which the exact number doesn't matter (for awarding).
+  caps?: Partial<Record<AchievementKey, number>>;
 }
+
+async function computeStats(userId: string, keys: AchievementKey[], ctx: StatsContext): Promise<Partial<AchievementStats>> {
+  const need = new Set(keys);
+  const stats: Partial<AchievementStats> = {};
+  const tasks: Promise<void>[] = [];
+
+  // Books read, pages read and big books come from one aggregate grouped by status, instead of
+  // loading every book. Only COMPLETED books count as read; pages also count from books in progress.
+  if (need.has("BOOKS_READ") || need.has("PAGES_READ") || need.has("BIG_BOOKS")) {
+    tasks.push(
+      prisma.book
+        .groupBy({
+          by: ["status"],
+          where: { userId, status: { in: ["COMPLETED", "STARTED"] } },
+          _count: { _all: true },
+          _sum: { pages: true, currentPage: true },
+          _max: { pages: true },
+        })
+        .then((groups) => {
+          const completed = groups.find((g) => g.status === "COMPLETED");
+          const started = groups.find((g) => g.status === "STARTED");
+          stats.BOOKS_READ = completed?._count._all ?? 0;
+          stats.PAGES_READ = (completed?._sum.pages ?? 0) + (started?._sum.currentPage ?? 0);
+          stats.BIG_BOOKS = completed?._max.pages ?? 0;
+        })
+    );
+  }
+
+  if (need.has("GOALS")) {
+    tasks.push(
+      (async () => {
+        const goals = await prisma.readingGoal.findMany({ where: { userId, targetBooks: { gt: 0 } }, select: { year: true, targetBooks: true } });
+        // Goal years are UTC calendar years, as before (the server ran in UTC).
+        const met = await Promise.all(
+          goals.map(async (g) => {
+            const completed = await prisma.book.count({
+              where: {
+                userId,
+                status: "COMPLETED",
+                completedAt: { gte: new Date(Date.UTC(g.year, 0, 1)), lt: new Date(Date.UTC(g.year + 1, 0, 1)) },
+              },
+            });
+            return completed >= g.targetBooks;
+          })
+        );
+        stats.GOALS = met.filter(Boolean).length;
+      })()
+    );
+  }
+
+  if (need.has("REVIEWS")) {
+    tasks.push(
+      prisma.book.count({ where: { userId, review: { gt: "" } } }).then((n) => {
+        stats.REVIEWS = n;
+      })
+    );
+  }
+
+  if (need.has("RATINGS")) {
+    tasks.push(
+      prisma.book.count({ where: { userId, rating: { gt: 0 } } }).then((n) => {
+        stats.RATINGS = n;
+      })
+    );
+  }
+
+  if (need.has("STREAK")) {
+    tasks.push(
+      (async () => {
+        const zone = ctx.timeZone ?? (await resolveTimeZone(userId, undefined));
+        stats.STREAK = await readingStreak(userId, zone, ctx.caps?.STREAK);
+      })()
+    );
+  }
+
+  await Promise.all(tasks);
+  return stats;
+}
+
+// Every ladder's current number. Uses the stored time zone (not the request's), so it's also
+// right when called for someone other than the signed-in user.
+export async function computeAchievementStats(userId: string): Promise<AchievementStats> {
+  return (await computeStats(userId, ALL_KEYS, {})) as AchievementStats;
+}
+
+// ---- Awarding ----------------------------------------------------------------------------
 
 // Renames pre-milestone badges to the rung they became, keeping their earned date.
 // Returns whether there was anything to move, i.e. this is the user's first run on milestones.
@@ -76,40 +231,101 @@ async function migrateLegacyAchievements(userId: string, existing: { id: string;
   return true;
 }
 
-export async function awardNewAchievements(userId: string): Promise<EarnedMilestone[]> {
-  const [stats, existing] = await Promise.all([
-    computeAchievementStats(userId),
-    prisma.userAchievement.findMany({ where: { userId }, select: { id: true, key: true } }),
-  ]);
+// Inserts the new rungs in one round trip. If a concurrent request got some first, the batch
+// fails on the unique index, so fall back to one at a time and keep only the ones we created.
+async function createMilestones(userId: string, keys: string[]): Promise<Set<string>> {
+  if (keys.length === 0) return new Set();
+  try {
+    await prisma.userAchievement.createMany({ data: keys.map((key) => ({ userId, key })) });
+    return new Set(keys);
+  } catch (e) {
+    if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+  }
+  const created = new Set<string>();
+  for (const key of keys) {
+    try {
+      await prisma.userAchievement.create({ data: { userId, key } });
+      created.add(key);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue;
+      throw e;
+    }
+  }
+  return created;
+}
+
+// Awards any milestones the user has newly reached, records today as a reading day for reading
+// triggers, and returns the new milestones along with the stats it computed.
+// Stats only cover the ladders the trigger can move (all of them for "all"); STREAK is capped at
+// the next unearned milestone unless `fullStats` asks for the real number (the achievements page).
+export async function syncAchievements(
+  userId: string,
+  options: AwardOptions & { fullStats?: boolean } = {}
+): Promise<{ awarded: EarnedMilestone[]; stats: Partial<AchievementStats> }> {
+  const triggers = Array.isArray(options.trigger) ? options.trigger : [options.trigger ?? "all"];
+
+  const existing = await prisma.userAchievement.findMany({ where: { userId }, select: { id: true, key: true } });
   const migrated = await migrateLegacyAchievements(userId, existing);
   const earnedKeys = new Set(existing.map((e) => LEGACY_KEYS[e.key] ?? e.key));
 
-  const awarded: EarnedMilestone[] = [];
-  for (const achievement of ACHIEVEMENTS) {
-    const fresh = achievement.milestones.filter(
-      (m) => stats[achievement.key] >= m.value && !earnedKeys.has(milestoneKey(achievement.key, m.value))
-    );
-    let highest: Milestone | null = null;
-    for (const milestone of fresh) {
-      try {
-        await prisma.userAchievement.create({ data: { userId, key: milestoneKey(achievement.key, milestone.value) } });
-      } catch (e) {
-        // A concurrent request awarded it first.
-        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue;
-        throw e;
-      }
-      awarded.push({ achievement, milestone });
-      highest = milestone;
-    }
-    // One notification per achievement, for the highest rung reached, so finishing a
-    // 1,000-page book doesn't announce 300, 500 and 750 too. Moving an existing user onto
-    // milestones backfills rungs they passed long ago, which isn't news, so stay quiet then.
-    if (highest && !migrated) {
-      await prisma.notification.create({
-        data: { userId, actorId: userId, type: "ACHIEVEMENT_EARNED", achievementKey: milestoneKey(achievement.key, highest.value) },
-      });
-    }
+  // A first run on milestones backfills every ladder (quietly, below), whatever the trigger.
+  const triggered = new Set<AchievementKey>(migrated ? ALL_KEYS : triggers.flatMap((t) => LADDERS_FOR[t] ?? ALL_KEYS));
+  const unearned = new Map<AchievementKey, Milestone[]>();
+  for (const a of ACHIEVEMENTS) {
+    if (!triggered.has(a.key)) continue;
+    const rest = a.milestones.filter((m) => !earnedKeys.has(milestoneKey(a.key, m.value)));
+    // A ladder with every rung earned can't award anything, so skip computing it.
+    if (rest.length > 0 || options.fullStats) unearned.set(a.key, rest);
   }
 
-  return awarded;
+  const isReading = triggers.some((t) => READING_TRIGGERS.has(t));
+  let timeZone: string | undefined;
+  if (isReading || unearned.has("STREAK")) {
+    const clientZone = isValidTimeZone(options.timeZone) ? options.timeZone : requestTimeZone();
+    timeZone = await resolveTimeZone(userId, clientZone);
+  }
+  if (isReading && timeZone) await recordReadingDay(userId, timeZone);
+
+  const streakRungs = unearned.get("STREAK");
+  const caps: StatsContext["caps"] = {};
+  if (streakRungs && !options.fullStats) caps.STREAK = Math.max(0, ...streakRungs.map((m) => m.value));
+  const stats = await computeStats(userId, Array.from(unearned.keys()), { timeZone, caps });
+
+  const fresh: EarnedMilestone[] = [];
+  unearned.forEach((rungs, key) => {
+    const achievement = ACHIEVEMENTS.find((a) => a.key === key)!;
+    for (const milestone of rungs) {
+      if ((stats[key] ?? 0) >= milestone.value) fresh.push({ achievement, milestone });
+    }
+  });
+
+  const created = await createMilestones(userId, fresh.map((f) => milestoneKey(f.achievement.key, f.milestone.value)));
+  const awarded = fresh.filter((f) => created.has(milestoneKey(f.achievement.key, f.milestone.value)));
+
+  // One notification per achievement, for the highest rung reached, so finishing a
+  // 1,000-page book doesn't announce 300, 500 and 750 too. Moving an existing user onto
+  // milestones backfills rungs they passed long ago, which isn't news, so stay quiet then.
+  if (!migrated && awarded.length > 0) {
+    const highest = new Map<AchievementKey, Milestone>();
+    for (const { achievement, milestone } of awarded) {
+      const current = highest.get(achievement.key);
+      if (!current || milestone.value > current.value) highest.set(achievement.key, milestone);
+    }
+    await prisma.notification.createMany({
+      data: Array.from(highest, ([key, milestone]) => ({
+        userId,
+        actorId: userId,
+        type: "ACHIEVEMENT_EARNED" as const,
+        achievementKey: milestoneKey(key, milestone.value),
+      })),
+    });
+  }
+
+  return { awarded, stats };
+}
+
+// Backward compatible: awardNewAchievements(userId) still checks every ladder. Pass a trigger to
+// check only what an event can move, e.g. awardNewAchievements(userId, { trigger: "progress" }).
+export async function awardNewAchievements(userId: string, options: AwardOptions = {}): Promise<EarnedMilestone[]> {
+  return (await syncAchievements(userId, options)).awarded;
 }
