@@ -36,6 +36,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [books, setBooks] = useState<DiscoverBook[]>([])
   const [people, setPeople] = useState<SearchUser[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
+  const [searchAttempt, setSearchAttempt] = useState(0)
   const [followState, setFollowState] = useState<Record<string, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -56,18 +58,24 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       setBooks([])
       setPeople([])
       setIsSearching(false)
+      setSearchFailed(false)
       return
     }
+    // A slower earlier search must not overwrite the results for what's typed now.
+    let current = true
     setIsSearching(true)
+    setSearchFailed(false)
     if (mode === "books") warmCoverConnections()
     const timeout = setTimeout(() => {
       const request = mode === "books"
-        ? axios.get(`/api/books/search?q=${encodeURIComponent(q)}&limit=12`).then((res) => setBooks(res.data))
-        : axios.get(`/api/users/search?q=${encodeURIComponent(q)}`).then((res) => setPeople(res.data))
-      request.catch(() => {}).finally(() => setIsSearching(false))
+        ? axios.get(`/api/books/search?q=${encodeURIComponent(q)}&limit=12`).then((res) => { if (current) setBooks(res.data) })
+        : axios.get(`/api/users/search?q=${encodeURIComponent(q)}`).then((res) => { if (current) setPeople(res.data) })
+      request
+        .catch(() => { if (current) { setBooks([]); setPeople([]); setSearchFailed(true) } })
+        .finally(() => { if (current) setIsSearching(false) })
     }, 400)
-    return () => clearTimeout(timeout)
-  }, [q, mode, isActive, signedIn])
+    return () => { current = false; clearTimeout(timeout) }
+  }, [q, mode, isActive, signedIn, searchAttempt])
 
   const handleFollow = (username: string, current: boolean) => {
     axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
@@ -104,6 +112,13 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       results = <p className="text-sm text-muted-foreground"><Link href="/signin" className="font-medium text-foreground underline underline-offset-4">Sign in</Link> to find readers.</p>
     } else if (isSearching) {
       results = <p className="text-sm text-muted-foreground" aria-live="polite">Searching…</p>
+    } else if (searchFailed) {
+      results = (
+        <p role="alert" className="text-sm text-muted-foreground">
+          {mode === "books" ? "Couldn't reach the book catalogue." : "Couldn't search for readers."}{" "}
+          <button type="button" onClick={() => setSearchAttempt((n) => n + 1)} className="font-medium text-foreground underline underline-offset-4">Try again</button>
+        </p>
+      )
     } else if (mode === "books") {
       results = books.length === 0
         ? <p className="text-sm text-muted-foreground" aria-live="polite">No books match &ldquo;{q}&rdquo;. Try the title or the author&apos;s surname.</p>

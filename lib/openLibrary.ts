@@ -38,8 +38,9 @@ const toDiscoverBooks = (data: any): DiscoverBook[] =>
 
 export async function searchBooks(query: string, limit = 6): Promise<DiscoverBook[]> {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${FIELDS}&limit=${limit}`
-  const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
-  if (!res.ok) return []
+  // Open Library's search often takes 3–6s. A failure throws, so callers can tell it from no matches.
+  const res = await fetch(url, { signal: AbortSignal.timeout(9000) })
+  if (!res.ok) throw new Error(`Open Library search failed: ${res.status}`)
   return toDiscoverBooks(await res.json())
 }
 

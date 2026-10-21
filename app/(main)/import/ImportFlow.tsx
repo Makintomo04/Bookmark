@@ -9,6 +9,7 @@ import Medal from '@/app/components/achievements/Medal'
 import { cn } from '@/lib/utils'
 import type { ImportJobView } from '@/lib/import/job'
 import { SOURCE_LABEL } from '@/lib/import/types'
+import { SearchFailed } from "@/app/components/modals/BookSearchResults";
 
 const MAX_BYTES = 5 * 1024 * 1024
 
@@ -423,13 +424,19 @@ const UnmatchedRow: FC<{ jobId: string; entry: { bookId: string; title: string; 
   const [query, setQuery] = useState(`${entry.title} ${entry.author === "Unknown" ? "" : entry.author}`.trim())
   const [results, setResults] = useState<Candidate[] | null>(null)
   const [busy, setBusy] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
 
   const search = async () => {
     if (query.trim().length < 3) return
     setBusy(true)
+    setSearchFailed(false)
     try {
       const res = await fetch(`/api/books/search?q=${encodeURIComponent(query.trim())}`)
-      setResults(res.ok ? ((await res.json()) as Candidate[]).filter((c) => c.workKey) : [])
+      if (!res.ok) throw new Error("search failed")
+      setResults(((await res.json()) as Candidate[]).filter((c) => c.workKey))
+    } catch {
+      setResults(null)
+      setSearchFailed(true)
     } finally {
       setBusy(false)
     }
@@ -468,6 +475,7 @@ const UnmatchedRow: FC<{ jobId: string; entry: { bookId: string; title: string; 
             />
             <Button type="submit" size="sm" disabled={busy}>{busy ? <Loader2 size={14} className="animate-spin" aria-label="Searching" /> : "Search"}</Button>
           </form>
+          {searchFailed && <SearchFailed onRetry={search} />}
           {results && results.length === 0 && <p className="text-sm text-muted-foreground">No results. Try a shorter title.</p>}
           {results && results.length > 0 && (
             <ul className="grid gap-2 sm:grid-cols-2">
