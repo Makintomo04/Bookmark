@@ -4,7 +4,7 @@ import { genreFromTags } from "./genre.ts";
 import type { ImportRow, ImportSource, ImportedRead, ParsedImport } from "./types.ts";
 
 // Detects Goodreads, StoryGraph and Bookmark CSV exports and maps each row onto Bookmark's model.
-// Kept free of "@/" imports so scripts/test-import.ts can load it with plain Node.
+// Kept free of "@/" imports so scripts/test/import.test.ts can load it with plain Node.
 
 const STATUSES: Status[] = ["NOT_STARTED", "STARTED", "COMPLETED", "DNF", "PAUSED"];
 

@@ -2,7 +2,7 @@
 // (Goodreads and StoryGraph reviews are often several paragraphs). Accepts CRLF, LF or CR rows,
 // strips a leading BOM, and skips blank lines.
 //
-// Kept free of "@/" imports so scripts/test-import.ts can load it with plain Node.
+// Kept free of "@/" imports so scripts/test/import.test.ts can load it with plain Node.
 
 export function parseCsv(text: string): string[][] {
   const input = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;

@@ -1,6 +1,6 @@
 import type { Status } from "@prisma/client";
 
-// Kept free of "@/" imports (type-only imports are fine) so scripts/test-import.ts runs under plain Node.
+// Kept free of "@/" imports (type-only imports are fine) so scripts/test/import.test.ts runs under plain Node.
 
 export type ImportSource = "goodreads" | "storygraph" | "bookmark";
 

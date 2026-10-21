@@ -7,7 +7,7 @@ import type { ImportMatch, ImportRow } from "./types.ts";
 // ISBNs go many to a request (`isbn:a OR isbn:b …`), so a 2,000-book Goodreads library takes a few
 // dozen requests rather than thousands; only rows without a usable ISBN need a search each.
 //
-// Kept free of "@/" imports so scripts/test-import.ts can run it against a stubbed fetch.
+// Kept free of "@/" imports so scripts/test/import.test.ts can run it against a stubbed fetch.
 
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status?: number; json(): Promise<any> }>;
 

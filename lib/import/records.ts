@@ -4,7 +4,7 @@ import { sameBook } from "../workKey.ts";
 import { SOURCE_LABEL, type ImportMatch, type ImportRow, type ImportSource } from "./types.ts";
 
 // Turns a mapped row (plus its Open Library match) into the Book, BookRead and Note rows to insert.
-// Pure, so scripts/test-import.ts checks it without a database. Kept free of "@/" imports.
+// Pure, so scripts/test/import.test.ts checks it without a database. Kept free of "@/" imports.
 
 // Matches the API's limit (app/api/book-progress), so an imported review can still be edited and re-saved.
 export const REVIEW_MAX = 2000;

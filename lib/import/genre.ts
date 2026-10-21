@@ -2,7 +2,7 @@
 // tags or Open Library subjects. Most specific first: "historical fiction" must not land on History,
 // and plenty of novels carry an Open Library "History" subject, so History is near the end.
 //
-// Kept free of "@/" imports so scripts/test-import.ts can load it with plain Node.
+// Kept free of "@/" imports so scripts/test/import.test.ts can load it with plain Node.
 
 const RULES: [label: string, pattern: RegExp][] = [
   ["Graphic Novels", /graphic[\s_-]*novel|comics?\b|manga/],
