@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import moment from 'moment'
 import type { Book } from '@prisma/client'
-import { Plus, Repeat2 } from 'lucide-react'
+import { Pencil, Repeat2 } from 'lucide-react'
 import { calculatePercentageComplete } from '@/utils/helpers'
 import { readableInk } from '@/lib/colour'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
@@ -95,7 +95,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
                 style={{ background: accent, color: readableInk(accent) }}
                 className="grid size-7 flex-shrink-0 place-items-center rounded-full shadow-sm transition group-hover:scale-110 group-active:scale-95"
               >
-                <Plus size={16} strokeWidth={2.5} />
+                <Pencil size={14} strokeWidth={2.5} />
               </span>
             </div>
           </button>
