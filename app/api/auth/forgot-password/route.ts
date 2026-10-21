@@ -3,6 +3,7 @@ import { sendMail } from "@/lib/mailer";
 import { generateResetToken } from "@/lib/passwordResetToken";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
+import { appUrl } from "@/lib/siteUrl";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
     },
   });
 
-  const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
+  const resetUrl = `${appUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
   await sendMail({
     to: email,

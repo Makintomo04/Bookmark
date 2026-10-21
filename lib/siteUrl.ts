@@ -11,3 +11,15 @@ function resolveSiteUrl() {
 }
 
 export const siteUrl = resolveSiteUrl().replace(/\/$/, "")
+
+// Where links in emails (verify, reset password) should land. A preview links to itself: NEXTAUTH_URL
+// is shared across Vercel environments and points at production, which may not have the page yet.
+function resolveAppUrl() {
+  if (process.env.VERCEL_ENV === "preview") {
+    const host = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL
+    if (host) return `https://${host}`
+  }
+  return process.env.NEXTAUTH_URL || siteUrl
+}
+
+export const appUrl = resolveAppUrl().replace(/\/$/, "")

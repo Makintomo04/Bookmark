@@ -1,6 +1,7 @@
 import prisma from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { generateResetToken } from "@/lib/passwordResetToken";
+import { appUrl } from "@/lib/siteUrl";
 
 export const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -24,7 +25,7 @@ export async function sendVerificationEmail(email: string) {
     },
   });
 
-  const verifyUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`;
+  const verifyUrl = `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
   await sendMail({
     to: email,
