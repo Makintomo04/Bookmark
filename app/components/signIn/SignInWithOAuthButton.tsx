@@ -17,8 +17,10 @@ const SignInWithOAuthButton: FC<SignInButtonProps> = ({provider, callbackPath = 
       { callbackUrl: `${window.location.origin}${afterSignInPath(callbackPath)}` }
     )
   }
-  return <div className='w-full'><Button type="button" variant="outline" size={'lg'} aria-label={`Continue with ${provider === "Github" ? "GitHub" : provider}`} className='w-full flex gap-3 dark:border-slate-100/50' onClick={()=>onSubmit()} >
-  <span></span> {provider === "Google" ? <FaGoogle size={18} aria-hidden/> : <FaGithub size={20} aria-hidden/> }
+  const name = provider === "Github" ? "GitHub" : String(provider)
+  return <div className='w-full'><Button type="button" variant="outline" size={'lg'} aria-label={`Continue with ${name}`} className='w-full flex gap-2 px-4 dark:border-slate-100/50' onClick={()=>onSubmit()} >
+  {provider === "Google" ? <FaGoogle size={18} aria-hidden/> : <FaGithub size={20} aria-hidden/> }
+  <span>{name}</span>
 </Button></div>
 }
 

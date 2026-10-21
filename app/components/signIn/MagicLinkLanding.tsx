@@ -1,0 +1,38 @@
+"use client"
+import { useState } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { Button } from '../ui/button'
+
+// Where the emailed sign-in link lands. Signing in takes a click, not a page load, so mail scanners
+// that open links to check them don't spend the one-time token first (see lib/magicLink.ts).
+const MagicLinkLanding = () => {
+  const searchParams = useSearchParams()
+  const next = searchParams?.get('next') ?? ''
+  // Only ever forwards to NextAuth's own email callback on this site.
+  const valid = next.startsWith('/api/auth/callback/email?')
+  const [going, setGoing] = useState(false)
+
+  return (
+    <div className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>
+      <div className="flex justify-center items-center gap-3 mb-6">
+        <Image src='/logo.svg' width={40} height={40} alt='Bookmark'/>
+      </div>
+      <h1 className="text-2xl font-bold mb-6 text-center">Sign in to Bookmark</h1>
+      {!valid ? (
+        <p className='text-center text-sm'>This sign-in link is invalid. <Link href="/signin" className='text-[#F13C3C] font-semibold hover:underline'>Request a new one</Link>.</p>
+      ) : (
+        <div className="flex flex-col gap-4 text-sm">
+          <p className="text-center">You&apos;re one click away. The link works once and expires an hour after it was sent.</p>
+          <Button type="button" disabled={going} onClick={() => { setGoing(true); window.location.assign(next) }} className="bg-red-500 text-white rounded-md py-2">
+            {going ? "Signing in…" : "Sign in"}
+          </Button>
+          <p className="text-center text-muted-foreground">Didn&apos;t ask for this link? Close this page and nothing will happen.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default MagicLinkLanding

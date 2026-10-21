@@ -26,8 +26,22 @@ export async function POST(req: Request) {
   const callbackPath = safeCallbackPath(typeof body?.callbackUrl === 'string' ? body.callbackUrl : null);
 
   const existingUser = await findUserByEmail(email);
+  // Signed up before but never confirmed (lost the email, or it expired): send a fresh link rather than a
+  // dead end. The password isn't changed, or whoever knew the address could replace a pending sign-up's.
+  if (existingUser?.email && existingUser.hashedPassword && !existingUser.emailVerified) {
+    const byEmail = rateLimit(`resend-verify:email:${email}`, 3, 60 * 60 * 1000);
+    if (!byEmail.ok) {
+      return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429, headers: { 'Retry-After': String(byEmail.retryAfterSeconds) } });
+    }
+    try {
+      await sendVerificationEmail(existingUser.email, callbackPath);
+    } catch (error) {
+      console.error('Failed to resend verification email', error);
+    }
+    return NextResponse.json({ resent: true });
+  }
   if (existingUser) {
-    return NextResponse.json({ error: 'An account with this email already exists.' }, { status: 409 });
+    return NextResponse.json({ error: 'An account with this email already exists. Sign in instead, or reset your password.' }, { status: 409 });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);

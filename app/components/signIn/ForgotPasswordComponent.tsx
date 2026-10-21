@@ -48,13 +48,17 @@ const ForgotPasswordComponent = () => {
   </div>
   <div className="">
     {isSubmitted ? (
-      <p className='text-center text-sm'>If an account exists for that email, we&apos;ve sent a link to reset your password. Check your inbox.</p>
+      <div role="status" className='text-center text-sm flex flex-col gap-3'>
+        <p>If an account with a password exists for that email, we&apos;ve sent a link to reset it. Check your inbox.</p>
+        {/* Google/GitHub accounts have no password, so no reset email goes out for them. */}
+        <p className='text-muted-foreground'>Signed up with Google or GitHub? There&apos;s no password to reset: use those buttons on the sign-in page, or email yourself a sign-in link.</p>
+      </div>
     ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <p className='text-sm text-slate-600 dark:text-slate-400 -mt-2'>Enter the email on your account and we&apos;ll send you a link to reset your password.</p>
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
-        <Input register={register} errors={errors} inputValidation={{required:true, message:"Email Required"}} type="email" name="email" id="email" className="w-full" required/>
+        <Input register={register} errors={errors} inputValidation={{required:true, message:"Email Required"}} type="email" name="email" id="email" autoComplete="email" className="w-full" required/>
       </div>
       <Button disabled={isLoading} className="bg-red-500 text-white rounded-md py-2">Send reset link</Button>
     </form>
