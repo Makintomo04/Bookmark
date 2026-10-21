@@ -290,6 +290,8 @@ enum NotificationType {
   BUDDY_READ_JOINED
   // Your progress passed other members' comments. Batched per buddy read: count says how many unlocked.
   COMMENTS_UNLOCKED
+  // You finished a seasonal quest. achievementKey is "QUEST:<questId>".
+  QUEST_COMPLETED
 }
 
 model UserAchievement {
@@ -557,4 +559,57 @@ model BuddyReadInvite {
   @@unique([buddyReadId, inviteeId])
   @@index([inviteeId, createdAt])
   @@index([inviterId])
+}
+
+// ---- Seasonal quests ------------------------------------------------------------------------
+// Time-boxed reading challenges set by staff. Finishing one earns a limited-edition medal, stored as a
+// UserAchievement keyed "QUEST:<questId>" so it counts with every other medal and stays earned for good.
+// Every reader takes part automatically: progress comes from the reads they already log (lib/quests.ts).
+
+model Quest {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // The /quests/<slug> address. Medals are keyed by id, so the slug can change.
+  slug String @unique
+  title String
+  description String
+  // The window: only reads finished between these count. endsAt is the last moment of the last day.
+  startsAt DateTime
+  endsAt DateTime
+  // What to do, as a tagged union (QuestGoal in lib/quests.ts), e.g. { "type": "pages", "count": 3, "minPages": 600 }.
+  goal Json
+  // The medal: face colour, ribbon colour and an icon name from QUEST_ICONS (lib/questMedal.ts).
+  medalColour String
+  ribbonColour String
+  medalIcon String
+  // A draft: only staff see it, and nobody can earn it.
+  hidden Boolean @default(false)
+  createdById String @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  progress QuestProgress[]
+
+  // Live and upcoming quests: endsAt from now on, then filtered by startsAt.
+  @@index([endsAt, startsAt])
+}
+
+// A reader's standing in one quest, written when it changes. Created the first time a book counts,
+// so it also answers "how many are taking part" and, with completedAt, "how many earned it".
+model QuestProgress {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  questId String @db.ObjectId
+  userId String @db.ObjectId
+  count Int @default(0)
+  // The shelf books that counted, in the order they were finished.
+  bookIds String[] @db.ObjectId
+  completedAt DateTime?
+  updatedAt DateTime @updatedAt
+
+  quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  // One row per reader per quest; the prefix covers the questId foreign key.
+  @@unique([questId, userId])
+  // "N readers earned this".
+  @@index([questId, completedAt])
+  @@index([userId])
 }

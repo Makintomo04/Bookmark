@@ -12,7 +12,11 @@ export type AchievementKey =
   | "BUDDY_READS_FINISHED"
   | "BUDDY_READS_HOSTED"
 
-export type AchievementCategory = "reading" | "consistency" | "engagement"
+// "quests" holds the seasonal quest medals: one-off, defined in the database (the Quest model) rather
+// than here, and stored as "QUEST:<questId>" (lib/questRules.ts). /api/achievements merges them in.
+export type AchievementCategory = "reading" | "consistency" | "engagement" | "quests"
+
+export const QUEST_MEDAL_PREFIX = "QUEST:"
 
 export interface Milestone {
   value: number
@@ -178,5 +182,6 @@ export function getMilestone(storedKey: string): { achievement: AchievementDefin
 }
 
 export function getAchievementTitle(storedKey: string): string {
+  if (storedKey.startsWith(QUEST_MEDAL_PREFIX)) return "a limited-edition quest medal"
   return getMilestone(storedKey)?.milestone.title ?? "an achievement"
 }

@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { ACHIEVEMENTS, milestoneKey } from "@/lib/achievements-catalog";
 import { syncAchievements } from "@/lib/achievements";
+import { questAchievementItems } from "@/lib/quests";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -31,5 +32,8 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json(achievements);
+  // Seasonal quest medals: one rung each, from the database. Earned ones stay for good; live ones show locked.
+  const quests = await questAchievementItems(currentUser.id, earned);
+
+  return NextResponse.json([...achievements, ...quests]);
 }
