@@ -1,11 +1,25 @@
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { sanitizeUser } from "@/lib/sanitizeUser";
-import { BIO_MAX, USERNAME_MAX, USERNAME_MIN } from "@/lib/profile";
+import { BIO_MAX, DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN } from "@/lib/profile";
+import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
-const DEFAULT_COLOUR = "rgba(241, 60, 60, 1)";
+// Onboarding's live "is this username free?" check. Usernames are public, so this reveals nothing new.
+export async function GET(req: Request) {
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
+  const limit = rateLimit(`username-check:${clientIp(req.headers)}`, 120, 60 * 1000);
+  if (!limit.ok) return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429 });
+
+  const username = (new URL(req.url).searchParams.get("username") ?? "").trim();
+  if (username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
+    return NextResponse.json({ available: false });
+  }
+  const taken = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+  return NextResponse.json({ available: !taken || taken.id === currentUser.id });
+}
 
 // `field` tells onboarding which step to send the reader back to.
 function invalid(error: string, field: string, status = 400) {

@@ -2,8 +2,6 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { FieldErrors, FieldValues, UseFormRegister } from "react-hook-form"
-import { formSchema } from "@/app/(auth)/new-user/form-schema"
-import { z } from "zod"
 
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {

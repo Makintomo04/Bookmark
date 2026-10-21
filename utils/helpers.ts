@@ -43,12 +43,3 @@ export function warmCoverConnections() {
 // Genre suggestions for the add/edit book forms, kept in step with the Discover genre pages.
 export const GENRES = GENRE_LIST.map((g) => g.label)
 
-export enum STEPS {
-  START= 0,
-  USERNAME= 1,
-  IMAGE= 2,
-  BANNER= 3,
-  BIO= 4,
-  COLOUR= 5,
-  COMPLETE= 6
-}  

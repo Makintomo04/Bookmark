@@ -9,6 +9,9 @@ const nextConfig = {
       { protocol: 'https', hostname: 'images3.penguinrandomhouse.com' },
       { protocol: 'https', hostname: 'images1.penguinrandomhouse.com' },
       { protocol: 'https', hostname: 'covers.openlibrary.org' },
+      // Avatars from Google and GitHub sign-ins, kept as the profile picture until the reader changes it.
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
     ],
   },
   async headers() {
