@@ -92,34 +92,20 @@ const Landing: FC = () => {
   return (
     <div className="w-full">
       {/* Hero: one promise, one action. Sign in already lives in the header. */}
-      <section className="max-w-6xl mx-auto px-6 pt-12 pb-16 md:pt-20 md:pb-24 grid md:grid-cols-[1.1fr_1fr] gap-12 md:gap-16 items-center">
-        <div className="flex flex-col items-center text-center md:items-start md:text-left">
-          <Image src="/logo.svg" width={48} height={48} alt="Bookmark logo" className="mb-6" />
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.08] tracking-tight max-w-xl">
-            Read more books, and remember every one.
-          </h1>
-          <p className={`text-base md:text-lg mt-5 max-w-lg ${mutedClassName}`}>
-            Bookmark logs your reading, keeps you on track for your yearly goal, and turns it all into stats and a year-end Wrapped. Free, with no paywall.
-          </p>
-          <Button asChild className={`${ctaClassName} mt-8`}>
-            <Link href="/register">Start your shelf — it&apos;s free</Link>
-          </Button>
-          <p className={`text-sm mt-4 ${mutedClassName}`}>
-            Coming from Goodreads or StoryGraph? Bring your books with you.
-          </p>
-        </div>
-
-        <div className="mx-auto w-full max-w-[22rem] rounded-[20px] overflow-hidden shadow-2xl border border-neutral-200 dark:border-neutral-800">
-          <Image
-            src="/images/landing-hero.jpg"
-            width={773}
-            height={1079}
-            alt="A Bookmark profile showing reading stats, a yearly goal, and a shelf of books"
-            sizes="(min-width: 768px) 352px, 90vw"
-            className="w-full h-auto"
-            priority
-          />
-        </div>
+      <section className="flex flex-col items-center text-center px-6 pt-12 pb-16 md:pt-20 md:pb-24">
+        <Image src="/logo.svg" width={48} height={48} alt="Bookmark logo" className="mb-6" />
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.08] tracking-tight max-w-3xl">
+          Read more books, and remember every one.
+        </h1>
+        <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
+          Bookmark logs your reading, keeps you on track for your yearly goal, and turns it all into stats and a year-end Wrapped. Free, with no paywall.
+        </p>
+        <Button asChild className={`${ctaClassName} mt-8`}>
+          <Link href="/register">Start your shelf — it&apos;s free</Link>
+        </Button>
+        <p className={`text-sm mt-4 ${mutedClassName}`}>
+          Coming from Goodreads or StoryGraph? Bring your books with you.
+        </p>
       </section>
 
       {/* Switching is the biggest hurdle for anyone who already tracks their reading elsewhere. */}
