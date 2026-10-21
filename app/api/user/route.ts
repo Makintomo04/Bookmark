@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import getCurrentUser from "../../actions/getCurrentUser";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { User } from "@prisma/client";
+import { BIO_MAX, USERNAME_MAX, USERNAME_MIN } from "@/lib/profile";
 export async function GET (req:Request, res:Response) {
 const currentUser = await getCurrentUser();
 
@@ -26,12 +27,20 @@ return NextResponse.json(sanitizeUser(user))
 export async function POST (req:Request, res:Response) {
   const body = await req.json();
 const currentUser = await getCurrentUser();
-const {username,imageSrc,bannerSrc,bio,color} = body;
+const {imageSrc,bannerSrc,bio,color} = body;
+const username = typeof body.username === "string" ? body.username.trim() : body.username;
 if (!currentUser) {
   return NextResponse.error();
 }
 
-const updatedData:Record<string,string> = {
+if (typeof username !== "string" || username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
+  return NextResponse.json({ error: `Usernames are ${USERNAME_MIN}–${USERNAME_MAX} characters.` }, { status: 400 });
+}
+if (typeof bio === "string" && bio.length > BIO_MAX) {
+  return NextResponse.json({ error: `Bios are up to ${BIO_MAX} characters.` }, { status: 400 });
+}
+
+const updatedData:Record<string,string | null> = {
 };
 
 // Check for changed fields and update data accordingly

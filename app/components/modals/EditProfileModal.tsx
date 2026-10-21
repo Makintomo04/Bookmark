@@ -1,279 +1,392 @@
 "use client"
-import { FC, use, useEffect, useState } from 'react'
-import Modal from './Modal'
-import EditAvatar from './EditAvatar'
-import useUser from '@/app/hooks/useUser'
-import { User } from '@prisma/client'
-import { Textarea } from '../ui/textarea'
-import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
-import { Input } from '../ui/input'
-import { Label } from '@radix-ui/react-label'
-import { ChromePicker } from 'react-color'
-import { cn } from '@/lib/utils'
-import { UploadButton } from '@/utils/uploadthing'
-import { toast } from 'react-toastify'
+import { FC, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { Button } from '../ui/button'
 import axios from 'axios'
-import { useRouter } from 'next/navigation'
+import { toast } from 'react-toastify'
 import { signOut } from 'next-auth/react'
-import Loader from '../Loader'
+import { useForm } from 'react-hook-form'
+import { Camera, Check, ImagePlus, Loader2, Pipette, Trash2 } from 'lucide-react'
+import Modal from './Modal'
+import { Button } from '../ui/button'
+import { cn } from '@/lib/utils'
+import { readableInk, toHex } from '@/lib/colour'
+import { BIO_MAX, USERNAME_MAX, USERNAME_MIN } from '@/lib/profile'
+import { useUploadThing } from '@/utils/uploadthing'
+import useUser from '@/app/hooks/useUser'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
-import { set } from 'zod'
 
-interface EditProfileModalProps {
-  
+const DEFAULT_COLOUR = '#D92D2D'
+const SWATCHES = ['#D92D2D', '#E8590C', '#E0A800', '#2F9E44', '#0C8599', '#1971C2', '#5F3DC4', '#C2255C', '#495057', '#1A1A1A']
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+
+type ProfileForm = {
+  username: string
+  bio: string
+  imageSrc: string
+  bannerSrc: string
+  color: string
 }
 
-const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
-  const {user,isLoading:isUserLoading,isError,mutate} = useUser()
-  const editProfileModal = useEditProfileModal()
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    getValues,
-    formState:{errors},
-    reset} = useForm<FieldValues>({
-    defaultValues: async ()=>{
-      return {
-        username: user?.username,
-        bio: user?.bio,
-        imageSrc: user?.image,
-        bannerSrc: user?.banner,
-        color: user?.favColour,
-      }
-    },
-  },)
-  const imageSrc = watch("imageSrc");
-  const bannerSrc = watch("bannerSrc");
-  const colorSrc = watch("color");
-  const [color, setColor] = useState(colorSrc);
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [coverImageLink, setImageLink] = useState(user?.image || "");
-  const [imageLink, setCoverImageLink] = useState(user?.banner || "");
-  const [isLoading, setIsLoading] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const router = useRouter()
+const fieldClass = "w-full rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
+const overlayButtonClass = "inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium bg-black/60 text-white backdrop-blur-sm hover:bg-black/75 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
+
+// Uploads one image, showing the local file straight away so the preview doesn't wait on the network.
+const useImageUpload = (onDone: (url: string) => void) => {
+  const [preview, setPreview] = useState<string | null>(null)
+  const { startUpload, isUploading } = useUploadThing("imageUploader", {
+    onUploadError: (e) => toast.error(e.message || "Upload failed. Try another image.", { position: "bottom-center" }),
+  })
+
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
+
+  const upload = async (file: File | undefined) => {
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file.", { position: "bottom-center" })
+      return
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error("That image is over 4MB. Choose a smaller one.", { position: "bottom-center" })
+      return
+    }
+    setPreview(URL.createObjectURL(file))
+    const res = await startUpload([file]).catch(() => undefined)
+    if (res?.[0]?.url) onDone(res[0].url)
+    setPreview(null)
+  }
+
+  return { upload, preview, isUploading }
+}
+
+const EditProfileModal: FC = () => {
+  const { user, isLoading: isUserLoading, mutate } = useUser()
+  const { isOpen, onClose } = useEditProfileModal()
+  const [isSaving, setIsSaving] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState("")
+  const [isDeleting, setIsDeleting] = useState(false)
+  const avatarInput = useRef<HTMLInputElement>(null)
+  const bannerInput = useRef<HTMLInputElement>(null)
+
+  const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors, isDirty } } = useForm<ProfileForm>({
+    defaultValues: { username: "", bio: "", imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR },
+  })
+
+  const setField = (name: keyof ProfileForm, value: string) =>
+    setValue(name, value, { shouldDirty: true, shouldValidate: true })
+
+  const avatar = useImageUpload((url) => setField("imageSrc", url))
+  const banner = useImageUpload((url) => setField("bannerSrc", url))
+  const isUploading = avatar.isUploading || banner.isUploading
+  const isBusy = isSaving || isUploading || isDeleting
+
+  // Start from the saved profile every time the modal opens, so abandoned edits don't linger.
+  useEffect(() => {
+    if (!isOpen || !user) return
+    reset({
+      username: user.username ?? "",
+      bio: user.bio ?? "",
+      imageSrc: user.image ?? "",
+      bannerSrc: user.banner ?? "",
+      color: toHex(user.favColour ?? "") ?? DEFAULT_COLOUR,
+    })
+    setShowDeleteConfirm(false)
+    setDeleteConfirmText("")
+  // Keyed on the id so a background refetch mid-edit doesn't wipe what the user typed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, user?.id, reset])
+
+  const [username, bio, imageSrc, bannerSrc, colour] = watch(["username", "bio", "imageSrc", "bannerSrc", "color"])
+  const accent = colour || DEFAULT_COLOUR
+  const accentInk = readableInk(accent)
+  const isCustomColour = !SWATCHES.includes(accent.toUpperCase())
+  const avatarSrc = avatar.preview || imageSrc || "/images/avatar.jpg"
+  const bannerShown = banner.preview || bannerSrc
+
+  const close = () => {
+    if (isBusy) return
+    onClose()
+  }
+
+  const onSubmit = (data: ProfileForm) => {
+    setIsSaving(true)
+    axios.post("/api/user", { ...data, username: data.username.trim(), imageSrc: data.imageSrc || null, bannerSrc: data.bannerSrc || null })
+      .then((res) => {
+        if (res.data?.id) mutate(res.data, { revalidate: false })
+        toast.success("Profile saved", { position: "bottom-center" })
+        onClose()
+      })
+      .catch((err) => {
+        const message = err?.response?.data?.error
+        if (err?.response?.status === 409) {
+          setError("username", { type: "server", message: message || "That username is already taken." }, { shouldFocus: true })
+          return
+        }
+        toast.error(message || "Couldn't save your profile. Check your connection and try again.", { position: "bottom-center" })
+      })
+      .finally(() => setIsSaving(false))
+  }
 
   const handleDeleteAccount = () => {
     setIsDeleting(true)
     axios.delete("/api/user")
-      .then(() => {
-        signOut({ callbackUrl: `${window.location.origin}/` })
-      })
+      .then(() => signOut({ callbackUrl: `${window.location.origin}/` }))
       .catch(() => {
-        toast.error("Something went wrong deleting your account.", { position: "bottom-center" })
+        toast.error("Couldn't delete your account. Try again.", { position: "bottom-center" })
         setIsDeleting(false)
       })
   }
-  useEffect(() => {
-    let defaultValues:FieldValues = {};
-    defaultValues.username = user?.username;
-    defaultValues.bio = user?.bio;
-    defaultValues.imageSrc = user?.image;
-    defaultValues.bannerSrc = user?.banner;
-    defaultValues.color = user?.favColour;
-    reset({ ...defaultValues });
-    if (user?.favColour) setColor(user.favColour as any);
 
-  },[user?.username,user?.bio,user?.image,user?.banner,user?.favColour])
-  const handleClick = () => {
-    setShowColorPicker((state) => !state)
-  };
+  const fileInput = (ref: typeof avatarInput, onFile: (f: File | undefined) => void, label: string) => (
+    <input
+      ref={ref}
+      type="file"
+      accept="image/*"
+      aria-label={label}
+      className="sr-only"
+      tabIndex={-1}
+      onChange={(e) => {
+        onFile(e.target.files?.[0])
+        e.target.value = ""
+      }}
+    />
+  )
 
-  const handleClose = () => {
-    setShowColorPicker(false)
-  };
-  const onSubmit:SubmitHandler<FieldValues> =(data) =>{
-    axios.post("/api/user",data).then((res)=>{
-      setIsLoading(true)
-      if(res?.data?.id){
-      toast.success("Profile Updated!",{ position: "bottom-center" })
-    }
-      if(res?.data?.message){
-        toast.info(res.data.message,{ position: "bottom-center" })
+  const preview = (
+    <div>
+      <div className="relative h-32 sm:h-40 overflow-hidden rounded-xl transition-colors" style={{ background: accent }}>
+        {bannerShown && (
+          <Image src={bannerShown} alt="" fill sizes="(min-width: 768px) 800px, 100vw" unoptimized={!!banner.preview} className={cn("object-cover", banner.isUploading && "opacity-60")} />
+        )}
+        {banner.isUploading && (
+          <div className="absolute inset-0 grid place-items-center">
+            <Loader2 className="size-6 animate-spin text-white drop-shadow" aria-hidden />
+          </div>
+        )}
+        <div className="absolute right-3 top-3 flex gap-2">
+          <button type="button" onClick={() => bannerInput.current?.click()} disabled={isBusy} className={overlayButtonClass}>
+            <ImagePlus size={14} aria-hidden />{bannerSrc ? "Change banner" : "Add banner"}
+          </button>
+          {bannerSrc && !banner.isUploading && (
+            <button type="button" onClick={() => setField("bannerSrc", "")} disabled={isBusy} aria-label="Remove banner" className={cn(overlayButtonClass, "px-2")}>
+              <Trash2 size={14} aria-hidden />
+            </button>
+          )}
+        </div>
+        {fileInput(bannerInput, banner.upload, "Upload banner image")}
+      </div>
 
-      }
-      if(res?.data?.id){
-        mutate({...data})
-      }
-      setIsLoading(false);
-    }).catch((err)=>{
-      toast.error("Something went wrong!",{ position: "bottom-center" })
-    }).finally(()=>{
-      setIsLoading(false);
-    })
-  }
-  const setCustomValue = (id: string, value: any) => {
-    setValue(id, value, {
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true
-    });
-  }
-
-  const onChangeMethod = (color:any) => {
-    setColor({
-      r: color.rgb.r,
-      g: color.rgb.g,
-      b: color.rgb.b,
-      a: color.rgb.a
-    });
-    setCustomValue("color",`rgba(${color.rgb.r},${color.rgb.g},${color.rgb.b},${color.rgb.a})`)
-  };
-  const footer = (
-    <div className="w-full p-6">
-      <div className="flex items-center gap-3 justify-end">
-      <Button style={{background:`${colorSrc}`}} onClick={editProfileModal.onClose}>Cancel</Button>
-      <Button style={{background:`${colorSrc}`}} onClick={handleSubmit(onSubmit)}>Save</Button>
+      <div className="px-4 -mt-10 sm:-mt-12 flex items-end gap-3">
+        <button
+          type="button"
+          onClick={() => avatarInput.current?.click()}
+          disabled={isBusy}
+          aria-label={imageSrc ? "Change profile picture" : "Add profile picture"}
+          className="group relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-[28px] border-4 border-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          style={{ background: accent }}
+        >
+          <Image src={avatarSrc} alt="" fill sizes="96px" unoptimized={!!avatar.preview} className="object-cover" />
+          <span className={cn(
+            "absolute inset-0 grid place-items-center bg-black/45 text-white transition-opacity",
+            avatar.isUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+          )}>
+            {avatar.isUploading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Camera className="size-5" aria-hidden />}
+          </span>
+        </button>
+        {fileInput(avatarInput, avatar.upload, "Upload profile picture")}
+        <div className="pb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <button type="button" onClick={() => avatarInput.current?.click()} disabled={isBusy} className="font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-60">
+            {imageSrc ? "Change photo" : "Add photo"}
+          </button>
+          {imageSrc && !avatar.isUploading && (
+            <button type="button" onClick={() => setField("imageSrc", "")} disabled={isBusy} className="underline-offset-4 hover:underline hover:text-foreground disabled:opacity-60">Remove</button>
+          )}
+          <span>JPG, PNG or GIF, up to 4MB</span>
+        </div>
       </div>
     </div>
   )
-  
-  const body = (
-    isUserLoading ? <p className="px-6 text-sm text-muted-foreground">Loading…</p>:<div
-      className="w-full h-full px-6"
-    >
-      <div className="h-full w-full flex flex-col sm:flex-row gap-6">
-        <div className="h-full w-full">
-          <div className="flex flex-col mb-8">
-            <h2 className='font-bold text-md mb-2'>Display Picture</h2>
-            <div className="flex items-center gap-6">
 
-            <EditAvatar src={imageSrc} favColour={colorSrc}/>
-            <UploadButton
-            appearance={{
-              button({ ready, isUploading,uploadProgress }) {
-                return {
-                  background: colorSrc,
-              }}}}
-        className={`mt-6 items-start`}
-        endpoint="imageUploader"
-        onUploadBegin={() => {
-          setIsLoading(true);
-        }}
-        onClientUploadComplete={(res) => {
-          // Do something with the response
-          setImageLink(res[0]?.url)
-          setCustomValue("imageSrc",res[0]?.url)
-          toast.success("Upload completed",{
-            position: "bottom-center"
-          })
-          setIsLoading(false);
-          // alert("Upload Completed");
-        }}
-        onUploadError={(error: Error) => {
-          // Do something with the error.
-          toast(error.message)
-          // alert(`ERROR! ${error.message}`);
-        }}
+  const fields = (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <label htmlFor="username" className="text-sm font-medium">Username</label>
+        <input
+          id="username"
+          autoComplete="off"
+          spellCheck={false}
+          disabled={isSaving}
+          aria-invalid={!!errors.username}
+          aria-describedby="username-hint"
+          className={cn(fieldClass, "h-10", errors.username ? "border-rose-500" : "border-neutral-300 dark:border-input")}
+          {...register("username", {
+            validate: (v) => {
+              const t = v.trim()
+              if (t.length < USERNAME_MIN) return `Use at least ${USERNAME_MIN} characters.`
+              if (t.length > USERNAME_MAX) return `Use ${USERNAME_MAX} characters or fewer.`
+              return true
+            },
+          })}
         />
-            </div>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-            <Label className="text-md font-bold" htmlFor="username">Username</Label>
-            <Input register={register} errors={errors} name="username" id="username" autoComplete='off' className=""/>
-            </div>
-            <div className="flex flex-col gap-2">
-            <Label className="text-md font-bold" htmlFor="bio">Bio</Label>
-          <Textarea register={register} errors={errors} name="bio" id="bio" autoComplete='off' className=""/>
-            </div> 
-            </div> 
-        </div>
-        <div className=" h-full w-full">
-        <div className="flex flex-col mb-8">
-            <h2 className='text-md font-bold mb-2'>Favourite Colour</h2>
-            <div 
-  style={ {background: colorSrc,
-}}
-  className={cn(`hover:scale-105 transition cursor-pointer text-center h-16 w-16 ring-4  ring-slate-300/50 rounded-full mt-3 `)} onClick={handleClick}></div>
+        {errors.username
+          ? <p id="username-hint" role="alert" className="text-sm text-rose-600 dark:text-rose-400">{errors.username.message}</p>
+          : <p id="username-hint" className="text-xs text-muted-foreground break-all">Your profile lives at /u/{username?.trim() || "…"}</p>}
+      </div>
 
-  </div>
-  { showColorPicker ? <div style={{position: 'fixed', zIndex: 60, top: '50%', left: '50%', transform: 'translate(-50%, -50%)'} }>
-          <div style={{position: 'fixed',
-    top: '0px',
-    right: '0px',
-    bottom: '0px',
-    left: '0px'}} onClick={ handleClose }/>
-          <div style={{position: 'relative'}}>
-          <ChromePicker color={color} onChange={onChangeMethod}/>
-          </div>
-        </div> : null }
-  <div className="flex flex-col mb-8">
-            <h2 className='text-md font-bold mb-2'>Banner</h2>
-            <div>
-              <div className="flex items-center justify-center mb-4">
-              {bannerSrc &&
-      <div className="h-32 w-full relative">
-     <Image priority layout="fill" objectFit="cover"  className='rounded-md h-full w-full object-cover' src={bannerSrc} alt='cover image'/>
-      
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <label htmlFor="bio" className="text-sm font-medium">Bio <span className="font-normal text-muted-foreground">· optional</span></label>
+          <span className={cn("text-xs tabular-nums", (bio?.length ?? 0) > BIO_MAX ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground")} aria-live="polite">
+            {bio?.length ?? 0}/{BIO_MAX}
+          </span>
+        </div>
+        <textarea
+          id="bio"
+          rows={3}
+          disabled={isSaving}
+          placeholder="What do you like to read?"
+          aria-invalid={!!errors.bio}
+          className={cn(fieldClass, "py-2 resize-y", errors.bio ? "border-rose-500" : "border-neutral-300 dark:border-input")}
+          {...register("bio", { maxLength: { value: BIO_MAX, message: `Keep your bio to ${BIO_MAX} characters.` } })}
+        />
+        {errors.bio && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{errors.bio.message}</p>}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span id="colour-label" className="text-sm font-medium">Colour</span>
+        <p className="text-xs text-muted-foreground -mt-1">Fills your banner and avatar background, and tints your buttons.</p>
+        <div role="radiogroup" aria-labelledby="colour-label" className="mt-1 flex flex-wrap gap-2">
+          {SWATCHES.map((swatch) => {
+            const selected = accent.toUpperCase() === swatch
+            return (
+              <button
+                key={swatch}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={swatch}
+                onClick={() => setField("color", swatch)}
+                disabled={isSaving}
+                className={cn(
+                  "grid size-9 place-items-center rounded-full transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  selected && "ring-2 ring-offset-2 ring-offset-background ring-neutral-400 dark:ring-neutral-500"
+                )}
+                style={{ background: swatch, color: readableInk(swatch) }}
+              >
+                {selected && <Check size={16} strokeWidth={3} aria-hidden />}
+              </button>
+            )
+          })}
+          <label
+            className={cn(
+              "relative grid size-9 cursor-pointer place-items-center rounded-full border border-dashed border-neutral-400 transition hover:scale-110 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+              isCustomColour && "border-solid border-transparent ring-2 ring-offset-2 ring-offset-background ring-neutral-400 dark:ring-neutral-500"
+            )}
+            style={isCustomColour ? { background: accent, color: accentInk } : undefined}
+            title="Pick a custom colour"
+          >
+            <Pipette size={15} aria-hidden />
+            <input
+              type="color"
+              aria-label="Custom colour"
+              value={accent}
+              onChange={(e) => setField("color", e.target.value.toUpperCase())}
+              disabled={isSaving}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            />
+          </label>
+        </div>
+      </div>
     </div>
-      }
-              </div>
-            <UploadButton
-            appearance={{
-              button({ ready, isUploading,uploadProgress }) {
-                return {
-                  background: colorSrc,
-              }}}}
-        className='items-start'
-        endpoint="imageUploader"
-        onUploadBegin={() => {
-          setIsLoading(true);
-        }}
-        onClientUploadComplete={(res) => {
-          // Do something with the response
-          setCoverImageLink(res[0]?.url)
-          setCustomValue("bannerSrc",res[0]?.url)
-          toast.success("Upload completed",{
-            position: "bottom-center"
-          })
-          setIsLoading(false);
-          // alert("Upload Completed");
-        }}
-        onUploadError={(error: Error) => {
-          // Do something with the error.
-          toast.error(error.message,
-            {
-              position: "bottom-center"
-            })
-        }}
-      />
-            </div>
-            </div>
-  </div>
-  <div className="flex flex-col gap-2 border border-red-500/30 rounded-lg p-4">
-    <h2 className="text-md font-bold text-red-500">Danger Zone</h2>
-    {!showDeleteConfirm ? (
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">Permanently delete your account and all your data.</p>
-        <Button type="button" variant="outline" className="border-red-500 text-red-500 hover:bg-red-500/10 flex-shrink-0" onClick={() => setShowDeleteConfirm(true)}>Delete Account</Button>
-      </div>
-    ) : (
-      <div className="flex flex-col gap-3">
-        <p className="text-xs text-muted-foreground">This can&apos;t be undone. All your books, notes, goals, and followers will be permanently deleted. Are you sure?</p>
-        <div className="flex gap-2">
-          <Button type="button" disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDeleteAccount}>{isDeleting ? "Deleting..." : "Yes, delete my account"}</Button>
-          <Button type="button" variant="outline" disabled={isDeleting} onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
-        </div>
-      </div>
-    )}
-  </div>
-          </div>
-
-      </div>
   )
+
+  const dangerZone = (
+    <div className="rounded-lg border border-rose-500/30 p-4">
+      {!showDeleteConfirm ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Delete account</p>
+            <p className="text-xs text-muted-foreground">Permanently remove your account, books, notes, goals and followers.</p>
+          </div>
+          <Button type="button" variant="outline" disabled={isBusy} className="shrink-0 border-rose-500/60 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-600" onClick={() => setShowDeleteConfirm(true)}>
+            Delete account
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Delete your account for good?</p>
+          <p className="text-xs text-muted-foreground">
+            This can&apos;t be undone. Everything on Bookmark goes with it. Type <span className="font-semibold text-foreground">{user?.username}</span> to confirm.
+          </p>
+          <input
+            autoFocus
+            aria-label="Type your username to confirm"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            disabled={isDeleting}
+            autoComplete="off"
+            spellCheck={false}
+            className={cn(fieldClass, "h-10 border-neutral-300 dark:border-input sm:max-w-xs")}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" disabled={isDeleting || deleteConfirmText !== user?.username} className="bg-rose-700 hover:bg-rose-800 text-white" onClick={handleDeleteAccount}>
+              {isDeleting ? "Deleting…" : "Delete my account"}
+            </Button>
+            <Button type="button" variant="outline" disabled={isDeleting} onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText("") }}>Keep my account</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const body = isUserLoading || !user ? (
+    <div className="w-full px-6 self-start flex flex-col gap-4" aria-busy="true">
+      <div className="h-32 sm:h-40 rounded-xl bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+      <div className="h-10 rounded-md bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+      <div className="h-20 rounded-md bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+    </div>
+  ) : (
+    <form
+      id="edit-profile-form"
+      onSubmit={handleSubmit(onSubmit)}
+      className="w-full px-6 self-start flex flex-col gap-8 pb-2"
+      noValidate
+    >
+      {preview}
+      {fields}
+      {dangerZone}
+    </form>
+  )
+
+  const saveLabel = isSaving ? "Saving…" : isUploading ? "Uploading…" : "Save changes"
+
+  const footer = (
+    <div className="w-full p-6 flex items-center justify-end gap-3">
+      <Button type="button" variant="outline" onClick={close} disabled={isBusy} className="hidden sm:inline-flex">
+        {isDirty ? "Cancel" : "Close"}
+      </Button>
+      <Button
+        type="submit"
+        form="edit-profile-form"
+        disabled={!isDirty || isBusy}
+        style={{ background: accent, color: accentInk }}
+        className="transition-colors"
+      >
+        {saveLabel}
+      </Button>
+    </div>
+  )
+
   return (
     <Modal
-      title="Edit Profile"
+      title="Edit profile"
       body={body}
       footer={footer}
-      onClose={editProfileModal.onClose}
-      isOpen={editProfileModal.isOpen}
+      onClose={close}
+      isOpen={isOpen}
+      disabled={isBusy}
+      closeOnBackdrop={!isDirty}
+      compact
     />
   )
 }
