@@ -27,14 +27,13 @@ export const metadata: Metadata = {
     description,
     url: siteUrl,
     siteName: "Bookmark",
-    images: [{ url: "/images/landing-hero.jpg", width: 773, height: 1079 }],
     type: "website",
   },
+  // The share image is the logo, from ./opengraph-image and ./twitter-image.
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Bookmark — Track your reading",
     description,
-    images: ["/images/landing-hero.jpg"],
   },
 };
 
