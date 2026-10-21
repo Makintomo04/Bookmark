@@ -1,3 +1,4 @@
+import { booksReadCount } from "@/lib/readerTier";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       take: 20,
       include: {
-        actor: { select: { username: true, image: true, favColour: true } },
+        actor: { select: { username: true, image: true, favColour: true, ...booksReadCount } },
       },
     }),
     prisma.notification.count({ where: { userId: currentUser.id, read: false } }),

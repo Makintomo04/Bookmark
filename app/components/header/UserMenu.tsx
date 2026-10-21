@@ -1,5 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
+import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
+import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import { useSession, signIn, signOut } from "next-auth/react"
 import { useRouter } from 'next/navigation'
@@ -40,6 +42,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
   }
 
   const {user} = useUser()
+  const booksReadFor = useBooksReadFor()
   if (user) {
     return (
       <>
@@ -48,7 +51,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <ThemeSwitcher/>
             <NotificationBell/>
 
-        <Avatar className='cursor-pointer ' style={{background: user?.favColour || "#f44336"}} onClick={()=>setShowMenu((state)=>!state)}>
+        <Avatar className='cursor-pointer ' style={{background: user?.favColour || "#f44336", ...tierRingStyle(booksReadFor(user?.username, booksReadOf(user)))}} onClick={()=>setShowMenu((state)=>!state)}>
       <AvatarImage src={user?.image || "/images/avatar.jpg"} alt='avatar' />
       <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
     </Avatar>

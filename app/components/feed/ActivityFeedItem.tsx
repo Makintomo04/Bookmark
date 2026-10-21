@@ -1,5 +1,7 @@
 "use client"
 import { FC } from 'react'
+import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
+import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import Image from 'next/image'
 import Link from 'next/link'
 import moment from 'moment'
@@ -11,7 +13,7 @@ export interface ActivityFeedItemData {
   id: string
   type: "ADDED_BOOK" | "STARTED_BOOK" | "COMPLETED_BOOK" | "RATED_BOOK" | "REVIEWED_BOOK"
   createdAt: string
-  user: { username: string, image: string | null, favColour: string | null }
+  user: { username: string, image: string | null, favColour: string | null, _count?: { books?: number } }
   book: { title: string, author: string, coverImage: string | null, cardColour: string | null, rating: number | null } | null
 }
 
@@ -38,11 +40,12 @@ const renderTypeIcon = (type: ActivityFeedItemData["type"]) => {
 }
 
 const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
+  const booksReadFor = useBooksReadFor()
   if (!activity.book) return null
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg border border-neutral-700">
-      <Link href={`/u/${activity.user.username}`} className="h-10 w-10 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: activity.user.favColour || "#f44336" }}>
+      <Link href={`/u/${activity.user.username}`} className="h-10 w-10 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: activity.user.favColour || "#f44336", ...tierRingStyle(booksReadFor(activity.user.username, booksReadOf(activity.user))) }}>
         {activity.user.image && <Image src={activity.user.image} alt="" fill className="object-cover" />}
       </Link>
       <div className="min-w-0 flex-1">

@@ -166,3 +166,23 @@ progress { color: black;width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .loader-fill { animation-duration: 4s; }
 }
+
+/* A band of light that sweeps across a gold, platinum or diamond avatar frame,
+   then rests. The avatar sits on top, so only the frame shows it. */
+.tier-shimmer {
+  background-image: linear-gradient(115deg, transparent 43%, rgba(255, 255, 255, 0.55) 47%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0.55) 53%, transparent 57%);
+  background-size: 300% 100%;
+  background-position: 120% 0;
+  background-repeat: no-repeat;
+}
+.tier-shimmer-diamond {
+  background-image: linear-gradient(115deg, transparent 40%, rgba(150, 232, 255, 0.9) 45%, rgba(255, 255, 255, 1) 50%, rgba(200, 170, 255, 0.9) 55%, transparent 60%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tier-shimmer { animation: tier-shimmer 5s ease-in-out infinite; }
+  .tier-shimmer-diamond { animation-duration: 3.5s; }
+}
+@keyframes tier-shimmer {
+  0% { background-position: 120% 0; }
+  45%, 100% { background-position: -20% 0; }
+}

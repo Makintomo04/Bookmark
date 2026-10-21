@@ -1,5 +1,7 @@
 "use client"
 import { FC } from 'react'
+import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
+import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import { IoNotificationsOutline } from "react-icons/io5"
 import Image from 'next/image'
 import Link from 'next/link'
@@ -27,6 +29,7 @@ const notificationCopy = (n: { type: string; achievementKey?: string | null }) =
 
 const NotificationBell: FC<NotificationBellProps> = ({}) => {
   const { notifications, unreadCount, mutate } = useNotifications()
+  const booksReadFor = useBooksReadFor()
 
   const handleOpenChange = (open: boolean) => {
     if (open && unreadCount > 0) {
@@ -52,7 +55,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
         )}
         {notifications.map((n: any) => (
           <Link key={n.id} href={n.type === "ACHIEVEMENT_EARNED" ? "/achievements" : `/u/${n.actor.username}`} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: n.actor.favColour || "#f44336" }}>
+            <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: n.actor.favColour || "#f44336", ...tierRingStyle(booksReadFor(n.actor.username, booksReadOf(n.actor))) }}>
               {n.actor.image && <Image src={n.actor.image} alt="" fill className="object-cover"/>}
             </div>
             <div className="min-w-0">

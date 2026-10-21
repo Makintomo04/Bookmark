@@ -6,6 +6,7 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useUser from '@/app/hooks/useUser'
+import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import Loader from '../Loader'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,7 @@ interface PublicProfileProps {
 
 const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
   const { user } = useUser()
+  const booksReadFor = useBooksReadFor()
   const { profile, isLoading, mutate } = usePublicProfile(username)
   const [isFollowLoading, setIsFollowLoading] = useState(false)
 
@@ -60,6 +62,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
     <div className="w-full">
       <ProfileHeader
         username={profile.username}
+        booksRead={booksReadFor(profile.username, completedCount)}
         bio={profile.bio}
         image={profile.image}
         banner={profile.banner}

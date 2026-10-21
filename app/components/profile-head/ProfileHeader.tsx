@@ -3,6 +3,7 @@ import { FC, ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import TierAvatar from './TierAvatar'
 
 export interface ProfileStat {
   value: number
@@ -21,6 +22,7 @@ interface ProfileHeaderProps {
   actions?: ReactNode
   children?: ReactNode
   onAvatarClick?: () => void
+  booksRead: number
 }
 
 export const primaryButtonClass = "inline-flex items-center justify-center gap-2 h-9 px-4 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
@@ -38,12 +40,10 @@ const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   return <span className={className}>{content}</span>
 }
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick }) => {
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead }) => {
   const accent = colour || "#F13C3C"
   const avatar = (
-    <div style={{ background: accent }} className="relative size-24 sm:size-28 rounded-[32px] overflow-hidden border-4 border-background">
-      <Image src={image || "/images/avatar.jpg"} alt={`${username}'s avatar`} fill sizes="112px" priority className="object-cover" />
-    </div>
+    <TierAvatar image={image} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} className="w-24 sm:w-28" />
   )
 
   return (
@@ -55,7 +55,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
       <div className="px-4 sm:px-8">
         <div className="-mt-12 sm:-mt-14 flex items-end justify-between gap-4">
           {onAvatarClick ? (
-            <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className="rounded-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+            <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className="block rounded-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
               {avatar}
             </button>
           ) : avatar}

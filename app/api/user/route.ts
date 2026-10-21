@@ -1,3 +1,4 @@
+import { booksReadCount } from "@/lib/readerTier";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import getCurrentUser from "../../actions/getCurrentUser";
@@ -14,7 +15,8 @@ if (!currentUser) {
 const user = await prisma.user.findUnique({
   where: {
     id: currentUser.id
-  }
+  },
+  include: booksReadCount,
 })
 if(!user){
   return NextResponse.json({ error: 'User Not Found' }, { status: 404 });

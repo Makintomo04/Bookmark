@@ -4,6 +4,7 @@ import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
 import { Plus } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
+import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import useBooks from '@/app/hooks/useBooks'
 import useFavourite from '@/app/hooks/useFavourite'
 import useAchievements from '@/app/hooks/useAchievements'
@@ -18,6 +19,7 @@ const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : ma
 
 const ProfileHead: FC = () => {
   const { user, isError, isLoading } = useUser()
+  const booksReadFor = useBooksReadFor()
   const { books } = useBooks()
   const { favourites } = useFavourite()
   const { achievements } = useAchievements()
@@ -52,6 +54,7 @@ const ProfileHead: FC = () => {
     <>
       <ProfileHeader
         username={user.username}
+        booksRead={booksReadFor(user.username, booksRead)}
         bio={user.bio}
         image={user.image}
         banner={user.banner}

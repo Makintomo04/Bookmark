@@ -1,3 +1,4 @@
+import { booksReadCount } from "@/lib/readerTier";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
       username: { contains: query, mode: "insensitive" },
       id: { not: currentUser.id },
     },
-    select: { id: true, username: true, image: true, favColour: true, bio: true },
+    select: { id: true, username: true, image: true, favColour: true, bio: true, ...booksReadCount },
     take: 8,
   });
 
