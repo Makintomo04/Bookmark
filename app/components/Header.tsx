@@ -17,6 +17,9 @@ const Header: FC = () => {
           <Link href="/discover" className="hidden sm:inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
             Discover
           </Link>
+          <Link href="/stats" className="hidden sm:inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+            Stats
+          </Link>
           <UserMenu />
         </div>
       </header>
