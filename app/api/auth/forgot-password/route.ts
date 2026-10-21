@@ -6,6 +6,29 @@ import { NextResponse } from "next/server";
 import { appUrl } from "@/lib/siteUrl";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const SENT_MESSAGE = "If an account exists for that email, a reset link has been sent.";
+
+const PROVIDER_NAMES: Record<string, string> = { google: "Google", github: "GitHub" };
+
+// Accounts made with Google or GitHub have no password to reset. Asking for one used to send nothing,
+// which looked broken; instead, say how they sign in. Same response either way, so the endpoint still
+// can't be used to find out which emails have accounts.
+async function sendSignInReminder(email: string, userId: string) {
+  const accounts = await prisma.account.findMany({ where: { userId }, select: { provider: true } });
+  const providers = Array.from(new Set(accounts.map((a) => PROVIDER_NAMES[a.provider]).filter(Boolean)));
+  const how = providers.length ? `with ${providers.join(" or ")}` : "without a password";
+  const button = providers.length ? `the "Continue with ${providers[0]}" button` : "the way you first signed up";
+  const signInUrl = `${appUrl}/signin`;
+
+  await sendMail({
+    to: email,
+    subject: "How to sign in to Bookmark",
+    text: `Someone asked to reset the password for your Bookmark account, but you sign in ${how}, so there's no password to reset.
+Sign in with ${button}: ${signInUrl}
+If you didn't ask for this, you can ignore this email.`,
+    html: `<p>Someone asked to reset the password for your Bookmark account, but you sign in ${how}, so there's no password to reset.</p><p><a href="${signInUrl}">Sign in to Bookmark</a> using ${button}.</p><p>If you didn't ask for this, you can ignore this email.</p>`,
+  });
+}
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -25,9 +48,15 @@ export async function POST(req: Request) {
   const user = await prisma.user.findUnique({ where: { email } });
 
   // Always respond with success so this endpoint can't be used to
-  // enumerate which emails have an account.
-  if (!user || !user.hashedPassword) {
-    return NextResponse.json({ message: "If an account exists for that email, a reset link has been sent." });
+  // enumerate which emails have an account. The logs say which case ran, never the address.
+  if (!user) {
+    console.info("forgot-password: no account for this email; nothing sent");
+    return NextResponse.json({ message: SENT_MESSAGE });
+  }
+  if (!user.hashedPassword) {
+    await sendSignInReminder(email, user.id);
+    console.info("forgot-password: account has no password; sent a sign-in reminder");
+    return NextResponse.json({ message: SENT_MESSAGE });
   }
 
   // Clear any previous outstanding reset tokens for this email.
@@ -51,5 +80,6 @@ export async function POST(req: Request) {
     html: `<p>Someone requested a password reset for your Bookmark account.</p><p><a href="${resetUrl}">Click here to reset your password</a></p><p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>`,
   });
 
-  return NextResponse.json({ message: "If an account exists for that email, a reset link has been sent." });
+  console.info("forgot-password: reset link sent");
+  return NextResponse.json({ message: SENT_MESSAGE });
 }
