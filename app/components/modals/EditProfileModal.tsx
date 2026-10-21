@@ -134,7 +134,7 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
   )
   
   const body = (
-    isUserLoading ? <h1>hi</h1>:<div
+    isUserLoading ? <p className="px-6 text-sm text-muted-foreground">Loading…</p>:<div
       className="w-full h-full px-6"
     >
       <div className="h-full w-full flex flex-col sm:flex-row gap-6">

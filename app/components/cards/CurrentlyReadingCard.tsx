@@ -33,7 +33,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
 
   return (
     <article className="flex gap-4 p-4 rounded-lg bg-neutral-100 dark:bg-neutral-900">
-      <BookCover book={book} fallbackColour={accentColour} variant="thumb" sizes="96px" className="w-20 sm:w-24 flex-shrink-0 self-start" />
+      <BookCover book={book} fallbackColour={accentColour} variant="thumb" sizes="96px" className="w-16 min-[400px]:w-20 sm:w-24 flex-shrink-0 self-start" />
 
       <div className="min-w-0 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-2">

@@ -50,21 +50,35 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({}) => {
   const percent = target ? Math.min(100, Math.round((completedThisYear / target) * 100)) : 0
 
   return (
-    <div className="flex flex-col gap-2 px-6 md:px-12 w-full sm:w-auto">
-      <h2 className="text-sm font-bold">{year} Reading Goal</h2>
+    <div className="mt-5 max-w-md rounded-lg bg-neutral-100 dark:bg-neutral-900 px-4 py-3">
       {isEditing || !target ? (
-        <form onSubmit={handleSubmit(onSubmit)} className="flex items-center gap-2">
-          <RawInput register={register} errors={errors} inputValidation={{ required: true, message: "Enter a goal" }} name="targetBooks" id="targetBooks" autoComplete="off" className="w-20" disabled={isSaving} />
-          <span className="text-xs text-muted-foreground">books in {year}</span>
-          <Button type="submit" disabled={isSaving} style={{ background: user?.favColour }} className="h-8 px-3 text-xs">Save</Button>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-wrap items-center gap-2">
+          <label htmlFor="targetBooks" className="text-sm font-medium mr-1">{year} reading goal</label>
+          <RawInput register={register} errors={errors} inputValidation={{ required: true, message: "Enter a goal" }} name="targetBooks" id="targetBooks" type="number" min={1} autoComplete="off" className="w-20 h-8" disabled={isSaving} />
+          <span className="text-sm text-muted-foreground">books</span>
+          <Button type="submit" disabled={isSaving} className="h-8 px-3 text-xs">Save</Button>
           {target ? <Button type="button" variant="outline" disabled={isSaving} onClick={() => setIsEditing(false)} className="h-8 px-3 text-xs">Cancel</Button> : null}
         </form>
       ) : (
-        <div className="flex items-center gap-3">
-          <p className="text-sm"><span className="font-bold">{completedThisYear}</span> of <span className="font-bold">{target}</span> books</p>
-          <progress style={{ color: user?.favColour || "#be1e2d" }} className="h-[8px] rounded-full overflow-hidden flex-1 max-w-[160px]" value={completedThisYear} max={target}>{percent}%</progress>
-          <button type="button" onClick={() => setIsEditing(true)} className="text-xs text-muted-foreground hover:underline">Edit</button>
-        </div>
+        <>
+          <div className="flex items-baseline justify-between gap-3 text-sm">
+            <p className="font-medium">{year} reading goal</p>
+            <p className="text-muted-foreground tabular-nums">
+              <span className="font-semibold text-foreground">{completedThisYear}</span> of {target} books
+              <button type="button" onClick={() => setIsEditing(true)} className="ml-3 text-xs hover:text-foreground hover:underline">Edit</button>
+            </p>
+          </div>
+          <div
+            role="progressbar"
+            aria-label={`${year} reading goal`}
+            aria-valuenow={completedThisYear}
+            aria-valuemin={0}
+            aria-valuemax={target}
+            className="mt-2 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden"
+          >
+            <div className="h-full rounded-full" style={{ width: `${percent}%`, background: user?.favColour || "#F13C3C" }} />
+          </div>
+        </>
       )}
     </div>
   )

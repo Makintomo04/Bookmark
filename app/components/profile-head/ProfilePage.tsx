@@ -28,26 +28,23 @@ const ProfilePage: FC<ProfilePageProps> = ({ username }) => {
 
   const isSelf = status === "authenticated" && !!user && user.username === username
 
-  if (isSelf) {
-    return (
-      <main className="pb-24 h-auto flex-grow min-h-[calc(100vh_-_180px)] bg-background">
-        <Container>
-          <Suspense fallback={<p>Loading...</p>}>
-            <ProfileHead />
-          </Suspense>
-
-          <Suspense fallback={<p>Loading...</p>}>
-            <BookList />
-          </Suspense>
-        </Container>
-      </main>
-    )
-  }
-
   return (
-    <div className='mt-12'>
+    <div className="pt-4 pb-24 min-h-[calc(100vh_-_180px)] bg-background">
       <Container>
-        <PublicProfile username={username} />
+        {isSelf ? (
+          <>
+            <Suspense fallback={<p>Loading...</p>}>
+              <ProfileHead />
+            </Suspense>
+            <div className="mt-12 px-4 sm:px-8">
+              <Suspense fallback={<p>Loading...</p>}>
+                <BookList />
+              </Suspense>
+            </div>
+          </>
+        ) : (
+          <PublicProfile username={username} />
+        )}
       </Container>
     </div>
   )
