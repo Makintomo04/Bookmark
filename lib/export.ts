@@ -13,10 +13,10 @@ export const SHELF_BY_STATUS: Record<Status, ExclusiveShelf | string> = {
   NOT_STARTED: "to-read",
   STARTED: "currently-reading",
   COMPLETED: "read",
-  // ── New statuses go here ──────────────────────────────────────────────
-  // Goodreads has no built-in shelf for DNF or paused. StoryGraph's Goodreads importer reads
-  // "did-not-finish" and Goodreads users commonly shelve paused books as "paused", so map
-  // DNF → "did-not-finish" and PAUSED → "paused" once the enum has them.
+  // Goodreads has no built-in shelf for these. StoryGraph's Goodreads importer reads
+  // "did-not-finish", and Goodreads users commonly shelve paused books as "paused".
+  DNF: "did-not-finish",
+  PAUSED: "paused",
 };
 
 export function shelfForStatus(status: Status): string {

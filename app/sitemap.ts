@@ -16,14 +16,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Public profiles with at least one visible (started/completed) book are
   // worth indexing. Capped to keep the sitemap a reasonable size.
-  const usersWithBooks = await prisma.user.findMany({
-    where: {
-      username: { not: null },
-      books: { some: { status: { in: ['STARTED', 'COMPLETED'] } } },
-    },
-    select: { username: true, updatedAt: true },
-    orderBy: { updatedAt: 'desc' },
-    take: 1000,
+  // A database hiccup at build time shouldn't fail the deploy: fall back to the
+  // static routes and let the hourly revalidation fill the rest in.
+  const [usersWithBooks, publicLists] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        username: { not: null },
+        books: { some: { status: { in: ['STARTED', 'COMPLETED'] } } },
+      },
+      select: { username: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 1000,
+    }),
+    prisma.list.findMany({
+      where: { visibility: 'PUBLIC', hidden: false },
+      select: { id: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 1000,
+    }),
+  ]).catch((err) => {
+    console.error('sitemap: database unavailable, serving static routes only', err)
+    return [[], []] as const
   })
 
   const profileRoutes: MetadataRoute.Sitemap = usersWithBooks.map((u) => ({
@@ -32,13 +45,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: 'weekly',
     priority: 0.5,
   }))
-
-  const publicLists = await prisma.list.findMany({
-    where: { visibility: 'PUBLIC', hidden: false },
-    select: { id: true, updatedAt: true },
-    orderBy: { updatedAt: 'desc' },
-    take: 1000,
-  })
 
   const discoverRoutes: MetadataRoute.Sitemap = [
     { url: `${siteUrl}/discover`, changeFrequency: 'daily', priority: 0.8 },
