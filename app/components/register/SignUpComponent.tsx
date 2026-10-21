@@ -1,7 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
 import { Input } from '../ui/input'
-import { signIn } from 'next-auth/react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '../ui/button'
@@ -12,6 +11,7 @@ import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import axios from 'axios'
 import { PASSWORD_MIN } from '@/lib/authSchemas'
 import { toast } from 'react-toastify'
+import CheckInboxNotice from '../signIn/CheckInboxNotice'
 interface SignUpComponentProps {
   
 }
@@ -19,6 +19,8 @@ interface SignUpComponentProps {
 const SignUpComponent =  () => {
 const router = useRouter()
 const [isLoading, setIsLoading] = useState(false);
+// Set once the account exists; it can't sign in until the emailed link is opened.
+const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 const { 
   register,
   handleSubmit,
@@ -46,11 +48,8 @@ const onSubmit:SubmitHandler<FieldValues> = async (data) => {
   try {
     setIsLoading(true)
     await axios.post("/api/register", data)
-    toast.success("Account created.",{ position: "bottom-center" })
-    signIn("credentials",
-    { email:data.email,password:data.password,callbackUrl: `${window.location.origin}/new-user` }
-  )
-    
+    setRegisteredEmail(data.email)
+
   } catch (error) {
     toast.error(axios.isAxiosError(error) && error.response?.data?.error || "Something went wrong.")
   }
@@ -88,6 +87,12 @@ if (!isMobile) {
     <h1 className="text-2xl font-bold mb-10 text-center">Create Account</h1>
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
+  {registeredEmail ? (
+  <div className="">
+    <CheckInboxNotice email={registeredEmail} title="Account created. Check your inbox"/>
+    <p className='text-sm mt-4'>Confirmed your email? <Link href={`/signin?email=${encodeURIComponent(registeredEmail)}`} className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</Link></p>
+  </div>
+  ) : (
   <div className="">
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <p>{}</p>
@@ -103,7 +108,7 @@ if (!isMobile) {
         <label htmlFor="repeatPassword">Repeat Password</label>
         <Input register={register} required inputValidation={{required:true,message:"Password Confirmation Required"}} errors={errors} type="password" name="repeatPassword" id="repeatPassword" className="w-full"/>
       </div>
-      <Button className="bg-red-500 text-white rounded-md py-2">Sign up</Button>
+      <Button disabled={isLoading} className="bg-red-500 text-white rounded-md py-2">{isLoading ? "Creating account…" : "Sign up"}</Button>
     </form>
     <div className="flex gap-3 items-center justify-center my-6">
       <hr className='border-1 border-slate-400/50 w-full'/>
@@ -117,6 +122,7 @@ if (!isMobile) {
     <p className='text-sm mt-4'>Already have an account? <Link href="/signin" className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</Link></p>
     <p className='text-xs text-muted-foreground mt-3'>By signing up, you agree to our <Link href="/terms" className='hover:underline'>Terms</Link> and <Link href="/privacy" className='hover:underline'>Privacy Policy</Link>.</p>
   </div>
+  )}
   </motion.div>
   </AnimatePresence>
   )

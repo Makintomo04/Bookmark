@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation'
 import { motion,AnimatePresence } from 'framer-motion'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import { toast } from 'react-toastify'
+import { EMAIL_NOT_VERIFIED } from '@/lib/authSchemas'
+import CheckInboxNotice from './CheckInboxNotice'
 
 interface SignInComponentProps {
   
@@ -25,8 +27,15 @@ const SignInComponent =  () => {
 
   // NextAuth sends failed Google/GitHub sign-ins back here as ?error=...
   const [authError, setAuthError] = useState<string | null>(null)
+  const [justVerified, setJustVerified] = useState(false)
+  // Set when the password was right but the email still needs confirming.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("error")
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("verified") === "1") setJustVerified(true)
+    const email = params.get("email")
+    if (email) setValue("email", email)
+    const code = params.get("error")
     if (!code) return
     setAuthError(code === "OAuthAccountNotLinked"
       ? "An account with this email already exists. Sign in with the method you used to create it."
@@ -48,6 +57,7 @@ const SignInComponent =  () => {
   })
 
   const onSubmit:SubmitHandler<FieldValues> = async (data) => {
+    setUnverifiedEmail(null)
     try {
       const res = await signIn("credentials", {
         redirect: false,
@@ -56,6 +66,9 @@ const SignInComponent =  () => {
       })
       if(res?.ok){
         router.push("/")
+      }
+      else if(res?.error === EMAIL_NOT_VERIFIED){
+        setUnverifiedEmail(data.email)
       }
       else{
         toast.error(res?.error || "Invalid email or password",{position:"bottom-center"})
@@ -97,6 +110,8 @@ const SignInComponent =  () => {
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
   <div className="">
+    {justVerified && !unverifiedEmail && <p role="status" className="mb-4 rounded-md bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300 text-sm px-3 py-2">Email confirmed. Sign in to continue.</p>}
+    {unverifiedEmail && <div className="mb-4"><CheckInboxNotice email={unverifiedEmail} title="Confirm your email to sign in"/></div>}
     {authError && <p role="alert" className="mb-4 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm px-3 py-2">{authError}</p>}
     <form method="post" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <div className="flex flex-col gap-2">
