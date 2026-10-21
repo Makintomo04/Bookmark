@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:isolated": "node scripts/dev-isolated.mjs",
+    "dev:test": "node scripts/with-test-db.mjs npx next dev -p 3030",
+    "db:test:push": "node scripts/with-test-db.mjs npx prisma db push --skip-generate",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",

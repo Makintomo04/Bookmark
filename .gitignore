@@ -12,6 +12,7 @@
 # next.js
 /.next/
 /.next-isolated/
+/.next-test/
 /out/
 
 # production
@@ -43,3 +44,6 @@ next-env.d.ts
 
 # design inspector screenshots
 /.taste-skill/
+
+# Test accounts for the bookmark-test database
+/scripts/test/accounts.local.json
