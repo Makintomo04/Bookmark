@@ -8,7 +8,7 @@ import useViewMode from '@/app/hooks/useViewMode'
 import BookCoverCard from '../cards/BookCoverCard'
 import CompactBookCard from '../cards/CompactBookCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
-import { ShelfSection, coverGridClass, groupShelf, readingGridCols } from './shelf'
+import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from './shelf'
 
 interface BookGridProps {
   books: Book[]
@@ -57,7 +57,7 @@ const BookGrid: FC<BookGridProps> = ({ books }) => {
       <ShelfSection id="shelf-reading" title="Currently reading" count={reading.length}>
         {reading.length > 0 ? (
           <div className={cn("grid grid-cols-1 gap-4", readingGridCols(reading.length))}>
-            {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={accent} />)}
+            {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={accent} isReread={isRereading(book, finished)} />)}
           </div>
         ) : (
           <p className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-3 text-sm text-muted-foreground">

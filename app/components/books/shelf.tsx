@@ -2,6 +2,7 @@ import { FC, ReactNode } from 'react'
 import { Book, Status } from '@prisma/client'
 
 const time = (date: Date | string | null) => (date ? new Date(date).getTime() : 0)
+const normalize = (s: string) => s.trim().toLowerCase()
 
 export function groupShelf(books: Book[]) {
   return {
@@ -12,6 +13,16 @@ export function groupShelf(books: Book[]) {
     finished: books.filter((b) => b.status === Status.COMPLETED)
       .sort((a, b) => time(b.completedAt) - time(a.completedAt)),
   }
+}
+
+// True when a currently-reading book has been finished before: either this
+// same entry was restarted (timesRead survives a restart), or an earlier,
+// separate entry for the same title/author sits in the finished shelf.
+export function isRereading(book: Book, finished: Book[]) {
+  if (book.timesRead > 0) return true
+  return finished.some((f) => f.id !== book.id
+    && normalize(f.title) === normalize(book.title)
+    && normalize(f.author) === normalize(book.author))
 }
 
 // Two columns when the count would leave an orphan in a row of three.

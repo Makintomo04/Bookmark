@@ -20,6 +20,8 @@ const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, 
   const { hasFavourited } = useFavourite()
   return (
     <>
+      {/* Darkens the cover slightly on hover so the actions read clearly over light covers. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 rounded-md bg-black/0 transition-colors duration-200 md:group-hover:bg-black/20 md:group-focus-within:bg-black/20" />
       <BookActions
         book={book}
         onUpdateProgress={onUpdateProgress}
@@ -67,7 +69,7 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
         !readOnly && "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
       )}
     >
-      <div className={cn("relative", !readOnly && "transition duration-200 group-hover:-translate-y-1")}>
+      <div className="relative">
         <BookCover
           book={book}
           fallbackColour={accentColour}

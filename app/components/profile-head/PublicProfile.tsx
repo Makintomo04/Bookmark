@@ -11,7 +11,7 @@ import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './Profi
 import { cn } from '@/lib/utils'
 import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
-import { ShelfSection, coverGridClass, groupShelf, readingGridCols } from '../books/shelf'
+import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from '../books/shelf'
 
 interface PublicProfileProps {
   username: string
@@ -80,7 +80,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
             {reading.length > 0 && (
               <ShelfSection id="public-shelf-reading" title="Currently reading" count={reading.length}>
                 <div className={cn("grid grid-cols-1 gap-4", readingGridCols(reading.length))}>
-                  {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
+                  {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={profile.favColour} readOnly isReread={isRereading(book, finished)} />)}
                 </div>
               </ShelfSection>
             )}
