@@ -1,17 +1,10 @@
-"use client"
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import Link from 'next/link'
 import { Book } from '@prisma/client'
-import axios from 'axios'
-import { toast } from 'react-toastify'
-import usePublicProfile from '@/app/hooks/usePublicProfile'
-import useUser from '@/app/hooks/useUser'
-import { useBooksReadFor } from '@/app/hooks/useTierPreview'
-import useFollowListModal from '@/app/hooks/useFollowListModal'
-import Loader from '../Loader'
-import FetchErrorState from '../FetchErrorState'
-import { FetchError } from '@/lib/fetcher'
-import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
+import type { SerializedProfile } from '@/lib/publicProfile'
+import ProfileHeader, { primaryButtonClass } from './ProfileHeader'
+import FollowButton from './FollowButton'
+import ShareProfileButton from './ShareProfileButton'
 import { cn } from '@/lib/utils'
 import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
@@ -19,67 +12,42 @@ import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols 
 import ProfileLists from '../discover/ProfileLists'
 
 interface PublicProfileProps {
-  username: string
+  profile: SerializedProfile
+  // null when signed out.
+  viewer: { isFollowing: boolean } | null
 }
 
-const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
-  const { user } = useUser()
-  const booksReadFor = useBooksReadFor()
-  const { profile, isLoading, isError, mutate } = usePublicProfile(username)
-  const [isFollowLoading, setIsFollowLoading] = useState(false)
-  const followListModal = useFollowListModal()
-
-  if (isLoading) return <Loader />
-  if (isError instanceof FetchError && isError.status !== 404) {
-    return <div className="px-6 md:px-12"><FetchErrorState error={isError} what="this profile" onRetry={() => mutate()}/></div>
-  }
-  if (!profile || profile.error) return <p className="px-6 md:px-12">This user couldn&apos;t be found.</p>
-
-  const handleFollowToggle = () => {
-    setIsFollowLoading(true)
-    axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
-      .then((res) => {
-        toast.success(res.data.isFollowing ? `Following ${profile.username}!` : `Unfollowed ${profile.username}.`, { position: "bottom-center" })
-        mutate()
-      })
-      .catch(() => {
-        toast.error("Something went wrong.", { position: "bottom-center" })
-      })
-      .finally(() => setIsFollowLoading(false))
-  }
-
-  const { reading, finished } = groupShelf(profile.books as Book[])
+// Someone else's profile, rendered on the server. Following, sharing, the follow lists
+// and the profile's reading lists are client islands.
+const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
+  // The cards take a Book; the public payload is the subset of it they read.
+  const { reading, finished } = groupShelf(profile.books as unknown as Book[])
   const completedCount = finished.length
+  const achievementCount = profile.achievements.length
 
-  const achievementCount = profile.achievements?.length ?? 0
-  const followAction = profile.isSelf ? null : user ? (
-    <button
-      type="button"
-      disabled={isFollowLoading}
-      aria-pressed={profile.isFollowing}
-      onClick={handleFollowToggle}
-      className={profile.isFollowing ? secondaryButtonClass : primaryButtonClass}
-    >
-      {profile.isFollowing ? "Following" : "Follow"}
-    </button>
-  ) : (
-    <Link href="/register" className={primaryButtonClass}>Sign up to follow</Link>
+  const actions = (
+    <>
+      <ShareProfileButton username={profile.username} />
+      {viewer
+        ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} />
+        : <Link href="/register" className={primaryButtonClass}>Sign up to follow</Link>}
+    </>
   )
 
   return (
     <div className="w-full">
       <ProfileHeader
         username={profile.username}
-        booksRead={booksReadFor(profile.username, completedCount)}
+        booksRead={completedCount}
         bio={profile.bio}
         image={profile.image}
         banner={profile.banner}
         colour={profile.favColour}
-        actions={followAction}
+        actions={actions}
         stats={[
           { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },
-          { value: profile.followerCount, label: profile.followerCount === 1 ? "follower" : "followers", onClick: () => followListModal.onOpen(profile.username, "followers") },
-          { value: profile.followingCount, label: "following", onClick: () => followListModal.onOpen(profile.username, "following") },
+          { value: profile.followerCount, label: profile.followerCount === 1 ? "follower" : "followers", followList: { username: profile.username, kind: "followers" } },
+          { value: profile.followingCount, label: "following", followList: { username: profile.username, kind: "following" } },
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements" },
         ]}
       />

@@ -1,5 +1,5 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
-import prisma from "@/lib/db";
+import { getPublicProfile, isFollowing } from "@/lib/publicProfile";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -8,70 +8,17 @@ export async function GET(
 ) {
   // Public profile - viewable by anyone, logged in or not. currentUser is
   // only used to compute viewer-specific fields (isFollowing/isSelf) below.
-  const currentUser = await getCurrentUser();
+  const [currentUser, data] = await Promise.all([getCurrentUser(), getPublicProfile(params.username)]);
 
-  const profileUser = await prisma.user.findUnique({
-    where: { username: params.username },
-    include: {
-      books: {
-        where: { status: { in: ["STARTED", "COMPLETED"] } },
-        orderBy: { createdAt: "desc" },
-        // Explicit fields so `review` (private until reviews get a visibility setting) and `userId` stay out of the payload.
-        select: {
-          id: true,
-          title: true,
-          author: true,
-          description: true,
-          coverImage: true,
-          cardColour: true,
-          status: true,
-          genre: true,
-          rating: true,
-          timesRead: true,
-          pages: true,
-          currentPage: true,
-          createdAt: true,
-          startedAt: true,
-          completedAt: true,
-          workKey: true,
-        },
-      },
-      _count: {
-        select: { followers: true, following: true },
-      },
-      achievements: {
-        select: { key: true, earnedAt: true },
-      },
-    },
-  });
-
-  if (!profileUser) {
+  if (!data) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const isFollowing = currentUser
-    ? !!(await prisma.follow.findUnique({
-        where: {
-          followerId_followingId: {
-            followerId: currentUser.id,
-            followingId: profileUser.id,
-          },
-        },
-      }))
-    : false;
+  const isSelf = currentUser ? data.userId === currentUser.id : false;
 
   return NextResponse.json({
-    username: profileUser.username,
-    bio: profileUser.bio,
-    image: profileUser.image,
-    banner: profileUser.banner,
-    favColour: profileUser.favColour,
-    createdAt: profileUser.createdAt,
-    books: profileUser.books,
-    achievements: profileUser.achievements,
-    followerCount: profileUser._count.followers,
-    followingCount: profileUser._count.following,
-    isFollowing,
-    isSelf: currentUser ? profileUser.id === currentUser.id : false,
+    ...data.profile,
+    isFollowing: currentUser && !isSelf ? await isFollowing(currentUser.id, data.userId) : false,
+    isSelf,
   });
 }
