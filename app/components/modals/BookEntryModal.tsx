@@ -300,7 +300,7 @@ const BookEntryModal: FC = () => {
           </button>
           <div className="flex flex-col gap-2">
             <Label>Rating <span className="font-normal text-muted-foreground">· optional</span></Label>
-            <StarRating value={rating} onChange={(n) => setRating(n === rating ? 0 : n)} disabled={isLoading} />
+            <StarRating value={rating} onChange={setRating} disabled={isLoading} />
           </div>
         </div>
       )}

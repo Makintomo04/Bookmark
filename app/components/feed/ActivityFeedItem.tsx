@@ -7,11 +7,11 @@ import Link from 'next/link'
 import moment from 'moment'
 import { IoIosStar } from "react-icons/io"
 import { TbBook2, TbBookUpload } from "react-icons/tb"
-import { Check, BookPlus } from 'lucide-react'
+import { Check, BookPlus, CircleSlash } from 'lucide-react'
 
 export interface ActivityFeedItemData {
   id: string
-  type: "ADDED_BOOK" | "STARTED_BOOK" | "COMPLETED_BOOK" | "RATED_BOOK" | "REVIEWED_BOOK"
+  type: "ADDED_BOOK" | "STARTED_BOOK" | "COMPLETED_BOOK" | "DNF_BOOK" | "RATED_BOOK" | "REVIEWED_BOOK"
   createdAt: string
   user: { username: string, image: string | null, favColour: string | null, _count?: { books?: number } }
   book: { title: string, author: string, coverImage: string | null, cardColour: string | null, rating: number | null } | null
@@ -25,6 +25,7 @@ const typeCopy: Record<ActivityFeedItemData["type"], (bookTitle: string) => stri
   ADDED_BOOK: (title) => `added ${title} to their list`,
   STARTED_BOOK: (title) => `started reading ${title}`,
   COMPLETED_BOOK: (title) => `finished ${title}`,
+  DNF_BOOK: (title) => `stopped reading ${title}`,
   RATED_BOOK: (title) => `rated ${title}`,
   REVIEWED_BOOK: (title) => `reviewed ${title}`,
 }
@@ -34,6 +35,7 @@ const renderTypeIcon = (type: ActivityFeedItemData["type"]) => {
     case "ADDED_BOOK": return <BookPlus size={18} className="flex-shrink-0 text-muted-foreground"/>
     case "STARTED_BOOK": return <TbBook2 size={18} className="flex-shrink-0 text-muted-foreground"/>
     case "COMPLETED_BOOK": return <Check size={18} className="flex-shrink-0 text-muted-foreground"/>
+    case "DNF_BOOK": return <CircleSlash size={18} className="flex-shrink-0 text-muted-foreground"/>
     case "RATED_BOOK": return <IoIosStar size={18} className="flex-shrink-0 text-muted-foreground"/>
     case "REVIEWED_BOOK": return <TbBookUpload size={18} className="flex-shrink-0 text-muted-foreground"/>
   }

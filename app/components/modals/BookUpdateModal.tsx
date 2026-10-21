@@ -9,6 +9,8 @@ import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import { Button } from '../ui/button'
 import { isRereading } from '../books/shelf'
+import { moveBook, type ShelfAction } from '../books/ShelfMenuItems'
+import useBookReads from '@/app/hooks/useBookReads'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import useUser from '@/app/hooks/useUser'
@@ -32,9 +34,12 @@ const BookUpdateModal: FC = () => {
   const { onClose, getBookIsOpen, book } = useBookUpdateModal()
   const bookEditModal = useBookEditModal()
   const isOpen = getBookIsOpen(book?.id, useBookUpdateModal.getState())
+  const { reads, mutate: readsMutate } = useBookReads(isOpen ? book?.id : null)
 
   const [pageInput, setPageInput] = useState("0")
   const [finished, setFinished] = useState(false)
+  // Marking a book you're reading as did not finish. Like `finished`, it swaps in rating and review.
+  const [stopping, setStopping] = useState(false)
   const [pageBeforeFinish, setPageBeforeFinish] = useState<number | null>(null)
   const [showStartPage, setShowStartPage] = useState(false)
   const [rating, setRating] = useState(0)
@@ -51,6 +56,7 @@ const BookUpdateModal: FC = () => {
     if (!isOpen || !book) return
     setPageInput(String(book.currentPage ?? 0))
     setFinished(false)
+    setStopping(false)
     setPageBeforeFinish(null)
     setShowStartPage(false)
     setRating(book.rating ?? 0)
@@ -73,10 +79,13 @@ const BookUpdateModal: FC = () => {
   const ratingChanged = rating !== (book.rating ?? 0)
   const reviewChanged = review !== (book.review ?? "")
 
-  const hasChanges = status === "STARTED" ? delta !== 0 || finished
-    : status === "COMPLETED" ? ratingChanged || reviewChanged
+  // A paused book shows the same progress controls as one being read, and saving resumes it.
+  const isActive = status === "STARTED" || status === "PAUSED"
+  const isClosed = status === "COMPLETED" || status === "DNF"
+  const hasChanges = isActive ? delta !== 0 || finished || stopping
+    : isClosed ? ratingChanged || reviewChanged
     : false
-  const canSave = !isSaving && (status === "NOT_STARTED" || hasChanges)
+  const canSave = !isSaving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges)
 
   const close = () => onClose(book.id)
 
@@ -91,6 +100,17 @@ const BookUpdateModal: FC = () => {
       setPageBeforeFinish(null)
     }
     setFinished(!finished)
+    setStopping(false)
+  }
+
+  // The page stays editable while stopping: it's where the reader gave up.
+  const toggleStopping = () => {
+    if (finished) {
+      setPageInput(String(pageBeforeFinish ?? startPage))
+      setPageBeforeFinish(null)
+      setFinished(false)
+    }
+    setStopping(!stopping)
   }
 
   const editDetails = () => {
@@ -102,16 +122,25 @@ const BookUpdateModal: FC = () => {
     if (!canSave) return
     let payload: Record<string, unknown>
     let success: string
+    const ratingAndReviewPayload = { rating: rating > 0 ? rating : null, review }
     if (status === "NOT_STARTED") {
-      payload = { id: book.id, isStarted: true, currentPage: page }
+      payload = { id: book.id, action: "start", currentPage: page }
       success = "Started reading"
-    } else if (status === "STARTED" && !finished) {
-      payload = { id: book.id, currentPage: page }
+    } else if (isActive && finished) {
+      payload = { id: book.id, action: "complete", ...ratingAndReviewPayload }
+      success = "Marked as finished"
+    } else if (isActive && stopping) {
+      payload = { id: book.id, action: "dnf", currentPage: page, ...ratingAndReviewPayload }
+      success = "Moved to Did not finish"
+    } else if (status === "STARTED") {
+      payload = { id: book.id, action: "progress", currentPage: page }
       success = "Progress saved"
+    } else if (status === "PAUSED") {
+      payload = { id: book.id, action: "resume", currentPage: page }
+      success = "Back to Currently reading"
     } else {
-      payload = { id: book.id, isComplete: true, rating: rating > 0 ? rating : null, review }
-      success = status === "STARTED" ? "Marked as finished"
-        : ratingChanged && reviewChanged ? "Rating and review saved"
+      payload = { id: book.id, action: "rate", ...ratingAndReviewPayload }
+      success = ratingChanged && reviewChanged ? "Rating and review saved"
         : ratingChanged ? "Rating saved" : "Review saved"
     }
 
@@ -120,21 +149,22 @@ const BookUpdateModal: FC = () => {
       toast.success(success, { position: "bottom-center" })
       mutate()
       booksMutate()
+      readsMutate()
       close()
     }).catch((err) => {
       toast.error(err?.response?.data?.error || "Couldn't save. Check your connection and try again.", { position: "bottom-center" })
     }).finally(() => setIsSaving(false))
   }
 
-  const readAgain = () => {
+  // Pause keeps the page typed in; the other moves don't take one.
+  const move = (action: ShelfAction) => {
     setIsSaving(true)
-    axios.post("/api/book-progress", { id: book.id, isRestart: true }).then(() => {
-      toast.success("Started reading again", { position: "bottom-center" })
+    moveBook(book.id, action, action === "pause" ? { currentPage: page } : {}).then((ok) => {
+      if (!ok) return
       mutate()
       booksMutate()
+      readsMutate()
       close()
-    }).catch(() => {
-      toast.error("Couldn't start this book again. Try again.", { position: "bottom-center" })
     }).finally(() => setIsSaving(false))
   }
 
@@ -144,9 +174,11 @@ const BookUpdateModal: FC = () => {
     ? `${rereading ? "Rereading since" : "Started"} ${formatDay(book.startedAt)}`
     : status === "COMPLETED" && book.completedAt
       ? `Finished ${formatDay(book.completedAt)}`
+      : status === "PAUSED" ? `Paused${book.stoppedAt ? ` since ${formatDay(book.stoppedAt)}` : ""}`
+      : status === "DNF" ? `Stopped at page ${book.currentPage ?? 0} of ${pages}${book.stoppedAt ? ` on ${formatDay(book.stoppedAt)}` : ""}`
       : status === "NOT_STARTED" ? "On your Want to read shelf" : ""
 
-  const deltaText = status !== "STARTED" || delta === 0 ? ""
+  const deltaText = !isActive || delta === 0 ? ""
     : delta > 0 ? `${plural(delta, "page")} since your last update`
     : `${plural(-delta, "page")} back from your last update`
 
@@ -315,11 +347,61 @@ const BookUpdateModal: FC = () => {
     </button>
   )
 
+  const stopOptions = stopping ? (
+    <p className="text-sm">
+      Stopping at page {page} of {pages}.{" "}
+      <button type="button" onClick={toggleStopping} disabled={isSaving} className="underline underline-offset-4 text-muted-foreground hover:text-foreground">
+        Keep reading
+      </button>
+    </p>
+  ) : (
+    <p className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
+      {status === "STARTED" && (
+        <button type="button" onClick={() => move("pause")} disabled={isSaving} className="underline underline-offset-4 hover:text-foreground">
+          Pause this book
+        </button>
+      )}
+      <button type="button" onClick={toggleStopping} disabled={isSaving} className="underline underline-offset-4 hover:text-foreground">
+        I&apos;m not going to finish it
+      </button>
+    </p>
+  )
+
+  // Shown once there's more than the current read to look back on.
+  const history = (reads ?? []).slice().reverse()
+  const showHistory = history.length > 1 || (history.length === 1 && status === "NOT_STARTED")
+  const readRange = (start: string | null, end: string | null) =>
+    start && end ? `${formatDay(start)} – ${formatDay(end)}`
+      : start ? `Started ${formatDay(start)}`
+      : end ? formatDay(end)
+      : "No dates"
+  const readHistory = showHistory && (
+    <section aria-labelledby="read-history">
+      <h3 id="read-history" className="text-sm font-medium">Reading history</h3>
+      <ol className="mt-2 flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
+        {history.map((read) => (
+          <li key={read.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <div className="min-w-0">
+              <p className="font-medium">
+                {read.status === "COMPLETED" ? "Finished"
+                  : read.status === "DNF" ? `Did not finish${read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
+                  : read.status === "PAUSED" ? "Paused"
+                  : "Reading now"}
+              </p>
+              <p className="text-xs text-muted-foreground tabular-nums">{readRange(read.startedAt, read.finishedAt)}</p>
+            </div>
+            {read.rating ? <StarRating value={read.rating} readOnly size={14} label="Rating" className="shrink-0" /> : null}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+
   const ratingAndReview = (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">Rating <span className="font-normal text-muted-foreground">· optional</span></span>
-        <StarRating value={rating} onChange={(n) => setRating(n === rating ? 0 : n)} disabled={isSaving} label="Your rating" />
+        <StarRating value={rating} onChange={setRating} disabled={isSaving} label="Your rating" />
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor="review" className="text-sm font-medium">
@@ -352,24 +434,34 @@ const BookUpdateModal: FC = () => {
 
       <div className="flex-1 min-w-0 flex flex-col gap-8">
         {status === "NOT_STARTED" && startControl}
-        {status === "STARTED" && progressControl}
-        {status === "STARTED" && finishedSwitch}
-        {(status === "COMPLETED" || finished) && ratingAndReview}
+        {isActive && progressControl}
+        {isActive && !stopping && finishedSwitch}
+        {isActive && !finished && stopOptions}
+        {(isClosed || finished || stopping) && ratingAndReview}
+        {readHistory}
       </div>
     </div>
   )
 
   const primaryLabel = status === "NOT_STARTED" ? "Start reading"
-    : status === "COMPLETED" ? "Save"
-    : finished ? "Mark as finished" : "Save progress"
+    : isClosed ? "Save"
+    : finished ? "Mark as finished"
+    : stopping ? "Mark as did not finish"
+    : status === "PAUSED" ? "Resume reading"
+    : "Save progress"
 
-  // A finished book is mostly opened to look; only offer Save once there's something to save.
-  const showPrimary = status !== "COMPLETED" || hasChanges
+  // A finished or abandoned book is mostly opened to look; only offer Save once there's something to save.
+  const showPrimary = !isClosed || hasChanges
 
   const footer = (
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
-      {status === "COMPLETED" && (
-        <Button onClick={readAgain} variant="outline" className="rounded-md mr-auto" disabled={isSaving}>Read again</Button>
+      {isClosed && (
+        <div className="flex flex-wrap gap-3 mr-auto">
+          <Button onClick={() => move("restart")} variant="outline" className="rounded-md" disabled={isSaving}>Read again</Button>
+          {status === "DNF" && (
+            <Button onClick={() => move("wantToRead")} variant="outline" className="rounded-md" disabled={isSaving}>Move to Want to read</Button>
+          )}
+        </div>
       )}
       <Button onClick={close} variant="outline" className="rounded-md hidden sm:inline-flex" disabled={isSaving}>
         {showPrimary ? "Cancel" : "Close"}
@@ -384,7 +476,11 @@ const BookUpdateModal: FC = () => {
 
   return (
     <Modal
-      title={status === "NOT_STARTED" ? "Start reading" : status === "COMPLETED" ? "Rating and review" : "Update progress"}
+      title={status === "NOT_STARTED" ? "Start reading"
+        : status === "COMPLETED" ? "Rating and review"
+        : status === "DNF" ? "Did not finish"
+        : status === "PAUSED" ? "Paused"
+        : "Update progress"}
       body={body}
       footer={footer}
       onClose={close}
