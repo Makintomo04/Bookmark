@@ -1,6 +1,7 @@
 import { FC } from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import InitialAvatar from '@/app/components/profile/InitialAvatar'
 
 export const memberColour = (favColour: string | null | undefined) => favColour || '#D92D2D'
 
@@ -22,7 +23,9 @@ const MemberAvatar: FC<MemberAvatarProps> = ({ username, image, favColour, size 
       style={{ width: size, height: size, background: colour, boxShadow: ringed ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${colour}` : undefined }}
       title={username ?? undefined}
     >
-      <Image src={image || "/images/avatar.jpg"} alt={username ? `${username}'s avatar` : ""} fill sizes={`${size}px`} className="object-cover" />
+      {image
+        ? <Image src={image} alt={username ? `${username}'s avatar` : ""} fill sizes={`${size}px`} className="object-cover" />
+        : <InitialAvatar username={username} favColour={favColour} label={username ? `${username}'s avatar` : undefined} />}
     </span>
   )
 }

@@ -3,6 +3,7 @@ import { FC, useState } from 'react'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import Image from 'next/image'
+import InitialAvatar from '@/app/components/profile/InitialAvatar'
 import Link from 'next/link'
 import axios from 'axios'
 import useSWRInfinite from 'swr/infinite'
@@ -83,7 +84,9 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
             <li key={person.username} className="flex items-center justify-between gap-3 py-2.5">
               <Link href={`/u/${person.username}`} onClick={onNavigate} className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <div className="relative size-11 shrink-0 overflow-hidden rounded-[14px]" style={{ background: person.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(person.username, booksReadOf(person))) }}>
-                  <Image src={person.image || "/images/avatar.jpg"} alt="" fill sizes="44px" className="object-cover" />
+                  {person.image
+                    ? <Image src={person.image} alt="" fill sizes="44px" className="object-cover" />
+                    : <InitialAvatar username={person.username} favColour={person.favColour} />}
                 </div>
                 <div className="min-w-0">
                   <p className="truncate font-medium">{person.username}{person.isSelf && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>}</p>
