@@ -17,31 +17,31 @@ interface BookSearchResultsProps {
 }
 
 const BookSearchResults: FC<BookSearchResultsProps> = ({ results, isLoading, onSelect }) => {
-  if (!isLoading && results.length === 0) return null
+  if (isLoading) return <p className="px-1 text-sm text-muted-foreground">Searching…</p>
+  if (results.length === 0) return <p className="px-1 text-sm text-muted-foreground">No matches found.</p>
 
   return (
-    <div className="absolute z-20 top-full left-0 mt-1 w-full max-w-lg max-h-64 overflow-y-auto rounded-md border border-neutral-700 bg-background shadow-lg">
-      {isLoading ? (
-        <div className="p-3 text-sm text-muted-foreground">Searching...</div>
-      ) : (
-        results.map((result, i) => (
+    <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 rounded-md border border-neutral-200 dark:border-neutral-800">
+      {results.map((result, i) => (
+        <li key={i}>
           <button
-            key={i}
             type="button"
             onClick={() => onSelect(result)}
-            className="flex w-full items-center gap-3 p-2 text-left hover:bg-neutral-800 transition"
+            className="flex w-full items-center gap-3 p-3 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
           >
-            <div className="h-12 w-8 flex-shrink-0 overflow-hidden rounded bg-neutral-700 relative">
-              {result.coverUrl && <Image src={result.coverUrl} alt="" fill unoptimized={isOpenLibraryCover(result.coverUrl)} className="object-cover" />}
+            <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-neutral-700 relative">
+              {result.coverUrl && <Image src={result.coverUrl} alt="" fill sizes="44px" unoptimized={isOpenLibraryCover(result.coverUrl)} className="object-cover" />}
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{result.title}</p>
-              <p className="truncate text-xs text-muted-foreground">{result.author}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {result.author}{result.pages ? ` · ${result.pages} pages` : ""}
+              </p>
             </div>
           </button>
-        ))
-      )}
-    </div>
+        </li>
+      ))}
+    </ul>
   )
 }
 
