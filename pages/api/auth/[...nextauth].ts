@@ -103,7 +103,8 @@ export const authOptions: AuthOptions = {
       return true
     },
   },
-  secret: process.env.SECRET,
+  // Vercel has NEXTAUTH_SECRET; .env.local uses SECRET.
+  secret: process.env.SECRET || process.env.NEXTAUTH_SECRET,
   
   session: {
     strategy: 'jwt',

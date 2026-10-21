@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og'
 import type { WrappedData } from '@/lib/stats'
 import { readableInk, shade, toHex } from '@/lib/colour'
 import { MONTHS, plural } from './copy'
+import { siteUrl } from '@/lib/siteUrl'
 
 // Wrapped share images, in the reader card's visual language (app/(main)/u/[username]/opengraph-image.tsx):
 // the near-black ground with the reader's colour glowing from a corner, the accent rule, Inter, and the
@@ -21,7 +22,7 @@ const DRAWABLE = ['image/png', 'image/jpeg', 'image/gif']
 const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
 
 // Not the request's Host header, which the client controls.
-const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL || `http://localhost:${process.env.PORT || 3000}`
+const siteOrigin = siteUrl
 const siteHost = new URL(siteOrigin).host
 
 function imageUrl(url: string | null | undefined) {

@@ -9,10 +9,10 @@ import { ToastContainer } from 'react-toastify';
 import { ourFileRouter } from "@/app/api/uploadthing/core";
 import 'react-toastify/dist/ReactToastify.css';
 import { Analytics } from '@vercel/analytics/react';
+import { siteUrl } from "@/lib/siteUrl";
 
 const font = Inter({ subsets: ["latin"] });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const description = "Track every book you read, hit your yearly reading goals, and follow what your friends are reading on Bookmark.";
 
 export const metadata: Metadata = {

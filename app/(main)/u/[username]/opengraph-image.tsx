@@ -4,6 +4,7 @@ import { getReaderTier } from '@/lib/readerTier'
 import { readableInk, shade, toHex } from '@/lib/colour'
 import { MEDAL_INK, getMedalColour } from '@/app/components/achievements/achievementTheme'
 import { getAchievementIcon } from '@/app/components/achievements/achievementIcons'
+import { siteUrl } from '@/lib/siteUrl'
 
 // The reader card: what a profile link unfurls to. Node runtime, since Prisma doesn't run on the edge.
 export const alt = 'A Bookmark reader card'
@@ -63,7 +64,7 @@ async function interFont(weight: number, text: string) {
 }
 
 // Not the request's Host header, which the client controls.
-const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL || `http://localhost:${process.env.PORT || 3000}`
+const siteOrigin = siteUrl
 const siteHost = new URL(siteOrigin).host
 
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s)

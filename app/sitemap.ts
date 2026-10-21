@@ -2,11 +2,11 @@ import { MetadataRoute } from 'next'
 import prisma from '@/lib/db'
 import { GENRES } from '@/lib/genres'
 import { publicProfileWhere } from '@/lib/privacy'
+import { siteUrl } from '@/lib/siteUrl'
 
 // Lists users and lists from the database: refresh hourly instead of freezing it at build time.
 export const revalidate = 3600
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [

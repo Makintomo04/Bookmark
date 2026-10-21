@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { loadInvite } from '@/lib/buddyReadsServer'
 import { readableInk, toHex } from '@/lib/colour'
+import { siteUrl } from '@/lib/siteUrl'
 
 // What an invite link unfurls to: the book, the host, and a dot in each member's colour.
 // Node runtime, since Prisma doesn't run on the edge. Follows the reader card in u/[username]/opengraph-image.tsx.
@@ -19,7 +20,7 @@ const BOOKMARK_PATH = 'M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 
 const DRAWABLE = ['image/png', 'image/jpeg', 'image/gif']
 const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
 
-const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL || `http://localhost:${process.env.PORT || 3000}`
+const siteOrigin = siteUrl
 const siteHost = new URL(siteOrigin).host
 
 function imageUrl(url: string | null | undefined) {

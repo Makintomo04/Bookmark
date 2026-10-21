@@ -5,6 +5,7 @@ import { booksReadCount, booksReadOf, getReaderTier, type ReaderTier } from "@/l
 import { toHex } from "@/lib/colour"
 import type { BadgeShow } from "@/lib/embedUrls"
 import { BRAND, allowedImageUrl } from "@/lib/embedSafe"
+import { siteUrl } from "@/lib/siteUrl";
 
 export * from "@/lib/embedSafe"
 
@@ -14,7 +15,7 @@ export * from "@/lib/embedSafe"
 // so an embed never reveals whether a private account or list exists.
 
 // Not the request's Host header, which the client controls.
-export const siteOrigin = (process.env.NEXT_PUBLIC_SITE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, "")
+export const siteOrigin = siteUrl
 
 // 30 minutes at the CDN (and GitHub's camo proxy), then served stale for up to an hour while it refreshes.
 export const CACHE_PUBLIC = "public, max-age=1800, s-maxage=1800, stale-while-revalidate=3600"
