@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Container from '@/app/components/Container'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { getWrapped, getWrappedOwner, getWrappedYears, isWrappedPublic, parseWrappedYear } from '@/lib/stats'
+import { canViewUser } from '@/lib/privacy'
 import WrappedView from '@/app/components/wrapped/WrappedView'
 import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/accent'
 
@@ -15,7 +16,7 @@ const plural = (n: number, one: string) => `${n.toLocaleString('en-GB')} ${n ===
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const year = parseWrappedYear(params.year)
   const owner = year ? await getWrappedOwner(params.username) : null
-  if (!year || !owner || !isWrappedPublic(owner)) return { title: 'Wrapped not found', robots: { index: false } }
+  if (!year || !owner || !(await isWrappedPublic(owner))) return { title: 'Wrapped not found', robots: { index: false } }
 
   const w = await getWrapped(owner.id, year)
   const title = `${owner.username}'s ${year} in books`
@@ -40,7 +41,7 @@ export default async function Page({ params }: PageProps) {
   const [owner, viewer] = await Promise.all([getWrappedOwner(params.username), getCurrentUser()])
   if (!owner) notFound()
   const own = viewer?.id === owner.id
-  if (!own && !isWrappedPublic(owner)) notFound()
+  if (!own && !(await canViewUser(viewer?.id, owner.id, 'profile'))) notFound()
 
   const [wrapped, years] = await Promise.all([getWrapped(owner.id, year), getWrappedYears(owner.id)])
   const accent = readerAccent(owner.favColour)

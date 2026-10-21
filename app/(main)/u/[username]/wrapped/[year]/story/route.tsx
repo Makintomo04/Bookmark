@@ -8,7 +8,7 @@ export async function GET(_req: Request, { params }: { params: { username: strin
   const year = parseWrappedYear(params.year)
   const owner = year ? await getWrappedOwner(params.username) : null
   if (!year || !owner) return new Response('Not found', { status: 404 })
-  if (!isWrappedPublic(owner)) {
+  if (!(await isWrappedPublic(owner))) {
     const viewer = await getCurrentUser()
     if (viewer?.id !== owner.id) return new Response('Not found', { status: 404 })
   }

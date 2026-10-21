@@ -21,11 +21,15 @@ import {
 
 export const isObjectId = (id: string | null | undefined): id is string => !!id && /^[a-f0-9]{24}$/i.test(id)
 
-// TODO(blocking): the reviews-privacy session adds a Block model. Replace this with its check so blocked
-// users can't join each other's buddy reads, invite each other, or see each other's progress and comments.
-// Every buddy-read path that pairs two readers goes through here.
-export async function isBlockedEitherWay(_userA: string, _userB: string): Promise<boolean> {
-  return false
+// Blocked users can't join each other's buddy reads, invite each other, or see each other's progress
+// and comments. Every buddy-read path that pairs two readers goes through here.
+export async function isBlockedEitherWay(userA: string, userB: string): Promise<boolean> {
+  if (userA === userB) return false
+  const block = await prisma.block.findFirst({
+    where: { OR: [{ blockerId: userA, blockedId: userB }, { blockerId: userB, blockedId: userA }] },
+    select: { id: true },
+  })
+  return !!block
 }
 
 export const buddyReadError = (error: string, status: number) => NextResponse.json({ error }, { status })

@@ -5,6 +5,7 @@ import { getReadingStreak } from "@/lib/achievements";
 import { getReaderTier } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, isValidTimeZone, localDay } from "@/lib/timeZone";
 import { isWrappedSeason } from "@/lib/wrappedSeason";
+import { isProfilePublic } from "@/lib/privacy";
 
 export { isWrappedSeason };
 
@@ -392,12 +393,11 @@ export function parseWrappedYear(raw: string, now = new Date()): number | null {
   return year >= 2000 && year <= latest ? year : null;
 }
 
-// Whether someone other than the owner may see this reader's Wrapped (page and share images).
-// Wrapped is public exactly when the profile is. Every profile is public today, so this is true.
-// TODO(privacy-settings): the Wave B "visible reviews and privacy settings" session is adding
-// privacy fields to User. When they land, return false here for a private profile.
-export function isWrappedPublic(_owner: { id: string }): boolean {
-  return true;
+// Whether a signed-out visitor may see this reader's Wrapped (metadata and share images, which
+// crawlers fetch). Wrapped is public exactly when the profile is. The page itself also lets in
+// signed-in viewers the profile settings allow, via canViewUser.
+export function isWrappedPublic(owner: { id: string }): Promise<boolean> {
+  return isProfilePublic(owner.id);
 }
 
 // The reader a /u/<username>/wrapped URL names. Callers still check isWrappedPublic (the owner can
