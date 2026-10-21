@@ -8,6 +8,8 @@ const MEDAL_COLOURS: Record<AchievementKey, string> = {
   GOALS: "#B8892B",
   REVIEWS: "#8A3B5C",
   RATINGS: "#2E4F7A",
+  BUDDY_READS_FINISHED: "#5B4B8A",
+  BUDDY_READS_HOSTED: "#7A5A2E",
 }
 
 export const MEDAL_INK = "#FBF1DF"

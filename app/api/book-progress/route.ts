@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
+import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
 import { OPEN_READ_STATUSES, RATING_ERROR, ratingInputSchema, readFromBook } from "@/lib/readHistory";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -184,6 +185,7 @@ export async function POST(req: Request) {
   for (const type of activities) {
     await prisma.activity.create({ data: { userId: currentUser.id, bookId: book.id, type } })
   }
+  await onBuddyReadProgress(currentUser.id, updated)
   await awardNewAchievements(currentUser.id)
   return NextResponse.json(updated)
 }

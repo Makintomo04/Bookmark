@@ -9,6 +9,8 @@ export type AchievementKey =
   | "GOALS"
   | "REVIEWS"
   | "RATINGS"
+  | "BUDDY_READS_FINISHED"
+  | "BUDDY_READS_HOSTED"
 
 export type AchievementCategory = "reading" | "consistency" | "engagement"
 
@@ -121,6 +123,28 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
       { value: 25, title: "Sharp Eye" },
       { value: 50, title: "Tastemaker" },
       { value: 100, title: "Connoisseur" },
+    ],
+  },
+  {
+    key: "BUDDY_READS_FINISHED",
+    title: "Buddy reads finished",
+    category: "engagement",
+    describe: (n) => (n === 1 ? "Finish a buddy read" : `Finish ${fmt(n)} buddy reads`),
+    milestones: [
+      { value: 1, title: "Reading Buddy" },
+      { value: 5, title: "Book Club Regular" },
+      { value: 10, title: "Fellowship of Readers" },
+    ],
+  },
+  {
+    key: "BUDDY_READS_HOSTED",
+    title: "Buddy reads hosted",
+    category: "engagement",
+    // Counted once someone else has joined, so an empty buddy read doesn't earn it.
+    describe: (n) => (n === 1 ? "Host a buddy read that someone joins" : `Host ${fmt(n)} buddy reads that others join`),
+    milestones: [
+      { value: 1, title: "Host with the Most" },
+      { value: 5, title: "Book Club Founder" },
     ],
   },
 ]
