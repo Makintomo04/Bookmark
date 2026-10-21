@@ -55,6 +55,8 @@ const ProfileHead: FC = () => {
     : achievements.flatMap((a) => a.milestones).filter((m) => m.earned).length
   const followers = profile?.followerCount ?? 0
   const following = profile?.followingCount ?? 0
+  // Calm social: with counts hidden, even the owner just gets the links to the lists.
+  const hideCounts = !!user.hideFollowCounts
 
   return (
     <>
@@ -68,8 +70,8 @@ const ProfileHead: FC = () => {
         onAvatarClick={() => setShowLightbox(true)}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
-          { value: followers, label: plural(followers, "follower"), followList: { username: user.username, kind: "followers" } },
-          { value: following, label: "following", followList: { username: user.username, kind: "following" } },
+          { value: hideCounts ? null : followers, label: hideCounts ? "Followers" : plural(followers, "follower"), followList: { username: user.username, kind: "followers" } },
+          { value: hideCounts ? null : following, label: hideCounts ? "Following" : "following", followList: { username: user.username, kind: "following" } },
           { value: favourites.length, label: plural(favourites.length, "favourite"), href: "/favourites" },
           { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
         ]}

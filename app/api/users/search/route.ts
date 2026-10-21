@@ -1,6 +1,7 @@
 import { booksReadCount } from "@/lib/readerTier";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
+import { blockedUserIds, canView, privacyOf, privacySelect, searchableProfileWhere } from "@/lib/privacy";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -13,12 +14,17 @@ export async function GET(req: Request) {
     return NextResponse.json([]);
   }
 
+  // Private profiles never turn up, and a block in either direction hides the pair from each other.
+  const blocked = await blockedUserIds(currentUser.id);
   const users = await prisma.user.findMany({
     where: {
-      username: { contains: query, mode: "insensitive" },
-      id: { not: currentUser.id },
+      AND: [
+        { username: { contains: query, mode: "insensitive" } },
+        { id: { notIn: [currentUser.id, ...blocked] } },
+        searchableProfileWhere,
+      ],
     },
-    select: { id: true, username: true, image: true, favColour: true, bio: true, ...booksReadCount },
+    select: { id: true, username: true, image: true, favColour: true, bio: true, ...booksReadCount, ...privacySelect },
     take: 8,
   });
 
@@ -31,7 +37,13 @@ export async function GET(req: Request) {
   });
   const followingIds = new Set(following.map((f) => f.followingId));
 
+  // A followers-only reader shows up so they can be followed, but their bio and count stay with their followers.
   return NextResponse.json(
-    users.map(({ id, ...u }) => ({ ...u, isFollowing: followingIds.has(id) }))
+    users.map(({ id, username, image, favColour, bio, _count, ...privacy }) => {
+      const isFollowing = followingIds.has(id);
+      const relation = { isSelf: false, isFollower: isFollowing, blocked: null };
+      const open = canView(relation, privacyOf(privacy), "profile");
+      return { username, image, favColour, bio: open ? bio : null, ...(open ? { _count } : {}), isFollowing };
+    })
   );
 }

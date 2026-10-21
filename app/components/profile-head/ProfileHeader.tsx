@@ -10,7 +10,8 @@ import FollowListStat from './FollowListStat'
 // view, itself a client component, passes onAvatarClick.
 
 export interface ProfileStat {
-  value: number
+  // null shows the label alone (the owner's view of counts they've hidden).
+  value: number | null
   label: string
   href?: string
   // Opens this profile's follower or following list.
@@ -36,7 +37,7 @@ export const secondaryButtonClass = "inline-flex items-center justify-center gap
 const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   const content = (
     <>
-      <span className="font-semibold text-foreground tabular-nums">{stat.value}</span> {stat.label}
+      {stat.value !== null && <><span className="font-semibold text-foreground tabular-nums">{stat.value}</span> </>}{stat.label}
     </>
   )
   const className = "text-sm text-muted-foreground whitespace-nowrap"

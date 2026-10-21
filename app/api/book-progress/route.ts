@@ -42,6 +42,9 @@ const bodySchema = z.object({
   pagesUpdate: z.union([z.string(), z.number()]).optional(),
   rating: ratingInputSchema.optional(),
   review: z.string().max(2000, "Review must be 2000 characters or fewer").optional(),
+  // Spoiler reviews show collapsed behind a click-to-reveal; private ones only to the reader (lib/privacy.ts).
+  reviewSpoiler: z.boolean().optional(),
+  reviewPrivate: z.boolean().optional(),
   // Older clients sent flags instead of an action.
   isStarted: z.boolean().optional(),
   isComplete: z.boolean().optional(),
@@ -82,7 +85,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error }, { status: 400 })
   }
   const body = parsed.data
-  const { id, rating, review } = body
+  const { id, rating, review, reviewSpoiler, reviewPrivate } = body
 
   const book = await prisma.book.findUnique({ where: { id } })
   if (!book) {
@@ -164,6 +167,8 @@ export async function POST(req: Request) {
       }
       if (rating !== undefined) data.rating = rating
       if (review !== undefined) data.review = review
+      if (reviewSpoiler !== undefined) data.reviewSpoiler = reviewSpoiler
+      if (reviewPrivate !== undefined) data.reviewPrivate = reviewPrivate
       // Matching the status we checked makes a concurrent change (another tab, a double submit) fail
       // with P2025 and roll the whole transaction back, instead of opening two reads.
       return tx.book.update({ where: { id: book.id, status: book.status }, data })

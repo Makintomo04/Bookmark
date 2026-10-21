@@ -15,6 +15,7 @@ import { useUploadThing } from '@/utils/uploadthing'
 import useUser from '@/app/hooks/useUser'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import DataExport from '../settings/DataExport'
+import PrivacySettings from '../settings/PrivacySettings'
 
 const DEFAULT_COLOUR = '#D92D2D'
 const SWATCHES = ['#D92D2D', '#E8590C', '#E0A800', '#2F9E44', '#0C8599', '#1971C2', '#5F3DC4', '#C2255C', '#495057', '#1A1A1A']
@@ -355,6 +356,7 @@ const EditProfileModal: FC = () => {
     >
       {preview}
       {fields}
+      <PrivacySettings disabled={isBusy} />
       <DataExport disabled={isBusy} />
       {dangerZone}
     </form>

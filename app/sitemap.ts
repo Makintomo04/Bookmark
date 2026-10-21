@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next'
 import prisma from '@/lib/db'
 import { GENRES } from '@/lib/genres'
+import { publicProfileWhere } from '@/lib/privacy'
 
 // Lists users and lists from the database: refresh hourly instead of freezing it at build time.
 export const revalidate = 3600
@@ -15,14 +16,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   // Public profiles with at least one visible (started/completed) book are
-  // worth indexing. Capped to keep the sitemap a reasonable size.
+  // worth indexing; followers-only and private ones are left out. Capped to keep
+  // the sitemap a reasonable size.
   // A database hiccup at build time shouldn't fail the deploy: fall back to the
   // static routes and let the hourly revalidation fill the rest in.
   const [usersWithBooks, publicLists] = await Promise.all([
     prisma.user.findMany({
       where: {
-        username: { not: null },
-        books: { some: { status: { in: ['STARTED', 'COMPLETED'] } } },
+        AND: [
+          { username: { not: null } },
+          { books: { some: { status: { in: ['STARTED', 'COMPLETED'] } } } },
+          publicProfileWhere,
+        ],
       },
       select: { username: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },

@@ -2,9 +2,11 @@ import { FC } from 'react'
 import Link from 'next/link'
 import { Book } from '@prisma/client'
 import type { SerializedProfile } from '@/lib/publicProfile'
-import ProfileHeader, { primaryButtonClass } from './ProfileHeader'
+import ProfileHeader, { primaryButtonClass, type ProfileStat } from './ProfileHeader'
 import FollowButton from './FollowButton'
 import ShareProfileButton from './ShareProfileButton'
+import ProfileMenu from './ProfileMenu'
+import ProfileReviews from './ProfileReviews'
 import { cn } from '@/lib/utils'
 import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
@@ -18,10 +20,11 @@ interface PublicProfileProps {
 }
 
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
-// and the profile's reading lists are client islands.
+// and the profile's reading lists are client islands. The payload is already filtered for
+// this viewer (lib/publicProfile.ts): hidden shelves, reviews and counts never arrive.
 const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
   // The cards take a Book; the public payload is the subset of it they read.
-  const { reading, finished } = groupShelf(profile.books as unknown as Book[])
+  const { reading, finished, wantToRead } = groupShelf(profile.books as unknown as Book[])
   const completedCount = finished.length
   const achievementCount = profile.achievements.length
 
@@ -31,8 +34,15 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
       {viewer
         ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} />
         : <Link href="/register" className={primaryButtonClass}>Sign up to follow</Link>}
+      {viewer && <ProfileMenu username={profile.username} isBlocked={false} />}
     </>
   )
+
+  // Counts come as null when the reader hides them (calm social).
+  const followStats: ProfileStat[] = profile.followerCount === null || profile.followingCount === null ? [] : [
+    { value: profile.followerCount, label: profile.followerCount === 1 ? "follower" : "followers", followList: { username: profile.username, kind: "followers" } },
+    { value: profile.followingCount, label: "following", followList: { username: profile.username, kind: "following" } },
+  ]
 
   return (
     <div className="w-full">
@@ -46,13 +56,12 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         actions={actions}
         stats={[
           { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },
-          { value: profile.followerCount, label: profile.followerCount === 1 ? "follower" : "followers", followList: { username: profile.username, kind: "followers" } },
-          { value: profile.followingCount, label: "following", followList: { username: profile.username, kind: "following" } },
+          ...followStats,
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements" },
         ]}
       />
       <div className="mt-12 px-4 sm:px-8">
-        {reading.length === 0 && finished.length === 0 ? (
+        {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (
           <>
@@ -67,6 +76,14 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
               <ShelfSection id="public-shelf-finished" title="Finished" count={finished.length}>
                 <div className={coverGridClass}>
                   {finished.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
+                </div>
+              </ShelfSection>
+            )}
+            <ProfileReviews books={profile.books} accentColour={profile.favColour} />
+            {wantToRead.length > 0 && (
+              <ShelfSection id="public-shelf-want" title="Want to read" count={wantToRead.length}>
+                <div className={coverGridClass}>
+                  {wantToRead.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
                 </div>
               </ShelfSection>
             )}

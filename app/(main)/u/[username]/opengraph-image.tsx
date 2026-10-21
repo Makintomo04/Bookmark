@@ -75,8 +75,9 @@ function icon(key: string, sizePx: number) {
 }
 
 export default async function Image({ params }: { params: { username: string } }) {
+  // The signed-out view: a followers-only or private profile gets no card, so its reading never unfurls.
   const data = await getPublicProfile(params.username)
-  if (!data) return new Response('Not found', { status: 404 })
+  if (!data || data.access !== 'full') return new Response('Not found', { status: 404 })
 
   const { profile } = data
   const year = new Date().getFullYear()
