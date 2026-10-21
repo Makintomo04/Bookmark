@@ -9,6 +9,7 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import { Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { warmCoverConnections } from '@/utils/helpers'
 import type { DiscoverBook } from '@/lib/openLibrary'
 import useUser from '@/app/hooks/useUser'
 import DiscoverBookCard from './DiscoverBookCard'
@@ -58,6 +59,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       return
     }
     setIsSearching(true)
+    if (mode === "books") warmCoverConnections()
     const timeout = setTimeout(() => {
       const request = mode === "books"
         ? axios.get(`/api/books/search?q=${encodeURIComponent(q)}&limit=12`).then((res) => setBooks(res.data))
