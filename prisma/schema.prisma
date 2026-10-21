@@ -330,3 +330,34 @@ model ListItem {
   // Items are always loaded per list in position order.
   @@index([listId, position])
 }
+
+// A library import from a Goodreads, StoryGraph or Bookmark CSV export. The file is parsed once on upload;
+// Open Library matching and inserting then run in short batches that the /import page drives, so no
+// request comes near a serverless time limit. userId is a scalar, not a relation, so User is untouched;
+// rows are cleared once the import finishes, leaving only the summary.
+model ImportJob {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  // goodreads, storygraph or bookmark.
+  source String
+  fileName String?
+  // matching → ready → importing → done, or cancelled.
+  status String @default("matching")
+  // ImportRow[] (lib/import/types.ts).
+  rows Json
+  // { "<row index>": ImportMatch | null } for every row looked up so far (null: no match).
+  matches Json
+  // A book id per row, chosen up front so a retried batch finds its books instead of inserting them twice.
+  bookIds String[]
+  // Rows before this index have been imported or skipped.
+  importCursor Int @default(0)
+  // Index into bookIds up to which covers have been copied to UploadThing (after the import).
+  coverCursor Int @default(0)
+  // Running counts while importing, then the summary.
+  result Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The reader's latest job, for resuming after a reload.
+  @@index([userId, createdAt])
+}
