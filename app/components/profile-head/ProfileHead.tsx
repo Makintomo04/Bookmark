@@ -68,7 +68,7 @@ const ProfileHead: FC = () => {
         image={user.image}
         banner={user.banner}
         colour={user.favColour}
-        onAvatarClick={() => setShowLightbox(true)}
+        onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
           { value: hideCounts ? null : followers, label: hideCounts ? "Followers" : plural(followers, "follower"), followList: { username: user.username, kind: "followers" } },
@@ -89,10 +89,10 @@ const ProfileHead: FC = () => {
         <ReadingGoalWidget />
       </ProfileHeader>
 
-      {showLightbox && (
+      {showLightbox && user.image && (
         <Lightbox
-          small={user.image || "/images/avatar.jpg"}
-          large={user.image || "/images/avatar.jpg"}
+          small={user.image}
+          large={user.image}
           alt="Profile picture"
           hideDownload={true}
           /** @ts-ignore */
