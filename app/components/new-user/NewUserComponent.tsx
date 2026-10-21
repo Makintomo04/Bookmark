@@ -24,7 +24,6 @@ const NewUserComponent:FC<NewUserComponentProps> =  ({body,step,disabled,onSubmi
   
 const router = useRouter();
 const handleSubmit = useCallback(()=>{
-  // console.log("HEYY");
  onSubmit();
 },[onSubmit])
 

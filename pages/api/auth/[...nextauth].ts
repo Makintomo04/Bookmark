@@ -7,6 +7,8 @@ import TwitterProvider from "next-auth/providers/twitter"
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/db";
 import bcrypt from "bcrypt";
+import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
+import { EMAIL_NOT_VERIFIED } from "@/lib/authSchemas";
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   pages: {
@@ -28,42 +30,54 @@ export const authOptions: AuthOptions = {
         email: { label: "email", type: "text" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
-        console.log("!!!!!CREDENTIALS!!!!!",credentials);
+      async authorize(credentials, req) {
         if(!credentials || !credentials.email || !credentials.password){
           throw new Error('No credentials provided')
+        }
+        // Slows password guessing: per IP across all accounts, and per account across all IPs.
+        const byIp = rateLimit(`signin:ip:${clientIp(req?.headers)}`, 20, 15 * 60 * 1000)
+        const byEmail = rateLimit(`signin:email:${credentials.email.toLowerCase()}`, 10, 15 * 60 * 1000)
+        if (!byIp.ok || !byEmail.ok) {
+          throw new Error(tooManyRequestsMessage)
         }
         const user = await prisma.user.findUnique({
           where:{
             email:credentials?.email
           }
         })
+        // Same message as a wrong password, so sign-in can't be used to discover which emails have accounts.
         if (!user || !user.hashedPassword) {
-          throw new Error('No user found')
+          throw new Error('Invalid email or password')
         }
         const isCorrectPassword = await bcrypt.compare(credentials.password,user.hashedPassword)
-        
+
         if (!isCorrectPassword) {
-          throw new Error('Invalid credentials');
-          return null
+          throw new Error('Invalid email or password');
+        }
+        // Checked after the password so this only tells someone who already knows it. The sign-in page
+        // reads this code and offers to resend the link.
+        if (!user.emailVerified) {
+          throw new Error(EMAIL_NOT_VERIFIED)
         }
         return user
       }
     }),
+    // No allowDangerousEmailAccountLinking: older password accounts may still be unverified, so linking by
+    // email would let someone who registered a victim's address keep access after the victim signs in with
+    // Google or GitHub. A provider sign-in whose email already has an account now fails with
+    // OAuthAccountNotLinked, which the sign-in page explains.
     GithubProvider({
       clientId: process.env.GITHUB_ID as string,
       clientSecret: process.env.GITHUB_SECRET as string,
-      allowDangerousEmailAccountLinking: true
     }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      allowDangerousEmailAccountLinking: true,
     }),
     EmailProvider({
       server: {
         host: process.env.EMAIL_SERVER_HOST,
-        port: process.env.EMAIL_SERVER_PORT,
+        port: process.env.EMAIL_SERVER_PORT ? Number(process.env.EMAIL_SERVER_PORT) : undefined,
         auth: {
           user: process.env.EMAIL_SERVER_USER,
           pass: process.env.EMAIL_SERVER_PASSWORD
@@ -74,7 +88,23 @@ export const authOptions: AuthOptions = {
    
     
   ],
-  secret: process.env.SECRET,
+  callbacks: {
+    async signIn({ user, account, email }) {
+      // Opening a magic link proves the inbox is theirs, and NextAuth then marks the user verified. If the
+      // account was unverified and has a password, that password was set by whoever registered the
+      // address, maybe not this person, so drop it before verification would let it sign in.
+      // (email.verificationRequest is set when the link is being requested, not when it's opened.)
+      if (account?.provider === "email" && !email?.verificationRequest && "hashedPassword" in user) {
+        const dbUser = user as { id: string; emailVerified?: Date | null; hashedPassword?: string | null }
+        if (!dbUser.emailVerified && dbUser.hashedPassword) {
+          await prisma.user.update({ where: { id: dbUser.id }, data: { hashedPassword: null } })
+        }
+      }
+      return true
+    },
+  },
+  // Vercel has NEXTAUTH_SECRET; .env.local uses SECRET.
+  secret: process.env.SECRET || process.env.NEXTAUTH_SECRET,
   
   session: {
     strategy: 'jwt',

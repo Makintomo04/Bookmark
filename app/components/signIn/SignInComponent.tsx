@@ -1,18 +1,17 @@
 "use client"
-import { FC, useEffect } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { Input } from '../ui/input'
-import { getCsrfToken, getProviders, signIn, useSession } from 'next-auth/react'
-import { GetServerSidePropsContext, InferGetServerSidePropsType } from 'next'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/pages/api/auth/[...nextauth]'
-import SignInWithGoogleButton from './SignInWithOAuthButton'
+import { signIn } from 'next-auth/react'
 import Image from 'next/image'
+import Link from 'next/link'
 import SignInWithOAuthButton from './SignInWithOAuthButton'
 import { Button } from '../ui/button'
 import { useRouter } from 'next/navigation'
 import { motion,AnimatePresence } from 'framer-motion'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import { toast } from 'react-toastify'
+import { EMAIL_NOT_VERIFIED } from '@/lib/authSchemas'
+import CheckInboxNotice from './CheckInboxNotice'
 
 interface SignInComponentProps {
   
@@ -22,13 +21,34 @@ const SignInComponent =  () => {
 
   const router = useRouter()
 
+  // Until hydration, a click would submit the form natively instead of through onSubmit
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  // NextAuth sends failed Google/GitHub sign-ins back here as ?error=...
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [justVerified, setJustVerified] = useState(false)
+  // Set when the password was right but the email still needs confirming.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("verified") === "1") setJustVerified(true)
+    const email = params.get("email")
+    if (email) setValue("email", email)
+    const code = params.get("error")
+    if (!code) return
+    setAuthError(code === "OAuthAccountNotLinked"
+      ? "An account with this email already exists. Sign in with the method you used to create it."
+      : "Sign-in failed. Please try again.")
+  }, [])
+
   const { 
     register,
     handleSubmit,
     setValue,
     watch,
     getValues,
-    formState:{errors},
+    formState:{errors, isSubmitting},
     reset} = useForm<FieldValues>({
     defaultValues: {
       email: "",
@@ -37,26 +57,24 @@ const SignInComponent =  () => {
   })
 
   const onSubmit:SubmitHandler<FieldValues> = async (data) => {
+    setUnverifiedEmail(null)
     try {
-      await signIn("credentials", {
+      const res = await signIn("credentials", {
         redirect: false,
         email: data.email,
         password: data.password,
-        
-      }).then((res)=>{
-        console.log("22222",res)
-        if(res?.ok){
-          router.push("/")
-        }
-        else{
-          console.log("11111",res?.error);
-          toast.error(res?.error,{position:"bottom-center"})
-        }
-      }).catch((error:Error)=>{
       })
+      if(res?.ok){
+        router.push("/")
+      }
+      else if(res?.error === EMAIL_NOT_VERIFIED){
+        setUnverifiedEmail(data.email)
+      }
+      else{
+        toast.error(res?.error || "Invalid email or password",{position:"bottom-center"})
+      }
     }
     catch (error) {
-      console.log(error);
       toast.error("Invalid email or password",{position:"bottom-center"})
     }
   }
@@ -92,15 +110,10 @@ const SignInComponent =  () => {
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
   <div className="">
-  {/* {providers &&
-              Object.values(providers).map(provider => (
-                <div key={provider.name} style={{ marginBottom: 0 }}> */}
-                  {/* <button onClick={() => signIn()} >
-                    Sign in with
-                  </button> */}
-                {/* </div>
-              ))} */}
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
+    {justVerified && !unverifiedEmail && <p role="status" className="mb-4 rounded-md bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300 text-sm px-3 py-2">Email confirmed. Sign in to continue.</p>}
+    {unverifiedEmail && <div className="mb-4"><CheckInboxNotice email={unverifiedEmail} title="Confirm your email to sign in"/></div>}
+    {authError && <p role="alert" className="mb-4 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm px-3 py-2">{authError}</p>}
+    <form method="post" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
         <Input register={register} errors={errors} inputValidation={{required:true, message:"Email Required"}} type="email" name="email" id="email" className="w-full" required/>
@@ -109,7 +122,8 @@ const SignInComponent =  () => {
         <label htmlFor="password">Password</label>
         <Input register={register} errors={errors} inputValidation={{required:true, message:"Password Required"}} type="password" name="password" id="password" className="w-full" required/>
       </div>
-      <Button className="bg-red-500 text-white rounded-md py-2">Sign in</Button>
+      <Link href="/forgot-password" className='text-sm text-[#F13C3C] hover:underline self-end -mt-2'>Forgot password?</Link>
+      <Button type="submit" disabled={!mounted || isSubmitting} className="bg-red-500 text-white rounded-md py-2">{isSubmitting ? "Signing in…" : "Sign in"}</Button>
     </form>
     <div className="flex gap-3 items-center justify-center my-6 w-full">
       <hr className='border-1 border-slate-400/50 w-full'/>
@@ -120,7 +134,7 @@ const SignInComponent =  () => {
               <SignInWithOAuthButton provider="Google"/>
               <SignInWithOAuthButton provider="Github"/>
     </div>
-    <p className='text-sm mt-4'>First time using Bookmark? <span onClick={()=>router.push("/register")} className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Create an account</span></p>
+    <p className='text-sm mt-4'>First time using Bookmark? <Link href="/register" className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Create an account</Link></p>
   </div>
   </motion.div>
   </AnimatePresence>

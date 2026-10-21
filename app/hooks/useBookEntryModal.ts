@@ -1,17 +1,18 @@
-import { FC, useState } from 'react';
 import { create } from 'zustand';
+import type { BookSearchResult } from '../components/modals/BookSearchResults';
 
 interface IBookEntryModalStore {
   isOpen: boolean;
-  onOpen: () => void;
+  prefill: BookSearchResult | null;
+  onOpen: (prefill?: BookSearchResult) => void;
   onClose: () => void;
 }
 
 export const useBookEntryModal = create<IBookEntryModalStore>((set) =>({
   isOpen:false,
-  onOpen: () => set({ isOpen: true }),
-  onClose: () => set({ isOpen: false }),
- 
+  prefill: null,
+  onOpen: (prefill) => set({ isOpen: true, prefill: prefill ?? null }),
+  onClose: () => set({ isOpen: false, prefill: null }),
 }));
 
 export default useBookEntryModal;

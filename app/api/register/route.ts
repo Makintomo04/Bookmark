@@ -1,18 +1,41 @@
 import prisma from '@/lib/db'
+import { sanitizeUser } from '@/lib/sanitizeUser';
+import { registerSchema } from '@/lib/authSchemas';
+import { sendVerificationEmail } from '@/lib/emailVerification';
+import { clientIp, rateLimit, tooManyRequestsMessage } from '@/lib/rateLimit';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-export async function POST(req:Request, res:Response) {
-  const body = await req.json();
-  const { email, password } = body;
-  if(!email || !password){
-    return NextResponse.error();
+
+export async function POST(req: Request) {
+  const limit = rateLimit(`register:${clientIp(req.headers)}`, 5, 60 * 60 * 1000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } });
   }
-  const hashedPassword = bcrypt.hashSync(password, 10);
+
+  const parsed = registerSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Email and password are required.' }, { status: 400 });
+  }
+  const { email, password } = parsed.data;
+
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    return NextResponse.json({ error: 'An account with this email already exists.' }, { status: 409 });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
       email,
       hashedPassword
     },
   });
-  return NextResponse.json(user);
+  // The account can't sign in until the emailed link is followed, so nobody can claim an inbox they don't own.
+  try {
+    await sendVerificationEmail(email);
+  } catch (error) {
+    // The account exists either way; the sign-in page can resend the link.
+    console.error('Failed to send verification email', error);
+  }
+  return NextResponse.json(sanitizeUser(user));
 }

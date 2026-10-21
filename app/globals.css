@@ -57,9 +57,6 @@
     @apply bg-background text-foreground;
   }
 }
-/* div[role=progressbar]{
-  width: 100%;
-} */
 progress[value],progress[value]::-webkit-progress-bar  {
   /* Reset the default appearance */
   -moz-appearance: none;
@@ -68,13 +65,13 @@ progress[value],progress[value]::-webkit-progress-bar  {
   color:red; 
 }
 button.react-calendar__tile--active{
-  background: #F13C3C;
+  background: #D92D2D;
 }
 button.react-calendar__tile--active:enabled:focus{
-  background: #F13C3C;
+  background: #D92D2D;
 }
 button.react-calendar__tile--active:enabled:focus:hover{
-  background: #F13C3C;
+  background: #D92D2D;
 }
 abbr{
   color: black;
@@ -87,6 +84,15 @@ button.react-calendar__tile--now{
 button.react-calendar__tile--now>abbr{
   color:white
   
+}
+
+/* react-color's ChromePicker hex input doesn't set its own background,
+   so it inherits a dark one from the app theme while keeping its own
+   dark text colour - making it unreadable. Force a light field to match
+   the rest of the picker's own (light) chrome. */
+.chrome-picker input {
+  color: #333 !important;
+  background-color: #fff !important;
 }
 
 .marquee {
@@ -115,9 +121,6 @@ progress::-moz-progress-bar { background: black; }
 progress::-webkit-progress-value { background: black; }
 progress { color: black;width: 100%; }
 
-/* .react-calendar__navigation{
-  color: #000 !important;
-} */
 @media (prefers-color-scheme: dark) {
 .react-calendar__navigation > button{
   color: red;
@@ -145,19 +148,41 @@ progress { color: black;width: 100%; }
   }
   button.react-calendar__tile--now abbr{
     color:black;
-    
+
   }
 }
 
-  .react-calendar abbr{
-    color: #fff;
-  }
-  button.react-calendar__tile--now{
-    background: white;
-    
-  }
-  button.react-calendar__tile--now abbr{
-    color:black;
-    
-  }
 
+/* Loader animations (app/components/Loader.tsx) */
+@keyframes loader-fill {
+  0% { transform: translateY(31px); }
+  55%, 75% { transform: translateY(0); }
+  100% { transform: translateY(-31px); }
+}
+.loader-fill {
+  animation: loader-fill 1.8s cubic-bezier(.6, 0, .3, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-fill { animation-duration: 4s; }
+}
+
+/* A band of light that sweeps across a gold, platinum or diamond avatar frame,
+   then rests. The avatar sits on top, so only the frame shows it. */
+.tier-shimmer {
+  background-image: linear-gradient(115deg, transparent 43%, rgba(255, 255, 255, 0.55) 47%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0.55) 53%, transparent 57%);
+  background-size: 300% 100%;
+  background-position: 120% 0;
+  background-repeat: no-repeat;
+}
+.tier-shimmer-diamond {
+  background-image: linear-gradient(115deg, transparent 40%, rgba(150, 232, 255, 0.9) 45%, rgba(255, 255, 255, 1) 50%, rgba(200, 170, 255, 0.9) 55%, transparent 60%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tier-shimmer { animation: tier-shimmer 5s ease-in-out infinite; }
+  .tier-shimmer-diamond { animation-duration: 3.5s; }
+}
+@keyframes tier-shimmer {
+  0% { background-position: 120% 0; }
+  45%, 100% { background-position: -20% 0; }
+}

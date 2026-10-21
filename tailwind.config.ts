@@ -9,7 +9,6 @@ const config = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
-    'node_modules/flowbite-react/lib/esm/**/*.js',
 	],
   prefix: "",
   theme: {
@@ -23,6 +22,13 @@ const config = {
     },
     extend: {
       colors: {
+        // `fill` is the brand red darkened so white text on it passes 4.5:1;
+        // DEFAULT stays for marks and text on the dark ground, where it reads better.
+        brand: {
+          DEFAULT: "#F13C3C",
+          fill: "#D92D2D",
+          "fill-hover": "#C42727",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -78,7 +84,7 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"),require('flowbite/plugin'),nextui()],
+  plugins: [require("tailwindcss-animate"),nextui()],
 } satisfies Config
 
 export default withUt(config)

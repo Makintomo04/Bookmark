@@ -43,6 +43,8 @@ model User {
   username      String?   @unique @default(cuid())
   email         String?   @unique
   emailVerified DateTime?
+  // IANA zone (e.g. "Europe/London") reported by the browser; reading-streak days roll over at its midnight.
+  timeZone      String?
   password      String?
   hashedPassword String?
   bio           String?
@@ -56,6 +58,80 @@ model User {
   books Book[]
   accounts      Account[]
   sessions      Session[]
+  readingGoals  ReadingGoal[]
+  following     Follow[] @relation("UserFollows")
+  followers     Follow[] @relation("UserFollowedBy")
+  activities    Activity[]
+  notificationsReceived Notification[] @relation("NotificationRecipient")
+  notificationsSent     Notification[] @relation("NotificationActor")
+  achievements  UserAchievement[]
+  readingDays   ReadingDay[]
+  isStaff       Boolean @default(false)
+  lists         List[]
+  listReports   ListReport[]
+  // Privacy. Optional so accounts made before these existed read as the defaults
+  // (PUBLIC, EVERYONE, false, false). lib/privacy.ts normalizes them and enforces every rule.
+  profileVisibility ProfileVisibility?
+  reviewVisibility  ReviewVisibility?
+  hideWantToRead    Boolean?
+  hideFollowCounts  Boolean?
+  blocking      Block[] @relation("UserBlocks")
+  blockedBy     Block[] @relation("UserBlockedBy")
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+enum ReviewVisibility {
+  EVERYONE
+  FOLLOWERS
+  ONLY_ME
+}
+
+// blockerId has blocked blockedId. Either direction hides the two from each other (lib/privacy.ts).
+model Block {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  blockerId String @db.ObjectId
+  blockedId String @db.ObjectId
+  createdAt DateTime @default(now())
+
+  blocker User @relation("UserBlocks", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("UserBlockedBy", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  // One block per pair. The prefix covers "who have I blocked" (blockerId alone).
+  @@unique([blockerId, blockedId])
+  // "Who has blocked me": search and feed filtering, and the cascade from a deleted user.
+  @@index([blockedId])
+}
+
+model Follow {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  followerId String @db.ObjectId
+  followingId String @db.ObjectId
+  createdAt DateTime @default(now())
+
+  follower User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowedBy", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+
+  // Followers list: followingId match, newest first. (followerId lookups use the unique index.)
+  @@index([followingId, createdAt])
+}
+
+model ReadingGoal {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  year Int
+  targetBooks Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year])
 }
 
 model VerificationToken {
@@ -77,28 +153,463 @@ model Book {
   cardColour String?
   status Status @default(NOT_STARTED)
   genre String?
+  // 0.5 to 5 in half-star steps.
   rating Float?
+  review String?
+  // The review gives the plot away: others see it collapsed behind a click-to-reveal.
+  reviewSpoiler Boolean?
+  // Only the reader sees this review, whatever their review visibility setting.
+  reviewPrivate Boolean?
+  // Completed reads. Kept in step with BookRead rows whose status is COMPLETED.
+  timesRead Int @default(0)
   notes Note[]
-  quotes String[]
   pages Int
   currentPage Int? @default(0)
   createdAt DateTime @default(now())
+  // These mirror the current (or latest) read so existing queries keep working; BookRead holds the history.
   startedAt DateTime?
   completedAt DateTime?
+  // When the book was put down: set while DNF or PAUSED, cleared otherwise. A DNF's page is currentPage.
+  stoppedAt DateTime?
+  // Open Library work key (e.g. OL45883W), so the same book can be matched across readers and lists.
+  workKey String?
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities Activity[]
+  reads BookRead[]
+
+  // Shelf (userId) and public profile (userId + status in STARTED/COMPLETED). The prefix covers userId alone.
+  @@index([userId, status])
+  // "Picked by people you follow" in book details: this book on followed readers' shelves.
+  @@index([workKey, userId])
 }
 model Note {
   id String   @id @default(auto()) @map("_id") @db.ObjectId
   bookId String @db.ObjectId
-  title String
+  title String?
   content String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
 }
 
 enum Status {
   STARTED
   NOT_STARTED
   COMPLETED
+  // Did not finish: stopped for good, at currentPage on stoppedAt.
+  DNF
+  // On hold: keeps currentPage and can be resumed.
+  PAUSED
+}
+
+// One row per time a reader picks a book up. "Read again" closes the current read and opens a new one,
+// so earlier dates and ratings survive. Book.status/startedAt/completedAt/timesRead mirror these rows.
+model BookRead {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  bookId String @db.ObjectId
+  // Copied from the book so per-reader queries (stats, Wrapped, export) don't need a join. A scalar,
+  // not a relation, so User is untouched: reads go with their book, and books go with their user.
+  userId String @db.ObjectId
+  // Null for a past read shelved as Finished without dates (and for reads backfilled from those).
+  startedAt DateTime?
+  // Set when the read ends: COMPLETED or DNF. Null while STARTED or PAUSED, and for undated past reads.
+  finishedAt DateTime?
+  // STARTED, PAUSED, COMPLETED or DNF. A read is never NOT_STARTED.
+  status Status
+  // The rating given for this read. Book.rating is the reader's current rating.
+  rating Float?
+  // For a DNF, the page the reader stopped at.
+  stoppedAtPage Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  // A book's reads in order, and finding its open one. The prefix covers the cascade from a deleted book.
+  @@index([bookId, createdAt])
+  // Stats, Wrapped and the goal: a reader's reads finished in a date range.
+  @@index([userId, finishedAt])
+  // A reader's reads by outcome (every DNF, every re-read), and import de-duplication.
+  @@index([userId, status])
+}
+
+model Activity {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  bookId String? @db.ObjectId
+  type ActivityType
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book? @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  // Feed: activity from followed users, newest first.
+  @@index([userId, createdAt])
+  // Lets the cascade from a deleted book find its activity without a collection scan.
+  @@index([bookId])
+}
+
+enum ActivityType {
+  ADDED_BOOK
+  STARTED_BOOK
+  COMPLETED_BOOK
+  RATED_BOOK
+  REVIEWED_BOOK
+  // Gave up on a book. Pausing isn't posted: it's a private, temporary state.
+  DNF_BOOK
+}
+
+model Notification {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  actorId String @db.ObjectId
+  type NotificationType
+  bookId String? @db.ObjectId
+  achievementKey String?
+  // Buddy-read notifications: which buddy read, and how many joins or unlocked comments one row stands for.
+  buddyReadId String? @db.ObjectId
+  count Int?
+  read Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  // Bell: unread count and mark-all-read (userId + read), and the list (userId, sorted by createdAt).
+  @@index([userId, read, createdAt])
+}
+
+enum NotificationType {
+  NEW_FOLLOWER
+  ACHIEVEMENT_EARNED
+  // A member asked you to read along.
+  BUDDY_READ_INVITE
+  // Someone joined a buddy read you host. Unread ones are batched: count says how many joined.
+  BUDDY_READ_JOINED
+  // Your progress passed other members' comments. Batched per buddy read: count says how many unlocked.
+  COMMENTS_UNLOCKED
+  // You finished a seasonal quest. achievementKey is "QUEST:<questId>".
+  QUEST_COMPLETED
+}
+
+model UserAchievement {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  key String
+  earnedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+}
+
+// A calendar day (in the reader's time zone) on which they logged reading: a page update or a
+// finished book. One row per day, so reading streaks don't need to scan every Activity row.
+model ReadingDay {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  // "YYYY-MM-DD", so it sorts and compares as text.
+  day String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+}
+
+enum ListVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+model List {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId String @db.ObjectId
+  title String
+  description String?
+  visibility ListVisibility @default(PRIVATE)
+  // Team-curated "Bookmark Picks". Only staff can set this, along with the featured window and hidden.
+  isPick Boolean @default(false)
+  genres String[] @db.String
+  tags String[] @db.String
+  featuredFrom DateTime?
+  featuredUntil DateTime?
+  featuredLabel String?
+  hidden Boolean @default(false)
+  // Set when the list was copied ("remixed") from someone else's public list. A plain id, not a
+  // relation, so deleting the original leaves its remixes alone.
+  forkedFromId String? @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items ListItem[]
+  reports ListReport[]
+
+  // A reader's own lists, most recently updated first. The prefix covers ownerId alone (counts, ownership checks).
+  @@index([ownerId, updatedAt])
+  // Browsing and the sitemap: public, not hidden, most recently updated first.
+  @@index([visibility, hidden, updatedAt])
+  // A list's remix count.
+  @@index([forkedFromId])
+}
+
+// One report per reader per list. Staff review reported lists and use `hidden` to take one down.
+model ListReport {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  listId String @db.ObjectId
+  reporterId String @db.ObjectId
+  reason String
+  createdAt DateTime @default(now())
+
+  list List @relation(fields: [listId], references: [id], onDelete: Cascade)
+  reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, reporterId])
+}
+
+// Items snapshot the book's details: books are per-user rows, so there's no shared record to point at.
+model ListItem {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  listId String @db.ObjectId
+  workKey String?
+  title String
+  author String
+  coverUrl String?
+  pages Int?
+  // The curator's reason: "why you'd like this".
+  note String?
+  // Who wrote the note when it isn't the list's owner: a remix keeps the original curator's reasons.
+  // Unset means the owner. A plain id, so a deleted account just falls back to the owner.
+  noteAuthorId String? @db.ObjectId
+  position Int
+  createdAt DateTime @default(now())
+
+  list List @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  // Items are always loaded per list in position order.
+  @@index([listId, position])
+  // "From people you follow" on Discover: newest additions to followed readers' lists.
+  @@index([listId, createdAt])
+  // "Picked by people you follow" in book details.
+  @@index([workKey])
+}
+
+// A library import from a Goodreads, StoryGraph or Bookmark CSV export. The file is parsed once on upload;
+// Open Library matching and inserting then run in short batches that the /import page drives, so no
+// request comes near a serverless time limit. userId is a scalar, not a relation, so User is untouched;
+// rows are cleared once the import finishes, leaving only the summary.
+model ImportJob {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  // goodreads, storygraph or bookmark.
+  source String
+  fileName String?
+  // matching → ready → importing → done, or cancelled.
+  status String @default("matching")
+  // ImportRow[] (lib/import/types.ts).
+  rows Json
+  // { "<row index>": ImportMatch | null } for every row looked up so far (null: no match).
+  matches Json
+  // A book id per row, chosen up front so a retried batch finds its books instead of inserting them twice.
+  bookIds String[]
+  // Rows before this index have been imported or skipped.
+  importCursor Int @default(0)
+  // Index into bookIds up to which covers have been copied to UploadThing (after the import).
+  coverCursor Int @default(0)
+  // Running counts while importing, then the summary.
+  result Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The reader's latest job, for resuming after a reload.
+  @@index([userId, createdAt])
+}
+
+// ---- Buddy reads ---------------------------------------------------------------------------
+// Reading one book together. Each member reads their own shelf Book (editions differ, so progress is a
+// percent), and comments are pinned to a percent and stay locked until a reader gets there.
+// Users and Books are referenced by scalar ids, not relations, so those models stay untouched:
+// lookups go through the indexes below, and a missing user or book is skipped when reading.
+
+enum BuddyReadStatus {
+  ACTIVE
+  FINISHED
+  ARCHIVED
+}
+
+model BuddyRead {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // A snapshot of the host's book, so the invite page and joiners don't depend on anyone's shelf.
+  workKey String?
+  title String
+  author String
+  coverImage String?
+  cardColour String?
+  // The host's edition, used as the page count when a joiner gets the book added to their shelf.
+  pages Int
+  hostId String @db.ObjectId
+  startsAt DateTime
+  // Optional reading plan: [{ label: "Chapters 1-5", until: 20, due: "2026-11-01" }], until being a percent.
+  schedule Json?
+  status BuddyReadStatus @default(ACTIVE)
+  inviteCode String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members BuddyReadMember[]
+  comments BuddyReadComment[]
+  invites BuddyReadInvite[]
+
+  // Hosted buddy reads (the medal, and the host's list).
+  @@index([hostId, createdAt])
+}
+
+model BuddyReadMember {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String @db.ObjectId
+  userId String @db.ObjectId
+  // The member's own shelf Book; their progress is its currentPage / pages.
+  bookId String @db.ObjectId
+  joinedAt DateTime @default(now())
+  // The furthest percent this member has been told about, so unlock notifications never repeat.
+  notifiedProgress Float @default(0)
+  // When their book first reached 100%.
+  finishedAt DateTime?
+
+  buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
+
+  // One membership each. The prefix covers the buddyReadId foreign key.
+  @@unique([buddyReadId, userId])
+  // "My buddy reads", and the finished-a-buddy-read medal.
+  @@index([userId, joinedAt])
+  // A progress update finds the buddy reads its book belongs to.
+  @@index([bookId])
+}
+
+model BuddyReadComment {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String @db.ObjectId
+  userId String @db.ObjectId
+  // Percent through the book, 0-100. Readers below it get a locked stub with no body.
+  position Float
+  pageLabel String?
+  chapterLabel String?
+  body String
+  // One level of replies: a reply's parent is always a top-level comment.
+  parentId String? @db.ObjectId
+  createdAt DateTime @default(now())
+  editedAt DateTime?
+  // Soft delete, so replies keep their place. The body is cleared.
+  deletedAt DateTime?
+
+  buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
+  parent BuddyReadComment? @relation("BuddyReadCommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies BuddyReadComment[] @relation("BuddyReadCommentReplies")
+  reactions BuddyReadReaction[]
+  reports BuddyReadCommentReport[]
+
+  // The timeline, in reading order; the prefix covers the buddyReadId foreign key.
+  @@index([buddyReadId, position])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model BuddyReadReaction {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  commentId String @db.ObjectId
+  userId String @db.ObjectId
+  // One of BUDDY_READ_EMOJI in lib/buddyReads.ts.
+  emoji String
+  createdAt DateTime @default(now())
+
+  comment BuddyReadComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  // One of each emoji per reader per comment; the prefix covers the commentId foreign key.
+  @@unique([commentId, userId, emoji])
+  @@index([userId])
+}
+
+// Like ListReport: one report per reader per comment, with a fixed reason.
+model BuddyReadCommentReport {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  commentId String @db.ObjectId
+  reporterId String @db.ObjectId
+  reason String
+  createdAt DateTime @default(now())
+
+  comment BuddyReadComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, reporterId])
+  @@index([reporterId])
+}
+
+// An in-app invite to a named reader (the invite link needs none). Shown on /buddy-reads until they join.
+model BuddyReadInvite {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String @db.ObjectId
+  inviterId String @db.ObjectId
+  inviteeId String @db.ObjectId
+  createdAt DateTime @default(now())
+
+  buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
+
+  @@unique([buddyReadId, inviteeId])
+  @@index([inviteeId, createdAt])
+  @@index([inviterId])
+}
+
+// ---- Seasonal quests ------------------------------------------------------------------------
+// Time-boxed reading challenges set by staff. Finishing one earns a limited-edition medal, stored as a
+// UserAchievement keyed "QUEST:<questId>" so it counts with every other medal and stays earned for good.
+// Every reader takes part automatically: progress comes from the reads they already log (lib/quests.ts).
+
+model Quest {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // The /quests/<slug> address. Medals are keyed by id, so the slug can change.
+  slug String @unique
+  title String
+  description String
+  // The window: only reads finished between these count. endsAt is the last moment of the last day.
+  startsAt DateTime
+  endsAt DateTime
+  // What to do, as a tagged union (QuestGoal in lib/quests.ts), e.g. { "type": "pages", "count": 3, "minPages": 600 }.
+  goal Json
+  // The medal: face colour, ribbon colour and an icon name from QUEST_ICONS (lib/questMedal.ts).
+  medalColour String
+  ribbonColour String
+  medalIcon String
+  // A draft: only staff see it, and nobody can earn it.
+  hidden Boolean @default(false)
+  createdById String @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  progress QuestProgress[]
+
+  // Live and upcoming quests: endsAt from now on, then filtered by startsAt.
+  @@index([endsAt, startsAt])
+}
+
+// A reader's standing in one quest, written when it changes. Created the first time a book counts,
+// so it also answers "how many are taking part" and, with completedAt, "how many earned it".
+model QuestProgress {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  questId String @db.ObjectId
+  userId String @db.ObjectId
+  count Int @default(0)
+  // The shelf books that counted, in the order they were finished.
+  bookIds String[] @db.ObjectId
+  completedAt DateTime?
+  updatedAt DateTime @updatedAt
+
+  quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  // One row per reader per quest; the prefix covers the questId foreign key.
+  @@unique([questId, userId])
+  // "N readers earned this".
+  @@index([questId, completedAt])
+  @@index([userId])
 }

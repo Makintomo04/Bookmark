@@ -1,72 +1,105 @@
 "use client"
-import getCurrentUser from '@/app/actions/getCurrentUser'
-import { User } from '@prisma/client'
 import { FC, useState } from 'react'
-import Avatar from './Avatar'
-import useSWR from 'swr'
+import { Lightbox } from "react-modal-image"
+import { Book } from '@prisma/client'
+import { Plus } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
-import Image from 'next/image'
-import EditButton from './EditButton'
-import ProfileHeadDetails from './ProfileHeadDetails'
-import Loader from '../Loader'
-import { Skeleton } from '../ui/skeleton'
-import Container from '../Container'
+import { useBooksReadFor } from '@/app/hooks/useTierPreview'
+import useBooks from '@/app/hooks/useBooks'
+import useFavourite from '@/app/hooks/useFavourite'
+import useAchievements from '@/app/hooks/useAchievements'
+import usePublicProfile from '@/app/hooks/usePublicProfile'
+import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
-interface ProfileHeadProps {
-//  imgSrc:string,
-//   bannerSrc:string,
-//   color?:string
-}
+import { Skeleton } from '../ui/skeleton'
+import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
+import ReadingGoalWidget from './ReadingGoalWidget'
+import ShareProfileButton from './ShareProfileButton'
+import FetchErrorState from '../FetchErrorState'
+import { isFinishedBook } from '@/lib/readerTier'
 
-const ProfileHead: FC<ProfileHeadProps> =  ({}) => {
- const {user,isError,isLoading} = useUser()
- const editProfileModal = useEditProfileModal()
- if (isLoading) {
-  return (
-    <div className="w-full relative mb-20">
+const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
-      <Skeleton className="h-48 w-full rounded-[25px] relative"/>
-      <div className="flex items-center space-x-4 relative h-full w-full">
-        <Skeleton  className="animate-none w-32 h-32 rounded-[50px] border-background border-5 absolute -bottom-16 left-10"/>
+const ProfileHead: FC = () => {
+  const { user, isError, isLoading, mutate: mutateUser } = useUser()
+  const booksReadFor = useBooksReadFor()
+  const { books } = useBooks()
+  const { favourites } = useFavourite()
+  const { achievements, isLoading: achievementsLoading } = useAchievements()
+  const { profile } = usePublicProfile(user?.username ?? "")
+  const bookEntryModal = useBookEntryModal()
+  const editProfileModal = useEditProfileModal()
+  const [showLightbox, setShowLightbox] = useState(false)
+
+  // SWR reports isLoading while it revalidates server-provided fallback data too, so check for data.
+  if (isLoading && !user) {
+    return (
+      <div>
+        <Skeleton className="h-20 sm:h-28 w-full rounded-2xl" />
+        <div className="px-4 sm:px-8">
+          <Skeleton className="-mt-12 sm:-mt-14 size-24 sm:size-28 rounded-[32px] border-4 border-background" />
+          <Skeleton className="mt-4 h-8 w-48" />
+          <Skeleton className="mt-3 h-4 w-72" />
         </div>
-        <div className='mt-20 px-10 flex flex-col gap-2'>
-          <div className="flex justify-between items-end">
-          <div className="flex flex-col gap-3">
-          <Skeleton className="w-48 h-9"/>
-          <Skeleton className="w-80 h-8"/>
-          </div>
-          <Skeleton className="w-96 h-16"/>
-          </div>
-          <Skeleton className="w-40 h-6 mt-2"/>
-        </div>
-    </div>
-  );
-}
-
-if (isError) {
-  return <p>Error fetching user data!</p>;
-}
-  return (
-  <>
-  <div className='w-full relative'>
-    <div className="h-48 overflow-hidden rounded-[25px] relative">
-        <EditButton handleClick={editProfileModal.onOpen} className='absolute bottom-3 right-3'/>
-
-      <div className="h-full w-full">
-        {
-          user?.banner ? <Image priority src={user?.banner} layout="fill" className='relative' objectFit="cover" alt="banner" /> : <div style={{background:`${user?.favColour}`}} className="w-full h-full"></div>
-        }
-        
       </div>
-    {/* <div style={{background:`${user?.favColour}`}} className={`h-16 w-16 bg-[${user?.favColour}]`}></div> */}
+    )
+  }
 
-    </div>
-    <div className="absolute -bottom-16 left-10">
-    <Avatar src={user?.image}/>
-    </div>
-  </div>
-  <ProfileHeadDetails/>
-  </>
+  if (isError || !user) {
+    return <FetchErrorState error={isError} what="your profile" onRetry={() => mutateUser()}/>
+  }
+
+  // Until the shelf and achievements load, use the counts that came with the server render, so the stats don't flash 0.
+  const booksRead = books ? books.filter(isFinishedBook).length : user._count?.books ?? 0
+  const earned = achievementsLoading
+    ? profile?.achievements?.length ?? 0
+    : achievements.flatMap((a) => a.milestones).filter((m) => m.earned).length
+  const followers = profile?.followerCount ?? 0
+  const following = profile?.followingCount ?? 0
+  // Calm social: with counts hidden, even the owner just gets the links to the lists.
+  const hideCounts = !!user.hideFollowCounts
+
+  return (
+    <>
+      <ProfileHeader
+        username={user.username}
+        booksRead={booksReadFor(user.username, booksRead)}
+        bio={user.bio}
+        image={user.image}
+        banner={user.banner}
+        colour={user.favColour}
+        onAvatarClick={() => setShowLightbox(true)}
+        stats={[
+          { value: booksRead, label: plural(booksRead, "book read", "books read") },
+          { value: hideCounts ? null : followers, label: hideCounts ? "Followers" : plural(followers, "follower"), followList: { username: user.username, kind: "followers" } },
+          { value: hideCounts ? null : following, label: hideCounts ? "Following" : "following", followList: { username: user.username, kind: "following" } },
+          { value: favourites.length, label: plural(favourites.length, "favourite"), href: "/favourites" },
+          { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
+        ]}
+        actions={
+          <>
+            <ShareProfileButton username={user.username} embeddable={(user.profileVisibility ?? "PUBLIC") === "PUBLIC"} />
+            <button type="button" onClick={editProfileModal.onOpen} className={secondaryButtonClass}>Edit profile</button>
+            <button type="button" onClick={() => bookEntryModal.onOpen()} className={primaryButtonClass}>
+              <Plus size={16} aria-hidden />Add a book
+            </button>
+          </>
+        }
+      >
+        <ReadingGoalWidget />
+      </ProfileHeader>
+
+      {showLightbox && (
+        <Lightbox
+          small={user.image || "/images/avatar.jpg"}
+          large={user.image || "/images/avatar.jpg"}
+          alt="Profile picture"
+          hideDownload={true}
+          /** @ts-ignore */
+          onClose={() => setShowLightbox(false)}
+        />
+      )}
+    </>
   )
 }
 

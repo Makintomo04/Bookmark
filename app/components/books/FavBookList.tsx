@@ -3,18 +3,19 @@ import useBookEntryModal from '@/app/hooks/useBookEntryModal';
 import useUser from '@/app/hooks/useUser';
 import { FC } from 'react'
 import Loader from '../Loader';
-import BookCard from '../cards/BookCard';
 import { Book } from '@prisma/client';
 import useBooks from '@/app/hooks/useBooks';
 import Link from 'next/link';
+import BookGrid from './BookGrid';
+import FetchErrorState from '../FetchErrorState';
 
 interface BookListProps {
   
 }
 
 const BookList: FC<BookListProps> = ({}) => {
-  const {user,isLoading:isLoadingUser,isError:isErrorUser} = useUser();
-  const {books,isLoading:isLoadingBooks,isError:isErrorBooks} = useBooks();
+  const {user,isLoading:isLoadingUser,isError:isErrorUser,mutate:mutateUser} = useUser();
+  const {books,isLoading:isLoadingBooks,isError:isErrorBooks,mutate:mutateBooks} = useBooks();
   // if (isLoadingBooks) {
   //   return (
   //     <div className="">
@@ -32,20 +33,14 @@ const myFavBooks:Book[] = []
 const favBooks:Book[] = books?.forEach((book:Book) => {
   favouritesList?.includes(book.id) && myFavBooks.push(book)
 });
-console.log(myFavBooks);
+if(isErrorUser || isErrorBooks) return <FetchErrorState error={isErrorUser || isErrorBooks} what="your favourites" onRetry={() => { mutateUser(); mutateBooks() }}/>
+if(isLoadingUser || isLoadingBooks) return <Loader notScreen/>
 if(myFavBooks?.length === 0) return (
 <div className="">
 <p className='text-lg'>You have no books favourited, visit <Link href="/" className='text-[#F13c3d] hover:underline transition'>Home</Link> to view your books or create an entry.</p>
 </div>
 )
-  return (
-     
-<div className="grid grid-cols-1 xs:grid-cols-4  sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-10 lg:grid-cols-4 ">
-{myFavBooks?.map((book:any) => (
-  <BookCard key={book?.id} book={book}/>
-))}
-</div>
-  )
+  return <BookGrid books={myFavBooks}/>
 }
 
 export default BookList

@@ -1,0 +1,414 @@
+import prisma from "@/lib/db";
+import { Prisma, type ImportJob, type Status } from "@prisma/client";
+import { syncAchievements } from "@/lib/achievements";
+import { isOpenLibraryCoverUrl, mirrorCover } from "@/lib/covers";
+import { normaliseWorkKey } from "@/lib/workKey";
+import { parseImport } from "./formats";
+import { matchRows } from "./match";
+import { ShelfIndex, buildRecords, findDuplicates, newObjectId, shelfKey, type BookInsert, type NoteInsert, type ReadInsert } from "./records";
+import type { ImportMatch, ImportRow, ImportSource } from "./types";
+
+// The server half of an import: each exported step does a bounded amount of work and returns the
+// job's new view, and the /import page calls the next step until the job is done. Every step is safe
+// to retry: matching only looks up rows it hasn't, and inserting uses book ids fixed at upload.
+
+export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_ROWS = 10_000;
+// Each step stops starting new work after this, leaving room for the save under a 60s function limit.
+const STEP_BUDGET_MS = 12_000;
+const MATCH_BATCH = 150;
+const IMPORT_BATCH = 250;
+const COVERS_PER_STEP = 5;
+
+export type JobStatus = "matching" | "ready" | "importing" | "done" | "cancelled";
+type Matches = Record<string, ImportMatch | null>;
+
+export interface ImportMedal {
+  key: string;
+  title: string;
+  achievement: string;
+}
+
+// Kept on the job while importing, and as the summary afterwards.
+export interface ImportResult {
+  created: number;
+  duplicates: number;
+  byStatus: Partial<Record<Status, number>>;
+  // Read dates (and added dates) span these years: "412 books, 9 years".
+  firstYear: number | null;
+  lastYear: number | null;
+  // Imported without an Open Library match; the summary offers to fix them.
+  unmatched: { bookId: string; title: string; author: string }[];
+  medals: ImportMedal[];
+  finishedAt?: string;
+}
+
+const emptyResult = (): ImportResult => ({
+  created: 0,
+  duplicates: 0,
+  byStatus: {},
+  firstYear: null,
+  lastYear: null,
+  unmatched: [],
+  medals: [],
+});
+
+const rowsOf = (job: ImportJob) => (job.rows as unknown as ImportRow[]) ?? [];
+const matchesOf = (job: ImportJob) => (job.matches as unknown as Matches) ?? {};
+const resultOf = (job: ImportJob) => ({ ...emptyResult(), ...((job.result as unknown as ImportResult | null) ?? {}) });
+const json = (value: unknown) => value as Prisma.InputJsonValue;
+
+// A row is matched if Open Library found it, or it arrived with a work key (Bookmark's own export).
+const isMatched = (row: ImportRow, match: ImportMatch | null | undefined) => !!(row.workKey || match);
+
+async function loadShelf(userId: string) {
+  return prisma.book.findMany({ where: { userId }, select: { title: true, author: true, workKey: true } });
+}
+
+// ---- View --------------------------------------------------------------------------------
+
+export interface ImportJobView {
+  id: string;
+  source: ImportSource;
+  fileName: string | null;
+  status: JobStatus;
+  total: number;
+  // Matching progress: rows looked up so far.
+  looked: number;
+  // Of the rows that will be imported (duplicates excluded):
+  toImport: number;
+  matched: number;
+  unmatched: number;
+  byStatus: Partial<Record<Status, number>>;
+  duplicates: { shelf: number; file: number };
+  // A few titles from each list, for the preview.
+  samples: { unmatched: string[]; duplicates: string[] };
+  imported: number;
+  result: ImportResult | null;
+  // After the import: books whose covers are still to be checked for copying.
+  coversToCheck: number;
+}
+
+export async function viewJob(job: ImportJob): Promise<ImportJobView> {
+  const rows = rowsOf(job);
+  const matches = matchesOf(job);
+  const status = job.status as JobStatus;
+  const base = {
+    id: job.id,
+    source: job.source as ImportSource,
+    fileName: job.fileName,
+    status,
+    total: rows.length,
+    looked: Object.keys(matches).length,
+    imported: job.importCursor,
+    result: job.result ? resultOf(job) : null,
+  };
+
+  if (status === "done" || status === "cancelled") {
+    const result = resultOf(job);
+    return {
+      ...base,
+      total: result.created + result.duplicates,
+      looked: 0,
+      toImport: result.created,
+      matched: result.created - result.unmatched.length,
+      unmatched: result.unmatched.length,
+      byStatus: result.byStatus,
+      duplicates: { shelf: result.duplicates, file: 0 },
+      samples: { unmatched: [], duplicates: [] },
+      coversToCheck: status === "done" ? Math.max(0, job.bookIds.length - job.coverCursor) : 0,
+    };
+  }
+
+  const dupes = findDuplicates(rows, rows.map((_, i) => matches[i]), await loadShelf(job.userId));
+  const byStatus: Partial<Record<Status, number>> = {};
+  let matched = 0;
+  let unmatched = 0;
+  const samples = { unmatched: [] as string[], duplicates: [] as string[] };
+  rows.forEach((row, i) => {
+    if (dupes[i]) {
+      if (samples.duplicates.length < 8) samples.duplicates.push(`${row.title} · ${row.author}`);
+      return;
+    }
+    byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
+    if (isMatched(row, matches[i])) matched++;
+    else if (String(i) in matches) {
+      unmatched++;
+      if (samples.unmatched.length < 8) samples.unmatched.push(`${row.title} · ${row.author}`);
+    }
+  });
+
+  return {
+    ...base,
+    toImport: dupes.filter((d) => !d).length,
+    matched,
+    unmatched,
+    byStatus,
+    duplicates: { shelf: dupes.filter((d) => d === "shelf").length, file: dupes.filter((d) => d === "file").length },
+    samples,
+    coversToCheck: 0,
+  };
+}
+
+// ---- Upload ------------------------------------------------------------------------------
+
+export async function createJob(userId: string, csvText: string, fileName: string | null) {
+  const parsed = parseImport(csvText);
+  if (parsed.rows.length === 0) throw new ImportInputError("That file has no books in it.");
+  if (parsed.rows.length > MAX_ROWS) {
+    throw new ImportInputError(`That file has ${parsed.rows.length.toLocaleString("en-GB")} books; the limit is ${MAX_ROWS.toLocaleString("en-GB")} per import.`);
+  }
+
+  // Only one import at a time. Abandoned ones (never confirmed) are dropped; finished ones keep their summary.
+  await prisma.importJob.deleteMany({ where: { userId, status: { in: ["matching", "ready", "cancelled"] } } });
+  const running = await prisma.importJob.findFirst({ where: { userId, status: "importing" }, select: { id: true } });
+  if (running) throw new ImportInputError("An import is already running. Let it finish first.");
+
+  // Bookmark's own export already carries work keys and covers, so those rows need no lookup.
+  const matches: Matches = {};
+  parsed.rows.forEach((row, i) => {
+    if (row.workKey) matches[i] = null;
+  });
+  const now = Date.now();
+  const job = await prisma.importJob.create({
+    data: {
+      userId,
+      source: parsed.source,
+      fileName,
+      status: Object.keys(matches).length === parsed.rows.length ? "ready" : "matching",
+      rows: json(parsed.rows),
+      matches: json(matches),
+      bookIds: parsed.rows.map(() => newObjectId(now)),
+    },
+  });
+  return job;
+}
+
+export class ImportInputError extends Error {}
+
+export async function findJob(userId: string, jobId: string) {
+  if (!/^[a-f0-9]{24}$/.test(jobId)) return null;
+  return prisma.importJob.findFirst({ where: { id: jobId, userId } });
+}
+
+// The newest job that isn't finished, or one that finished in the last day (so a reload shows its summary).
+export async function latestJob(userId: string) {
+  const job = await prisma.importJob.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });
+  if (!job || job.status === "cancelled") return null;
+  if (job.status === "done" && Date.now() - job.updatedAt.getTime() > 24 * 60 * 60 * 1000) return null;
+  return job;
+}
+
+// ---- Matching ----------------------------------------------------------------------------
+
+export async function matchStep(job: ImportJob) {
+  if (job.status !== "matching") return job;
+  const rows = rowsOf(job);
+  const matches = matchesOf(job);
+  const pending: number[] = [];
+  for (let i = 0; i < rows.length && pending.length < MATCH_BATCH; i++) {
+    if (!(String(i) in matches)) pending.push(i);
+  }
+
+  if (pending.length > 0) {
+    const { matches: found } = await matchRows(rows, pending, { deadline: Date.now() + STEP_BUDGET_MS });
+    found.forEach((match, i) => {
+      matches[i] = match;
+    });
+  }
+  const done = rows.every((_, i) => String(i) in matches);
+  return prisma.importJob.update({
+    where: { id: job.id },
+    data: { matches: json(matches), status: done ? "ready" : "matching" },
+  });
+}
+
+// ---- Importing ---------------------------------------------------------------------------
+
+export async function startImport(job: ImportJob) {
+  if (job.status !== "ready") return job;
+  // The status guard makes a double click start one import, not two.
+  const { count } = await prisma.importJob.updateMany({
+    where: { id: job.id, status: "ready" },
+    data: { status: "importing", importCursor: 0, result: json(emptyResult()) },
+  });
+  return count ? prisma.importJob.findUniqueOrThrow({ where: { id: job.id } }) : job;
+}
+
+const yearOf = (d: Date | null | undefined) => (d ? d.getUTCFullYear() : null);
+
+export async function importStep(job: ImportJob) {
+  if (job.status !== "importing") return job;
+  const rows = rowsOf(job);
+  const matches = matchesOf(job);
+  const result = resultOf(job);
+  const start = job.importCursor;
+  const end = Math.min(rows.length, start + IMPORT_BATCH);
+  const ids = job.bookIds.slice(start, end);
+  const now = new Date();
+  const source = job.source as ImportSource;
+
+  // Books from this batch that a previous, interrupted attempt already inserted.
+  const already = new Set(
+    (await prisma.book.findMany({ where: { id: { in: ids }, userId: job.userId }, select: { id: true } })).map((b) => b.id)
+  );
+  // Of those, the ones whose reads didn't make it in.
+  const withReads = new Set(
+    already.size
+      ? (await prisma.bookRead.findMany({ where: { bookId: { in: Array.from(already) } }, select: { bookId: true }, distinct: ["bookId"] })).map((r) => r.bookId)
+      : []
+  );
+  const shelf = new ShelfIndex(await loadShelf(job.userId));
+
+  const books: BookInsert[] = [];
+  const reads: ReadInsert[] = [];
+  const notes: NoteInsert[] = [];
+  const favourites: string[] = [];
+
+  for (let i = start; i < end; i++) {
+    const row = rows[i];
+    const match = matches[i] ?? null;
+    const bookId = job.bookIds[i];
+    const records = buildRecords(row, match, { userId: job.userId, bookId, now, source });
+
+    if (already.has(bookId)) {
+      if (!withReads.has(bookId)) reads.push(...records.reads);
+    } else {
+      const key = shelfKey(row, match);
+      if (shelf.has(key)) {
+        result.duplicates++;
+        continue;
+      }
+      shelf.add(key);
+      books.push(records.book);
+      reads.push(...records.reads);
+      notes.push(...records.notes);
+      if (row.favourite) favourites.push(bookId);
+    }
+
+    result.created++;
+    result.byStatus[row.status] = (result.byStatus[row.status] ?? 0) + 1;
+    if (!isMatched(row, match)) result.unmatched.push({ bookId, title: row.title, author: row.author });
+    const dates = [records.book.createdAt, records.book.completedAt, ...records.reads.map((r) => r.finishedAt)];
+    for (const year of dates.map(yearOf)) {
+      if (year === null) continue;
+      result.firstYear = result.firstYear === null ? year : Math.min(result.firstYear, year);
+      result.lastYear = result.lastYear === null ? year : Math.max(result.lastYear, year);
+    }
+  }
+
+  // No Activity rows: an import shouldn't post hundreds of "finished" updates to followers' feeds
+  // (or count every past finish as a reading day for the streak).
+  if (books.length) await prisma.book.createMany({ data: books });
+  if (reads.length) await prisma.bookRead.createMany({ data: reads });
+  if (notes.length) await prisma.note.createMany({ data: notes });
+  if (favourites.length) await prisma.user.update({ where: { id: job.userId }, data: { favouriteIds: { push: favourites } } });
+
+  const finished = end >= rows.length;
+  const updated = await prisma.importJob.update({
+    where: { id: job.id },
+    data: { importCursor: end, result: json(result) },
+  });
+  return finished ? finishImport(updated) : updated;
+}
+
+// Awards achievements once, for the whole library, and clears the rows (they hold every review).
+async function finishImport(job: ImportJob) {
+  const result = resultOf(job);
+  // "all" checks every ladder without recording today as a reading day. Notifications go out for the
+  // highest new rung per ladder only, as for any other award.
+  const { awarded } = await syncAchievements(job.userId, { trigger: "all" });
+  result.medals = awarded.map((a) => ({
+    key: `${a.achievement.key}:${a.milestone.value}`,
+    title: a.milestone.title,
+    achievement: a.achievement.title,
+  }));
+  result.finishedAt = new Date().toISOString();
+
+  return prisma.importJob.update({
+    where: { id: job.id },
+    data: { status: "done", result: json(result), rows: json([]), matches: json({}) },
+  });
+}
+
+export async function cancelJob(job: ImportJob) {
+  if (job.status === "importing" || job.status === "done") return job;
+  return prisma.importJob.update({ where: { id: job.id }, data: { status: "cancelled", rows: json([]), matches: json({}) } });
+}
+
+// ---- Covers ------------------------------------------------------------------------------
+
+// Imported books hotlink Open Library covers, because copying one into UploadThing takes seconds.
+// While the summary is open the page calls this to copy a few at a time; any left over keep working
+// as hotlinks, and scripts/migrate-covers.ts copies them later.
+// Walks bookIds in order with coverCursor, so a cover that fails to copy is passed over, not retried forever.
+// Returns how many books are left to check.
+export async function coversStep(job: ImportJob): Promise<number> {
+  if (job.status !== "done") return 0;
+  const ids = job.bookIds;
+  let cursor = job.coverCursor;
+  const picked: { id: string; coverImage: string }[] = [];
+  while (cursor < ids.length && picked.length < COVERS_PER_STEP) {
+    const window = ids.slice(cursor, cursor + 100);
+    const found = await prisma.book.findMany({
+      where: { userId: job.userId, id: { in: window }, coverImage: { startsWith: "https://covers.openlibrary.org/" } },
+      select: { id: true, coverImage: true },
+    });
+    const order = new Map(window.map((id, i) => [id, i]));
+    found.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
+    const take = found.slice(0, COVERS_PER_STEP - picked.length);
+    picked.push(...take);
+    cursor = take.length < found.length ? cursor + order.get(take[take.length - 1].id)! + 1 : cursor + window.length;
+  }
+
+  await Promise.all(
+    picked.map(async (book) => {
+      // Falls back to the original URL on failure, which leaves the book as it was.
+      const copy = await mirrorCover(book.coverImage);
+      if (copy === book.coverImage) return;
+      // The where clause skips a book whose cover the reader changed meanwhile.
+      await prisma.book.updateMany({ where: { id: book.id, coverImage: book.coverImage }, data: { coverImage: copy } });
+    })
+  );
+  await prisma.importJob.update({ where: { id: job.id }, data: { coverCursor: cursor } });
+  return ids.length - cursor;
+}
+
+// ---- Fixing unmatched rows ---------------------------------------------------------------
+
+// Points an imported book at the Open Library work the reader picked, or keeps it as a manual entry.
+export async function resolveUnmatched(
+  job: ImportJob,
+  input: { bookId: string; keep: true } | { bookId: string; keep?: false; workKey: string; coverUrl?: string | null; pages?: number | null }
+): Promise<{ job: ImportJob; error?: string }> {
+  const result = resultOf(job);
+  const entry = result.unmatched.find((u) => u.bookId === input.bookId);
+  if (!entry) return { job, error: "That book isn't waiting for a match." };
+
+  if (!input.keep) {
+    const workKey = normaliseWorkKey(input.workKey);
+    if (!workKey) return { job, error: "That isn't an Open Library work." };
+    const book = await prisma.book.findFirst({ where: { id: input.bookId, userId: job.userId } });
+    if (!book) return { job, error: "That book isn't on your shelf any more." };
+    const clash = await prisma.book.findFirst({ where: { userId: job.userId, workKey, id: { not: book.id } }, select: { title: true } });
+    if (clash) return { job, error: `"${clash.title}" is already on your shelf as that book.` };
+    const cover = input.coverUrl && isOpenLibraryCoverUrl(input.coverUrl) ? await mirrorCover(input.coverUrl) : null;
+    await prisma.book.update({
+      where: { id: book.id },
+      data: {
+        workKey,
+        ...(cover && !book.coverImage && { coverImage: cover }),
+        ...(cover && book.coverImage && isOpenLibraryCoverUrl(book.coverImage) && { coverImage: cover }),
+        // Only fill in a page count the file didn't have; progress may depend on the reader's own.
+        ...(!book.pages && input.pages && input.pages > 0 && {
+          pages: input.pages,
+          ...(book.status === "COMPLETED" && { currentPage: input.pages }),
+        }),
+      },
+    });
+  }
+
+  result.unmatched = result.unmatched.filter((u) => u.bookId !== input.bookId);
+  const updated = await prisma.importJob.update({ where: { id: job.id }, data: { result: json(result) } });
+  return { job: updated };
+}

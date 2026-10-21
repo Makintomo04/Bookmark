@@ -6,7 +6,8 @@ import { ourFileRouter } from "./core";
 export const { GET, POST } = createRouteHandler({
   router: ourFileRouter,
   config: { 
-    uploadthingId:process.env.UPLOADTHING_ID,
+    // Vercel names it UPLOADTHING_APP_ID; .env.local uses UPLOADTHING_ID.
+    uploadthingId: process.env.UPLOADTHING_ID || process.env.UPLOADTHING_APP_ID,
     uploadthingSecret:process.env.UPLOADTHING_SECRET,
    },
 });

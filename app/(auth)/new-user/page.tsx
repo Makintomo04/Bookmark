@@ -10,14 +10,12 @@ import { FC, use, useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { IoCloudUploadOutline } from "react-icons/io5";
 import { Textarea } from '@/app/components/ui/textarea'
-import ColorPickerComponent from '@/app/components/ColorPickerComponent'
-import { BlockPicker, ChromePicker, Color, SketchPicker } from 'react-color'
+import { ChromePicker } from 'react-color'
 import { cn } from '@/lib/utils'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/app/components/ui/form'
 import { useForm, FieldValues, SubmitHandler, set } from 'react-hook-form'
 import * as z from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { error } from 'console'
 import axios from 'axios'
 import { useRouter } from 'next/navigation'
 import { STEPS } from '@/utils/helpers'
@@ -43,7 +41,6 @@ const Page: FC<pageProps> = ({}) => {
   const [coverImageLink, setCoverImageLink] = useState("");
   const [color, setColor] = useState<RGBAColor>({ r: 241, g: 60, b: 60, a: 1
   });
-  const [selectedColor, setSelectedColor] = useState("#F13C3C");
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +57,6 @@ const Page: FC<pageProps> = ({}) => {
         setIsPageLoading(false)
       }
     }
-    console.log(user,isLoading,"£££££");
   }, [user,isUserLoading])
 
     // 1. Define your form.
@@ -90,20 +86,16 @@ const Page: FC<pageProps> = ({}) => {
       if (step !== STEPS.COLOUR) {
         return onNext();
       }
-      // console.log("@@@@",data);
-      
+
       axios.post("/api/new-user",data).then((res)=>{
         setIsLoading(true)
         toast.success("Profile Created!",{ position: "bottom-center" })
         router.push("/")
         reset();
         setStep(STEPS.COMPLETE)
-        console.log(res);
       }).catch((err)=>{
         toast.error("Something went wrong!",{ position: "bottom-center" })
-        console.log(err);
       }).finally(()=>{
-        console.log("Done");
         setIsLoading(false);
       })
     }
@@ -111,10 +103,6 @@ const Page: FC<pageProps> = ({}) => {
 
   
   const onNext = () => {
-    // if(step === STEPS.USERNAME) {
-    //   // form.handleSubmit(onSubmit)
-    //   console.log("Submitted",getValues())
-    // }
     setStep((step)=>step + 1)
   }
   const onBack = () => {
@@ -123,9 +111,6 @@ const Page: FC<pageProps> = ({}) => {
     }
     setStep((step)=>step - 1)
   }
-  useEffect(() => {
-    // console.log("COLOURRR",color);
-  }, [color])
 
   const setCustomValue = (id: string, value: any) => {
     setValue(id, value, {
@@ -196,26 +181,21 @@ const Page: FC<pageProps> = ({}) => {
         // appearance={{button:{
         //   backgroundColor: "#F13C3C",
         // }}}
-        className='ut-button:bg-[#F13C3C]'
+        className='ut-button:bg-brand-fill'
         endpoint="imageUploader"
         onUploadBegin={() => {
           setIsLoading(true);
         }}
         onClientUploadComplete={(res) => {
-          // Do something with the response
-          console.log("Files: ", res);
           setImageLink(res[0]?.url)
           setCustomValue("imageSrc",res[0]?.url)
           toast.success("Upload completed",{
             position: "bottom-center"
           })
           setIsLoading(false);
-          // alert("Upload Completed");
         }}
         onUploadError={(error: Error) => {
-          // Do something with the error.
           toast(error.message)
-          alert(`ERROR! ${error.message}`);
         }}
         />
   </div>
@@ -246,29 +226,24 @@ const Page: FC<pageProps> = ({}) => {
   <div className="sm:min-w-96">
 
   <UploadButton
-        className='ut-button:bg-[#F13C3C] ut-button:ut-uploading:bg-[#ae1818]'
+        className='ut-button:bg-brand-fill ut-button:ut-uploading:bg-[#ae1818]'
         endpoint="imageUploader"
         onUploadBegin={() => {
           setIsLoading(true);
         }}
         onClientUploadComplete={(res) => {
-          // Do something with the response
-          console.log("Files: ", res);
           setCoverImageLink(res[0]?.url)
           setCustomValue("bannerSrc",res[0]?.url)
           toast.success("Upload completed",{
             position: "bottom-center"
           })
           setIsLoading(false);
-          // alert("Upload Completed");
         }}
         onUploadError={(error: Error) => {
-          // Do something with the error.
           toast.error(error.message,
             {
               position: "bottom-center"
             })
-          alert(`ERROR! ${error.message}`);
         }}
       />
   </div>
@@ -329,10 +304,6 @@ const Page: FC<pageProps> = ({}) => {
   }
 
 
-  const handleChangeComplete = (color:any) => {
-    setSelectedColor(color.hex);
-  }
-  
   const handleClick = () => {
     setShowColorPicker((state) => !state)
   };
@@ -353,9 +324,6 @@ const Page: FC<pageProps> = ({}) => {
   })
 
   const onChangeMethod = (color:any) => {
-    // console.log([...color.rgb]);
-    // console.log(color.rgb.r,color.rgb.b,color.rgb.g,color.rgb.a);
-    console.log(color.rgb.r);
     setColor({
       r: color.rgb.r,
       g: color.rgb.g,
@@ -364,7 +332,6 @@ const Page: FC<pageProps> = ({}) => {
     });
     setCustomValue("color",`rgba(${color.rgb.r},${color.rgb.g},${color.rgb.b},${color.rgb.a})`)
   };
-  // console.log(color);
   if(step === STEPS.COLOUR) {
     bodyContent = (
       <div className="w-full">
@@ -379,12 +346,6 @@ const Page: FC<pageProps> = ({}) => {
   
   </div>
   <div className="sm:min-w-96">
-      {/* <ColorPickerComponent/> */}
-  {/* <BlockPicker
-  className='w-[100%_!important]'
-  color={ selectedColor }
-  onChangeComplete={ handleChangeComplete }
-  /> */}
   <div className="grid place-items-center w-full">
   <div 
   style={ {background: `rgba(${ color.r }, ${ color.g }, ${color.b }, ${ color.a })`,
@@ -392,14 +353,15 @@ const Page: FC<pageProps> = ({}) => {
   className={cn(`hover:scale-105 transition cursor-pointer text-center h-24 w-24 ring-4 ring-[#f13c3c] ring-offset-4 rounded-full -mt-3 `)} onClick={handleClick}></div>
 
   </div>
-  { showColorPicker ? <div style={{position: 'absolute',
-    zIndex: '2'} }>
+  { showColorPicker ? <div style={{position: 'fixed', zIndex: 60, top: '50%', left: '50%', transform: 'translate(-50%, -50%)'} }>
           <div style={{position: 'fixed',
     top: '0px',
     right: '0px',
     bottom: '0px',
     left: '0px'}} onClick={ handleClose }/>
+          <div style={{position: 'relative'}}>
           <ChromePicker color={color} onChange={onChangeMethod}/>
+          </div>
         </div> : null }
 
      

@@ -1,4 +1,5 @@
-import getCurrentUser from "@/app/actions/getCurrentUser";
+import { requireUser } from "@/lib/apiAuth";
+import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
@@ -6,13 +7,10 @@ export async function POST( request: Request,
   { params }: { params: { bookId: string } }) {
   const bookId = params.bookId
 if(!bookId){
-  return NextResponse.error();
+  return NextResponse.json({ error: 'bookId is required' }, { status: 400 });
 }
-  const currentUser = await getCurrentUser()
-
-  if (!currentUser) {
-    return NextResponse.error();
-  }
+  const { user: currentUser, response } = await requireUser();
+  if (response) return response;
 
   const book = await prisma.book.findUnique({
     where:{
@@ -20,7 +18,10 @@ if(!bookId){
     }
   })
   if(!book){
-    return NextResponse.error();
+    return NextResponse.json({ error: 'No Book Found' }, { status: 404 });
+  }
+  if(book.userId !== currentUser.id){
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const user = await prisma.user.findUnique({
     where:{
@@ -28,7 +29,7 @@ if(!bookId){
     }
   })
 if(!user){
-  return NextResponse.error();
+  return NextResponse.json({ error: 'User Not Found' }, { status: 404 });
 }
   const updatedUser = await prisma.user.update({
     where:{
@@ -39,5 +40,5 @@ if(!user){
     }
   })
 
-  return NextResponse.json(updatedUser)
+  return NextResponse.json(sanitizeUser(updatedUser))
 }
