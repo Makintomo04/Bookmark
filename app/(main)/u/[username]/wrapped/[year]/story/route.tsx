@@ -1,0 +1,25 @@
+import getCurrentUser from '@/app/actions/getCurrentUser'
+import { getWrapped, getWrappedOwner, isWrappedPublic, parseWrappedYear } from '@/lib/stats'
+import { wrappedStoryImage } from '@/app/components/wrapped/wrappedImage'
+
+// The 1080×1920 story image, as a download. The owner can always get theirs; anyone else only
+// while the Wrapped is public.
+export async function GET(_req: Request, { params }: { params: { username: string; year: string } }) {
+  const year = parseWrappedYear(params.year)
+  const owner = year ? await getWrappedOwner(params.username) : null
+  if (!year || !owner) return new Response('Not found', { status: 404 })
+  if (!isWrappedPublic(owner)) {
+    const viewer = await getCurrentUser()
+    if (viewer?.id !== owner.id) return new Response('Not found', { status: 404 })
+  }
+
+  const wrapped = await getWrapped(owner.id, year)
+  return wrappedStoryImage(
+    { wrapped, username: owner.username, favColour: owner.favColour },
+    {
+      'Content-Disposition': `attachment; filename="bookmark-wrapped-${year}.png"`,
+      // It changes as the reader finishes books, so don't let a cache hold it for long.
+      'Cache-Control': 'private, max-age=300',
+    }
+  )
+}
