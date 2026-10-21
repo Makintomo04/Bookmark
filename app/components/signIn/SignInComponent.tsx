@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { Input } from '../ui/input'
 import { signIn } from 'next-auth/react'
 import Image from 'next/image'
@@ -19,13 +19,17 @@ const SignInComponent =  () => {
 
   const router = useRouter()
 
+  // Until hydration, a click would submit the form natively instead of through onSubmit
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const { 
     register,
     handleSubmit,
     setValue,
     watch,
     getValues,
-    formState:{errors},
+    formState:{errors, isSubmitting},
     reset} = useForm<FieldValues>({
     defaultValues: {
       email: "",
@@ -35,20 +39,17 @@ const SignInComponent =  () => {
 
   const onSubmit:SubmitHandler<FieldValues> = async (data) => {
     try {
-      await signIn("credentials", {
+      const res = await signIn("credentials", {
         redirect: false,
         email: data.email,
         password: data.password,
-        
-      }).then((res)=>{
-        if(res?.ok){
-          router.push("/")
-        }
-        else{
-          toast.error(res?.error,{position:"bottom-center"})
-        }
-      }).catch((error:Error)=>{
       })
+      if(res?.ok){
+        router.push("/")
+      }
+      else{
+        toast.error(res?.error || "Invalid email or password",{position:"bottom-center"})
+      }
     }
     catch (error) {
       toast.error("Invalid email or password",{position:"bottom-center"})
@@ -86,7 +87,7 @@ const SignInComponent =  () => {
     {/* <p className="text-gray-500">Sign in to your account</p> */}
   </div>
   <div className="">
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
+    <form method="post" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
         <Input register={register} errors={errors} inputValidation={{required:true, message:"Email Required"}} type="email" name="email" id="email" className="w-full" required/>
@@ -96,7 +97,7 @@ const SignInComponent =  () => {
         <Input register={register} errors={errors} inputValidation={{required:true, message:"Password Required"}} type="password" name="password" id="password" className="w-full" required/>
       </div>
       <Link href="/forgot-password" className='text-sm text-[#F13C3C] hover:underline self-end -mt-2'>Forgot password?</Link>
-      <Button className="bg-red-500 text-white rounded-md py-2">Sign in</Button>
+      <Button type="submit" disabled={!mounted || isSubmitting} className="bg-red-500 text-white rounded-md py-2">{isSubmitting ? "Signing in…" : "Sign in"}</Button>
     </form>
     <div className="flex gap-3 items-center justify-center my-6 w-full">
       <hr className='border-1 border-slate-400/50 w-full'/>
