@@ -1,15 +1,20 @@
-"use client"
 import { FC, ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import type { FollowListKind } from '@/lib/follows'
 import TierAvatar from './TierAvatar'
+import FollowListStat from './FollowListStat'
+
+// No "use client": the public profile renders this on the server. Only the owner's
+// view, itself a client component, passes onAvatarClick.
 
 export interface ProfileStat {
   value: number
   label: string
   href?: string
-  onClick?: () => void
+  // Opens this profile's follower or following list.
+  followList?: { username: string; kind: FollowListKind }
 }
 
 interface ProfileHeaderProps {
@@ -36,7 +41,7 @@ const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   )
   const className = "text-sm text-muted-foreground whitespace-nowrap"
   if (stat.href) return <Link href={stat.href} className={cn(className, "hover:text-foreground transition")}>{content}</Link>
-  if (stat.onClick) return <button type="button" onClick={stat.onClick} className={cn(className, "hover:text-foreground transition")}>{content}</button>
+  if (stat.followList) return <FollowListStat {...stat.followList} className={cn(className, "hover:text-foreground transition")}>{content}</FollowListStat>
   return <span className={className}>{content}</span>
 }
 

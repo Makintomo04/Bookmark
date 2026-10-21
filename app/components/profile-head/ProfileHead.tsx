@@ -11,10 +11,10 @@ import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
-import useFollowListModal from '@/app/hooks/useFollowListModal'
 import { Skeleton } from '../ui/skeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
+import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
@@ -24,14 +24,14 @@ const ProfileHead: FC = () => {
   const booksReadFor = useBooksReadFor()
   const { books } = useBooks()
   const { favourites } = useFavourite()
-  const { achievements } = useAchievements()
+  const { achievements, isLoading: achievementsLoading } = useAchievements()
   const { profile } = usePublicProfile(user?.username ?? "")
   const bookEntryModal = useBookEntryModal()
   const editProfileModal = useEditProfileModal()
-  const followListModal = useFollowListModal()
   const [showLightbox, setShowLightbox] = useState(false)
 
-  if (isLoading) {
+  // SWR reports isLoading while it revalidates server-provided fallback data too, so check for data.
+  if (isLoading && !user) {
     return (
       <div>
         <Skeleton className="h-20 sm:h-28 w-full rounded-2xl" />
@@ -48,8 +48,11 @@ const ProfileHead: FC = () => {
     return <FetchErrorState error={isError} what="your profile" onRetry={() => mutateUser()}/>
   }
 
-  const booksRead = books?.filter((book: Book) => book.status === "COMPLETED").length ?? 0
-  const earned = achievements.flatMap((a) => a.milestones).filter((m) => m.earned).length
+  // Until the shelf and achievements load, use the counts that came with the server render, so the stats don't flash 0.
+  const booksRead = books ? books.filter((book: Book) => book.status === "COMPLETED").length : user._count?.books ?? 0
+  const earned = achievementsLoading
+    ? profile?.achievements?.length ?? 0
+    : achievements.flatMap((a) => a.milestones).filter((m) => m.earned).length
   const followers = profile?.followerCount ?? 0
   const following = profile?.followingCount ?? 0
 
@@ -65,13 +68,14 @@ const ProfileHead: FC = () => {
         onAvatarClick={() => setShowLightbox(true)}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
-          { value: followers, label: plural(followers, "follower"), onClick: () => followListModal.onOpen(user.username, "followers") },
-          { value: following, label: "following", onClick: () => followListModal.onOpen(user.username, "following") },
+          { value: followers, label: plural(followers, "follower"), followList: { username: user.username, kind: "followers" } },
+          { value: following, label: "following", followList: { username: user.username, kind: "following" } },
           { value: favourites.length, label: plural(favourites.length, "favourite"), href: "/favourites" },
           { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
         ]}
         actions={
           <>
+            <ShareProfileButton username={user.username} />
             <button type="button" onClick={editProfileModal.onOpen} className={secondaryButtonClass}>Edit profile</button>
             <button type="button" onClick={() => bookEntryModal.onOpen()} className={primaryButtonClass}>
               <Plus size={16} aria-hidden />Add a book
