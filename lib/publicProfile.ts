@@ -2,6 +2,7 @@ import { cache } from "react";
 import prisma from "@/lib/db";
 import { getMilestone } from "@/lib/achievements-catalog";
 import { canView, getRelation, privacyOf, privacySelect, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
+import { isFinishedBook } from "@/lib/readerTier";
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
@@ -142,8 +143,8 @@ export const getPublicProfile = (username: string) => getProfileView(username, n
 
 
 // Completed books, and how many of them were finished in the given year.
-export function readingCounts(books: Pick<PublicBook, "status" | "completedAt">[], year = new Date().getFullYear()) {
-  const completed = books.filter((b) => b.status === "COMPLETED");
+export function readingCounts(books: Pick<PublicBook, "status" | "completedAt" | "timesRead">[], year = new Date().getFullYear()) {
+  const completed = books.filter(isFinishedBook);
   return {
     booksRead: completed.length,
     booksThisYear: completed.filter((b) => b.completedAt && new Date(b.completedAt).getFullYear() === year).length,

@@ -18,9 +18,10 @@ interface PageProps {
 export const dynamic = "force-dynamic"
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const quest = await findQuest(params.slug, null)
+  // Staff can open drafts, so the title follows what the page itself shows; drafts stay out of search.
+  const quest = await findQuest(params.slug, await getCurrentUser())
   if (!quest) return { title: "Quest not found", robots: { index: false } }
-  return { title: quest.title, description: quest.description.slice(0, 200) }
+  return { title: quest.title, description: quest.description.slice(0, 200), ...(quest.hidden && { robots: { index: false } }) }
 }
 
 const Page = async ({ params }: PageProps) => {

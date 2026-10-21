@@ -165,8 +165,8 @@ async function loadReadingData(userId: string) {
     finishes,
     goals,
     currentYear: Number(localDay(new Date(), timeZone).slice(0, 4)),
-    // Books whose status is COMPLETED: what the reader tier counts (lib/readerTier.ts).
-    completedBooks: books.filter((b) => b.status === "COMPLETED").length,
+    // Books finished at least once, re-reads included: what the reader tier counts (lib/readerTier.ts).
+    completedBooks: books.filter((b) => b.status === "COMPLETED" || b.timesRead >= 1).length,
   };
 }
 

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import { ACHIEVEMENTS, AchievementKey, AchievementDefinition, LEGACY_KEYS, Milestone, milestoneKey } from "@/lib/achievements-catalog";
 import { EarnedQuestMedal, syncQuests } from "@/lib/quests";
+import { finishedBookWhere } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, TIME_ZONE_COOKIE, isValidTimeZone, localDay, previousDay } from "@/lib/timeZone";
 
 export { ACHIEVEMENTS, getAchievementTitle } from "@/lib/achievements-catalog";
@@ -140,25 +141,27 @@ async function computeStats(userId: string, keys: AchievementKey[], ctx: StatsCo
   const stats: Partial<AchievementStats> = {};
   const tasks: Promise<void>[] = [];
 
-  // Books read, pages read and big books come from one aggregate grouped by status, instead of
-  // loading every book. Only COMPLETED books count as read; pages also count from books in progress.
+  // Books read, pages read and big books come from two aggregates instead of loading every book.
+  // A book counts as read once finished, re-reads included (finishedBookWhere); pages also count
+  // from books in progress that haven't been finished before.
   if (need.has("BOOKS_READ") || need.has("PAGES_READ") || need.has("BIG_BOOKS")) {
     tasks.push(
-      prisma.book
-        .groupBy({
-          by: ["status"],
-          where: { userId, status: { in: ["COMPLETED", "STARTED"] } },
+      Promise.all([
+        prisma.book.aggregate({
+          where: { userId, ...finishedBookWhere },
           _count: { _all: true },
-          _sum: { pages: true, currentPage: true },
+          _sum: { pages: true },
           _max: { pages: true },
-        })
-        .then((groups) => {
-          const completed = groups.find((g) => g.status === "COMPLETED");
-          const started = groups.find((g) => g.status === "STARTED");
-          stats.BOOKS_READ = completed?._count._all ?? 0;
-          stats.PAGES_READ = (completed?._sum.pages ?? 0) + (started?._sum.currentPage ?? 0);
-          stats.BIG_BOOKS = completed?._max.pages ?? 0;
-        })
+        }),
+        prisma.book.aggregate({
+          where: { userId, status: "STARTED", timesRead: { lt: 1 } },
+          _sum: { currentPage: true },
+        }),
+      ]).then(([finished, inProgress]) => {
+        stats.BOOKS_READ = finished._count._all;
+        stats.PAGES_READ = (finished._sum.pages ?? 0) + (inProgress._sum.currentPage ?? 0);
+        stats.BIG_BOOKS = finished._max.pages ?? 0;
+      })
     );
   }
 

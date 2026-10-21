@@ -138,7 +138,8 @@ test("Goodreads: records, reads and the honest goal", () => {
   assert.equal(hobbit.book.createdAt.toISOString().slice(0, 10), "2019-06-02");
 
   const dnf = build(rows[2]);
-  assert.equal(dnf.book.stoppedAt?.getTime(), NOW.getTime(), "an undated DNF is stopped on the import date");
+  assert.equal(dnf.book.stoppedAt, null, "an undated DNF stays undated, so it doesn't count as put down this year");
+  assert.equal(dnf.reads[0].finishedAt, null);
   assert.equal(dnf.reads[0].status, "DNF");
   assert.equal(dnf.reads[0].stoppedAtPage, 0);
   assert.equal(dnf.notes.length, 1);

@@ -13,6 +13,7 @@ import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from '../books/shelf'
 import ProfileLists from '../discover/ProfileLists'
 import ProfileQuestMedals from '../quests/ProfileQuestMedals'
+import { isFinishedBook } from '@/lib/readerTier'
 
 interface PublicProfileProps {
   profile: SerializedProfile
@@ -26,7 +27,8 @@ interface PublicProfileProps {
 const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
   // The cards take a Book; the public payload is the subset of it they read.
   const { reading, finished, wantToRead } = groupShelf(profile.books as unknown as Book[])
-  const completedCount = finished.length
+  // Re-reads sit under Currently reading but still count as read.
+  const completedCount = profile.books.filter(isFinishedBook).length
   const achievementCount = profile.achievements.length
 
   const actions = (

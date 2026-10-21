@@ -27,7 +27,7 @@ interface BuddyReadViewProps {
 const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   const router = useRouter()
   const { view, isError, mutate } = useBuddyRead(id, initial)
-  const { books } = useBooks()
+  const { books, mutate: refreshBooks } = useBooks()
   const bookUpdateModal = useBookUpdateModal()
 
   // Saving progress in the book modal refreshes the shelf; pick that up straight away rather than at the next poll.
@@ -45,14 +45,16 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   const archived = buddyRead.status === "ARCHIVED"
   const notStarted = moment(buddyRead.startsAt).isAfter(moment())
 
-  const updateProgress = () => {
-    if (!myBook) {
+  const updateProgress = async () => {
+    // The cached shelf can predate joining; check the server before saying the book is gone.
+    const book = myBook ?? ((await refreshBooks()) as Book[] | undefined)?.find((b) => b.id === view?.viewer.bookId)
+    if (!book) {
       toast.info("This book isn't on your shelf any more. Rejoin from the invite link to add it back.", { position: "bottom-center" })
       return
     }
-    bookUpdateModal.setBookIdState(myBook.id)
-    bookUpdateModal.setBook(myBook, myBook.status === "COMPLETED")
-    bookUpdateModal.onOpen(myBook.id)
+    bookUpdateModal.setBookIdState(book.id)
+    bookUpdateModal.setBook(book, book.status === "COMPLETED")
+    bookUpdateModal.onOpen(book.id)
   }
 
   const setStatus = (status: "ACTIVE" | "FINISHED" | "ARCHIVED") => {

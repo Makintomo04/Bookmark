@@ -96,13 +96,15 @@ export interface Finish {
 // the import started (lib/import/records.ts newObjectId), so for either it's when the book arrived.
 const objectIdTime = (id: string) => new Date(parseInt(id.slice(0, 8), 16) * 1000);
 
-// Distinct books a reader finished between `from` and `to`, oldest finish first.
+// Every finish a reader made between `from` and `to`, oldest first.
 //  - A finish is a COMPLETED BookRead's finishedAt. Books from before read history (no BookRead rows
 //    at all) fall back to Book.completedAt, found through their COMPLETED_BOOK activity in the window.
 //  - Imported books (the import posts no Activity, every native add does) count only through their
 //    own dated reads, and only when that date isn't after the import itself: a CSV can carry a real
 //    past finish into the window, but can't invent one from the future or borrow the import date.
-//  - The same work twice (a re-read, or a duplicate copy on the shelf) counts once.
+//  - Re-reads and duplicate copies are all returned: a quest counts each work once, but only after its
+//    own rules have picked the finishes that qualify (dedupeBooks), so a re-read started during the
+//    quest still counts when an earlier read of the same book doesn't.
 // Both range queries ride indexes (BookRead [userId, finishedAt], Activity [userId, createdAt]), so the
 // cost is the window's finishes, not the reader's whole history.
 export async function eligibleFinishes(userId: string, from: Date, to: Date, now = new Date()): Promise<Finish[]> {
@@ -160,9 +162,7 @@ export async function eligibleFinishes(userId: string, from: Date, to: Date, now
     const book = bookById.get(c.bookId);
     if (!book) continue;
     if (!native.has(c.bookId) && (!c.fromRead || c.finishedAt > objectIdTime(c.bookId))) continue;
-    const finish: Finish = { ...book, bookId: book.id, startedAt: c.startedAt, finishedAt: c.finishedAt };
-    if (finishes.some((f) => sameBook(f, finish))) continue;
-    finishes.push(finish);
+    finishes.push({ ...book, bookId: book.id, startedAt: c.startedAt, finishedAt: c.finishedAt });
   }
   return finishes;
 }
@@ -228,6 +228,13 @@ async function goalContext(quests: Quest[], finishes: Finish[]): Promise<GoalCon
   return { listItems, pages };
 }
 
+// The first qualifying finish of each work: a re-read or a duplicate copy counts once.
+function dedupeBooks(finishes: Finish[]): Finish[] {
+  const kept: Finish[] = [];
+  for (const f of finishes) if (!kept.some((k) => sameBook(k, f))) kept.push(f);
+  return kept;
+}
+
 export interface QuestStanding {
   count: number;
   target: number;
@@ -245,7 +252,7 @@ async function standings(userId: string, quests: Quest[], now = new Date()): Pro
   const ctx = await goalContext(scored, finishes);
   for (const quest of scored) {
     const goal = goalOf(quest)!;
-    const books = finishes.filter((f) => goalMatches(goal, quest, f, ctx));
+    const books = dedupeBooks(finishes.filter((f) => goalMatches(goal, quest, f, ctx)));
     result.set(quest.id, { count: books.length, target: goal.count, books });
   }
   return result;

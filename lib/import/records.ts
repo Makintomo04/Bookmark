@@ -78,7 +78,9 @@ export function buildRecords(
   const status = row.status;
   const pages = row.pages ?? match?.pages ?? 0;
   const isStopped = status === "DNF" || status === "PAUSED";
-  const stoppedAt = isStopped ? date(row.stoppedAt) ?? now : null;
+  // Left empty when the export has no date: stamping the import date would count the book as put
+  // down this year in stats and Wrapped.
+  const stoppedAt = isStopped ? date(row.stoppedAt) : null;
   const timesRead = row.completedReads.length;
 
   const currentPage =

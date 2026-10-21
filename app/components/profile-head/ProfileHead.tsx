@@ -16,6 +16,7 @@ import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './Profi
 import ReadingGoalWidget from './ReadingGoalWidget'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
+import { isFinishedBook } from '@/lib/readerTier'
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -49,7 +50,7 @@ const ProfileHead: FC = () => {
   }
 
   // Until the shelf and achievements load, use the counts that came with the server render, so the stats don't flash 0.
-  const booksRead = books ? books.filter((book: Book) => book.status === "COMPLETED").length : user._count?.books ?? 0
+  const booksRead = books ? books.filter(isFinishedBook).length : user._count?.books ?? 0
   const earned = achievementsLoading
     ? profile?.achievements?.length ?? 0
     : achievements.flatMap((a) => a.milestones).filter((m) => m.earned).length

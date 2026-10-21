@@ -298,7 +298,13 @@ export async function onBuddyReadProgress(userId: string, book: ProgressBook) {
     if (claimed.count === 0 || progress <= m.notifiedProgress) continue
 
     const unlocked = await prisma.buddyReadComment.findMany({
-      where: { buddyReadId: m.buddyReadId, userId: { not: userId }, deletedAt: null, position: { gt: m.notifiedProgress, lte: progress } },
+      // MongoDB: `deletedAt: null` alone misses comments that never had the field set, which is all of them.
+      where: {
+        buddyReadId: m.buddyReadId,
+        userId: { not: userId },
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+        position: { gt: m.notifiedProgress, lte: progress },
+      },
       orderBy: { createdAt: "desc" },
       select: { userId: true },
     })

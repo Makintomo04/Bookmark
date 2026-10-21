@@ -27,8 +27,17 @@ export function getReaderTier(booksRead: number | null | undefined): ReaderTier 
   return [...READER_TIERS].reverse().find((t) => n >= t.minBooks) ?? null
 }
 
-// Prisma select fragment: completed books, for working out a user's tier.
-export const booksReadCount = { _count: { select: { books: { where: { status: "COMPLETED" as const } } } } }
+// A book counts as read once it has been finished, including while it's being re-read (its status is
+// STARTED again then, but timesRead keeps the earlier finish).
+export const finishedBookWhere = { OR: [{ status: "COMPLETED" as const }, { timesRead: { gte: 1 } }] }
+
+// The same rule for books already loaded.
+export function isFinishedBook(book: { status: string; timesRead?: number | null }) {
+  return book.status === "COMPLETED" || (book.timesRead ?? 0) >= 1
+}
+
+// Prisma select fragment: finished books, for working out a user's tier.
+export const booksReadCount = { _count: { select: { books: { where: finishedBookWhere } } } }
 
 export function booksReadOf(user: { _count?: { books?: number } } | null | undefined) {
   return user?._count?.books ?? 0

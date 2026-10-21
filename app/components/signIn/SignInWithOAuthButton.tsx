@@ -1,22 +1,14 @@
 "use client"
-import { signIn, useSession } from 'next-auth/react'
-import { FC, useEffect } from 'react'
+import { signIn } from 'next-auth/react'
+import { FC } from 'react'
 import { Button } from '../ui/button'
-import { FaGithub, FaGoogle, FaTwitter } from "react-icons/fa";
-import { useRouter } from 'next/navigation';
+import { FaGithub, FaGoogle } from "react-icons/fa";
 
 interface SignInButtonProps {
   provider:String
 }
 
 const SignInWithOAuthButton: FC<SignInButtonProps> = ({provider}) => {
-  const router = useRouter()
-  const { data: session, status } = useSession();
-
-  useEffect(() => {
-      if (session) window.close();
-  }, [session, status]);
-
   const onSubmit = () => {
     signIn(provider.toLowerCase(),
       { callbackUrl: `${window.location.origin}/` }
