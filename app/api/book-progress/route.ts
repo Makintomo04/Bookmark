@@ -6,7 +6,9 @@ import { NextResponse } from "next/server";
 export async function POST(req:Request, res:Response) {
 
   const body = await req.json()
-  const {id,pagesUpdate,isComplete,isStarted,rating,review,isRestart} = body
+  const {id,pagesUpdate,isComplete,isStarted,rating,review,isRestart,currentPage:targetPage} = body
+  // An absolute page is idempotent, unlike pagesUpdate (an increment), so retries can't double-count.
+  const hasTarget = typeof targetPage === "number" && Number.isFinite(targetPage)
 const currentUser = await getCurrentUser()
 
 if (!id) {
@@ -27,6 +29,7 @@ if(!selectedBook){
 if(selectedBook.userId !== currentUser.id){
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
+const clampPage = (page:number) => Math.max(0, Math.min(selectedBook.pages, Math.round(page)))
 const increment = (currentPage:number, pagesToIncrement:string, maxPages:number) => {
   const next = currentPage + parseInt(pagesToIncrement)
   return Math.max(0, Math.min(maxPages, next))
@@ -65,7 +68,7 @@ if(selectedBook.status === "NOT_STARTED"){
         id
       },
       data:{
-        currentPage: pagesUpdate ? increment(0,pagesUpdate,selectedBook.pages) : 0,
+        currentPage: hasTarget ? clampPage(targetPage) : pagesUpdate ? increment(0,pagesUpdate,selectedBook.pages) : 0,
         status: isStarted ? "STARTED" : selectedBook.status,
         startedAt: isStarted ? new Date() : selectedBook.startedAt,
         rating: rating !== undefined ? rating : selectedBook.rating,
@@ -80,7 +83,7 @@ if(selectedBook.status === "NOT_STARTED"){
   }
   return NextResponse.json({ error: 'Book not started' }, { status: 400 })
 }
-if(selectedBook.status === "STARTED" && !isComplete && isNaN(parseInt(pagesUpdate))){
+if(selectedBook.status === "STARTED" && !isComplete && !hasTarget && isNaN(parseInt(pagesUpdate))){
   return NextResponse.json({error:"Pages to increment must be greater than 0"}, { status: 400 });
 }
 const isFirstCompletion = isComplete && selectedBook.status !== "COMPLETED"
@@ -89,9 +92,11 @@ const book = await prisma.book.update({
     id
   },
   data:{
-    currentPage: pagesUpdate && !isComplete ? increment(selectedBook.currentPage ?? 0,pagesUpdate,selectedBook.pages) : selectedBook.pages,
+    currentPage: !isComplete && hasTarget ? clampPage(targetPage)
+      : pagesUpdate && !isComplete ? increment(selectedBook.currentPage ?? 0,pagesUpdate,selectedBook.pages)
+      : selectedBook.pages,
     status: isComplete ? "COMPLETED" : selectedBook.status ==="COMPLETED" && !isComplete ? "STARTED": selectedBook.status,
-    completedAt: isComplete ? new Date() : selectedBook.completedAt,
+    completedAt: isFirstCompletion ? new Date() : selectedBook.completedAt,
     timesRead: isFirstCompletion ? selectedBook.timesRead + 1 : selectedBook.timesRead,
     rating: rating !== undefined ? rating : selectedBook.rating,
     review: review !== undefined ? review : selectedBook.review,
