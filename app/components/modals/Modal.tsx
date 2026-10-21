@@ -21,6 +21,19 @@ interface ModalProps {
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
+// Modals can stack, so the first one to open freezes the page and the last one to close restores it.
+let lockCount = 0
+let savedOverflow = ''
+function lockPageScroll() {
+  if (lockCount++ === 0) {
+    savedOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
+  return () => {
+    if (--lockCount === 0) document.body.style.overflow = savedOverflow
+  }
+}
+
 const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default"}) => {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -33,6 +46,12 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
   // Read through a ref so a parent re-render doesn't re-run the focus effect below.
   const closeRef = useRef(handleClose)
   closeRef.current = handleClose
+
+  // Freeze the page behind, otherwise a swipe on the header, footer or past the end of the body scrolls the page.
+  useEffect(() => {
+    if (!isOpen) return
+    return lockPageScroll()
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return
@@ -72,7 +91,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
       className="
         justify-center
         items-center
-        h-screen
+        h-dvh
         flex
         overflow-x-hidden
         overflow-y-hidden
@@ -81,6 +100,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         z-50
         outline-none
         focus:outline-none
+        overscroll-contain
         bg-neutral-800/70
 
       "
@@ -92,7 +112,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={cn("flex flex-col mb-auto sm:my-auto w-full h-full max-h-dvh sm:max-h-[85dvh] overflow-hidden sm:rounded-lg sm:h-auto", size === "sm" ? "sm:w-[520px]" : "sm:w-[650px] md:w-[800px] lg:w-[900px]", " bg-background shadow-md relative outline-none", !compact && "min-h-[580px]")}
+        className={cn("flex flex-col mb-auto sm:my-auto w-full h-full max-h-dvh sm:max-h-[85dvh] overflow-hidden sm:rounded-lg sm:h-auto", size === "sm" ? "sm:w-[520px]" : "sm:w-[650px] md:w-[800px] lg:w-[900px]", " bg-background shadow-md relative outline-none", !compact && "sm:min-h-[580px]")}
       >
         <div className="p-6 pb-0 h-auto md:h-full overflow-hidden">
           <div className="flex justify-between items-center">
@@ -103,8 +123,9 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
           </div>
           <hr className='my-6 border-1 border-slate-400/40'/>
         </div>
-          <div className={cn("flex flex-col justify-between w-full h-full min-h-0 flex-1 relative", !compact && "min-h-[500px]")}>
-        <div className="h-auto grid place-items-baseline sm:place-items-center overflow-y-auto flex-grow sm:min-h-0  max-h-max pt-2 -mt-2">
+          <div className={cn("flex flex-col justify-between w-full h-full min-h-0 flex-1 relative", !compact && "sm:min-h-[500px]")}>
+        {/* grid-cols-1 caps the column at the modal's width; an auto column grows to the widest child and spills off narrow screens. */}
+        <div className="h-auto grid grid-cols-1 place-items-baseline sm:place-items-center overflow-y-auto overflow-x-hidden overscroll-contain flex-grow min-h-0 max-h-max pt-2 -mt-2">
 
         {body}
         </div>
