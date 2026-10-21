@@ -5,6 +5,7 @@ import Link from 'next/link'
 import axios from 'axios'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '../ui/button'
+import { safeCallbackPath, withCallback } from '@/lib/callbackUrl'
 
 const VerifyEmailComponent = () => {
   const searchParams = useSearchParams()
@@ -25,7 +26,8 @@ const VerifyEmailComponent = () => {
     }
   }
 
-  const signInHref = `/signin?verified=1${email ? `&email=${encodeURIComponent(email)}` : ""}`
+  const callbackPath = safeCallbackPath(searchParams?.get("callbackUrl"))
+  const signInHref = withCallback(`/signin?verified=1${email ? `&email=${encodeURIComponent(email)}` : ""}`, callbackPath)
 
   return (
     <div className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 // Rendered with the first load already spoiler-locked for this reader; the client then polls for updates.
 const Page = async ({ params }: PageProps) => {
   const viewer = await getCurrentUser()
-  if (!viewer) redirect('/signin')
+  if (!viewer) redirect(`/signin?callbackUrl=${encodeURIComponent(`/buddy-reads/${params.id}`)}`)
   const view = await loadBuddyReadView(params.id, viewer.id)
   if (!view) notFound()
 

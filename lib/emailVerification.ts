@@ -11,7 +11,8 @@ export function verifyEmailIdentifier(email: string) {
   return `verify-email:${email}`;
 }
 
-export async function sendVerificationEmail(email: string) {
+// callbackPath is where the reader was headed (e.g. an invite); the verify page passes it on to sign-in.
+export async function sendVerificationEmail(email: string, callbackPath?: string | null) {
   const identifier = verifyEmailIdentifier(email);
   // Only the newest link works.
   await prisma.verificationToken.deleteMany({ where: { identifier } });
@@ -25,7 +26,8 @@ export async function sendVerificationEmail(email: string) {
     },
   });
 
-  const verifyUrl = `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`;
+  const callbackParam = callbackPath ? `&callbackUrl=${encodeURIComponent(callbackPath)}` : "";
+  const verifyUrl = `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}${callbackParam}`;
 
   await sendMail({
     to: email,

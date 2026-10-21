@@ -85,11 +85,9 @@ const Page = async ({ params }: PageProps) => {
               <p className="text-xs text-muted-foreground">Not on your shelf yet? It&apos;ll be added to Currently reading.</p>
             </div>
           ) : (
-            // TODO(follow-up): /signin always returns to "/", so the reader has to open this link again after
-            // signing in. Pass a callbackUrl once SignInComponent supports one.
             <div className="flex flex-wrap justify-center gap-3">
-              <Link href="/register" className={`${primaryButtonClass} h-11 px-6 text-base`}>Create an account to join</Link>
-              <Link href="/signin" className={`${secondaryButtonClass} h-11 px-6 text-base`}>Sign in</Link>
+              <Link href={`/register?callbackUrl=${encodeURIComponent(`/buddy-reads/join/${params.code}`)}`} className={`${primaryButtonClass} h-11 px-6 text-base`}>Create an account to join</Link>
+              <Link href={`/signin?callbackUrl=${encodeURIComponent(`/buddy-reads/join/${params.code}`)}`} className={`${secondaryButtonClass} h-11 px-6 text-base`}>Sign in</Link>
             </div>
           )}
         </div>

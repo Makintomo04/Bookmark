@@ -12,6 +12,7 @@ import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import { toast } from 'react-toastify'
 import { EMAIL_NOT_VERIFIED } from '@/lib/authSchemas'
 import CheckInboxNotice from './CheckInboxNotice'
+import { afterSignInPath, safeCallbackPath, withCallback } from '@/lib/callbackUrl'
 
 interface SignInComponentProps {
   
@@ -30,8 +31,11 @@ const SignInComponent =  () => {
   const [justVerified, setJustVerified] = useState(false)
   // Set when the password was right but the email still needs confirming.
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
+  // Where to go after signing in, e.g. the invite or page that sent them here.
+  const [callbackPath, setCallbackPath] = useState<string | null>(null)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    setCallbackPath(safeCallbackPath(params.get("callbackUrl"), window.location.origin))
     if (params.get("verified") === "1") setJustVerified(true)
     const email = params.get("email")
     if (email) setValue("email", email)
@@ -65,7 +69,7 @@ const SignInComponent =  () => {
         password: data.password,
       })
       if(res?.ok){
-        router.push("/")
+        router.push(afterSignInPath(callbackPath))
       }
       else if(res?.error === EMAIL_NOT_VERIFIED){
         setUnverifiedEmail(data.email)
@@ -131,10 +135,10 @@ const SignInComponent =  () => {
       <hr className='border-1 border-slate-400/50 w-full'/>
     </div>
     <div className="mt-3 flex gap-2 w-full">
-              <SignInWithOAuthButton provider="Google"/>
-              <SignInWithOAuthButton provider="Github"/>
+              <SignInWithOAuthButton provider="Google" callbackPath={callbackPath}/>
+              <SignInWithOAuthButton provider="Github" callbackPath={callbackPath}/>
     </div>
-    <p className='text-sm mt-4'>First time using Bookmark? <Link href="/register" className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Create an account</Link></p>
+    <p className='text-sm mt-4'>First time using Bookmark? <Link href={withCallback("/register", callbackPath)} className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Create an account</Link></p>
   </div>
   </motion.div>
   </AnimatePresence>

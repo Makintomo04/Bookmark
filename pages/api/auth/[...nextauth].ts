@@ -9,6 +9,7 @@ import prisma from "@/lib/db";
 import bcrypt from "bcrypt";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { EMAIL_NOT_VERIFIED } from "@/lib/authSchemas";
+import { findUserByEmail } from "@/lib/findUserByEmail";
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   pages: {
@@ -40,11 +41,7 @@ export const authOptions: AuthOptions = {
         if (!byIp.ok || !byEmail.ok) {
           throw new Error(tooManyRequestsMessage)
         }
-        const user = await prisma.user.findUnique({
-          where:{
-            email:credentials?.email
-          }
-        })
+        const user = await findUserByEmail(credentials.email.trim())
         // Same message as a wrong password, so sign-in can't be used to discover which emails have accounts.
         if (!user || !user.hashedPassword) {
           throw new Error('Invalid email or password')

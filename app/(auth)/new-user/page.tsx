@@ -22,6 +22,8 @@ import { STEPS } from '@/utils/helpers'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import useUser from '@/app/hooks/useUser'
 import Loader from '@/app/components/Loader'
+import { safeCallbackPath } from '@/lib/callbackUrl'
+import { USERNAME_MAX, USERNAME_MIN } from '@/lib/profile'
 interface pageProps {
   
 }
@@ -47,11 +49,14 @@ const Page: FC<pageProps> = ({}) => {
   const formSchema = z.object({
     username: z.string().min(2).max(50),
   })
+  // Where the reader was headed before onboarding (e.g. a buddy-read invite). NextAuth passes an absolute URL.
+  const nextPath = () => typeof window === "undefined" ? "/" :
+    safeCallbackPath(new URLSearchParams(window.location.search).get("callbackUrl"), window.location.origin) ?? "/"
   useEffect(() => {
     setIsPageLoading(true)
     if(user){
       if(user?.favColour) {
-        router.push("/")
+        router.push(nextPath())
       }
       else{
         setIsPageLoading(false)
@@ -66,6 +71,7 @@ const Page: FC<pageProps> = ({}) => {
       setValue,
       watch,
       getValues,
+      setError,
       formState:{errors},
       reset} = useForm<FieldValues>({
       defaultValues: {
@@ -87,16 +93,23 @@ const Page: FC<pageProps> = ({}) => {
         return onNext();
       }
 
-      axios.post("/api/new-user",data).then((res)=>{
-        setIsLoading(true)
+      // Locked before the request so Finish can't be pressed twice; stays locked on success while we navigate.
+      setIsLoading(true)
+      setStep(STEPS.COMPLETE)
+      axios.post("/api/new-user",data).then(()=>{
         toast.success("Profile Created!",{ position: "bottom-center" })
-        router.push("/")
-        reset();
-        setStep(STEPS.COMPLETE)
+        router.push(nextPath())
       }).catch((err)=>{
-        toast.error("Something went wrong!",{ position: "bottom-center" })
-      }).finally(()=>{
-        setIsLoading(false);
+        setIsLoading(false)
+        const message = axios.isAxiosError(err) && err.response?.data?.error || "Something went wrong. Please try again."
+        // A taken or invalid username goes back to its own step with the reason under the field.
+        if (axios.isAxiosError(err) && err.response?.data?.field === "username") {
+          setStep(STEPS.USERNAME)
+          setError("username", { type: "server", message })
+          return
+        }
+        setStep(err?.response?.data?.field === "bio" ? STEPS.BIO : STEPS.COLOUR)
+        toast.error(message,{ position: "bottom-center" })
       })
     }
   
@@ -148,7 +161,14 @@ const Page: FC<pageProps> = ({}) => {
     <div className="sm:min-w-96">
      
       {/* <FormLabel>Username</FormLabel> */}
-        <Input register={register} errors={errors} id="username" inputValidation={{required:true, message:"Username required"}} placeholder="e.g. Bookworm99" autoComplete='off' required  />
+        <Input register={register} errors={errors} id="username" inputValidation={{
+          required:true,
+          message:"Username required",
+          validate:(value:string) => {
+            const length = value.trim().length
+            return (length >= USERNAME_MIN && length <= USERNAME_MAX) || `Usernames are ${USERNAME_MIN}–${USERNAME_MAX} characters.`
+          },
+        }} placeholder="e.g. Bookworm99" autoComplete='off' required  />
       <p className='text-sm text-slate-600 mt-2'>This is your public display name. (you can change this later)</p>
       {/* <FormMessage /> */}
 
@@ -195,7 +215,8 @@ const Page: FC<pageProps> = ({}) => {
           setIsLoading(false);
         }}
         onUploadError={(error: Error) => {
-          toast(error.message)
+          setIsLoading(false);
+          toast.error(error.message,{ position: "bottom-center" })
         }}
         />
   </div>
@@ -240,6 +261,7 @@ const Page: FC<pageProps> = ({}) => {
           setIsLoading(false);
         }}
         onUploadError={(error: Error) => {
+          setIsLoading(false);
           toast.error(error.message,
             {
               position: "bottom-center"

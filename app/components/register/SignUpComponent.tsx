@@ -1,5 +1,5 @@
 "use client"
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { Input } from '../ui/input'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -12,6 +12,7 @@ import axios from 'axios'
 import { PASSWORD_MIN } from '@/lib/authSchemas'
 import { toast } from 'react-toastify'
 import CheckInboxNotice from '../signIn/CheckInboxNotice'
+import { safeCallbackPath, withCallback } from '@/lib/callbackUrl'
 interface SignUpComponentProps {
   
 }
@@ -21,6 +22,11 @@ const router = useRouter()
 const [isLoading, setIsLoading] = useState(false);
 // Set once the account exists; it can't sign in until the emailed link is opened.
 const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+// Where they were headed (e.g. an invite); kept through the verification email and sign-in.
+const [callbackPath, setCallbackPath] = useState<string | null>(null);
+useEffect(() => {
+  setCallbackPath(safeCallbackPath(new URLSearchParams(window.location.search).get("callbackUrl"), window.location.origin))
+}, [])
 const { 
   register,
   handleSubmit,
@@ -47,7 +53,7 @@ const onSubmit:SubmitHandler<FieldValues> = async (data) => {
   }
   try {
     setIsLoading(true)
-    await axios.post("/api/register", data)
+    await axios.post("/api/register", { email: data.email, password: data.password, callbackUrl: callbackPath })
     setRegisteredEmail(data.email)
 
   } catch (error) {
@@ -90,7 +96,7 @@ if (!isMobile) {
   {registeredEmail ? (
   <div className="">
     <CheckInboxNotice email={registeredEmail} title="Account created. Check your inbox"/>
-    <p className='text-sm mt-4'>Confirmed your email? <Link href={`/signin?email=${encodeURIComponent(registeredEmail)}`} className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</Link></p>
+    <p className='text-sm mt-4'>Confirmed your email? <Link href={withCallback(`/signin?email=${encodeURIComponent(registeredEmail)}`, callbackPath)} className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</Link></p>
   </div>
   ) : (
   <div className="">
@@ -116,10 +122,10 @@ if (!isMobile) {
       <hr className='border-1 border-slate-400/50 w-full'/>
     </div>
     <div className="mt-3 flex gap-2 w-full">
-              <SignInWithOAuthButton provider="Google"/>
-              <SignInWithOAuthButton provider="Github"/>
+              <SignInWithOAuthButton provider="Google" callbackPath={callbackPath}/>
+              <SignInWithOAuthButton provider="Github" callbackPath={callbackPath}/>
     </div>
-    <p className='text-sm mt-4'>Already have an account? <Link href="/signin" className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</Link></p>
+    <p className='text-sm mt-4'>Already have an account? <Link href={withCallback("/signin", callbackPath)} className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Sign in</Link></p>
     <p className='text-xs text-muted-foreground mt-3'>By signing up, you agree to our <Link href="/terms" className='hover:underline'>Terms</Link> and <Link href="/privacy" className='hover:underline'>Privacy Policy</Link>.</p>
   </div>
   )}
