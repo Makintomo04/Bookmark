@@ -114,19 +114,25 @@ model Book {
   cardColour String?
   status Status @default(NOT_STARTED)
   genre String?
+  // 0.5 to 5 in half-star steps.
   rating Float?
   review String?
+  // Completed reads. Kept in step with BookRead rows whose status is COMPLETED.
   timesRead Int @default(0)
   notes Note[]
   pages Int
   currentPage Int? @default(0)
   createdAt DateTime @default(now())
+  // These mirror the current (or latest) read so existing queries keep working; BookRead holds the history.
   startedAt DateTime?
   completedAt DateTime?
+  // When the book was put down: set while DNF or PAUSED, cleared otherwise. A DNF's page is currentPage.
+  stoppedAt DateTime?
   // Open Library work key (e.g. OL45883W), so the same book can be matched across readers and lists.
   workKey String?
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   activities Activity[]
+  reads BookRead[]
 
   // Shelf (userId) and public profile (userId + status in STARTED/COMPLETED). The prefix covers userId alone.
   @@index([userId, status])
@@ -147,6 +153,41 @@ enum Status {
   STARTED
   NOT_STARTED
   COMPLETED
+  // Did not finish: stopped for good, at currentPage on stoppedAt.
+  DNF
+  // On hold: keeps currentPage and can be resumed.
+  PAUSED
+}
+
+// One row per time a reader picks a book up. "Read again" closes the current read and opens a new one,
+// so earlier dates and ratings survive. Book.status/startedAt/completedAt/timesRead mirror these rows.
+model BookRead {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  bookId String @db.ObjectId
+  // Copied from the book so per-reader queries (stats, Wrapped, export) don't need a join. A scalar,
+  // not a relation, so User is untouched: reads go with their book, and books go with their user.
+  userId String @db.ObjectId
+  // Null for a past read shelved as Finished without dates (and for reads backfilled from those).
+  startedAt DateTime?
+  // Set when the read ends: COMPLETED or DNF. Null while STARTED or PAUSED, and for undated past reads.
+  finishedAt DateTime?
+  // STARTED, PAUSED, COMPLETED or DNF. A read is never NOT_STARTED.
+  status Status
+  // The rating given for this read. Book.rating is the reader's current rating.
+  rating Float?
+  // For a DNF, the page the reader stopped at.
+  stoppedAtPage Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  // A book's reads in order, and finding its open one. The prefix covers the cascade from a deleted book.
+  @@index([bookId, createdAt])
+  // Stats, Wrapped and the goal: a reader's reads finished in a date range.
+  @@index([userId, finishedAt])
+  // A reader's reads by outcome (every DNF, every re-read), and import de-duplication.
+  @@index([userId, status])
 }
 
 model Activity {
@@ -171,6 +212,8 @@ enum ActivityType {
   COMPLETED_BOOK
   RATED_BOOK
   REVIEWED_BOOK
+  // Gave up on a book. Pausing isn't posted: it's a private, temporary state.
+  DNF_BOOK
 }
 
 model Notification {

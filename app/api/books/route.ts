@@ -4,6 +4,11 @@ import { awardNewAchievements } from "@/lib/achievements";
 import { mirrorCover } from "@/lib/covers";
 import { normaliseWorkKey } from "@/lib/workKey";
 import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
+import { RATING_ERROR, ratingSchema, readFromBook } from "@/lib/readHistory";
+import { Status } from "@prisma/client";
+import { z } from "zod";
+
+const statusSchema = z.nativeEnum(Status)
 
 // The add-book modal sends the blurb it already showed; one-click adds from Discover don't,
 // so look it up here. Never let a slow or failed lookup block saving the book.
@@ -46,15 +51,19 @@ if (typeof title !== "string" || !title.trim() || typeof author !== "string" || 
 if (isNaN(totalPages) || totalPages < 1) {
   return NextResponse.json({ error: "Pages must be greater than 0" }, { status: 400 })
 }
-if (!["NOT_STARTED", "STARTED", "COMPLETED"].includes(status)) {
+const parsedStatus = statusSchema.safeParse(status)
+if (!parsedStatus.success) {
   return NextResponse.json({ error: "Invalid status" }, { status: 400 })
 }
-if (rating !== undefined && (typeof rating !== "number" || rating < 1 || rating > 5)) {
-  return NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 })
+const parsedRating = ratingSchema.optional().safeParse(rating)
+if (!parsedRating.success) {
+  return NextResponse.json({ error: RATING_ERROR }, { status: 400 })
 }
 
 const now = new Date()
-const isCompleted = status === "COMPLETED"
+const shelf = parsedStatus.data
+const isCompleted = shelf === "COMPLETED"
+const isStopped = shelf === "DNF" || shelf === "PAUSED"
 const startPage = Math.max(0, Math.min(totalPages, parseInt(currentPage) || 0))
 const book = await prisma.book.create({
   data:{
@@ -63,26 +72,29 @@ const book = await prisma.book.create({
     author: author.trim(),
     coverImage: coverImgSrc ? await mirrorCover(coverImgSrc) : "",
     pages: totalPages,
-    status,
+    status: shelf,
     genre: genre || null,
     workKey: normaliseWorkKey(workKey),
     description: await resolveDescription(description, workKey),
     // The start date only feeds a "Started 3 Mar" label, so default it to today rather than asking.
-    startedAt: status === "STARTED" ? now : null,
-    currentPage: isCompleted ? totalPages : status === "STARTED" ? startPage : 0,
+    startedAt: shelf === "STARTED" ? now : null,
+    currentPage: isCompleted ? totalPages : shelf === "STARTED" || isStopped ? startPage : 0,
     // Past reads stay undated so they don't count toward this year's goal;
     // only a book the user says they finished this year gets a completion date.
     completedAt: isCompleted && finishedThisYear ? now : null,
+    stoppedAt: isStopped ? now : null,
     timesRead: isCompleted ? 1 : 0,
-    rating: isCompleted && rating ? rating : null,
+    rating: (isCompleted || shelf === "DNF") && parsedRating.data ? parsedRating.data : null,
   }
 })
+const firstRead = readFromBook(book)
+if (firstRead) await prisma.bookRead.create({ data: firstRead })
 // Backfilled reads are logged as an add so they don't post "finished" to followers' feeds.
 await prisma.activity.create({
   data: {
     userId: currentUser.id,
     bookId: book.id,
-    type: status === "STARTED" ? "STARTED_BOOK" : isCompleted && finishedThisYear ? "COMPLETED_BOOK" : "ADDED_BOOK",
+    type: shelf === "STARTED" ? "STARTED_BOOK" : isCompleted && finishedThisYear ? "COMPLETED_BOOK" : "ADDED_BOOK",
   }
 })
 if (isCompleted) await awardNewAchievements(currentUser.id)
