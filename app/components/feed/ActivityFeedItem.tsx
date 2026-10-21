@@ -8,13 +8,16 @@ import moment from 'moment'
 import { IoIosStar } from "react-icons/io"
 import { TbBook2, TbBookUpload } from "react-icons/tb"
 import { Check, BookPlus, CircleSlash } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import ReviewText from './ReviewText'
 
 export interface ActivityFeedItemData {
   id: string
   type: "ADDED_BOOK" | "STARTED_BOOK" | "COMPLETED_BOOK" | "DNF_BOOK" | "RATED_BOOK" | "REVIEWED_BOOK"
   createdAt: string
   user: { username: string, image: string | null, favColour: string | null, _count?: { books?: number } }
-  book: { title: string, author: string, coverImage: string | null, cardColour: string | null, rating: number | null } | null
+  // review and reviewSpoiler come only on REVIEWED_BOOK, and only when the viewer may read it.
+  book: { title: string, author: string, coverImage: string | null, cardColour: string | null, rating: number | null, review?: string | null, reviewSpoiler?: boolean } | null
 }
 
 interface ActivityFeedItemProps {
@@ -44,9 +47,10 @@ const renderTypeIcon = (type: ActivityFeedItemData["type"]) => {
 const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
   const booksReadFor = useBooksReadFor()
   if (!activity.book) return null
+  const review = activity.type === "REVIEWED_BOOK" ? activity.book.review : null
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border border-neutral-700">
+    <div className={cn("flex gap-3 p-3 rounded-lg border border-neutral-700", review ? "items-start" : "items-center")}>
       <Link href={`/u/${activity.user.username}`} className="h-10 w-10 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: activity.user.favColour || "#f44336", ...tierRingStyle(booksReadFor(activity.user.username, booksReadOf(activity.user))) }}>
         {activity.user.image && <Image src={activity.user.image} alt="" fill className="object-cover" />}
       </Link>
@@ -57,6 +61,7 @@ const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
           {activity.type === "RATED_BOOK" && activity.book.rating ? ` (${activity.book.rating}★)` : ""}
         </p>
         <p className="truncate text-xs text-muted-foreground">by {activity.book.author} &middot; {moment(activity.createdAt).fromNow()}</p>
+        {review && <ReviewText review={review} spoiler={activity.book.reviewSpoiler} maxChars={220} className="mt-2" />}
       </div>
       {renderTypeIcon(activity.type)}
     </div>

@@ -44,6 +44,8 @@ const BookUpdateModal: FC = () => {
   const [showStartPage, setShowStartPage] = useState(false)
   const [rating, setRating] = useState(0)
   const [review, setReview] = useState("")
+  const [reviewSpoiler, setReviewSpoiler] = useState(false)
+  const [reviewPrivate, setReviewPrivate] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -61,6 +63,8 @@ const BookUpdateModal: FC = () => {
     setShowStartPage(false)
     setRating(book.rating ?? 0)
     setReview(book.review ?? "")
+    setReviewSpoiler(!!book.reviewSpoiler)
+    setReviewPrivate(!!book.reviewPrivate)
   }, [isOpen, book])
 
   if (!book) return null
@@ -78,6 +82,7 @@ const BookUpdateModal: FC = () => {
   const progress = hasPageCount ? Math.round((page / pages) * 100) : 0
   const ratingChanged = rating !== (book.rating ?? 0)
   const reviewChanged = review !== (book.review ?? "")
+    || reviewSpoiler !== !!book.reviewSpoiler || reviewPrivate !== !!book.reviewPrivate
 
   // A paused book shows the same progress controls as one being read, and saving resumes it.
   const isActive = status === "STARTED" || status === "PAUSED"
@@ -122,7 +127,7 @@ const BookUpdateModal: FC = () => {
     if (!canSave) return
     let payload: Record<string, unknown>
     let success: string
-    const ratingAndReviewPayload = { rating: rating > 0 ? rating : null, review }
+    const ratingAndReviewPayload = { rating: rating > 0 ? rating : null, review, reviewSpoiler, reviewPrivate }
     if (status === "NOT_STARTED") {
       payload = { id: book.id, action: "start", currentPage: page }
       success = "Started reading"
@@ -417,6 +422,16 @@ const BookUpdateModal: FC = () => {
           disabled={isSaving}
           className="w-full rounded-md border border-neutral-300 dark:border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
         />
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={reviewSpoiler} onChange={(e) => setReviewSpoiler(e.target.checked)} disabled={isSaving} style={{ accentColor: accent }} className="size-4" />
+            Contains spoilers
+          </label>
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={reviewPrivate} onChange={(e) => setReviewPrivate(e.target.checked)} disabled={isSaving} style={{ accentColor: accent }} className="size-4" />
+            Only me
+          </label>
+        </div>
       </div>
     </div>
   )

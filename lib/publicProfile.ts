@@ -1,9 +1,10 @@
 import { cache } from "react";
 import prisma from "@/lib/db";
 import { getMilestone } from "@/lib/achievements-catalog";
+import { canView, getRelation, privacyOf, privacySelect, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
 
-// The books a public profile shows. Explicit fields so `review` (private until reviews get a
-// visibility setting) and `userId` stay out of anything that leaves the server.
+// The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
+// server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
 const publicBookSelect = {
   id: true,
   title: true,
@@ -23,7 +24,8 @@ const publicBookSelect = {
   workKey: true,
 } as const;
 
-async function loadPublicProfile(username: string) {
+// Everything any viewer might be shown. Server-only: profileForViewer() decides what leaves.
+async function loadProfileRecord(username: string) {
   if (!username) return null;
 
   const user = await prisma.user.findUnique({
@@ -36,43 +38,108 @@ async function loadPublicProfile(username: string) {
       banner: true,
       favColour: true,
       createdAt: true,
+      ...privacySelect,
       books: {
-        where: { status: { in: ["STARTED", "COMPLETED"] } },
+        where: { status: { in: ["STARTED", "COMPLETED", "NOT_STARTED"] } },
         orderBy: { createdAt: "desc" },
-        select: publicBookSelect,
+        select: { ...publicBookSelect, review: true, reviewSpoiler: true, reviewPrivate: true },
       },
       _count: { select: { followers: true, following: true } },
       achievements: { select: { key: true, earnedAt: true } },
     },
   });
   if (!user?.username) return null;
-
-  const { id, _count, ...rest } = user;
-  return {
-    // Server-only: used to work out the viewer's relationship to this profile. Never sent to the client.
-    userId: id,
-    profile: {
-      ...rest,
-      username: user.username,
-      followerCount: _count.followers,
-      followingCount: _count.following,
-    },
-  };
+  return { ...user, username: user.username };
 }
 
 // One query per request however many places ask: generateMetadata, the page and the API route share it.
-export const getPublicProfile = cache(loadPublicProfile);
+const getProfileRecord = cache(loadProfileRecord);
+type ProfileRecord = NonNullable<Awaited<ReturnType<typeof loadProfileRecord>>>;
 
-export type PublicProfileData = NonNullable<Awaited<ReturnType<typeof loadPublicProfile>>>["profile"];
+// What a profile shows when the viewer can't see it: enough to say whose it is, nothing about their reading.
+export interface RestrictedProfile {
+  username: string;
+  image: string | null;
+  favColour: string | null;
+}
+
+export type RestrictedReason =
+  // Profile set to Private.
+  | "private"
+  // Followers only, and the viewer doesn't follow them (or is signed out).
+  | "followers"
+  // The viewer blocked them. The viewer can unblock from the page.
+  | "blockedByViewer"
+  // They blocked the viewer. Shown as "not available", so a block isn't announced.
+  | "unavailable";
+
+// The central serializer: the profile as this viewer may see it. Want to read, reviews and
+// follow counts are filtered here, so callers can't forget a rule.
+function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings) {
+  const showWantToRead = canView(relation, privacy, "wantToRead");
+  const showCounts = canView(relation, privacy, "followCounts");
+  const books = record.books
+    .filter((b) => b.status !== "NOT_STARTED" || showWantToRead)
+    .map(({ review, reviewSpoiler, reviewPrivate, ...book }) => ({
+      ...book,
+      ...visibleReview({ review, reviewSpoiler, reviewPrivate }, relation, privacy),
+    }));
+  return {
+    username: record.username,
+    bio: record.bio,
+    image: record.image,
+    banner: record.banner,
+    favColour: record.favColour,
+    createdAt: record.createdAt,
+    books,
+    achievements: record.achievements,
+    // null when hidden. The owner always gets them; ProfileHead hides the numbers itself.
+    followerCount: showCounts ? record._count.followers : null,
+    followingCount: showCounts ? record._count.following : null,
+  };
+}
+
+export type PublicProfileData = ReturnType<typeof profileForViewer>;
 export type PublicBook = PublicProfileData["books"][number];
 
-export const isFollowing = cache(async (followerId: string, followingId: string) => {
-  const follow = await prisma.follow.findUnique({
-    where: { followerId_followingId: { followerId, followingId } },
-    select: { id: true },
-  });
-  return !!follow;
+export type ProfileView =
+  | { access: "full"; userId: string; relation: Relation; privacy: PrivacySettings; profile: PublicProfileData }
+  | { access: "restricted"; userId: string; relation: Relation; privacy: PrivacySettings; reason: RestrictedReason; profile: RestrictedProfile };
+
+// A profile as `viewerId` (null when signed out) may see it, or null if there's no such user.
+// `userId`, `relation` and `privacy` are server-only: never send them to the client.
+export const getProfileView = cache(async (username: string, viewerId: string | null | undefined): Promise<ProfileView | null> => {
+  const record = await getProfileRecord(username);
+  if (!record) return null;
+
+  const userId = record.id;
+  const privacy = privacyOf(record);
+  const relation = await getRelation(viewerId, userId);
+
+  if (canView(relation, privacy, "profile")) {
+    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy) };
+  }
+  const reason: RestrictedReason = relation.blocked === "byOwner" ? "unavailable"
+    : relation.blocked === "byViewer" ? "blockedByViewer"
+    : privacy.profileVisibility === "FOLLOWERS" ? "followers"
+    : "private";
+  return {
+    access: "restricted",
+    userId,
+    relation,
+    privacy,
+    reason,
+    profile: {
+      username: record.username,
+      image: reason === "unavailable" ? null : record.image,
+      favColour: reason === "unavailable" ? null : record.favColour,
+    },
+  };
 });
+
+// The profile as a signed-out visitor (or a crawler) sees it: for metadata and the share image.
+export const getPublicProfile = (username: string) => getProfileView(username, null);
+
 
 // Completed books, and how many of them were finished in the given year.
 export function readingCounts(books: Pick<PublicBook, "status" | "completedAt">[], year = new Date().getFullYear()) {

@@ -1,24 +1,27 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
-import { getPublicProfile, isFollowing } from "@/lib/publicProfile";
+import { getProfileView } from "@/lib/publicProfile";
 import { NextResponse } from "next/server";
 
 export async function GET(
   req: Request,
   { params }: { params: { username: string } }
 ) {
-  // Public profile - viewable by anyone, logged in or not. currentUser is
-  // only used to compute viewer-specific fields (isFollowing/isSelf) below.
-  const [currentUser, data] = await Promise.all([getCurrentUser(), getPublicProfile(params.username)]);
+  // Viewable by anyone, signed in or not, as far as the owner's privacy settings allow.
+  // getProfileView applies them; this route only adds the viewer-specific flags.
+  const currentUser = await getCurrentUser();
+  const view = await getProfileView(params.username, currentUser?.id);
 
-  if (!data) {
+  if (!view || (view.access === "restricted" && view.reason === "unavailable")) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const isSelf = currentUser ? data.userId === currentUser.id : false;
-
+  const { relation } = view;
   return NextResponse.json({
-    ...data.profile,
-    isFollowing: currentUser && !isSelf ? await isFollowing(currentUser.id, data.userId) : false,
-    isSelf,
+    ...view.profile,
+    // null when the whole profile is visible; otherwise why it isn't.
+    restricted: view.access === "restricted" ? view.reason : null,
+    isFollowing: relation.isFollower,
+    isSelf: relation.isSelf,
+    isBlocked: relation.blocked === "byViewer",
   });
 }

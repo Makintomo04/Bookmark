@@ -69,6 +69,42 @@ model User {
   isStaff       Boolean @default(false)
   lists         List[]
   listReports   ListReport[]
+  // Privacy. Optional so accounts made before these existed read as the defaults
+  // (PUBLIC, EVERYONE, false, false). lib/privacy.ts normalizes them and enforces every rule.
+  profileVisibility ProfileVisibility?
+  reviewVisibility  ReviewVisibility?
+  hideWantToRead    Boolean?
+  hideFollowCounts  Boolean?
+  blocking      Block[] @relation("UserBlocks")
+  blockedBy     Block[] @relation("UserBlockedBy")
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+enum ReviewVisibility {
+  EVERYONE
+  FOLLOWERS
+  ONLY_ME
+}
+
+// blockerId has blocked blockedId. Either direction hides the two from each other (lib/privacy.ts).
+model Block {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  blockerId String @db.ObjectId
+  blockedId String @db.ObjectId
+  createdAt DateTime @default(now())
+
+  blocker User @relation("UserBlocks", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("UserBlockedBy", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  // One block per pair. The prefix covers "who have I blocked" (blockerId alone).
+  @@unique([blockerId, blockedId])
+  // "Who has blocked me": search and feed filtering, and the cascade from a deleted user.
+  @@index([blockedId])
 }
 
 model Follow {
@@ -120,6 +156,10 @@ model Book {
   // 0.5 to 5 in half-star steps.
   rating Float?
   review String?
+  // The review gives the plot away: others see it collapsed behind a click-to-reveal.
+  reviewSpoiler Boolean?
+  // Only the reader sees this review, whatever their review visibility setting.
+  reviewPrivate Boolean?
   // Completed reads. Kept in step with BookRead rows whose status is COMPLETED.
   timesRead Int @default(0)
   notes Note[]

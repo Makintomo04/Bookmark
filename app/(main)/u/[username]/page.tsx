@@ -1,19 +1,32 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { currentBook, getPublicProfile, isFollowing, readingCounts, serializeProfile } from '@/lib/publicProfile'
+import { currentBook, getProfileView, getPublicProfile, readingCounts, serializeProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
 import PublicProfile from '@/app/components/profile-head/PublicProfile'
 import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
+import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 
 interface PageProps {
   params: { username: string }
 }
 
+// Metadata is what link unfurls and search engines see, so it's built from the signed-out view
+// whoever asks: a followers-only or private profile gives away nothing but its username.
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const data = await getPublicProfile(params.username)
   // The page itself calls notFound(), which renders ./not-found.tsx; thrown from here it would skip that boundary.
   if (!data) return { title: "Reader not found", robots: { index: false } }
+
+  const url = `/u/${encodeURIComponent(data.profile.username)}`
+  if (data.access === "restricted") {
+    return {
+      title: `${data.profile.username} on Bookmark`,
+      description: "This reader's profile isn't public.",
+      robots: { index: false },
+      alternates: { canonical: url },
+    }
+  }
 
   const { profile } = data
   const { booksRead } = readingCounts(profile.books)
@@ -21,7 +34,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = `${profile.username}'s reading`
   const description = profile.bio?.trim()
     || `${profile.username} has read ${booksRead} ${booksRead === 1 ? "book" : "books"} on Bookmark${reading ? ` and is reading ${reading.title} by ${reading.author}` : ""}.`
-  const url = `/u/${encodeURIComponent(profile.username)}`
 
   // The share image comes from ./opengraph-image and ./twitter-image.
   return {
@@ -34,14 +46,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function Page({ params }: PageProps) {
-  const [data, viewer] = await Promise.all([getPublicProfile(params.username), getCurrentUser()])
+  const viewer = await getCurrentUser()
+  const data = await getProfileView(params.username, viewer?.id)
   if (!data) notFound()
 
-  const profile = serializeProfile(data.profile)
-  const isSelf = !!viewer && viewer.id === data.userId
-
   let content
-  if (isSelf) {
+  if (data.access === "restricted") {
+    // A reader who blocked the viewer looks the same as one that doesn't exist.
+    if (data.reason === "unavailable") notFound()
+    content = (
+      <RestrictedProfile
+        profile={data.profile}
+        reason={data.reason}
+        viewer={viewer ? { isFollowing: data.relation.isFollower } : null}
+      />
+    )
+  } else if (viewer && data.relation.isSelf) {
+    const profile = serializeProfile(data.profile)
     const { hashedPassword, password, ...self } = viewer
     const profileKey = `/api/users/${encodeURIComponent(profile.username)}`
     content = (
@@ -51,15 +72,15 @@ export default async function Page({ params }: PageProps) {
           // The same payloads those routes return, so the owner's header paints with the page.
           "/api/user": { ...self, _count: { books: readingCounts(data.profile.books).booksRead } },
           "/api/favourites": self,
-          [profileKey]: { ...profile, isFollowing: false, isSelf: true },
+          [profileKey]: { ...profile, restricted: null, isFollowing: false, isSelf: true, isBlocked: false },
         }}
       />
     )
   } else {
     content = (
       <PublicProfile
-        profile={profile}
-        viewer={viewer ? { isFollowing: await isFollowing(viewer.id, data.userId) } : null}
+        profile={serializeProfile(data.profile)}
+        viewer={viewer ? { isFollowing: data.relation.isFollower } : null}
       />
     )
   }
