@@ -7,6 +7,18 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "bookmark-dev-isolated",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:isolated"],
+      "port": 3010,
+      "autoPort": true
+    },
+    {
+      "name": "bookmark-running",
+      "url": "http://localhost:3000",
+      "port": 3000
     }
   ]
 }
