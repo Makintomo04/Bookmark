@@ -86,17 +86,3 @@ export async function subjectBooks(subject: string, offset = 0, limit = 24): Pro
   if (!res.ok) return []
   return toDiscoverBooks(await res.json())
 }
-
-// A few recognisable covers per genre for the Discover tiles. Rides on subjectBooks' daily cache;
-// a genre that fails just gets no covers, and its tile falls back to an icon.
-export async function genreCovers(genres: { slug: string, subject: string }[], perGenre = 3): Promise<Record<string, string[]>> {
-  const entries = await Promise.all(genres.map(async (genre) => {
-    const books = await subjectBooks(genre.subject, 0, 8).catch(() => [])
-    const covers = books
-      .map((b) => b.coverUrl?.replace(/-L\.jpg$/, "-M.jpg"))
-      .filter((url): url is string => !!url)
-      .slice(0, perGenre)
-    return [genre.slug, covers] as const
-  }))
-  return Object.fromEntries(entries)
-}
