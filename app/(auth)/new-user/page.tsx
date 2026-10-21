@@ -181,7 +181,7 @@ const Page: FC<pageProps> = ({}) => {
         // appearance={{button:{
         //   backgroundColor: "#F13C3C",
         // }}}
-        className='ut-button:bg-[#F13C3C]'
+        className='ut-button:bg-brand-fill'
         endpoint="imageUploader"
         onUploadBegin={() => {
           setIsLoading(true);
@@ -226,7 +226,7 @@ const Page: FC<pageProps> = ({}) => {
   <div className="sm:min-w-96">
 
   <UploadButton
-        className='ut-button:bg-[#F13C3C] ut-button:ut-uploading:bg-[#ae1818]'
+        className='ut-button:bg-brand-fill ut-button:ut-uploading:bg-[#ae1818]'
         endpoint="imageUploader"
         onUploadBegin={() => {
           setIsLoading(true);

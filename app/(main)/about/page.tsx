@@ -22,7 +22,7 @@ const Page: FC<pageProps> = ({}) => {
           <p className='text-base text-slate-600 dark:text-gray-300/90'>
             It&apos;s built for readers who want a clean, focused place to keep track of their books — nothing more, nothing less.
           </p>
-          <Button asChild className='bg-[#F13C3C] hover:bg-[#d93333] text-white px-6 py-6 text-base w-fit mt-2'>
+          <Button asChild className='bg-brand-fill hover:bg-brand-fill-hover text-white px-6 py-6 text-base w-fit mt-2'>
             <Link href='/'>Back to Home</Link>
           </Button>
         </div>

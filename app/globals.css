@@ -65,13 +65,13 @@ progress[value],progress[value]::-webkit-progress-bar  {
   color:red; 
 }
 button.react-calendar__tile--active{
-  background: #F13C3C;
+  background: #D92D2D;
 }
 button.react-calendar__tile--active:enabled:focus{
-  background: #F13C3C;
+  background: #D92D2D;
 }
 button.react-calendar__tile--active:enabled:focus:hover{
-  background: #F13C3C;
+  background: #D92D2D;
 }
 abbr{
   color: black;

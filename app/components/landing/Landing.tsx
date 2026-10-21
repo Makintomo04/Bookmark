@@ -34,7 +34,7 @@ const Landing: FC = () => {
           Bookmark is a simple way to log your reading, hit your yearly goals, and see what your friends are reading too.
         </p>
         <div className="flex gap-3 mt-8">
-          <Button asChild className="bg-[#F13C3C] hover:bg-[#d93333] text-white px-6 py-6 text-base">
+          <Button asChild className="bg-brand-fill hover:bg-brand-fill-hover text-white px-6 py-6 text-base">
             <Link href="/register">Get started — it&apos;s free</Link>
           </Button>
           <Button asChild variant="outline" className="px-6 py-6 text-base">
@@ -75,7 +75,7 @@ const Landing: FC = () => {
         <p className="text-sm md:text-base text-slate-600 dark:text-gray-300/90 mt-3 max-w-md">
           Create a free account in a few seconds and add your first book.
         </p>
-        <Button asChild className="bg-[#F13C3C] hover:bg-[#d93333] text-white px-6 py-6 text-base mt-6">
+        <Button asChild className="bg-brand-fill hover:bg-brand-fill-hover text-white px-6 py-6 text-base mt-6">
           <Link href="/register">Get started — it&apos;s free</Link>
         </Button>
       </section>

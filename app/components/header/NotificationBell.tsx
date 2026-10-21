@@ -40,7 +40,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
         <div className="relative cursor-pointer p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition">
           <IoNotificationsOutline size={22}/>
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-[#F13C3C] text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-brand-fill text-white text-[10px] flex items-center justify-center font-bold">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
