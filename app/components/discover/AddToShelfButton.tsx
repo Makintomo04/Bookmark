@@ -11,6 +11,7 @@ import type { DiscoverBook } from '@/lib/openLibrary'
 import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
+import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 
 const base = "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 const outline = "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900"
@@ -52,9 +53,11 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
       coverImgSrc: book.coverUrl || "",
       workKey: book.workKey,
       status: "NOT_STARTED",
-    }).then(() => {
+    }).then(({ data: saved }) => {
       toast.success("Added to Want to read", { position: "bottom-center" })
       mutate()
+      refreshAfterBookChange()
+      copyCoverLater(saved?.id)
     }).catch((err) => {
       toast.error(err?.response?.data?.error || "Couldn't add that book. Try again.", { position: "bottom-center" })
     }).finally(() => setIsAdding(false))

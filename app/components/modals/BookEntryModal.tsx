@@ -11,7 +11,6 @@ import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { Button } from '../ui/button'
 import axios from 'axios'
-import useBooks from '@/app/hooks/useBooks'
 import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
@@ -20,6 +19,7 @@ import { IoSearch } from 'react-icons/io5'
 import { readableInk } from '@/lib/colour'
 import BookBlurb from '../books/BookBlurb'
 import useBookDescription from '@/app/hooks/useBookDescription'
+import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 
 type Shelf = "NOT_STARTED" | "STARTED" | "COMPLETED"
 
@@ -40,8 +40,7 @@ const defaultValues = {
 }
 
 const BookEntryModal: FC = () => {
-  const { user, mutate } = useUser()
-  const { mutate: booksMutate } = useBooks()
+  const { user } = useUser()
   const bookEntryModal = useBookEntryModal()
   const [isLoading, setIsLoading] = useState(false)
 
@@ -132,11 +131,11 @@ const BookEntryModal: FC = () => {
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
       finishedThisYear: shelf === "COMPLETED" ? finishedThisYear : undefined,
       rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
-    }).then(() => {
+    }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
       toast.success(`Added to ${label}`, { position: "bottom-center" })
-      booksMutate()
-      mutate()
+      refreshAfterBookChange()
+      copyCoverLater(saved?.id)
       bookEntryModal.onClose()
     }).catch((err) => {
       toast.error(err?.response?.data?.error || "Couldn't add that book. Try again.", { position: "bottom-center" })

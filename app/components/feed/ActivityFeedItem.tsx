@@ -25,7 +25,8 @@ interface ActivityFeedItemProps {
 }
 
 const typeCopy: Record<ActivityFeedItemData["type"], (bookTitle: string) => string> = {
-  ADDED_BOOK: (title) => `added ${title} to their list`,
+  // "shelf", not "list": lists are the curated recommendation lists.
+  ADDED_BOOK: (title) => `added ${title} to their shelf`,
   STARTED_BOOK: (title) => `started reading ${title}`,
   COMPLETED_BOOK: (title) => `finished ${title}`,
   DNF_BOOK: (title) => `stopped reading ${title}`,

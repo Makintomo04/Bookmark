@@ -15,6 +15,7 @@ import axios from 'axios'
 import useBooks from '@/app/hooks/useBooks'
 import useBookEditModal from '@/app/hooks/useBookEditModal'
 import { GENRES, isOpenLibraryCover } from '@/utils/helpers'
+import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 
 interface BookEditModalProps {
 
@@ -78,6 +79,7 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
     axios.patch(`/api/books/${book.id}`, data).then(() => {
       toast.success("Book Updated!", { position: "bottom-center" })
       booksMutate()
+      copyCoverLater(book.id)
       onClose()
     }).catch(() => {
       toast.error("Something went wrong!", { position: "bottom-center" })
