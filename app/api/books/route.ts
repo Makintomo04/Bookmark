@@ -1,7 +1,11 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
+import { mirrorCover } from "@/lib/covers";
 import { NextResponse } from "next/server";
+
+// Copying a cover to UploadThing can take up to ~20s.
+export const maxDuration = 30;
 
 export async function GET(req:Request, res:Response) {
 
@@ -53,7 +57,7 @@ const book = await prisma.book.create({
     userId: currentUser.id,
     title: title.trim(),
     author: author.trim(),
-    coverImage: coverImgSrc || "",
+    coverImage: coverImgSrc ? await mirrorCover(coverImgSrc) : "",
     pages: totalPages,
     status,
     genre: genre || null,
