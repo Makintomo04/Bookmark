@@ -5,22 +5,19 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import { signOut } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
-import { Camera, Check, ImagePlus, Loader2, Pipette, Trash2 } from 'lucide-react'
+import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
-import { BIO_MAX, USERNAME_MAX, USERNAME_MIN } from '@/lib/profile'
-import { useUploadThing } from '@/utils/uploadthing'
+import { BIO_MAX, DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN } from '@/lib/profile'
+import useImageUpload from '@/app/hooks/useImageUpload'
 import useUser from '@/app/hooks/useUser'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import DataExport from '../settings/DataExport'
 import InitialAvatar from '../profile/InitialAvatar'
 import PrivacySettings from '../settings/PrivacySettings'
-
-const DEFAULT_COLOUR = '#D92D2D'
-const SWATCHES = ['#D92D2D', '#E8590C', '#E0A800', '#2F9E44', '#0C8599', '#1971C2', '#5F3DC4', '#C2255C', '#495057', '#1A1A1A']
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+import ColourSwatches from '../profile/ColourSwatches'
 
 type ProfileForm = {
   username: string
@@ -32,34 +29,6 @@ type ProfileForm = {
 
 const fieldClass = "w-full rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
 const overlayButtonClass = "inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium bg-black/60 text-white backdrop-blur-sm hover:bg-black/75 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
-
-// Uploads one image, showing the local file straight away so the preview doesn't wait on the network.
-const useImageUpload = (onDone: (url: string) => void) => {
-  const [preview, setPreview] = useState<string | null>(null)
-  const { startUpload, isUploading } = useUploadThing("imageUploader", {
-    onUploadError: (e) => toast.error(e.message || "Upload failed. Try another image.", { position: "bottom-center" }),
-  })
-
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
-
-  const upload = async (file: File | undefined) => {
-    if (!file) return
-    if (!file.type.startsWith("image/")) {
-      toast.error("Choose an image file.", { position: "bottom-center" })
-      return
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      toast.error("That image is over 4MB. Choose a smaller one.", { position: "bottom-center" })
-      return
-    }
-    setPreview(URL.createObjectURL(file))
-    const res = await startUpload([file]).catch(() => undefined)
-    if (res?.[0]?.url) onDone(res[0].url)
-    setPreview(null)
-  }
-
-  return { upload, preview, isUploading }
-}
 
 const EditProfileModal: FC = () => {
   const { user, isLoading: isUserLoading, mutate } = useUser()
@@ -102,7 +71,6 @@ const EditProfileModal: FC = () => {
   const [username, bio, imageSrc, bannerSrc, colour] = watch(["username", "bio", "imageSrc", "bannerSrc", "color"])
   const accent = colour || DEFAULT_COLOUR
   const accentInk = readableInk(accent)
-  const isCustomColour = !SWATCHES.includes(accent.toUpperCase())
   const avatarSrc = avatar.preview || imageSrc
   const bannerShown = banner.preview || bannerSrc
 
@@ -260,46 +228,8 @@ const EditProfileModal: FC = () => {
       <div className="flex flex-col gap-2">
         <span id="colour-label" className="text-sm font-medium">Colour</span>
         <p className="text-xs text-muted-foreground -mt-1">Fills your banner and avatar background, and tints your buttons.</p>
-        <div role="radiogroup" aria-labelledby="colour-label" className="mt-1 flex flex-wrap gap-2">
-          {SWATCHES.map((swatch) => {
-            const selected = accent.toUpperCase() === swatch
-            return (
-              <button
-                key={swatch}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                aria-label={swatch}
-                onClick={() => setField("color", swatch)}
-                disabled={isSaving}
-                className={cn(
-                  "grid size-9 place-items-center rounded-full transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                  selected && "ring-2 ring-offset-2 ring-offset-background ring-neutral-400 dark:ring-neutral-500"
-                )}
-                style={{ background: swatch, color: readableInk(swatch) }}
-              >
-                {selected && <Check size={16} strokeWidth={3} aria-hidden />}
-              </button>
-            )
-          })}
-          <label
-            className={cn(
-              "relative grid size-9 cursor-pointer place-items-center rounded-full border border-dashed border-neutral-400 transition hover:scale-110 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
-              isCustomColour && "border-solid border-transparent ring-2 ring-offset-2 ring-offset-background ring-neutral-400 dark:ring-neutral-500"
-            )}
-            style={isCustomColour ? { background: accent, color: accentInk } : undefined}
-            title="Pick a custom colour"
-          >
-            <Pipette size={15} aria-hidden />
-            <input
-              type="color"
-              aria-label="Custom colour"
-              value={accent}
-              onChange={(e) => setField("color", e.target.value.toUpperCase())}
-              disabled={isSaving}
-              className="absolute inset-0 cursor-pointer opacity-0"
-            />
-          </label>
+        <div className="mt-1">
+          <ColourSwatches value={accent} onChange={(c) => setField("color", c)} labelledBy="colour-label" disabled={isSaving} />
         </div>
       </div>
     </div>

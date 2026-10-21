@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 const Page = async () => {
   const user = await getCurrentUser()
-  if (!user) redirect('/signin')
+  if (!user) redirect('/signin?callbackUrl=/import')
 
   return (
     <div className="mt-8 sm:mt-12">

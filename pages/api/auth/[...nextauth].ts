@@ -9,8 +9,20 @@ import prisma from "@/lib/db";
 import bcrypt from "bcrypt";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { EMAIL_NOT_VERIFIED } from "@/lib/authSchemas";
+import { findUserByEmail } from "@/lib/findUserByEmail";
+import { consumeVerificationToken } from "@/lib/emailVerification";
+import { MAGIC_LINK_MAX_AGE_SECONDS, sendMagicLink } from "@/lib/magicLink";
+import type { Adapter, AdapterUser } from "next-auth/adapters";
+
+// NextAuth lowercases magic-link emails, and older accounts may be stored in mixed case. Matching the
+// way password sign-in does stops a magic link from creating a second account for Jane@Gmail.com.
+const adapter: Adapter = {
+  ...PrismaAdapter(prisma),
+  getUserByEmail: async (email) => (await findUserByEmail(email)) as AdapterUser | null,
+}
+
 export const authOptions: AuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter,
   pages: {
     signIn: '/signin',
     error: '/signin',
@@ -40,11 +52,7 @@ export const authOptions: AuthOptions = {
         if (!byIp.ok || !byEmail.ok) {
           throw new Error(tooManyRequestsMessage)
         }
-        const user = await prisma.user.findUnique({
-          where:{
-            email:credentials?.email
-          }
-        })
+        const user = await findUserByEmail(credentials.email.trim())
         // Same message as a wrong password, so sign-in can't be used to discover which emails have accounts.
         if (!user || !user.hashedPassword) {
           throw new Error('Invalid email or password')
@@ -74,16 +82,32 @@ export const authOptions: AuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     }),
+    // Opening the emailed link from /signin/link signs in, or creates the account (then on to /new-user).
+    // Mail goes through lib/mailer, which falls back to a test inbox in dev; the server here is unused.
     EmailProvider({
-      server: {
-        host: process.env.EMAIL_SERVER_HOST,
-        port: process.env.EMAIL_SERVER_PORT ? Number(process.env.EMAIL_SERVER_PORT) : undefined,
-        auth: {
-          user: process.env.EMAIL_SERVER_USER,
-          pass: process.env.EMAIL_SERVER_PASSWORD
-        }
-      },
+      server: {},
       from: process.env.EMAIL_FROM,
+      maxAge: MAGIC_LINK_MAX_AGE_SECONDS,
+      sendVerificationRequest: sendMagicLink,
+    }),
+    // The confirm button on /verify-email signs in through this, so a new reader doesn't have to type
+    // the password they just chose straight after confirming.
+    CredentialsProvider({
+      id: "verify-email",
+      name: "Email verification",
+      credentials: {
+        email: { label: "email", type: "text" },
+        token: { label: "token", type: "text" },
+      },
+      async authorize(credentials, req) {
+        const limit = rateLimit(`verify:ip:${clientIp(req?.headers)}`, 20, 15 * 60 * 1000)
+        if (!limit.ok) throw new Error(tooManyRequestsMessage)
+        const user = credentials?.email && credentials.token
+          ? await consumeVerificationToken(credentials.email, credentials.token)
+          : null
+        if (!user) throw new Error("This verification link is invalid or has expired.")
+        return user
+      },
     }),
    
     

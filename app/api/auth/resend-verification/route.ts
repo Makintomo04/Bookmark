@@ -1,6 +1,6 @@
-import prisma from "@/lib/db";
 import { sendVerificationEmail } from "@/lib/emailVerification";
 import { emailSchema } from "@/lib/authSchemas";
+import { findUserByEmail } from "@/lib/findUserByEmail";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 
@@ -22,10 +22,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await findUserByEmail(email);
   // Same response either way, so this can't be used to find out which emails have accounts.
-  if (user && user.hashedPassword && !user.emailVerified) {
-    await sendVerificationEmail(email);
+  if (user?.email && user.hashedPassword && !user.emailVerified) {
+    await sendVerificationEmail(user.email);
   }
   return NextResponse.json({ message: sentMessage });
 }

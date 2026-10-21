@@ -4,8 +4,9 @@ export const PASSWORD_MIN = 8;
 // bcrypt only hashes the first 72 bytes, so longer passwords give a false sense of strength.
 export const PASSWORD_MAX = 72;
 
-// Not lowercased: sign-in looks emails up exactly as stored, and existing accounts may have mixed case.
-export const emailSchema = z.string().email("Enter a valid email address.").max(254);
+// Not lowercased here: existing accounts may have mixed case, so lookups go through findUserByEmail.
+// New accounts are stored lowercased by /api/register.
+export const emailSchema = z.string().trim().email("Enter a valid email address.").max(254);
 
 export const passwordSchema = z
   .string()
