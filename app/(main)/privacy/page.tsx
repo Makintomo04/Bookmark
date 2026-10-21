@@ -56,6 +56,13 @@ const Page: FC = () => {
           <p>If you have questions about your data that aren&apos;t covered here, [add a contact email here before launch].</p>
         </Section>
 
+        <Section title="Taking your data with you">
+          <p>Your data is yours: take it anywhere, anytime. From <strong>Edit profile</strong> you can download everything in your account whenever you like, with no waiting and no request to us.</p>
+          <p>• <strong>Download my data (JSON)</strong> includes your profile (never your password), your books with ratings, reviews and progress, notes, reading goals, lists, the usernames you follow, and your achievements.<br/>
+          • <strong>Export books (CSV)</strong> uses the same columns as a Goodreads export, so other reading apps that import from Goodreads can read it.</p>
+          <p>Exports are built when you ask for them and sent straight to your browser. We don&apos;t keep a copy.</p>
+        </Section>
+
         <Section title="Children's privacy">
           <p>Bookmark isn&apos;t intended for children under 13. We don&apos;t knowingly collect data from children under 13.</p>
         </Section>
