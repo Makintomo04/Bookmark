@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { ACHIEVEMENTS, milestoneKey } from "@/lib/achievements-catalog";
-import { awardNewAchievements, computeAchievementStats } from "@/lib/achievements";
+import { syncAchievements } from "@/lib/achievements";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -10,12 +10,10 @@ export async function GET() {
 
   // Covers progress made before this feature existed, or any other gap
   // between a state change and its usual book-progress trigger.
-  await awardNewAchievements(currentUser.id);
+  // fullStats: the page shows every ladder's real number, including the full streak length.
+  const { stats } = await syncAchievements(currentUser.id, { trigger: "all", fullStats: true });
 
-  const [earned, stats] = await Promise.all([
-    prisma.userAchievement.findMany({ where: { userId: currentUser.id } }),
-    computeAchievementStats(currentUser.id),
-  ]);
+  const earned = await prisma.userAchievement.findMany({ where: { userId: currentUser.id } });
   const earnedByKey = new Map(earned.map((e) => [e.key, e.earnedAt]));
 
   const achievements = ACHIEVEMENTS.map((a) => {
@@ -28,7 +26,7 @@ export async function GET() {
       title: a.title,
       category: a.category,
       // Earned rungs stay earned even if the number later drops (a broken streak).
-      current: stats[a.key],
+      current: stats[a.key] ?? 0,
       milestones,
     };
   });

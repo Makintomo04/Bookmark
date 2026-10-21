@@ -43,6 +43,8 @@ model User {
   username      String?   @unique @default(cuid())
   email         String?   @unique
   emailVerified DateTime?
+  // IANA zone (e.g. "Europe/London") reported by the browser; reading-streak days roll over at its midnight.
+  timeZone      String?
   password      String?
   hashedPassword String?
   bio           String?
@@ -63,6 +65,7 @@ model User {
   notificationsReceived Notification[] @relation("NotificationRecipient")
   notificationsSent     Notification[] @relation("NotificationActor")
   achievements  UserAchievement[]
+  readingDays   ReadingDay[]
   isStaff       Boolean @default(false)
   lists         List[]
   listReports   ListReport[]
@@ -204,6 +207,20 @@ model UserAchievement {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, key])
+}
+
+// A calendar day (in the reader's time zone) on which they logged reading: a page update or a
+// finished book. One row per day, so reading streaks don't need to scan every Activity row.
+model ReadingDay {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  // "YYYY-MM-DD", so it sorts and compares as text.
+  day String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
 }
 
 enum ListVisibility {
