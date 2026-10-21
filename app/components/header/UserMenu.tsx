@@ -33,6 +33,13 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
   useEffect(() => {
     if (isWrappedSeason()) setWrappedYear(new Date().getFullYear())
   }, [])
+  // Below md the menu covers the screen, so freeze the page behind it; otherwise a swipe scrolls the page instead of the menu.
+  useEffect(() => {
+    if (!showMenu || !window.matchMedia('(max-width: 767px)').matches) return
+    const { overflow } = document.body.style
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = overflow }
+  }, [showMenu])
   if (user) {
     return (
       <>
@@ -51,7 +58,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
       {/* Also covers a photo that fails to load. */}
       <AvatarFallback className='bg-transparent'><InitialAvatar username={user?.username} favColour={user?.favColour} label='avatar' /></AvatarFallback>
     </Avatar>
-        {showMenu && <div className="w-screen h-screen fixed top-0   md:h-auto md:p-0 md:w-60 bg-background shadow-md md:absolute z-50 right-0 rounded-lg overflow-hidden md:top-10 mt-2 ">
+        {showMenu && <div className="w-screen h-[100dvh] fixed top-0   md:h-auto md:p-0 md:w-60 bg-background shadow-md md:absolute z-50 right-0 rounded-lg overflow-y-auto overscroll-contain md:overflow-hidden md:top-10 md:mt-2 ">
             <div onClick={(e)=>handleClick(e)} className="h-screen w-screen fixed inset-0 bg-red-700/0 -z-50"></div>
             <div className="z-10">
            <div className="flex items-center justify-between p-12 md:p-4">
