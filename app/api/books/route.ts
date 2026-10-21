@@ -2,6 +2,16 @@ import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { mirrorCover } from "@/lib/covers";
+import { normaliseWorkKey } from "@/lib/workKey";
+import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
+
+// The add-book modal sends the blurb it already showed; one-click adds from Discover don't,
+// so look it up here. Never let a slow or failed lookup block saving the book.
+async function resolveDescription(description: unknown, workKey: unknown) {
+  if (typeof description === "string" && description.trim()) return description.trim().slice(0, DESCRIPTION_MAX)
+  const key = normaliseWorkKey(typeof workKey === "string" ? workKey : null)
+  return key ? workDescription(key).catch(() => null) : null
+}
 import { NextResponse } from "next/server";
 
 // Copying a cover to UploadThing can take up to ~20s.
@@ -28,7 +38,7 @@ return NextResponse.json(books)
 export async function POST(req:Request, res:Response) {
 
   const body = await req.json()
-  const { title, author, coverImgSrc, pages, status, currentPage, finishedThisYear, rating, genre } = body
+  const { title, author, coverImgSrc, pages, status, currentPage, finishedThisYear, rating, genre, workKey, description } = body
 const currentUser = await getCurrentUser()
 
 if (!currentUser) {
@@ -61,6 +71,8 @@ const book = await prisma.book.create({
     pages: totalPages,
     status,
     genre: genre || null,
+    workKey: normaliseWorkKey(workKey),
+    description: await resolveDescription(description, workKey),
     // The start date only feeds a "Started 3 Mar" label, so default it to today rather than asking.
     startedAt: status === "STARTED" ? now : null,
     currentPage: isCompleted ? totalPages : status === "STARTED" ? startPage : 0,

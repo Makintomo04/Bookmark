@@ -7,6 +7,7 @@ import Container from '../Container'
 import ProfileHead from './ProfileHead'
 import BookList from '../books/BookList'
 import PublicProfile from './PublicProfile'
+import ProfileLists from '../discover/ProfileLists'
 
 interface ProfilePageProps {
   username: string
@@ -40,6 +41,7 @@ const ProfilePage: FC<ProfilePageProps> = ({ username }) => {
               <Suspense fallback={<p>Loading...</p>}>
                 <BookList />
               </Suspense>
+              <ProfileLists username={username} isSelf />
             </div>
           </>
         ) : (

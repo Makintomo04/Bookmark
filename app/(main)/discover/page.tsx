@@ -1,18 +1,124 @@
+import { Suspense } from 'react'
+import { Metadata } from 'next'
+import Image from 'next/image'
+import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 import Container from '@/app/components/Container'
-import DiscoverUsers from '@/app/components/profile-head/DiscoverUsers'
-import { FC } from 'react'
+import DiscoverSearch from '@/app/components/discover/DiscoverSearch'
+import GenreTile from '@/app/components/discover/GenreTile'
+import ListCard from '@/app/components/discover/ListCard'
+import { NewPickButton } from '@/app/components/discover/ListButtons'
+import getCurrentUser from '@/app/actions/getCurrentUser'
+import { GENRES } from '@/lib/genres'
+import { findLists, ListSummary } from '@/lib/lists'
+import { isOpenLibraryCover } from '@/utils/helpers'
+import { genreCovers } from '@/lib/openLibrary'
 
-interface pageProps {
-
+export const metadata: Metadata = {
+  title: "Discover",
+  description: "Find your next read: browse genres, hand-picked lists from the Bookmark team, and readers with taste like yours.",
 }
 
-const Page: FC<pageProps> = ({}) => {
-  return <div className='mt-12'>
-    <Container>
-      <h1 className='text-4xl font-bold mb-6'>Discover</h1>
-      <DiscoverUsers />
-    </Container>
+const Spotlight = ({ list }: { list: ListSummary }) => (
+  <Link
+    href={`/lists/${list.id}`}
+    className="group relative flex flex-col sm:flex-row sm:items-center gap-6 overflow-hidden rounded-2xl bg-neutral-950 text-white p-6 sm:p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+  >
+    <div className="relative z-10 min-w-0 flex-1">
+      {list.featuredLabel && <p className="text-xs font-semibold uppercase tracking-widest text-white/70">{list.featuredLabel}</p>}
+      <h2 className="mt-2 text-2xl sm:text-3xl font-bold leading-tight">{list.title}</h2>
+      {list.description && <p className="mt-2 max-w-xl text-sm text-white/75 line-clamp-3">{list.description}</p>}
+      <span className="mt-5 inline-flex items-center gap-2 text-sm font-medium">
+        See all {list.itemCount} books <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden />
+      </span>
+    </div>
+    <div className="relative z-10 flex shrink-0 -space-x-6 sm:-space-x-8">
+      {list.items.slice(0, 4).map((cover, i) => (
+        <div key={i} className="relative aspect-[2/3] w-20 sm:w-28 overflow-hidden rounded-md bg-white/10 shadow-xl ring-1 ring-white/10 transition-transform group-hover:-translate-y-1" style={{ rotate: `${(i - 1.5) * 4}deg`, transitionDelay: `${i * 30}ms` }}>
+          {cover.coverUrl && <Image src={cover.coverUrl} alt="" fill sizes="112px" unoptimized={isOpenLibraryCover(cover.coverUrl)} className="object-cover" />}
+        </div>
+      ))}
+    </div>
+  </Link>
+)
+
+const GenreGrid = ({ covers = {} }: { covers?: Record<string, string[]> }) => (
+  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+    {GENRES.map((genre) => <GenreTile key={genre.slug} genre={genre} covers={covers[genre.slug]} />)}
   </div>
+)
+
+// Covers mean 14 Open Library lookups (cached for a day), so the tiles render straight away
+// with their icons and swap to covers when these arrive.
+const GenreGridWithCovers = async () => <GenreGrid covers={await genreCovers(GENRES)} />
+
+const Page = async () => {
+  const viewer = await getCurrentUser()
+  const [featured, picks, community, reported] = await Promise.all([
+    findLists({ featured: true, limit: 1 }, viewer),
+    findLists({ pick: true, limit: 12 }, viewer),
+    findLists({ community: true, limit: 12 }, viewer),
+    findLists({ reported: true, limit: 24 }, viewer),
+  ])
+
+  return (
+    <div className="mt-8 sm:mt-12">
+      <Container className="flex flex-col gap-8">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold">Discover</h1>
+            <p className="mt-1 text-muted-foreground">Find your next read, and the readers behind it.</p>
+          </div>
+          <NewPickButton />
+        </div>
+
+        <DiscoverSearch>
+          <div className="flex flex-col gap-12">
+            {featured[0] && <Spotlight list={featured[0]} />}
+
+            <section aria-labelledby="genres-heading">
+              <h2 id="genres-heading" className="text-xl font-bold">Browse by genre</h2>
+              <Suspense fallback={<GenreGrid />}>
+                <GenreGridWithCovers />
+              </Suspense>
+            </section>
+
+            {picks.length > 0 && (
+              <section aria-labelledby="picks-heading">
+                <h2 id="picks-heading" className="text-xl font-bold">Bookmark Picks</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Lists put together by the Bookmark team.</p>
+                {/* Scrolls sideways on phones; wraps into a grid with room to spare. */}
+                <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
+                  {picks.map((list) => <ListCard key={list.id} list={list} className="w-60 shrink-0 sm:w-auto snap-start" />)}
+                </div>
+              </section>
+            )}
+
+            {community.length > 0 && (
+              <section aria-labelledby="community-heading">
+                <h2 id="community-heading" className="text-xl font-bold">From readers</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Lists made by the Bookmark community. Like one? Follow the reader behind it.</p>
+                <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
+                  {community.map((list) => <ListCard key={list.id} list={list} className="w-60 shrink-0 sm:w-auto snap-start" />)}
+                </div>
+              </section>
+            )}
+
+            {/* Staff only: findLists returns nothing for anyone else. */}
+            {reported.length > 0 && (
+              <section aria-labelledby="review-heading" className="rounded-2xl border border-rose-500/30 p-5">
+                <h2 id="review-heading" className="text-xl font-bold">Reported lists</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Only the Bookmark team sees this. Open a list and switch on Hidden in its editor to take it down.</p>
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+                  {reported.map((list) => <ListCard key={list.id} list={list} />)}
+                </div>
+              </section>
+            )}
+          </div>
+        </DiscoverSearch>
+      </Container>
+    </div>
+  )
 }
 
 export default Page

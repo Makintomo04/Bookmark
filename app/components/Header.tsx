@@ -13,7 +13,12 @@ const Header: FC = () => {
           <Image src='/logo.svg' width={28} height={28} alt='' />
           <span className="font-bold text-2xl">Bookmark</span>
         </Link>
-        <UserMenu />
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Link href="/discover" className="hidden sm:inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+            Discover
+          </Link>
+          <UserMenu />
+        </div>
       </header>
     </Container>
   )

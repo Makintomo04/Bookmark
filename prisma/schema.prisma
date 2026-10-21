@@ -63,6 +63,9 @@ model User {
   notificationsReceived Notification[] @relation("NotificationRecipient")
   notificationsSent     Notification[] @relation("NotificationActor")
   achievements  UserAchievement[]
+  isStaff       Boolean @default(false)
+  lists         List[]
+  listReports   ListReport[]
 }
 
 model Follow {
@@ -117,6 +120,8 @@ model Book {
   createdAt DateTime @default(now())
   startedAt DateTime?
   completedAt DateTime?
+  // Open Library work key (e.g. OL45883W), so the same book can be matched across readers and lists.
+  workKey String?
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   activities Activity[]
 }
@@ -183,4 +188,61 @@ model UserAchievement {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, key])
+}
+
+enum ListVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+model List {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId String @db.ObjectId
+  title String
+  description String?
+  visibility ListVisibility @default(PRIVATE)
+  // Team-curated "Bookmark Picks". Only staff can set this, along with the featured window and hidden.
+  isPick Boolean @default(false)
+  genres String[] @db.String
+  tags String[] @db.String
+  featuredFrom DateTime?
+  featuredUntil DateTime?
+  featuredLabel String?
+  hidden Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items ListItem[]
+  reports ListReport[]
+}
+
+// One report per reader per list. Staff review reported lists and use `hidden` to take one down.
+model ListReport {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  listId String @db.ObjectId
+  reporterId String @db.ObjectId
+  reason String
+  createdAt DateTime @default(now())
+
+  list List @relation(fields: [listId], references: [id], onDelete: Cascade)
+  reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, reporterId])
+}
+
+// Items snapshot the book's details: books are per-user rows, so there's no shared record to point at.
+model ListItem {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  listId String @db.ObjectId
+  workKey String?
+  title String
+  author String
+  coverUrl String?
+  pages Int?
+  note String?
+  position Int
+  createdAt DateTime @default(now())
+
+  list List @relation(fields: [listId], references: [id], onDelete: Cascade)
 }

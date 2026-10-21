@@ -100,6 +100,9 @@ export async function DELETE(req: Request) {
   await prisma.notification.deleteMany({ where: { OR: [{ userId: currentUser.id }, { actorId: currentUser.id }] } });
   await prisma.book.deleteMany({ where: { userId: currentUser.id } });
   await prisma.readingGoal.deleteMany({ where: { userId: currentUser.id } });
+  await prisma.listReport.deleteMany({ where: { OR: [{ reporterId: currentUser.id }, { list: { ownerId: currentUser.id } }] } });
+  await prisma.listItem.deleteMany({ where: { list: { ownerId: currentUser.id } } });
+  await prisma.list.deleteMany({ where: { ownerId: currentUser.id } });
   await prisma.follow.deleteMany({ where: { OR: [{ followerId: currentUser.id }, { followingId: currentUser.id }] } });
   await prisma.account.deleteMany({ where: { userId: currentUser.id } });
   await prisma.session.deleteMany({ where: { userId: currentUser.id } });

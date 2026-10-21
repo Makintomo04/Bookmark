@@ -1,3 +1,5 @@
+import { GENRES as GENRE_LIST } from "@/lib/genres";
+
 export function calculatePercentageComplete(totalPages:number, currentPage:number) {
   if (totalPages === 0) {
     // Handle potential division by zero
@@ -14,7 +16,8 @@ export function isOpenLibraryCover(url?: string | null) {
   return !!url && url.startsWith("https://covers.openlibrary.org/")
 }
 
-export const GENRES =["Fiction", "Non-Fiction", "Fantasy", "Sci-Fi", "Mystery", "Romance", "Biography", "Self-Help"]
+// Genre suggestions for the add/edit book forms, kept in step with the Discover genre pages.
+export const GENRES = GENRE_LIST.map((g) => g.label)
 
 export enum STEPS {
   START= 0,

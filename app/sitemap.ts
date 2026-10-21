@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next'
 import prisma from '@/lib/db'
+import { GENRES } from '@/lib/genres'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
@@ -29,5 +30,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }))
 
-  return [...staticRoutes, ...profileRoutes]
+  const publicLists = await prisma.list.findMany({
+    where: { visibility: 'PUBLIC', hidden: false },
+    select: { id: true, updatedAt: true },
+    orderBy: { updatedAt: 'desc' },
+    take: 1000,
+  })
+
+  const discoverRoutes: MetadataRoute.Sitemap = [
+    { url: `${siteUrl}/discover`, changeFrequency: 'daily', priority: 0.8 },
+    ...GENRES.map((g) => ({ url: `${siteUrl}/discover/genre/${g.slug}`, changeFrequency: 'weekly' as const, priority: 0.6 })),
+    ...publicLists.map((l) => ({ url: `${siteUrl}/lists/${l.id}`, lastModified: l.updatedAt, changeFrequency: 'weekly' as const, priority: 0.6 })),
+  ]
+
+  return [...staticRoutes, ...discoverRoutes, ...profileRoutes]
 }

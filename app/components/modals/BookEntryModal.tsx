@@ -17,13 +17,16 @@ import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import { GENRES } from '@/utils/helpers'
 import { IoSearch } from 'react-icons/io5'
+import { readableInk } from '@/lib/colour'
+import BookBlurb from '../books/BookBlurb'
+import useBookDescription from '@/app/hooks/useBookDescription'
 
 type Shelf = "NOT_STARTED" | "STARTED" | "COMPLETED"
 
 const SHELVES: { value: Shelf, label: string, action: string }[] = [
   { value: "NOT_STARTED", label: "Want to read", action: "Add to Want to read" },
   { value: "STARTED", label: "Reading", action: "Start reading" },
-  { value: "COMPLETED", label: "Read", action: "Add to Read" },
+  { value: "COMPLETED", label: "Finished", action: "Add to Finished" },
 ]
 
 const defaultValues = {
@@ -33,6 +36,7 @@ const defaultValues = {
   coverImgSrc: "",
   genre: "",
   currentPage: "",
+  workKey: "",
 }
 
 const BookEntryModal: FC = () => {
@@ -53,8 +57,10 @@ const BookEntryModal: FC = () => {
   const [isSearching, setIsSearching] = useState(false)
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FieldValues>({ defaultValues })
-  const [title, author, pages, coverImgSrc] = watch(["title", "author", "pages", "coverImgSrc"])
+  const [title, author, pages, coverImgSrc, workKey] = watch(["title", "author", "pages", "coverImgSrc", "workKey"])
   const year = new Date().getFullYear()
+  const [published, setPublished] = useState<number | null>(null)
+  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null)
 
   useEffect(() => {
     if (stage !== "search" || query.trim().length < 3) {
@@ -78,12 +84,15 @@ const BookEntryModal: FC = () => {
     setShelf("NOT_STARTED")
     setFinishedThisYear(false)
     setRating(0)
+    setPublished(null)
     setQuery("")
     setSearchResults([])
   }
 
   useEffect(() => {
     if (!bookEntryModal.isOpen) resetAll()
+    // Opened from Discover with a book already chosen: skip straight to picking a shelf.
+    else if (bookEntryModal.prefill) handleSelect(bookEntryModal.prefill)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookEntryModal.isOpen])
 
@@ -94,7 +103,9 @@ const BookEntryModal: FC = () => {
       author: result.author,
       pages: result.pages ? String(result.pages) : "",
       coverImgSrc: result.coverUrl || "",
+      workKey: result.workKey || "",
     })
+    setPublished(result.year ?? null)
     // Open Library doesn't always know the page count, and we need it for progress.
     setIsEditing(!result.pages)
     setStage("shelf")
@@ -102,6 +113,7 @@ const BookEntryModal: FC = () => {
 
   const handleAddManually = () => {
     reset({ ...defaultValues, title: query.trim() })
+    setPublished(null)
     setIsEditing(true)
     setStage("shelf")
   }
@@ -114,6 +126,8 @@ const BookEntryModal: FC = () => {
       pages: data.pages,
       coverImgSrc: data.coverImgSrc,
       genre: data.genre,
+      workKey: data.workKey || undefined,
+      description: description || undefined,
       status: shelf,
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
       finishedThisYear: shelf === "COMPLETED" ? finishedThisYear : undefined,
@@ -172,7 +186,7 @@ const BookEntryModal: FC = () => {
         <div className="min-w-0 flex-1">
           <p className="text-lg font-bold leading-tight break-words">{title || "Untitled"}</p>
           <p className="text-sm text-muted-foreground">
-            {author || "Unknown author"}{pages ? ` · ${pages} pages` : ""}
+            {[author || "Unknown author", published, pages && `${pages} pages`].filter(Boolean).join(" · ")}
           </p>
           <div className="flex gap-4 mt-2 text-sm">
             <button type="button" onClick={() => setIsEditing((v) => !v)} className="underline underline-offset-4 text-muted-foreground hover:text-foreground">
@@ -184,6 +198,8 @@ const BookEntryModal: FC = () => {
           </div>
         </div>
       </div>
+
+      <BookBlurb description={description} isLoading={isDescriptionLoading} />
 
       {/* Kept mounted while hidden so validation still runs on these fields. */}
       <div className={cn("grid sm:grid-cols-2 gap-4", !isEditing && "hidden")}>
@@ -296,7 +312,7 @@ const BookEntryModal: FC = () => {
       <div className="flex items-center gap-3 justify-end mt-auto">
         <Button onClick={bookEntryModal.onClose} variant="outline" className="border-slate-700 rounded-md py-2" disabled={isLoading}>Cancel</Button>
         {stage === "shelf" && (
-          <Button style={{ background: `${user?.favColour}` }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading}>
+          <Button style={{ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading}>
             {SHELVES.find((s) => s.value === shelf)?.action}
           </Button>
         )}

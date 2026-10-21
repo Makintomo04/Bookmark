@@ -2,13 +2,9 @@
 import { FC } from 'react'
 import Image from 'next/image'
 import { isOpenLibraryCover } from '@/utils/helpers'
+import type { DiscoverBook } from '@/lib/openLibrary'
 
-export interface BookSearchResult {
-  title: string
-  author: string
-  pages: number | null
-  coverUrl: string | null
-}
+export type BookSearchResult = DiscoverBook
 
 interface BookSearchResultsProps {
   results: BookSearchResult[]
@@ -35,7 +31,7 @@ const BookSearchResults: FC<BookSearchResultsProps> = ({ results, isLoading, onS
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{result.title}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {result.author}{result.pages ? ` · ${result.pages} pages` : ""}
+                {[result.author, result.year, result.pages && `${result.pages} pages`].filter(Boolean).join(" · ")}
               </p>
             </div>
           </button>

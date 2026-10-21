@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from '../books/shelf'
+import ProfileLists from '../discover/ProfileLists'
 
 interface PublicProfileProps {
   username: string
@@ -96,6 +97,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
             )}
           </>
         )}
+        <ProfileLists username={profile.username} isSelf={false} />
       </div>
     </div>
   )
