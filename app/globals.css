@@ -152,3 +152,17 @@ progress { color: black;width: 100%; }
   }
 }
 
+
+/* Loader animations (app/components/Loader.tsx) */
+@keyframes loader-fill {
+  0% { transform: translateY(31px); }
+  55%, 75% { transform: translateY(0); }
+  100% { transform: translateY(-31px); }
+}
+.loader-fill {
+  animation: loader-fill 1.8s cubic-bezier(.6, 0, .3, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-fill { animation-duration: 4s; }
+}

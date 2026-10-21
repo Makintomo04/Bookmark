@@ -47,7 +47,6 @@
     "react-dom": "^18",
     "react-hook-form": "^7.49.3",
     "react-icons": "^5.0.1",
-    "react-loader-spinner": "^6.1.6",
     "react-loaders": "^3.0.1",
     "react-modal-image": "^2.6.0",
     "react-toastify": "^10.0.4",

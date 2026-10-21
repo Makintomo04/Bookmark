@@ -24,9 +24,9 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <BookNotesModal/>
         <AchievementsListModal/>
         <EditProfileModal/>
-        <div className="flex flex-col h-screen">
+        <div className="flex flex-col min-h-screen">
       <Header />
-      <main className="flex-grow h-auto">{children}</main>
+      <main className="flex-grow pb-16">{children}</main>
       <hr/>
       <Footer/>
         </div>

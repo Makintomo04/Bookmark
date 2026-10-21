@@ -12,7 +12,7 @@ interface ActivityFeedProps {
 const ActivityFeed: FC<ActivityFeedProps> = ({}) => {
   const { activities, isLoading } = useFeed()
 
-  if (isLoading) return <Loader/>
+  if (isLoading) return <Loader notScreen/>
 
   if (!activities || activities.length === 0) {
     return <p className='text-sm text-muted-foreground'>No activity yet. Follow some readers from <Link href="/discover" className='underline'>Discover</Link> to see what they&apos;re reading here.</p>
