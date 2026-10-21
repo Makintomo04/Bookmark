@@ -35,9 +35,10 @@ const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, 
 }
 
 const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = false }) => {
-  const { title, author, status, rating, pages, currentPage, completedAt } = book
+  const { title, author, status, rating, pages, currentPage, completedAt, stoppedAt } = book
   const bookUpdateModal = useBookUpdateModal()
-  const progress = status === Status.STARTED ? Math.round(calculatePercentageComplete(pages, currentPage ?? 0)) : 0
+  const isPaused = status === Status.PAUSED
+  const progress = status === Status.STARTED || isPaused ? Math.round(calculatePercentageComplete(pages, currentPage ?? 0)) : 0
 
   const openProgress = () => {
     bookUpdateModal.setBookIdState(book.id)
@@ -82,8 +83,8 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
         <h3 title={title} className="text-[15px] font-semibold leading-snug line-clamp-2">{title}</h3>
         <p className="mt-0.5 text-sm text-muted-foreground truncate">{author}</p>
 
-        {status === Status.STARTED && (
-          <div className="mt-2 flex items-center gap-2" title={`Page ${currentPage ?? 0} of ${pages}`}>
+        {(status === Status.STARTED || isPaused) && (
+          <div className="mt-2 flex items-center gap-2" title={`${isPaused ? "Paused on page" : "Page"} ${currentPage ?? 0} of ${pages}`}>
             <div
               role="progressbar"
               aria-label={`${title} progress`}
@@ -92,9 +93,13 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
               aria-valuemax={100}
               className="h-1 flex-1 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden"
             >
-              <div className="h-full rounded-full" style={{ width: `${progress}%`, background: accentColour || '#F13C3C' }} />
+              {/* Greyed out while paused: the progress is kept, but it isn't moving. */}
+              <div
+                className={cn("h-full rounded-full", isPaused && "bg-neutral-400 dark:bg-neutral-500")}
+                style={{ width: `${progress}%`, background: isPaused ? undefined : accentColour || '#F13C3C' }}
+              />
             </div>
-            <span className="text-xs text-muted-foreground tabular-nums">{progress}%</span>
+            <span className="text-xs text-muted-foreground tabular-nums">{isPaused ? `Paused · ${progress}%` : `${progress}%`}</span>
           </div>
         )}
         {status === Status.COMPLETED && (
@@ -105,6 +110,18 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
               </span>
             ) : null}
             <span>{completedAt ? `Read ${moment(completedAt).format("MMM YYYY")}` : "Read"}</span>
+          </p>
+        )}
+        {status === Status.DNF && (
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            {rating ? (
+              <span className="flex items-center gap-0.5 text-foreground tabular-nums">
+                <Star size={12} className="fill-current" aria-hidden />{rating}
+              </span>
+            ) : null}
+            <span className="tabular-nums">
+              Stopped at p. {currentPage ?? 0}{stoppedAt ? ` · ${moment(stoppedAt).format("MMM YYYY")}` : ""}
+            </span>
           </p>
         )}
         {status === Status.NOT_STARTED && pages > 0 && (

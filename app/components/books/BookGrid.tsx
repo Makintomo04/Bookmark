@@ -25,7 +25,13 @@ const BookGrid: FC<BookGridProps> = ({ books }) => {
   }, [])
 
   const activeMode = mounted ? viewMode : 'comfortable'
-  const { reading, wantToRead, finished } = groupShelf(books)
+  const { reading, wantToRead, finished, paused, didNotFinish } = groupShelf(books)
+  const coverShelves = [
+    { id: "shelf-paused", title: "Paused", items: paused },
+    { id: "shelf-want", title: "Want to read", items: wantToRead },
+    { id: "shelf-finished", title: "Finished", items: finished },
+    { id: "shelf-dnf", title: "Did not finish", items: didNotFinish },
+  ].filter((s) => s.items.length > 0)
 
   const shelf = (items: Book[]) => activeMode === 'comfortable' ? (
     <div className={coverGridClass}>
@@ -61,22 +67,19 @@ const BookGrid: FC<BookGridProps> = ({ books }) => {
           </div>
         ) : (
           <p className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-3 text-sm text-muted-foreground">
-            You&apos;re not reading anything right now. Pick something from Want to read and mark it as started.
+            You&apos;re not reading anything right now. {paused.length > 0
+              ? "Resume a paused book, or pick something from Want to read."
+              : "Pick something from Want to read and mark it as started."}
           </p>
         )}
       </ShelfSection>
 
-      {wantToRead.length > 0 && (
-        <ShelfSection id="shelf-want" title="Want to read" count={wantToRead.length} action={viewToggle}>
-          {shelf(wantToRead)}
+      {/* Empty shelves are hidden; the view toggle sits on whichever cover shelf comes first. */}
+      {coverShelves.map(({ id, title, items }) => (
+        <ShelfSection key={id} id={id} title={title} count={items.length} action={id === coverShelves[0].id ? viewToggle : undefined}>
+          {shelf(items)}
         </ShelfSection>
-      )}
-
-      {finished.length > 0 && (
-        <ShelfSection id="shelf-finished" title="Finished" count={finished.length} action={wantToRead.length === 0 ? viewToggle : undefined}>
-          {shelf(finished)}
-        </ShelfSection>
-      )}
+      ))}
     </div>
   )
 }

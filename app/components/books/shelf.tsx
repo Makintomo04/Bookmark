@@ -12,6 +12,10 @@ export function groupShelf(books: Book[]) {
       .sort((a, b) => time(b.createdAt) - time(a.createdAt)),
     finished: books.filter((b) => b.status === Status.COMPLETED)
       .sort((a, b) => time(b.completedAt) - time(a.completedAt)),
+    paused: books.filter((b) => b.status === Status.PAUSED)
+      .sort((a, b) => time(b.stoppedAt) - time(a.stoppedAt)),
+    didNotFinish: books.filter((b) => b.status === Status.DNF)
+      .sort((a, b) => time(b.stoppedAt) - time(a.stoppedAt)),
   }
 }
 

@@ -4,8 +4,9 @@ import { Status, type Book } from '@prisma/client';
 import Image from 'next/image';
 import { IoIosStar } from "react-icons/io";
 import BookCover from './BookCover';
+import ShelfMenuItems from '../books/ShelfMenuItems';
 import { TbBook, TbBook2 } from "react-icons/tb";
-import { Check, MoreVertical } from 'lucide-react';
+import { Check, CircleSlash, MoreVertical, Pause } from 'lucide-react';
 import useUser from '@/app/hooks/useUser';
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal';
 import useBookEditModal from '@/app/hooks/useBookEditModal';
@@ -73,6 +74,8 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
         <div className="flex items-center gap-2 mt-1">
           {status === Status.STARTED ? <TbBook size={14} className="text-muted-foreground flex-shrink-0" />
             : status === Status.NOT_STARTED ? <TbBook2 size={14} className="text-muted-foreground flex-shrink-0" />
+            : status === Status.PAUSED ? <Pause size={14} aria-label="Paused" className="text-muted-foreground flex-shrink-0" />
+            : status === Status.DNF ? <CircleSlash size={14} aria-label="Did not finish" className="text-muted-foreground flex-shrink-0" />
             : <Check size={14} className="text-muted-foreground flex-shrink-0" />}
           {rating ? (
             <div className="flex items-center gap-0.5">
@@ -80,7 +83,10 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
               <p className="text-xs">{rating}</p>
             </div>
           ) : null}
-          {status === Status.STARTED && (
+          {status === Status.DNF && (
+            <p className="text-xs text-muted-foreground tabular-nums">Stopped at p. {currentPage ?? 0}</p>
+          )}
+          {(status === Status.STARTED || status === Status.PAUSED) && (
             <progress className="h-[4px] rounded-full overflow-hidden flex-1 min-w-0" value={currentPage!} max={pages}>{calculatePercentageComplete(pages, currentPage!)}%</progress>
           )}
         </div>
@@ -98,6 +104,7 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); bookEditModal.onOpen(book) }}>Edit</DropdownMenuItem>
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); bookNotesModal.onOpen(book.id, book.title) }}>Notes</DropdownMenuItem>
+          <ShelfMenuItems book={book} />
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRemove() }}>Remove</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

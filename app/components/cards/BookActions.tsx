@@ -10,6 +10,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useFavourite from '@/app/hooks/useFavourite'
 import useBookEditModal from '@/app/hooks/useBookEditModal'
 import useBookNotesModal from '@/app/hooks/useBookNotesModal'
+import ShelfMenuItems from '../books/ShelfMenuItems'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,6 +85,8 @@ const BookActions: FC<BookActionsProps> = ({ book, onUpdateProgress, tone = 'ove
           <DropdownMenuItem onSelect={onUpdateProgress}>Update progress</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => bookEditModal.onOpen(book)}>Edit details</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => bookNotesModal.onOpen(book.id, book.title)}>Notes</DropdownMenuItem>
+          {book.status !== "NOT_STARTED" && <DropdownMenuSeparator />}
+          <ShelfMenuItems book={book} />
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={(e) => {
