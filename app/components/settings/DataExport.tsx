@@ -1,8 +1,10 @@
 "use client"
 import { FC, useState } from 'react'
 import { toast } from 'react-toastify'
-import { Download, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { Download, FileUp, Loader2 } from 'lucide-react'
 import { Button } from '../ui/button'
+import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 
 type Format = "json" | "csv"
 
@@ -12,6 +14,7 @@ const filenameFrom = (header: string | null, fallback: string) =>
 // Fetches the export and saves it, so a 401 or 429 shows a toast instead of downloading an error body.
 const DataExport: FC<{ disabled?: boolean }> = ({ disabled }) => {
   const [pending, setPending] = useState<Format | null>(null)
+  const { onClose } = useEditProfileModal()
 
   const download = async (format: Format) => {
     setPending(format)
@@ -53,6 +56,9 @@ const DataExport: FC<{ disabled?: boolean }> = ({ disabled }) => {
       <div className="flex flex-wrap gap-2">
         {button("json", "Download my data (JSON)")}
         {button("csv", "Export books (CSV)")}
+        <Button asChild variant="outline" className="gap-2">
+          <Link href="/import" onClick={onClose}><FileUp size={15} aria-hidden />Import from Goodreads or StoryGraph</Link>
+        </Button>
       </div>
       <p className="text-xs text-muted-foreground">The CSV uses Goodreads&apos; columns, so apps that import from Goodreads can read it.</p>
     </div>
