@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { requireUser } from "@/lib/apiAuth";
-import { findList, parseListInput } from "@/lib/lists";
+import { carryOverItems, findList, parseListInput } from "@/lib/lists";
 
 type Params = { params: { id: string } };
 
@@ -28,12 +28,13 @@ export async function PATCH(req: Request, { params }: Params) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
-  // Items are replaced wholesale: it keeps reordering, notes and removals to one request.
+  // Items are replaced wholesale: it keeps reordering, notes and removals to one request. When each
+  // book was added, and who wrote a remixed note, carry over.
   await prisma.$transaction([
     prisma.listItem.deleteMany({ where: { listId: list.id } }),
     prisma.list.update({
       where: { id: list.id },
-      data: { ...parsed.data, items: { createMany: { data: parsed.items } } },
+      data: { ...parsed.data, items: { createMany: { data: carryOverItems(list.items, parsed.items) } } },
     }),
   ]);
   return NextResponse.json({ id: list.id });

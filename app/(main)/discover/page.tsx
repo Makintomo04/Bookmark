@@ -7,6 +7,7 @@ import Container from '@/app/components/Container'
 import DiscoverSearch from '@/app/components/discover/DiscoverSearch'
 import GenreTile from '@/app/components/discover/GenreTile'
 import ListCard from '@/app/components/discover/ListCard'
+import FollowingPicks from '@/app/components/discover/FollowingPicks'
 import { NewPickButton } from '@/app/components/discover/ListButtons'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { GENRES } from '@/lib/genres'
@@ -82,6 +83,13 @@ const Page = async () => {
                 <GenreGridWithCovers />
               </Suspense>
             </section>
+
+            {/* Signed in: recent picks by people the reader follows, each with its reason. */}
+            {viewer && (
+              <Suspense fallback={null}>
+                <FollowingPicks viewerId={viewer.id} />
+              </Suspense>
+            )}
 
             {picks.length > 0 && (
               <section aria-labelledby="picks-heading">

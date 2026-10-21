@@ -1,18 +1,23 @@
 "use client"
-import { FC } from 'react'
+import { FC, ReactNode } from 'react'
 import BookCover from '../cards/BookCover'
 import AddToShelfButton from './AddToShelfButton'
 import AddToListButton from './AddToListButton'
 import type { DiscoverBook } from '@/lib/openLibrary'
+import type { Reason } from '@/lib/listRules'
+import CuratorNote from '../lists/CuratorNote'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 
 interface DiscoverBookCardProps {
   book: DiscoverBook
-  note?: string | null
+  // A person's reason for the book (a list note or review), shown under it and in its details.
+  reason?: Reason | null
+  // Extra context under the reason, e.g. which list it's on.
+  context?: ReactNode
   rank?: number
 }
 
-const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, note, rank }) => {
+const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, reason, context, rank }) => {
   const openDetails = useBookDetailsModal((s) => s.onOpen)
 
   return (
@@ -20,7 +25,7 @@ const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, note, rank }) => {
       {/* Cover and title open the book's details, so readers can see what it's about before shelving it. */}
       <button
         type="button"
-        onClick={() => openDetails(book)}
+        onClick={() => openDetails(book, reason)}
         aria-label={`About ${book.title} by ${book.author}`}
         className="group flex flex-col gap-2.5 min-w-0 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
@@ -39,7 +44,8 @@ const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, note, rank }) => {
           <p className="text-xs text-muted-foreground truncate">{book.author}</p>
         </div>
       </button>
-      {note && <p className="-mt-1 text-xs leading-relaxed text-foreground/80">{note}</p>}
+      {reason && <CuratorNote reason={reason} className="-mt-0.5" />}
+      {context}
       <div className="mt-auto flex items-center gap-1.5">
         <AddToShelfButton book={book} />
         <AddToListButton book={book} />

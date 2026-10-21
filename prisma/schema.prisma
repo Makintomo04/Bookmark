@@ -179,6 +179,8 @@ model Book {
 
   // Shelf (userId) and public profile (userId + status in STARTED/COMPLETED). The prefix covers userId alone.
   @@index([userId, status])
+  // "Picked by people you follow" in book details: this book on followed readers' shelves.
+  @@index([workKey, userId])
 }
 model Note {
   id String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -334,6 +336,9 @@ model List {
   featuredUntil DateTime?
   featuredLabel String?
   hidden Boolean @default(false)
+  // Set when the list was copied ("remixed") from someone else's public list. A plain id, not a
+  // relation, so deleting the original leaves its remixes alone.
+  forkedFromId String? @db.ObjectId
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -345,6 +350,8 @@ model List {
   @@index([ownerId, updatedAt])
   // Browsing and the sitemap: public, not hidden, most recently updated first.
   @@index([visibility, hidden, updatedAt])
+  // A list's remix count.
+  @@index([forkedFromId])
 }
 
 // One report per reader per list. Staff review reported lists and use `hidden` to take one down.
@@ -370,7 +377,11 @@ model ListItem {
   author String
   coverUrl String?
   pages Int?
+  // The curator's reason: "why you'd like this".
   note String?
+  // Who wrote the note when it isn't the list's owner: a remix keeps the original curator's reasons.
+  // Unset means the owner. A plain id, so a deleted account just falls back to the owner.
+  noteAuthorId String? @db.ObjectId
   position Int
   createdAt DateTime @default(now())
 
@@ -378,6 +389,10 @@ model ListItem {
 
   // Items are always loaded per list in position order.
   @@index([listId, position])
+  // "From people you follow" on Discover: newest additions to followed readers' lists.
+  @@index([listId, createdAt])
+  // "Picked by people you follow" in book details.
+  @@index([workKey])
 }
 
 // A library import from a Goodreads, StoryGraph or Bookmark CSV export. The file is parsed once on upload;

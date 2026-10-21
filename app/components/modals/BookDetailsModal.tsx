@@ -5,6 +5,8 @@ import BookCover from '../cards/BookCover'
 import BookBlurb from '../books/BookBlurb'
 import AddToShelfButton from '../discover/AddToShelfButton'
 import AddToListButton from '../discover/AddToListButton'
+import CuratorNote from '../lists/CuratorNote'
+import PickedByFollowing from '../lists/PickedByFollowing'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
@@ -12,7 +14,7 @@ import useListEditorModal from '@/app/hooks/useListEditorModal'
 
 // A closer look at an Open Library book from Discover or a list, before deciding to shelve it.
 const BookDetailsModal: FC = () => {
-  const { isOpen, book, onClose } = useBookDetailsModal()
+  const { isOpen, book, reason, onClose } = useBookDetailsModal()
   const { description, isLoading } = useBookDescription(isOpen ? book?.workKey : null)
 
   // The shelf and list buttons can hand off to their own modals; step aside rather than stack.
@@ -40,6 +42,9 @@ const BookDetailsModal: FC = () => {
             <AddToListButton book={book} />
           </div>
         </div>
+        {/* People first: the curator who sent the reader here, then anyone they follow who picked it. */}
+        {reason && <CuratorNote variant="full" reason={reason} />}
+        <PickedByFollowing book={book} />
         {book.workKey && !isLoading && !description ? (
           <p className="text-sm text-muted-foreground">Open Library doesn&apos;t have a description for this book yet.</p>
         ) : (
