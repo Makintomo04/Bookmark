@@ -8,7 +8,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
-import { genreBackground, type Genre } from '@/lib/genres'
+import { genreBackground, genreTileCovers, type Genre } from '@/lib/genres'
+import { isOpenLibraryCover } from '@/utils/helpers'
 
 // Lives here rather than in lib/genres.ts, which the server also imports and should stay React-free.
 const GENRE_ICONS: Record<string, LucideIcon> = {
@@ -57,8 +58,9 @@ const ICON_SIZE: Record<ArtSize, string> = {
 }
 
 // The genre's covers fanned in the corner, or its icon when there aren't at least two to show.
-// Covers come from Open Library, which is sometimes down, so any that fail to load are dropped.
-export const GenreArt: FC<{ genre: Genre, covers?: string[], size?: ArtSize }> = ({ genre, covers = [], size = "tile" }) => {
+// Tiles use the copies stored in public/genres; the genre page header passes live Open Library
+// covers, which is sometimes down, so any that fail to load are dropped.
+export const GenreArt: FC<{ genre: Genre, covers?: string[], size?: ArtSize }> = ({ genre, covers = genreTileCovers(genre.slug), size = "tile" }) => {
   const [failed, setFailed] = useState<string[]>([])
   const shown = covers.filter((url) => !failed.includes(url)).slice(0, 3)
   const Icon = GENRE_ICONS[genre.slug] ?? Sparkles
@@ -76,7 +78,15 @@ export const GenreArt: FC<{ genre: Genre, covers?: string[], size?: ArtSize }> =
               )}
               style={{ zIndex: i === 1 ? 2 : 1, transitionDelay: `${i * 25}ms` }}
             >
-              <Image src={url} alt="" fill sizes={size === "hero" ? "96px" : "44px"} unoptimized className="object-cover" />
+              <Image
+                src={url}
+                alt=""
+                fill
+                sizes={size === "hero" ? "96px" : "44px"}
+                unoptimized={isOpenLibraryCover(url)}
+                onError={() => setFailed((f) => [...f, url])}
+                className="object-cover"
+              />
             </div>
           ))}
         </div>
@@ -90,22 +100,16 @@ export const GenreArt: FC<{ genre: Genre, covers?: string[], size?: ArtSize }> =
           )}
         />
       )}
-      {/* Loads each cover invisibly so a failed one is dropped rather than shown as a broken tile. */}
-      {covers.map((url) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img key={url} src={url} alt="" hidden onError={() => setFailed((f) => [...f, url])} />
-      ))}
     </>
   )
 }
 
 interface GenreTileProps {
   genre: Genre
-  covers?: string[]
   className?: string
 }
 
-const GenreTile: FC<GenreTileProps> = ({ genre, covers, className }) => (
+const GenreTile: FC<GenreTileProps> = ({ genre, className }) => (
   <Link
     href={`/discover/genre/${genre.slug}`}
     style={{ background: genreBackground(genre.colour), color: readableInk(genre.colour) }}
@@ -114,7 +118,7 @@ const GenreTile: FC<GenreTileProps> = ({ genre, covers, className }) => (
       className
     )}
   >
-    <GenreArt genre={genre} covers={covers} />
+    <GenreArt genre={genre} />
     <span className="relative z-10 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]">{genre.label}</span>
   </Link>
 )

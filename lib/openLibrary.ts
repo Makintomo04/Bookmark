@@ -87,16 +87,22 @@ export async function subjectBooks(subject: string, offset = 0, limit = 24): Pro
   return toDiscoverBooks(await res.json())
 }
 
-// A few recognisable covers per genre for the Discover tiles. Rides on subjectBooks' daily cache;
-// a genre that fails just gets no covers, and its tile falls back to an icon.
-export async function genreCovers(genres: { slug: string, subject: string }[], perGenre = 3): Promise<Record<string, string[]>> {
-  const entries = await Promise.all(genres.map(async (genre) => {
-    const books = await subjectBooks(genre.subject, 0, 8).catch(() => [])
-    const covers = books
-      .map((b) => b.coverUrl?.replace(/-L\.jpg$/, "-M.jpg"))
-      .filter((url): url is string => !!url)
-      .slice(0, perGenre)
-    return [genre.slug, covers] as const
-  }))
-  return Object.fromEntries(entries)
+// Open Library's index keeps a reading-log activity count for each of the last seven days.
+const DAYS = [0, 1, 2, 3, 4, 5, 6]
+const TRENDING_FIELDS = `${FIELDS},${DAYS.map((d) => `trending_score_daily_${d}`).join(",")}`
+const TRENDING_POOL = 200
+const weekScore = (doc: any) => DAYS.reduce((sum, d) => sum + (doc[`trending_score_daily_${d}`] || 0), 0)
+
+// Ranked by reader activity over the past week. Search can't sort by that directly (its "trending"
+// sort is a spike score that favours obscure titles), so this takes the books most active in the last
+// day and re-ranks them by their seven-day total. Pages beyond the pool come back empty.
+// Cached for six hours: the daily counts only move once a day.
+export async function trendingSubjectBooks(subject: string, offset = 0, limit = 24): Promise<DiscoverBook[]> {
+  const q = `subject_key:"${subject}" language:eng`
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=trending_score_hourly_sum&fields=${TRENDING_FIELDS}&limit=${TRENDING_POOL}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } })
+  if (!res.ok) return []
+  const data = await res.json()
+  const docs = [...(data?.docs || [])].sort((a, b) => weekScore(b) - weekScore(a))
+  return toDiscoverBooks({ docs: docs.slice(offset, offset + limit) })
 }

@@ -14,7 +14,6 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import { GENRES } from '@/lib/genres'
 import { findLists, ListSummary } from '@/lib/lists'
 import { isOpenLibraryCover } from '@/utils/helpers'
-import { genreCovers } from '@/lib/openLibrary'
 
 export const metadata: Metadata = {
   title: "Discover",
@@ -44,16 +43,6 @@ const Spotlight = ({ list }: { list: ListSummary }) => (
   </Link>
 )
 
-const GenreGrid = ({ covers = {} }: { covers?: Record<string, string[]> }) => (
-  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-    {GENRES.map((genre) => <GenreTile key={genre.slug} genre={genre} covers={covers[genre.slug]} />)}
-  </div>
-)
-
-// Covers mean 14 Open Library lookups (cached for a day), so the tiles render straight away
-// with their icons and swap to covers when these arrive.
-const GenreGridWithCovers = async () => <GenreGrid covers={await genreCovers(GENRES)} />
-
 const Page = async () => {
   const viewer = await getCurrentUser()
   const [featured, picks, community, reported] = await Promise.all([
@@ -81,9 +70,9 @@ const Page = async () => {
 
             <section aria-labelledby="genres-heading">
               <h2 id="genres-heading" className="text-xl font-bold">Browse by genre</h2>
-              <Suspense fallback={<GenreGrid />}>
-                <GenreGridWithCovers />
-              </Suspense>
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                {GENRES.map((genre) => <GenreTile key={genre.slug} genre={genre} />)}
+              </div>
             </section>
 
             {/* Signed in: recent picks by people the reader follows, each with its reason. */}

@@ -9,7 +9,7 @@ import { GenreArt } from '@/app/components/discover/GenreTile'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { genreBackground, genreBySlug } from '@/lib/genres'
 import { findLists } from '@/lib/lists'
-import { subjectBooks } from '@/lib/openLibrary'
+import { trendingSubjectBooks } from '@/lib/openLibrary'
 import { readableInk } from '@/lib/colour'
 
 interface PageProps {
@@ -21,7 +21,7 @@ export function generateMetadata({ params }: PageProps): Metadata {
   if (!genre) return {}
   return {
     title: `${genre.label} books`,
-    description: `Popular ${genre.label.toLowerCase()} books and hand-picked ${genre.label.toLowerCase()} lists on Bookmark.`,
+    description: `Trending ${genre.label.toLowerCase()} books and hand-picked ${genre.label.toLowerCase()} lists on Bookmark.`,
   }
 }
 
@@ -33,7 +33,7 @@ const Page = async ({ params }: PageProps) => {
   const [picks, community, books] = await Promise.all([
     findLists({ pick: true, genre: genre.slug, limit: 8 }, viewer),
     findLists({ community: true, genre: genre.slug, limit: 8 }, viewer),
-    subjectBooks(genre.subject).catch(() => []),
+    trendingSubjectBooks(genre.subject).catch(() => []),
   ])
   // Team picks lead, then readers' lists.
   const lists = [...picks, ...community]
@@ -61,9 +61,9 @@ const Page = async ({ params }: PageProps) => {
           </section>
         )}
 
-        <section aria-labelledby="popular-heading">
-          <h2 id="popular-heading" className="text-xl font-bold">Popular in {genre.label}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Most-shelved by Open Library readers.</p>
+        <section aria-labelledby="trending-heading">
+          <h2 id="trending-heading" className="text-xl font-bold">Trending in {genre.label}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Most read by Open Library readers this week.</p>
           <div className="mt-4">
             <GenreBooks slug={genre.slug} initial={books} />
           </div>

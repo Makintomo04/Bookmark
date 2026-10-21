@@ -27,6 +27,12 @@ export const GENRES: Genre[] = [
 
 export const genreBySlug = (slug: string) => GENRES.find((g) => g.slug === slug)
 
+// The covers fanned on each Discover tile live in public/genres, so the tiles don't wait on Open Library.
+// Refresh them with scripts/refresh-genre-covers.ts.
+export const GENRE_TILE_COVERS = 3
+export const genreTileCovers = (slug: string) =>
+  Array.from({ length: GENRE_TILE_COVERS }, (_, i) => `/genres/${slug}-${i + 1}.jpg`)
+
 // A soft highlight in the top-right corner over a diagonal fade to a deeper shade of the genre colour.
 // Shared by the Discover tiles and the genre page header.
 export const genreBackground = (colour: string) =>
