@@ -4,7 +4,8 @@ import { Status, type Book } from '@prisma/client';
 import moment from 'moment'
 import Image from 'next/image';
 import { TbBook, TbBook2 } from "react-icons/tb";
-import { Check } from 'lucide-react';
+import { Check, Quote } from 'lucide-react';
+import { IoIosStar } from "react-icons/io";
 import { calculatePercentageComplete } from '@/utils/helpers';
 
 interface PublicBookCardProps {
@@ -12,7 +13,7 @@ interface PublicBookCardProps {
 }
 
 const PublicBookCard: FC<PublicBookCardProps> = ({ book }) => {
-  const { title, author, coverImage, pages, currentPage, startedAt, status, cardColour, rating } = book
+  const { title, author, coverImage, pages, currentPage, startedAt, status, cardColour, rating, genre, review } = book
 
   return (
     <div style={{ background: `${cardColour}` }} className="h-[350px] w-full xl:w-[275px] overflow-hidden rounded-[20px] p-6 relative">
@@ -28,7 +29,13 @@ const PublicBookCard: FC<PublicBookCardProps> = ({ book }) => {
       </div>
       <div className="flex gap-4 items-center">
         <p className='font-medium text-[16px] text-white'>{author}</p>
+        {rating && <div className="flex gap-1 items-center">
+          <IoIosStar color='white' size={16}/>
+          <p className='font-semibold text-white text-[16px]'>{rating}</p>
+        </div>}
+        {review && <Quote size={14} color='white' className='opacity-80' aria-label="Has a review"/>}
       </div>
+      {genre && <p className='inline-block mt-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-medium w-fit'>{genre}</p>}
       {status === Status.STARTED ? (
         <div className="flex gap-2 items-center mt-4">
           <TbBook color='white' size={16} />

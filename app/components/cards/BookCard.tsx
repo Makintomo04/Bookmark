@@ -11,7 +11,7 @@ import { FiBook,FiBookOpen  } from "react-icons/fi";
 import { TbBook,TbBook2  } from "react-icons/tb";
 import useUser from '@/app/hooks/useUser';
 import Marquee from '../Marquee';
-import { Check } from 'lucide-react';
+import { Check, Quote } from 'lucide-react';
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal';
 import { calculatePercentageComplete } from '@/utils/helpers';
 import useFavourite from '@/app/hooks/useFavourite';
@@ -21,13 +21,15 @@ import { cn } from '@/lib/utils';
 import EditButton from '../profile-head/EditButton';
 import CardMenu from './CardMenu';
 import useBooks from '@/app/hooks/useBooks';
+import useBookEditModal from '@/app/hooks/useBookEditModal';
+import useBookNotesModal from '@/app/hooks/useBookNotesModal';
 interface BookCardProps {
   book: Book
 }
 
 const BookCard: FC<BookCardProps> = ({book}) => {
   var color = randomColor();
-  const {title, author, coverImage, description, pages,currentPage,startedAt,status,cardColour,rating} = book
+  const {title, author, coverImage, description, pages,currentPage,startedAt,status,cardColour,rating,genre,review} = book
   const {user,isLoading,isError,mutate} = useUser();
   const {books,isLoading:isLoadingBooks,isError:isErrorBooks,mutate:booksMutate} = useBooks();
   const {favourites,hasFavourited, isLoading:isFavLoading,isError:isFavError,mutate:mutateFav} = useFavourite();
@@ -70,10 +72,24 @@ const BookCard: FC<BookCardProps> = ({book}) => {
     })
   }
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const bookEditModal = useBookEditModal()
 
   const handleEditClick = (e:React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
     setIsEditOpen(isEditOpen => !isEditOpen)
+  }
+
+  const handleEditDetails = (e:React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    setIsEditOpen(false)
+    bookEditModal.onOpen(book)
+  }
+
+  const bookNotesModal = useBookNotesModal()
+  const handleNotesClick = (e:React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    setIsEditOpen(false)
+    bookNotesModal.onOpen(book.id, book.title)
   }
 
   const handleRemove = (e:React.MouseEvent<HTMLDivElement>) => {
@@ -90,7 +106,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
   
   return (
     <div style={{background:`${cardColour}`}} onClick={handleOpenBookModal} className={cn("",`cursor-pointer h-[350px] w-full xl:w-[275px] overflow-hidden rounded-[20px] p-6 relative`)}>
-      {isEditOpen && <CardMenu onRemove={(e)=>handleRemove(e)}/>}
+      {isEditOpen && <CardMenu onRemove={(e)=>handleRemove(e)} onEdit={(e)=>handleEditDetails(e)} onNotes={(e)=>handleNotesClick(e)}/>}
       {status === Status.COMPLETED && (
         <div className="absolute flex justify-center items-center bottom-0 h-24 w-full bg-slate-300/60 dark:bg-slate-900/60 pointer-events-none z-10 left-0">
           <div className="h-12 w-12 rounded-full bg-slate-100 flex justify-center items-center shadow-md drop-shadow-lg ">
@@ -118,7 +134,9 @@ const BookCard: FC<BookCardProps> = ({book}) => {
         <IoIosStar color='white' size={16}/>
         <p className='font-semibold text-white text-[16px]'>{rating}</p>
       </div>}
+      {review && <Quote size={14} color='white' className='opacity-80' aria-label="Has a review"/>}
       </div>
+      {genre && <p className='inline-block mt-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-medium w-fit'>{genre}</p>}
      { status === Status.STARTED ?
      (<div className="flex gap-2 items-center mt-4">
         <TbBook  color='white' size={16}/>
@@ -126,7 +144,7 @@ const BookCard: FC<BookCardProps> = ({book}) => {
       </div>):status === Status.NOT_STARTED ? (
         <div  className="flex gap-2 items-center mt-4">
         <TbBook2   color='white' size={16}/>
-        <p className='font-medium uppercase text-slate-100 text-xs'>Not Started</p>
+        <p className='font-medium uppercase text-slate-100 text-xs'>Want to Read</p>
       </div>):status === Status.COMPLETED ? (
       <>
       <div  className="flex gap-2 items-center mt-4">

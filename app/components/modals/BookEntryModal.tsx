@@ -25,9 +25,10 @@ import 'react-calendar/dist/Calendar.css';
 import useBooks from '@/app/hooks/useBooks'
 import ErrorMessageComponent from '../ErrorMessageComponent'
 import BookSearchResults, { BookSearchResult } from './BookSearchResults'
+import { GENRES, isOpenLibraryCover } from '@/utils/helpers'
 
 interface BookEntryModalProps {
-  
+
 }
 const colourList = ["#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50", "#8bc34a", "#a4b31e", "#cfbb00", "#ffc107", "#ff9800", "#ff5722", "#795548", "#607d8b"]
 enum STEPS {
@@ -63,7 +64,8 @@ const BookEntryModal: FC<BookEntryModalProps> = ({}) => {
        isStarted: false,
        startedAt: Date.now(),
        currentPage:1,
-       cardColour: ""
+       cardColour: "",
+       genre: ""
       },
     })
     const imageSrc = watch("coverImgSrc");
@@ -196,7 +198,14 @@ let body = (
         <div className="flex flex-col gap-2">
         <Label className="text-md font-bold" htmlFor="pages">Total Pages</Label>
         <Input register={register} errors={errors} inputValidation={{min:1,required:true,message:"Number of Total pages must be greater than 0"}}  name="pages" id="pages" autoComplete='off' className="w-[100px]" disabled={isLoading} required/>
-        </div> 
+        </div>
+        <div className="flex flex-col gap-2">
+        <Label className="text-md font-bold" htmlFor="genre">Genre</Label>
+        <Input register={register} errors={errors} name="genre" id="genre" list="genre-options" autoComplete='off' className="max-w-lg" disabled={isLoading} placeholder='e.g. Fantasy'/>
+        <datalist id="genre-options">
+          {GENRES.map((g) => <option key={g} value={g}/>)}
+        </datalist>
+        </div>
         <div className="min-w-max">
         <h2 className='text-md font-bold mb-2'>Upload Book Cover</h2>
         <UploadButton
@@ -230,7 +239,7 @@ let body = (
     <div className=" h-full w-full flex-col mb-3 flex gap-6">
 
         <div className="h-full w-full min-h-[200px] rounded-[20px] overflow-hidden relative" style={{background:`${user?.favColour}`}}>
-          {imageSrc ? <Image src={imageSrc} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
+          {imageSrc ? <Image src={imageSrc} alt="" layout="fill" unoptimized={isOpenLibraryCover(imageSrc)} className="shadow-md object-contain h-full w-full "/>: (
             <div style={{background:`${user?.favColour}`}} className="h-full w-full"></div>
             )}
         </div>
@@ -310,8 +319,8 @@ step === STEPS.BOOK_COLOUR && (
           <div className="flex flex-col gap-4">
           <Label className="text-md font-bold" htmlFor="title">Select a card colour</Label>
          
-         <div className="w-full">
-          <CirclePicker className='w-full' circleSize={64} width="100%"color={cardColour || "#f44336"} onChange={ handleChange } colors={colourList}/>
+         <div className="w-full p-3">
+          <CirclePicker className='w-full' circleSize={64} circleSpacing={20} width="100%"color={cardColour || "#f44336"} onChange={ handleChange } colors={colourList}/>
          </div>
        
     </div>

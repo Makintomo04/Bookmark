@@ -59,6 +59,10 @@ model User {
   readingGoals  ReadingGoal[]
   following     Follow[] @relation("UserFollows")
   followers     Follow[] @relation("UserFollowedBy")
+  activities    Activity[]
+  notificationsReceived Notification[] @relation("NotificationRecipient")
+  notificationsSent     Notification[] @relation("NotificationActor")
+  achievements  UserAchievement[]
 }
 
 model Follow {
@@ -105,19 +109,21 @@ model Book {
   status Status @default(NOT_STARTED)
   genre String?
   rating Float?
+  review String?
+  timesRead Int @default(0)
   notes Note[]
-  quotes String[]
   pages Int
   currentPage Int? @default(0)
   createdAt DateTime @default(now())
   startedAt DateTime?
   completedAt DateTime?
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities Activity[]
 }
 model Note {
   id String   @id @default(auto()) @map("_id") @db.ObjectId
   bookId String @db.ObjectId
-  title String
+  title String?
   content String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -128,4 +134,53 @@ enum Status {
   STARTED
   NOT_STARTED
   COMPLETED
+}
+
+model Activity {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  bookId String? @db.ObjectId
+  type ActivityType
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book? @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+enum ActivityType {
+  ADDED_BOOK
+  STARTED_BOOK
+  COMPLETED_BOOK
+  RATED_BOOK
+  REVIEWED_BOOK
+}
+
+model Notification {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  actorId String @db.ObjectId
+  type NotificationType
+  bookId String? @db.ObjectId
+  achievementKey String?
+  read Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+}
+
+enum NotificationType {
+  NEW_FOLLOWER
+  ACHIEVEMENT_EARNED
+}
+
+model UserAchievement {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  key String
+  earnedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
 }

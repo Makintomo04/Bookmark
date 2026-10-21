@@ -35,7 +35,7 @@ export async function GET(req: Request) {
         title: doc.title,
         author: doc.author_name?.[0] || "Unknown",
         pages: doc.number_of_pages_median || null,
-        coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
+        coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null,
       }));
     return NextResponse.json(results);
   } catch {

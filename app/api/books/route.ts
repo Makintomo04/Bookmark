@@ -23,7 +23,7 @@ return NextResponse.json(books)
 export async function POST(req:Request, res:Response) {
 
   const body = await req.json()
-  const {title, author, coverImgSrc,pages,isStarted,currentPage,startedAt,cardColour } = body
+  const {title, author, coverImgSrc,pages,isStarted,currentPage,startedAt,cardColour,genre } = body
 const currentUser = await getCurrentUser()
 
 if (!currentUser) {
@@ -40,7 +40,7 @@ if(!user){
 
 const readingStatus = isStarted ? "STARTED" : "NOT_STARTED"
 const book = await prisma.book.create({
-  data:{  
+  data:{
     userId: currentUser.id,
     title,
     author,
@@ -49,7 +49,15 @@ const book = await prisma.book.create({
     pages:parseInt(pages),
     status: readingStatus,
     currentPage: readingStatus === "NOT_STARTED" ? 0 : parseInt(currentPage),
-    cardColour: cardColour || "#f44336" 
+    cardColour: cardColour || "#f44336",
+    genre: genre || null,
+  }
+})
+await prisma.activity.create({
+  data: {
+    userId: currentUser.id,
+    bookId: book.id,
+    type: readingStatus === "STARTED" ? "STARTED_BOOK" : "ADDED_BOOK",
   }
 })
 return NextResponse.json(book)

@@ -3,10 +3,10 @@ import useBookEntryModal from '@/app/hooks/useBookEntryModal';
 import useUser from '@/app/hooks/useUser';
 import { FC } from 'react'
 import Loader from '../Loader';
-import BookCard from '../cards/BookCard';
 import { Book } from '@prisma/client';
 import useBooks from '@/app/hooks/useBooks';
 import { IoAddOutline } from 'react-icons/io5';
+import BookGrid from './BookGrid';
 
 interface BookListProps {
   
@@ -38,14 +38,7 @@ if(sortedBooks?.length === 0) return (
     </div>
   </div>
   )
-  return (
-     
-<div className="grid grid-cols-1 xs:grid-cols-4  sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-10 lg:grid-cols-4 ">
-{sortedBooks?.map((book:any) => (
-  <BookCard key={book?.id} book={book}/>
-))}
-</div>
-  )
+  return <BookGrid books={sortedBooks ?? []}/>
 }
 
 export default BookList

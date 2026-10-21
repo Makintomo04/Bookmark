@@ -1,5 +1,4 @@
-import Container from '@/app/components/Container'
-import PublicProfile from '@/app/components/profile-head/PublicProfile'
+import ProfilePage from '@/app/components/profile-head/ProfilePage'
 import { FC } from 'react'
 
 interface PageProps {
@@ -7,13 +6,7 @@ interface PageProps {
 }
 
 const Page: FC<PageProps> = ({ params }) => {
-  return (
-    <div className='mt-12'>
-      <Container>
-        <PublicProfile username={params.username} />
-      </Container>
-    </div>
-  )
+  return <ProfilePage username={params.username} />
 }
 
 export default Page

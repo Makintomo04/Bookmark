@@ -38,5 +38,8 @@ export async function POST(
   await prisma.follow.create({
     data: { followerId: currentUser.id, followingId: targetUser.id },
   });
+  await prisma.notification.create({
+    data: { userId: targetUser.id, actorId: currentUser.id, type: "NEW_FOLLOWER" },
+  });
   return NextResponse.json({ isFollowing: true });
 }

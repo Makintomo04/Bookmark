@@ -143,7 +143,7 @@ const EditProfileModal: FC<EditProfileModalProps> = ({}) => {
             <h2 className='font-bold text-md mb-2'>Display Picture</h2>
             <div className="flex items-center gap-6">
 
-            <EditAvatar src={imageSrc}/>
+            <EditAvatar src={imageSrc} favColour={colorSrc}/>
             <UploadButton
             appearance={{
               button({ ready, isUploading,uploadProgress }) {

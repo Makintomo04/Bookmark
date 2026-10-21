@@ -6,6 +6,9 @@ import { getSession, useSession } from "next-auth/react";
 import { Metadata } from "next";
 import BookUpdateModal from "../components/modals/BookUpdateModal";
 import BookEntryModal from "../components/modals/BookEntryModal";
+import BookEditModal from "../components/modals/BookEditModal";
+import BookNotesModal from "../components/modals/BookNotesModal";
+import AchievementsListModal from "../components/modals/AchievementsListModal";
 import Footer from "../components/footer/Footer";
 import { useRouter } from "next/navigation";
 
@@ -17,6 +20,9 @@ export default async function Layout({ children }: { children: React.ReactNode }
     <div className="relative h-full">
         <BookUpdateModal/>
         <BookEntryModal/>
+        <BookEditModal/>
+        <BookNotesModal/>
+        <AchievementsListModal/>
         <EditProfileModal/>
         <div className="flex flex-col h-screen">
       <Header />

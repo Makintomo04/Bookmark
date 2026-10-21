@@ -20,6 +20,9 @@ export async function GET(
       _count: {
         select: { followers: true, following: true },
       },
+      achievements: {
+        select: { key: true, earnedAt: true },
+      },
     },
   });
 
@@ -47,6 +50,7 @@ export async function GET(
     favColour: profileUser.favColour,
     createdAt: profileUser.createdAt,
     books: profileUser.books,
+    achievements: profileUser.achievements,
     followerCount: profileUser._count.followers,
     followingCount: profileUser._count.following,
     isFollowing,

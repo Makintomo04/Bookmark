@@ -1,17 +1,14 @@
 "use client"
 import { useSession } from "next-auth/react";
-import Container from "../components/Container";
-import ProfileHead from "../components/profile-head/ProfileHead";
 import useUser from "../hooks/useUser";
 import Loader from "../components/Loader";
-import BookList from "../components/books/BookList";
 import Landing from "../components/landing/Landing";
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function  Home () {
   const router = useRouter()
-  const {data:session,status} = useSession()
+  const {status} = useSession()
   const {user,isLoading} = useUser();
   const [isPageLoading, setIsPageLoading] = useState(true)
   useEffect(() => {
@@ -26,7 +23,7 @@ export default function  Home () {
         router.push("/new-user")
       }
       else{
-        setIsPageLoading(false)
+        router.push(`/u/${encodeURIComponent(user.username)}`)
       }
     }
     else{
@@ -49,23 +46,6 @@ export default function  Home () {
       </div>
     )
   }
-
-  if(session && user)
-  return (
-    <main className="pb-24 h-auto flex-grow min-h-[calc(100vh_-_180px)] bg-background">
-      <Container>
-        <Suspense fallback={<p>Loading...</p>}>
-      <ProfileHead/>
-      </Suspense>
-
-
-        <Suspense fallback={<p>Loading...</p>}>
-      <BookList/>
-      </Suspense>
-
-      </Container>
-    </main>
-  );
 
   return <Landing/>
 }

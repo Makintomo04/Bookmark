@@ -85,6 +85,8 @@ export async function DELETE(req: Request) {
   // relational DB would, so clean up everything referencing this user
   // explicitly rather than relying on the schema's onDelete: Cascade alone.
   await prisma.note.deleteMany({ where: { book: { userId: currentUser.id } } });
+  await prisma.activity.deleteMany({ where: { OR: [{ userId: currentUser.id }, { book: { userId: currentUser.id } }] } });
+  await prisma.notification.deleteMany({ where: { OR: [{ userId: currentUser.id }, { actorId: currentUser.id }] } });
   await prisma.book.deleteMany({ where: { userId: currentUser.id } });
   await prisma.readingGoal.deleteMany({ where: { userId: currentUser.id } });
   await prisma.follow.deleteMany({ where: { OR: [{ followerId: currentUser.id }, { followingId: currentUser.id }] } });

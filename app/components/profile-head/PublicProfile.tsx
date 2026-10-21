@@ -8,8 +8,11 @@ import { toast } from 'react-toastify'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useUser from '@/app/hooks/useUser'
 import { Button } from '../ui/button'
-import PublicBookCard from './PublicBookCard'
 import Loader from '../Loader'
+import { cn } from '@/lib/utils'
+import BookCoverCard from '../cards/BookCoverCard'
+import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
+import { ShelfSection, coverGridClass, groupShelf, readingGridCols } from '../books/shelf'
 
 interface PublicProfileProps {
   username: string
@@ -36,14 +39,15 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
       .finally(() => setIsFollowLoading(false))
   }
 
-  const completedCount = profile.books.filter((b: Book) => b.status === "COMPLETED").length
+  const { reading, finished } = groupShelf(profile.books as Book[])
+  const completedCount = finished.length
 
   return (
     <div className="w-full">
       <div className="h-48 overflow-hidden rounded-[25px] relative">
         {profile.banner ? <Image priority src={profile.banner} layout="fill" objectFit="cover" alt="banner" /> : <div style={{ background: `${profile.favColour || "#f44336"}` }} className="w-full h-full"></div>}
       </div>
-      <div className="relative -mt-16 ml-10 size-32 rounded-[50px] border-[5px] border-white dark:border-background overflow-hidden">
+      <div style={{ background: profile.favColour || "#f44336" }} className="relative -mt-16 ml-10 size-32 rounded-[50px] border-[5px] border-white dark:border-background overflow-hidden">
         <Image sizes="128px" priority src={profile.image || "/images/avatar.jpg"} alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover" />
       </div>
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mt-6">
@@ -54,6 +58,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
             <p><span className="font-bold mr-1">{completedCount}</span>Books Read</p>
             <p><span className="font-bold mr-1">{profile.followerCount}</span>Follower{profile.followerCount === 1 ? "" : "s"}</p>
             <p><span className="font-bold mr-1">{profile.followingCount}</span>Following</p>
+            <p><span className="font-bold mr-1">{profile.achievements?.length ?? 0}</span>Achievement{profile.achievements?.length === 1 ? "" : "s"}</p>
           </div>
         </div>
         {!profile.isSelf && (
@@ -71,13 +76,28 @@ const PublicProfile: FC<PublicProfileProps> = ({ username }) => {
         )}
       </div>
       <hr className="my-10" />
-      {profile.books.length === 0 ? (
-        <p className="px-6 md:px-12 text-sm text-muted-foreground">No books on their shelf yet.</p>
-      ) : (
-        <div className="px-6 md:px-12 grid grid-cols-1 xl:grid-cols-[repeat(auto-fill,275px)] gap-6">
-          {profile.books.map((book: Book) => <PublicBookCard key={book.id} book={book} />)}
-        </div>
-      )}
+      <div className="px-6 md:px-12">
+        {reading.length === 0 && finished.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
+        ) : (
+          <>
+            {reading.length > 0 && (
+              <ShelfSection id="public-shelf-reading" title="Currently reading" count={reading.length}>
+                <div className={cn("grid grid-cols-1 gap-4", readingGridCols(reading.length))}>
+                  {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
+                </div>
+              </ShelfSection>
+            )}
+            {finished.length > 0 && (
+              <ShelfSection id="public-shelf-finished" title="Finished" count={finished.length}>
+                <div className={coverGridClass}>
+                  {finished.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
+                </div>
+              </ShelfSection>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

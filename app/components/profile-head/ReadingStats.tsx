@@ -1,13 +1,18 @@
 import useBooks from '@/app/hooks/useBooks';
+import useAchievements from '@/app/hooks/useAchievements';
+import useAchievementsModal from '@/app/hooks/useAchievementsModal';
 import { Book } from '@prisma/client'
 import { FC } from 'react'
 
 interface ReadingStatsProps {
-  
+
 }
 
 const ReadingStats: FC<ReadingStatsProps> = ({}) => {
   const {books,isLoading:isLoadingBooks,isError:isErrorBooks} = useBooks();
+  const {achievements} = useAchievements();
+  const achievementsModal = useAchievementsModal();
+  const earnedCount = achievements.filter((a: any) => a.earned).length;
   const bookCounts = {
     completed: 0,
     started: 0,
@@ -43,6 +48,11 @@ const ReadingStats: FC<ReadingStatsProps> = ({}) => {
       <p className='text-xs'>Completed</p>
       <h3 className="text-2xl font-bold">{bookCounts?.completed}</h3>
       </div>
+      <div className="h-10 w-[1px] bg-slate-400/50"></div>
+      <button type="button" onClick={achievementsModal.onOpen} className="flex flex-col gap-1 items-start hover:opacity-70 transition">
+      <p className='text-xs'>Achievements</p>
+      <h3 className="text-2xl font-bold">{earnedCount}</h3>
+      </button>
     </div>
   )
 }

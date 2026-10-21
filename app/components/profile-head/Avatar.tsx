@@ -15,7 +15,7 @@ const Avatar: FC<AvatarProps> = ({src}) => {
     <>
     <div onClick={()=>setShowLightbox(true)} className="cursor-pointer size-32 rounded-[50px] border-[5px] border-white dark:border-background  overflow-hidden">
       {/* Avatar */}
-      <div className="w-full h-full relative overflow-hidden">
+      <div style={{background: user?.favColour || "#f44336"}} className="w-full h-full relative overflow-hidden">
         {user?.image ? <Image sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" priority src={user?.image} alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover  overflow-hidden "/>
         : <Image sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" priority src="/images/avatar.jpg" alt="avatar" layout="fill" objectFit="cover" className="w-full h-full object-cover"/>}
         </div>

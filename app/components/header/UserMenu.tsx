@@ -5,6 +5,7 @@ import { useSession, signIn, signOut } from "next-auth/react"
 import { useRouter } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
 import { ThemeSwitcher } from '../ThemeSwitcher'
+import NotificationBell from './NotificationBell'
 import Link from 'next/link'
 import { IoClose } from 'react-icons/io5'
 interface UserMenuProps {
@@ -45,8 +46,9 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
         {/* Signed in as {session?.user?.email} <br /> */}
         <div className="flex gap-2 relative items-center">
             <ThemeSwitcher/>
+            <NotificationBell/>
 
-        <Avatar className='cursor-pointer ' onClick={()=>setShowMenu((state)=>!state)}>
+        <Avatar className='cursor-pointer ' style={{background: user?.favColour || "#f44336"}} onClick={()=>setShowMenu((state)=>!state)}>
       <AvatarImage src={user?.image || "/images/avatar.jpg"} alt='avatar' />
       <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
     </Avatar>
@@ -63,6 +65,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
           <div className="flex flex-col text-left w-full">
             <Link onClick={()=>setShowMenu(false)} className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/">Home</Link>
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/favourites">Favourites</Link>
+            <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/feed">Feed</Link>
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/discover">Discover</Link>
             {user?.username && <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href={`/u/${user.username}`}>My Public Profile</Link>}
             <button className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4' onClick={() => signOut({

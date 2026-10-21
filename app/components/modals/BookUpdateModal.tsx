@@ -22,10 +22,11 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import useBooks from '@/app/hooks/useBooks'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
-import { calculatePercentageComplete } from '@/utils/helpers'
+import { calculatePercentageComplete, isOpenLibraryCover } from '@/utils/helpers'
 import { Book } from '@prisma/client'
 import useBookById from '@/app/hooks/useBookById'
 import useFavourite from '@/app/hooks/useFavourite'
+import StarRating from '../StarRating'
 
 interface BookUpdateModalProps {
   
@@ -59,12 +60,15 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
       pagesUpdate: null,
       isStarted: specificBook?.status === "NOT_STARTED" ? false : true,
       isComplete: specificBook?.status === "COMPLETED" ? true : false,
+      rating: specificBook?.rating || 0,
+      review: specificBook?.review || "",
       },
     })
-    
+
     const isComplete = watch("isComplete");
     const isStarted = watch("isStarted");
     const id = watch("id");
+    const rating = watch("rating");
     const [isCompleted, setIsCompleted] = useState<boolean>(book?.isComplete);
     useEffect(() => {
       if(books && books.length > 0){
@@ -81,6 +85,8 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
       setValue("isComplete",specificBook?.status === "COMPLETED" ? true : false)
       setValue("isStarted",specificBook?.status === "NOT_STARTED" ? false : true)
       setValue("id",bookId)
+      setValue("rating",specificBook?.rating || 0)
+      setValue("review",specificBook?.review || "")
     },[book?.id,isSpecificBookLoading])
     
     const setCustomValue = (id: string, value: any) => {
@@ -132,6 +138,18 @@ const BookUpdateModal: FC<BookUpdateModalProps> = ({}) => {
      setIsLoading(false);
    })
    }
+   const handleReadAgain = () => {
+    if(!book) return;
+    axios.post("/api/book-progress",{id:book.id,isRestart:true}).then((res)=>{
+      toast.success("Enjoy your re-read!",{ position: "bottom-center" })
+      mutate();
+      booksMutate();
+      specificBookMutate();
+      onClose(bookId)
+    }).catch(()=>{
+      toast.error("Something went wrong!",{ position: "bottom-center" })
+    })
+   }
    const handleChange = (val:boolean) => {
     setIsCompleted(val)
     setValue("isComplete", val);
@@ -148,7 +166,7 @@ let body = (
     <div className=" h-full w-full flex-col-reverse mb-3 flex gap-6">
 
         <div className="h-[250px] sm:h-[400px] w-full rounded-[20px] overflow-hidden relative" >
-          {book?.coverImage ? <Image src={book?.coverImage} alt="" layout="fill" className="shadow-md object-contain h-full w-full "/>: (
+          {book?.coverImage ? <Image src={book?.coverImage} alt="" layout="fill" unoptimized={isOpenLibraryCover(book?.coverImage)} className="shadow-md object-contain h-full w-full "/>: (
             <div style={{background:`${book?.cardColour}`}} className="h-full w-full"></div>
           )}
         </div>
@@ -169,7 +187,15 @@ let body = (
         <Checkbox register={register} errors={errors} checked={isComplete} 
                   onCheckedChange={(val)=>handleChange(val as boolean)} name="isComplete" id="isComplete" className="max-w-24 h-5 w-5"/></div>)
                 }
-        
+
+          </div>
+          <div className="flex flex-col gap-2 my-2">
+            <Label className="text-md font-bold" htmlFor="rating">Your Rating</Label>
+            <StarRating value={rating} onChange={(n) => setValue("rating", n)}/>
+          </div>
+          <div className="flex flex-col gap-2 my-2">
+            <Label className="text-md font-bold" htmlFor="review">Your Review (optional)</Label>
+            <Textarea register={register} errors={errors} name="review" id="review" autoComplete='off' placeholder="What did you think?"/>
           </div>
           <div className="flex flex-col items-start gap-0 justify-between my-2 w-full">
                 <h2 className='text-xl font-bold'>{bookUpdateModal?.book?.currentPage}/{bookUpdateModal?.book?.pages} <span className='font-medium'>Pages Read</span></h2>
@@ -205,6 +231,7 @@ const footer = (
   <div className="w-full p-6">
     <div className="flex items-center gap-3 justify-end mt-auto">
     <Button style={{border:`2px solid ${user?.favColour}`,background:"transparent",color:`${user?.favColour}`}} onClick={handleRemove}>Remove</Button>
+    {specificBook?.status === "COMPLETED" && <Button style={{border:`2px solid ${user?.favColour}`,background:"transparent",color:`${user?.favColour}`}} onClick={handleReadAgain}>Read Again</Button>}
     <Button style={{background:`${user?.favColour}`}} onClick={handleSubmit(onSubmit)}>Update</Button>
     </div>
   </div>

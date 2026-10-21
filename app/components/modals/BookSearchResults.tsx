@@ -1,6 +1,7 @@
 "use client"
 import { FC } from 'react'
 import Image from 'next/image'
+import { isOpenLibraryCover } from '@/utils/helpers'
 
 export interface BookSearchResult {
   title: string
@@ -19,7 +20,7 @@ const BookSearchResults: FC<BookSearchResultsProps> = ({ results, isLoading, onS
   if (!isLoading && results.length === 0) return null
 
   return (
-    <div className="absolute z-20 mt-1 w-full max-w-lg max-h-64 overflow-y-auto rounded-md border border-neutral-700 bg-background shadow-lg">
+    <div className="absolute z-20 top-full left-0 mt-1 w-full max-w-lg max-h-64 overflow-y-auto rounded-md border border-neutral-700 bg-background shadow-lg">
       {isLoading ? (
         <div className="p-3 text-sm text-muted-foreground">Searching...</div>
       ) : (
@@ -31,7 +32,7 @@ const BookSearchResults: FC<BookSearchResultsProps> = ({ results, isLoading, onS
             className="flex w-full items-center gap-3 p-2 text-left hover:bg-neutral-800 transition"
           >
             <div className="h-12 w-8 flex-shrink-0 overflow-hidden rounded bg-neutral-700 relative">
-              {result.coverUrl && <Image src={result.coverUrl} alt="" fill className="object-cover" />}
+              {result.coverUrl && <Image src={result.coverUrl} alt="" fill unoptimized={isOpenLibraryCover(result.coverUrl)} className="object-cover" />}
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{result.title}</p>

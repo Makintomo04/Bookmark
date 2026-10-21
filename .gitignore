@@ -39,3 +39,6 @@ next-env.d.ts
 
 # Contentlayer
 .contentlayer
+
+# design inspector screenshots
+/.taste-skill/
