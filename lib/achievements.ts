@@ -329,3 +329,9 @@ export async function syncAchievements(
 export async function awardNewAchievements(userId: string, options: AwardOptions = {}): Promise<EarnedMilestone[]> {
   return (await syncAchievements(userId, options)).awarded;
 }
+
+// The current reading streak, uncapped, in the reader's stored zone: the same number the
+// achievements page shows. Used by /stats.
+export async function getReadingStreak(userId: string): Promise<number> {
+  return readingStreak(userId, await resolveTimeZone(userId, undefined));
+}
