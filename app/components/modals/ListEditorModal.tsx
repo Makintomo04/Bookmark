@@ -50,6 +50,8 @@ const ListEditorModal: FC = () => {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<BookSearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
+  const [searchAttempt, setSearchAttempt] = useState(0)
   const [tagInput, setTagInput] = useState("")
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -69,17 +71,21 @@ const ListEditorModal: FC = () => {
     if (source !== "search" || query.trim().length < 3) {
       setResults([])
       setIsSearching(false)
+      setSearchFailed(false)
       return
     }
+    // A slower earlier search must not overwrite the results for what's typed now.
+    let current = true
     setIsSearching(true)
+    setSearchFailed(false)
     const timeout = setTimeout(() => {
       axios.get(`/api/books/search?q=${encodeURIComponent(query.trim())}`)
-        .then((res) => setResults(res.data))
-        .catch(() => setResults([]))
-        .finally(() => setIsSearching(false))
+        .then((res) => { if (current) setResults(res.data) })
+        .catch(() => { if (current) { setResults([]); setSearchFailed(true) } })
+        .finally(() => { if (current) setIsSearching(false) })
     }, 400)
-    return () => clearTimeout(timeout)
-  }, [query, source])
+    return () => { current = false; clearTimeout(timeout) }
+  }, [query, source, searchAttempt])
 
   const shelfMatches = useMemo(() => {
     const all = Array.isArray(books) ? (books as Book[]) : []
@@ -193,7 +199,7 @@ const ListEditorModal: FC = () => {
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={source === "search" ? "Search by title or author to add" : "Filter your books"} aria-label="Find a book to add" autoComplete="off" disabled={isSaving} className={cn(fieldClass, "h-10 pl-9")} />
       </div>
       {source === "search"
-        ? query.trim().length >= 3 && <BookSearchResults results={results} isLoading={isSearching} onSelect={addBook} />
+        ? query.trim().length >= 3 && <BookSearchResults results={results} isLoading={isSearching} onSelect={addBook} failed={searchFailed} onRetry={() => setSearchAttempt((n) => n + 1)} />
         : shelfMatches.length === 0
           ? <p className="px-1 text-sm text-muted-foreground">{query ? "None of your books match." : "Your shelf is empty."}</p>
           : <BookSearchResults results={shelfMatches} isLoading={false} onSelect={addBook} />}

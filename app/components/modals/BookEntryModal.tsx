@@ -54,6 +54,8 @@ const BookEntryModal: FC = () => {
   const [query, setQuery] = useState("")
   const [searchResults, setSearchResults] = useState<BookSearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
+  const [searchAttempt, setSearchAttempt] = useState(0)
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FieldValues>({ defaultValues })
   const [title, author, pages, coverImgSrc, workKey] = watch(["title", "author", "pages", "coverImgSrc", "workKey"])
@@ -64,17 +66,21 @@ const BookEntryModal: FC = () => {
   useEffect(() => {
     if (stage !== "search" || query.trim().length < 3) {
       setSearchResults([])
+      setSearchFailed(false)
       return
     }
+    // A slower earlier search must not overwrite the results for what's typed now.
+    let current = true
     setIsSearching(true)
+    setSearchFailed(false)
     const timeout = setTimeout(() => {
       axios.get(`/api/books/search?q=${encodeURIComponent(query.trim())}`)
-        .then((res) => setSearchResults(res.data))
-        .catch(() => setSearchResults([]))
-        .finally(() => setIsSearching(false))
+        .then((res) => { if (current) setSearchResults(res.data) })
+        .catch(() => { if (current) { setSearchResults([]); setSearchFailed(true) } })
+        .finally(() => { if (current) setIsSearching(false) })
     }, 400)
-    return () => clearTimeout(timeout)
-  }, [query, stage])
+    return () => { current = false; clearTimeout(timeout) }
+  }, [query, stage, searchAttempt])
 
   const resetAll = () => {
     reset(defaultValues)
@@ -163,7 +169,7 @@ const BookEntryModal: FC = () => {
         {query.trim().length < 3 ? (
           <p className="text-sm text-muted-foreground px-1">Type at least 3 characters to search.</p>
         ) : (
-          <BookSearchResults results={searchResults} isLoading={isSearching} onSelect={handleSelect} />
+          <BookSearchResults results={searchResults} isLoading={isSearching} onSelect={handleSelect} failed={searchFailed} onRetry={() => setSearchAttempt((n) => n + 1)} />
         )}
       </div>
       <button type="button" onClick={handleAddManually} className="mt-4 px-1 text-sm text-muted-foreground hover:text-foreground underline underline-offset-4">

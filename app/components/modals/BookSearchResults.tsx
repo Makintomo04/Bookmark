@@ -11,6 +11,9 @@ interface BookSearchResultsProps {
   results: BookSearchResult[]
   isLoading: boolean
   onSelect: (result: BookSearchResult) => void
+  // Set when the search request failed, so it isn't mistaken for "no matches".
+  failed?: boolean
+  onRetry?: () => void
 }
 
 // Open Library covers take a second or two to arrive, so the slot pulses until the image lands.
@@ -38,12 +41,20 @@ const CoverThumb: FC<{ url: string | null }> = ({ url }) => {
   )
 }
 
-const BookSearchResults: FC<BookSearchResultsProps> = ({ results, isLoading, onSelect }) => {
+export const SearchFailed: FC<{ onRetry?: () => void }> = ({ onRetry }) => (
+  <p role="alert" className="px-1 text-sm text-muted-foreground">
+    Couldn&apos;t reach the book catalogue.{" "}
+    {onRetry && <button type="button" onClick={onRetry} className="font-medium text-foreground underline underline-offset-4">Try again</button>}
+  </p>
+)
+
+const BookSearchResults: FC<BookSearchResultsProps> = ({ results, isLoading, onSelect, failed, onRetry }) => {
   useEffect(() => {
     if (isLoading) warmCoverConnections()
   }, [isLoading])
 
   if (isLoading) return <p className="px-1 text-sm text-muted-foreground">Searching…</p>
+  if (failed) return <SearchFailed onRetry={onRetry} />
   if (results.length === 0) return <p className="px-1 text-sm text-muted-foreground">No matches found.</p>
 
   return (
