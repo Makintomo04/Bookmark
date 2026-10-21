@@ -7,6 +7,8 @@ export interface EditableListItem {
   coverUrl: string | null
   pages: number | null
   note: string
+  // Display only: who wrote a note carried over from a remixed list. The server works this out itself.
+  noteBy?: string | null
 }
 
 // Plain JSON (dates as yyyy-mm-dd) so it can be handed over from a server component.

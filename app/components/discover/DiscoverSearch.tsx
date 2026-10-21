@@ -1,9 +1,10 @@
 "use client"
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { Search, X } from 'lucide-react'
@@ -35,6 +36,16 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [people, setPeople] = useState<SearchUser[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [followState, setFollowState] = useState<Record<string, boolean>>({})
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // "Find people" links (e.g. from the empty "From people you follow" section) land on /discover?find=people.
+  const find = useSearchParams()?.get("find")
+  useEffect(() => {
+    if (find !== "people") return
+    setMode("people")
+    inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" })
+    inputRef.current?.focus({ preventScroll: true })
+  }, [find])
 
   const q = query.trim()
   const isActive = q.length >= MIN_CHARS[mode]
@@ -142,6 +153,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
         <div className="relative max-w-2xl">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
           <input
+            ref={inputRef}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

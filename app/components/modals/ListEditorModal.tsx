@@ -4,14 +4,14 @@ import { useRouter } from 'next/navigation'
 import { useSWRConfig } from 'swr'
 import axios from 'axios'
 import { toast } from 'react-toastify'
-import { ArrowDown, ArrowUp, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, MessageSquareQuote, Plus, Search, X } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import Modal from './Modal'
 import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 import BookCover from '../cards/BookCover'
 import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
-import { readableInk } from '@/lib/colour'
+import { readableInk, toHex } from '@/lib/colour'
 import { GENRES } from '@/lib/genres'
 import { sameBook } from '@/lib/workKey'
 import { LIST_DESCRIPTION_MAX as DESCRIPTION_MAX, LIST_ITEMS_MAX as ITEMS_MAX, LIST_NOTE_MAX as NOTE_MAX, LIST_TITLE_MAX as TITLE_MAX } from '@/lib/listRules'
@@ -96,6 +96,7 @@ const ListEditorModal: FC = () => {
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initial)
   const update = (patch: Partial<EditableList>) => setDraft((d) => (d ? { ...d, ...patch } : d))
   const setItems = (items: EditableListItem[]) => update({ items })
+  const withReasons = draft.items.filter((item) => item.note.trim()).length
 
   const addBook = (book: BookSearchResult) => {
     if (draft.items.some((item) => sameBook(item, book))) {
@@ -200,6 +201,17 @@ const ListEditorModal: FC = () => {
       {draft.items.length === 0 ? (
         <p className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 p-6 text-center text-sm text-muted-foreground">Books you add appear here, in order.</p>
       ) : (
+        <>
+        {/* A nudge, never a requirement: reasons are what make a list a recommendation. */}
+        {withReasons < draft.items.length && (
+          <p className="flex items-start gap-2 rounded-lg px-3 py-2 text-xs leading-relaxed" style={{ background: `${toHex(accent) ?? "#D92D2D"}14` }}>
+            <MessageSquareQuote size={14} aria-hidden className="mt-0.5 shrink-0" style={{ color: accent }} />
+            <span>
+              <span className="font-medium">{withReasons === 0 ? "Say why each book is here." : `${withReasons} of ${draft.items.length} books have a reason.`}</span>
+              {" "}Your note shows next to the book with your name, as why someone would like it. It&apos;s what turns a list into a recommendation.
+            </span>
+          </p>
+        )}
         <ol className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-800">
           {draft.items.map((item, i) => (
             <li key={`${item.workKey ?? item.title}-${i}`} className="p-3">
@@ -210,9 +222,15 @@ const ListEditorModal: FC = () => {
                   <p className="truncate text-sm font-medium">{item.title}</p>
                   <p className="truncate text-xs text-muted-foreground">{item.author}</p>
                   {openNote !== i && (
-                    <button type="button" onClick={() => setOpenNote(i)} className="mt-0.5 max-w-full truncate text-left text-xs text-muted-foreground underline-offset-4 hover:underline hover:text-foreground">
-                      {item.note ? `“${item.note}”` : "Add a note"}
-                    </button>
+                    item.note ? (
+                      <button type="button" onClick={() => setOpenNote(i)} className="mt-0.5 max-w-full truncate text-left text-xs text-muted-foreground underline-offset-4 hover:underline hover:text-foreground">
+                        “{item.note}”{item.noteBy && <span className="not-italic"> · from @{item.noteBy}</span>}
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => setOpenNote(i)} className="mt-0.5 inline-flex max-w-full items-center gap-1 text-left text-xs font-medium underline-offset-4 hover:underline">
+                        <Plus size={12} aria-hidden className="shrink-0" style={{ color: accent }} />Why would someone like it?
+                      </button>
+                    )
                   )}
                 </div>
                 <div className="flex shrink-0">
@@ -228,18 +246,23 @@ const ListEditorModal: FC = () => {
                     rows={2}
                     value={item.note}
                     maxLength={NOTE_MAX}
-                    aria-label={`Note for ${item.title}`}
-                    placeholder="Why it's on the list"
-                    onChange={(e) => setItems(draft.items.map((it, j) => (j === i ? { ...it, note: e.target.value } : it)))}
+                    aria-label={`Why someone would like ${item.title}`}
+                    placeholder="What makes it worth reading? A line in your own words is plenty."
+                    // Rewriting a note carried over from a remix makes it the reader's own.
+                    onChange={(e) => setItems(draft.items.map((it, j) => (j === i ? { ...it, note: e.target.value, noteBy: null } : it)))}
                     onBlur={() => setOpenNote(null)}
                     className={cn(fieldClass, "py-2 resize-y")}
                   />
-                  <p className="mt-1 text-right text-xs tabular-nums text-muted-foreground">{item.note.length}/{NOTE_MAX}</p>
+                  <div className="mt-1 flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+                    <span>{item.noteBy ? `Written by @${item.noteBy}. Edit it to make it yours.` : "Shown with your name as why someone would like it."}</span>
+                    <span className="shrink-0 tabular-nums">{item.note.length}/{NOTE_MAX}</span>
+                  </div>
                 </div>
               )}
             </li>
           ))}
         </ol>
+        </>
       )}
     </div>
   )

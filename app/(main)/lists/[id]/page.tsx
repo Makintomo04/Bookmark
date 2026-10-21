@@ -7,7 +7,9 @@ import { EyeOff, Flag, Lock } from 'lucide-react'
 import Container from '@/app/components/Container'
 import DiscoverBookCard from '@/app/components/discover/DiscoverBookCard'
 import PickBadge from '@/app/components/discover/PickBadge'
-import { EditListButton, FollowButton, ReportListButton } from '@/app/components/discover/ListButtons'
+import { FollowButton, ReportListButton } from '@/app/components/discover/ListButtons'
+import ListActions from '@/app/components/lists/ListActions'
+import RemixInfo from '@/app/components/lists/RemixInfo'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { genreBySlug } from '@/lib/genres'
 import { findList, toEditableList } from '@/lib/lists'
@@ -47,8 +49,9 @@ const Page = async ({ params }: PageProps) => {
             <div className="min-w-0 max-w-3xl">
               <h1 className="text-3xl sm:text-4xl font-bold leading-tight break-words">{list.title}</h1>
               {list.description && <p className="mt-3 text-muted-foreground whitespace-pre-line">{list.description}</p>}
+              <div className="mt-3 empty:hidden"><RemixInfo forkedFrom={list.forkedFrom} remixCount={list.remixCount} /></div>
             </div>
-            {list.canEdit && <div className="shrink-0"><EditListButton list={toEditableList(list)} /></div>}
+            <ListActions listId={list.id} editable={list.canEdit ? toEditableList(list) : null} canCopy={list.canCopy} />
           </div>
 
           {(genres.length > 0 || list.tags.length > 0) && (
@@ -85,7 +88,7 @@ const Page = async ({ params }: PageProps) => {
               <li key={item.id} className="flex">
                 <DiscoverBookCard
                   rank={i + 1}
-                  note={item.note}
+                  reason={item.note && item.curator ? { text: item.note, by: item.curator } : null}
                   book={{ workKey: item.workKey, title: item.title, author: item.author, coverUrl: item.coverUrl, pages: item.pages }}
                 />
               </li>
