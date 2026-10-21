@@ -15,6 +15,7 @@ import useImageUpload from '@/app/hooks/useImageUpload'
 import useUser from '@/app/hooks/useUser'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import DataExport from '../settings/DataExport'
+import InitialAvatar from '../profile/InitialAvatar'
 import PrivacySettings from '../settings/PrivacySettings'
 import ColourSwatches from '../profile/ColourSwatches'
 
@@ -70,7 +71,7 @@ const EditProfileModal: FC = () => {
   const [username, bio, imageSrc, bannerSrc, colour] = watch(["username", "bio", "imageSrc", "bannerSrc", "color"])
   const accent = colour || DEFAULT_COLOUR
   const accentInk = readableInk(accent)
-  const avatarSrc = avatar.preview || imageSrc || "/images/avatar.jpg"
+  const avatarSrc = avatar.preview || imageSrc
   const bannerShown = banner.preview || bannerSrc
 
   const close = () => {
@@ -155,7 +156,9 @@ const EditProfileModal: FC = () => {
           className="group relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-[28px] border-4 border-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           style={{ background: accent }}
         >
-          <Image src={avatarSrc} alt="" fill sizes="96px" unoptimized={!!avatar.preview} className="object-cover" />
+          {avatarSrc
+            ? <Image src={avatarSrc} alt="" fill sizes="96px" unoptimized={!!avatar.preview} className="object-cover" />
+            : <InitialAvatar username={username || user?.username} favColour={accent} />}
           <span className={cn(
             "absolute inset-0 grid place-items-center bg-black/45 text-white transition-opacity",
             avatar.isUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"

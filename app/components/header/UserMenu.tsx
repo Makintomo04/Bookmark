@@ -3,6 +3,7 @@ import { FC, useEffect, useState } from 'react'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
+import InitialAvatar, { avatarColour } from '../profile/InitialAvatar'
 import { useSession, signIn, signOut } from "next-auth/react"
 import { useRouter } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
@@ -20,23 +21,6 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
 
   const { data: session } = useSession()
   const [showMenu, setShowMenu] = useState(false)
-  function getInitials(fullName:string) {
-    // Handle potential empty input
-    if (!fullName) {
-      return "";
-    }
-  
-    // Split full name into words, handling hyphens and apostrophes
-    const words = fullName.trim().split(/[\s-']+/);
-  
-    // Extract first letter of each word, ignoring non-alphabetical words
-    const initials = words
-      .map((word) => word.match(/^\b\w/))
-      .filter((char) => char)
-      .join("");
-  
-    return initials.toUpperCase(); // Uppercase for consistency
-  }
   const handleClick = (e:React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
     setShowMenu(false)
@@ -62,9 +46,10 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <ThemeSwitcher/>
             <NotificationBell/>
 
-        <Avatar className='cursor-pointer ' style={{background: user?.favColour || "#f44336", ...tierRingStyle(booksReadFor(user?.username, booksReadOf(user)))}} onClick={()=>setShowMenu((state)=>!state)}>
-      <AvatarImage src={user?.image || "/images/avatar.jpg"} alt='avatar' />
-      <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
+        <Avatar className='cursor-pointer ' style={{background: avatarColour(user?.favColour), ...tierRingStyle(booksReadFor(user?.username, booksReadOf(user)))}} onClick={()=>setShowMenu((state)=>!state)}>
+      {user?.image && <AvatarImage src={user.image} alt='avatar' />}
+      {/* Also covers a photo that fails to load. */}
+      <AvatarFallback className='bg-transparent'><InitialAvatar username={user?.username} favColour={user?.favColour} label='avatar' /></AvatarFallback>
     </Avatar>
         {showMenu && <div className="w-screen h-screen fixed top-0   md:h-auto md:p-0 md:w-60 bg-background shadow-md md:absolute z-50 right-0 rounded-lg overflow-hidden md:top-10 mt-2 ">
             <div onClick={(e)=>handleClick(e)} className="h-screen w-screen fixed inset-0 bg-red-700/0 -z-50"></div>

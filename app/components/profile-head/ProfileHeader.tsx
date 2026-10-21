@@ -49,7 +49,7 @@ const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
 const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead }) => {
   const accent = colour || "#F13C3C"
   const avatar = (
-    <TierAvatar image={image} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} className="w-24 sm:w-28" />
+    <TierAvatar image={image} username={username} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} className="w-24 sm:w-28" />
   )
 
   return (

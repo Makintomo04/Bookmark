@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { cn } from '@/lib/utils'
+import InitialAvatar from '@/app/components/profile/InitialAvatar'
 import type { Curator, Reason } from '@/lib/listRules'
 
 export const DEFAULT_ACCENT = "#D92D2D"
@@ -13,7 +14,9 @@ export const CuratorAvatar: FC<{ person: Curator, size?: number, className?: str
     className={cn("relative inline-block shrink-0 overflow-hidden", className)}
     style={{ width: size, height: size, borderRadius: Math.round(size * 0.35), background: accentOf(person), ...tierRingStyle(booksReadOf(person)) }}
   >
-    <Image src={person.image || "/images/avatar.jpg"} alt="" fill sizes={`${size}px`} className="object-cover" />
+    {person.image
+      ? <Image src={person.image} alt="" fill sizes={`${size}px`} className="object-cover" />
+      : <InitialAvatar username={person.username} favColour={person.favColour} />}
   </span>
 )
 
