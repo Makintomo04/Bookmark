@@ -3,7 +3,7 @@ import { FC } from 'react'
 import moment from 'moment'
 import type { Book } from '@prisma/client'
 import { Pencil, Repeat2 } from 'lucide-react'
-import { calculatePercentageComplete } from '@/utils/helpers'
+import { formatPosition, progressWhole } from '@/lib/progress'
 import { readableInk } from '@/lib/colour'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import BookCover from './BookCover'
@@ -17,10 +17,10 @@ interface CurrentlyReadingCardProps {
 }
 
 const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColour, readOnly = false, isReread = false }) => {
-  const { title, author, pages, currentPage, startedAt } = book
+  const { title, author, startedAt } = book
   const bookUpdateModal = useBookUpdateModal()
-  const page = currentPage ?? 0
-  const progress = Math.round(calculatePercentageComplete(pages, page))
+  const progress = progressWhole(book)
+  const position = formatPosition(book)
   const accent = accentColour || '#F13C3C'
 
   const openProgress = () => {
@@ -41,7 +41,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
 
   const counts = (
     <div className="flex items-baseline justify-between gap-2 text-sm mb-1.5">
-      <span className="text-muted-foreground tabular-nums">Page {page} of {pages}</span>
+      <span className="text-muted-foreground tabular-nums">{position}</span>
       <span className="font-semibold tabular-nums">{progress}%</span>
     </div>
   )
@@ -84,7 +84,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
           <button
             type="button"
             onClick={openProgress}
-            aria-label={`Update progress for ${title}, page ${page} of ${pages}, ${progress}%`}
+            aria-label={`Update progress for ${title}, ${position}, ${progress}%`}
             className="group mt-auto -mx-2 -mb-2 p-2 rounded-md text-left transition hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
           >
             {counts}

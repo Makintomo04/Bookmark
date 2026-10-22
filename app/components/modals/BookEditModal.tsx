@@ -1,10 +1,9 @@
 "use client"
-import { FC, useEffect } from 'react'
+import { FC, useEffect, useState } from 'react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
 import { notify } from '@/lib/notify'
-import { cn } from '@/lib/utils'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
@@ -16,6 +15,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useBookEditModal from '@/app/hooks/useBookEditModal'
 import { GENRES, isOpenLibraryCover } from '@/utils/helpers'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import FormatPicker, { type FormatChoice, formatPayload } from '../books/FormatPicker'
 
 interface BookEditModalProps {
 
@@ -28,6 +28,7 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
   const { mutate: booksMutate } = useBooks()
   const bookEditModal = useBookEditModal()
   const { book, isOpen, onClose } = bookEditModal
+  const [format, setFormat] = useState<FormatChoice>("PRINT")
 
   const {
     register,
@@ -43,24 +44,31 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
       pages: 0,
       coverImgSrc: "",
       cardColour: "#f44336",
-      genre: ""
+      genre: "",
+      hours: "",
+      minutes: "",
     }
   })
 
   useEffect(() => {
     if (!book) return
+    const audio = book.progressUnit === "MINUTES" && (book.audioMinutes ?? 0) > 0
+    setFormat(audio ? "AUDIOBOOK" : "PRINT")
     reset({
       title: book.title,
       author: book.author,
-      pages: book.pages,
+      pages: book.pages || "",
       coverImgSrc: book.coverImage,
       cardColour: book.cardColour || "#f44336",
-      genre: book.genre || ""
+      genre: book.genre || "",
+      hours: audio ? String(Math.floor((book.audioMinutes ?? 0) / 60)) : "",
+      minutes: audio ? String((book.audioMinutes ?? 0) % 60) : "",
     })
   }, [book, reset])
 
   const coverImgSrc = watch("coverImgSrc")
   const cardColour = watch("cardColour")
+  const isAudio = format === "AUDIOBOOK"
 
   const setCustomValue = (id: string, value: any) => {
     setValue(id, value, {
@@ -76,7 +84,17 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
 
   const onSubmit: SubmitHandler<FieldValues> = (data) => {
     if (!book) return
-    axios.patch(`/api/books/${book.id}`, data).then(() => {
+    const runningTime = (parseInt(data.hours) || 0) * 60 + (parseInt(data.minutes) || 0)
+    if (isAudio && runningTime <= 0) {
+      notify.error("Enter the audiobook's running time")
+      return
+    }
+    if (!isAudio && !(parseInt(data.pages) > 0)) {
+      notify.error("Enter the number of pages")
+      return
+    }
+    const { hours, minutes, ...rest } = data
+    axios.patch(`/api/books/${book.id}`, { ...rest, pages: rest.pages || "", ...formatPayload(format, runningTime) }).then(() => {
       booksMutate()
       copyCoverLater(book.id)
       onClose()
@@ -98,10 +116,24 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
               <Label className="text-md font-bold" htmlFor="author">Author</Label>
               <Input register={register} inputValidation={{ required: true, message: "Author name required" }} errors={errors} name="author" id="author" autoComplete='off' className="max-w-lg" required />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label className="text-md font-bold" htmlFor="pages">Total Pages</Label>
-              <Input register={register} errors={errors} inputValidation={{ min: 1, required: true, message: "Number of Total pages must be greater than 0" }} name="pages" id="pages" autoComplete='off' className="w-[100px]" required />
-            </div>
+            <FormatPicker value={format} onChange={setFormat} />
+            {isAudio ? (
+              <div className="flex flex-col gap-2">
+                <Label className="text-md font-bold" htmlFor="hours">Running time</Label>
+                <div className="flex items-center gap-2">
+                  <Input register={register} errors={errors} type="number" min={0} name="hours" id="hours" placeholder="0" autoComplete='off' className="w-[72px]" />
+                  <span className="text-sm text-muted-foreground">h</span>
+                  <Input register={register} errors={errors} type="number" min={0} max={59} name="minutes" id="minutes" placeholder="00" autoComplete='off' className="w-[72px]" />
+                  <span className="text-sm text-muted-foreground">m</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Progress is logged in minutes listened. Your place is kept as a percent if you switch.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Label className="text-md font-bold" htmlFor="pages">Total Pages</Label>
+                <Input register={register} errors={errors} inputValidation={{ min: 1, message: "Number of Total pages must be greater than 0" }} name="pages" id="pages" autoComplete='off' className="w-[100px]" />
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label className="text-md font-bold" htmlFor="genre">Genre</Label>
               <Input register={register} errors={errors} name="genre" id="genre" list="genre-options-edit" autoComplete='off' className="max-w-lg" placeholder='e.g. Fantasy' />

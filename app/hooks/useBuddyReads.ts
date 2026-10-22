@@ -16,6 +16,9 @@ export type BuddyReadSummary = {
   members: BuddyReadMemberSummary[]
 }
 
+// Whether the reader may host another circle (null when the list was narrowed to one book).
+export type HostingSummary = { allowed: boolean, active: number, limit: number, message: string | null }
+
 export type BuddyReadInviteSummary = {
   id: string
   createdAt: string
@@ -26,10 +29,11 @@ export type BuddyReadInviteSummary = {
 // The reader's reading circles and pending invites; with a bookId, only the ones that shelf book is in.
 export default function useBuddyReads(bookId?: string | null) {
   const key = bookId === null ? null : bookId ? `/api/buddy-reads?bookId=${bookId}` : `/api/buddy-reads`
-  const { data, error, isLoading, mutate } = useSWR<{ buddyReads: BuddyReadSummary[], invites: BuddyReadInviteSummary[] }>(key, fetcher, swrOptions)
+  const { data, error, isLoading, mutate } = useSWR<{ buddyReads: BuddyReadSummary[], hosting: HostingSummary | null, invites: BuddyReadInviteSummary[] }>(key, fetcher, swrOptions)
 
   return {
     buddyReads: data?.buddyReads,
+    hosting: data?.hosting ?? null,
     invites: data?.invites ?? [],
     isLoading,
     isError: error,

@@ -24,6 +24,8 @@ export interface BookSummary {
   title: string;
   author: string;
   pages: number;
+  // Set for an audiobook listened on minutes: its running time.
+  audioMinutes: number | null;
   coverImage: string;
   cardColour: string | null;
   genre: string | null;
@@ -51,6 +53,7 @@ export interface ReadingStats {
   booksRead: number; // distinct books finished at least once
   finishes: number; // completed reads, re-reads included
   pagesRead: number; // pages across every finish
+  minutesListened: number; // audiobook running time across every finish of one
   undatedFinishes: number;
   rereads: number; // finishes beyond each book's first
   rereadBooks: number;
@@ -92,6 +95,8 @@ const bookSelect = {
   title: true,
   author: true,
   pages: true,
+  progressUnit: true,
+  audioMinutes: true,
   coverImage: true,
   cardColour: true,
   genre: true,
@@ -138,6 +143,7 @@ async function loadReadingData(userId: string) {
       title: b.title,
       author: b.author,
       pages: b.pages,
+      audioMinutes: b.progressUnit === "MINUTES" && b.audioMinutes ? b.audioMinutes : null,
       coverImage: b.coverImage,
       cardColour: b.cardColour,
       genre: b.genre,
@@ -249,6 +255,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     booksRead: finished.length,
     finishes: completed.length,
     pagesRead: completed.reduce((sum, f) => sum + f.book.pages, 0),
+    minutesListened: completed.reduce((sum, f) => sum + (f.book.audioMinutes ?? 0), 0),
     undatedFinishes: completed.filter((f) => f.year === null).length,
     rereads: rereadCounts.reduce((sum, n) => sum + n - 1, 0),
     rereadBooks: rereadCounts.length,

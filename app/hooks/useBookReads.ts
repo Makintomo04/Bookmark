@@ -9,6 +9,8 @@ export interface BookReadEntry {
   finishedAt: string | null
   rating: number | null
   stoppedAtPage: number | null
+  // Audiobook reads.
+  stoppedAtMinute: number | null
 }
 
 export default function useBookReads(bookId?: string | null) {

@@ -4,7 +4,7 @@ import moment from 'moment'
 import { Status, type Book } from '@prisma/client'
 import { Bookmark, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { calculatePercentageComplete } from '@/utils/helpers'
+import { formatLength, formatPosition, formatStoppedAt, progressWhole } from '@/lib/progress'
 import useFavourite from '@/app/hooks/useFavourite'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import BookCover from './BookCover'
@@ -35,10 +35,11 @@ const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, 
 }
 
 const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = false }) => {
-  const { title, author, status, rating, pages, currentPage, completedAt, stoppedAt } = book
+  const { title, author, status, rating, completedAt, stoppedAt } = book
   const bookUpdateModal = useBookUpdateModal()
   const isPaused = status === Status.PAUSED
-  const progress = status === Status.STARTED || isPaused ? Math.round(calculatePercentageComplete(pages, currentPage ?? 0)) : 0
+  const progress = status === Status.STARTED || isPaused ? progressWhole(book) : 0
+  const length = formatLength(book)
 
   const openProgress = () => {
     bookUpdateModal.setBookIdState(book.id)
@@ -84,7 +85,7 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
         <p className="mt-0.5 text-sm text-muted-foreground truncate">{author}</p>
 
         {(status === Status.STARTED || isPaused) && (
-          <div className="mt-2 flex items-center gap-2" title={`${isPaused ? "Paused on page" : "Page"} ${currentPage ?? 0} of ${pages}`}>
+          <div className="mt-2 flex items-center gap-2" title={formatPosition(book, { paused: isPaused })}>
             <div
               role="progressbar"
               aria-label={`${title} progress`}
@@ -120,12 +121,12 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
               </span>
             ) : null}
             <span className="tabular-nums">
-              Stopped at p. {currentPage ?? 0}{stoppedAt ? ` · ${moment(stoppedAt).format("MMM YYYY")}` : ""}
+              {formatStoppedAt(book)}{stoppedAt ? ` · ${moment(stoppedAt).format("MMM YYYY")}` : ""}
             </span>
           </p>
         )}
-        {status === Status.NOT_STARTED && pages > 0 && (
-          <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">{pages} pages</p>
+        {status === Status.NOT_STARTED && length && (
+          <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">{length}</p>
         )}
       </div>
     </div>

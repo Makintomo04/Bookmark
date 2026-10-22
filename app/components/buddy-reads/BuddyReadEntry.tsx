@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Users } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import useBuddyReads from '@/app/hooks/useBuddyReads'
+import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import MemberAvatar from './MemberAvatar'
 
 interface BuddyReadEntryProps {
@@ -45,13 +46,16 @@ const BuddyReadEntry: FC<BuddyReadEntryProps> = ({ book, onNavigate }) => {
         )
       })}
       {open.length === 0 && (
-        <Link
-          href={`/circles/new?bookId=${book.id}`}
-          onClick={onNavigate}
-          className="flex w-fit items-center gap-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        >
-          <Users size={16} aria-hidden /> Read it with friends
-        </Link>
+        <div className="flex flex-col gap-1.5">
+          <Link
+            href={`/circles/new?bookId=${book.id}`}
+            onClick={onNavigate}
+            className={`${secondaryButtonClass} w-fit`}
+          >
+            <Users size={16} aria-hidden /> Start a reading circle for this book
+          </Link>
+          <p className="text-xs text-muted-foreground">Share one link. Friends read their own copy, and comments stay locked until they reach that point.</p>
+        </div>
       )}
     </section>
   )

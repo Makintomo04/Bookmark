@@ -12,13 +12,16 @@ import { booksReadCount, booksReadOf } from "@/lib/readerTier";
 import { sameBook } from "@/lib/workKey";
 import {
   BUDDY_READ_MAX_MEMBERS,
+  hostingAllowance,
   makeInviteCode,
   progressPercent,
   scheduleSchema,
   serializeComments,
   type BuddyReadSchedule,
   type CommentAuthor,
+  type HostingAllowance,
 } from "@/lib/buddyReads";
+import { progressSelect, unitOf } from "@/lib/progress";
 
 export const isObjectId = (id: string | null | undefined): id is string => !!id && /^[a-f0-9]{24}$/i.test(id)
 
@@ -66,8 +69,18 @@ export async function newInviteCode() {
 
 const userSelect = { id: true, username: true, image: true, favColour: true, ...booksReadCount } as const
 
-type ProgressBook = Pick<Book, "id" | "status" | "currentPage" | "pages">
-const progressBookSelect = { id: true, status: true, currentPage: true, pages: true } as const
+type ProgressBook = Pick<Book, "id" | "status" | "currentPage" | "pages" | "progressUnit" | "currentMinute" | "audioMinutes">
+const progressBookSelect = { id: true, ...progressSelect } as const
+
+// ---- Hosting ------------------------------------------------------------------------------
+
+// May this reader start another circle? Free accounts host one active circle at a time (the rule is
+// hostingAllowance() in lib/buddyReads.ts); joining is never limited. A later billing slice looks up
+// the reader's plan here and passes it on. The create route refuses with `message` when not allowed.
+export async function canHostAnotherCircle(userId: string): Promise<HostingAllowance> {
+  const active = await prisma.buddyRead.count({ where: { hostId: userId, status: "ACTIVE" } })
+  return hostingAllowance(active, "free")
+}
 
 // A reading circle and the viewer's membership, or null if they aren't in it. Not found and not a member
 // look the same from outside, so ids can't be probed.
@@ -145,6 +158,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       cardColour: buddyRead.cardColour,
       workKey: buddyRead.workKey,
       pages: buddyRead.pages,
+      audioMinutes: buddyRead.audioMinutes,
       startsAt: buddyRead.startsAt.toISOString(),
       status: buddyRead.status,
       schedule: parseSchedule(buddyRead.schedule),
@@ -200,9 +214,13 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
       pages: buddyRead.pages,
       workKey: buddyRead.workKey,
       ...catalogIds(catalog),
+      // The host's scale: a joiner of an audiobook circle starts on minutes too, and can change it.
+      audioMinutes: buddyRead.audioMinutes,
+      progressUnit: unitOf({ progressUnit: "MINUTES", audioMinutes: buddyRead.audioMinutes }),
       status: "STARTED",
       startedAt: now,
       currentPage: 0,
+      currentMinute: 0,
     },
   })
   const firstRead = readFromBook(book)

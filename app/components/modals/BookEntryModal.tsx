@@ -1,5 +1,7 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Users } from 'lucide-react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
@@ -21,6 +23,7 @@ import { readableInk } from '@/lib/colour'
 import BookBlurb from '../books/BookBlurb'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import FormatPicker, { type FormatChoice, formatPayload } from '../books/FormatPicker'
 
 type Shelf = "NOT_STARTED" | "STARTED" | "COMPLETED"
 
@@ -37,6 +40,10 @@ const defaultValues = {
   coverImgSrc: "",
   genre: "",
   currentPage: "",
+  // Audiobooks: the running time and how far in the reader is, in minutes.
+  hours: "",
+  minutes: "",
+  currentMinute: "",
   workKey: "",
   // Which Open Library edition the search hit was, so the catalog files this copy under it.
   editionKey: "",
@@ -46,8 +53,13 @@ const defaultValues = {
 
 const BookEntryModal: FC = () => {
   const { user } = useUser()
+  const router = useRouter()
   const bookEntryModal = useBookEntryModal()
   const [isLoading, setIsLoading] = useState(false)
+  // Print by default; an audiobook logs minutes listened instead of pages.
+  const [format, setFormat] = useState<FormatChoice>("PRINT")
+  // "Start a circle for this book": after adding, go straight to the new-circle form with it chosen.
+  const [startCircle, setStartCircle] = useState(false)
 
   // "search" until a book is picked (or the user opts to type one in), then "shelf".
   const [stage, setStage] = useState<"search" | "shelf">("search")
@@ -61,7 +73,12 @@ const BookEntryModal: FC = () => {
   const { results: searchResults, isSearching, searchFailed } = useBookSearch(query, { enabled: stage === "search", attempt: searchAttempt })
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FieldValues>({ defaultValues })
-  const [title, author, pages, coverImgSrc, workKey] = watch(["title", "author", "pages", "coverImgSrc", "workKey"])
+  const [title, author, pages, coverImgSrc, workKey, hours, minutes] = watch(["title", "author", "pages", "coverImgSrc", "workKey", "hours", "minutes"])
+  const isAudio = format === "AUDIOBOOK"
+  const runningTime = (parseInt(hours) || 0) * 60 + (parseInt(minutes) || 0)
+  const lengthText = isAudio
+    ? runningTime > 0 && `${hours ? `${parseInt(hours)}h` : ""}${minutes ? ` ${parseInt(minutes)}m` : ""}`.trim()
+    : pages && `${pages} pages`
   const year = new Date().getFullYear()
   const [published, setPublished] = useState<number | null>(null)
   const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null)
@@ -70,6 +87,8 @@ const BookEntryModal: FC = () => {
     reset(defaultValues)
     setStage("search")
     setIsEditing(false)
+    setFormat("PRINT")
+    setStartCircle(false)
     setShelf("NOT_STARTED")
     setFinishedThisYear(false)
     setRating(0)
@@ -97,9 +116,16 @@ const BookEntryModal: FC = () => {
       isbn10: result.isbn10 || "",
     })
     setPublished(result.year ?? null)
+    setFormat("PRINT")
     // Open Library doesn't always know the page count, and we need it for progress.
     setIsEditing(!result.pages)
     setStage("shelf")
+  }
+
+  // Switching to Audiobook opens the details so the running time can be typed; it's required.
+  const chooseFormat = (next: FormatChoice) => {
+    setFormat(next)
+    if (next === "AUDIOBOOK") setIsEditing(true)
   }
 
   const handleAddManually = () => {
@@ -110,11 +136,18 @@ const BookEntryModal: FC = () => {
   }
 
   const onSubmit: SubmitHandler<FieldValues> = (data) => {
+    if (isAudio && runningTime <= 0) {
+      setIsEditing(true)
+      notify.error("Enter the audiobook's running time")
+      return
+    }
     setIsLoading(true)
     axios.post("/api/books", {
       title: data.title,
       author: data.author,
-      pages: data.pages,
+      pages: data.pages || undefined,
+      ...formatPayload(format, runningTime),
+      currentMinute: isAudio && shelf === "STARTED" ? data.currentMinute : undefined,
       coverImgSrc: data.coverImgSrc,
       genre: data.genre,
       workKey: data.workKey || undefined,
@@ -132,6 +165,7 @@ const BookEntryModal: FC = () => {
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()
+      if (startCircle && saved?.id && shelf !== "COMPLETED") router.push(`/circles/new?bookId=${saved.id}`)
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't add that book. Try again."))
     }).finally(() => setIsLoading(false))
@@ -180,7 +214,7 @@ const BookEntryModal: FC = () => {
         <div className="min-w-0 flex-1">
           <p className="text-lg font-bold leading-tight break-words">{title || "Untitled"}</p>
           <p className="text-sm text-muted-foreground">
-            {[author || "Unknown author", published, pages && `${pages} pages`].filter(Boolean).join(" · ")}
+            {[author || "Unknown author", published, lengthText].filter(Boolean).join(" · ")}
           </p>
           <div className="flex gap-4 mt-2 text-sm">
             <button type="button" onClick={() => setIsEditing((v) => !v)} className="underline underline-offset-4 text-muted-foreground hover:text-foreground">
@@ -195,6 +229,8 @@ const BookEntryModal: FC = () => {
 
       <BookBlurb description={description} isLoading={isDescriptionLoading} />
 
+      <FormatPicker value={format} onChange={chooseFormat} disabled={isLoading} />
+
       {/* Kept mounted while hidden so validation still runs on these fields. */}
       <div className={cn("grid sm:grid-cols-2 gap-4", !isEditing && "hidden")}>
         <div className="flex flex-col gap-2">
@@ -205,10 +241,22 @@ const BookEntryModal: FC = () => {
           <Label htmlFor="author">Author</Label>
           <Input register={register} errors={errors} inputValidation={{ required: true, message: "Enter an author" }} name="author" id="author" autoComplete="off" disabled={isLoading} />
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="pages">Total pages</Label>
-          <Input register={register} errors={errors} inputValidation={{ required: true, min: 1, message: "Enter the number of pages" }} type="number" min={1} name="pages" id="pages" autoComplete="off" className="w-[120px]" disabled={isLoading} />
-        </div>
+        {isAudio ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="hours">Running time</Label>
+            <div className="flex items-center gap-2">
+              <Input register={register} errors={errors} type="number" min={0} name="hours" id="hours" placeholder="0" autoComplete="off" className="w-[72px]" disabled={isLoading} />
+              <span className="text-sm text-muted-foreground">h</span>
+              <Input register={register} errors={errors} type="number" min={0} max={59} name="minutes" id="minutes" placeholder="00" autoComplete="off" className="w-[72px]" disabled={isLoading} />
+              <span className="text-sm text-muted-foreground">m</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="pages">Total pages</Label>
+            <Input register={register} errors={errors} inputValidation={{ required: true, min: 1, message: "Enter the number of pages" }} type="number" min={1} name="pages" id="pages" autoComplete="off" className="w-[120px]" disabled={isLoading} />
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="genre">Genre <span className="font-normal text-muted-foreground">· optional</span></Label>
           <Input register={register} errors={errors} name="genre" id="genre" list="genre-options" autoComplete="off" placeholder="Fantasy" disabled={isLoading} />
@@ -258,7 +306,7 @@ const BookEntryModal: FC = () => {
         </div>
       </div>
 
-      {shelf === "STARTED" && (
+      {shelf === "STARTED" && !isAudio && (
         <div className="flex flex-col gap-2">
           <Label htmlFor="currentPage">Current page <span className="font-normal text-muted-foreground">· optional</span></Label>
           <div className="flex items-center gap-2">
@@ -266,6 +314,37 @@ const BookEntryModal: FC = () => {
             {pages && <span className="text-sm text-muted-foreground">of {pages}</span>}
           </div>
         </div>
+      )}
+      {shelf === "STARTED" && isAudio && (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="currentMinute">Minutes listened so far <span className="font-normal text-muted-foreground">· optional</span></Label>
+          <div className="flex items-center gap-2">
+            <Input register={register} errors={errors} type="number" min={0} name="currentMinute" id="currentMinute" placeholder="0" autoComplete="off" className="w-[120px]" disabled={isLoading} />
+            {runningTime > 0 && <span className="text-sm text-muted-foreground">of {runningTime}</span>}
+          </div>
+        </div>
+      )}
+
+      {shelf !== "COMPLETED" && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={startCircle}
+          onClick={() => setStartCircle((v) => !v)}
+          disabled={isLoading}
+          className="flex items-start gap-3 text-left w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <span
+            className={cn("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", !startCircle && "bg-neutral-300 dark:bg-neutral-700")}
+            style={startCircle ? { background: user?.favColour || "#D92D2D" } : undefined}
+          >
+            <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", startCircle && "translate-x-5")} />
+          </span>
+          <span>
+            <span className="flex items-center gap-1.5 text-sm font-medium"><Users size={14} aria-hidden /> Start a reading circle for this book</span>
+            <span className="block text-sm text-muted-foreground">Read it with friends: you&apos;ll get an invite link right after adding it.</span>
+          </span>
+        </button>
       )}
 
       {shelf === "COMPLETED" && (
