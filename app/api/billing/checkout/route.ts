@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { appUrl } from "@/lib/siteUrl";
 import { PLUS_PRICING, planStatusOf } from "@/lib/entitlements";
-import { billingIntervalSchema, isStripeConfigured, priceIdFor, stripe } from "@/lib/stripe";
+import { CHECKOUT_INTEGRATION_ID, billingIntervalSchema, isStripeConfigured, priceIdFor, stripe } from "@/lib/stripe";
 
 const bodySchema = z.object({ interval: billingIntervalSchema });
 
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
   const trial = !status.trialUsed;
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
+    integration_identifier: CHECKOUT_INTEGRATION_ID,
     customer: customerId,
     client_reference_id: user.id,
     line_items: [{ price, quantity: 1 }],

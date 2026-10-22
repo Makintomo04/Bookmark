@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import prisma from "@/lib/db";
 import { handleStripeEvent } from "@/lib/billing";
-import { isStripeConfigured, stripe, stripeWebhooks } from "@/lib/stripe";
+import { isStripeConfigured, stripeBillingApi, stripeWebhooks } from "@/lib/stripe";
 
-// Stripe calls this for the events registered on the endpoint (checkout.session.completed,
-// customer.subscription.created/updated/deleted, invoice.payment_failed). The body is read raw
+// Stripe calls this for the events registered on the endpoint: checkout.session.completed,
+// customer.subscription.created/updated/deleted, invoice.paid, invoice.payment_failed, and the risk
+// events charge.dispute.created, charge.refunded and radar.early_fraud_warning.created. The body is read raw
 // so the signature can be checked against STRIPE_WEBHOOK_SECRET; the rules live in lib/billing.ts.
 export const runtime = "nodejs";
 
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
 
   const outcome = await handleStripeEvent(event, {
     db: prisma,
-    retrieveSubscription: isStripeConfigured() ? (id) => stripe().subscriptions.retrieve(id) : undefined,
+    stripe: isStripeConfigured() ? stripeBillingApi() : undefined,
   });
   // 200 even when nothing matched: Stripe would otherwise retry an event we can never use.
   return NextResponse.json({ received: true, ...outcome });

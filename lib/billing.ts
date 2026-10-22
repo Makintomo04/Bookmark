@@ -2,10 +2,15 @@ import type Stripe from "stripe";
 import type { Plan } from "@prisma/client";
 import { PLUS_PRICING } from "./entitlements.ts";
 
-// What Stripe's webhooks do to an account. Pure apart from the database handed in, so the state
-// machine can be tested against a stub: subscription created or renewed → PLUS with the period end;
-// cancelled → FREE; a failed payment → FREE until a retry succeeds (Stripe then sends
-// customer.subscription.updated with status "active", which brings PLUS back).
+// What Stripe's webhooks do to an account. Pure apart from the database and Stripe calls handed in,
+// so the state machine can be tested against stubs:
+//   - subscription created or renewed, or an invoice paid → PLUS with the period end
+//   - cancelled → FREE
+//   - a failed payment → FREE until a retry succeeds (invoice.paid, or customer.subscription.updated
+//     with status "active", brings PLUS back)
+//   - a dispute or an early fraud warning on a subscription charge, or a full refund of one → the
+//     subscription is cancelled in Stripe straight away (no more charges) and the account is FREE.
+//     A partial refund is a goodwill gesture and changes nothing.
 
 // Stripe statuses that mean the reader has Plus right now. "past_due" is deliberately not here: a
 // failed renewal pauses Plus rather than running a grace period we would have to track ourselves.
@@ -79,10 +84,27 @@ export interface BillingDb {
   };
 }
 
+// The Stripe calls the risk events need, to get from a charge to its subscription and stop it.
+// lib/stripe.ts stripeBillingApi() builds these from the real client.
+export interface BillingStripeApi {
+  // The subscription, for its current status and period end.
+  retrieveSubscription(id: string): Promise<Stripe.Subscription>;
+  // A charge's PaymentIntent id, for disputes and fraud warnings that arrive without one.
+  paymentIntentOfCharge(chargeId: string): Promise<string | null>;
+  // Every subscription a PaymentIntent paid an invoice for (API 2025-03-31.basil and later:
+  // InvoicePayments by payment_intent, then each invoice's parent.subscription_details).
+  subscriptionsForPaymentIntent(paymentIntentId: string): Promise<string[]>;
+  // Cancels straight away. Resolves quietly when it's already cancelled.
+  cancelSubscription(id: string): Promise<void>;
+}
+
 export interface BillingDeps {
   db: BillingDb;
-  // Fetches the subscription Checkout created, for its status and period end. Optional so the
-  // handler still works (setting PLUS from the session alone) where Stripe can't be called.
+  // Optional so the handler still works where Stripe can't be called (no secret key): lifecycle
+  // events then use what the event itself carries, and risk events only change the plan locally
+  // for the subscriptions the database already knows.
+  stripe?: BillingStripeApi;
+  // Kept for callers that only need the subscription lookup.
   retrieveSubscription?: (id: string) => Promise<Stripe.Subscription>;
   now?: () => Date;
 }
@@ -108,8 +130,42 @@ async function findUser(db: BillingDb, ids: { subscriptionId?: string | null; cu
 
 const outcome = (handled: boolean, userId: string | null, plan: Plan | null, note: string): BillingOutcome => ({ handled, userId, plan, note });
 
+// The subscription an invoice belongs to (API 2025-03-31.basil and later keep it under parent).
+function subscriptionOfInvoice(invoice: Stripe.Invoice & { subscription?: string | { id: string } | null }) {
+  return idOf(invoice.parent?.subscription_details?.subscription ?? invoice.subscription);
+}
+
+type RiskKind = "dispute" | "early_fraud_warning" | "refund";
+
+// Disputes, early fraud warnings and full refunds end Plus: the subscription is cancelled in Stripe
+// so nothing more is charged, and the account goes back to FREE now rather than waiting for
+// customer.subscription.deleted. The charge is followed to its subscriptions through Stripe's object
+// graph (charge → PaymentIntent → paid InvoicePayments → invoice → subscription).
+async function handleRisk(kind: RiskKind, chargeId: string | null, paymentIntentId: string | null, deps: BillingDeps): Promise<BillingOutcome> {
+  const { db, stripe } = deps;
+  if (!stripe) return outcome(false, null, null, `${kind}: can't resolve the subscription without Stripe access`);
+
+  const intent = paymentIntentId ?? (chargeId ? await stripe.paymentIntentOfCharge(chargeId) : null);
+  if (!intent) return outcome(false, null, null, `${kind}: charge has no PaymentIntent`);
+  const subscriptionIds = await stripe.subscriptionsForPaymentIntent(intent);
+  if (subscriptionIds.length === 0) return outcome(false, null, null, `${kind}: not a subscription charge`);
+
+  let last: BillingOutcome = outcome(false, null, null, `${kind}: no account for the subscription`);
+  for (const subscriptionId of subscriptionIds) {
+    await stripe.cancelSubscription(subscriptionId);
+    const user = await findUser(db, { subscriptionId });
+    if (!user) continue;
+    await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, stripeSubscriptionId: null } });
+    // Server log, so the owner can follow up from the Dashboard (evidence for a dispute, a refund for a fraud warning).
+    console.warn(`[billing] ${kind} on ${subscriptionId}: cancelled the subscription and moved user ${user.id} to FREE`);
+    last = outcome(true, user.id, "FREE", `${kind}: subscription cancelled`);
+  }
+  return last;
+}
+
 export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps): Promise<BillingOutcome> {
   const { db } = deps;
+  const retrieveSubscription = deps.stripe ? (id: string) => deps.stripe!.retrieveSubscription(id) : deps.retrieveSubscription;
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -122,8 +178,8 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       if (!user) return outcome(false, null, null, "no user for checkout session");
 
       let data: PlanUpdate;
-      if (subscriptionId && deps.retrieveSubscription) {
-        data = planUpdateFor(snapshotSubscription(await deps.retrieveSubscription(subscriptionId)));
+      if (subscriptionId && retrieveSubscription) {
+        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)));
       } else {
         // Without the subscription, assume what Checkout always starts: a Plus trial of the full length.
         const now = (deps.now ?? (() => new Date()))();
@@ -157,13 +213,49 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       return outcome(true, user.id, "FREE", "subscription deleted");
     }
 
+    case "invoice.paid": {
+      const invoice = event.data.object;
+      const subscriptionId = subscriptionOfInvoice(invoice);
+      if (!subscriptionId) return outcome(false, null, null, "not a subscription invoice");
+      const user = await findUser(db, { subscriptionId, customerId: idOf(invoice.customer) });
+      if (!user) return outcome(false, null, null, "no user for paid invoice");
+
+      let data: PlanUpdate;
+      if (retrieveSubscription) {
+        // The subscription's own status and period end are the source of truth.
+        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)));
+      } else {
+        // A paid subscription invoice means the period it covers is paid for.
+        data = { plan: "PLUS", planRenewsAt: fromUnix(invoice.lines?.data?.[0]?.period?.end), stripeSubscriptionId: subscriptionId };
+      }
+      await db.user.update({ where: { id: user.id }, data });
+      return outcome(true, user.id, data.plan, "invoice paid");
+    }
+
+    case "charge.dispute.created": {
+      const dispute = event.data.object;
+      return handleRisk("dispute", idOf(dispute.charge), idOf(dispute.payment_intent), deps);
+    }
+
+    case "radar.early_fraud_warning.created": {
+      const warning = event.data.object;
+      return handleRisk("early_fraud_warning", idOf(warning.charge), idOf(warning.payment_intent), deps);
+    }
+
+    case "charge.refunded": {
+      const charge = event.data.object;
+      // `refunded` is only true once the whole charge is refunded.
+      if (!charge.refunded) return outcome(false, null, null, "partial refund: Plus continues");
+      return handleRisk("refund", charge.id, idOf(charge.payment_intent), deps);
+    }
+
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice & { subscription?: string | { id: string } | null };
-      const subscriptionId = idOf(invoice.parent?.subscription_details?.subscription ?? invoice.subscription);
+      const subscriptionId = subscriptionOfInvoice(invoice);
       const customerId = idOf(invoice.customer);
       const user = await findUser(db, { subscriptionId, customerId });
       if (!user) return outcome(false, null, null, "no user for failed invoice");
-      // Plus pauses until a retry succeeds; customer.subscription.updated (active) restores it.
+      // Plus pauses until a retry succeeds; invoice.paid or customer.subscription.updated (active) restores it.
       await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null } });
       return outcome(true, user.id, "FREE", "payment failed");
     }

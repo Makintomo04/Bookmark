@@ -8,10 +8,10 @@ import assert from "node:assert/strict";
 import type Stripe from "stripe";
 import { EntitlementError, allowanceLeft, entitlementErrorBody, entitlementsOf, hasAllowance, isUpgradeRequired, planStatusOf } from "@/lib/entitlements";
 import { hostingAllowance } from "@/lib/buddyReads";
-import { handleStripeEvent, planForStatus, type BillingDb } from "@/lib/billing";
+import { handleStripeEvent, planForStatus, type BillingDb, type BillingStripeApi } from "@/lib/billing";
 import { goalInputSchema, goalProgress, setsExtraGoals } from "@/lib/goals";
 import { personalisationOf, personalisationSchema, setsPersonalisation, shelfAccent } from "@/lib/personalisation";
-import { stripeWebhooks } from "@/lib/stripe";
+import { CHECKOUT_INTEGRATION_ID, stripeWebhooks } from "@/lib/stripe";
 
 // ---- Entitlements ------------------------------------------------------------------------
 
@@ -275,4 +275,104 @@ test("the webhook accepts Stripe's signature over the raw body and rejects a tam
   assert.equal(webhooks.constructEvent(payload, header, secret).type, "customer.subscription.deleted");
   assert.throws(() => webhooks.constructEvent(payload.replace("canceled", "active"), header, secret));
   assert.throws(() => webhooks.constructEvent(payload, header, "whsec_wrong"));
+});
+
+// ---- invoice.paid and the risk events --------------------------------------------------------
+
+// Stripe's object graph for the risk events, as a stub: charge → PaymentIntent → subscriptions.
+function stubStripe(graph: { charges?: Record<string, string | null>; intents?: Record<string, string[]>; subscription?: Stripe.Subscription }) {
+  const cancelled: string[] = [];
+  const api: BillingStripeApi = {
+    async retrieveSubscription() {
+      if (!graph.subscription) throw new Error("no subscription stubbed");
+      return graph.subscription;
+    },
+    async paymentIntentOfCharge(chargeId) { return graph.charges?.[chargeId] ?? null; },
+    async subscriptionsForPaymentIntent(intent) { return graph.intents?.[intent] ?? []; },
+    async cancelSubscription(id) { cancelled.push(id); },
+  };
+  return { api, cancelled };
+}
+
+const paidInvoice = (periodEnd: string) => ({
+  id: "in_2", object: "invoice", customer: "cus_123", status: "paid",
+  parent: { type: "subscription_details", subscription_details: { subscription: "sub_123" } },
+  lines: { object: "list", data: [{ id: "il_1", period: { start: at("2026-11-22T00:00:00Z"), end: at(periodEnd) } }], has_more: false, url: "" },
+});
+
+test("a paid renewal invoice keeps Plus and moves the period end from the subscription", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_123", stripeCustomerId: "cus_123" }]);
+  const { api } = stubStripe({ subscription: subscription({ periodEnd: "2026-12-22T00:00:00Z" }) });
+  const result = await handleStripeEvent(event("invoice.paid", paidInvoice("2026-12-22T00:00:00Z")), { db, stripe: api });
+  assert.equal(result.plan, "PLUS");
+  assert.deepEqual(db.rows[0].planRenewsAt, new Date("2026-12-22T00:00:00Z"));
+});
+
+test("a paid invoice after a failed payment brings Plus back, even without Stripe access", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_123", stripeCustomerId: "cus_123" }]);
+  const failed = { id: "in_1", object: "invoice", customer: "cus_123", parent: { type: "subscription_details", subscription_details: { subscription: "sub_123" } } };
+  await handleStripeEvent(event("invoice.payment_failed", failed), { db });
+  assert.equal(db.rows[0].plan, "FREE");
+
+  await handleStripeEvent(event("invoice.paid", paidInvoice("2026-12-22T00:00:00Z")), { db });
+  assert.equal(db.rows[0].plan, "PLUS");
+  assert.deepEqual(db.rows[0].planRenewsAt, new Date("2026-12-22T00:00:00Z"));
+});
+
+test("a paid invoice that isn't for a subscription changes nothing", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "FREE", stripeCustomerId: "cus_123" }]);
+  const oneOff = { id: "in_3", object: "invoice", customer: "cus_123", parent: null, lines: { data: [] } };
+  assert.equal((await handleStripeEvent(event("invoice.paid", oneOff), { db })).handled, false);
+  assert.equal(db.rows[0].plan, "FREE");
+});
+
+test("a dispute cancels the subscription in Stripe and ends Plus now", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_123" }]);
+  const { api, cancelled } = stubStripe({ intents: { pi_1: ["sub_123"] } });
+  const dispute = { id: "dp_1", object: "dispute", charge: "ch_1", payment_intent: "pi_1" };
+  const result = await handleStripeEvent(event("charge.dispute.created", dispute), { db, stripe: api });
+  assert.equal(result.handled, true);
+  assert.deepEqual(cancelled, ["sub_123"]);
+  assert.equal(db.rows[0].plan, "FREE");
+  assert.equal(db.rows[0].stripeSubscriptionId, null);
+});
+
+test("an early fraud warning without a PaymentIntent is followed through its charge", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_123" }]);
+  const { api, cancelled } = stubStripe({ charges: { ch_9: "pi_9" }, intents: { pi_9: ["sub_123"] } });
+  const warning = { id: "issfr_1", object: "radar.early_fraud_warning", charge: "ch_9", payment_intent: null };
+  await handleStripeEvent(event("radar.early_fraud_warning.created", warning), { db, stripe: api });
+  assert.deepEqual(cancelled, ["sub_123"]);
+  assert.equal(db.rows[0].plan, "FREE");
+});
+
+test("a full refund ends Plus; a partial refund doesn't", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_123" }]);
+  const { api, cancelled } = stubStripe({ intents: { pi_1: ["sub_123"] } });
+  const partial = { id: "ch_1", object: "charge", payment_intent: "pi_1", refunded: false, amount_refunded: 100 };
+  assert.equal((await handleStripeEvent(event("charge.refunded", partial), { db, stripe: api })).handled, false);
+  assert.equal(db.rows[0].plan, "PLUS");
+  assert.deepEqual(cancelled, []);
+
+  const full = { ...partial, refunded: true, amount_refunded: 299 };
+  await handleStripeEvent(event("charge.refunded", full), { db, stripe: api });
+  assert.deepEqual(cancelled, ["sub_123"]);
+  assert.equal(db.rows[0].plan, "FREE");
+});
+
+test("risk events on charges that aren't for a subscription, or without Stripe access, change nothing", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_123" }]);
+  const { api, cancelled } = stubStripe({ charges: { ch_legacy: null }, intents: {} });
+  const unrelated = { id: "dp_2", object: "dispute", charge: "ch_2", payment_intent: "pi_other" };
+  assert.equal((await handleStripeEvent(event("charge.dispute.created", unrelated), { db, stripe: api })).handled, false);
+  const legacy = { id: "dp_3", object: "dispute", charge: "ch_legacy", payment_intent: null };
+  assert.equal((await handleStripeEvent(event("charge.dispute.created", legacy), { db, stripe: api })).handled, false);
+  const dispute = { id: "dp_4", object: "dispute", charge: "ch_1", payment_intent: "pi_1" };
+  assert.equal((await handleStripeEvent(event("charge.dispute.created", dispute), { db })).handled, false);
+  assert.deepEqual(cancelled, []);
+  assert.equal(db.rows[0].plan, "PLUS");
+});
+
+test("Checkout sessions carry a fixed integration identifier with an 8-letter suffix", () => {
+  assert.match(CHECKOUT_INTEGRATION_ID, /^bookmark_plus_checkout_[a-z]{8}$/);
 });
