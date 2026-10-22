@@ -3,9 +3,9 @@ import { Prisma } from "@prisma/client"
 import prisma from "./db"
 import { GENRES } from "./genres"
 import { normaliseWorkKey, sameBook } from "./workKey"
-import { blockedUserIds, canView, canViewUser, privacyOf, privacySelect, visibleReview, type Relation } from "./privacy"
+import { blockedUserIds, canView, canViewUser, getRelation, privacyOf, privacySelect, visibleReview, type Relation } from "./privacy"
 import type { DiscoverBook } from "./openLibrary"
-import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, type Curator } from "./listRules"
+import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
 
 export * from "./listRules"
 
@@ -52,21 +52,49 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
       ...(filters.reported ? [{ reports: { some: {} } }] : []),
     ],
   }
-  const lists = await prisma.list.findMany({
+  const limit = Math.min(filters.limit ?? 24, 50)
+  const found = await prisma.list.findMany({
     where,
     orderBy: filters.featured ? { featuredFrom: "desc" } : { updatedAt: "desc" },
-    take: Math.min(filters.limit ?? 24, 50),
+    // Some may belong to profiles the viewer can't see, so ask for more than will be shown.
+    take: viewer?.isStaff ? limit : limit * 2,
     include: {
-      owner: { select: ownerSelect },
+      owner: { select: { ...ownerSelect, ...privacySelect } },
       items: { orderBy: { position: "asc" }, take: 4, select: { title: true, author: true, coverUrl: true } },
       _count: { select: { items: true, reports: true } },
     },
   })
-  return lists.map(({ _count, ownerId, ...list }) => ({
+  const lists = (await visibleLists(found, viewer)).slice(0, limit)
+  return lists.map(({ _count, ownerId, owner: { profileVisibility, reviewVisibility, hideWantToRead, hideFollowCounts, ...owner }, ...list }) => ({
+    owner,
     ...list,
     itemCount: _count.items,
     reportCount: viewer?.isStaff ? _count.reports : 0,
   }))
+}
+
+// The lists whose owners' profiles the viewer can see (canSeeListOf). One query for the viewer's
+// blocks and one for which of the owners they follow, however many lists there are.
+async function visibleLists<L extends { ownerId: string, isPick: boolean, owner: Parameters<typeof privacyOf>[0] }>(lists: L[], viewer: Viewer): Promise<L[]> {
+  if (viewer?.isStaff) return lists
+  const ownerIds = Array.from(new Set(lists.map((l) => l.ownerId).filter((id) => id !== viewer?.id)))
+  const [blocked, follows] = viewer && ownerIds.length
+    ? await Promise.all([
+        blockedUserIds(viewer.id),
+        prisma.follow.findMany({ where: { followerId: viewer.id, followingId: { in: ownerIds } }, select: { followingId: true } }),
+      ])
+    : [[], []]
+  const blockedIds = new Set(blocked)
+  const followed = new Set(follows.map((f) => f.followingId))
+  return lists.filter((l) => {
+    const relation: Relation = {
+      isSelf: l.ownerId === viewer?.id,
+      isFollower: followed.has(l.ownerId),
+      // Either direction hides everything, so which side blocked doesn't matter here.
+      blocked: blockedIds.has(l.ownerId) ? "byOwner" : null,
+    }
+    return canSeeListOf(l, relation, privacyOf(l.owner))
+  })
 }
 
 // The signed-in reader's own lists, with enough of each item to tell whether a book is already on it.
@@ -90,15 +118,15 @@ export async function findList(id: string, viewer: Viewer) {
   const list = await prisma.list.findFirst({
     where: { AND: [{ id }, visibleTo(viewer)] },
     include: {
-      owner: { select: { id: true, ...ownerSelect } },
+      owner: { select: { id: true, ...ownerSelect, ...privacySelect } },
       items: { orderBy: { position: "asc" } },
     },
   })
   if (!list) return null
+  const relation = await getRelation(viewer?.id, list.ownerId)
+  if (!canSeeListOf(list, relation, privacyOf(list.owner), !!viewer?.isStaff)) return null
 
-  const isFollowing = viewer && viewer.id !== list.ownerId
-    ? !!(await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: viewer.id, followingId: list.ownerId } } }))
-    : false
+  const isFollowing = relation.isFollower
   const isOwner = viewer?.id === list.ownerId
   const isCopyable = list.visibility === "PUBLIC" && !list.hidden && !isOwner
   // Remixes keep the original curator's notes; everyone else's notes are the owner's.
@@ -116,7 +144,7 @@ export async function findList(id: string, viewer: Viewer) {
     // Signed-out readers see the button and get sent to sign up; blocks and private profiles hide it.
     isCopyable && viewer ? canViewUser(viewer.id, list.ownerId) : isCopyable,
   ])
-  const { id: ownerId, ...owner } = list.owner
+  const { id: ownerId, profileVisibility, reviewVisibility, hideWantToRead, hideFollowCounts, ...owner } = list.owner
   const authors = new Map<string, Curator>(noteAuthors.map(({ id, ...author }) => [id, author]))
   return {
     ...list,

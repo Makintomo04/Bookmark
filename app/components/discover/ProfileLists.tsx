@@ -9,6 +9,7 @@ import { ShelfSection } from '../books/shelf'
 import { Skeleton } from '../ui/skeleton'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import ListCard from './ListCard'
+import FetchErrorState from '../FetchErrorState'
 
 interface ProfileListsProps {
   username: string
@@ -16,7 +17,7 @@ interface ProfileListsProps {
 }
 
 const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf }) => {
-  const { lists, isLoading } = useOwnerLists(username)
+  const { lists, isLoading, isError, mutate } = useOwnerLists(username)
   const { onOpen } = useListEditorModal()
   const { user } = useUser()
 
@@ -26,6 +27,10 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf }) => {
         {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
       </div>
     )
+  }
+  if (isError) {
+    // Only the owner gets an error: on someone else's profile a missing section reads the same as none.
+    return isSelf ? <div className="mt-12"><FetchErrorState error={isError} what="your lists" onRetry={() => mutate()} /></div> : null
   }
   // Someone else's profile with no public lists: nothing worth a section.
   if (lists.length === 0 && !isSelf) return null

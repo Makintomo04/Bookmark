@@ -34,7 +34,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       take: 1000,
     }),
     prisma.list.findMany({
-      where: { visibility: 'PUBLIC', hidden: false },
+      // A reader's list is only crawlable while their profile is public; Picks are the team's.
+      where: { visibility: 'PUBLIC', hidden: false, OR: [{ isPick: true }, { owner: publicProfileWhere }] },
       select: { id: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
       take: 1000,
