@@ -44,10 +44,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } }),
   ]);
   if (isMember) return buddyReadError("They're already reading along.", 409);
+  // Someone the host removed only comes back if the host asks them to; inviting them lifts the removal.
+  const removal = await prisma.buddyReadRemoval.findUnique({ where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId: invitee.id } }, select: { id: true } });
+  if (removal && !membership.isHost) return buddyReadError("The host removed them from this reading circle. Only the host can invite them back.", 403);
   if (count >= BUDDY_READ_MAX_MEMBERS) return buddyReadError(`This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, 409);
 
   // Inviting twice is a no-op, so nobody gets a second notification.
   const existing = await prisma.buddyReadInvite.findUnique({ where: { buddyReadId_inviteeId: { buddyReadId: buddyRead.id, inviteeId: invitee.id } } });
+  if (removal) await prisma.buddyReadRemoval.delete({ where: { id: removal.id } });
   if (!existing) {
     await prisma.buddyReadInvite.create({ data: { buddyReadId: buddyRead.id, inviterId: currentUser.id, inviteeId: invitee.id } });
     await prisma.notification.create({

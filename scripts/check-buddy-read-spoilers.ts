@@ -6,10 +6,12 @@
 // Exits non-zero on the first failure.
 import {
   buildTimeline,
+  circleProgress,
   commentPosition,
   progressPercent,
   serializeComments,
   type CommentAuthor,
+  type CommentAuthors,
   type CommentRow,
   type SerializedComment,
 } from "../lib/buddyReads.ts";
@@ -62,6 +64,7 @@ const ownAhead = row("cal", 90)
 const deletedWithReplies = row("ben", 5, { deletedAt: new Date(), body: "" })
 const deletedReply = row("ana", 6, { parentId: deletedWithReplies.id })
 const deletedAlone = row("ana", 7, { deletedAt: new Date() })
+// A writer the viewer blocked (or who blocked them) is missing from the authors map.
 const fromRemovedMember = row("zed", 1, { body: "SECRET-BODY-removed" })
 const end = row("ana", 100)
 
@@ -106,7 +109,7 @@ function checkViewer(userId: string, progress: number) {
     if (!readable) check(`${label}: no name for ${id}`, !json.includes(a.username!))
   }
 
-  check(`${label}: comments from non-members are dropped`, !json.includes("SECRET-BODY-removed") && !json.includes(fromRemovedMember.id))
+  check(`${label}: comments from blocked writers are dropped`, !json.includes("SECRET-BODY-removed") && !json.includes(fromRemovedMember.id))
   check(`${label}: a deleted comment without replies is dropped`, !json.includes(`"${deletedAlone.id}"`))
   return out
 }
@@ -188,6 +191,35 @@ check("minutes round to one decimal", progressPercent({ ...audio, currentMinute:
   for (const minutes of [0, 71, 72, 73, 217, 218, 303, 304, 398, 723, 724]) {
     for (const userId of ["ana", "ben", "cal", "stranger"]) checkViewer(userId, progressPercent({ ...audio, currentMinute: minutes }))
   }
+}
+
+// Closed accounts: their comments stay, without a name, and replies to them still show.
+{
+  const withFormer: CommentAuthors = new Map(authors)
+  withFormer.set("gone", null)
+  const former = row("gone", 20, { body: "FORMER-BODY" })
+  const replyToFormer = row("ana", 25, { parentId: former.id })
+  const formerAhead = row("gone", 80, { body: "FORMER-AHEAD-BODY" })
+  const out = serializeComments([former, replyToFormer, formerAhead], { userId: "ben", progress: 30 }, withFormer)
+  const shown = out.find((c) => c.id === former.id)
+  check("a former member's comment stays", !!shown && !shown.locked && shown.body === "FORMER-BODY")
+  check("a former member's comment is marked as such", !!shown && !shown.locked && shown.formerMember && shown.author === null && shown.authorId === null)
+  check("replies to a former member still show", !!shown && !shown.locked && shown.replies.some((r) => r.id === replyToFormer.id && !r.locked))
+  check("a former member's comment ahead stays locked", out.some((c) => c.id === formerAhead.id && c.locked) && !JSON.stringify(out).includes("FORMER-AHEAD-BODY"))
+  const live = serializeComments([atBoundary], { userId: "ana", progress: 30 }, authors)[0]
+  check("a current member's comment isn't marked former", !!live && !live.locked && !live.formerMember)
+}
+
+// A member's place in a circle is the furthest they've reached there: a re-read or a removed book doesn't re-lock.
+{
+  check("a re-read back at 0% keeps the furthest point", circleProgress(0, 80) === 80)
+  check("a book off the shelf keeps the furthest point", circleProgress(progressPercent(null), 64.2) === 64.2)
+  check("reading on past the furthest point counts", circleProgress(90, 80) === 90)
+  check("a fresh member starts where their copy is", circleProgress(12.5, 0) === 12.5)
+  check("an unset furthest point is 0", circleProgress(30, undefined) === 30)
+  const rereader = serializeComments(rows, { userId: "stranger", progress: circleProgress(0, 50) }, authors)
+  check("a re-reader still sees the 42% comment they'd reached", rereader.some((c) => c.id === ahead.id && !c.locked))
+  check("a re-reader still can't see past their furthest point", flatten(rereader).some((c) => c.id === aheadReply2.id && c.locked))
 }
 
 if (failures > 0) {

@@ -8,7 +8,7 @@ import JoinButton from '@/app/components/buddy-reads/JoinButton'
 import { primaryButtonClass, secondaryButtonClass } from '@/app/components/profile-head/ProfileHeader'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
-import { loadInvite } from '@/lib/buddyReadsServer'
+import { REMOVED_MESSAGE, loadInvite, wasRemoved } from '@/lib/buddyReadsServer'
 import prisma from '@/lib/db'
 
 interface PageProps {
@@ -45,6 +45,7 @@ const Page = async ({ params }: PageProps) => {
     })
     if (isMember) redirect(`/circles/${buddyRead.id}`)
   }
+  const removed = viewer ? await wasRemoved(buddyRead.id, viewer.id) : false
   const full = members.length >= BUDDY_READ_MAX_MEMBERS
 
   return (
@@ -77,7 +78,9 @@ const Page = async ({ params }: PageProps) => {
             </p>
           </div>
 
-          {full ? (
+          {removed ? (
+            <p className="max-w-md text-muted-foreground">{REMOVED_MESSAGE}</p>
+          ) : full ? (
             <p className="text-muted-foreground">This reading circle is full.</p>
           ) : viewer ? (
             <div className="flex flex-col items-center gap-2">

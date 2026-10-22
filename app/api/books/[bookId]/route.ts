@@ -3,7 +3,7 @@ import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { EditionFormat } from "@prisma/client";
-import { convertPosition, progressScale } from "@/lib/progress";
+import { convertPosition, progressScale, readLengthsAfterEdit } from "@/lib/progress";
 import { parseAudioMinutes } from "@/lib/bookInput";
 
 // A new cover is copied to UploadThing afterwards, by ./cover.
@@ -73,34 +73,45 @@ export async function PATCH( request: Request,
   const position = moved ? convertPosition(before.current, before.total, after.total) : null
   const open = book.status === "STARTED" || book.status === "PAUSED"
 
-  const updatedBook = await prisma.book.update({
-    where: {
-      id: bookId
-    },
-    data: {
-      title,
-      author,
-      pages: totalPages,
-      coverImage: coverImgSrc || book.coverImage,
-      cardColour: cardColour || book.cardColour,
-      genre: genre || null,
-      progressUnit: wantsMinutes ? "MINUTES" : book.progressUnit ? "PAGES" : undefined,
-      audioMinutes: runningTime,
-      ...(position !== null && (wantsMinutes ? { currentMinute: position } : { currentPage: position })),
-      // The open read mirrors the book's scale.
-      ...(open && {
-        reads: {
-          updateMany: {
-            where: { status: { in: ["STARTED", "PAUSED"] } },
-            data: {
-              progressUnit: wantsMinutes ? "MINUTES" : "PAGES",
-              audioMinutes: runningTime,
-              currentMinute: wantsMinutes ? position ?? book.currentMinute ?? 0 : null,
+  // Ended reads keep the format and length they were read in: a correction reaches the reads of this
+  // edition, a switch to another format doesn't (lib/progress.ts readLengthsAfterEdit).
+  const updatedBook = await prisma.$transaction(async (tx) => {
+    const ended = await tx.bookRead.findMany({
+      where: { bookId, status: { in: ["COMPLETED", "DNF"] } },
+      select: { id: true, pages: true, progressUnit: true, audioMinutes: true },
+    })
+    const stamps = readLengthsAfterEdit(ended, book, { pages: totalPages, progressUnit: after.unit, audioMinutes: runningTime })
+    for (const { id, data } of stamps) await tx.bookRead.update({ where: { id }, data })
+
+    return tx.book.update({
+      where: {
+        id: bookId
+      },
+      data: {
+        title,
+        author,
+        pages: totalPages,
+        coverImage: coverImgSrc || book.coverImage,
+        cardColour: cardColour || book.cardColour,
+        genre: genre || null,
+        progressUnit: wantsMinutes ? "MINUTES" : book.progressUnit ? "PAGES" : undefined,
+        audioMinutes: runningTime,
+        ...(position !== null && (wantsMinutes ? { currentMinute: position } : { currentPage: position })),
+        // The open read mirrors the book's scale.
+        ...(open && {
+          reads: {
+            updateMany: {
+              where: { status: { in: ["STARTED", "PAUSED"] } },
+              data: {
+                progressUnit: wantsMinutes ? "MINUTES" : "PAGES",
+                audioMinutes: runningTime,
+                currentMinute: wantsMinutes ? position ?? book.currentMinute ?? 0 : null,
+              },
             },
           },
-        },
-      }),
-    }
+        }),
+      }
+    })
   })
   return NextResponse.json(updatedBook)
 }

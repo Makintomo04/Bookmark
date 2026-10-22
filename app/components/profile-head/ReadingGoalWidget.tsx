@@ -1,15 +1,14 @@
 "use client"
 import { FC, useState } from 'react'
-import { Book } from '@prisma/client'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { Pencil, Sparkles, Target } from 'lucide-react'
-import useBooks from '@/app/hooks/useBooks'
+import useGoalProgress from '@/app/hooks/useGoalProgress'
 import useReadingGoal from '@/app/hooks/useReadingGoal'
 import useUser from '@/app/hooks/useUser'
 import { cn } from '@/lib/utils'
 import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
-import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, goalProgress, monthTarget } from '@/lib/goals'
+import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, monthTarget } from '@/lib/goals'
 import { Input as RawInput } from '../ui/input'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import { useForm, FieldValues, SubmitHandler } from 'react-hook-form'
@@ -64,7 +63,7 @@ const ExtraGoal: FC<{ label: string; done: number; target: number; targetLabel?:
 const ReadingGoalWidget: FC = () => {
   const { user } = useUser()
   const year = new Date().getFullYear()
-  const { books } = useBooks()
+  const { progress: counted, isLoading: progressLoading } = useGoalProgress(year)
   const { goal, isLoading, mutate } = useReadingGoal(year)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -75,7 +74,8 @@ const ReadingGoalWidget: FC = () => {
     defaultValues: { targetBooks: 12, targetPages: "", targetBooksPerMonth: "" },
   })
 
-  const progress = goalProgress((books ?? []) as Book[])
+  // Counted on the server from finished reads, as /stats counts them. Nothing yet reads as nothing finished.
+  const progress = counted ?? { books: 0, pages: 0, thisMonth: 0, month: new Date().getMonth() }
   const completedThisYear = progress.books
 
   const startEditing = () => {
@@ -104,7 +104,7 @@ const ReadingGoalWidget: FC = () => {
       .finally(() => setIsSaving(false))
   }
 
-  if (isLoading) return null
+  if (isLoading || progressLoading) return null
 
   const target = goal?.targetBooks
   const colour = user?.favColour || "#F13C3C"

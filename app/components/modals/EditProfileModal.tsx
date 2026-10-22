@@ -5,15 +5,12 @@ import Link from 'next/link'
 import axios from 'axios'
 import { notify } from '@/lib/notify'
 import { useForm } from 'react-hook-form'
-import type { ProfileTheme } from '@prisma/client'
 import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
 import { BIO_MAX, DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN } from '@/lib/profile'
-import { isUpgradeRequired } from '@/lib/entitlements'
-import type { PersonalisationInput } from '@/lib/personalisation'
 import { bannerPresetOf, bannerPresetValue, isBannerPresetValue, resolveBanner } from '@/lib/banners'
 import BannerPattern from '../profile/BannerPattern'
 import BannerPresetPicker from '../profile/BannerPresetPicker'
@@ -22,7 +19,6 @@ import useUser from '@/app/hooks/useUser'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import InitialAvatar from '../profile/InitialAvatar'
 import ColourSwatches from '../profile/ColourSwatches'
-import ProfileStyling from '../profile/ProfileStyling'
 
 type ProfileForm = {
   username: string
@@ -30,9 +26,6 @@ type ProfileForm = {
   imageSrc: string
   bannerSrc: string
   color: string
-  // Plus styling. An empty shelf colour follows the profile colour.
-  profileTheme: ProfileTheme
-  shelfCardColour: string
 }
 
 const fieldClass = "w-full rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
@@ -45,8 +38,8 @@ const EditProfileModal: FC = () => {
   const avatarInput = useRef<HTMLInputElement>(null)
   const bannerInput = useRef<HTMLInputElement>(null)
 
-  const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors, isDirty, dirtyFields } } = useForm<ProfileForm>({
-    defaultValues: { username: "", bio: "", imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR, profileTheme: "CLASSIC", shelfCardColour: "" },
+  const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors, isDirty } } = useForm<ProfileForm>({
+    defaultValues: { username: "", bio: "", imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR },
   })
 
   const setField = (name: keyof ProfileForm, value: string) =>
@@ -66,14 +59,12 @@ const EditProfileModal: FC = () => {
       imageSrc: user.image ?? "",
       bannerSrc: user.banner ?? "",
       color: toHex(user.favColour ?? "") ?? DEFAULT_COLOUR,
-      profileTheme: user.profileTheme ?? "CLASSIC",
-      shelfCardColour: toHex(user.shelfCardColour ?? "") ?? "",
     })
   // Keyed on the id so a background refetch mid-edit doesn't wipe what the user typed.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user?.id, reset])
 
-  const [username, bio, imageSrc, bannerSrc, colour, profileTheme, shelfCardColour] = watch(["username", "bio", "imageSrc", "bannerSrc", "color", "profileTheme", "shelfCardColour"])
+  const [username, bio, imageSrc, bannerSrc, colour] = watch(["username", "bio", "imageSrc", "bannerSrc", "color"])
   const accent = colour || DEFAULT_COLOUR
   const accentInk = readableInk(accent)
   const avatarSrc = avatar.preview || imageSrc
@@ -87,30 +78,16 @@ const EditProfileModal: FC = () => {
     onClose()
   }
 
-  // The profile first, then the Plus styling if it changed, so one Save covers everything in the modal.
-  const onSubmit = async (data: ProfileForm) => {
-    const { profileTheme, shelfCardColour, ...profile } = data
-    const looks: PersonalisationInput = {}
-    if (dirtyFields.profileTheme) looks.profileTheme = profileTheme
-    if (dirtyFields.shelfCardColour) looks.shelfCardColour = shelfCardColour || null
-
+  const onSubmit = async (profile: ProfileForm) => {
     setIsSaving(true)
     try {
       const res = await axios.post("/api/user", { ...profile, username: profile.username.trim(), imageSrc: profile.imageSrc || null, bannerSrc: profile.bannerSrc || null })
-      let saved = res.data?.id ? res.data : user
-      if (res.data?.id) mutate(saved, { revalidate: false })
-      if (Object.keys(looks).length > 0) {
-        const styled = await axios.patch("/api/user/personalisation", looks)
-        saved = { ...saved, ...styled.data }
-        mutate(saved, { revalidate: false })
-      }
+      if (res.data?.id) mutate(res.data, { revalidate: false })
       onClose()
     } catch (err: any) {
       const message = err?.response?.data?.error
       if (err?.response?.status === 409) {
         setError("username", { type: "server", message: message || "That username is already taken." }, { shouldFocus: true })
-      } else if (isUpgradeRequired(err?.response?.data)) {
-        notify.error("Profile themes and shelf colours are part of Plus.")
       } else {
         notify.error(message || "Couldn't save your profile. Check your connection and try again.")
       }
@@ -272,14 +249,6 @@ const EditProfileModal: FC = () => {
     >
       {preview}
       {fields}
-      <ProfileStyling
-        theme={profileTheme}
-        shelfColour={shelfCardColour || null}
-        profileColour={accent}
-        onThemeChange={(t) => setValue("profileTheme", t, { shouldDirty: true })}
-        onShelfColourChange={(c) => setValue("shelfCardColour", c ?? "", { shouldDirty: true })}
-        disabled={isBusy}
-      />
       <p className="border-t pt-4 text-xs text-muted-foreground">
         Theme, privacy, Plus billing and your data are in{" "}
         <Link href="/settings" onClick={close} className="font-medium text-foreground underline-offset-4 hover:underline">Settings</Link>.

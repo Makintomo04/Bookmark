@@ -96,13 +96,18 @@ const BookEntryModal: FC = () => {
   }
 
   useEffect(() => {
-    if (!bookEntryModal.isOpen) resetAll()
+    if (!bookEntryModal.isOpen) {
+      resetAll()
+      return
+    }
+    const startShelf = bookEntryModal.shelf ?? "NOT_STARTED"
+    setShelf(startShelf)
     // Opened from Discover with a book already chosen: skip straight to picking a shelf.
-    else if (bookEntryModal.prefill) handleSelect(bookEntryModal.prefill)
+    if (bookEntryModal.prefill) handleSelect(bookEntryModal.prefill, startShelf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookEntryModal.isOpen])
 
-  const handleSelect = (result: BookSearchResult) => {
+  const handleSelect = (result: BookSearchResult, onShelf: Shelf = shelf) => {
     reset({
       ...defaultValues,
       title: result.title,
@@ -116,9 +121,14 @@ const BookEntryModal: FC = () => {
     })
     setPublished(result.year ?? null)
     setFormat("PRINT")
-    // Open Library doesn't always know the page count, and we need it for progress.
-    setIsEditing(!result.pages)
+    // Open Library doesn't always know the page count. Only progress needs it, so ask only when starting.
+    setIsEditing(!result.pages && onShelf === "STARTED")
     setStage("shelf")
+  }
+
+  const chooseShelf = (next: Shelf) => {
+    setShelf(next)
+    if (next === "STARTED" && !isAudio && !(parseInt(pages) > 0)) setIsEditing(true)
   }
 
   // Switching to Audiobook opens the details so the running time can be typed; it's required.
@@ -252,8 +262,11 @@ const BookEntryModal: FC = () => {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="pages">Total pages</Label>
-            <Input register={register} errors={errors} inputValidation={{ required: true, min: 1, message: "Enter the number of pages" }} type="number" min={1} name="pages" id="pages" autoComplete="off" className="w-[120px]" disabled={isLoading} />
+            <Label htmlFor="pages">Total pages {shelf !== "STARTED" && <span className="font-normal text-muted-foreground">· optional</span>}</Label>
+            <Input register={register} errors={errors} inputValidation={{
+              validate: (v: string) => v ? parseInt(v) >= 1 || "Enter the number of pages"
+                : shelf !== "STARTED" || "Enter the number of pages to track your progress",
+            }} type="number" min={1} name="pages" id="pages" autoComplete="off" className="w-[120px]" disabled={isLoading} />
           </div>
         )}
         <div className="flex flex-col gap-2">
@@ -291,7 +304,7 @@ const BookEntryModal: FC = () => {
               type="button"
               role="radio"
               aria-checked={shelf === s.value}
-              onClick={() => setShelf(s.value)}
+              onClick={() => chooseShelf(s.value)}
               className={cn(
                 "rounded-md py-2 text-sm transition",
                 shelf === s.value

@@ -14,8 +14,19 @@ interface Options {
   attempt?: number
 }
 
-// Book search for the search boxes: books already on Bookmark's shelves show first, then the merged list
-// replaces them once Open Library answers. `isSearching` stays true only while there's nothing to show.
+const bookId = (b: DiscoverBook) => b.workKey || `${b.title}|${b.author}`.toLowerCase()
+
+// Rows already on screen keep their place (the reader may be about to click one); the full search only
+// fills in their details and adds what's new below them.
+function settle(shown: DiscoverBook[], full: DiscoverBook[], limit: number) {
+  const fresh = new Map(full.map((b) => [bookId(b), b]))
+  const kept = shown.map((b) => fresh.get(bookId(b)) ?? b)
+  const keptIds = new Set(kept.map(bookId))
+  return [...kept, ...full.filter((b) => !keptIds.has(bookId(b)))].slice(0, Math.max(limit, kept.length))
+}
+
+// Book search for the search boxes: books already on Bookmark's shelves show first, then Open Library's
+// answer is added beneath them. `isSearching` stays true only while there's nothing to show.
 export default function useBookSearch(query: string, { enabled, limit = 6, attempt = 0 }: Options) {
   const [results, setResults] = useState<DiscoverBook[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -32,7 +43,7 @@ export default function useBookSearch(query: string, { enabled, limit = 6, attem
     // A slower earlier search must not overwrite the results for what's typed now.
     let current = true
     let fullDone = false
-    let shown = 0
+    let shown: DiscoverBook[] = []
     setResults([])
     setIsSearching(true)
     setSearchFailed(false)
@@ -42,7 +53,7 @@ export default function useBookSearch(query: string, { enabled, limit = 6, attem
       axios.get(`${url}&source=shelves`)
         .then((res) => {
           if (!current || fullDone || !Array.isArray(res.data) || res.data.length === 0) return
-          shown = res.data.length
+          shown = res.data
           setResults(res.data)
           setIsSearching(false)
         })
@@ -51,9 +62,9 @@ export default function useBookSearch(query: string, { enabled, limit = 6, attem
 
     const full = setTimeout(() => {
       axios.get(url)
-        .then((res) => { fullDone = true; if (current) setResults(res.data) })
+        .then((res) => { fullDone = true; if (current) setResults(Array.isArray(res.data) ? settle(shown, res.data, limit) : shown) })
         // Shelf matches already on screen are better than an error.
-        .catch(() => { fullDone = true; if (current && shown === 0) { setResults([]); setSearchFailed(true) } })
+        .catch(() => { fullDone = true; if (current && shown.length === 0) { setResults([]); setSearchFailed(true) } })
         .finally(() => { if (current) setIsSearching(false) })
     }, FULL_DELAY)
 

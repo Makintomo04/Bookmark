@@ -1,7 +1,13 @@
+import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import getCurrentUser from "../actions/getCurrentUser";
 import Landing from "../components/landing/Landing";
 import { safeCallbackPath, withCallback } from "@/lib/callbackUrl";
+
+// Logged-out visitors only see this page, so it carries the pitch, not the (main) layout's "Home".
+export const metadata: Metadata = {
+  title: { absolute: "Bookmark — Read with friends, spoiler-free" },
+};
 
 export default async function Home({ searchParams }: { searchParams: { callbackUrl?: string } }) {
   // A valid session whose account no longer exists comes back as null, so it

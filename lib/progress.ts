@@ -97,5 +97,47 @@ export function convertPosition(current: number, fromTotal: number, toTotal: num
   return Math.max(0, Math.min(toTotal, Math.round((current / fromTotal) * toTotal)))
 }
 
+// ---- A read's own length ---------------------------------------------------------------------
+// An ended read keeps the format and length it was read in, so re-listening to a book first read in
+// print doesn't turn the print read into minutes. Book and BookRead both carry these fields.
+
+export type LengthFields = {
+  pages?: number | null
+  progressUnit?: ProgressUnit | null
+  audioMinutes?: number | null
+}
+
+// What an ended read stores: the book's scale as it is now.
+export function lengthSnapshot(book: LengthFields & { pages: number }) {
+  const unit = unitOf(book)
+  return { pages: Math.max(0, book.pages), progressUnit: unit, audioMinutes: unit === "MINUTES" ? book.audioMinutes ?? null : null }
+}
+
+// What one finish adds to the totals: its pages if read on paper or screen, its running time if
+// listened to, never both. A read with no length of its own (it ended before reads kept one) follows the book.
+export function readLength(read: LengthFields, book: LengthFields & { pages: number }): { pages: number, minutes: number } {
+  const from = read.pages != null ? read : book
+  return unitOf(from) === "MINUTES"
+    ? { pages: 0, minutes: from.audioMinutes ?? 0 }
+    : { pages: Math.max(0, from.pages ?? 0), minutes: 0 }
+}
+
+type EndedRead = LengthFields & { id: string }
+
+// Editing a book's format or length, as the updates its ended reads need. The reads of the book as it
+// was (no length of their own yet, or the same format and length) are that edition: a fix within the
+// same format reaches them, while a switch of format leaves them as they were read. Reads of another
+// edition keep their own.
+export function readLengthsAfterEdit(reads: EndedRead[], before: LengthFields & { pages: number }, after: LengthFields & { pages: number }) {
+  const was = lengthSnapshot(before)
+  const now = lengthSnapshot(after)
+  const length = (s: { progressUnit: ProgressUnit, pages: number | null, audioMinutes: number | null }) => (s.progressUnit === "MINUTES" ? s.audioMinutes : s.pages)
+  const sameEdition = (r: EndedRead) => r.pages == null
+    || (unitOf(r) === was.progressUnit && length({ progressUnit: unitOf(r), pages: r.pages ?? null, audioMinutes: r.audioMinutes ?? null }) === length(was))
+  const data = was.progressUnit === now.progressUnit ? now : was
+  const differs = (r: EndedRead) => r.pages !== data.pages || r.progressUnit !== data.progressUnit || (r.audioMinutes ?? null) !== data.audioMinutes
+  return reads.filter((r) => sameEdition(r) && differs(r)).map((r) => ({ id: r.id, data }))
+}
+
 // Quick-add buttons: a few pages, or a quarter-hour to an hour of listening.
 export const QUICK_ADDS: Record<ProgressUnit, number[]> = { PAGES: [10, 25, 50], MINUTES: [15, 30, 60] }

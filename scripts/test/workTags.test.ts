@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MOODS, MOODS_MAX, aggregateTags, moodsFromStoryGraph, parseWarnings, readerTagsSchema } from "@/lib/workTags";
-import { hostingAllowance } from "@/lib/buddyReads";
+import { hostingAllowance, inheritedAllowance } from "@/lib/buddyReads";
 
 test("the mood set is StoryGraph's twelve", () => {
   assert.equal(MOODS.length, 12);
@@ -56,13 +56,23 @@ test("the aggregate counts readers, ranks moods and picks each warning's commone
   assert.equal(aggregateTags([]).readers, 0);
 });
 
-test("free accounts host two active circles at a time", () => {
-  assert.deepEqual(hostingAllowance(0), { allowed: true, active: 0, limit: 2, plan: "free", upgrade: false, message: null });
-  assert.equal(hostingAllowance(1).allowed, true);
-  const blocked = hostingAllowance(2);
+test("free accounts host one active circle at a time", () => {
+  assert.deepEqual(hostingAllowance(0), { allowed: true, active: 0, limit: 1, plan: "free", upgrade: false, message: null });
+  const blocked = hostingAllowance(1);
   assert.equal(blocked.allowed, false);
-  assert.equal(blocked.limit, 2);
-  assert.match(blocked.message ?? "", /already hosting two active circles/);
+  assert.equal(blocked.limit, 1);
+  assert.match(blocked.message ?? "", /already hosting an active circle/);
   assert.match(blocked.message ?? "", /Joining circles is never limited/);
   assert.equal(hostingAllowance(5).allowed, false);
+});
+
+test("circles handed on have their own cap: five on free, none on Plus", () => {
+  assert.equal(inheritedAllowance(4).allowed, true);
+  const full = inheritedAllowance(5);
+  assert.equal(full.allowed, false);
+  assert.equal(full.limit, 5);
+  assert.equal(full.upgrade, true);
+  assert.match(full.message ?? "", /five active circles handed on to you/);
+  assert.equal(inheritedAllowance(50, "plus").allowed, true);
+  assert.equal(inheritedAllowance(50, "plus").limit, null);
 });

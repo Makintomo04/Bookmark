@@ -58,31 +58,30 @@ export function formatPace(perMonth: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
-export interface GoalBook {
-  status: string;
-  completedAt: Date | string | null;
+// One finished read, placed in the reader's calendar (lib/stats.ts). Undated finishes have no year.
+export interface GoalFinish {
+  year: number | null;
+  month: number | null; // 0 to 11
   pages: number;
 }
 
 export interface GoalProgress {
-  // Books finished this year, and their pages.
+  // Finishes this year, re-reads included, and their pages.
   books: number;
   pages: number;
-  // Books finished so far this calendar month.
+  // Finishes so far in `month`.
   thisMonth: number;
   month: number;
 }
 
-// Progress against a goal from the shelf, in the browser's calendar (the widget's view; the stats
-// page recomputes from dated reads in the reader's time zone).
-export function goalProgress(books: GoalBook[], now = new Date()): GoalProgress {
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const done = books.filter((b) => b.status === "COMPLETED" && b.completedAt && new Date(b.completedAt).getFullYear() === year);
+// Progress against a year's goal, counted the way the stats page counts it: every dated finished read,
+// so a book read twice counts twice and starting a re-read doesn't take back the earlier finish.
+export function goalProgress(finishes: GoalFinish[], year: number, month: number): GoalProgress {
+  const done = finishes.filter((f) => f.year === year);
   return {
     books: done.length,
-    pages: done.reduce((sum, b) => sum + (b.pages > 0 ? b.pages : 0), 0),
-    thisMonth: done.filter((b) => new Date(b.completedAt!).getMonth() === month).length,
+    pages: done.reduce((sum, f) => sum + f.pages, 0),
+    thisMonth: done.filter((f) => f.month === month).length,
     month,
   };
 }

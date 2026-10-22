@@ -21,8 +21,8 @@ import { BannerPresetId, defaultBannerPreset, bannerPresetValue } from '@/lib/ba
 import BannerPattern from '@/app/components/profile/BannerPattern'
 import BannerPresetPicker from '@/app/components/profile/BannerPresetPicker'
 
-// Three screens: the profile (username, colour and an optional photo), community choices (genres, privacy,
-// who can invite you), then a few ways to start the shelf. The profile saves at the end of the first, so the
+// Three screens: the profile (username, colour and an optional photo), genres and profile visibility,
+// then a few ways to start the shelf. The profile saves at the end of the first, so the
 // rest are genuinely optional, and readers who arrived from somewhere (e.g. a reading circle invite) skip them
 // and go straight back there.
 
@@ -56,7 +56,7 @@ const Page = () => {
   const avatarInput = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors } } = useForm<ProfileForm>({
-    defaultValues: { username: "", color: DEFAULT_COLOUR, imageSrc: "", banner: "dots" },
+    defaultValues: { username: "", color: DEFAULT_COLOUR, imageSrc: "", banner: "arches" },
   })
   const [username, colour, imageSrc, bannerPreset] = watch(["username", "color", "imageSrc", "banner"])
   const accent = colour || DEFAULT_COLOUR
@@ -245,7 +245,7 @@ const Page = () => {
           icon={<BookOpen size={20} aria-hidden />}
           title="Add the book you're reading"
           description="Search by title or author."
-          onClick={() => { openBookEntry(); router.push(profileHref) }}
+          onClick={() => { openBookEntry(undefined, { shelf: "STARTED" }); router.push(profileHref) }}
         />
         <ShelfOption
           icon={<Upload size={20} aria-hidden />}

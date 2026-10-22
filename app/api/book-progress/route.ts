@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
 import { OPEN_READ_STATUSES, RATING_ERROR, ratingInputSchema, readFromBook } from "@/lib/readHistory";
-import { progressScale } from "@/lib/progress";
+import { lengthSnapshot, progressScale } from "@/lib/progress";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -150,7 +150,8 @@ export async function POST(req: Request) {
           data = at(page)
           break
         case "complete":
-          await updateOpenRead(tx, book, { status: "COMPLETED", finishedAt: now, rating: ratingForRead, ...readAt(scale.total) })
+          // The read keeps the format and length it was read in, whatever the book is changed to later.
+          await updateOpenRead(tx, book, { status: "COMPLETED", finishedAt: now, rating: ratingForRead, ...lengthSnapshot(book), ...readAt(scale.total) })
           data = { status: "COMPLETED", completedAt: now, stoppedAt: null, currentPage: book.pages, timesRead: { increment: 1 }, ...(onMinutes && { currentMinute: scale.total }) }
           break
         case "rate": {
@@ -175,7 +176,7 @@ export async function POST(req: Request) {
         case "dnf": {
           const stoppedAt = page ?? scale.current
           await updateOpenRead(tx, book, {
-            status: "DNF", finishedAt: now, rating: ratingForRead,
+            status: "DNF", finishedAt: now, rating: ratingForRead, ...lengthSnapshot(book),
             ...(onMinutes ? { stoppedAtMinute: stoppedAt, currentMinute: stoppedAt } : { stoppedAtPage: stoppedAt }),
           })
           data = { status: "DNF", stoppedAt: now, ...at(stoppedAt) }

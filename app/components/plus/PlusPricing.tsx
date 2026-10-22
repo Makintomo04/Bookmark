@@ -28,13 +28,12 @@ const FREE_SOON = [
   `Catch me up: ${MONTHLY_ALLOWANCES.recaps.free} recaps a month`,
 ]
 
-// Supporting Bookmark leads, then hosting, goals and looks. AI comes last and is opt-in.
+// Supporting Bookmark leads, then hosting and goals. AI comes last and is opt-in.
 const PLUS = [
   'Everything in Free',
   'Keep Bookmark independent and ad-free, with a supporter badge on your profile',
   'Host as many active circles as you like',
   'A page goal and your own monthly target',
-  'Profile themes and your own shelf card colour',
 ]
 const PLUS_SOON = [
   'Your say on the roadmap, and early access to new features',
@@ -133,7 +132,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
         </span>
         <h1 className="display-hero mt-4">All your stats are free.</h1>
         <p className={cn('mt-4 text-base md:text-lg', mutedClassName)}>
-          Plus adds recaps, hosting tools and personalisation. It never gates your stats, your import, or the circles your friends invite you to.
+          Plus adds recaps, hosting tools and extra goals. It never gates your stats, your import, or the circles your friends invite you to.
         </p>
       </header>
 

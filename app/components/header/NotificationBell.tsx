@@ -21,7 +21,7 @@ interface NotificationBellProps {
 
 }
 
-type NotificationLike = { type: string; achievementKey?: string | null; count?: number | null; buddyRead?: { id: string; title: string; inviteCode: string } | null; quest?: { slug: string; title: string } | null; book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null; actor: { username: string } }
+type NotificationLike = { type: string; achievementKey?: string | null; count?: number | null; buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null; quest?: { slug: string; title: string } | null; book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null; actor: { username: string } }
 
 const notificationCopy = (n: NotificationLike) => {
   const others = (n.count ?? 1) - 1
@@ -33,6 +33,7 @@ const notificationCopy = (n: NotificationLike) => {
     case "BUDDY_READ_INVITE": return `invited you to read ${book} together`
     case "BOOK_RECOMMENDED": return `thinks you'd like ${n.book?.title ?? "a book"}`
     case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your reading circle for ${book}`
+    case "BUDDY_READ_HOSTED": return `handed you the reading circle for ${book}. You're the host now`
     default: return "did something"
   }
 }
@@ -92,6 +93,13 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
               {n.type === "COMMENTS_UNLOCKED" ? (
                 // Not one person's doing: "3 comments unlocked in Dune".
                 <p className="text-sm truncate">🔓 {n.count ?? 1} {n.count === 1 ? "comment" : "comments"} unlocked in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
+              ) : n.type === "BUDDY_READ_HOST_INHERITED" ? (
+                // The old host closed their account, so there's nobody to name.
+                <p className="text-sm line-clamp-2">
+                  {n.buddyRead?.status === "ARCHIVED"
+                    ? <>The host of <span className="font-semibold">{n.buddyRead?.title ?? "a reading circle"}</span> closed their account. It&apos;s yours now, archived until you have room to reopen it.</>
+                    : <>You&apos;re now hosting <span className="font-semibold">{n.buddyRead?.title ?? "a reading circle"}</span>: its host closed their account.</>}
+                </p>
               ) : (
                 <p className="text-sm truncate"><span className="font-semibold">{n.actor.username}</span> {notificationCopy(n)}</p>
               )}

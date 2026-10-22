@@ -1,8 +1,8 @@
 import type { Plan } from "@prisma/client";
 
 // Bookmark Plus: what a plan may do. Pure, so client components and tests can read it off a user
-// with nothing but `plan`. The rule from the strategy: charge for convenience, power and
-// personalisation; gate the host, never the guest; never gate stats or import. Every gated feature
+// with nothing but `plan`. The rule from the strategy: charge for convenience and power;
+// gate the host, never the guest; never gate stats or import. Every gated feature
 // checks these on the server through lib/entitlementsServer.ts, not only in the UI.
 
 // Final prices: the Stripe prices are tax-inclusive (tax_behavior "inclusive"), so readers pay
@@ -57,7 +57,7 @@ export const MONTHLY_ALLOWANCES = {
 
 export type AllowanceKey = keyof typeof MONTHLY_ALLOWANCES;
 
-export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns" | "personalisation";
+export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns";
 
 export interface Entitlements {
   plan: Plan;
@@ -69,8 +69,6 @@ export interface Entitlements {
   extraGoalTypes: boolean;
   // Alternative Wrap card designs (planned). The standard monthly Wrap card is free.
   customWrapDesigns: boolean;
-  // Profile themes and the shelf card colour.
-  personalisation: boolean;
   // Per calendar month; null is unlimited.
   allowances: Record<AllowanceKey, number | null>;
 }
@@ -109,7 +107,6 @@ export function entitlementsOf(user: StoredPlan, now = new Date()): Entitlements
     canHostUnlimited: isPlus,
     extraGoalTypes: isPlus,
     customWrapDesigns: isPlus,
-    personalisation: isPlus,
     allowances: {
       askShelfSearches: MONTHLY_ALLOWANCES.askShelfSearches[tier],
       recaps: MONTHLY_ALLOWANCES.recaps[tier],
@@ -141,10 +138,6 @@ export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string
   customWrapDesigns: {
     title: "Your Wrap, your way",
     message: "Pick other designs for your Wrap cards. The standard monthly card and your year-end Wrapped stay free.",
-  },
-  personalisation: {
-    title: "Make your profile yours",
-    message: "Pick a profile theme and a colour for your shelf cards, and show a supporter badge.",
   },
   askShelfSearches: {
     title: "Ask the shelf, without limits",

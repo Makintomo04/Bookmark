@@ -18,7 +18,7 @@ const BATCH = 500;
 async function main() {
   const books = await prisma.book.findMany({
     where: { status: { in: [...READ_STATUSES] } },
-    select: { id: true, userId: true, status: true, startedAt: true, completedAt: true, stoppedAt: true, rating: true, currentPage: true, progressUnit: true, audioMinutes: true, currentMinute: true, timesRead: true, createdAt: true },
+    select: { id: true, userId: true, status: true, startedAt: true, completedAt: true, stoppedAt: true, rating: true, currentPage: true, pages: true, progressUnit: true, audioMinutes: true, currentMinute: true, timesRead: true, createdAt: true },
   });
   const withReads = new Set(
     (await prisma.bookRead.findMany({ distinct: ["bookId"], select: { bookId: true } })).map((r) => r.bookId)

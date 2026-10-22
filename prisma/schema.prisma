@@ -109,10 +109,6 @@ model User {
   patron               Boolean?
   // Free Plus earned by inviting friends or from a gift code, until this date. No Stripe subscription.
   compPlusUntil        DateTime?
-  // Personalisation (Plus). Null reads as the defaults; see lib/personalisation.ts.
-  profileTheme         ProfileTheme?
-  // #rrggbb for the shelf's cover fallbacks and progress bars, instead of favColour.
-  shelfCardColour      String?
 
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
@@ -121,15 +117,6 @@ model User {
 enum Plan {
   FREE
   PLUS
-}
-
-// How the profile page is dressed. CLASSIC is what every account had before themes existed.
-enum ProfileTheme {
-  CLASSIC
-  // Near-black ground with the reader's colour glowing from a corner, like the reader card.
-  INK
-  // A soft wash of the reader's colour behind the page.
-  TINT
 }
 
 enum ProfileVisibility {
@@ -480,6 +467,11 @@ model BookRead {
   currentMinute Int?
   // For a DNF of an audiobook, the minute the reader stopped at.
   stoppedAtMinute Int?
+  // The book's page count when this read ended, stamped with progressUnit and audioMinutes above, so
+  // stats and Wrapped count each read in the format and length it was read in (lib/progress.ts
+  // readLength). Unset on reads that ended before this existed: those follow the book until an edit
+  // to its format or length stamps them (readLengthsAfterEdit).
+  pages Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -550,6 +542,11 @@ enum NotificationType {
   BUDDY_READ_JOINED
   // Your progress passed other members' comments. Batched per reading circle: count says how many unlocked.
   COMMENTS_UNLOCKED
+  // The host left and handed you the reading circle. actorId is the old host.
+  BUDDY_READ_HOSTED
+  // The host closed their account and the reading circle passed to you. actorId is you (the old host is gone);
+  // if you had no room it arrived archived.
+  BUDDY_READ_HOST_INHERITED
   // You finished a seasonal quest. achievementKey is "QUEST:<questId>".
   QUEST_COMPLETED
   // A friend (someone you both follow) sent you a book, with an optional message.
@@ -715,6 +712,9 @@ model BuddyRead {
   // And its running time when the host listens: a joiner's new shelf copy keeps the same scale.
   audioMinutes Int?
   hostId String @db.ObjectId
+  // Set when hosting was handed on (the host left or closed their account). Inherited circles don't count
+  // against the host's own limit; they have a separate cap (lib/buddyReads.ts INHERITED_HOSTING_LIMIT).
+  inheritedAt DateTime?
   startsAt DateTime
   // Optional reading plan: [{ label: "Chapters 1-5", until: 20, due: "2026-11-01" }], until being a percent.
   schedule Json?
@@ -823,6 +823,18 @@ model BuddyReadInvite {
   @@unique([buddyReadId, inviteeId])
   @@index([inviteeId, createdAt])
   @@index([inviterId])
+}
+
+// A reader the host removed from a reading circle. They can't rejoin through the invite link; an invite
+// from the host lifts it. Plain ids (no relation), like the other circle rows that name a user.
+model BuddyReadRemoval {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String   @db.ObjectId
+  userId      String   @db.ObjectId
+  removedAt   DateTime @default(now())
+
+  @@unique([buddyReadId, userId])
+  @@index([userId])
 }
 
 // ---- Seasonal quests ------------------------------------------------------------------------

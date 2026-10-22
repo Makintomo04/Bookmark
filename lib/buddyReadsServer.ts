@@ -12,14 +12,17 @@ import { booksReadCount, booksReadOf } from "@/lib/readerTier";
 import { sameBook } from "@/lib/workKey";
 import {
   BUDDY_READ_MAX_MEMBERS,
+  circleProgress,
   hostingAllowance,
+  inheritedAllowance,
   makeInviteCode,
   progressPercent,
   scheduleSchema,
   serializeComments,
   type BuddyReadSchedule,
-  type CommentAuthor,
+  type CommentAuthors,
   type HostingAllowance,
+  type HostingPlan,
 } from "@/lib/buddyReads";
 import { progressSelect, unitOf } from "@/lib/progress";
 import { EntitlementError, entitlementsOf, entitlementsSelect } from "@/lib/entitlements";
@@ -36,6 +39,17 @@ export async function isBlockedEitherWay(userA: string, userB: string): Promise<
     select: { id: true },
   })
   return !!block
+}
+
+// The readers among `others` that the viewer has blocked or been blocked by, in one query.
+export async function blockedAmong(viewerId: string, others: string[]): Promise<Set<string>> {
+  const ids = others.filter((id) => id !== viewerId)
+  if (ids.length === 0) return new Set()
+  const blocks = await prisma.block.findMany({
+    where: { OR: [{ blockerId: viewerId, blockedId: { in: ids } }, { blockedId: viewerId, blockerId: { in: ids } }] },
+    select: { blockerId: true, blockedId: true },
+  })
+  return new Set(blocks.map((b) => (b.blockerId === viewerId ? b.blockedId : b.blockerId)))
 }
 
 export const buddyReadError = (error: string, status: number) => NextResponse.json({ error }, { status })
@@ -76,15 +90,34 @@ const progressBookSelect = { id: true, ...progressSelect } as const
 
 // ---- Hosting ------------------------------------------------------------------------------
 
-// May this reader start another circle? Free accounts host two active circles at a time and Plus has
-// no limit (the rule is hostingAllowance() in lib/buddyReads.ts); joining is never limited. The
-// create route refuses with `message` when not allowed.
+// MongoDB: `inheritedAt: null` alone misses circles that never had the field set, which is most of them.
+const startedByHost = { OR: [{ inheritedAt: null }, { inheritedAt: { isSet: false } }] } satisfies Prisma.BuddyReadWhereInput
+const inheritedByHost = { inheritedAt: { not: null } } satisfies Prisma.BuddyReadWhereInput
+
+async function hostingPlanOf(userId: string): Promise<HostingPlan> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: entitlementsSelect })
+  return entitlementsOf(user ?? {}).canHostUnlimited ? "plus" : "free"
+}
+
+// May this reader start another circle? Free accounts host one active circle at a time and Plus has
+// no limit (the rule is hostingAllowance() in lib/buddyReads.ts); joining is never limited. Circles
+// handed on to them don't count. The create route refuses with `message` when not allowed.
 export async function canHostAnotherCircle(userId: string): Promise<HostingAllowance> {
-  const [active, user] = await Promise.all([
-    prisma.buddyRead.count({ where: { hostId: userId, status: "ACTIVE" } }),
-    prisma.user.findUnique({ where: { id: userId }, select: entitlementsSelect }),
+  const [active, plan] = await Promise.all([
+    prisma.buddyRead.count({ where: { hostId: userId, status: "ACTIVE", ...startedByHost } }),
+    hostingPlanOf(userId),
   ])
-  return hostingAllowance(active, entitlementsOf(user ?? {}).canHostUnlimited ? "plus" : "free")
+  return hostingAllowance(active, plan)
+}
+
+// May this reader take on (or reopen) another active circle handed on to them? A separate cap from the
+// circles they start: inheritedAllowance() in lib/buddyReads.ts.
+export async function canInheritAnotherCircle(userId: string): Promise<HostingAllowance> {
+  const [active, plan] = await Promise.all([
+    prisma.buddyRead.count({ where: { hostId: userId, status: "ACTIVE", ...inheritedByHost } }),
+    hostingPlanOf(userId),
+  ])
+  return inheritedAllowance(active, plan)
 }
 
 // The response for a refused HostingAllowance: a 402 with the upgrade body when Plus would lift the
@@ -104,8 +137,8 @@ export async function findMembership(buddyReadId: string, userId: string) {
   })
   if (!member) return null
   const book = await prisma.book.findUnique({ where: { id: member.bookId }, select: { ...progressBookSelect, userId: true } })
-  // A book removed from the shelf counts as not started, so nothing past 0% unlocks.
-  const progress = book && book.userId === userId ? progressPercent(book) : 0
+  // A book removed from the shelf, or a re-read back at page 1, keeps everything the member already reached.
+  const progress = circleProgress(book && book.userId === userId ? progressPercent(book) : 0, member.notifiedProgress)
   return { member, buddyRead: member.buddyRead, progress, isHost: member.buddyRead.hostId === userId }
 }
 
@@ -127,10 +160,21 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const userById = new Map(users.map((u) => [u.id, u]))
   const bookById = new Map(books.map((b) => [b.id, b]))
 
-  const blocked = new Set<string>()
-  for (const m of memberRows) {
-    if (m.userId !== viewerId && (await isBlockedEitherWay(viewerId, m.userId))) blocked.add(m.userId)
-  }
+  const rows = await prisma.buddyReadComment.findMany({
+    where: { buddyReadId },
+    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    take: 2000,
+    include: { reactions: { select: { userId: true, emoji: true } } },
+  })
+  // Writers who are no longer members: those who left keep their name, closed accounts become "former member".
+  // (A membership whose account is gone counts as a past writer too: its comments show as a former member's.)
+  const pastWriterIds = Array.from(new Set(rows.map((r) => r.userId).filter((id) => !userById.has(id))))
+  const [pastWriters, blocked] = await Promise.all([
+    pastWriterIds.length > 0
+      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, image: true, favColour: true } })
+      : Promise.resolve([]),
+    blockedAmong(viewerId, [...memberRows.map((m) => m.userId), ...pastWriterIds]),
+  ])
 
   const members = memberRows.flatMap((m) => {
     const user = userById.get(m.userId)
@@ -143,7 +187,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       image: user.image,
       favColour: user.favColour,
       booksRead: booksReadOf(user),
-      progress: book && book.userId === m.userId ? progressPercent(book) : 0,
+      progress: circleProgress(book && book.userId === m.userId ? progressPercent(book) : 0, m.notifiedProgress),
       isHost: m.userId === buddyRead.hostId,
       isYou: m.userId === viewerId,
       joinedAt: m.joinedAt.toISOString(),
@@ -151,13 +195,13 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
     }]
   })
 
-  const authors = new Map<string, CommentAuthor>(members.map((m) => [m.userId, { username: m.username, image: m.image, favColour: m.favColour }]))
-  const rows = await prisma.buddyReadComment.findMany({
-    where: { buddyReadId },
-    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
-    take: 2000,
-    include: { reactions: { select: { userId: true, emoji: true } } },
-  })
+  const authors: CommentAuthors = new Map(members.map((m) => [m.userId, { username: m.username, image: m.image, favColour: m.favColour }]))
+  const pastWriterById = new Map(pastWriters.map((u) => [u.id, u]))
+  for (const id of pastWriterIds) {
+    if (blocked.has(id)) continue
+    const u = pastWriterById.get(id)
+    authors.set(id, u ? { username: u.username, image: u.image, favColour: u.favColour } : null)
+  }
   // The lock runs here, on the server: bodies past the viewer's progress never leave this function.
   const comments = serializeComments(rows, { userId: viewerId, progress }, authors)
 
@@ -243,6 +287,12 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
   return { bookId: book.id, added: true }
 }
 
+// A reader the host removed can't come back through the link (an invite from the host lifts it).
+export const REMOVED_MESSAGE = "You were removed from this reading circle, so the invite link won't let you back in."
+export async function wasRemoved(buddyReadId: string, userId: string) {
+  return !!(await prisma.buddyReadRemoval.findUnique({ where: { buddyReadId_userId: { buddyReadId, userId } }, select: { id: true } }))
+}
+
 export type JoinResult =
   | { ok: true, buddyReadId: string, alreadyMember: boolean, addedToShelf: boolean }
   | { ok: false, error: string, status: number }
@@ -262,6 +312,7 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
   }
 
   if (await isBlockedEitherWay(userId, buddyRead.hostId)) return { ok: false, error: "You can't join this reading circle.", status: 403 }
+  if (await wasRemoved(buddyRead.id, userId)) return { ok: false, error: REMOVED_MESSAGE, status: 403 }
   const count = await prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } })
   if (count >= BUDDY_READ_MAX_MEMBERS) return { ok: false, error: `This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, status: 409 }
 
@@ -351,19 +402,76 @@ export async function onBuddyReadProgress(userId: string, book: ProgressBook) {
   }
 }
 
+// ---- Handing over hosting ------------------------------------------------------------------
+
+// Account deletion runs these inside its transaction (lib/accountDeletion.ts); everything else uses prisma.
+type Db = Prisma.TransactionClient
+
+// The circle passes to `toUserId`. It's marked inherited, so it counts against their inherited cap rather
+// than the two circles they may start, and they're told about it. `from` is the host who chose them, or
+// null when the host closed their account (then the notification can't name them).
+export async function handOverHosting(buddyRead: BuddyRead, toUserId: string, opts: { from: string | null, archive?: boolean }, db: Db = prisma) {
+  await db.buddyRead.update({
+    where: { id: buddyRead.id },
+    data: { hostId: toUserId, inheritedAt: new Date(), ...(opts.archive && { status: "ARCHIVED" }) },
+  })
+  await db.notification.create({
+    data: opts.from
+      ? { userId: toUserId, actorId: opts.from, type: "BUDDY_READ_HOSTED", buddyReadId: buddyRead.id, count: 1 }
+      : { userId: toUserId, actorId: toUserId, type: "BUDDY_READ_HOST_INHERITED", buddyReadId: buddyRead.id, count: 1 },
+  })
+}
+
+// Who takes over when the host closes their account: the longest-standing member with room for another
+// inherited circle. Room only matters for an active circle. If nobody has room, the longest-standing
+// member gets it archived, and can reopen it once they have room (or Plus). Null when nobody else is in it.
+export async function successorFor(buddyRead: BuddyRead, leavingUserId: string, db: Db = prisma): Promise<{ userId: string, archive: boolean } | null> {
+  const memberRows = await db.buddyReadMember.findMany({
+    where: { buddyReadId: buddyRead.id, userId: { not: leavingUserId } },
+    orderBy: { joinedAt: "asc" },
+    select: { userId: true },
+  })
+  // Memberships can outlive an account closed before deletion cleaned them up.
+  const existing = new Set((await db.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { id: true } })).map((u) => u.id))
+  const candidates = memberRows.map((m) => m.userId).filter((id) => existing.has(id))
+  if (candidates.length === 0) return null
+  if (buddyRead.status !== "ACTIVE") return { userId: candidates[0], archive: false }
+  for (const userId of candidates) {
+    if ((await canInheritAnotherCircle(userId)).allowed) return { userId, archive: false }
+  }
+  return { userId: candidates[0], archive: true }
+}
+
 // ---- Account deletion ---------------------------------------------------------------------
 
-// Reading circle rows reference users by id (no relation), so account deletion should call this.
-export async function deleteBuddyReadDataFor(userId: string) {
-  const hosted = await prisma.buddyRead.findMany({ where: { hostId: userId }, select: { id: true } })
-  const hostedIds = hosted.map((b) => b.id)
-  await prisma.buddyReadReaction.deleteMany({ where: { OR: [{ userId }, { comment: { buddyReadId: { in: hostedIds } } }] } })
-  await prisma.buddyReadCommentReport.deleteMany({ where: { OR: [{ reporterId: userId }, { comment: { buddyReadId: { in: hostedIds } } }] } })
-  // Their comments elsewhere stay as deleted placeholders so other readers' replies keep their place.
-  await prisma.buddyReadComment.updateMany({ where: { userId, buddyReadId: { notIn: hostedIds } }, data: { body: "", deletedAt: new Date() } })
-  await prisma.buddyReadComment.updateMany({ where: { buddyReadId: { in: hostedIds } }, data: { parentId: null } })
-  await prisma.buddyReadComment.deleteMany({ where: { buddyReadId: { in: hostedIds } } })
-  await prisma.buddyReadMember.deleteMany({ where: { OR: [{ userId }, { buddyReadId: { in: hostedIds } }] } })
-  await prisma.buddyReadInvite.deleteMany({ where: { OR: [{ inviteeId: userId }, { inviterId: userId }, { buddyReadId: { in: hostedIds } }] } })
-  await prisma.buddyRead.deleteMany({ where: { id: { in: hostedIds } } })
+// Reading circle rows reference users by id (no relation), so account deletion calls this (pass its
+// transaction as `db`). Circles they host pass to the next member, or end if nobody else is in them.
+// Their comments stay, shown as a former member's, so the conversation around them still reads; their
+// reactions, reports, invites, memberships and removals go.
+export async function deleteBuddyReadDataFor(userId: string, db: Db = prisma) {
+  const hosted = await db.buddyRead.findMany({ where: { hostId: userId } })
+  const ended: string[] = []
+  for (const buddyRead of hosted) {
+    const next = await successorFor(buddyRead, userId, db)
+    if (next) await handOverHosting(buddyRead, next.userId, { from: null, archive: next.archive }, db)
+    else ended.push(buddyRead.id)
+  }
+
+  if (ended.length > 0) {
+    await db.buddyReadReaction.deleteMany({ where: { comment: { buddyReadId: { in: ended } } } })
+    await db.buddyReadCommentReport.deleteMany({ where: { comment: { buddyReadId: { in: ended } } } })
+    await db.buddyReadComment.updateMany({ where: { buddyReadId: { in: ended } }, data: { parentId: null } })
+    await db.buddyReadComment.deleteMany({ where: { buddyReadId: { in: ended } } })
+    await db.buddyReadMember.deleteMany({ where: { buddyReadId: { in: ended } } })
+    await db.buddyReadInvite.deleteMany({ where: { buddyReadId: { in: ended } } })
+    await db.buddyReadRemoval.deleteMany({ where: { buddyReadId: { in: ended } } })
+    await db.notification.deleteMany({ where: { buddyReadId: { in: ended } } })
+    await db.buddyRead.deleteMany({ where: { id: { in: ended } } })
+  }
+
+  await db.buddyReadReaction.deleteMany({ where: { userId } })
+  await db.buddyReadCommentReport.deleteMany({ where: { reporterId: userId } })
+  await db.buddyReadMember.deleteMany({ where: { userId } })
+  await db.buddyReadInvite.deleteMany({ where: { OR: [{ inviteeId: userId }, { inviterId: userId }] } })
+  await db.buddyReadRemoval.deleteMany({ where: { userId } })
 }
