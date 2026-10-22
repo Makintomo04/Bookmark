@@ -5,6 +5,8 @@ import type { Plan } from "@prisma/client";
 // personalisation; gate the host, never the guest; never gate stats or import. Every gated feature
 // checks these on the server through lib/entitlementsServer.ts, not only in the UI.
 
+// Final prices: the Stripe prices are tax-inclusive (tax_behavior "inclusive"), so readers pay
+// exactly these wherever they are, with any VAT or sales tax taken out of them.
 export const PLUS_PRICING = {
   monthly: 2.99,
   yearly: 24.99,

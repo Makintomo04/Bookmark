@@ -175,7 +175,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout }) => {
       </div>
 
       <p className={cn('mx-auto max-w-2xl text-center text-sm', mutedClassName)}>
-        Prices in US dollars. Payments are handled by Stripe; Bookmark never sees your card. Cancel from your settings and Plus stays until the end of the period you paid for.
+        Prices are in US dollars and include any VAT or sales tax. Payments are handled by Stripe; Bookmark never sees your card. Cancel from your settings and Plus stays until the end of the period you paid for.
       </p>
     </div>
   )
