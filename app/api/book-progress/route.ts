@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
 import { OPEN_READ_STATUSES, RATING_ERROR, ratingInputSchema, readFromBook } from "@/lib/readHistory";
+import { progressScale } from "@/lib/progress";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -41,6 +42,9 @@ const bodySchema = z.object({
   // An absolute page is idempotent, unlike pagesUpdate (an increment), so retries can't double-count.
   currentPage: z.number().finite().optional(),
   pagesUpdate: z.union([z.string(), z.number()]).optional(),
+  // Audiobooks: minutes listened, absolute or as an increment. Used only when the book runs on minutes.
+  currentMinute: z.number().finite().optional(),
+  minutesUpdate: z.union([z.string(), z.number()]).optional(),
   rating: ratingInputSchema.optional(),
   review: z.string().max(2000, "Review must be 2000 characters or fewer").optional(),
   // Spoiler reviews show collapsed behind a click-to-reveal; private ones only to the reader (lib/privacy.ts).
@@ -104,14 +108,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: NOT_ALLOWED[action] }, { status: 400 })
   }
 
-  const clampPage = (page: number) => Math.max(0, Math.min(book.pages, Math.round(page)))
-  const increment = body.pagesUpdate === undefined ? NaN : parseInt(String(body.pagesUpdate))
-  const page = body.currentPage !== undefined ? clampPage(body.currentPage)
-    : !isNaN(increment) ? clampPage((book.currentPage ?? 0) + increment)
+  // The book's own scale: pages, or minutes for an audiobook. The position sent in the other unit is
+  // ignored, so an old client that only knows pages can't drag an audiobook back to page 0.
+  const scale = progressScale(book)
+  const onMinutes = scale.unit === "MINUTES"
+  const clampPos = (n: number) => Math.max(0, Math.min(scale.total, Math.round(n)))
+  const absolute = onMinutes ? body.currentMinute : body.currentPage
+  const rawIncrement = onMinutes ? body.minutesUpdate : body.pagesUpdate
+  const increment = rawIncrement === undefined ? NaN : parseInt(String(rawIncrement))
+  const position = absolute !== undefined ? clampPos(absolute)
+    : !isNaN(increment) ? clampPos(scale.current + increment)
     : undefined
-  if (action === "progress" && page === undefined) {
-    return NextResponse.json({ error: "Pages to increment must be greater than 0" }, { status: 400 })
+  if (action === "progress" && position === undefined) {
+    return NextResponse.json({ error: onMinutes ? "Minutes to add must be greater than 0" : "Pages to increment must be greater than 0" }, { status: 400 })
   }
+  // Book mirrors the open read: currentPage for a paper book, currentMinute for an audiobook.
+  const at = (n: number | null | undefined): Prisma.BookUpdateInput => (onMinutes ? { currentMinute: n ?? 0 } : { currentPage: n ?? 0 })
+  const readAt = (n: number | null | undefined): Prisma.BookReadUncheckedUpdateInput => (onMinutes ? { currentMinute: n ?? 0 } : {})
+  const page = position
 
   const now = new Date()
   const ratingForRead = rating !== undefined ? rating : book.rating
@@ -126,14 +140,15 @@ export async function POST(req: Request) {
           // A re-read is a new row: the finished (or abandoned) read keeps its own dates and rating.
           await tx.bookRead.create({ data: { bookId: book.id, userId: book.userId, status: "STARTED", startedAt: now } })
           // completedAt stays as the last finish; goal and stats only count it while the status is COMPLETED.
-          data = { status: "STARTED", startedAt: now, stoppedAt: null, currentPage: action === "start" ? page ?? 0 : 0 }
+          data = { status: "STARTED", startedAt: now, stoppedAt: null, currentPage: 0, currentMinute: 0, ...at(action === "start" ? page ?? 0 : 0) }
           break
         case "progress":
-          data = { currentPage: page }
+          await updateOpenRead(tx, book, readAt(page))
+          data = at(page)
           break
         case "complete":
-          await updateOpenRead(tx, book, { status: "COMPLETED", finishedAt: now, rating: ratingForRead })
-          data = { status: "COMPLETED", completedAt: now, stoppedAt: null, currentPage: book.pages, timesRead: { increment: 1 } }
+          await updateOpenRead(tx, book, { status: "COMPLETED", finishedAt: now, rating: ratingForRead, ...readAt(scale.total) })
+          data = { status: "COMPLETED", completedAt: now, stoppedAt: null, currentPage: book.pages, timesRead: { increment: 1 }, ...(onMinutes && { currentMinute: scale.total }) }
           break
         case "rate": {
           // The rating belongs to the read that just ended, as well as to the book.
@@ -147,23 +162,26 @@ export async function POST(req: Request) {
           break
         }
         case "pause":
-          await updateOpenRead(tx, book, { status: "PAUSED" })
-          data = { status: "PAUSED", stoppedAt: now, currentPage: page ?? book.currentPage }
+          await updateOpenRead(tx, book, { status: "PAUSED", ...readAt(page ?? scale.current) })
+          data = { status: "PAUSED", stoppedAt: now, ...at(page ?? scale.current) }
           break
         case "resume":
-          await updateOpenRead(tx, book, { status: "STARTED" })
-          data = { status: "STARTED", stoppedAt: null, currentPage: page ?? book.currentPage }
+          await updateOpenRead(tx, book, { status: "STARTED", ...readAt(page ?? scale.current) })
+          data = { status: "STARTED", stoppedAt: null, ...at(page ?? scale.current) }
           break
         case "dnf": {
-          const stoppedAtPage = page ?? book.currentPage ?? 0
-          await updateOpenRead(tx, book, { status: "DNF", finishedAt: now, stoppedAtPage, rating: ratingForRead })
-          data = { status: "DNF", stoppedAt: now, currentPage: stoppedAtPage }
+          const stoppedAt = page ?? scale.current
+          await updateOpenRead(tx, book, {
+            status: "DNF", finishedAt: now, rating: ratingForRead,
+            ...(onMinutes ? { stoppedAtMinute: stoppedAt, currentMinute: stoppedAt } : { stoppedAtPage: stoppedAt }),
+          })
+          data = { status: "DNF", stoppedAt: now, ...at(stoppedAt) }
           break
         }
         case "wantToRead":
           // A read put back on the shelf mid-way wasn't really a read; a DNF stays in the history.
           await tx.bookRead.deleteMany({ where: { bookId: book.id, status: { in: [...OPEN_READ_STATUSES] } } })
-          data = { status: "NOT_STARTED", startedAt: null, stoppedAt: null, currentPage: 0 }
+          data = { status: "NOT_STARTED", startedAt: null, stoppedAt: null, currentPage: 0, currentMinute: 0 }
           break
       }
       if (rating !== undefined) data.rating = rating

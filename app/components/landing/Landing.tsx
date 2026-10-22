@@ -7,11 +7,14 @@ import {
   TbBook2,
   TbChartBar,
   TbChevronDown,
-  TbEyeOff,
   TbFileImport,
+  TbHeadphones,
+  TbLock,
   TbMedal,
+  TbShieldHalf,
   TbSparkles,
   TbTarget,
+  TbUsers,
 } from 'react-icons/tb'
 
 // Every claim here has to match something the app really does: no invented
@@ -19,24 +22,24 @@ import {
 
 const features = [
   {
-    icon: TbBook2,
-    title: "Track every page",
-    description: "Log what you're reading, follow your progress page by page, and keep notes and favourite quotes as you go.",
+    icon: TbLock,
+    title: "Nobody gets spoiled",
+    description: "Every comment in a circle is pinned to where its writer was in the book. You see it only once you've read that far. Your own are always open.",
   },
   {
-    icon: TbTarget,
-    title: "Hit your yearly goal",
-    description: "Set a target for the year and watch the bar fill as you finish each book.",
+    icon: TbUsers,
+    title: "One link, any edition",
+    description: "Share an invite link and friends join with their own copy: paperback, ebook or audiobook. Progress is a percent, so everyone's on one track.",
   },
   {
-    icon: TbEyeOff,
-    title: "Buddy reads, no spoilers",
-    description: "Read a book with friends. Everyone's progress sits in one place, and comments stay hidden until you reach them.",
+    icon: TbHeadphones,
+    title: "Audiobooks count",
+    description: "Log an audiobook by minutes listened instead of pages. Circles, stats and your goal treat it just like a print book.",
   },
   {
-    icon: TbMedal,
-    title: "Seasonal quests",
-    description: "Take on a reading challenge and finish it before the season ends to earn a limited-edition medal.",
+    icon: TbShieldHalf,
+    title: "Moods and content warnings",
+    description: "Readers tag a book's moods and content warnings when they review it. Warnings stay folded until you tap, so you decide what you see.",
   },
   {
     icon: TbChartBar,
@@ -50,18 +53,24 @@ const features = [
   },
 ]
 
+const extras = [
+  { icon: TbBook2, text: "Track every page, keep notes and favourite quotes" },
+  { icon: TbTarget, text: "Set a yearly goal and watch the bar fill" },
+  { icon: TbMedal, text: "Finish seasonal quests for limited-edition medals" },
+]
+
 const steps = [
   {
-    title: "Sign up in seconds",
-    description: "Use Google, GitHub or your email. No credit card, nothing to install.",
+    title: "Pick the book",
+    description: "Search for it, or add it straight from your Goodreads or StoryGraph import. Audiobook? Enter the running time.",
   },
   {
-    title: "Add your books",
-    description: "Search for what you're reading now, or import your whole Goodreads or StoryGraph library.",
+    title: "Start a circle and share the link",
+    description: "One tap on the book page. Friends open the link, the book lands on their shelf, and they're in. No account needed to see the invite.",
   },
   {
-    title: "Set a goal and read",
-    description: "Pick a number for the year, update your page as you go, and let Bookmark keep count.",
+    title: "Read, and talk as you go",
+    description: "Post at the point you've reached. Everyone sees where the others are, and comments ahead of you stay locked until you catch up.",
   },
 ]
 
@@ -71,16 +80,20 @@ const faqs = [
     answer: "Yes. Every feature, including your full reading stats, is free. There's no paid plan and nothing locked behind an upgrade.",
   },
   {
+    question: "How do spoilers stay hidden in a circle?",
+    answer: "Each comment is locked to the percent its writer had reached. Until your own progress passes that point, you see only that something is there, not what it says.",
+  },
+  {
+    question: "Do we all need the same edition?",
+    answer: "No. Everyone reads their own copy, and progress is tracked as a percent of it. A friend on the audiobook sees the same track as one on the paperback.",
+  },
+  {
     question: "Can I bring my Goodreads or StoryGraph history?",
     answer: "Yes. Import your shelves, ratings, reviews and reading dates in about a minute, right after you sign up.",
   },
   {
-    question: "Will buddy-read comments spoil the book?",
-    answer: "No. Comments stay hidden until you reach the part of the book they're about, so you can read at your own pace.",
-  },
-  {
     question: "Who can see my shelf?",
-    answer: "Your profile has its own public link, so friends can see what you're reading and follow you.",
+    answer: "Your profile has its own public link, so friends can see what you're reading and follow you. Circles are private to their members.",
   },
 ]
 
@@ -88,24 +101,71 @@ const ctaClassName = "bg-brand-fill hover:bg-brand-fill-hover text-white h-12 px
 const cardClassName = "rounded-[20px] border border-neutral-200 dark:border-neutral-800"
 const mutedClassName = "text-slate-600 dark:text-gray-300/90"
 
+// A still of what a circle looks like: three readers on one track, a locked comment ahead.
+const readers = [
+  { name: "you", at: 42, colour: "#D92D2D" },
+  { name: "Sam", at: 67, colour: "#2F80ED" },
+  { name: "Priya", at: 24, colour: "#27AE60" },
+]
+
+const CircleStill: FC = () => (
+  <div className={`w-full max-w-md p-5 text-left ${cardClassName} bg-background shadow-sm`} aria-hidden>
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Circle</p>
+        <p className="font-bold truncate">The Night We Read Together</p>
+      </div>
+      <span className="shrink-0 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 text-xs font-medium">3 readers</span>
+    </div>
+    <ul className="mt-4 flex flex-col gap-2.5">
+      {readers.map((r) => (
+        <li key={r.name} className="grid grid-cols-[52px_1fr_40px] items-center gap-3 text-sm">
+          <span className="truncate font-medium">{r.name}</span>
+          <span className="relative h-2 rounded-full bg-neutral-200 dark:bg-neutral-800">
+            <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${r.at}%`, background: r.colour }} />
+          </span>
+          <span className="text-right tabular-nums text-muted-foreground">{r.at}%</span>
+        </li>
+      ))}
+    </ul>
+    <div className="mt-4 flex flex-col gap-2">
+      <div className="rounded-xl bg-neutral-100 dark:bg-neutral-900 px-3 py-2 text-sm">
+        <p className="text-xs text-muted-foreground">Priya · at 24%</p>
+        <p>Okay the letter in chapter 6. I had to put it down for a minute.</p>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm text-muted-foreground">
+        <TbLock size={16} aria-hidden className="shrink-0" />
+        2 comments ahead at <span className="font-semibold tabular-nums text-foreground">67%</span>
+      </div>
+    </div>
+  </div>
+)
+
 const Landing: FC = () => {
   return (
     <div className="w-full">
       {/* Hero: one promise, one action. Sign in already lives in the header. */}
-      <section className="flex flex-col items-center text-center px-6 pt-12 pb-16 md:pt-20 md:pb-24">
-        <Image src="/logo.svg" width={48} height={48} alt="Bookmark logo" className="mb-6" />
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.08] tracking-tight max-w-3xl">
-          Read more books, and remember every one.
-        </h1>
-        <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
-          Bookmark logs your reading, keeps you on track for your yearly goal, and turns it all into stats and a year-end Wrapped. Free, with no paywall.
-        </p>
-        <Button asChild className={`${ctaClassName} mt-8`}>
-          <Link href="/register">Start your shelf — it&apos;s free</Link>
-        </Button>
-        <p className={`text-sm mt-4 ${mutedClassName}`}>
-          Coming from Goodreads or StoryGraph? Bring your books with you.
-        </p>
+      <section className="px-6 pt-12 pb-16 md:pt-20 md:pb-24 max-w-6xl mx-auto">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+            <Image src="/logo.svg" width={48} height={48} alt="Bookmark logo" className="mb-6" />
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.08] tracking-tight max-w-3xl">
+              Read with your friends.<br className="hidden sm:block" /> Nobody gets spoiled.
+            </h1>
+            <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
+              Bookmark is the group chat for your book, built so comments stay locked until you reach them. Start a circle, share one link, and read at your own pace. Free, with no paywall.
+            </p>
+            <Button asChild className={`${ctaClassName} mt-8`}>
+              <Link href="/register">Start a circle — it&apos;s free</Link>
+            </Button>
+            <p className={`text-sm mt-4 ${mutedClassName}`}>
+              Paperback, ebook or audiobook: everyone reads their own copy.
+            </p>
+          </div>
+          <div className="flex justify-center lg:justify-end">
+            <CircleStill />
+          </div>
+        </div>
       </section>
 
       {/* Switching is the biggest hurdle for anyone who already tracks their reading elsewhere. */}
@@ -131,9 +191,9 @@ const Landing: FC = () => {
 
       <section className="px-6 py-20 md:py-28 max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Everything a reader needs, nothing they don&apos;t</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Built for reading together</h2>
           <p className={`text-base md:text-lg mt-4 ${mutedClassName}`}>
-            A clean place to keep track of your books, with a little push to read the next one.
+            Circles are the point. Everything else keeps your own reading honest and free.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -147,10 +207,17 @@ const Landing: FC = () => {
             </div>
           ))}
         </div>
+        <ul className="mt-8 flex flex-wrap justify-center gap-x-8 gap-y-3">
+          {extras.map(({ icon: Icon, text }) => (
+            <li key={text} className={`inline-flex items-center gap-2 text-sm ${mutedClassName}`}>
+              <Icon size={18} className="text-brand shrink-0" aria-hidden /> {text}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="px-6 pb-20 md:pb-28 max-w-5xl mx-auto">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center mb-12">Up and running in three steps</h2>
+        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center mb-12">A circle in three steps</h2>
         <ol className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
           {steps.map(({ title, description }, i) => (
             <li key={title} className="flex flex-col items-center text-center md:items-start md:text-left gap-3">
@@ -164,7 +231,7 @@ const Landing: FC = () => {
         </ol>
         <div className="flex justify-center mt-12">
           <Button asChild className={ctaClassName}>
-            <Link href="/register">Start your shelf — it&apos;s free</Link>
+            <Link href="/register">Start a circle — it&apos;s free</Link>
           </Button>
         </div>
       </section>
@@ -185,12 +252,12 @@ const Landing: FC = () => {
       </section>
 
       <section className="flex flex-col items-center text-center px-6 py-16 md:py-24 border-t border-neutral-200 dark:border-neutral-800">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Your next book is waiting</h2>
+        <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Your friends are waiting on chapter one</h2>
         <p className={`text-base md:text-lg mt-4 max-w-md ${mutedClassName}`}>
-          Create a free account and log the book you&apos;re reading right now.
+          Create a free account, pick the book, and send one link.
         </p>
         <Button asChild className={`${ctaClassName} mt-8`}>
-          <Link href="/register">Start your shelf — it&apos;s free</Link>
+          <Link href="/register">Start a circle — it&apos;s free</Link>
         </Button>
       </section>
     </div>

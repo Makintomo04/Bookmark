@@ -3,7 +3,7 @@ import Container from '@/app/components/Container'
 import BuddyReadsList from '@/app/components/buddy-reads/BuddyReadsList'
 
 export const metadata: Metadata = {
-  title: "Buddy reads",
+  title: "Circles",
   description: "Read a book together with friends. Everyone's progress in one place, and comments that stay hidden until you reach them.",
 }
 

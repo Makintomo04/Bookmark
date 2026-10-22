@@ -10,7 +10,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   if (response) return response;
 
   const view = await loadBuddyReadView(params.id, currentUser.id);
-  if (!view) return buddyReadError("Buddy read not found", 404);
+  if (!view) return buddyReadError("Circle not found", 404);
   return NextResponse.json(view, { headers: { "Cache-Control": "private, no-store" } });
 }
 
@@ -20,7 +20,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);
   if (notMember) return notMember;
-  if (!membership.isHost) return buddyReadError("Only the host can change this buddy read.", 403);
+  if (!membership.isHost) return buddyReadError("Only the host can change this circle.", 403);
 
   const parsed = await parseBody(req, updateBuddyReadSchema);
   if (parsed.response) return parsed.response;

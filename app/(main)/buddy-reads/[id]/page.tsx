@@ -11,7 +11,7 @@ interface PageProps {
 
 // Private to members, so the title is generic: no book title in a tab or history for a non-member to see.
 export const metadata: Metadata = {
-  title: "Buddy read",
+  title: "Circle",
   robots: { index: false },
 }
 

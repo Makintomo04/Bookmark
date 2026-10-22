@@ -163,8 +163,15 @@ model Book {
   // Completed reads. Kept in step with BookRead rows whose status is COMPLETED.
   timesRead Int @default(0)
   notes Note[]
+  // 0 is allowed for an audiobook whose print length nobody knows; progress then runs on minutes.
   pages Int
   currentPage Int? @default(0)
+  // Audiobooks: progress is logged as minutes listened out of the edition's running time instead of
+  // pages (lib/progress.ts). Unset means PAGES. audioMinutes is copied from the Edition so per-reader
+  // queries don't need a join; currentMinute mirrors the open read the way currentPage does.
+  progressUnit ProgressUnit?
+  audioMinutes Int?
+  currentMinute Int?
   createdAt DateTime @default(now())
   // These mirror the current (or latest) read so existing queries keep working; BookRead holds the history.
   startedAt DateTime?
@@ -227,8 +234,53 @@ model Work {
 
   editions Edition[]
   books Book[]
+  readerTags ReaderTags[]
 
   @@index([openLibraryKey])
+}
+
+// ---- Moods and content warnings -----------------------------------------------------------
+// What a book feels like and what's in it, from the readers who've finished it. One row per reader per
+// Work (tagged at review time); the book page shows the aggregate (lib/workTags.ts). userId is a
+// scalar, not a relation, so User stays untouched; rows from deleted accounts are skipped when reading.
+
+// StoryGraph's set, so a StoryGraph export's "Moods" column maps straight onto it.
+enum Mood {
+  ADVENTUROUS
+  CHALLENGING
+  DARK
+  EMOTIONAL
+  FUNNY
+  HOPEFUL
+  INFORMATIVE
+  INSPIRING
+  LIGHTHEARTED
+  MYSTERIOUS
+  REFLECTIVE
+  TENSE
+}
+
+enum WarningLevel {
+  MINOR
+  MODERATE
+  GRAPHIC
+}
+
+model ReaderTags {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  workId String @db.ObjectId
+  userId String @db.ObjectId
+  moods Mood[]
+  // [{ "topic": "Sexual assault", "level": "GRAPHIC" }], topics from WARNING_TOPICS in lib/workTags.ts.
+  warnings Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  // One set of tags per reader per work; the prefix covers loading a work's aggregate.
+  @@unique([workId, userId])
+  @@index([userId])
 }
 
 model Edition {
@@ -283,6 +335,13 @@ enum Status {
   PAUSED
 }
 
+// What a read's progress is counted in. PAGES is the default for every read made before this existed.
+enum ProgressUnit {
+  PAGES
+  // Minutes listened, out of the edition's audioMinutes.
+  MINUTES
+}
+
 // One row per time a reader picks a book up. "Read again" closes the current read and opens a new one,
 // so earlier dates and ratings survive. Book.status/startedAt/completedAt/timesRead mirror these rows.
 model BookRead {
@@ -301,6 +360,14 @@ model BookRead {
   rating Float?
   // For a DNF, the page the reader stopped at.
   stoppedAtPage Int?
+  // Audiobook reads: the unit, the edition's running time when the read was open, and how far the
+  // reader got in minutes (kept up to date while the read is open; final once it ends). Book mirrors
+  // the open read's values. Unset on reads made before this existed, which are all in pages.
+  progressUnit ProgressUnit?
+  audioMinutes Int?
+  currentMinute Int?
+  // For a DNF of an audiobook, the minute the reader stopped at.
+  stoppedAtMinute Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -529,6 +596,8 @@ model BuddyRead {
   cardColour String?
   // The host's edition, used as the page count when a joiner gets the book added to their shelf.
   pages Int
+  // And its running time when the host listens: a joiner's new shelf copy keeps the same scale.
+  audioMinutes Int?
   hostId String @db.ObjectId
   startsAt DateTime
   // Optional reading plan: [{ label: "Chapters 1-5", until: 20, due: "2026-11-01" }], until being a percent.

@@ -12,13 +12,16 @@ import { booksReadCount, booksReadOf } from "@/lib/readerTier";
 import { sameBook } from "@/lib/workKey";
 import {
   BUDDY_READ_MAX_MEMBERS,
+  hostingAllowance,
   makeInviteCode,
   progressPercent,
   scheduleSchema,
   serializeComments,
   type BuddyReadSchedule,
   type CommentAuthor,
+  type HostingAllowance,
 } from "@/lib/buddyReads";
+import { progressSelect, unitOf } from "@/lib/progress";
 
 export const isObjectId = (id: string | null | undefined): id is string => !!id && /^[a-f0-9]{24}$/i.test(id)
 
@@ -47,7 +50,7 @@ export async function parseBody<T extends z.ZodTypeAny>(req: Request, schema: T)
 // The membership for a route under /api/buddy-reads/[id], or a 404 (not found and not a member look alike).
 export async function requireMembership(buddyReadId: string, userId: string) {
   const membership = await findMembership(buddyReadId, userId)
-  if (!membership) return { membership: null, response: buddyReadError("Buddy read not found", 404) } as const
+  if (!membership) return { membership: null, response: buddyReadError("Circle not found", 404) } as const
   return { membership, response: null } as const
 }
 
@@ -66,8 +69,18 @@ export async function newInviteCode() {
 
 const userSelect = { id: true, username: true, image: true, favColour: true, ...booksReadCount } as const
 
-type ProgressBook = Pick<Book, "id" | "status" | "currentPage" | "pages">
-const progressBookSelect = { id: true, status: true, currentPage: true, pages: true } as const
+type ProgressBook = Pick<Book, "id" | "status" | "currentPage" | "pages" | "progressUnit" | "currentMinute" | "audioMinutes">
+const progressBookSelect = { id: true, ...progressSelect } as const
+
+// ---- Hosting ------------------------------------------------------------------------------
+
+// May this reader start another circle? Free accounts host one active circle at a time (the rule is
+// hostingAllowance() in lib/buddyReads.ts); joining is never limited. A later billing slice looks up
+// the reader's plan here and passes it on. The create route refuses with `message` when not allowed.
+export async function canHostAnotherCircle(userId: string): Promise<HostingAllowance> {
+  const active = await prisma.buddyRead.count({ where: { hostId: userId, status: "ACTIVE" } })
+  return hostingAllowance(active, "free")
+}
 
 // A buddy read and the viewer's membership, or null if they aren't in it. Not found and not a member
 // look the same from outside, so ids can't be probed.
@@ -145,6 +158,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       cardColour: buddyRead.cardColour,
       workKey: buddyRead.workKey,
       pages: buddyRead.pages,
+      audioMinutes: buddyRead.audioMinutes,
       startsAt: buddyRead.startsAt.toISOString(),
       status: buddyRead.status,
       schedule: parseSchedule(buddyRead.schedule),
@@ -216,7 +230,7 @@ export type JoinResult =
   | { ok: false, error: string, status: number }
 
 export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promise<JoinResult> {
-  if (buddyRead.status === "ARCHIVED") return { ok: false, error: "This buddy read has ended.", status: 410 }
+  if (buddyRead.status === "ARCHIVED") return { ok: false, error: "This circle has ended.", status: 410 }
 
   const existing = await prisma.buddyReadMember.findUnique({ where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId } } })
   if (existing) {
@@ -229,9 +243,9 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
     return { ok: true, buddyReadId: buddyRead.id, alreadyMember: true, addedToShelf: false }
   }
 
-  if (await isBlockedEitherWay(userId, buddyRead.hostId)) return { ok: false, error: "You can't join this buddy read.", status: 403 }
+  if (await isBlockedEitherWay(userId, buddyRead.hostId)) return { ok: false, error: "You can't join this circle.", status: 403 }
   const count = await prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } })
-  if (count >= BUDDY_READ_MAX_MEMBERS) return { ok: false, error: `This buddy read is full (${BUDDY_READ_MAX_MEMBERS} readers).`, status: 409 }
+  if (count >= BUDDY_READ_MAX_MEMBERS) return { ok: false, error: `This circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, status: 409 }
 
   const { bookId, added } = await shelfBookFor(userId, buddyRead)
   const book = await prisma.book.findUnique({ where: { id: bookId }, select: progressBookSelect })

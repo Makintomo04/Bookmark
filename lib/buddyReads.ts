@@ -1,6 +1,7 @@
 // Buddy reads: the rules shared by the API and the client, and the spoiler lock itself.
 // No database or "@/" imports here, so scripts/check-buddy-read-spoilers.ts can run it under plain Node.
 import { z } from "zod";
+import { roundPercent } from "./progress.ts";
 
 export const BUDDY_READ_MAX_MEMBERS = 15
 export const COMMENT_MAX = 2000
@@ -17,19 +18,33 @@ export const COMMENT_REPORT_REASONS = ["Spoiler posted too early", "Hateful or h
 
 // ---- Progress -----------------------------------------------------------------------------
 
-type ProgressBook = { status: string, currentPage: number | null, pages: number }
+// Pages or minutes listened: the maths lives in lib/progress.ts so every surface agrees. Re-exported
+// here because the circle code and scripts/check-buddy-read-spoilers.ts have always taken it from here.
+export { progressPercent, roundPercent, type ProgressBook } from "./progress.ts"
 
-// Members may own different editions, so progress is a percent of their own book. A finished
-// book is 100 whatever its page count says. One decimal place is plenty and keeps JSON short.
-export function progressPercent(book: ProgressBook | null | undefined): number {
-  if (!book) return 0
-  if (book.status === "COMPLETED") return 100
-  if (!(book.pages > 0)) return 0
-  const pct = ((book.currentPage ?? 0) / book.pages) * 100
-  return roundPercent(pct)
+// ---- Hosting ------------------------------------------------------------------------------
+
+// Joining is never limited. Hosting is: a free account runs one active circle at a time. A later
+// billing slice adds a plan that raises the limit; everything that asks "may they host another?"
+// goes through canHostAnotherCircle() in lib/buddyReadsServer.ts, which counts and then calls this.
+export type HostingPlan = "free"
+export const ACTIVE_HOSTED_LIMIT: Record<HostingPlan, number> = { free: 1 }
+
+export type HostingAllowance = { allowed: boolean, active: number, limit: number, message: string | null }
+
+export function hostingAllowance(activeHosted: number, plan: HostingPlan = "free"): HostingAllowance {
+  const limit = ACTIVE_HOSTED_LIMIT[plan]
+  const allowed = activeHosted < limit
+  return {
+    allowed,
+    active: activeHosted,
+    limit,
+    message: allowed ? null
+      : limit === 1
+        ? "You're already hosting an active circle. Mark it as finished or archive it to start another. Joining circles is never limited."
+        : `You're already hosting ${limit} active circles. Finish or archive one to start another. Joining circles is never limited.`,
+  }
 }
-
-export const roundPercent = (n: number) => Math.round(Math.max(0, Math.min(100, n)) * 10) / 10
 
 // ---- Input --------------------------------------------------------------------------------
 

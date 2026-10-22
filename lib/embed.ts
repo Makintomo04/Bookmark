@@ -6,6 +6,7 @@ import { toHex } from "@/lib/colour"
 import type { BadgeShow } from "@/lib/embedUrls"
 import { BRAND, allowedImageUrl } from "@/lib/embedSafe"
 import { siteUrl } from "@/lib/siteUrl";
+import { progressScale, progressSelect, progressWhole } from "@/lib/progress"
 
 export * from "@/lib/embedSafe"
 
@@ -43,13 +44,11 @@ export interface BadgeData {
 }
 
 const bookSelect = {
-  status: true,
   title: true,
   author: true,
   coverImage: true,
   cardColour: true,
-  pages: true,
-  currentPage: true,
+  ...progressSelect,
   startedAt: true,
   createdAt: true,
   completedAt: true,
@@ -79,9 +78,7 @@ export async function getBadgeData(username: string, show: BadgeShow): Promise<B
       author: book.author,
       coverImage: book.coverImage || null,
       cardColour: book.cardColour,
-      progress: show === "reading" && book.pages > 0
-        ? Math.max(0, Math.min(100, Math.round(((book.currentPage ?? 0) / book.pages) * 100)))
-        : null,
+      progress: show === "reading" && progressScale(book).total > 0 ? progressWhole(book) : null,
       completedAt: book.completedAt,
       rating: book.rating,
     },

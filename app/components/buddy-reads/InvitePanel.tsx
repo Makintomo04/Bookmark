@@ -48,7 +48,7 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
   }
 
   if (full) {
-    return <p className="text-sm text-muted-foreground">This buddy read is full ({BUDDY_READ_MAX_MEMBERS} readers).</p>
+    return <p className="text-sm text-muted-foreground">This circle is full ({BUDDY_READ_MAX_MEMBERS} readers).</p>
   }
 
   return (

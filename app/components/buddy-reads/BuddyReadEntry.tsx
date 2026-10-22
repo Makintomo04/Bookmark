@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Users } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import useBuddyReads from '@/app/hooks/useBuddyReads'
+import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import MemberAvatar from './MemberAvatar'
 
 interface BuddyReadEntryProps {
@@ -12,7 +13,7 @@ interface BuddyReadEntryProps {
   onNavigate: () => void
 }
 
-// The way into buddy reads from a shelf book: open the ones it's in, or start one.
+// The way into circles from a shelf book: open the ones it's in, or start one for it.
 const BuddyReadEntry: FC<BuddyReadEntryProps> = ({ book, onNavigate }) => {
   const canStart = book.status === "NOT_STARTED" || book.status === "STARTED" || book.status === "PAUSED"
   const { buddyReads } = useBuddyReads(book.id)
@@ -22,7 +23,7 @@ const BuddyReadEntry: FC<BuddyReadEntryProps> = ({ book, onNavigate }) => {
 
   return (
     <section aria-labelledby="buddy-read-entry" className="flex flex-col gap-2">
-      <h3 id="buddy-read-entry" className="text-sm font-medium">Buddy read</h3>
+      <h3 id="buddy-read-entry" className="text-sm font-medium">Circle</h3>
       {open.map((b) => {
         const others = b.members.length - 1
         return (
@@ -45,13 +46,16 @@ const BuddyReadEntry: FC<BuddyReadEntryProps> = ({ book, onNavigate }) => {
         )
       })}
       {open.length === 0 && (
-        <Link
-          href={`/buddy-reads/new?bookId=${book.id}`}
-          onClick={onNavigate}
-          className="flex w-fit items-center gap-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        >
-          <Users size={16} aria-hidden /> Read it with friends
-        </Link>
+        <div className="flex flex-col gap-1.5">
+          <Link
+            href={`/buddy-reads/new?bookId=${book.id}`}
+            onClick={onNavigate}
+            className={`${secondaryButtonClass} w-fit`}
+          >
+            <Users size={16} aria-hidden /> Start a circle for this book
+          </Link>
+          <p className="text-xs text-muted-foreground">Share one link. Friends read their own copy, and comments stay locked until they reach that point.</p>
+        </div>
       )}
     </section>
   )

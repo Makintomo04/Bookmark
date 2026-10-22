@@ -7,6 +7,7 @@ import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
 import { RATING_ERROR, ratingSchema, readFromBook } from "@/lib/readHistory";
 import { EditionFormat, Status } from "@prisma/client";
 import { z } from "zod";
+import { parseAudioMinutes } from "@/lib/bookInput";
 
 const statusSchema = z.nativeEnum(Status)
 const optionalText = z.string().max(40).nullish()
@@ -46,15 +47,23 @@ return NextResponse.json(books)
 export async function POST(req:Request, res:Response) {
 
   const body = await req.json()
-  const { title, author, coverImgSrc, pages, status, currentPage, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, format } = body
+  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, format, audioMinutes } = body
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
 
-const totalPages = parseInt(pages)
 if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {
   return NextResponse.json({ error: "Title and author are required" }, { status: 400 })
 }
-if (isNaN(totalPages) || totalPages < 1) {
+const parsedFormat = z.nativeEnum(EditionFormat).safeParse(format)
+// An audiobook runs on minutes listened; its page count is optional (Open Library often knows the
+// print length, which keeps "pages read" stats honest, but nobody has to type it).
+const isAudiobook = parsedFormat.success && parsedFormat.data === "AUDIOBOOK"
+const runningTime = isAudiobook ? parseAudioMinutes(audioMinutes) : null
+if (isAudiobook && !runningTime) {
+  return NextResponse.json({ error: "Enter the audiobook's running time" }, { status: 400 })
+}
+const totalPages = pages === undefined || pages === null || pages === "" ? (isAudiobook ? 0 : NaN) : parseInt(pages)
+if (isNaN(totalPages) || totalPages < (isAudiobook ? 0 : 1)) {
   return NextResponse.json({ error: "Pages must be greater than 0" }, { status: 400 })
 }
 const parsedStatus = statusSchema.safeParse(status)
@@ -71,7 +80,7 @@ const shelf = parsedStatus.data
 const isCompleted = shelf === "COMPLETED"
 const isStopped = shelf === "DNF" || shelf === "PAUSED"
 const startPage = Math.max(0, Math.min(totalPages, parseInt(currentPage) || 0))
-const parsedFormat = z.nativeEnum(EditionFormat).safeParse(format)
+const startMinute = runningTime ? Math.max(0, Math.min(runningTime, parseInt(currentMinute) || 0)) : 0
 // The shared catalog: the Work and Edition this copy is of. A search hit carries its work key and
 // usually an edition key or ISBN; a book typed in by hand is filed by title and author.
 const catalog = await linkCatalog(
@@ -82,7 +91,8 @@ const catalog = await linkCatalog(
     isbn10: optionalText.safeParse(isbn10).success ? str(isbn10) : null,
     title: title.trim(),
     author: author.trim(),
-    pages: totalPages,
+    pages: totalPages > 0 ? totalPages : null,
+    audioMinutes: runningTime,
     coverUrl: str(coverImgSrc),
     description: str(description)?.slice(0, DESCRIPTION_MAX) ?? null,
     format: parsedFormat.success ? parsedFormat.data : null,
@@ -104,6 +114,9 @@ const book = await prisma.book.create({
     // The start date only feeds a "Started 3 Mar" label, so default it to today rather than asking.
     startedAt: shelf === "STARTED" ? now : null,
     currentPage: isCompleted ? totalPages : shelf === "STARTED" || isStopped ? startPage : 0,
+    progressUnit: runningTime ? "MINUTES" : null,
+    audioMinutes: runningTime,
+    currentMinute: runningTime ? (isCompleted ? runningTime : shelf === "STARTED" || isStopped ? startMinute : 0) : null,
     // Past reads stay undated so they don't count toward this year's goal;
     // only a book the user says they finished this year gets a completion date.
     completedAt: isCompleted && finishedThisYear ? now : null,

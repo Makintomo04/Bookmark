@@ -161,6 +161,35 @@ check("no page count is 0", progressPercent({ status: "STARTED", currentPage: 50
 check("a missing book is 0", progressPercent(null) === 0)
 check("progress is clamped", progressPercent({ status: "STARTED", currentPage: 500, pages: 200 }) === 100)
 
+// Audiobooks: minutes listened out of the running time, the same percent as pages, so a listener and
+// a reader share one lock. A stale page count on an audiobook never counts.
+const audio = { status: "STARTED", currentPage: 0, pages: 0, progressUnit: "MINUTES" as const, currentMinute: 304, audioMinutes: 724 }
+check("minutes are a percent", progressPercent(audio) === 42)
+check("a print page count on an audiobook is ignored", progressPercent({ ...audio, pages: 400, currentPage: 400 }) === 42)
+check("no running time is 0", progressPercent({ ...audio, audioMinutes: 0 }) === 0 && progressPercent({ ...audio, audioMinutes: null }) === 0)
+check("an audiobook not marked as minutes runs on pages", progressPercent({ ...audio, progressUnit: null, pages: 400, currentPage: 100 }) === 25)
+check("a finished audiobook is 100", progressPercent({ ...audio, status: "COMPLETED", currentMinute: 1 }) === 100)
+check("minutes are clamped", progressPercent({ ...audio, currentMinute: 9999 }) === 100)
+check("minutes round to one decimal", progressPercent({ ...audio, currentMinute: 100 }) === 13.8)
+
+// The lock, driven by minute-based progress: a listener at 42% (304 of 724 minutes) sees the 42%
+// comment and nothing past it; one minute earlier and it's locked.
+{
+  const listener = serializeComments(rows, { userId: "stranger", progress: progressPercent(audio) }, authors)
+  check("a listener at 42% has the 42% comment open", listener.some((c) => c.id === ahead.id && !c.locked))
+  check("a listener at 42% has the 50% reply locked", flatten(listener).some((c) => c.id === aheadReply.id && c.locked))
+  const almost = serializeComments(rows, { userId: "stranger", progress: progressPercent({ ...audio, currentMinute: 303 }) }, authors)
+  check("one minute short of 42% keeps the 42% comment locked", almost.some((c) => c.id === ahead.id && c.locked))
+  check("a locked body never reaches a listener", !JSON.stringify(almost).includes(`SECRET-BODY-${ahead.id}-END`))
+  // Posting from an audiobook: the position defaults to the listener's percent and can't be raised.
+  check("a listener's comment sits at their percent", commentPosition(undefined, progressPercent(audio)) === 42)
+  check("a listener can't post ahead of their minutes", commentPosition(80, progressPercent(audio)) === 42)
+  // The whole sweep again, at minute-derived progress on and around each boundary.
+  for (const minutes of [0, 71, 72, 73, 217, 218, 303, 304, 398, 723, 724]) {
+    for (const userId of ["ana", "ben", "cal", "stranger"]) checkViewer(userId, progressPercent({ ...audio, currentMinute: minutes }))
+  }
+}
+
 if (failures > 0) {
   console.error(`\n${failures} failed, ${passes} passed`)
   process.exit(1)

@@ -29,7 +29,7 @@ const notificationCopy = (n: NotificationLike) => {
     case "ACHIEVEMENT_EARNED": return `reached the "${getAchievementTitle(n.achievementKey ?? "")}" milestone`
     case "QUEST_COMPLETED": return `completed the ${n.quest ? `"${n.quest.title}"` : "seasonal"} quest and earned its limited-edition medal`
     case "BUDDY_READ_INVITE": return `invited you to read ${book} together`
-    case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your buddy read of ${book}`
+    case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your circle of ${book}`
     default: return "did something"
   }
 }
@@ -76,7 +76,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
             <div className="min-w-0">
               {n.type === "COMMENTS_UNLOCKED" ? (
                 // Not one person's doing: "3 comments unlocked in Dune".
-                <p className="text-sm truncate">🔓 {n.count ?? 1} {n.count === 1 ? "comment" : "comments"} unlocked in <span className="font-semibold">{n.buddyRead?.title ?? "your buddy read"}</span></p>
+                <p className="text-sm truncate">🔓 {n.count ?? 1} {n.count === 1 ? "comment" : "comments"} unlocked in <span className="font-semibold">{n.buddyRead?.title ?? "your circle"}</span></p>
               ) : (
                 <p className="text-sm truncate"><span className="font-semibold">{n.actor.username}</span> {notificationCopy(n)}</p>
               )}

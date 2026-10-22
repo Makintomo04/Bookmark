@@ -3,7 +3,7 @@ import Container from '@/app/components/Container'
 import NewBuddyReadForm from '@/app/components/buddy-reads/NewBuddyReadForm'
 
 export const metadata: Metadata = {
-  title: "Start a buddy read",
+  title: "Start a circle",
 }
 
 interface PageProps {

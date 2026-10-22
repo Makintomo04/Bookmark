@@ -19,8 +19,11 @@ import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookEditModal from '@/app/hooks/useBookEditModal'
 import BuddyReadEntry from '../buddy-reads/BuddyReadEntry'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from '@/lib/progress'
+import useWorkTags from '@/app/hooks/useWorkTags'
+import type { ReaderTagsInput } from '@/lib/workTags'
+import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../books/WorkTags'
 
-const QUICK_ADDS = [10, 25, 50]
 const PACE_MIN_DAYS = 7
 
 const clamp = (n: number, max: number) => Math.max(0, Math.min(max, n))
@@ -37,8 +40,11 @@ const BookUpdateModal: FC = () => {
   const bookEditModal = useBookEditModal()
   const isOpen = getBookIsOpen(book?.id, useBookUpdateModal.getState())
   const { reads, mutate: readsMutate } = useBookReads(isOpen ? book?.id : null)
+  const { tags: workTags, mutate: tagsMutate } = useWorkTags({ bookId: isOpen ? book?.id : null })
 
   const [pageInput, setPageInput] = useState("0")
+  // Moods and content warnings, tagged along with the review.
+  const [tags, setTags] = useState<ReaderTagsInput>(EMPTY_TAGS)
   const [finished, setFinished] = useState(false)
   // Marking a book you're reading as did not finish. Like `finished`, it swaps in rating and review.
   const [stopping, setStopping] = useState(false)
@@ -58,7 +64,7 @@ const BookUpdateModal: FC = () => {
 
   useEffect(() => {
     if (!isOpen || !book) return
-    setPageInput(String(book.currentPage ?? 0))
+    setPageInput(String(progressScale(book).current))
     setFinished(false)
     setStopping(false)
     setPageBeforeFinish(null)
@@ -69,14 +75,22 @@ const BookUpdateModal: FC = () => {
     setReviewPrivate(!!book.reviewPrivate)
   }, [isOpen, book])
 
+  useEffect(() => {
+    if (isOpen) setTags(workTags?.mine ?? EMPTY_TAGS)
+  }, [isOpen, workTags])
+
   if (!book) return null
 
   const accent = user?.favColour || '#D92D2D'
   const accentInk = readableInk(accent)
   const status = book.status
-  const pages = book.pages
+  // The book's own scale: pages, or minutes listened for an audiobook. `pages` is that scale's
+  // total and `page` the position on it, whichever unit it is.
+  const { unit, total: pages, current: startPage } = progressScale(book)
+  const onMinutes = unit === "MINUTES"
+  const unitWord = onMinutes ? "minute" : "page"
+  const fmt = (n: number) => (onMinutes ? formatMinutes(n) : String(n))
   const hasPageCount = pages > 0
-  const startPage = book.currentPage ?? 0
   const typed = parseInt(pageInput, 10)
   const isOverTotal = !isNaN(typed) && typed > pages
   const page = isNaN(typed) ? startPage : clamp(typed, pages)
@@ -85,12 +99,15 @@ const BookUpdateModal: FC = () => {
   const ratingChanged = rating !== (book.rating ?? 0)
   const reviewChanged = review !== (book.review ?? "")
     || reviewSpoiler !== !!book.reviewSpoiler || reviewPrivate !== !!book.reviewPrivate
+  const tagsChanged = !sameTags(tags, workTags?.mine ?? EMPTY_TAGS)
+  // The position field the API reads for this book's unit.
+  const at = (n: number) => (onMinutes ? { currentMinute: n } : { currentPage: n })
 
   // A paused book shows the same progress controls as one being read, and saving resumes it.
   const isActive = status === "STARTED" || status === "PAUSED"
   const isClosed = status === "COMPLETED" || status === "DNF"
   const hasChanges = isActive ? delta !== 0 || finished || stopping
-    : isClosed ? ratingChanged || reviewChanged
+    : isClosed ? ratingChanged || reviewChanged || tagsChanged
     : false
   const canSave = !isSaving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges)
 
@@ -131,28 +148,35 @@ const BookUpdateModal: FC = () => {
     let success: string
     const ratingAndReviewPayload = { rating: rating > 0 ? rating : null, review, reviewSpoiler, reviewPrivate }
     if (status === "NOT_STARTED") {
-      payload = { id: book.id, action: "start", currentPage: page }
-      success = "Started reading"
+      payload = { id: book.id, action: "start", ...at(page) }
+      success = onMinutes ? "Started listening" : "Started reading"
     } else if (isActive && finished) {
       payload = { id: book.id, action: "complete", ...ratingAndReviewPayload }
       success = "Marked as finished"
     } else if (isActive && stopping) {
-      payload = { id: book.id, action: "dnf", currentPage: page, ...ratingAndReviewPayload }
+      payload = { id: book.id, action: "dnf", ...at(page), ...ratingAndReviewPayload }
       success = "Moved to Did not finish"
     } else if (status === "STARTED") {
-      payload = { id: book.id, action: "progress", currentPage: page }
+      payload = { id: book.id, action: "progress", ...at(page) }
       success = "Progress saved"
     } else if (status === "PAUSED") {
-      payload = { id: book.id, action: "resume", currentPage: page }
-      success = "Back to Currently reading"
+      payload = { id: book.id, action: "resume", ...at(page) }
+      success = onMinutes ? "Back to Currently listening" : "Back to Currently reading"
     } else {
       payload = { id: book.id, action: "rate", ...ratingAndReviewPayload }
       success = ratingChanged && reviewChanged ? "Rating and review saved"
-        : ratingChanged ? "Rating saved" : "Review saved"
+        : ratingChanged ? "Rating saved" : reviewChanged ? "Review saved" : "Moods and warnings saved"
     }
 
+    // Tags go to the shared Work in their own request; the rating and shelf change don't wait on it.
+    const saveTags = (isClosed || finished || stopping) && tagsChanged
+      ? axios.put("/api/works/tags", { bookId: book.id, ...tags }).then(() => tagsMutate())
+        .catch((err) => toast.error(err?.response?.data?.error || "Couldn't save your moods and warnings.", { position: "bottom-center" }))
+      : Promise.resolve()
+
     setIsSaving(true)
-    axios.post("/api/book-progress", payload).then(() => {
+    axios.post("/api/book-progress", payload).then(async () => {
+      await saveTags
       toast.success(success, { position: "bottom-center" })
       mutate()
       refreshAfterBookChange()
@@ -166,7 +190,7 @@ const BookUpdateModal: FC = () => {
   // Pause keeps the page typed in; the other moves don't take one.
   const move = (action: ShelfAction) => {
     setIsSaving(true)
-    moveBook(book.id, action, action === "pause" ? { currentPage: page } : {}).then((ok) => {
+    moveBook(book.id, action, action === "pause" ? at(page) : {}).then((ok) => {
       if (!ok) return
       mutate()
       booksMutate()
@@ -182,12 +206,12 @@ const BookUpdateModal: FC = () => {
     : status === "COMPLETED" && book.completedAt
       ? `Finished ${formatDay(book.completedAt)}`
       : status === "PAUSED" ? `Paused${book.stoppedAt ? ` since ${formatDay(book.stoppedAt)}` : ""}`
-      : status === "DNF" ? `Stopped at page ${book.currentPage ?? 0} of ${pages}${book.stoppedAt ? ` on ${formatDay(book.stoppedAt)}` : ""}`
+      : status === "DNF" ? `${formatStoppedAt(book)} of ${fmt(pages)}${book.stoppedAt ? ` on ${formatDay(book.stoppedAt)}` : ""}`
       : status === "NOT_STARTED" ? "On your Want to read shelf" : ""
 
   const deltaText = !isActive || delta === 0 ? ""
-    : delta > 0 ? `${plural(delta, "page")} since your last update`
-    : `${plural(-delta, "page")} back from your last update`
+    : delta > 0 ? `${onMinutes ? formatMinutes(delta) : plural(delta, "page")} since your last update`
+    : `${onMinutes ? formatMinutes(-delta) : plural(-delta, "page")} back from your last update`
 
   // Pauses skew the rate early on, so wait for a week of reading before guessing.
   const daysReading = book.startedAt ? moment().diff(book.startedAt, 'days', true) : 0
@@ -228,13 +252,15 @@ const BookUpdateModal: FC = () => {
           className="absolute inset-0 w-full rounded-t-md border-b-2 border-dashed border-neutral-300 dark:border-neutral-600 bg-transparent px-1 text-5xl font-bold tabular-nums leading-tight hover:border-neutral-500 focus-visible:outline-none focus-visible:border-solid focus-visible:border-neutral-500 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
       </span>
-      <span id="page-total" className="text-lg text-muted-foreground tabular-nums whitespace-nowrap">of {pages}</span>
+      <span id="page-total" className="text-lg text-muted-foreground tabular-nums whitespace-nowrap">
+        {onMinutes ? <>min · {formatMinutes(page)} of {formatMinutes(pages)}</> : <>of {pages}</>}
+      </span>
     </div>
   )
 
   const progressControl = hasPageCount ? (
     <div>
-      <label htmlFor="current-page" className="text-sm font-medium text-muted-foreground">You&apos;re on page</label>
+      <label htmlFor="current-page" className="text-sm font-medium text-muted-foreground">{onMinutes ? "You've listened for" : "You're on page"}</label>
       <div className="mt-1 flex items-baseline justify-between gap-4">
         {pageNumber}
         <span className="text-lg font-semibold tabular-nums">{progress}%</span>
@@ -242,15 +268,15 @@ const BookUpdateModal: FC = () => {
 
       {isOverTotal && (
         <p className="mt-2 text-sm text-muted-foreground">
-          This book has {pages} pages.{" "}
-          <button type="button" onClick={editDetails} className="underline underline-offset-4 hover:text-foreground">Change page count</button>
+          {onMinutes ? `This audiobook runs ${formatMinutes(pages)}.` : `This book has ${pages} pages.`}{" "}
+          <button type="button" onClick={editDetails} className="underline underline-offset-4 hover:text-foreground">{onMinutes ? "Change running time" : "Change page count"}</button>
         </p>
       )}
 
       <input
         type="range"
-        aria-label="Current page"
-        aria-valuetext={`Page ${page} of ${pages}`}
+        aria-label={onMinutes ? "Minutes listened" : "Current page"}
+        aria-valuetext={onMinutes ? `${formatMinutes(page)} of ${formatMinutes(pages)}` : `Page ${page} of ${pages}`}
         min={0}
         max={pages}
         value={page}
@@ -262,11 +288,11 @@ const BookUpdateModal: FC = () => {
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex gap-1.5">
-          {QUICK_ADDS.map((n) => (
+          {QUICK_ADDS[unit].map((n) => (
             <button
               key={n}
               type="button"
-              aria-label={`Add ${n} pages`}
+              aria-label={`Add ${n} ${unitWord}s`}
               onClick={() => setPage(page + n)}
               disabled={isSaving || finished || page >= pages}
               className="h-10 sm:h-8 px-3.5 sm:px-3 rounded-full text-sm font-medium tabular-nums bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:pointer-events-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -283,21 +309,21 @@ const BookUpdateModal: FC = () => {
 
       {page === pages && !finished && (
         <p className="mt-4 text-sm">
-          That&apos;s the last page.{" "}
+          {onMinutes ? "That's the end." : "That's the last page."}{" "}
           <button type="button" onClick={toggleFinished} className="font-medium underline underline-offset-4">Mark it as finished?</button>
         </p>
       )}
     </div>
   ) : (
     <p className="text-sm text-muted-foreground">
-      This book doesn&apos;t have a page count yet, so progress can&apos;t be tracked.{" "}
-      <button type="button" onClick={editDetails} className="font-medium text-foreground underline underline-offset-4">Add the page count</button>
+      This book doesn&apos;t have a page count or running time yet, so progress can&apos;t be tracked.{" "}
+      <button type="button" onClick={editDetails} className="font-medium text-foreground underline underline-offset-4">Add it</button>
     </p>
   )
 
   const startControl = showStartPage ? (
     <div className="flex flex-col gap-2">
-      <label htmlFor="current-page" className="text-sm font-medium">Current page</label>
+      <label htmlFor="current-page" className="text-sm font-medium">{onMinutes ? "Minutes listened so far" : "Current page"}</label>
       <div className="flex items-center gap-2">
         <input
           id="current-page"
@@ -320,16 +346,16 @@ const BookUpdateModal: FC = () => {
           disabled={isSaving}
           className="h-10 w-[120px] rounded-md border border-neutral-300 dark:border-input bg-background px-3 text-base tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
-        <span id="page-total" className="text-sm text-muted-foreground">of {pages}</span>
+        <span id="page-total" className="text-sm text-muted-foreground">of {fmt(pages)}</span>
       </div>
-      {isOverTotal && <p className="text-sm text-muted-foreground">This book has {pages} pages.</p>}
+      {isOverTotal && <p className="text-sm text-muted-foreground">{onMinutes ? `This audiobook runs ${formatMinutes(pages)}.` : `This book has ${pages} pages.`}</p>}
     </div>
   ) : (
     <div className="flex flex-col gap-2 items-start">
-      <p className="text-sm text-muted-foreground">Starts from the first page.</p>
+      <p className="text-sm text-muted-foreground">{onMinutes ? "Starts from the beginning." : "Starts from the first page."}</p>
       {hasPageCount && (
         <button type="button" onClick={() => setShowStartPage(true)} className="text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground">
-          Already partway through? Set your page
+          {onMinutes ? "Already partway through? Set how far you are" : "Already partway through? Set your page"}
         </button>
       )}
     </div>
@@ -356,7 +382,7 @@ const BookUpdateModal: FC = () => {
 
   const stopOptions = stopping ? (
     <p className="text-sm">
-      Stopping at page {page} of {pages}.{" "}
+      Stopping at {onMinutes ? formatMinutes(page) : `page ${page}`} of {fmt(pages)}.{" "}
       <button type="button" onClick={toggleStopping} disabled={isSaving} className="underline underline-offset-4 text-muted-foreground hover:text-foreground">
         Keep reading
       </button>
@@ -391,7 +417,7 @@ const BookUpdateModal: FC = () => {
             <div className="min-w-0">
               <p className="font-medium">
                 {read.status === "COMPLETED" ? "Finished"
-                  : read.status === "DNF" ? `Did not finish${read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
+                  : read.status === "DNF" ? `Did not finish${read.stoppedAtMinute !== null ? ` · ${formatMinutes(read.stoppedAtMinute)}` : read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
                   : read.status === "PAUSED" ? "Paused"
                   : "Reading now"}
               </p>
@@ -435,7 +461,16 @@ const BookUpdateModal: FC = () => {
           </label>
         </div>
       </div>
+      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} />
     </div>
+  )
+
+  // What other readers said about the book, for anyone still reading it.
+  const otherReaders = !isClosed && !finished && !stopping && workTags && workTags.readers > 0 && (
+    <section aria-label="What readers say" className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium">What readers say</h3>
+      <WorkTagsSummary tags={workTags} />
+    </section>
   )
 
   const body = (
@@ -455,17 +490,18 @@ const BookUpdateModal: FC = () => {
         {isActive && !stopping && finishedSwitch}
         {isActive && !finished && stopOptions}
         {(isClosed || finished || stopping) && ratingAndReview}
+        {otherReaders}
         {readHistory}
         <BuddyReadEntry book={book} onNavigate={close} />
       </div>
     </div>
   )
 
-  const primaryLabel = status === "NOT_STARTED" ? "Start reading"
+  const primaryLabel = status === "NOT_STARTED" ? (onMinutes ? "Start listening" : "Start reading")
     : isClosed ? "Save"
     : finished ? "Mark as finished"
     : stopping ? "Mark as did not finish"
-    : status === "PAUSED" ? "Resume reading"
+    : status === "PAUSED" ? (onMinutes ? "Resume listening" : "Resume reading")
     : "Save progress"
 
   // A finished or abandoned book is mostly opened to look; only offer Save once there's something to save.
@@ -494,7 +530,7 @@ const BookUpdateModal: FC = () => {
 
   return (
     <Modal
-      title={status === "NOT_STARTED" ? "Start reading"
+      title={status === "NOT_STARTED" ? (onMinutes ? "Start listening" : "Start reading")
         : status === "COMPLETED" ? "Rating and review"
         : status === "DNF" ? "Did not finish"
         : status === "PAUSED" ? "Paused"

@@ -7,6 +7,9 @@ import AddToShelfButton from '../discover/AddToShelfButton'
 import AddToListButton from '../discover/AddToListButton'
 import CuratorNote from '../lists/CuratorNote'
 import PickedByFollowing from '../lists/PickedByFollowing'
+import StartCircleButton from '../buddy-reads/StartCircleButton'
+import { WorkTagsSummary } from '../books/WorkTags'
+import useWorkTags from '@/app/hooks/useWorkTags'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
@@ -16,6 +19,7 @@ import useListEditorModal from '@/app/hooks/useListEditorModal'
 const BookDetailsModal: FC = () => {
   const { isOpen, book, reason, onClose } = useBookDetailsModal()
   const { description, isLoading } = useBookDescription(isOpen ? book?.workKey : null)
+  const { tags } = useWorkTags({ workKey: isOpen ? book?.workKey : null })
 
   // The shelf and list buttons can hand off to their own modals; step aside rather than stack.
   const entryOpen = useBookEntryModal((s) => s.isOpen)
@@ -37,11 +41,14 @@ const BookDetailsModal: FC = () => {
           <p className="mt-1 text-sm text-muted-foreground">
             {[book.author, book.year, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")}
           </p>
-          <div className="mt-4 flex items-center gap-1.5">
+          <div className="mt-4 flex flex-wrap items-center gap-1.5">
             <AddToShelfButton book={book} />
+            <StartCircleButton book={book} />
             <AddToListButton book={book} />
           </div>
         </div>
+        {/* What it feels like and what's in it, from readers who finished it. Warnings stay folded until tapped. */}
+        <WorkTagsSummary tags={tags} />
         {/* People first: the curator who sent the reader here, then anyone they follow who picked it. */}
         {reason && <CuratorNote variant="full" reason={reason} />}
         <PickedByFollowing book={book} />

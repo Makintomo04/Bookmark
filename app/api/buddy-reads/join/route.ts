@@ -10,7 +10,7 @@ const joinSchema = z.object({ code: z.string().trim().regex(/^[a-z0-9]{6,20}$/, 
 // Joins with an invite code (from /buddy-reads/join/[code] or an in-app invite). Adds the book to the
 // reader's shelf as Currently reading unless it's already there.
 export async function POST(req: Request) {
-  const { user: currentUser, response } = await requireUser("Sign in to join this buddy read.");
+  const { user: currentUser, response } = await requireUser("Sign in to join this circle.");
   if (response) return response;
 
   const parsed = await parseBody(req, joinSchema);

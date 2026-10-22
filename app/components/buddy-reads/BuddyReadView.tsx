@@ -32,14 +32,14 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
 
   // Saving progress in the book modal refreshes the shelf; pick that up straight away rather than at the next poll.
   const myBook = view ? ((books ?? []) as Book[]).find((b) => b.id === view.viewer.bookId) : undefined
-  const bookStamp = myBook ? `${myBook.status}:${myBook.currentPage}:${myBook.pages}` : ""
+  const bookStamp = myBook ? `${myBook.status}:${myBook.currentPage}:${myBook.pages}:${myBook.currentMinute}:${myBook.audioMinutes}` : ""
   const lastStamp = useRef(bookStamp)
   useEffect(() => {
     if (bookStamp && lastStamp.current && bookStamp !== lastStamp.current) mutate()
     lastStamp.current = bookStamp
   }, [bookStamp, mutate])
 
-  if (!view) return <FetchErrorState error={isError} what="this buddy read" onRetry={() => mutate()} />
+  if (!view) return <FetchErrorState error={isError} what="this circle" onRetry={() => mutate()} />
 
   const { buddyRead, viewer, members, comments } = view
   const archived = buddyRead.status === "ARCHIVED"
@@ -58,7 +58,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   }
 
   const setStatus = (status: "ACTIVE" | "FINISHED" | "ARCHIVED") => {
-    if (status === "ARCHIVED" && !window.confirm("Archive this buddy read? It's hidden from everyone's list and closed to new comments.")) return
+    if (status === "ARCHIVED" && !window.confirm("Archive this circle? It's hidden from everyone's list and closed to new comments.")) return
     axios.patch(`/api/buddy-reads/${id}`, { status }).then(() => mutate())
       .catch((err) => toast.error(err?.response?.data?.error || "Couldn't update it.", { position: "bottom-center" }))
   }
@@ -70,7 +70,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   }
 
   const leave = () => {
-    if (!window.confirm("Leave this buddy read? The book stays on your shelf.")) return
+    if (!window.confirm("Leave this circle? The book stays on your shelf.")) return
     axios.delete(`/api/buddy-reads/${id}/members/${viewer.userId}`).then(() => router.push("/buddy-reads"))
       .catch((err) => toast.error(err?.response?.data?.error || "Couldn't leave.", { position: "bottom-center" }))
   }
@@ -78,7 +78,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   return (
     <div className="flex flex-col gap-10">
       <Link href="/buddy-reads" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft size={14} aria-hidden /> Buddy reads
+        <ArrowLeft size={14} aria-hidden /> Circles
       </Link>
 
       <header className="flex gap-5">
@@ -90,7 +90,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         />
         <div className="min-w-0 flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Buddy read{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}
+            Circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}{buddyRead.audioMinutes ? " · audiobook" : ""}
           </p>
           <h1 className="text-2xl sm:text-3xl font-bold leading-tight break-words">{buddyRead.title}</h1>
           <p className="text-muted-foreground">{buddyRead.author}</p>
@@ -124,6 +124,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
             <h2 className="font-semibold">How it works</h2>
             <p className="text-muted-foreground">
               Comments are pinned to how far their writer had read. You&apos;ll see each one once you reach that point, and you can always see your own.
+              Listening instead? Minutes count the same way: progress is a percent of your own copy.
             </p>
           </section>
           <section className="flex flex-col items-start gap-2">
@@ -134,7 +135,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
                 {!archived && <button type="button" onClick={() => setStatus("ARCHIVED")} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Archive</button>}
               </>
             ) : (
-              <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this buddy read</button>
+              <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this circle</button>
             )}
           </section>
         </aside>

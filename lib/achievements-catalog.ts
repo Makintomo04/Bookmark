@@ -131,9 +131,9 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   },
   {
     key: "BUDDY_READS_FINISHED",
-    title: "Buddy reads finished",
+    title: "Circles finished",
     category: "engagement",
-    describe: (n) => (n === 1 ? "Finish a buddy read" : `Finish ${fmt(n)} buddy reads`),
+    describe: (n) => (n === 1 ? "Finish a circle" : `Finish ${fmt(n)} circles`),
     milestones: [
       { value: 1, title: "Reading Buddy" },
       { value: 5, title: "Book Club Regular" },
@@ -142,10 +142,10 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   },
   {
     key: "BUDDY_READS_HOSTED",
-    title: "Buddy reads hosted",
+    title: "Circles hosted",
     category: "engagement",
     // Counted once someone else has joined, so an empty buddy read doesn't earn it.
-    describe: (n) => (n === 1 ? "Host a buddy read that someone joins" : `Host ${fmt(n)} buddy reads that others join`),
+    describe: (n) => (n === 1 ? "Host a circle that someone joins" : `Host ${fmt(n)} circles that others join`),
     milestones: [
       { value: 1, title: "Host with the Most" },
       { value: 5, title: "Book Club Founder" },

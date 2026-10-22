@@ -21,7 +21,7 @@ const Header: FC = () => {
             Stats
           </Link>
           <Link href="/buddy-reads" className="hidden sm:inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
-            Buddy reads
+            Circles
           </Link>
           <UserMenu />
         </div>

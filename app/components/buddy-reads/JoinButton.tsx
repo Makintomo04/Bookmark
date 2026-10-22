@@ -26,7 +26,7 @@ const JoinButton: FC<{ code: string }> = ({ code }) => {
 
   return (
     <button type="button" onClick={join} disabled={isJoining} className={`${primaryButtonClass} h-11 px-6 text-base`}>
-      {isJoining ? "Joining…" : "Join the buddy read"}
+      {isJoining ? "Joining…" : "Join the circle"}
     </button>
   )
 }
