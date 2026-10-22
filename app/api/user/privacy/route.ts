@@ -16,6 +16,7 @@ const bodySchema = z.object({
   buddyReadInvites: z.enum(["EVERYONE", "FOLLOWING", "NOBODY"]),
   showSpoilers: z.boolean(),
   defaultListVisibility: z.enum(["PRIVATE", "PUBLIC"]),
+  showRecaps: z.boolean(),
   favGenres: z.array(z.string()).max(GENRES.length)
     .refine((slugs) => slugs.every((s) => GENRES.some((g) => g.slug === s)), "Unknown genre")
     .transform((slugs) => Array.from(new Set(slugs))),

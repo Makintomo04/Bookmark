@@ -81,6 +81,8 @@ model User {
   showSpoilers          Boolean?
   // What a new list starts as in the editor.
   defaultListVisibility ListVisibility?
+  // Offer "Catch me up" recaps (lib/recap.ts). Unset reads as on; switching it off hides the feature.
+  showRecaps            Boolean?
   referralsMade Referral[] @relation("ReferralInviter")
   referredBy    Referral? @relation("ReferralInvitee")
   giftCodesOwned    GiftCode[] @relation("GiftCodeOwner")
@@ -273,6 +275,9 @@ model Book {
   completedAt DateTime?
   // When the book was put down: set while DNF or PAUSED, cleared otherwise. A DNF's page is currentPage.
   stoppedAt DateTime?
+  // The reader's last progress update (start, progress, resume). Unset on books not updated since this
+  // existed; lib/recap.ts falls back to startedAt to tell a book left untouched for a while.
+  progressAt DateTime?
   // Open Library work key (e.g. OL45883W), so the same book can be matched across readers and lists.
   workKey String?
   // The shared catalog (Work and Edition below). Optional while rows shelved before the catalog existed
@@ -328,6 +333,12 @@ model Work {
   seriesPosition Float?
   coverUrl String?
   firstPublishYear Int?
+  // Open Library's counts for the work, for the recaps popularity gate (lib/recap.ts isWellKnown).
+  // Filled on first need and refreshed when popularityCheckedAt is a month old.
+  olEditionCount Int?
+  olRatingsCount Int?
+  olReadingLogCount Int?
+  popularityCheckedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -882,4 +893,46 @@ model AiUsage {
 
   // The counter itself; the prefix covers a reader's rows.
   @@unique([userId, feature, period])
+}
+
+// ---- Catch me up -------------------------------------------------------------------------------
+// AI recaps (lib/recap.ts). Private to the reader: never in the feed, lists or circles. One row per
+// reader, work, kind and bucket, so reopening a recap is free. userId is a scalar, like ReaderTags.
+
+enum RecapKind {
+  // The earlier books of a series the reader finished, when they start a later one.
+  SERIES
+  // The book so far, when they come back to it.
+  RESUME
+}
+
+enum RecapVote {
+  UP
+  DOWN
+}
+
+model Recap {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  workId String @db.ObjectId
+  // The shelf book it was asked for from.
+  bookId String @db.ObjectId
+  kind RecapKind
+  // RESUME: the percent the recap stops at, a multiple of RECAP_BUCKET. SERIES: how many earlier books it covers.
+  bucket Int
+  // False when the model said it doesn't know the book well enough. Kept so asking again is free.
+  confident Boolean
+  paragraphs String[]
+  // RESUME: the furthest point the model says it described. Never above bucket (otherwise it isn't stored).
+  reachedPercent Float?
+  // Works of the earlier books (SERIES).
+  coveredWorkIds String[] @db.ObjectId
+  model String
+  // The reader's thumbs up or down, for quality tracking.
+  vote RecapVote?
+  votedAt DateTime?
+  createdAt DateTime @default(now())
+
+  // The cache key; the prefix covers a reader's recaps.
+  @@unique([userId, workId, kind, bucket])
 }

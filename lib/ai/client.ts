@@ -18,6 +18,10 @@ export const AI_MODELS = {
   // Matching, intent parsing, short book-only reasons: small structured jobs. Cheap enough that a
   // Plus reader's fair-use ceiling costs cents a month.
   fast: "claude-haiku-5-5",
+  // Recaps: the answer rests on what the model itself knows about a book's plot and where in the book
+  // things happen, with no text to check against. The most capable model is the guard against
+  // inventing. It always thinks (thinking: false isn't accepted), so callers leave `thinking` unset.
+  recall: "claude-opus-5-5",
 } as const;
 
 // Per request. One retry on top (maxRetries), so a call can take up to twice this.
