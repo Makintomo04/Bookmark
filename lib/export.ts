@@ -17,6 +17,7 @@ export const SHELF_BY_STATUS: Record<Status, ExclusiveShelf | string> = {
   // "did-not-finish", and Goodreads users commonly shelve paused books as "paused".
   DNF: "did-not-finish",
   PAUSED: "paused",
+  NOT_INTERESTED: "not-interested",
 };
 
 export function shelfForStatus(status: Status): string {

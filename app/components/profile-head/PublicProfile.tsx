@@ -7,6 +7,7 @@ import FollowButton from './FollowButton'
 import ShareProfileButton from './ShareProfileButton'
 import ProfileMenu from './ProfileMenu'
 import ProfileReviews from './ProfileReviews'
+import BooksInCommon from './BooksInCommon'
 import { cn } from '@/lib/utils'
 import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
@@ -69,6 +70,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         ]}
       />
       <div className="mt-12 px-4 sm:px-8">
+        {viewer && <BooksInCommon username={profile.username} accentColour={profile.favColour} />}
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (

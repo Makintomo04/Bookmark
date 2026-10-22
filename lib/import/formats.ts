@@ -8,7 +8,7 @@ import { cleanCsvText, cleanRecords, detectFormat } from "./clean.ts";
 // Detects Goodreads, StoryGraph and Bookmark CSV exports and maps each row onto Bookmark's model.
 // Kept free of "@/" imports so scripts/test/import.test.ts can load it with plain Node.
 
-const STATUSES: Status[] = ["NOT_STARTED", "STARTED", "COMPLETED", "DNF", "PAUSED"];
+const STATUSES: Status[] = ["NOT_STARTED", "STARTED", "COMPLETED", "DNF", "PAUSED", "NOT_INTERESTED"];
 
 export class ImportFormatError extends Error {}
 
@@ -95,6 +95,7 @@ const splitList = (v: string | undefined) =>
 
 const DNF_SHELF = /^(dnf|did[\s_-]*not[\s_-]*finish|abandon(ed)?|gave[\s_-]*up|didnt[\s_-]*finish|unfinished)$/i;
 const PAUSED_SHELF = /^(paused|on[\s_-]*hold)$/i;
+const NOT_INTERESTED_SHELF = /^(not[\s_-]*interested|will[\s_-]*not[\s_-]*read|won'?t[\s_-]*read)$/i;
 const FAVOURITE_SHELF = /^favou?rites?$/i;
 
 export function statusForShelf(shelf: string): Status | null {
@@ -104,6 +105,7 @@ export function statusForShelf(shelf: string): Status | null {
   if (s === "to-read") return "NOT_STARTED";
   if (DNF_SHELF.test(s)) return "DNF";
   if (PAUSED_SHELF.test(s)) return "PAUSED";
+  if (NOT_INTERESTED_SHELF.test(s)) return "NOT_INTERESTED";
   return null;
 }
 

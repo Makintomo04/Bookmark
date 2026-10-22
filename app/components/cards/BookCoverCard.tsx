@@ -9,11 +9,14 @@ import useFavourite from '@/app/hooks/useFavourite'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import BookCover from './BookCover'
 import BookActions from './BookActions'
+import { recommendedByOf } from '@/lib/recommendRules'
 
 interface BookCoverCardProps {
   book: Book
   accentColour?: string | null
   readOnly?: boolean
+  // Insets the text so it clears the selection ring BookGrid draws around the card.
+  selecting?: boolean
 }
 
 const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, onUpdateProgress }) => {
@@ -34,7 +37,7 @@ const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, 
   )
 }
 
-const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = false }) => {
+const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = false, selecting = false }) => {
   const { title, author, status, rating, completedAt, stoppedAt } = book
   const bookUpdateModal = useBookUpdateModal()
   const isPaused = status === Status.PAUSED
@@ -80,7 +83,7 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
         {!readOnly && <OwnerOverlay book={book} onUpdateProgress={openProgress} />}
       </div>
 
-      <div className="min-w-0">
+      <div className={cn("min-w-0 transition-[padding]", selecting && "px-2.5 pb-2.5")}>
         <h3 title={title} className="text-[15px] font-semibold leading-snug line-clamp-2">{title}</h3>
         <p className="mt-0.5 text-sm text-muted-foreground truncate">{author}</p>
 
@@ -127,6 +130,9 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
         )}
         {status === Status.NOT_STARTED && length && (
           <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">{length}</p>
+        )}
+        {status === Status.NOT_STARTED && recommendedByOf(book) && (
+          <p className="mt-0.5 text-xs text-muted-foreground truncate">Recommended by {recommendedByOf(book)}</p>
         )}
       </div>
     </div>

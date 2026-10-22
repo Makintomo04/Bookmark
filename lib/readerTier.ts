@@ -27,6 +27,17 @@ export function getReaderTier(booksRead: number | null | undefined): ReaderTier 
   return [...READER_TIERS].reverse().find((t) => n >= t.minBooks) ?? null
 }
 
+// How far a reader is from their next tier: `progress` runs 0-1 from the current tier's threshold (or 0)
+// to the next one's. `next` is null once they're at the top.
+export function tierProgress(booksRead: number | null | undefined) {
+  const n = booksRead ?? 0
+  const tier = getReaderTier(n)
+  const next = READER_TIERS.find((t) => n < t.minBooks) ?? null
+  if (!next) return { tier, next, remaining: 0, progress: 1 }
+  const from = tier?.minBooks ?? 0
+  return { tier, next, remaining: next.minBooks - n, progress: (n - from) / (next.minBooks - from) }
+}
+
 // A book counts as read once it has been finished, including while it's being re-read (its status is
 // STARTED again then, but timesRead keeps the earlier finish).
 export const finishedBookWhere = { OR: [{ status: "COMPLETED" as const }, { timesRead: { gte: 1 } }] }

@@ -207,7 +207,8 @@ const BookUpdateModal: FC = () => {
       ? `Finished ${formatDay(book.completedAt)}`
       : status === "PAUSED" ? `Paused${book.stoppedAt ? ` since ${formatDay(book.stoppedAt)}` : ""}`
       : status === "DNF" ? `${formatStoppedAt(book)} of ${fmt(pages)}${book.stoppedAt ? ` on ${formatDay(book.stoppedAt)}` : ""}`
-      : status === "NOT_STARTED" ? "On your Want to read shelf" : ""
+      : status === "NOT_STARTED" ? "On your Want to read shelf"
+      : status === "NOT_INTERESTED" ? "On your Will not read shelf. Only you can see it." : ""
 
   const deltaText = !isActive || delta === 0 ? ""
     : delta > 0 ? `${onMinutes ? formatMinutes(delta) : plural(delta, "page")} since your last update`
@@ -431,7 +432,7 @@ const BookUpdateModal: FC = () => {
   )
 
   const ratingAndReview = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">Rating <span className="font-normal text-muted-foreground">· optional</span></span>
         <StarRating value={rating} onChange={setRating} disabled={isSaving} label="Your rating" />
@@ -505,7 +506,7 @@ const BookUpdateModal: FC = () => {
     : "Save progress"
 
   // A finished or abandoned book is mostly opened to look; only offer Save once there's something to save.
-  const showPrimary = !isClosed || hasChanges
+  const showPrimary = status !== "NOT_INTERESTED" && (!isClosed || hasChanges)
 
   const footer = (
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
@@ -516,6 +517,9 @@ const BookUpdateModal: FC = () => {
             <Button onClick={() => move("wantToRead")} variant="outline" className="rounded-md" disabled={isSaving}>Move to Want to read</Button>
           )}
         </div>
+      )}
+      {status === "NOT_INTERESTED" && (
+        <Button onClick={() => move("wantToRead")} variant="outline" className="rounded-md mr-auto" disabled={isSaving}>Move to Want to read</Button>
       )}
       <Button onClick={close} variant="outline" className="rounded-md hidden sm:inline-flex" disabled={isSaving}>
         {showPrimary ? "Cancel" : "Close"}
@@ -534,6 +538,7 @@ const BookUpdateModal: FC = () => {
         : status === "COMPLETED" ? "Rating and review"
         : status === "DNF" ? "Did not finish"
         : status === "PAUSED" ? "Paused"
+        : status === "NOT_INTERESTED" ? "Will not read"
         : "Update progress"}
       body={body}
       footer={footer}

@@ -11,6 +11,7 @@ import BookNotesModal from "../components/modals/BookNotesModal";
 import FollowListModal from "../components/modals/FollowListModal";
 import ListEditorModal from "../components/modals/ListEditorModal";
 import BookDetailsModal from "../components/modals/BookDetailsModal";
+import RecommendModal from "../components/modals/RecommendModal";
 import TierPreviewBadge from "../components/dev/TierPreviewBadge";
 import Footer from "../components/footer/Footer";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <EditProfileModal/>
         <ListEditorModal/>
         <BookDetailsModal/>
+        <RecommendModal/>
         <TierPreviewBadge/>
         <div className="flex flex-col min-h-screen">
       <Header />

@@ -9,7 +9,7 @@ import { Prisma, type ActivityType, type Book, type Status } from "@prisma/clien
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-const ACTIONS = ["start", "progress", "complete", "rate", "pause", "resume", "dnf", "restart", "wantToRead"] as const
+const ACTIONS = ["start", "progress", "complete", "rate", "pause", "resume", "dnf", "restart", "wantToRead", "notInterested"] as const
 type Action = typeof ACTIONS[number]
 
 // Which shelf each action can be taken from.
@@ -22,7 +22,8 @@ const ALLOWED_FROM: Record<Action, Status[]> = {
   resume: ["PAUSED"],
   dnf: ["STARTED", "PAUSED"],
   restart: ["COMPLETED", "DNF"],
-  wantToRead: ["STARTED", "PAUSED", "DNF"],
+  wantToRead: ["STARTED", "PAUSED", "DNF", "NOT_INTERESTED"],
+  notInterested: ["NOT_STARTED"],
 }
 
 const NOT_ALLOWED: Record<Action, string> = {
@@ -35,6 +36,7 @@ const NOT_ALLOWED: Record<Action, string> = {
   dnf: "Only a book you're reading can be marked as did not finish",
   restart: "Only a finished or unfinished book can be read again",
   wantToRead: "This book can't be moved back to Want to read",
+  notInterested: "Only a book on Want to read can be marked as will not read",
 }
 
 const bodySchema = z.object({
@@ -183,6 +185,10 @@ export async function POST(req: Request) {
           // A read put back on the shelf mid-way wasn't really a read; a DNF stays in the history.
           await tx.bookRead.deleteMany({ where: { bookId: book.id, status: { in: [...OPEN_READ_STATUSES] } } })
           data = { status: "NOT_STARTED", startedAt: null, stoppedAt: null, currentPage: 0, currentMinute: 0 }
+          break
+        case "notInterested":
+          // Only from Want to read, so there's no open read to close.
+          data = { status: "NOT_INTERESTED" }
           break
       }
       if (rating !== undefined) data.rating = rating

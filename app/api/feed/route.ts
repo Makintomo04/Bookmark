@@ -51,6 +51,8 @@ export async function GET(req: Request) {
     const { status, review, reviewSpoiler, reviewPrivate, ...publicBook } = book
     // Adding to Want to read is a peek at that shelf.
     if (activity.type === "ADDED_BOOK" && status === "NOT_STARTED" && !canView(relation, privacy, "wantToRead")) return []
+    // Will not read is the reader's own business, including books added to Want to read first.
+    if (activity.type === "ADDED_BOOK" && status === "NOT_INTERESTED") return []
 
     if (activity.type !== "REVIEWED_BOOK") return [{ ...activity, user: publicUser, book: publicBook }]
     // A review the viewer can't read isn't announced at all.

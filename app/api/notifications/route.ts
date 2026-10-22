@@ -2,6 +2,7 @@ import { booksReadCount } from "@/lib/readerTier";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { questIdOf } from "@/lib/questRules";
+import { sameBook } from "@/lib/workKey";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -39,7 +40,21 @@ export async function GET(req: Request) {
   const questById = new Map(quests.map((q) => [q.id, { slug: q.slug, title: q.title }]))
   const withQuests = withBuddyReads.map((n) => (n.type === "QUEST_COMPLETED" ? { ...n, quest: questById.get(questIdOf(n.achievementKey ?? "") ?? "") ?? null } : n))
 
-  return NextResponse.json({ notifications: withQuests, unreadCount })
+  // Recommendations name the sender's copy of the book, and say whether it's already on the reader's shelf.
+  const recommendedIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "BOOK_RECOMMENDED" && n.bookId ? [n.bookId] : []))))
+  const recommended = recommendedIds.length > 0
+    ? await prisma.book.findMany({ where: { id: { in: recommendedIds } }, select: { id: true, title: true, author: true, coverImage: true, workKey: true } })
+    : []
+  const mine = recommended.length > 0
+    ? await prisma.book.findMany({
+        where: { userId: currentUser.id, status: { not: "NOT_INTERESTED" }, OR: [{ workKey: { in: recommended.flatMap((b) => (b.workKey ? [b.workKey] : [])) } }, { title: { in: recommended.map((b) => b.title) } }] },
+        select: { title: true, author: true, workKey: true },
+      })
+    : []
+  const recommendedById = new Map(recommended.map(({ workKey, ...b }) => [b.id, { ...b, onShelf: mine.some((m) => sameBook(m, { ...b, workKey })) }]))
+  const withRecommendations = withQuests.map((n) => (n.type === "BOOK_RECOMMENDED" ? { ...n, book: n.bookId ? recommendedById.get(n.bookId) ?? null : null } : n))
+
+  return NextResponse.json({ notifications: withRecommendations, unreadCount })
 }
 
 export async function PATCH(req: Request) {

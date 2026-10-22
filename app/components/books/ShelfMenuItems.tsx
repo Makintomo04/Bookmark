@@ -6,7 +6,7 @@ import type { Book, Status } from '@prisma/client'
 import useBooks from '@/app/hooks/useBooks'
 import { DropdownMenuItem } from '../ui/dropdown-menu'
 
-export type ShelfAction = "pause" | "resume" | "dnf" | "restart" | "wantToRead"
+export type ShelfAction = "pause" | "resume" | "dnf" | "restart" | "wantToRead" | "notInterested"
 
 const copy: Record<ShelfAction, { label: string, done: string, failed: string }> = {
   pause: { label: "Pause", done: "Paused", failed: "Couldn't pause this book" },
@@ -14,11 +14,13 @@ const copy: Record<ShelfAction, { label: string, done: string, failed: string }>
   dnf: { label: "Did not finish", done: "Moved to Did not finish", failed: "Couldn't move this book" },
   restart: { label: "Read again", done: "Started reading again", failed: "Couldn't start this book again" },
   wantToRead: { label: "Move to Want to read", done: "Moved to Want to read", failed: "Couldn't move this book" },
+  notInterested: { label: "Will not read", done: "Moved to Will not read", failed: "Couldn't move this book" },
 }
 
 // The moves offered from each shelf. They match what /api/book-progress allows.
 const MOVES: Record<Status, ShelfAction[]> = {
-  NOT_STARTED: [],
+  NOT_STARTED: ["notInterested"],
+  NOT_INTERESTED: ["wantToRead"],
   STARTED: ["pause", "dnf", "wantToRead"],
   PAUSED: ["resume", "dnf", "wantToRead"],
   COMPLETED: ["restart"],
@@ -38,7 +40,7 @@ export async function moveBook(bookId: string, action: ShelfAction, extra: Recor
   }
 }
 
-// Shelf moves for a card's "more" menu. Renders nothing for a book on Want to read.
+// Shelf moves for a card's "more" menu.
 const ShelfMenuItems: FC<{ book: Book }> = ({ book }) => {
   const { mutate: booksMutate } = useBooks()
   return (

@@ -29,10 +29,7 @@ const BookList: FC<BookListProps> = ({}) => {
     return dateB.getTime() - dateA.getTime()
 })
 const favouritesList = user?.favouriteIds
-const myFavBooks:Book[] = []
-const favBooks:Book[] = books?.forEach((book:Book) => {
-  favouritesList?.includes(book.id) && myFavBooks.push(book)
-});
+const myFavBooks:Book[] = sortedBooks?.filter((book:Book) => favouritesList?.includes(book.id)) ?? []
 if(isErrorUser || isErrorBooks) return <FetchErrorState error={isErrorUser || isErrorBooks} what="your favourites" onRetry={() => { mutateUser(); mutateBooks() }}/>
 if(isLoadingUser || isLoadingBooks) return <Loader notScreen/>
 if(myFavBooks?.length === 0) return (
@@ -40,7 +37,7 @@ if(myFavBooks?.length === 0) return (
 <p className='text-lg'>You have no books favourited, visit <Link href="/" className='text-[#F13c3d] hover:underline transition'>Home</Link> to view your books or create an entry.</p>
 </div>
 )
-  return <BookGrid books={myFavBooks}/>
+  return <BookGrid books={myFavBooks} flat/>
 }
 
 export default BookList

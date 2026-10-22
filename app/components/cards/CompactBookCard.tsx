@@ -6,11 +6,13 @@ import { IoIosStar } from "react-icons/io";
 import BookCover from './BookCover';
 import ShelfMenuItems from '../books/ShelfMenuItems';
 import { TbBook, TbBook2 } from "react-icons/tb";
-import { Check, CircleSlash, MoreVertical, Pause } from 'lucide-react';
+import { Check, CircleSlash, EyeOff, MoreVertical, Pause } from 'lucide-react';
 import useUser from '@/app/hooks/useUser';
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal';
 import useBookEditModal from '@/app/hooks/useBookEditModal';
 import useBookNotesModal from '@/app/hooks/useBookNotesModal';
+import useRecommendModal from '@/app/hooks/useRecommendModal';
+import { recommendedByOf } from '@/lib/recommendRules';
 import useBooks from '@/app/hooks/useBooks';
 import useFavourite from '@/app/hooks/useFavourite';
 import { formatStoppedAt, progressScale, progressWhole } from '@/lib/progress';
@@ -37,6 +39,7 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
   const bookUpdateModal = useBookUpdateModal()
   const bookEditModal = useBookEditModal()
   const bookNotesModal = useBookNotesModal()
+  const recommendModal = useRecommendModal()
 
   const handleOpenBookModal = () => {
     bookUpdateModal.setBookIdState(book.id)
@@ -68,6 +71,7 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
             : status === Status.NOT_STARTED ? <TbBook2 size={14} className="text-muted-foreground flex-shrink-0" />
             : status === Status.PAUSED ? <Pause size={14} aria-label="Paused" className="text-muted-foreground flex-shrink-0" />
             : status === Status.DNF ? <CircleSlash size={14} aria-label="Did not finish" className="text-muted-foreground flex-shrink-0" />
+            : status === Status.NOT_INTERESTED ? <EyeOff size={14} aria-label="Will not read" className="text-muted-foreground flex-shrink-0" />
             : <Check size={14} className="text-muted-foreground flex-shrink-0" />}
           {rating ? (
             <div className="flex items-center gap-0.5">
@@ -77,6 +81,9 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
           ) : null}
           {status === Status.DNF && (
             <p className="text-xs text-muted-foreground tabular-nums">{formatStoppedAt(book)}</p>
+          )}
+          {status === Status.NOT_STARTED && recommendedByOf(book) && (
+            <p className="text-xs text-muted-foreground truncate">Recommended by {recommendedByOf(book)}</p>
           )}
           {(status === Status.STARTED || status === Status.PAUSED) && (
             <progress className="h-[4px] rounded-full overflow-hidden flex-1 min-w-0" value={scale.current} max={scale.total || 1}>{progressWhole(book)}%</progress>
@@ -96,6 +103,9 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); bookEditModal.onOpen(book) }}>Edit</DropdownMenuItem>
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); bookNotesModal.onOpen(book.id, book.title) }}>Notes</DropdownMenuItem>
+          {book.status !== "NOT_INTERESTED" && (
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); recommendModal.onOpen(book.id, book.title) }}>Send to a friend</DropdownMenuItem>
+          )}
           <ShelfMenuItems book={book} />
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRemove() }}>Remove</DropdownMenuItem>
         </DropdownMenuContent>
