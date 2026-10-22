@@ -24,13 +24,23 @@ export { progressPercent, roundPercent, type ProgressBook } from "./progress.ts"
 
 // ---- Hosting ------------------------------------------------------------------------------
 
-// Joining is never limited. Hosting is: a free account runs one active circle at a time. A later
-// billing slice adds a plan that raises the limit; everything that asks "may they host another?"
-// goes through canHostAnotherCircle() in lib/buddyReadsServer.ts, which counts and then calls this.
-export type HostingPlan = "free"
-export const ACTIVE_HOSTED_LIMIT: Record<HostingPlan, number> = { free: 1 }
+// Joining is never limited. Hosting is: a free account runs one active circle at a time, and Bookmark
+// Plus lifts the limit (lib/entitlements.ts canHostUnlimited). Everything that asks "may they host
+// another?" goes through canHostAnotherCircle() in lib/buddyReadsServer.ts, which looks the plan up,
+// counts, and then calls this.
+export type HostingPlan = "free" | "plus"
+export const ACTIVE_HOSTED_LIMIT: Record<HostingPlan, number> = { free: 1, plus: Infinity }
 
-export type HostingAllowance = { allowed: boolean, active: number, limit: number, message: string | null }
+export type HostingAllowance = {
+  allowed: boolean
+  active: number
+  // null when unlimited.
+  limit: number | null
+  plan: HostingPlan
+  // The refusal is one Plus would lift, so the UI shows the upgrade prompt beside the message.
+  upgrade: boolean
+  message: string | null
+}
 
 export function hostingAllowance(activeHosted: number, plan: HostingPlan = "free"): HostingAllowance {
   const limit = ACTIVE_HOSTED_LIMIT[plan]
@@ -38,7 +48,9 @@ export function hostingAllowance(activeHosted: number, plan: HostingPlan = "free
   return {
     allowed,
     active: activeHosted,
-    limit,
+    limit: Number.isFinite(limit) ? limit : null,
+    plan,
+    upgrade: !allowed && plan === "free",
     message: allowed ? null
       : limit === 1
         ? "You're already hosting an active circle. Mark it as finished or archive it to start another. Joining circles is never limited."

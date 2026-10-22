@@ -17,7 +17,8 @@ export type BuddyReadSummary = {
 }
 
 // Whether the reader may host another circle (null when the list was narrowed to one book).
-export type HostingSummary = { allowed: boolean, active: number, limit: number, message: string | null }
+// `upgrade` says the refusal is one Plus would lift. See hostingAllowance() in lib/buddyReads.ts.
+export type HostingSummary = { allowed: boolean, active: number, limit: number | null, plan: "free" | "plus", upgrade: boolean, message: string | null }
 
 export type BuddyReadInviteSummary = {
   id: string

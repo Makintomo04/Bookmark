@@ -57,7 +57,7 @@ test("the aggregate counts readers, ranks moods and picks each warning's commone
 });
 
 test("free accounts host one active circle at a time", () => {
-  assert.deepEqual(hostingAllowance(0), { allowed: true, active: 0, limit: 1, message: null });
+  assert.deepEqual(hostingAllowance(0), { allowed: true, active: 0, limit: 1, plan: "free", upgrade: false, message: null });
   const blocked = hostingAllowance(1);
   assert.equal(blocked.allowed, false);
   assert.equal(blocked.limit, 1);

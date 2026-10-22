@@ -11,6 +11,7 @@ import BookCover from '../cards/BookCover'
 import FetchErrorState from '../FetchErrorState'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 import MemberAvatar from './MemberAvatar'
+import UpgradePrompt from '../plus/UpgradePrompt'
 
 const cover = (b: { title: string, author: string, coverImage: string | null, cardColour: string | null }) =>
   ({ title: b.title, author: b.author, coverImage: b.coverImage ?? "", cardColour: b.cardColour })
@@ -98,12 +99,14 @@ const BuddyReadsList: FC = () => {
         <Link href="/circles/new" className={`${primaryButtonClass} shrink-0`}><Plus size={16} aria-hidden />Start a reading circle</Link>
       </header>
 
-      {hosting && !hosting.allowed && (
+      {hosting && !hosting.allowed && (hosting.upgrade ? (
+        <UpgradePrompt feature="canHostUnlimited" message={hosting.message ?? undefined} />
+      ) : (
         <p className="flex items-start gap-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 px-4 py-3 text-sm">
           <Lock size={16} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
           <span>{hosting.message}</span>
         </p>
-      )}
+      ))}
 
       {isError && !buddyReads && <FetchErrorState error={isError} what="your reading circles" onRetry={() => mutate()} />}
 

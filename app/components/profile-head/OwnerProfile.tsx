@@ -10,6 +10,8 @@ import ProfileReviews from './ProfileReviews'
 import BookList from '../books/BookList'
 import ProfileLists from '../discover/ProfileLists'
 import OwnQuestMedals from '../quests/OwnQuestMedals'
+import ProfileThemeFrame from '../profile/ProfileThemeFrame'
+import { personalisationOf } from '@/lib/personalisation'
 
 interface OwnerProfileProps {
   username: string
@@ -33,16 +35,24 @@ const OwnReviews: FC = () => {
   return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" />
 }
 
+// In your theme (Plus), read from your own user so a change in settings shows straight away.
+const Themed: FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useUser()
+  return <ProfileThemeFrame theme={personalisationOf(user ?? {}).profileTheme} accent={user?.favColour ?? null}>{children}</ProfileThemeFrame>
+}
+
 // Your own profile: editable, so it stays client-side, but starts from server data.
 const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
   <SWRConfig value={{ fallback }}>
-    <ProfileHead />
-    <div className="mt-12 px-4 sm:px-8">
-      <BookList />
-      <OwnReviews />
-      <OwnQuestMedals />
-      <ProfileLists username={username} isSelf />
-    </div>
+    <Themed>
+      <ProfileHead />
+      <div className="mt-12 px-4 sm:px-8">
+        <BookList />
+        <OwnReviews />
+        <OwnQuestMedals />
+        <ProfileLists username={username} isSelf />
+      </div>
+    </Themed>
   </SWRConfig>
 )
 

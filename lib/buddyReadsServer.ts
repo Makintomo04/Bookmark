@@ -22,6 +22,8 @@ import {
   type HostingAllowance,
 } from "@/lib/buddyReads";
 import { progressSelect, unitOf } from "@/lib/progress";
+import { EntitlementError, entitlementsOf, entitlementsSelect } from "@/lib/entitlements";
+import { entitlementResponse } from "@/lib/entitlementsServer";
 
 export const isObjectId = (id: string | null | undefined): id is string => !!id && /^[a-f0-9]{24}$/i.test(id)
 
@@ -74,12 +76,22 @@ const progressBookSelect = { id: true, ...progressSelect } as const
 
 // ---- Hosting ------------------------------------------------------------------------------
 
-// May this reader start another circle? Free accounts host one active circle at a time (the rule is
-// hostingAllowance() in lib/buddyReads.ts); joining is never limited. A later billing slice looks up
-// the reader's plan here and passes it on. The create route refuses with `message` when not allowed.
+// May this reader start another circle? Free accounts host one active circle at a time and Plus has
+// no limit (the rule is hostingAllowance() in lib/buddyReads.ts); joining is never limited. The
+// create route refuses with `message` when not allowed.
 export async function canHostAnotherCircle(userId: string): Promise<HostingAllowance> {
-  const active = await prisma.buddyRead.count({ where: { hostId: userId, status: "ACTIVE" } })
-  return hostingAllowance(active, "free")
+  const [active, user] = await Promise.all([
+    prisma.buddyRead.count({ where: { hostId: userId, status: "ACTIVE" } }),
+    prisma.user.findUnique({ where: { id: userId }, select: entitlementsSelect }),
+  ])
+  return hostingAllowance(active, entitlementsOf(user ?? {}).canHostUnlimited ? "plus" : "free")
+}
+
+// The response for a refused HostingAllowance: a 402 with the upgrade body when Plus would lift the
+// limit (lib/entitlements.ts), so clients show the upgrade prompt; otherwise a plain 403.
+export function hostingRefusal(hosting: HostingAllowance): NextResponse {
+  const message = hosting.message ?? "You can't host another circle right now."
+  return hosting.upgrade ? entitlementResponse(new EntitlementError("canHostUnlimited", message)) : buddyReadError(message, 403)
 }
 
 // A reading circle and the viewer's membership, or null if they aren't in it. Not found and not a member

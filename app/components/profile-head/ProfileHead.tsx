@@ -18,6 +18,7 @@ import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
 import { resolveBanner } from '@/lib/banners'
+import { personalisationOf } from '@/lib/personalisation'
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -69,6 +70,7 @@ const ProfileHead: FC = () => {
         image={user.image}
         banner={resolveBanner(user.banner, user.id)}
         colour={user.favColour}
+        supporter={personalisationOf(user).supporter}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },

@@ -18,6 +18,8 @@ interface StatsViewProps {
   yearHref: (year: number) => string
   // Wrapped years that can be linked from here.
   wrappedYears: number[]
+  // Under the Wrapped links: the monthly Wrap cards (Plus), or the prompt for them.
+  monthlyCards?: ReactNode
 }
 
 const Section: FC<{ title: string; children: ReactNode; className?: string; action?: ReactNode }> = ({ title, children, className, action }) => (
@@ -62,7 +64,18 @@ export const StatsEmpty: FC = () => (
   </div>
 )
 
-const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears }) => {
+// A Plus goal's line under the yearly bar. Shown whenever one is set: stats are never gated.
+const GoalLine: FC<{ label: string; value: string; met: boolean }> = ({ label, value, met }) => (
+  <p className="mt-1.5 flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+    <span>{label}</span>
+    <span className="tabular-nums">
+      {value}
+      {met ? <span className="ml-2 font-semibold text-[color:var(--accent-text)]">Met</span> : null}
+    </span>
+  </p>
+)
+
+const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, monthlyCards }) => {
   const months = stats.months[year] ?? []
   const monthBooks: Datum[] = months.map((m, i) => ({ label: MONTHS[i].slice(0, 3), short: MONTHS[i][0], value: m.books, detail: `${plural(m.books, 'book')} · ${plural(m.pages, 'page')}` }))
   const monthPages: Datum[] = months.map((m, i) => ({ label: MONTHS[i].slice(0, 3), short: MONTHS[i][0], value: m.pages, detail: plural(m.pages, 'page') }))
@@ -131,6 +144,8 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears }) 
         </div>
       )}
 
+      {monthlyCards}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Section title="Books per year">
           <ColumnChart data={yearBooks} label="Books finished per year" unit="books" />
@@ -196,6 +211,16 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears }) 
                   >
                     <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${percent}%` }} />
                   </div>
+                  {g.targetPages ? (
+                    <GoalLine label="Page goal" value={`${fmt(g.pages)} of ${plural(g.targetPages, 'page')}`} met={g.pages >= g.targetPages} />
+                  ) : null}
+                  {g.targetBooksPerMonth && g.monthsCounted > 0 ? (
+                    <GoalLine
+                      label={`${plural(g.targetBooksPerMonth, 'book')} a month`}
+                      value={`${g.monthsMet} of ${plural(g.monthsCounted, 'month')} on pace`}
+                      met={g.monthsMet === g.monthsCounted}
+                    />
+                  ) : null}
                 </li>
               )
             })}

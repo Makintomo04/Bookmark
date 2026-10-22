@@ -77,22 +77,33 @@ function facts({ wrapped: w, username, favColour }: ImageInput) {
   // The accent also sets text on the dark ground; lift dark accents so they stay legible.
   const accentText = readableInk(accent) === '#ffffff' ? shade(accent, 0.45) : accent
   const favourite = w.topRated ?? w.longestBook
-  const goal = w.goal ? (w.goal.met ? `Goal met: ${fmt(w.goal.completed)} of ${fmt(w.goal.target)}` : `${fmt(w.goal.completed)} of ${fmt(w.goal.target)} goal`) : null
+  // A month's card (Plus): the month is the headline and the period is "month", not "year".
+  const monthly = w.month !== null
+  const goalName = monthly ? 'monthly goal' : 'goal'
+  const goal = w.goal ? (w.goal.met ? `${monthly ? 'Monthly goal' : 'Goal'} met: ${fmt(w.goal.completed)} of ${fmt(w.goal.target)}` : `${fmt(w.goal.completed)} of ${fmt(w.goal.target)} ${goalName}`) : null
   const name = clip(username, 22)
   return {
     accent,
     accentText,
     name,
-    url: `${siteHost}/u/${name}/wrapped/${w.year}`,
+    monthly,
+    // Big, in the accent: the year, or the month's name.
+    headline: monthly ? MONTHS[w.month!] : String(w.year),
+    // Beside the logo or above the title: "2026 Wrapped", or "October 2026".
+    kicker: monthly ? `${MONTHS[w.month!]} ${w.year}` : `${w.year} Wrapped`,
+    title: monthly ? `${name}’s month in books` : `${name}’s year in books`,
+    // There's no public page for a month, so its card points at the profile.
+    url: monthly ? `${siteHost}/u/${name}` : `${siteHost}/u/${name}/wrapped/${w.year}`,
     favourite,
     favouriteTitle: favourite ? clip(favourite.title, 44) : '',
     favouriteAuthor: favourite ? clip(favourite.author, 34) : '',
-    favouriteKicker: w.topRated ? 'Favourite of the year' : 'The big one',
+    favouriteKicker: w.topRated ? (monthly ? 'Favourite of the month' : 'Favourite of the year') : 'The big one',
     stats: [
       { label: w.books === 1 ? 'book finished' : 'books finished', value: fmt(w.books) },
       { label: 'pages turned', value: fmt(w.pages) },
-      ...(w.busiestMonth ? [{ label: 'busiest month', value: MONTHS[w.busiestMonth.month] }] : []),
+      ...(!monthly && w.busiestMonth ? [{ label: 'busiest month', value: MONTHS[w.busiestMonth.month] }] : []),
       ...(w.topGenre ? [{ label: 'top genre', value: clip(w.topGenre.name, 18) }] : []),
+      ...(monthly && w.topAuthor ? [{ label: 'most read', value: clip(w.topAuthor.name, 18) }] : []),
     ],
     goal,
     medals: w.medals.length ? plural(w.medals.length, 'medal') + ' earned' : null,
@@ -101,7 +112,7 @@ function facts({ wrapped: w, username, favColour }: ImageInput) {
 
 async function assets(input: ImageInput, f: ReturnType<typeof facts>) {
   const text =
-    ['Bookmark', 'Wrapped', 'in books', 'reader', f.name, f.url, f.favouriteTitle, f.favouriteAuthor, f.favouriteKicker, f.goal ?? '', f.medals ?? '', input.wrapped.tier?.label ?? '', String(input.wrapped.year), ...f.stats.flatMap((s) => [s.label, s.value])].join('') +
+    ['Bookmark', 'Wrapped', 'in books', 'reader', f.name, f.url, f.headline, f.kicker, f.title, f.favouriteTitle, f.favouriteAuthor, f.favouriteKicker, f.goal ?? '', f.medals ?? '', input.wrapped.tier?.label ?? '', String(input.wrapped.year), ...f.stats.flatMap((s) => [s.label, s.value])].join('') +
     "0123456789·…'’s"
   const [cover, regular, semibold, black] = await Promise.all([imageData(f.favourite?.coverImage), interFont(400, text), interFont(600, text), interFont(800, text)])
   const fonts = [regular, semibold, black].filter((x): x is NonNullable<typeof x> => !!x)
@@ -173,8 +184,8 @@ export async function wrappedOgImage(input: ImageInput) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 30, color: f.accentText, fontWeight: 800 }}>{`${w.year} Wrapped`}</span>
-            <span style={{ fontSize: f.name.length > 14 ? 52 : 64, fontWeight: 800, letterSpacing: -2, lineHeight: 1.05 }}>{`${f.name}’s year in books`}</span>
+            <span style={{ fontSize: 30, color: f.accentText, fontWeight: 800 }}>{f.kicker}</span>
+            <span style={{ fontSize: f.name.length > 14 ? 52 : 64, fontWeight: 800, letterSpacing: -2, lineHeight: 1.05 }}>{f.title}</span>
           </div>
 
           <div style={{ display: 'flex', gap: 44 }}>
@@ -226,8 +237,9 @@ export async function wrappedStoryImage(input: ImageInput, headers?: Record<stri
         <Logo size={42} label="Bookmark" />
 
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 70 }}>
-          <span style={{ fontSize: 220, fontWeight: 800, letterSpacing: -10, lineHeight: 0.9, color: f.accentText }}>{String(w.year)}</span>
-          <span style={{ marginTop: 18, fontSize: f.name.length > 14 ? 60 : 72, fontWeight: 800, letterSpacing: -2, lineHeight: 1.05 }}>{`${f.name}’s year in books`}</span>
+          <span style={{ fontSize: f.monthly ? (f.headline.length > 7 ? 130 : 170) : 220, fontWeight: 800, letterSpacing: f.monthly ? -5 : -10, lineHeight: 0.9, color: f.accentText }}>{f.headline}</span>
+          {f.monthly && <span style={{ marginTop: 12, fontSize: 44, fontWeight: 600, color: MUTED }}>{String(w.year)}</span>}
+          <span style={{ marginTop: 18, fontSize: f.name.length > 14 ? 60 : 72, fontWeight: 800, letterSpacing: -2, lineHeight: 1.05 }}>{f.title}</span>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 70, rowGap: 44 }}>

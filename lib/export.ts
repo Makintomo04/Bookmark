@@ -115,7 +115,7 @@ export async function buildJsonExport(userId: string) {
       },
     }),
     loadBooks(userId),
-    prisma.readingGoal.findMany({ where: { userId }, orderBy: { year: "asc" }, select: { year: true, targetBooks: true, createdAt: true, updatedAt: true } }),
+    prisma.readingGoal.findMany({ where: { userId }, orderBy: { year: "asc" }, select: { year: true, targetBooks: true, targetPages: true, targetBooksPerMonth: true, createdAt: true, updatedAt: true } }),
     prisma.list.findMany({
       where: { ownerId: userId },
       orderBy: { createdAt: "asc" },

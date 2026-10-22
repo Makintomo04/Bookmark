@@ -2,18 +2,23 @@
 import { FC, useState } from 'react'
 import { Book } from '@prisma/client'
 import axios from 'axios'
-import { notify } from '@/lib/notify'
-import { Pencil, Target } from 'lucide-react'
+import { notify, apiError } from '@/lib/notify'
+import { Pencil, Sparkles, Target } from 'lucide-react'
 import useBooks from '@/app/hooks/useBooks'
 import useReadingGoal from '@/app/hooks/useReadingGoal'
 import useUser from '@/app/hooks/useUser'
 import { cn } from '@/lib/utils'
+import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
+import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, goalProgress } from '@/lib/goals'
 import { Input as RawInput } from '../ui/input'
+import UpgradePrompt from '../plus/UpgradePrompt'
 import { useForm, FieldValues, SubmitHandler } from 'react-hook-form'
 import { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 
 const RING_RADIUS = 22
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const fmt = (n: number) => n.toLocaleString('en-GB')
 
 // How far through the year we are, 0–1, so progress can be judged against the date.
 const yearFraction = (now: Date) => {
@@ -38,6 +43,24 @@ const toneClass = {
   neutral: "text-muted-foreground",
 }
 
+// "" clears a Plus goal; a number sets it.
+const extraValue = (raw: unknown) => (raw === "" || raw === undefined || raw === null ? null : Number(raw))
+
+// One thin bar for a Plus goal under the yearly ring.
+const ExtraGoal: FC<{ label: string; done: number; target: number; colour: string }> = ({ label, done, target, colour }) => (
+  <div>
+    <div className="flex items-baseline justify-between gap-3 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("tabular-nums", done >= target ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
+        {fmt(done)} of {fmt(target)}
+      </span>
+    </div>
+    <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(done, target)} className="mt-1 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800">
+      <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.min(100, (done / target) * 100)}%`, background: colour }} />
+    </div>
+  </div>
+)
+
 const ReadingGoalWidget: FC = () => {
   const { user } = useUser()
   const year = new Date().getFullYear()
@@ -45,29 +68,38 @@ const ReadingGoalWidget: FC = () => {
   const { goal, isLoading, mutate } = useReadingGoal(year)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [refused, setRefused] = useState(false)
+  const canExtra = entitlementsOf(user ?? {}).extraGoalTypes
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FieldValues>({
-    defaultValues: { targetBooks: 12 },
+    defaultValues: { targetBooks: 12, targetPages: "", targetBooksPerMonth: "" },
   })
 
-  const completedThisYear = books?.filter((book: Book) =>
-    book.status === "COMPLETED" && book.completedAt && new Date(book.completedAt).getFullYear() === year
-  ).length || 0
+  const progress = goalProgress((books ?? []) as Book[])
+  const completedThisYear = progress.books
 
   const startEditing = () => {
-    reset({ targetBooks: goal?.targetBooks || 12 })
+    reset({
+      targetBooks: goal?.targetBooks || 12,
+      targetPages: goal?.targetPages ?? "",
+      targetBooksPerMonth: goal?.targetBooksPerMonth ?? "",
+    })
+    setRefused(false)
     setIsEditing(true)
   }
 
   const onSubmit: SubmitHandler<FieldValues> = (data) => {
     setIsSaving(true)
-    axios.post("/api/reading-goal", { year, targetBooks: data.targetBooks })
+    // A free account only sends the book count, so a goal set while on Plus stays put.
+    const extras = canExtra ? { targetPages: extraValue(data.targetPages), targetBooksPerMonth: extraValue(data.targetBooksPerMonth) } : {}
+    axios.post("/api/reading-goal", { year, targetBooks: data.targetBooks, ...extras })
       .then(() => {
         mutate()
         setIsEditing(false)
       })
-      .catch(() => {
-        notify.error("Couldn't save your goal. Try again.", { retry: () => onSubmit(data) })
+      .catch((err) => {
+        if (isUpgradeRequired(err?.response?.data)) return setRefused(true)
+        notify.error(apiError(err, "Couldn't save your goal. Try again."), { retry: () => onSubmit(data) })
       })
       .finally(() => setIsSaving(false))
   }
@@ -75,6 +107,8 @@ const ReadingGoalWidget: FC = () => {
   if (isLoading) return null
 
   const target = goal?.targetBooks
+  const colour = user?.favColour || "#F13C3C"
+  const fieldClass = "h-9"
 
   if (isEditing) {
     return (
@@ -82,9 +116,36 @@ const ReadingGoalWidget: FC = () => {
         <label htmlFor="targetBooks" className="block text-sm font-medium">How many books do you want to read in {year}?</label>
         <div className="mt-2.5 flex flex-wrap items-start gap-2">
           <div className="w-20">
-            <RawInput register={register} errors={errors} inputValidation={{ required: true, min: 1, message: "Enter a goal" }} name="targetBooks" id="targetBooks" type="number" min={1} autoComplete="off" autoFocus className="h-9" disabled={isSaving} />
+            <RawInput register={register} errors={errors} inputValidation={{ required: true, min: 1, message: "Enter a goal" }} name="targetBooks" id="targetBooks" type="number" min={1} autoComplete="off" autoFocus className={fieldClass} disabled={isSaving} />
           </div>
-          <span className="self-center text-sm text-muted-foreground mr-auto">books</span>
+          <span className="self-center text-sm text-muted-foreground">books</span>
+        </div>
+
+        {canExtra ? (
+          <fieldset className="mt-4 flex flex-col gap-3">
+            <legend className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+              <Sparkles size={14} aria-hidden className="text-brand" /> Plus goals <span className="font-normal text-muted-foreground">· optional</span>
+            </legend>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-28">
+                <RawInput register={register} errors={errors} inputValidation={{ min: 1, max: GOAL_PAGES_MAX, message: `1 to ${fmt(GOAL_PAGES_MAX)}` }} name="targetPages" id="targetPages" type="number" min={1} max={GOAL_PAGES_MAX} placeholder="e.g. 10000" autoComplete="off" className={fieldClass} disabled={isSaving} />
+              </div>
+              <label htmlFor="targetPages" className="text-sm text-muted-foreground">pages in {year}</label>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-20">
+                <RawInput register={register} errors={errors} inputValidation={{ min: 1, max: GOAL_MONTHLY_MAX, message: `1 to ${GOAL_MONTHLY_MAX}` }} name="targetBooksPerMonth" id="targetBooksPerMonth" type="number" min={1} max={GOAL_MONTHLY_MAX} placeholder="e.g. 3" autoComplete="off" className={fieldClass} disabled={isSaving} />
+              </div>
+              <label htmlFor="targetBooksPerMonth" className="text-sm text-muted-foreground">books every month</label>
+            </div>
+            <p className="text-xs text-muted-foreground">Leave one empty to turn it off.</p>
+          </fieldset>
+        ) : (
+          <UpgradePrompt feature="extraGoalTypes" variant="inline" message="Want a page goal or a monthly pace too? They're part of Plus." className="mt-3 block" />
+        )}
+        {refused && <UpgradePrompt feature="extraGoalTypes" className="mt-3" />}
+
+        <div className="mt-4 flex justify-end gap-2">
           <button type="button" disabled={isSaving} onClick={() => setIsEditing(false)} className={secondaryButtonClass}>Cancel</button>
           <button type="submit" disabled={isSaving} className={primaryButtonClass}>Save goal</button>
         </div>
@@ -105,45 +166,56 @@ const ReadingGoalWidget: FC = () => {
     )
   }
 
-  const progress = Math.min(1, completedThisYear / target)
+  const ratio = Math.min(1, completedThisYear / target)
   const status = pace(completedThisYear, target)
+  // Shown while on Plus; a lapsed account keeps the values for when it comes back.
+  const pagesTarget = canExtra ? goal?.targetPages : null
+  const monthlyTarget = canExtra ? goal?.targetBooksPerMonth : null
 
   return (
-    <div className="mt-5 max-w-md flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
-      <svg
-        role="progressbar"
-        aria-label={`${year} reading goal`}
-        aria-valuenow={completedThisYear}
-        aria-valuemin={0}
-        aria-valuemax={target}
-        viewBox="0 0 52 52"
-        className="shrink-0 -rotate-90"
-        width={52}
-        height={52}
-      >
-        <circle cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="5" className="stroke-neutral-200 dark:stroke-neutral-800" />
-        <circle
-          cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="5" strokeLinecap="round"
-          stroke={user?.favColour || "#F13C3C"}
-          strokeDasharray={`${progress * RING_LENGTH} ${RING_LENGTH}`}
-          className="transition-[stroke-dasharray] duration-700"
-        />
-        <text x="26" y="26" dy="0.35em" textAnchor="middle" transform="rotate(90 26 26)" className="fill-foreground text-[11px] font-semibold tabular-nums">
-          {Math.round(progress * 100)}%
-        </text>
-      </svg>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium tabular-nums">{completedThisYear} of {target} books in {year}</p>
-        <p className={cn("mt-0.5 text-sm tabular-nums", toneClass[status.tone])}>{status.text}</p>
+    <div className="mt-5 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+      <div className="flex items-center gap-4">
+        <svg
+          role="progressbar"
+          aria-label={`${year} reading goal`}
+          aria-valuenow={completedThisYear}
+          aria-valuemin={0}
+          aria-valuemax={target}
+          viewBox="0 0 52 52"
+          className="shrink-0 -rotate-90"
+          width={52}
+          height={52}
+        >
+          <circle cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="5" className="stroke-neutral-200 dark:stroke-neutral-800" />
+          <circle
+            cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="5" strokeLinecap="round"
+            stroke={colour}
+            strokeDasharray={`${ratio * RING_LENGTH} ${RING_LENGTH}`}
+            className="transition-[stroke-dasharray] duration-700"
+          />
+          <text x="26" y="26" dy="0.35em" textAnchor="middle" transform="rotate(90 26 26)" className="fill-foreground text-[11px] font-semibold tabular-nums">
+            {Math.round(ratio * 100)}%
+          </text>
+        </svg>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium tabular-nums">{completedThisYear} of {target} books in {year}</p>
+          <p className={cn("mt-0.5 text-sm tabular-nums", toneClass[status.tone])}>{status.text}</p>
+        </div>
+        <button
+          type="button"
+          onClick={startEditing}
+          aria-label={`Edit ${year} reading goal`}
+          className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+        >
+          <Pencil size={15} aria-hidden />
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={startEditing}
-        aria-label={`Edit ${year} reading goal`}
-        className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
-      >
-        <Pencil size={15} aria-hidden />
-      </button>
+      {(pagesTarget || monthlyTarget) && (
+        <div className="mt-3 flex flex-col gap-2.5 border-t border-neutral-200 dark:border-neutral-800 pt-3">
+          {pagesTarget ? <ExtraGoal label={`Pages in ${year}`} done={progress.pages} target={pagesTarget} colour={colour} /> : null}
+          {monthlyTarget ? <ExtraGoal label={`Books in ${MONTHS[progress.month]}`} done={progress.thisMonth} target={monthlyTarget} colour={colour} /> : null}
+        </div>
+      )}
     </div>
   )
 }

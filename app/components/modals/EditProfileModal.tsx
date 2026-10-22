@@ -21,6 +21,7 @@ import DataExport from '../settings/DataExport'
 import InitialAvatar from '../profile/InitialAvatar'
 import PrivacySettings from '../settings/PrivacySettings'
 import AppearanceSettings from '../settings/AppearanceSettings'
+import PlusSettings from '../settings/PlusSettings'
 import ColourSwatches from '../profile/ColourSwatches'
 
 type ProfileForm = {
@@ -306,6 +307,7 @@ const EditProfileModal: FC = () => {
       {preview}
       {fields}
       <AppearanceSettings disabled={isBusy} />
+      <PlusSettings disabled={isBusy} />
       <PrivacySettings disabled={isBusy} />
       <DataExport disabled={isBusy} />
       {dangerZone}

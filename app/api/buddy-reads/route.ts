@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { createBuddyReadSchema, progressPercent } from "@/lib/buddyReads";
-import { buddyReadError, canHostAnotherCircle, isBlockedEitherWay, isObjectId, newInviteCode, parseBody } from "@/lib/buddyReadsServer";
+import { buddyReadError, canHostAnotherCircle, hostingRefusal, isBlockedEitherWay, isObjectId, newInviteCode, parseBody } from "@/lib/buddyReadsServer";
 import { progressSelect, progressScale } from "@/lib/progress";
 
 // The reader's reading circles (newest first) with everyone's progress, and invites waiting for them.
@@ -101,9 +101,9 @@ export async function POST(req: Request) {
       : "Add the book's page count first, so everyone's progress can be tracked.", 400);
   }
 
-  // Free accounts host one active circle at a time. Joining is never limited.
+  // Free accounts host one active circle at a time; Plus has no limit. Joining is never limited.
   const hosting = await canHostAnotherCircle(currentUser.id);
-  if (!hosting.allowed) return buddyReadError(hosting.message ?? "You can't host another circle right now.", 403);
+  if (!hosting.allowed) return hostingRefusal(hosting);
 
   const buddyRead = await prisma.buddyRead.create({
     data: {
