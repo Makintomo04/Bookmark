@@ -11,12 +11,12 @@ interface RestrictedProfileProps {
   profile: RestrictedProfileData
   reason: Exclude<RestrictedReason, "unavailable">
   // null when signed out.
-  viewer: { isFollowing: boolean } | null
+  viewer: { isFollowing: boolean; requested: boolean } | null
 }
 
 const COPY: Record<RestrictedProfileProps["reason"], { title: string; body: string }> = {
   private: { title: "This profile is private", body: "Their shelf, reviews and activity are only visible to them." },
-  followers: { title: "This profile is for followers", body: "Follow them to see their shelf, reviews and activity." },
+  followers: { title: "This profile is for followers", body: "Ask to follow them. Once they accept, you'll see their shelf, reviews and activity." },
   blockedByViewer: { title: "You've blocked this reader", body: "Unblock them from the menu to see their profile again." },
 }
 
@@ -43,8 +43,8 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
           {reason === "followers" && (
             <div className="mt-5">
               {viewer
-                ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} />
-                : <Link href="/register" className={primaryButtonClass}>Sign up to follow</Link>}
+                ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval />
+                : <Link href="/register" className={primaryButtonClass}>Sign up to ask to follow</Link>}
             </div>
           )}
         </div>

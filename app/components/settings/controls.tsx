@@ -27,8 +27,8 @@ export const LIST_OPTIONS: Option<Settings["defaultListVisibility"]>[] = [
 
 export const PROFILE_HINT: Record<Settings["profileVisibility"], string> = {
   PUBLIC: "Anyone can see your shelf, and your profile can show up in search engines.",
-  FOLLOWERS: "Only your followers see your shelf and activity. Others see your name and a Follow button.",
-  PRIVATE: "Only you see your shelf. You're hidden from search and your activity stays out of feeds.",
+  FOLLOWERS: "Only followers you've approved see your shelf and activity. Others see your name and can ask to follow.",
+  PRIVATE: "Only you see your shelf. You're hidden from search, your activity stays out of feeds, and new followers need your approval.",
 }
 export const INVITE_HINT: Record<Settings["buddyReadInvites"], string> = {
   EVERYONE: "Any reader can invite you by username.",

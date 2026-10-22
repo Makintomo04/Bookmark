@@ -38,8 +38,17 @@ export async function POST(
         ],
       },
     }),
-    // Their "followed you" notification goes too, so it can't link back to them.
-    prisma.notification.deleteMany({ where: { userId: currentUser.id, actorId: target.id, type: "NEW_FOLLOWER" } }),
+    // And any follow request pending either way.
+    prisma.followRequest.deleteMany({
+      where: {
+        OR: [
+          { requesterId: currentUser.id, targetId: target.id },
+          { requesterId: target.id, targetId: currentUser.id },
+        ],
+      },
+    }),
+    // Their "followed you" and "asked to follow" notifications go too, so they can't link back to them.
+    prisma.notification.deleteMany({ where: { userId: currentUser.id, actorId: target.id, type: { in: ["NEW_FOLLOWER", "FOLLOW_REQUEST"] } } }),
     prisma.block.upsert({
       where: { blockerId_blockedId: pair },
       create: pair,

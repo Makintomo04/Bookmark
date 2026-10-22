@@ -19,7 +19,7 @@ import { isFinishedBook } from '@/lib/readerTier'
 interface PublicProfileProps {
   profile: SerializedProfile
   // null when signed out.
-  viewer: { isFollowing: boolean } | null
+  viewer: { isFollowing: boolean; requested: boolean; needsApproval: boolean } | null
 }
 
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
@@ -36,7 +36,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
     <>
       <ShareProfileButton username={profile.username} />
       {viewer
-        ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} />
+        ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval={viewer.needsApproval} />
         : <Link href="/register" className={primaryButtonClass}>Sign up to follow</Link>}
       {viewer && <ProfileMenu username={profile.username} isBlocked={false} />}
     </>

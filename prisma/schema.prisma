@@ -163,7 +163,6 @@ model Follow {
   following User @relation("UserFollowedBy", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
-
   // Followers list: followingId match, newest first. (followerId lookups use the unique index.)
   @@index([followingId, createdAt])
 }
@@ -399,6 +398,7 @@ model Edition {
   @@index([isbn13])
   @@index([isbn10])
 }
+
 model Note {
   id String   @id @default(auto()) @map("_id") @db.ObjectId
   bookId String @db.ObjectId
@@ -536,6 +536,8 @@ enum NotificationType {
   // The host closed their account and the reading circle passed to you. actorId is you (the old host is gone);
   // if you had no room it arrived archived.
   BUDDY_READ_HOST_INHERITED
+  // Someone asked to follow your followers-only or private profile (lib/followRequests.ts).
+  FOLLOW_REQUEST
   // You finished a seasonal quest. achievementKey is "QUEST:<questId>".
   QUEST_COMPLETED
   // A friend (someone you both follow) sent you a book, with an optional message.
@@ -703,7 +705,7 @@ model BuddyRead {
   hostId String @db.ObjectId
   // Set when hosting was handed on (the host left or closed their account). Inherited circles don't count
   // against the host's own limit; they have a separate cap (lib/buddyReads.ts INHERITED_HOSTING_LIMIT).
-  inheritedAt DateTime?
+  inheritedAt  DateTime?
   startsAt DateTime
   // Optional reading plan: [{ label: "Chapters 1-5", until: 20, due: "2026-11-01" }], until being a percent.
   schedule Json?
@@ -877,4 +879,20 @@ model QuestProgress {
   // "N readers earned this".
   @@index([questId, completedAt])
   @@index([userId])
+}
+
+// ---- Follow requests --------------------------------------------------------------------------
+// Following a reader whose profile isn't public (Followers only or Private) needs their approval: the
+// follow is held here until they accept or decline (lib/followRequests.ts). Users are referenced by
+// scalar ids, like the reading-circle models, so User stays untouched; account deletion clears both sides.
+model FollowRequest {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  requesterId String   @db.ObjectId
+  targetId    String   @db.ObjectId
+  createdAt   DateTime @default(now())
+
+  // One pending request per pair; the prefix covers "requests I've sent".
+  @@unique([requesterId, targetId])
+  // The owner's pending requests, newest first.
+  @@index([targetId, createdAt])
 }
