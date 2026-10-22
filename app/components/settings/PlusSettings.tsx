@@ -164,7 +164,7 @@ const PlusRewards: FC = () => {
       {giftCodes.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="flex items-center gap-1.5 text-sm font-medium"><Gift size={14} aria-hidden className="text-brand" /> Gift codes</span>
-          <p className="-mt-1 text-xs text-muted-foreground">A month of Plus each, for friends who haven't had it. They enter the code on the Plus page.</p>
+          <p className="-mt-1 text-xs text-muted-foreground">A month of Plus each, for friends who haven&apos;t had it. They enter the code on the Plus page.</p>
           <ul className="flex flex-col gap-1.5">
             {giftCodes.map((g) => (
               <li key={g.code} className="flex items-center justify-between gap-3 text-sm">
