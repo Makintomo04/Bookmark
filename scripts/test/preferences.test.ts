@@ -1,4 +1,4 @@
-// Community preferences: defaults for accounts made before they existed, and who can send a buddy read invite. No database.
+// Community preferences: defaults for accounts made before they existed, and who can send a reading circle invite. No database.
 //
 //   node --import ./scripts/test/register.mjs --test scripts/test/preferences.test.ts
 import { test } from "node:test";
@@ -17,7 +17,7 @@ test("stored preferences win over the defaults", () => {
   );
 });
 
-test("buddy read invites follow the invitee's audience", () => {
+test("reading circle invites follow the invitee's audience", () => {
   const as = (buddyReadInvites: "EVERYONE" | "FOLLOWING" | "NOBODY") => preferencesOf({ buddyReadInvites });
   assert.equal(acceptsBuddyReadInvite(as("EVERYONE"), false), true);
   assert.equal(acceptsBuddyReadInvite(as("FOLLOWING"), true), true);

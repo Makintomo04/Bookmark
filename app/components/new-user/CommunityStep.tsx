@@ -92,7 +92,7 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
 
       <section aria-label="Reading with others" className="flex flex-col gap-5 rounded-lg border border-neutral-200 bg-background p-4 dark:border-neutral-800">
         <div className="flex flex-col gap-1.5">
-          <Segmented id="onboarding-invites" label="Who can invite you to buddy reads" options={INVITE_OPTIONS} value={draft.buddyReadInvites} onChange={(v) => set("buddyReadInvites", v)} disabled={saving} />
+          <Segmented id="onboarding-invites" label="Who can invite you to reading circles" options={INVITE_OPTIONS} value={draft.buddyReadInvites} onChange={(v) => set("buddyReadInvites", v)} disabled={saving} />
           <p className="text-xs text-muted-foreground">{INVITE_HINT[draft.buddyReadInvites]} An invite link always works.</p>
         </div>
         <Segmented id="onboarding-lists" label="New lists start as" options={LIST_OPTIONS} value={draft.defaultListVisibility} onChange={(v) => set("defaultListVisibility", v)} disabled={saving} />

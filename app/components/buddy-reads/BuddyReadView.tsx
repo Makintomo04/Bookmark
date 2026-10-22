@@ -39,7 +39,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
     lastStamp.current = bookStamp
   }, [bookStamp, mutate])
 
-  if (!view) return <FetchErrorState error={isError} what="this buddy read" onRetry={() => mutate()} />
+  if (!view) return <FetchErrorState error={isError} what="this reading circle" onRetry={() => mutate()} />
 
   const { buddyRead, viewer, members, comments } = view
   const archived = buddyRead.status === "ARCHIVED"
@@ -58,7 +58,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   }
 
   const setStatus = (status: "ACTIVE" | "FINISHED" | "ARCHIVED") => {
-    if (status === "ARCHIVED" && !window.confirm("Archive this buddy read? It's hidden from everyone's list and closed to new comments.")) return
+    if (status === "ARCHIVED" && !window.confirm("Archive this reading circle? It's hidden from everyone's list and closed to new comments.")) return
     axios.patch(`/api/buddy-reads/${id}`, { status }).then(() => mutate())
       .catch((err) => toast.error(err?.response?.data?.error || "Couldn't update it.", { position: "bottom-center" }))
   }
@@ -70,15 +70,15 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   }
 
   const leave = () => {
-    if (!window.confirm("Leave this buddy read? The book stays on your shelf.")) return
-    axios.delete(`/api/buddy-reads/${id}/members/${viewer.userId}`).then(() => router.push("/buddy-reads"))
+    if (!window.confirm("Leave this reading circle? The book stays on your shelf.")) return
+    axios.delete(`/api/buddy-reads/${id}/members/${viewer.userId}`).then(() => router.push("/circles"))
       .catch((err) => toast.error(err?.response?.data?.error || "Couldn't leave.", { position: "bottom-center" }))
   }
 
   return (
     <div className="flex flex-col gap-10">
-      <Link href="/buddy-reads" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft size={14} aria-hidden /> Buddy reads
+      <Link href="/circles" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft size={14} aria-hidden /> Reading circles
       </Link>
 
       <header className="flex gap-5">
@@ -90,7 +90,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         />
         <div className="min-w-0 flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Buddy read{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}
+            Reading circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}
           </p>
           <h1 className="text-2xl sm:text-3xl font-bold leading-tight break-words">{buddyRead.title}</h1>
           <p className="text-muted-foreground">{buddyRead.author}</p>
@@ -134,7 +134,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
                 {!archived && <button type="button" onClick={() => setStatus("ARCHIVED")} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Archive</button>}
               </>
             ) : (
-              <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this buddy read</button>
+              <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this reading circle</button>
             )}
           </section>
         </aside>

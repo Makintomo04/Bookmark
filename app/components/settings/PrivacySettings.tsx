@@ -39,7 +39,7 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
       <div className="rounded-lg border p-4 flex flex-col gap-5">
         <p className="text-sm font-medium">Community</p>
         <div className="flex flex-col gap-1.5">
-          <Segmented id="community-invites" label="Who can invite you to buddy reads" options={INVITE_OPTIONS} value={settings.buddyReadInvites} onChange={(v) => save("buddyReadInvites", v)} disabled={busy} />
+          <Segmented id="community-invites" label="Who can invite you to reading circles" options={INVITE_OPTIONS} value={settings.buddyReadInvites} onChange={(v) => save("buddyReadInvites", v)} disabled={busy} />
           <p className="text-xs text-muted-foreground">{INVITE_HINT[settings.buddyReadInvites]} An invite link always works.</p>
         </div>
         <Segmented id="community-lists" label="New lists start as" options={LIST_OPTIONS} value={settings.defaultListVisibility} onChange={(v) => save("defaultListVisibility", v)} disabled={busy} />

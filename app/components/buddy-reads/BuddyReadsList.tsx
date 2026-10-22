@@ -17,7 +17,7 @@ const cover = (b: { title: string, author: string, coverImage: string | null, ca
 
 const BuddyReadCard: FC<{ buddyRead: BuddyReadSummary }> = ({ buddyRead }) => (
   <Link
-    href={`/buddy-reads/${buddyRead.id}`}
+    href={`/circles/${buddyRead.id}`}
     className="flex gap-4 rounded-xl p-3 -mx-3 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
   >
     <BookCover book={cover(buddyRead)} variant="thumb" sizes="64px" className="w-16 shrink-0 self-start" />
@@ -59,7 +59,7 @@ const BuddyReadsList: FC = () => {
     setBusyInvite(inviteId)
     axios.post("/api/buddy-reads/join", { code }).then(({ data }) => {
       if (data.addedToShelf) toast.success("Added to your Currently reading shelf", { position: "bottom-center" })
-      router.push(`/buddy-reads/${data.buddyReadId}`)
+      router.push(`/circles/${data.buddyReadId}`)
     }).catch((err) => {
       toast.error(err?.response?.data?.error || "Couldn't join.", { position: "bottom-center" })
       setBusyInvite(null)
@@ -78,15 +78,15 @@ const BuddyReadsList: FC = () => {
     <div className="flex flex-col gap-10">
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div className="max-w-xl">
-          <h1 className="text-3xl sm:text-4xl font-bold">Buddy reads</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold">Reading circles</h1>
           <p className="mt-2 text-muted-foreground">
             Read a book with friends. See where everyone is, and talk about it as you go. Comments stay hidden until you reach them.
           </p>
         </div>
-        <Link href="/buddy-reads/new" className={`${primaryButtonClass} shrink-0`}><Plus size={16} aria-hidden />Start a buddy read</Link>
+        <Link href="/circles/new" className={`${primaryButtonClass} shrink-0`}><Plus size={16} aria-hidden />Start a reading circle</Link>
       </header>
 
-      {isError && !buddyReads && <FetchErrorState error={isError} what="your buddy reads" onRetry={() => mutate()} />}
+      {isError && !buddyReads && <FetchErrorState error={isError} what="your reading circles" onRetry={() => mutate()} />}
 
       {invites.length > 0 && (
         <section aria-labelledby="invites-heading" className="flex flex-col gap-3">
@@ -115,11 +115,11 @@ const BuddyReadsList: FC = () => {
         </div>
       ) : buddyReads && active.length === 0 && finished.length === 0 ? (
         <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-10 text-center flex flex-col items-center gap-3">
-          <p className="font-medium">No buddy reads yet</p>
+          <p className="font-medium">No reading circles yet</p>
           <p className="max-w-md text-sm text-muted-foreground">
             Pick a book from your shelf, share the link, and read it together. Up to 15 readers, any edition.
           </p>
-          <Link href="/buddy-reads/new" className={primaryButtonClass}>Start one</Link>
+          <Link href="/circles/new" className={primaryButtonClass}>Start one</Link>
         </div>
       ) : (
         <>

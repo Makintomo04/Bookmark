@@ -19,11 +19,11 @@ interface PageProps {
 // Nothing past the cover is shown here: no progress and no comments.
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const invite = await loadInvite(params.code)
-  if (!invite) return { title: "Buddy read", robots: { index: false } }
+  if (!invite) return { title: "Reading circle", robots: { index: false } }
   const { buddyRead, host, members } = invite
   const title = `Read ${buddyRead.title} with ${host?.username ?? "friends"}`
   const others = members.length - 1
-  const description = `${host?.username ?? "A reader"} is reading ${buddyRead.title} by ${buddyRead.author}${others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}. Join the buddy read on Bookmark: track progress together, with comments that stay hidden until you reach them.`
+  const description = `${host?.username ?? "A reader"} is reading ${buddyRead.title} by ${buddyRead.author}${others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}. Join the reading circle on Bookmark: track progress together, with comments that stay hidden until you reach them.`
   return {
     title,
     description,
@@ -43,7 +43,7 @@ const Page = async ({ params }: PageProps) => {
       where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId: viewer.id } },
       select: { id: true },
     })
-    if (isMember) redirect(`/buddy-reads/${buddyRead.id}`)
+    if (isMember) redirect(`/circles/${buddyRead.id}`)
   }
   const full = members.length >= BUDDY_READ_MAX_MEMBERS
 
@@ -57,7 +57,7 @@ const Page = async ({ params }: PageProps) => {
             className="w-36 sm:w-40 shadow-lg"
           />
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Buddy read</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reading circle</p>
             <h1 className="text-3xl sm:text-4xl font-bold leading-tight">{buddyRead.title}</h1>
             <p className="text-muted-foreground">{buddyRead.author}</p>
           </div>
@@ -78,7 +78,7 @@ const Page = async ({ params }: PageProps) => {
           </div>
 
           {full ? (
-            <p className="text-muted-foreground">This buddy read is full.</p>
+            <p className="text-muted-foreground">This reading circle is full.</p>
           ) : viewer ? (
             <div className="flex flex-col items-center gap-2">
               <JoinButton code={params.code} />
@@ -86,8 +86,8 @@ const Page = async ({ params }: PageProps) => {
             </div>
           ) : (
             <div className="flex flex-wrap justify-center gap-3">
-              <Link href={`/register?callbackUrl=${encodeURIComponent(`/buddy-reads/join/${params.code}`)}`} className={`${primaryButtonClass} h-11 px-6 text-base`}>Create an account to join</Link>
-              <Link href={`/signin?callbackUrl=${encodeURIComponent(`/buddy-reads/join/${params.code}`)}`} className={`${secondaryButtonClass} h-11 px-6 text-base`}>Sign in</Link>
+              <Link href={`/register?callbackUrl=${encodeURIComponent(`/circles/join/${params.code}`)}`} className={`${primaryButtonClass} h-11 px-6 text-base`}>Create an account to join</Link>
+              <Link href={`/signin?callbackUrl=${encodeURIComponent(`/circles/join/${params.code}`)}`} className={`${secondaryButtonClass} h-11 px-6 text-base`}>Sign in</Link>
             </div>
           )}
         </div>

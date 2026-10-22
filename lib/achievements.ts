@@ -24,13 +24,13 @@ export type AchievementTrigger = "progress" | "completion" | "rating" | "review"
 const ALL_KEYS = ACHIEVEMENTS.map((a) => a.key);
 
 const LADDERS_FOR: Record<AchievementTrigger, AchievementKey[]> = {
-  // Reaching the last page (or finishing) can finish a buddy read.
+  // Reaching the last page (or finishing) can finish a reading circle.
   progress: ["PAGES_READ", "STREAK", "BUDDY_READS_FINISHED"],
   completion: ["BOOKS_READ", "PAGES_READ", "BIG_BOOKS", "STREAK", "GOALS", "BUDDY_READS_FINISHED"],
   rating: ["RATINGS"],
   review: ["REVIEWS"],
   goal: ["GOALS"],
-  // Someone joined a buddy read you host.
+  // Someone joined a reading circle you host.
   buddyRead: ["BUDDY_READS_FINISHED", "BUDDY_READS_HOSTED"],
   all: ALL_KEYS,
 };
@@ -203,7 +203,7 @@ async function computeStats(userId: string, keys: AchievementKey[], ctx: StatsCo
     );
   }
 
-  // A buddy read counts as finished once the member's book reached 100% (set by onBuddyReadProgress).
+  // A reading circle counts as finished once the member's book reached 100% (set by onBuddyReadProgress).
   if (need.has("BUDDY_READS_FINISHED")) {
     tasks.push(
       prisma.buddyReadMember.count({ where: { userId, finishedAt: { not: null } } }).then((n) => {

@@ -20,7 +20,7 @@ import { DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN, suggestUsername } from '@/l
 
 // Three screens: the profile (username, colour and an optional photo), community choices (genres, privacy,
 // who can invite you), then a few ways to start the shelf. The profile saves at the end of the first, so the
-// rest are genuinely optional, and readers who arrived from somewhere (e.g. a buddy-read invite) skip them
+// rest are genuinely optional, and readers who arrived from somewhere (e.g. a reading circle invite) skip them
 // and go straight back there.
 
 type ProfileForm = { username: string; color: string; imageSrc: string }

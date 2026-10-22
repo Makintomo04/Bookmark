@@ -11,14 +11,14 @@ interface PageProps {
 
 // Private to members, so the title is generic: no book title in a tab or history for a non-member to see.
 export const metadata: Metadata = {
-  title: "Buddy read",
+  title: "Reading circle",
   robots: { index: false },
 }
 
 // Rendered with the first load already spoiler-locked for this reader; the client then polls for updates.
 const Page = async ({ params }: PageProps) => {
   const viewer = await getCurrentUser()
-  if (!viewer) redirect(`/signin?callbackUrl=${encodeURIComponent(`/buddy-reads/${params.id}`)}`)
+  if (!viewer) redirect(`/signin?callbackUrl=${encodeURIComponent(`/circles/${params.id}`)}`)
   const view = await loadBuddyReadView(params.id, viewer.id)
   if (!view) notFound()
 

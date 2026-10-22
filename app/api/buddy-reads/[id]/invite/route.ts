@@ -17,7 +17,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);
   if (notMember) return notMember;
   const { buddyRead } = membership;
-  if (buddyRead.status === "ARCHIVED") return buddyReadError("This buddy read has ended.", 409);
+  if (buddyRead.status === "ARCHIVED") return buddyReadError("This reading circle has ended.", 409);
 
   const parsed = await parseBody(req, inviteSchema);
   if (parsed.response) return parsed.response;
@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } }),
   ]);
   if (isMember) return buddyReadError("They're already reading along.", 409);
-  if (count >= BUDDY_READ_MAX_MEMBERS) return buddyReadError(`This buddy read is full (${BUDDY_READ_MAX_MEMBERS} readers).`, 409);
+  if (count >= BUDDY_READ_MAX_MEMBERS) return buddyReadError(`This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, 409);
 
   // Inviting twice is a no-op, so nobody gets a second notification.
   const existing = await prisma.buddyReadInvite.findUnique({ where: { buddyReadId_inviteeId: { buddyReadId: buddyRead.id, inviteeId: invitee.id } } });

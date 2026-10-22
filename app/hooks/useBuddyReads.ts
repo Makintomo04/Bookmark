@@ -23,7 +23,7 @@ export type BuddyReadInviteSummary = {
   buddyRead: { id: string, title: string, author: string, coverImage: string | null, cardColour: string | null, inviteCode: string }
 }
 
-// The reader's buddy reads and pending invites; with a bookId, only the ones that shelf book is in.
+// The reader's reading circles and pending invites; with a bookId, only the ones that shelf book is in.
 export default function useBuddyReads(bookId?: string | null) {
   const key = bookId === null ? null : bookId ? `/api/buddy-reads?bookId=${bookId}` : `/api/buddy-reads`
   const { data, error, isLoading, mutate } = useSWR<{ buddyReads: BuddyReadSummary[], invites: BuddyReadInviteSummary[] }>(key, fetcher, swrOptions)

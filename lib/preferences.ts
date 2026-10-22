@@ -31,7 +31,7 @@ export function preferencesOf(user: StoredPreferences): CommunityPreferences {
   };
 }
 
-// Can someone invite this reader to a buddy read? `inviteeFollowsInviter` only matters for FOLLOWING.
+// Can someone invite this reader to a reading circle? `inviteeFollowsInviter` only matters for FOLLOWING.
 export function acceptsBuddyReadInvite(invitee: CommunityPreferences, inviteeFollowsInviter: boolean): boolean {
   if (invitee.buddyReadInvites === "EVERYONE") return true;
   return invitee.buddyReadInvites === "FOLLOWING" && inviteeFollowsInviter;

@@ -21,7 +21,7 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
   const full = memberCount >= BUDDY_READ_MAX_MEMBERS
 
   const copy = async () => {
-    const link = `${window.location.origin}/buddy-reads/join/${inviteCode}`
+    const link = `${window.location.origin}/circles/join/${inviteCode}`
     try {
       if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
         await navigator.share({ title: "Read along with me on Bookmark", url: link })
@@ -48,7 +48,7 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
   }
 
   if (full) {
-    return <p className="text-sm text-muted-foreground">This buddy read is full ({BUDDY_READ_MAX_MEMBERS} readers).</p>
+    return <p className="text-sm text-muted-foreground">This reading circle is full ({BUDDY_READ_MAX_MEMBERS} readers).</p>
   }
 
   return (

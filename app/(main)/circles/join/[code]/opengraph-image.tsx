@@ -5,7 +5,7 @@ import { siteUrl } from '@/lib/siteUrl'
 
 // What an invite link unfurls to: the book, the host, and a dot in each member's colour.
 // Node runtime, since Prisma doesn't run on the edge. Follows the reader card in u/[username]/opengraph-image.tsx.
-export const alt = 'An invitation to a Bookmark buddy read'
+export const alt = 'An invitation to a Bookmark reading circle'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -72,10 +72,10 @@ export default async function Image({ params }: { params: { code: string } }) {
   const author = clip(buddyRead.author, 40)
   const hostName = clip(host?.username ?? 'A reader', 24)
   const others = members.length - 1
-  const line = others > 0 ? `and ${others} ${others === 1 ? 'other' : 'others'} are reading together` : 'is starting a buddy read'
+  const line = others > 0 ? `and ${others} ${others === 1 ? 'other' : 'others'} are reading together` : 'is starting a reading circle'
   const footer = `${siteHost} · Comments stay hidden until you reach them`
 
-  const text = ['Bookmark', 'BUDDY READ', 'Join', title, author, hostName, line, footer, hostName.slice(0, 1).toUpperCase()].join('') + '0123456789·…'
+  const text = ['Bookmark', 'READING CIRCLE', 'Join', title, author, hostName, line, footer, hostName.slice(0, 1).toUpperCase()].join('') + '0123456789·…'
   const [cover, avatar, regular, semibold, black] = await Promise.all([
     imageData(buddyRead.coverImage),
     imageData(host?.image),
@@ -128,7 +128,7 @@ export default async function Image({ params }: { params: { code: string } }) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <span style={{ fontSize: 20, fontWeight: 600, color: accent, letterSpacing: 3 }}>BUDDY READ</span>
+            <span style={{ fontSize: 20, fontWeight: 600, color: accent, letterSpacing: 3 }}>READING CIRCLE</span>
             <span style={{ fontSize: title.length > 30 ? 52 : 64, fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.05 }}>{title}</span>
             <span style={{ fontSize: 28, color: MUTED }}>{author}</span>
           </div>
