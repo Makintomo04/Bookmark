@@ -14,17 +14,18 @@ const font = Inter({ subsets: ["latin"], variable: "--font-sans" });
 // The display face: page titles, heroes, Wrapped, big numbers and quotes. Never for UI controls.
 const display = Literata({ subsets: ["latin"], variable: "--font-display", style: ["normal", "italic"], axes: ["opsz"] });
 
-const description = "Track every book you read, hit your yearly reading goals, and follow what your friends are reading on Bookmark.";
+const title = "Bookmark — Read with friends, spoiler-free";
+const description = "Start a reading circle, share one link, and talk about the book as you go. Comments stay hidden until you've read that far. Free.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default:"Bookmark — Track your reading",
+    default: title,
     template: "%s | Bookmark",
   },
   description,
   openGraph: {
-    title: "Bookmark — Track your reading",
+    title,
     description,
     url: siteUrl,
     siteName: "Bookmark",
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
   // The share image is the logo, from ./opengraph-image and ./twitter-image.
   twitter: {
     card: "summary",
-    title: "Bookmark — Track your reading",
+    title,
     description,
   },
 };

@@ -4,21 +4,17 @@ import { FC } from 'react'
 import { Button } from '../ui/button'
 import {
   ArrowRight,
-  BookOpen,
-  BarChart3,
   ChevronDown,
   FileInput,
   Headphones,
   Lock,
-  Medal,
-  ShieldHalf,
-  Sparkles,
-  Target,
   Users,
 } from 'lucide-react'
 
 // Every claim here has to match something the app really does: no invented
 // reader counts or testimonials. Add social proof once there are real numbers.
+// The cards sell reading together; solo tracking gets one line, so the page
+// doesn't read like another tracker.
 
 const features = [
   {
@@ -29,44 +25,23 @@ const features = [
   {
     icon: Users,
     title: "One link, any edition",
-    description: "Share an invite link and friends join with their own copy: paperback, ebook or audiobook. Progress is a percent, so everyone's on one track.",
+    description: "Share an invite link and friends join with their own copy. Paperback, Kindle or audiobook, you'll always know who's ahead.",
   },
   {
     icon: Headphones,
     title: "Audiobooks count",
-    description: "Log an audiobook by minutes listened instead of pages. Reading circles, stats and your goal treat it just like a print book.",
+    description: "Listening counts as reading. Log an audiobook by minutes and it sits in the circle, your stats and your goal like any other book.",
   },
-  {
-    icon: ShieldHalf,
-    title: "Moods and content warnings",
-    description: "Readers tag a book's moods and content warnings when they review it. Warnings stay folded until you tap, so you decide what you see.",
-  },
-  {
-    icon: BarChart3,
-    title: "Every stat, free",
-    description: "Books and pages by month, ratings, genres, authors, re-reads and your streak. All your stats are free. Plus adds recaps, hosting tools and extra goals.",
-  },
-  {
-    icon: Sparkles,
-    title: "Your year, Wrapped",
-    description: "When the year ends, get a recap of everything you read, ready to share with friends.",
-  },
-]
-
-const extras = [
-  { icon: BookOpen, text: "Track every page, keep notes and favourite quotes" },
-  { icon: Target, text: "Set a yearly goal and watch the bar fill" },
-  { icon: Medal, text: "Finish seasonal quests for limited-edition medals" },
 ]
 
 const steps = [
   {
     title: "Pick the book",
-    description: "Search for it, or add it straight from your Goodreads or StoryGraph import. Audiobook? Enter the running time.",
+    description: "Search for it, or bring it over from Goodreads or StoryGraph.",
   },
   {
     title: "Start a reading circle and share the link",
-    description: "One tap on the book page. Friends open the link, the book lands on their shelf, and they're in. No account needed to see the invite.",
+    description: "One tap on the book page. Your friends don't need to be on Bookmark yet: anyone can open the invite, and a quick sign-up drops them straight into the circle.",
   },
   {
     title: "Read, and talk as you go",
@@ -77,7 +52,11 @@ const steps = [
 const faqs = [
   {
     question: "Is Bookmark really free?",
-    answer: "Yes. Tracking, import, reading circles, Wrapped and export are free, and joining a circle is never limited. All your stats are free. Plus adds recaps, hosting tools and extra goals.",
+    answer: "Yes. Tracking, import, every stat, reading circles, Wrapped and export are free, and joining a circle is never limited. An optional Plus plan adds extras, such as hosting more than one circle at a time.",
+  },
+  {
+    question: "None of my friends use Bookmark. Does that matter?",
+    answer: "No. Send them the link anyway. They can open the invite without an account, and signing up takes them straight into your circle.",
   },
   {
     question: "How do spoilers stay hidden in a reading circle?",
@@ -154,7 +133,7 @@ const Landing: FC = () => {
               Read with your friends.<br className="hidden sm:block" /> Nobody gets spoiled.
             </h1>
             <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
-              Bookmark is the group chat for your book, built so comments stay locked until you reach them. Start a reading circle, share one link, and read at your own pace. Free to use, every stat included.
+              The group chat for your book, minus the &lsquo;don&apos;t read past chapter 12&rsquo;. Everyone reads at their own pace, and comments stay hidden until you catch up.
             </p>
             <Button asChild className={`${ctaClassName} mt-8`}>
               <Link href="/register">Start a reading circle — it&apos;s free</Link>
@@ -192,12 +171,12 @@ const Landing: FC = () => {
 
       <section className="px-6 py-20 md:py-28 max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Built for reading together</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Talk about the book without ruining it</h2>
           <p className={`text-base md:text-lg mt-4 ${mutedClassName}`}>
-            Reading circles are the point. Everything else keeps your own reading honest and free.
+            A reading circle is a private chat for one book, where everyone&apos;s place in the story is shown.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {features.map(({ icon: Icon, title, description }) => (
             <div key={title} className={`flex flex-col items-start gap-3 p-6 ${cardClassName}`}>
               <div className="h-12 w-12 rounded-full bg-brand/10 flex items-center justify-center">
@@ -208,13 +187,9 @@ const Landing: FC = () => {
             </div>
           ))}
         </div>
-        <ul className="mt-8 flex flex-wrap justify-center gap-x-8 gap-y-3">
-          {extras.map(({ icon: Icon, text }) => (
-            <li key={text} className={`inline-flex items-center gap-2 text-sm ${mutedClassName}`}>
-              <Icon size={18} className="text-brand shrink-0" aria-hidden /> {text}
-            </li>
-          ))}
-        </ul>
+        <p className={`mt-10 text-center text-sm md:text-base max-w-2xl mx-auto ${mutedClassName}`}>
+          It&apos;s still the tracker you&apos;d use on your own, too: goals, stats, notes, quotes and a Wrapped at the end of the year, all free.
+        </p>
       </section>
 
       <section className="px-6 pb-20 md:pb-28 max-w-5xl mx-auto">
