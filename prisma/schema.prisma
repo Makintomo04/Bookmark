@@ -75,6 +75,12 @@ model User {
   reviewVisibility  ReviewVisibility?
   hideWantToRead    Boolean?
   hideFollowCounts  Boolean?
+  // Community preferences, optional for the same reason (EVERYONE, false, PRIVATE). See lib/preferences.ts.
+  buddyReadInvites      BuddyReadInviteAudience?
+  // Reveal reviews marked as spoilers instead of covering them.
+  showSpoilers          Boolean?
+  // What a new list starts as in the editor.
+  defaultListVisibility ListVisibility?
   blocking      Block[] @relation("UserBlocks")
   blockedBy     Block[] @relation("UserBlockedBy")
 }
@@ -89,6 +95,14 @@ enum ReviewVisibility {
   EVERYONE
   FOLLOWERS
   ONLY_ME
+}
+
+// Who can invite this reader to a buddy read by username. The invite link always works.
+enum BuddyReadInviteAudience {
+  EVERYONE
+  // Only readers they follow.
+  FOLLOWING
+  NOBODY
 }
 
 // blockerId has blocked blockedId. Either direction hides the two from each other (lib/privacy.ts).

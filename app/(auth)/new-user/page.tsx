@@ -9,6 +9,7 @@ import { BookOpen, Camera, Check, ChevronRight, Loader2, Target, Upload } from '
 import Loader from '@/app/components/Loader'
 import { Button } from '@/app/components/ui/button'
 import ColourSwatches from '@/app/components/profile/ColourSwatches'
+import CommunityStep from '@/app/components/new-user/CommunityStep'
 import useUser from '@/app/hooks/useUser'
 import useImageUpload from '@/app/hooks/useImageUpload'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
@@ -17,9 +18,10 @@ import { readableInk } from '@/lib/colour'
 import { safeCallbackPath } from '@/lib/callbackUrl'
 import { DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN, suggestUsername } from '@/lib/profile'
 
-// Two screens: the profile (username, colour and an optional photo), then a few ways to start the shelf.
-// Saving happens at the end of the first, so the second is genuinely optional, and readers who arrived
-// from somewhere (e.g. a buddy-read invite) skip it and go straight back there.
+// Three screens: the profile (username, colour and an optional photo), community choices (genres, privacy,
+// who can invite you), then a few ways to start the shelf. The profile saves at the end of the first, so the
+// rest are genuinely optional, and readers who arrived from somewhere (e.g. a buddy-read invite) skip them
+// and go straight back there.
 
 type ProfileForm = { username: string; color: string; imageSrc: string }
 type Availability = "idle" | "checking" | "available" | "taken"
@@ -27,12 +29,15 @@ type Availability = "idle" | "checking" | "available" | "taken"
 const fieldClass = "w-full h-10 rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
 const GOAL_PRESETS = [12, 24, 52]
 
-const Progress = ({ step }: { step: 1 | 2 }) => (
+type Step = 1 | 2 | 3
+const STEPS: Step[] = [1, 2, 3]
+
+const Progress = ({ step }: { step: Step }) => (
   <div className="mb-6 flex flex-col items-center gap-2">
-    <div className="flex w-24 gap-1.5" aria-hidden>
-      {[1, 2].map((n) => <span key={n} className={cn("h-1 flex-1 rounded-full transition-colors", n <= step ? "bg-red-500" : "bg-neutral-300 dark:bg-neutral-700")} />)}
+    <div className="flex w-32 gap-1.5" aria-hidden>
+      {STEPS.map((n) => <span key={n} className={cn("h-1 flex-1 rounded-full transition-colors", n <= step ? "bg-red-500" : "bg-neutral-300 dark:bg-neutral-700")} />)}
     </div>
-    <p className="text-xs text-muted-foreground">Step {step} of 2</p>
+    <p className="text-xs text-muted-foreground">Step {step} of {STEPS.length}</p>
   </div>
 )
 
@@ -41,7 +46,7 @@ const Page = () => {
   const router = useRouter()
   const openBookEntry = useBookEntryModal((s) => s.onOpen)
   const [ready, setReady] = useState(false)
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<Step>(1)
   const [saving, setSaving] = useState(false)
   const [nextPath, setNextPath] = useState<string | null>(null)
   const [availability, setAvailability] = useState<Availability>("idle")
@@ -54,7 +59,7 @@ const Page = () => {
   const accent = colour || DEFAULT_COLOUR
   const avatar = useImageUpload((url) => setValue("imageSrc", url, { shouldDirty: true }))
 
-  // Decided once, on the first load: a background refetch after saving must not bounce the reader off step 2.
+  // Decided once, on the first load: a background refetch after saving must not bounce the reader off the later steps.
   const checked = useRef(false)
   useEffect(() => {
     if (!user || checked.current) return
@@ -101,6 +106,7 @@ const Page = () => {
         return
       }
       setStep(2)
+      window.scrollTo(0, 0)
     } catch (err) {
       const message = axios.isAxiosError(err) && err.response?.data?.error || "Couldn't save your profile. Check your connection and try again."
       if (axios.isAxiosError(err) && err.response?.data?.field === "username") {
@@ -249,7 +255,7 @@ const Page = () => {
               <Image src='/logo.svg' width={40} height={40} alt='Bookmark' />
             </div>
             {!nextPath && <Progress step={step} />}
-            {step === 1 ? profileStep : shelfStep}
+            {step === 1 ? profileStep : step === 2 ? <CommunityStep onDone={() => { setStep(3); window.scrollTo(0, 0) }} /> : shelfStep}
           </div>
         </div>
     </div>

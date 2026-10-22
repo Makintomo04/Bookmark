@@ -3,6 +3,8 @@ import { FC } from 'react'
 import { Plus } from 'lucide-react'
 import { useOwnerLists } from '@/app/hooks/useLists'
 import useListEditorModal, { emptyList } from '@/app/hooks/useListEditorModal'
+import useUser from '@/app/hooks/useUser'
+import { preferencesOf } from '@/lib/preferences'
 import { ShelfSection } from '../books/shelf'
 import { Skeleton } from '../ui/skeleton'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
@@ -16,6 +18,7 @@ interface ProfileListsProps {
 const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf }) => {
   const { lists, isLoading } = useOwnerLists(username)
   const { onOpen } = useListEditorModal()
+  const { user } = useUser()
 
   if (isLoading) {
     return (
@@ -28,7 +31,7 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf }) => {
   if (lists.length === 0 && !isSelf) return null
 
   const newList = (
-    <button type="button" onClick={() => onOpen(emptyList(false))} className={secondaryButtonClass}>
+    <button type="button" onClick={() => onOpen(emptyList(false, user ? preferencesOf(user).defaultListVisibility : undefined))} className={secondaryButtonClass}>
       <Plus size={16} aria-hidden />New list
     </button>
   )

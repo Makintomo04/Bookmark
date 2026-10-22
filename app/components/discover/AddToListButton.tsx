@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { sameBook } from '@/lib/workKey'
 import type { DiscoverBook } from '@/lib/openLibrary'
 import useUser from '@/app/hooks/useUser'
+import { preferencesOf } from '@/lib/preferences'
 import { isListsKey, useMyLists } from '@/app/hooks/useLists'
 import useListEditorModal, { emptyList } from '@/app/hooks/useListEditorModal'
 import {
@@ -43,7 +44,7 @@ const AddToListButton: FC<{ book: DiscoverBook, className?: string }> = ({ book,
   }
 
   const newListWithBook = () =>
-    onOpen({ ...emptyList(!!user?.isStaff), items: [{ workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverUrl, pages: book.pages, note: "" }] })
+    onOpen({ ...emptyList(!!user?.isStaff, user ? preferencesOf(user).defaultListVisibility : undefined), items: [{ workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverUrl, pages: book.pages, note: "" }] })
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
