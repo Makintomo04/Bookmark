@@ -1,5 +1,6 @@
 import { cache } from "react";
-import { monthlyPace } from "@/lib/goals";
+import { goalProgress, monthlyPace, type GoalProgress } from "@/lib/goals";
+import { readLength } from "@/lib/progress";
 import prisma from "@/lib/db";
 import { getMilestone } from "@/lib/achievements-catalog";
 import { getReadingStreak } from "@/lib/achievements";
@@ -97,6 +98,10 @@ interface Finish {
   month: number | null; // 0 to 11
   at: Date | null;
   rating: number | null;
+  // What this read adds: pages if read on paper or screen, minutes if listened to. A re-read in another
+  // format counts in that format, not in whatever the book is now.
+  pages: number;
+  minutes: number;
 }
 
 // ---- Loading ---------------------------------------------------------------------------------
@@ -126,7 +131,7 @@ async function loadReadingData(userId: string) {
     prisma.book.findMany({ where: { userId }, select: bookSelect }),
     prisma.bookRead.findMany({
       where: { userId, status: { in: ["COMPLETED", "DNF"] } },
-      select: { bookId: true, status: true, finishedAt: true, rating: true },
+      select: { bookId: true, status: true, finishedAt: true, rating: true, pages: true, progressUnit: true, audioMinutes: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.readingGoal.findMany({ where: { userId, targetBooks: { gt: 0 } }, select: { year: true, targetBooks: true, targetPages: true, targetBooksPerMonth: true } }),
@@ -163,17 +168,18 @@ async function loadReadingData(userId: string) {
     const own = readsByBook.get(b.id);
     if (own) {
       for (const r of own) {
-        finishes.push({ book, outcome: r.status as Finish["outcome"], at: r.finishedAt, ...place(r.finishedAt), rating: r.rating ?? b.rating });
+        finishes.push({ book, outcome: r.status as Finish["outcome"], at: r.finishedAt, ...place(r.finishedAt), rating: r.rating ?? b.rating, ...readLength(r, b) });
       }
       continue;
     }
     // No history rows yet: what the book's own fields imply.
+    const length = readLength({}, b);
     const completed = Math.max(b.timesRead, b.status === "COMPLETED" ? 1 : 0);
     for (let i = 0; i < completed; i++) {
       const at = i === completed - 1 ? b.completedAt : null;
-      finishes.push({ book, outcome: "COMPLETED", at, ...place(at), rating: b.rating });
+      finishes.push({ book, outcome: "COMPLETED", at, ...place(at), rating: b.rating, ...length });
     }
-    if (b.status === "DNF") finishes.push({ book, outcome: "DNF", at: b.stoppedAt, ...place(b.stoppedAt), rating: b.rating });
+    if (b.status === "DNF") finishes.push({ book, outcome: "DNF", at: b.stoppedAt, ...place(b.stoppedAt), rating: b.rating, ...length });
   }
 
   return {
@@ -246,7 +252,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     if (f.year === null || f.month === null) continue;
     const m = (months[f.year] ??= emptyMonths())[f.month];
     m.books++;
-    m.pages += f.book.pages;
+    m.pages += f.pages;
   }
   const datedYears = Object.keys(months).map(Number);
   const firstYear = datedYears.length ? Math.min(...datedYears, currentYear) : currentYear;
@@ -266,8 +272,8 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     timeZone,
     booksRead: finished.length,
     finishes: completed.length,
-    pagesRead: completed.reduce((sum, f) => sum + f.book.pages, 0),
-    minutesListened: completed.reduce((sum, f) => sum + (f.book.audioMinutes ?? 0), 0),
+    pagesRead: completed.reduce((sum, f) => sum + f.pages, 0),
+    minutesListened: completed.reduce((sum, f) => sum + f.minutes, 0),
     undatedFinishes: completed.filter((f) => f.year === null).length,
     rereads: rereadCounts.reduce((sum, n) => sum + n - 1, 0),
     rereadBooks: rereadCounts.length,
@@ -306,6 +312,16 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
       .sort((a, b) => b.year - a.year),
     streak,
   };
+}
+
+// ---- The goal widget -------------------------------------------------------------------------
+
+// The profile goal widget's numbers, from the same dated finishes as /stats: re-reads count, a book
+// being re-read keeps its earlier finish, and the calendar is the reader's time zone.
+export async function getGoalProgress(userId: string, year: number): Promise<GoalProgress> {
+  const { finishes, currentYear, currentMonth } = await readingData(userId);
+  const month = year === currentYear ? currentMonth : year < currentYear ? 11 : 0;
+  return goalProgress(finishes.filter((f) => f.outcome === "COMPLETED"), year, month);
 }
 
 // ---- Wrapped ----------------------------------------------------------------------------------
@@ -361,7 +377,7 @@ export async function getWrapped(userId: string, year: number, month: number | n
   const months = emptyMonths();
   for (const f of completed) {
     months[f.month!].books++;
-    months[f.month!].pages += f.book.pages;
+    months[f.month!].pages += f.pages;
   }
   const busiest = months.reduce((best, m, month) => (m.books > (best?.books ?? 0) || (m.books === best?.books && m.books > 0 && m.pages > best.pages) ? { ...m, month } : best), null as WrappedData["busiestMonth"]);
 
@@ -402,7 +418,7 @@ export async function getWrapped(userId: string, year: number, month: number | n
     isCurrentYear: year === currentYear,
     books: completed.length,
     distinctBooks: finished.length,
-    pages: completed.reduce((sum, f) => sum + f.book.pages, 0),
+    pages: completed.reduce((sum, f) => sum + f.pages, 0),
     rereads: Array.from(perBook.values()).reduce((sum, n) => sum + n - 1, 0),
     dnf: inYear.length - completed.length,
     topGenre: tally(finished.map((b) => b.genre), 1)[0] ?? null,

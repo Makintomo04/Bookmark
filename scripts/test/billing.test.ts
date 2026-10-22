@@ -137,15 +137,18 @@ test("only setting a page or monthly goal needs Plus", () => {
   assert.equal(goalInputSchema.safeParse({ targetBooks: 12, targetPages: 0 }).success, false);
 });
 
-test("goal progress counts this year's pages and this month's books", () => {
-  const now = new Date(2026, 9, 22);
-  const books = [
-    { status: "COMPLETED", completedAt: new Date(2026, 9, 3), pages: 300 },
-    { status: "COMPLETED", completedAt: new Date(2026, 1, 10), pages: 200 },
-    { status: "COMPLETED", completedAt: new Date(2025, 9, 10), pages: 999 },
-    { status: "STARTED", completedAt: null, pages: 400 },
+test("goal progress counts every dated finish this year, re-reads included", () => {
+  const finishes = [
+    { year: 2026, month: 9, pages: 300 },
+    { year: 2026, month: 1, pages: 200 },
+    // The same book again in October: a re-read counts, as on the stats page.
+    { year: 2026, month: 9, pages: 300 },
+    // A listened finish adds a book but no pages.
+    { year: 2026, month: 3, pages: 0 },
+    { year: 2025, month: 9, pages: 999 },
+    { year: null, month: null, pages: 400 },
   ];
-  assert.deepEqual(goalProgress(books, now), { books: 2, pages: 500, thisMonth: 1, month: 9 });
+  assert.deepEqual(goalProgress(finishes, 2026, 9), { books: 4, pages: 800, thisMonth: 2, month: 9 });
 });
 
 // ---- The webhook ---------------------------------------------------------------------------

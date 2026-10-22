@@ -456,6 +456,11 @@ model BookRead {
   currentMinute Int?
   // For a DNF of an audiobook, the minute the reader stopped at.
   stoppedAtMinute Int?
+  // The book's page count when this read ended, stamped with progressUnit and audioMinutes above, so
+  // stats and Wrapped count each read in the format and length it was read in (lib/progress.ts
+  // readLength). Unset on reads that ended before this existed: those follow the book until an edit
+  // to its format or length stamps them (readLengthsAfterEdit).
+  pages Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
