@@ -1,4 +1,5 @@
 import type { ImportCandidate } from "./types.ts";
+import { AI_MODELS, aiAvailable, askJson } from "../ai/client.ts";
 
 // The model-assisted pass for rows neither the ISBN nor the title search settled. It only ever
 // chooses among the Open Library works the search already found for a row (or says none of them is
@@ -9,16 +10,16 @@ import type { ImportCandidate } from "./types.ts";
 // the reader matches them afterwards, as before. Nothing here throws.
 //
 // The call itself is injectable (`ask`), so scripts/test/import-broken.test.ts runs this with a fake
-// model and no network. Kept free of "@/" imports for the same reason.
+// model and no network. Kept free of "@/" imports for the same reason. The client, key check and
+// structured-output handling are the shared ones in lib/ai/client.ts.
 
-export const LLM_MODEL = "claude-haiku-5-5";
+export const LLM_MODEL = AI_MODELS.fast;
 export const LLM_ROWS_PER_CALL = 25;
 // Rows beyond this per import are skipped (left unmatched). ~150 input tokens a row plus a short
 // answer: 500 rows is about a cent at Claude Haiku 5.5's prices.
 export const LLM_MAX_ROWS_PER_IMPORT = 500;
 // Picks below this are discarded: the model is saying "probably not any of these".
 export const LLM_MIN_CONFIDENCE = 0.3;
-const REQUEST_TIMEOUT_MS = 25_000;
 
 export interface LlmRowInput {
   // The row's index in the job, echoed back in the pick.
@@ -50,7 +51,7 @@ export interface LlmOutcome {
   reason?: string;
 }
 
-export const llmAvailable = () => !!process.env.ANTHROPIC_API_KEY;
+export const llmAvailable = aiAvailable;
 
 const SYSTEM = `You match rows from a reader's book export (Goodreads or StoryGraph) to Open Library works.
 
@@ -117,30 +118,17 @@ export function readPicks(raw: unknown, rows: LlmRowInput[]): LlmPick[] {
 
 // One request to Claude Haiku 5.5 for a batch of rows. Throws on any failure (the caller skips the pass).
 export const askClaude: AskFn = async (rows) => {
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  // An organisation-level key (one not scoped to a workspace) must say which workspace to bill:
-  // ANTHROPIC_WORKSPACE_ID from the Console's workspace settings. A workspace-scoped key needs nothing.
-  const workspace = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
-  const client = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    maxRetries: 1,
-    timeout: REQUEST_TIMEOUT_MS,
-    ...(workspace && { defaultHeaders: { "anthropic-workspace-id": workspace } }),
-  });
-  const response = await client.messages.create({
+  const { data } = await askJson({
     model: LLM_MODEL,
     // Room for the model's (brief) thinking as well as 25 short answers.
-    max_tokens: 4096,
+    maxTokens: 4096,
     // A matching task, not a reasoning one: least thinking, and a schema the answer must fit.
-    output_config: { effort: "low", format: { type: "json_schema", schema: PICKS_SCHEMA as unknown as Record<string, unknown> } },
+    effort: "low",
+    schema: PICKS_SCHEMA as unknown as Record<string, unknown>,
     system: SYSTEM,
-    messages: [{ role: "user", content: promptFor(rows) }],
+    prompt: promptFor(rows),
   });
-  if (response.stop_reason === "refusal") throw new Error("The model declined the request.");
-  if (response.stop_reason === "max_tokens") throw new Error("The model's answer was cut off.");
-  const block = response.content.find((b) => b.type === "text");
-  const text = block && block.type === "text" ? block.text : "";
-  return readPicks(JSON.parse(text), rows);
+  return readPicks(data, rows);
 };
 
 // Asks about `rows` in batches until they're done, the deadline passes, or a request fails.

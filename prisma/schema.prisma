@@ -866,3 +866,20 @@ model QuestProgress {
   @@index([questId, completedAt])
   @@index([userId])
 }
+
+// How often a reader used a metered AI feature in one period (lib/ai/usage.ts). One row per reader,
+// feature and period, counted up with a conditional increment so two requests can't both spend the
+// last of an allowance. Monthly rows: feature is an allowance key ("askShelfSearches", "recaps") and
+// period the month in the reader's time zone ("2026-10"). The daily cost guard: feature "all" and
+// period the local day ("2026-10-22").
+model AiUsage {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  feature String
+  period String
+  count Int @default(0)
+  updatedAt DateTime @updatedAt
+
+  // The counter itself; the prefix covers a reader's rows.
+  @@unique([userId, feature, period])
+}
