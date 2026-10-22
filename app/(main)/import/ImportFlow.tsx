@@ -2,7 +2,7 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { notify } from '@/lib/notify'
-import { BookCheck, Check, CopyX, ExternalLink, FileUp, Loader2, Search, Upload } from 'lucide-react'
+import { BookCheck, CalendarOff, Check, CopyX, ExternalLink, FileUp, HelpCircle, Loader2, Search, Sparkles, Upload } from 'lucide-react'
 import type { Status } from '@prisma/client'
 import { Button } from '@/app/components/ui/button'
 import Medal from '@/app/components/achievements/Medal'
@@ -439,7 +439,7 @@ const ReviewRow: FC<{ jobId: string; row: UncertainRow; onChange: (job: ImportJo
       const next = await step(jobId, { action: "decide", index: row.index, ...body })
       if (next) onChange(next)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save that.", { position: "bottom-center" })
+      notify.error(err instanceof Error ? err.message : "Couldn't save that.", { retry: () => send(body) })
     } finally {
       setBusy(false)
     }
