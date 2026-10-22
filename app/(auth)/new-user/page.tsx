@@ -56,7 +56,7 @@ const Page = () => {
   const avatarInput = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors } } = useForm<ProfileForm>({
-    defaultValues: { username: "", color: DEFAULT_COLOUR, imageSrc: "", banner: "dots" },
+    defaultValues: { username: "", color: DEFAULT_COLOUR, imageSrc: "", banner: "arches" },
   })
   const [username, colour, imageSrc, bannerPreset] = watch(["username", "color", "imageSrc", "banner"])
   const accent = colour || DEFAULT_COLOUR
