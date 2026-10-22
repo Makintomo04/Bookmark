@@ -129,9 +129,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
 
         {body}
         </div>
-        <div className="">
-        <hr className='mt-4 border-1 border-slate-400/40'/>
-
+        <div className="pt-4">
         {footer}
 
           </div>

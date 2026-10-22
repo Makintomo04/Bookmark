@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect, useState } from 'react'
+import { CSSProperties, FC, useEffect, useState } from 'react'
 import { Book } from '@prisma/client'
 import { LayoutGrid, Grid3x3, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -53,6 +53,7 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
     <div key={book.id} className="relative">
       {card}
       <button type="button" aria-pressed={picked.has(book.id)} aria-label={`Select ${book.title}`} onClick={() => togglePick(book.id)}
+        style={accent && picked.has(book.id) ? { '--tw-ring-color': accent } as CSSProperties : undefined}
         className={cn("absolute inset-0 z-10 rounded-xl transition focus-visible:outline-none focus-visible:ring-2",
           picked.has(book.id) ? "ring-2 ring-foreground bg-foreground/10" : "hover:bg-foreground/5")}>
         <span aria-hidden className={cn("absolute top-2 left-2 h-5 w-5 rounded-md border-2 border-white shadow flex items-center justify-center",
@@ -65,7 +66,7 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
 
   const shelf = (items: Book[]) => activeMode === 'comfortable' ? (
     <div className={coverGridClass}>
-      {items.map((book) => pickable(book, <BookCoverCard key={book.id} book={book} accentColour={accent} />))}
+      {items.map((book) => pickable(book, <BookCoverCard key={book.id} book={book} accentColour={accent} selecting={selecting} />))}
     </div>
   ) : (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
