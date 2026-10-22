@@ -18,6 +18,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookEditModal from '@/app/hooks/useBookEditModal'
 import BuddyReadEntry from '../buddy-reads/BuddyReadEntry'
+import CatchMeUp from '../books/CatchMeUp'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from '@/lib/progress'
 import useWorkTags from '@/app/hooks/useWorkTags'
@@ -486,6 +487,10 @@ const BookUpdateModal: FC = () => {
       </div>
 
       <div className="flex-1 min-w-0 flex flex-col gap-8">
+        {/* Coming back to a book (or starting the next in a series): the recap offer comes first. */}
+        {(isActive || status === "NOT_STARTED") && !finished && !stopping && (
+          <CatchMeUp bookId={book.id} accent={accent} accentInk={accentInk} />
+        )}
         {status === "NOT_STARTED" && startControl}
         {isActive && progressControl}
         {isActive && !stopping && finishedSwitch}

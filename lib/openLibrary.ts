@@ -173,6 +173,34 @@ export async function worksByKeys(workKeys: string[]): Promise<Map<string, OpenL
   return found
 }
 
+// How widely read a work is on Open Library: its edition count, star ratings and reading-log entries
+// (want to read, reading, read). Recaps use it to tell a book the model knows from one it would guess at.
+export interface OpenLibraryPopularity {
+  editions: number
+  ratings: number
+  readingLog: number
+}
+
+const POPULARITY_FIELDS = "key,edition_count,ratings_count,readinglog_count"
+
+// Several works in one request, like worksByKeys. Throws on failure so callers can tell it from "not found".
+export async function workPopularity(workKeys: string[]): Promise<Map<string, OpenLibraryPopularity>> {
+  const found = new Map<string, OpenLibraryPopularity>()
+  const keys = Array.from(new Set(workKeys.map((k) => normaliseWorkKey(k)).filter((k): k is string => !!k))).slice(0, WORKS_PER_REQUEST)
+  if (!keys.length) return found
+  const q = keys.map((k) => `key:/works/${k}`).join(" OR ")
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&fields=${POPULARITY_FIELDS}&limit=${keys.length}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  if (!res.ok) throw new Error(`Open Library popularity lookup failed: ${res.status}`)
+  const data = await res.json()
+  const count = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : 0)
+  for (const doc of (data?.docs || []) as { key?: string, edition_count?: number, ratings_count?: number, readinglog_count?: number }[]) {
+    const workKey = normaliseWorkKey(doc.key)
+    if (workKey) found.set(workKey, { editions: count(doc.edition_count), ratings: count(doc.ratings_count), readingLog: count(doc.readinglog_count) })
+  }
+  return found
+}
+
 export interface OpenLibraryEdition {
   editionKey: string | null
   workKey: string | null
