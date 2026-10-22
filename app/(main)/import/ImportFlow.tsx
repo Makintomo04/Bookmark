@@ -20,6 +20,7 @@ const SHELVES: { status: Status; label: string }[] = [
   { status: "NOT_STARTED", label: "Want to read" },
   { status: "PAUSED", label: "Paused" },
   { status: "DNF", label: "Did not finish" },
+  { status: "NOT_INTERESTED", label: "Will not read" },
 ]
 
 const fmt = (n: number) => n.toLocaleString("en-GB")

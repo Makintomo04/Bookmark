@@ -9,6 +9,7 @@ import useFavourite from '@/app/hooks/useFavourite'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import BookCover from './BookCover'
 import BookActions from './BookActions'
+import { recommendedByOf } from '@/lib/recommendRules'
 
 interface BookCoverCardProps {
   book: Book
@@ -127,6 +128,9 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
         )}
         {status === Status.NOT_STARTED && length && (
           <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">{length}</p>
+        )}
+        {status === Status.NOT_STARTED && recommendedByOf(book) && (
+          <p className="mt-0.5 text-xs text-muted-foreground truncate">Recommended by {recommendedByOf(book)}</p>
         )}
       </div>
     </div>

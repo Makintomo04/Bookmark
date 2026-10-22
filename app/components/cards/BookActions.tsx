@@ -11,6 +11,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useFavourite from '@/app/hooks/useFavourite'
 import useBookEditModal from '@/app/hooks/useBookEditModal'
 import useBookNotesModal from '@/app/hooks/useBookNotesModal'
+import useRecommendModal from '@/app/hooks/useRecommendModal'
 import ShelfMenuItems from '../books/ShelfMenuItems'
 import {
   DropdownMenu,
@@ -38,6 +39,7 @@ const BookActions: FC<BookActionsProps> = ({ book, onUpdateProgress, tone = 'ove
   const { hasFavourited, mutate: mutateFav } = useFavourite()
   const bookEditModal = useBookEditModal()
   const bookNotesModal = useBookNotesModal()
+  const recommendModal = useRecommendModal()
   const isFavourite = hasFavourited(book.id)
   const buttonClass = cn("h-8 w-8 rounded-full flex items-center justify-center transition focus-visible:outline-none focus-visible:ring-2", tones[tone])
 
@@ -74,7 +76,10 @@ const BookActions: FC<BookActionsProps> = ({ book, onUpdateProgress, tone = 'ove
           <DropdownMenuItem onSelect={onUpdateProgress}>Update progress</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => bookEditModal.onOpen(book)}>Edit details</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => bookNotesModal.onOpen(book.id, book.title)}>Notes</DropdownMenuItem>
-          {book.status !== "NOT_STARTED" && <DropdownMenuSeparator />}
+          {book.status !== "NOT_INTERESTED" && (
+            <DropdownMenuItem onSelect={() => recommendModal.onOpen(book.id, book.title)}>Send to a friend</DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
           <ShelfMenuItems book={book} />
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={removeBook} className="text-red-500 focus:text-red-500">Remove</DropdownMenuItem>

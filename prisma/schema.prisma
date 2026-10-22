@@ -199,6 +199,10 @@ model Book {
   // own copy, so every existing query keeps working.
   workId String? @db.ObjectId
   editionId String? @db.ObjectId
+  // Who put this book on the reader's radar, seen only by the reader: a Bookmark user (set when the book
+  // was added from a recommendation) or a free-text name for someone who isn't on Bookmark.
+  recommendedById String? @db.ObjectId
+  recommendedByName String?
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   work Work? @relation(fields: [workId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   edition Edition? @relation(fields: [editionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -347,6 +351,8 @@ enum Status {
   DNF
   // On hold: keeps currentPage and can be resumed.
   PAUSED
+  // Will not read: kept so the book isn't suggested or re-added by accident. Never posted, counted or shown to others.
+  NOT_INTERESTED
 }
 
 // What a read's progress is counted in. PAGES is the default for every read made before this existed.
@@ -431,6 +437,8 @@ model Notification {
   // Reading circle notifications: which reading circle, and how many joins or unlocked comments one row stands for.
   buddyReadId String? @db.ObjectId
   count Int?
+  // BOOK_RECOMMENDED: the sender's optional note. bookId is the sender's own copy of the book.
+  message String?
   read Boolean @default(false)
   createdAt DateTime @default(now())
 
@@ -452,6 +460,8 @@ enum NotificationType {
   COMMENTS_UNLOCKED
   // You finished a seasonal quest. achievementKey is "QUEST:<questId>".
   QUEST_COMPLETED
+  // A friend (someone you both follow) sent you a book, with an optional message.
+  BOOK_RECOMMENDED
 }
 
 model UserAchievement {

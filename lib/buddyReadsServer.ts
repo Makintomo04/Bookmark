@@ -199,6 +199,8 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
     select: { id: true, title: true, author: true, workKey: true, status: true },
   })
   const existing = shelf.find((b) => sameBook(b, buddyRead))
+  // Joining a circle overrides an earlier "will not read".
+  if (existing?.status === "NOT_INTERESTED") await prisma.book.update({ where: { id: existing.id }, data: { status: "NOT_STARTED" } })
   if (existing) return { bookId: existing.id, added: false }
 
   const now = new Date()

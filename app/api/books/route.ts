@@ -38,11 +38,17 @@ const books = await prisma.book.findMany({
   where:{
     userId: currentUser.id
   },
-  include:{
-
-  }
 })
-return NextResponse.json(books)
+// "Recommended by" is shown to the reader only: a Bookmark user by @username, otherwise the name they typed.
+const recommenderIds = Array.from(new Set(books.flatMap((b) => (b.recommendedById ? [b.recommendedById] : []))))
+const recommenders = recommenderIds.length > 0
+  ? await prisma.user.findMany({ where: { id: { in: recommenderIds } }, select: { id: true, username: true } })
+  : []
+const usernameById = new Map(recommenders.map((u) => [u.id, u.username]))
+return NextResponse.json(books.map((b) => {
+  const username = b.recommendedById ? usernameById.get(b.recommendedById) : null
+  return { ...b, recommendedBy: username ? `@${username}` : b.recommendedByName ?? null }
+}))
 }
 export async function POST(req:Request, res:Response) {
 
@@ -128,7 +134,8 @@ const book = await prisma.book.create({
 const firstRead = readFromBook(book)
 if (firstRead) await prisma.bookRead.create({ data: firstRead })
 // Backfilled reads are logged as an add so they don't post "finished" to followers' feeds.
-await prisma.activity.create({
+// Will not read is private, so it isn't logged at all.
+if (shelf !== "NOT_INTERESTED") await prisma.activity.create({
   data: {
     userId: currentUser.id,
     bookId: book.id,

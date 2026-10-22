@@ -1,5 +1,5 @@
 "use client"
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { Label } from '../ui/label'
@@ -14,6 +14,8 @@ import useBookNotesModal from '@/app/hooks/useBookNotesModal'
 import useBookNotes from '@/app/hooks/useBookNotes'
 import { Note } from '@prisma/client'
 import moment from 'moment'
+import useBooks from '@/app/hooks/useBooks'
+import { RECOMMENDED_BY_MAX, recommendedByOf } from '@/lib/recommendRules'
 
 interface BookNotesModalProps {
 
@@ -25,6 +27,20 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
   const { isOpen, bookId, bookTitle, onClose } = bookNotesModal
   const { notes, isLoading, mutate } = useBookNotes(isOpen ? bookId : undefined)
   const [isSaving, setIsSaving] = useState(false)
+  const { books, mutate: booksMutate } = useBooks()
+  const savedRecommender = recommendedByOf((books ?? []).find((b: { id: string }) => b.id === bookId) ?? {}) ?? ""
+  const [recommender, setRecommender] = useState(savedRecommender)
+  useEffect(() => { if (isOpen) setRecommender(savedRecommender) }, [isOpen, bookId, savedRecommender])
+
+  // Who put this book on your radar. Saved when the field loses focus; only you see it.
+  const saveRecommender = () => {
+    const name = recommender.trim()
+    if (name === savedRecommender) return
+    axios.put(`/api/books/${bookId}/recommended-by`, { name }).then(() => booksMutate()).catch(() => {
+      notify.error("Couldn't save who recommended it.")
+      setRecommender(savedRecommender)
+    })
+  }
 
   const {
     register,
@@ -57,6 +73,16 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
   const body = (
     <div className="w-full h-full px-6">
       <div className="flex flex-col gap-4 w-full">
+        <div className="flex flex-col gap-2">
+          <Label className="text-md font-bold" htmlFor="recommended-by">Recommended by</Label>
+          <input id="recommended-by" value={recommender} maxLength={RECOMMENDED_BY_MAX} autoComplete="off"
+            onChange={(e) => setRecommender(e.target.value)} onBlur={saveRecommender}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+            placeholder="A friend, a podcast, a bookshop..."
+            className="w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2" />
+          <p className="text-xs text-muted-foreground">Only you can see this.</p>
+        </div>
+        <hr className='my-2'/>
         <div className="flex flex-col gap-2">
           <Label className="text-md font-bold" htmlFor="title">Title (leave blank for a quote)</Label>
           <Input register={register} errors={errors} name="title" id="title" autoComplete='off' placeholder='e.g. On Chapter 3'/>
