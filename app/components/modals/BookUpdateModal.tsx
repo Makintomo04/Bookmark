@@ -61,7 +61,11 @@ const BookUpdateModal: FC = () => {
 
   useEffect(() => {
     if (books && books.length > 0) {
-      useBookUpdateModal.getState().myBooks = books.map((b: Book) => ({ id: b.id, isOpen: false, book: b }))
+      // The list reloads behind an open modal (e.g. once a new book's cover is copied), so keep which one is open.
+      useBookUpdateModal.setState((state) => {
+        const open = new Set(state.myBooks.filter((b) => b.isOpen).map((b) => b.id))
+        return { myBooks: books.map((b: Book) => ({ id: b.id, isOpen: open.has(b.id), book: b })) }
+      })
     }
   }, [books])
 

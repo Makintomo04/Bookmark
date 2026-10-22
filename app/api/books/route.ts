@@ -69,8 +69,10 @@ const runningTime = isAudiobook ? parseAudioMinutes(audioMinutes) : null
 if (isAudiobook && !runningTime) {
   return NextResponse.json({ error: "Enter the audiobook's running time" }, { status: 400 })
 }
-const totalPages = pages === undefined || pages === null || pages === "" ? (isAudiobook ? 0 : NaN) : parseInt(pages)
-if (isNaN(totalPages) || totalPages < (isAudiobook ? 0 : 1)) {
+// Left blank, the page count is unknown (0): nobody should have to look it up to shelve a book. The
+// catalog fills it in below when it knows the edition, and progress asks for it if it's still missing.
+const givenPages = pages === undefined || pages === null || pages === "" ? 0 : parseInt(pages)
+if (isNaN(givenPages) || givenPages < 0) {
   return NextResponse.json({ error: "Pages must be greater than 0" }, { status: 400 })
 }
 const parsedStatus = statusSchema.safeParse(status)
@@ -86,7 +88,7 @@ const now = new Date()
 const shelf = parsedStatus.data
 const isCompleted = shelf === "COMPLETED"
 const isStopped = shelf === "DNF" || shelf === "PAUSED"
-const startPage = Math.max(0, Math.min(totalPages, parseInt(currentPage) || 0))
+
 const startMinute = runningTime ? Math.max(0, Math.min(runningTime, parseInt(currentMinute) || 0)) : 0
 // The shared catalog: the Work and Edition this copy is of. A search hit carries its work key and
 // usually an edition key or ISBN; a book typed in by hand is filed by title and author.
@@ -98,7 +100,7 @@ const catalog = await linkCatalog(
     isbn10: optionalText.safeParse(isbn10).success ? str(isbn10) : null,
     title: title.trim(),
     author: author.trim(),
-    pages: totalPages > 0 ? totalPages : null,
+    pages: givenPages > 0 ? givenPages : null,
     audioMinutes: runningTime,
     coverUrl: str(coverImgSrc),
     description: str(description)?.slice(0, DESCRIPTION_MAX) ?? null,
@@ -106,6 +108,8 @@ const catalog = await linkCatalog(
   },
   { lookup: true, describe: true },
 )
+const totalPages = givenPages || (!isAudiobook && catalog?.edition.pages) || 0
+const startPage = Math.max(0, Math.min(totalPages, parseInt(currentPage) || 0))
 const book = await prisma.book.create({
   data:{
     userId: currentUser.id,

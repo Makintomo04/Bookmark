@@ -8,10 +8,11 @@ import useUser from '@/app/hooks/useUser'
 import useSettings, { type Settings } from '@/app/hooks/useSettings'
 import { GENRES } from '@/lib/genres'
 import { cn } from '@/lib/utils'
-import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS, Segmented, Toggle } from '@/app/components/settings/controls'
+import { PROFILE_HINT, PROFILE_OPTIONS, Segmented } from '@/app/components/settings/controls'
 
-// Onboarding's middle step: who sees what, and how other readers can reach you. Unlike the settings
-// panel this keeps a draft and saves it once on Continue; skipping keeps the defaults.
+// Onboarding's middle step: favourite genres and who can see the profile. The other privacy and invite
+// settings wait for Edit profile, when the reader has seen what they're about. Unlike the settings panel
+// this keeps a draft and saves it once on Continue; skipping keeps the defaults.
 const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
   const { mutate } = useUser()
   const { settings } = useSettings()
@@ -38,8 +39,8 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
   return (
     <div className="flex flex-col gap-6">
       <div className="text-center">
-        <h1 className="page-title">Your reading community</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Choose what other readers see and how they can reach you. You can change any of this later in Edit profile.</p>
+        <h1 className="page-title">What do you like to read?</h1>
+        <p className="mt-2 text-sm text-muted-foreground">We&apos;ll use this to suggest books and readers. Everything else starts on sensible defaults you can change in Edit profile.</p>
       </div>
 
       <section aria-labelledby="genres-label" className="flex flex-col gap-2">
@@ -68,49 +69,17 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
         </div>
       </section>
 
-      <section aria-label="Privacy" className="flex flex-col gap-5 rounded-lg border border-neutral-200 bg-background p-4 dark:border-neutral-800">
-        <div className="flex flex-col gap-1.5">
-          <Segmented id="onboarding-profile" label="Who can see your profile" options={PROFILE_OPTIONS} value={draft.profileVisibility} onChange={(v) => set("profileVisibility", v)} disabled={saving} />
-          <p className="text-xs text-muted-foreground">{PROFILE_HINT[draft.profileVisibility]}</p>
-        </div>
-        <Segmented id="onboarding-reviews" label="Who can read your reviews" options={REVIEW_OPTIONS} value={draft.reviewVisibility} onChange={(v) => set("reviewVisibility", v)} disabled={saving} />
-        <Toggle
-          label="Hide my Want to read shelf"
-          hint="Others won't see what's on your list, or when you add to it."
-          checked={draft.hideWantToRead}
-          onChange={(v) => set("hideWantToRead", v)}
-          disabled={saving}
-        />
-        <Toggle
-          label="Hide follower and following counts"
-          hint="No numbers on your profile, for you or anyone else."
-          checked={draft.hideFollowCounts}
-          onChange={(v) => set("hideFollowCounts", v)}
-          disabled={saving}
-        />
-      </section>
+      <div className="flex flex-col gap-1.5">
+        <Segmented id="onboarding-profile" label="Who can see your profile" options={PROFILE_OPTIONS} value={draft.profileVisibility} onChange={(v) => set("profileVisibility", v)} disabled={saving} />
+        <p className="text-xs text-muted-foreground">{PROFILE_HINT[draft.profileVisibility]}</p>
+      </div>
 
-      <section aria-label="Reading with others" className="flex flex-col gap-5 rounded-lg border border-neutral-200 bg-background p-4 dark:border-neutral-800">
-        <div className="flex flex-col gap-1.5">
-          <Segmented id="onboarding-invites" label="Who can invite you to reading circles" options={INVITE_OPTIONS} value={draft.buddyReadInvites} onChange={(v) => set("buddyReadInvites", v)} disabled={saving} />
-          <p className="text-xs text-muted-foreground">{INVITE_HINT[draft.buddyReadInvites]} An invite link always works.</p>
-        </div>
-        <Segmented id="onboarding-lists" label="New lists start as" options={LIST_OPTIONS} value={draft.defaultListVisibility} onChange={(v) => set("defaultListVisibility", v)} disabled={saving} />
-        <Toggle
-          label="Show spoilers in reviews"
-          hint="Reviews marked as spoilers open straight away instead of staying covered."
-          checked={draft.showSpoilers}
-          onChange={(v) => set("showSpoilers", v)}
-          disabled={saving}
-        />
-      </section>
-
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button type="button" onClick={onDone} disabled={saving} variant="outline" className="rounded-md py-2 dark:border-neutral-100/50">
+          Skip
+        </Button>
         <Button type="button" onClick={submit} disabled={saving} className="rounded-md py-2">
           {saving ? "Saving…" : "Continue"}
-        </Button>
-        <Button type="button" onClick={onDone} disabled={saving} variant="ghost" className="rounded-md py-2 text-muted-foreground">
-          Skip for now
         </Button>
       </div>
     </div>
