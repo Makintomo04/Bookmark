@@ -1,10 +1,11 @@
 "use client"
-import { FC, useEffect, useRef } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
+import { isUpgradeRequired } from '@/lib/entitlements'
 import { ArrowLeft } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import useBuddyRead from '@/app/hooks/useBuddyRead'
@@ -18,6 +19,8 @@ import { primaryButtonClass, secondaryButtonClass } from '../profile-head/Profil
 import ProgressTrack from './ProgressTrack'
 import Discussion from './Discussion'
 import InvitePanel from './InvitePanel'
+import HandOverDialog from './HandOverDialog'
+import UpgradePrompt from '../plus/UpgradePrompt'
 
 interface BuddyReadViewProps {
   id: string
@@ -29,6 +32,9 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   const { view, isError, mutate } = useBuddyRead(id, initial)
   const { books, mutate: refreshBooks } = useBooks()
   const bookUpdateModal = useBookUpdateModal()
+  const [handingOver, setHandingOver] = useState(false)
+  // Reopening past the hosting limit: the refusal, shown with the Plus prompt beside the buttons.
+  const [reopenRefusal, setReopenRefusal] = useState<string | null>(null)
 
   // Saving progress in the book modal refreshes the shelf; pick that up straight away rather than at the next poll.
   const myBook = view ? ((books ?? []) as Book[]).find((b) => b.id === view.viewer.bookId) : undefined
@@ -59,17 +65,27 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
 
   const setStatus = (status: "ACTIVE" | "FINISHED" | "ARCHIVED") => {
     if (status === "ARCHIVED" && !window.confirm("Archive this reading circle? It's hidden from everyone's list and closed to new comments.")) return
+    setReopenRefusal(null)
     axios.patch(`/api/buddy-reads/${id}`, { status }).then(() => mutate())
-      .catch((err) => notify.error(apiError(err, "Couldn't update the reading circle."), { retry: () => setStatus(status) }))
+      .catch((err) => {
+        const body = axios.isAxiosError(err) ? err.response?.data : null
+        if (isUpgradeRequired(body)) setReopenRefusal(body.error)
+        else notify.error(apiError(err, "Couldn't update the reading circle."), { retry: () => setStatus(status) })
+      })
   }
 
   const remove = (userId: string, username: string | null) => {
-    if (!window.confirm(`Remove ${username ?? "this reader"}? Their comments will be hidden too.`)) return
+    if (!window.confirm(`Remove ${username ?? "this reader"}? Their comments stay, under their name, and the invite link won't let them back in.`)) return
     axios.delete(`/api/buddy-reads/${id}/members/${userId}`).then(() => mutate())
       .catch((err) => notify.error(apiError(err, "Couldn't remove them.")))
   }
 
+  const others = members.filter((m) => !m.isYou)
   const leave = () => {
+    if (viewer.isHost) {
+      setHandingOver(true)
+      return
+    }
     if (!window.confirm("Leave this reading circle? The book stays on your shelf.")) return
     axios.delete(`/api/buddy-reads/${id}/members/${viewer.userId}`).then(() => router.push("/circles"))
       .catch((err) => notify.error(apiError(err, "Couldn't leave the reading circle.")))
@@ -119,7 +135,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         </div>
 
         <aside className="flex flex-col gap-8 lg:sticky lg:top-6 lg:self-start">
-          {!archived && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} />}
+          {!archived && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} isHost={viewer.isHost} onLinkReset={() => mutate()} />}
           <section className="flex flex-col gap-2 text-sm">
             <h2 className="font-semibold">How it works</h2>
             <p className="text-muted-foreground">
@@ -133,6 +149,8 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
                 {buddyRead.status === "ACTIVE" && <button type="button" onClick={() => setStatus("FINISHED")} className={secondaryButtonClass}>Mark as finished</button>}
                 {buddyRead.status !== "ACTIVE" && <button type="button" onClick={() => setStatus("ACTIVE")} className={secondaryButtonClass}>Reopen</button>}
                 {!archived && <button type="button" onClick={() => setStatus("ARCHIVED")} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Archive</button>}
+                {reopenRefusal && <UpgradePrompt feature="canHostUnlimited" variant="inline" message={reopenRefusal} />}
+                {others.length > 0 && <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Hand over and leave</button>}
               </>
             ) : (
               <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this reading circle</button>
@@ -140,6 +158,16 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
           </section>
         </aside>
       </div>
+      {viewer.isHost && (
+        <HandOverDialog
+          isOpen={handingOver}
+          onClose={() => setHandingOver(false)}
+          buddyReadId={id}
+          viewerId={viewer.userId}
+          members={others}
+          onLeft={() => router.push("/circles")}
+        />
+      )}
     </div>
   )
 }

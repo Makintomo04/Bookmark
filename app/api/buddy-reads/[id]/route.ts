@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { updateBuddyReadSchema } from "@/lib/buddyReads";
-import { buddyReadError, canHostAnotherCircle, hostingRefusal, loadBuddyReadView, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { buddyReadError, canHostAnotherCircle, canInheritAnotherCircle, hostingRefusal, loadBuddyReadView, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 
 // The reading circle page polls this. Comments past the viewer's progress come back as locked stubs.
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -26,9 +26,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (parsed.response) return parsed.response;
   const { startsAt, schedule, status } = parsed.data;
 
-  // Reopening a finished or archived circle makes it active again, so it counts against the hosting limit.
+  // Reopening a finished or archived circle makes it active again, so it counts against the hosting limit:
+  // the inherited cap for one handed on to them, the usual one for a circle they started.
   if (status === "ACTIVE" && membership.buddyRead.status !== "ACTIVE") {
-    const hosting = await canHostAnotherCircle(currentUser.id);
+    const hosting = membership.buddyRead.inheritedAt
+      ? await canInheritAnotherCircle(currentUser.id)
+      : await canHostAnotherCircle(currentUser.id);
     if (!hosting.allowed) return hostingRefusal(hosting);
   }
 

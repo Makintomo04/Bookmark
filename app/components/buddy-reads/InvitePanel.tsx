@@ -10,14 +10,18 @@ interface InvitePanelProps {
   buddyReadId: string
   inviteCode: string
   memberCount: number
+  // The host can swap the link for a new one, e.g. after it was shared too widely.
+  isHost?: boolean
+  onLinkReset?: () => void
 }
 
 // The link is the main way in (it unfurls with the cover and everyone's colours); a username invite
 // also lands in their notifications. Neither needs a follow.
-const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount }) => {
+const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, isHost, onLinkReset }) => {
   const [copied, setCopied] = useState(false)
   const [username, setUsername] = useState("")
   const [isSending, setIsSending] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
   const full = memberCount >= BUDDY_READ_MAX_MEMBERS
 
   const copy = async () => {
@@ -47,6 +51,17 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
     }).finally(() => setIsSending(false))
   }
 
+  const resetLink = () => {
+    if (!window.confirm("Reset the invite link? The old link stops working straight away. Everyone already here stays.")) return
+    setIsResetting(true)
+    axios.post(`/api/buddy-reads/${buddyReadId}/invite-link`).then(() => {
+      notify.success("Invite link reset", { description: "Copy the new one to share it." })
+      onLinkReset?.()
+    }).catch((err) => {
+      notify.error(apiError(err, "Couldn't reset the invite link."))
+    }).finally(() => setIsResetting(false))
+  }
+
   if (full) {
     return <p className="text-sm text-muted-foreground">This reading circle is full ({BUDDY_READ_MAX_MEMBERS} readers).</p>
   }
@@ -58,6 +73,11 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
         {copied ? <Check size={16} aria-hidden /> : <Link2 size={16} aria-hidden />}
         <span aria-live="polite">{copied ? "Link copied" : "Copy invite link"}</span>
       </button>
+      {isHost && (
+        <button type="button" onClick={resetLink} disabled={isResetting} className="self-start text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60">
+          {isResetting ? "Resetting…" : "Reset link"}
+        </button>
+      )}
       <form onSubmit={(e) => { e.preventDefault(); invite() }} className="flex gap-2">
         <label htmlFor="invite-username" className="sr-only">Username</label>
         <input

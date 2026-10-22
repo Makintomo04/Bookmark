@@ -115,11 +115,11 @@ test("a Plus host has no active-circle limit", () => {
   assert.equal(hostingAllowance(250, "plus").allowed, true);
 });
 
-test("a free host's refusal at two active circles offers the upgrade", () => {
-  assert.equal(hostingAllowance(1, "free").allowed, true);
-  const free = hostingAllowance(2, "free");
+test("a free host's refusal at one active circle offers the upgrade", () => {
+  assert.equal(hostingAllowance(0, "free").allowed, true);
+  const free = hostingAllowance(1, "free");
   assert.equal(free.allowed, false);
-  assert.equal(free.limit, 2);
+  assert.equal(free.limit, 1);
   assert.equal(free.upgrade, true);
   assert.match(free.message ?? "", /Joining circles is never limited/);
   assert.equal(hostingAllowance(0, "free").upgrade, false);

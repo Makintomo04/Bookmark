@@ -531,6 +531,11 @@ enum NotificationType {
   BUDDY_READ_JOINED
   // Your progress passed other members' comments. Batched per reading circle: count says how many unlocked.
   COMMENTS_UNLOCKED
+  // The host left and handed you the reading circle. actorId is the old host.
+  BUDDY_READ_HOSTED
+  // The host closed their account and the reading circle passed to you. actorId is you (the old host is gone);
+  // if you had no room it arrived archived.
+  BUDDY_READ_HOST_INHERITED
   // You finished a seasonal quest. achievementKey is "QUEST:<questId>".
   QUEST_COMPLETED
   // A friend (someone you both follow) sent you a book, with an optional message.
@@ -696,6 +701,9 @@ model BuddyRead {
   // And its running time when the host listens: a joiner's new shelf copy keeps the same scale.
   audioMinutes Int?
   hostId String @db.ObjectId
+  // Set when hosting was handed on (the host left or closed their account). Inherited circles don't count
+  // against the host's own limit; they have a separate cap (lib/buddyReads.ts INHERITED_HOSTING_LIMIT).
+  inheritedAt DateTime?
   startsAt DateTime
   // Optional reading plan: [{ label: "Chapters 1-5", until: 20, due: "2026-11-01" }], until being a percent.
   schedule Json?
@@ -804,6 +812,18 @@ model BuddyReadInvite {
   @@unique([buddyReadId, inviteeId])
   @@index([inviteeId, createdAt])
   @@index([inviterId])
+}
+
+// A reader the host removed from a reading circle. They can't rejoin through the invite link; an invite
+// from the host lifts it. Plain ids (no relation), like the other circle rows that name a user.
+model BuddyReadRemoval {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String   @db.ObjectId
+  userId      String   @db.ObjectId
+  removedAt   DateTime @default(now())
+
+  @@unique([buddyReadId, userId])
+  @@index([userId])
 }
 
 // ---- Seasonal quests ------------------------------------------------------------------------

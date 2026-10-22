@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
-import { createBuddyReadSchema, progressPercent } from "@/lib/buddyReads";
+import { circleProgress, createBuddyReadSchema, progressPercent } from "@/lib/buddyReads";
 import { buddyReadError, canHostAnotherCircle, hostingRefusal, isBlockedEitherWay, isObjectId, newInviteCode, parseBody } from "@/lib/buddyReadsServer";
 import { progressSelect, progressScale } from "@/lib/progress";
 
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
       .map((m) => {
         const u = userById.get(m.userId)!;
         const book = bookById.get(m.bookId);
-        return { userId: u.id, username: u.username, image: u.image, favColour: u.favColour, progress: book?.userId === u.id ? progressPercent(book) : 0 };
+        return { userId: u.id, username: u.username, image: u.image, favColour: u.favColour, progress: circleProgress(book?.userId === u.id ? progressPercent(book) : 0, m.notifiedProgress) };
       });
     return {
       id: buddyRead.id,
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
       : "Add the book's page count first, so everyone's progress can be tracked.", 400);
   }
 
-  // Free accounts host two active circles at a time; Plus has no limit. Joining is never limited.
+  // Free accounts host one active circle at a time; Plus has no limit. Joining is never limited.
   const hosting = await canHostAnotherCircle(currentUser.id);
   if (!hosting.allowed) return hostingRefusal(hosting);
 

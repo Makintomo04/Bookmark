@@ -24,13 +24,13 @@ export { progressPercent, roundPercent, type ProgressBook } from "./progress.ts"
 
 // ---- Hosting ------------------------------------------------------------------------------
 
-// Joining is never limited. Hosting is: a free account runs two active circles at a time, and Bookmark
+// Joining is never limited. Hosting is: a free account runs one active circle at a time, and Bookmark
 // Plus lifts the limit (lib/entitlements.ts canHostUnlimited). Everything that asks "may they host
 // another?" goes through canHostAnotherCircle() in lib/buddyReadsServer.ts, which looks the plan up,
 // counts, and then calls this.
 export type HostingPlan = "free" | "plus"
 // The free limit is promised publicly never to go down; raise it, never lower it.
-export const ACTIVE_HOSTED_LIMIT: Record<HostingPlan, number> = { free: 2, plus: Infinity }
+export const ACTIVE_HOSTED_LIMIT: Record<HostingPlan, number> = { free: 1, plus: Infinity }
 
 export type HostingAllowance = {
   allowed: boolean
@@ -58,6 +58,25 @@ export function hostingAllowance(activeHosted: number, plan: HostingPlan = "free
       : limit === 1
         ? "You're already hosting an active circle. Mark it as finished or archive it to start another. Joining circles is never limited."
         : `You're already hosting ${NUMBER_WORDS[limit] ?? limit} active circles. Mark one as finished or archive it to start another. Joining circles is never limited.`,
+  }
+}
+
+// A circle handed on to a reader (its host left or closed their account) doesn't count against the one
+// they may start themselves: they didn't choose it. Inherited circles have their own cap instead, so a
+// second account can't be used to pass circles to a main one past the limit. Plus lifts it too.
+export const INHERITED_HOSTING_LIMIT: Record<HostingPlan, number> = { free: 5, plus: Infinity }
+
+export function inheritedAllowance(activeInherited: number, plan: HostingPlan = "free"): HostingAllowance {
+  const limit = INHERITED_HOSTING_LIMIT[plan]
+  const allowed = activeInherited < limit
+  return {
+    allowed,
+    active: activeInherited,
+    limit: Number.isFinite(limit) ? limit : null,
+    plan,
+    upgrade: !allowed && plan === "free",
+    message: allowed ? null
+      : `You're already looking after ${NUMBER_WORDS[limit] ?? limit} active circles handed on to you. Mark one as finished or archive it to reopen this one.`,
   }
 }
 
@@ -160,9 +179,11 @@ export type UnlockedComment = {
   body: string | null
   deleted: boolean
   mine: boolean
-  // Null once deleted: a removed comment keeps its place, not its author.
+  // Null once deleted: a removed comment keeps its place, not its author. Also null for a former member.
   authorId: string | null
   author: CommentAuthor | null
+  // The writer closed their account. Their words stay; their name doesn't.
+  formerMember: boolean
   createdAt: string
   editedAt: string | null
   reactions: ReactionSummary[]
@@ -173,6 +194,13 @@ export type SerializedComment = LockedComment | UnlockedComment
 
 const DEFAULT_COLOUR = "#D92D2D"
 const iso = (d: Date | string | null) => (d === null ? null : typeof d === "string" ? d : d.toISOString())
+
+// Where a member stands in a circle: the furthest they've got while in it, not just where their copy is
+// now. Starting a re-read, or taking the book off the shelf, then doesn't lock what they've already read.
+// `furthest` is the membership's notifiedProgress, which only ever goes up.
+export function circleProgress(bookPercent: number, furthest: number | null | undefined) {
+  return roundPercent(Math.max(bookPercent, furthest ?? 0))
+}
 
 // The one rule: you see a comment's body if you wrote it or you've read that far.
 export function canSeeComment(comment: Pick<CommentRow, "userId" | "position">, viewer: Viewer) {
@@ -191,7 +219,11 @@ function summariseReactions(reactions: CommentRow["reactions"], viewerId: string
   return BUDDY_READ_EMOJI.map((e) => byEmoji.get(e)).filter((r): r is ReactionSummary => !!r)
 }
 
-function lockedStub(row: CommentRow, replyCount: number, authors: Map<string, CommentAuthor>): LockedComment {
+// Who wrote what, as this viewer may see it: an author's details, or null for a former member (the account
+// was closed). A writer missing from the map (blocked either way) drops out with everything they wrote.
+export type CommentAuthors = Map<string, CommentAuthor | null>
+
+function lockedStub(row: CommentRow, replyCount: number, authors: CommentAuthors): LockedComment {
   // Built field by field (never spread from the row) so a new column can't leak into a stub.
   return {
     id: row.id,
@@ -204,8 +236,8 @@ function lockedStub(row: CommentRow, replyCount: number, authors: Map<string, Co
 }
 
 // Turns comment rows into what this viewer may see, in reading order (position, then time), with
-// replies nested under their parent. Rows from authors not in `authors` (removed or blocked) are dropped.
-export function serializeComments(rows: CommentRow[], viewer: Viewer, authors: Map<string, CommentAuthor>): SerializedComment[] {
+// replies nested under their parent. Rows from authors not in `authors` (blocked) are dropped.
+export function serializeComments(rows: CommentRow[], viewer: Viewer, authors: CommentAuthors): SerializedComment[] {
   const visibleRows = rows.filter((r) => authors.has(r.userId))
   const repliesByParent = new Map<string, CommentRow[]>()
   for (const r of visibleRows) {
@@ -224,6 +256,7 @@ export function serializeComments(rows: CommentRow[], viewer: Viewer, authors: M
     if (row.deletedAt && replies.length === 0) return null
     if (!canSeeComment(row, viewer)) return lockedStub(row, replies.length, authors)
     const deleted = !!row.deletedAt
+    const author = deleted ? null : authors.get(row.userId) ?? null
     return {
       id: row.id,
       locked: false,
@@ -233,8 +266,9 @@ export function serializeComments(rows: CommentRow[], viewer: Viewer, authors: M
       body: deleted ? null : row.body,
       deleted,
       mine: row.userId === viewer.userId,
-      authorId: deleted ? null : row.userId,
-      author: deleted ? null : authors.get(row.userId)!,
+      authorId: author ? row.userId : null,
+      author,
+      formerMember: !deleted && !author,
       createdAt: iso(row.createdAt)!,
       editedAt: iso(row.editedAt),
       reactions: deleted ? [] : summariseReactions(row.reactions, viewer.userId),

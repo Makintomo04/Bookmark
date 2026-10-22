@@ -4,7 +4,7 @@ import Link from 'next/link'
 import axios from 'axios'
 import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
-import { Lock, MoreHorizontal, SmilePlus } from 'lucide-react'
+import { Lock, MoreHorizontal, SmilePlus, UserRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUDDY_READ_EMOJI, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, type SerializedComment, type UnlockedComment } from '@/lib/buddyReads'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
@@ -83,14 +83,23 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
 
   return (
     <article className="flex gap-3">
-      <Link href={`/u/${comment.author?.username}`} className="shrink-0 self-start rounded-[30%] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <MemberAvatar username={comment.author?.username ?? null} image={comment.author?.image ?? null} favColour={comment.author?.favColour ?? null} size={isReply ? 28 : 36} />
-      </Link>
+      {comment.formerMember ? (
+        // The writer closed their account: their words stay, their name and profile don't.
+        <span aria-hidden className={cn("shrink-0 self-start flex items-center justify-center rounded-[30%] bg-neutral-200 text-muted-foreground dark:bg-neutral-800", isReply ? "h-7 w-7" : "h-9 w-9")}>
+          <UserRound size={isReply ? 14 : 18} />
+        </span>
+      ) : (
+        <Link href={`/u/${comment.author?.username}`} className="shrink-0 self-start rounded-[30%] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <MemberAvatar username={comment.author?.username ?? null} image={comment.author?.image ?? null} favColour={comment.author?.favColour ?? null} size={isReply ? 28 : 36} />
+        </Link>
+      )}
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <p className="min-w-0 text-sm leading-snug">
-            <Link href={`/u/${comment.author?.username}`} className="font-semibold hover:underline underline-offset-4">{comment.mine ? "You" : comment.author?.username}</Link>
+            {comment.formerMember
+              ? <span className="font-semibold text-muted-foreground">Former member</span>
+              : <Link href={`/u/${comment.author?.username}`} className="font-semibold hover:underline underline-offset-4">{comment.mine ? "You" : comment.author?.username}</Link>}
             <span className="text-muted-foreground"> · {moment(comment.createdAt).fromNow()}{comment.editedAt ? " · edited" : ""}</span>
             <br />
             <span className="text-xs text-muted-foreground tabular-nums">{where}</span>
