@@ -45,7 +45,7 @@ const DeleteAccount: FC = () => {
         <div className="flex flex-col gap-3">
           <p className="text-sm font-medium">Delete your account for good?</p>
           <p className="text-xs text-muted-foreground">
-            This can&apos;t be undone. Everything on Bookmark goes with it. Type <span className="font-semibold text-foreground">{user.username}</span> to confirm.
+            This can&apos;t be undone. Your shelf, notes, lists and the rest of your account go with it. Comments you posted in reading circles stay, shown as a former member&apos;s, and circles you host pass to the reader who&apos;s been in them longest. Type <span className="font-semibold text-foreground">{user.username}</span> to confirm.
           </p>
           <input
             autoFocus

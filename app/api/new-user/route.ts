@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { sanitizeUser } from "@/lib/sanitizeUser";
-import { BIO_MAX, DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN } from "@/lib/profile";
+import { BIO_MAX, DEFAULT_COLOUR, isAllowedImageUrl, isHexColour, normaliseUsername, usernameProblem } from "@/lib/profile";
 import { isStorableBanner } from "@/lib/banners";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { Prisma } from "@prisma/client";
@@ -17,11 +17,10 @@ export async function GET(req: Request) {
   const limit = rateLimit(`username-check:${clientIp(req.headers)}`, 120, 60 * 1000);
   if (!limit.ok) return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429 });
 
-  const username = (new URL(req.url).searchParams.get("username") ?? "").trim();
-  if (username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
-    return NextResponse.json({ available: false });
-  }
-  const taken = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+  const username = normaliseUsername(new URL(req.url).searchParams.get("username") ?? "");
+  const problem = usernameProblem(username);
+  if (problem) return NextResponse.json({ available: false, error: problem });
+  const taken = await prisma.user.findFirst({ where: { username: { equals: username, mode: "insensitive" }, NOT: { id: currentUser.id } }, select: { id: true } });
   return NextResponse.json({ available: !taken || taken.id === currentUser.id });
 }
 
@@ -35,13 +34,15 @@ export async function POST(req: Request) {
   if (response) return response;
 
   const body = await req.json().catch(() => null);
-  const username = typeof body?.username === "string" ? body.username.trim() : "";
+  const username = typeof body?.username === "string" ? normaliseUsername(body.username) : "";
   const bio = typeof body?.bio === "string" ? body.bio.trim() : "";
   const color = typeof body?.color === "string" && body.color ? body.color : DEFAULT_COLOUR;
 
-  if (username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
-    return invalid(`Usernames are ${USERNAME_MIN}–${USERNAME_MAX} characters.`, "username");
-  }
+  // Onboarding sets the name the first time, so it always meets the rules (lib/profile.ts).
+  const usernameError = usernameProblem(username);
+  if (usernameError) return invalid(usernameError, "username");
+  if (!isHexColour(color)) return invalid("Pick a colour from the list or the picker.", "color");
+  if (body?.imageSrc && !isAllowedImageUrl(body.imageSrc)) return invalid("That picture can't be used. Upload it instead.", "image");
   if (bio.length > BIO_MAX) {
     return invalid(`Bios are up to ${BIO_MAX} characters.`, "bio");
   }
@@ -49,8 +50,9 @@ export async function POST(req: Request) {
     return invalid("That banner pattern doesn't exist.", "banner");
   }
 
-  const taken = await prisma.user.findUnique({ where: { username } });
-  if (taken && taken.id !== currentUser.id) {
+  // Case-insensitive, so a new "alice" can't sit beside an older "Alice".
+  const taken = await prisma.user.findFirst({ where: { username: { equals: username, mode: "insensitive" }, NOT: { id: currentUser.id } }, select: { id: true } });
+  if (taken) {
     return invalid("That username is already taken.", "username", 409);
   }
 

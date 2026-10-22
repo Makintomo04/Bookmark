@@ -164,7 +164,7 @@ function stubDb(rows: Row[]): BillingDb & { rows: Row[] } {
       async findFirst({ where }) {
         const or = (where.OR as Record<string, unknown>[] | undefined) ?? [where];
         const row = rows.find((r) => or.some((clause) => matches(r, clause)));
-        return row ? { id: row.id } : null;
+        return row ? { id: row.id, stripeSubscriptionId: (row.stripeSubscriptionId as string | null | undefined) ?? null } : null;
       },
       async update({ where, data }) {
         const row = rows.find((r) => r.id === where.id);
@@ -267,6 +267,56 @@ test("a failed payment pauses Plus, and a successful retry brings it back", asyn
   assert.equal(db.rows[0].plan, "FREE");
   await handleStripeEvent(event("customer.subscription.updated", subscription({ status: "active", periodEnd: "2026-12-22T00:00:00Z" })), { db });
   assert.equal(db.rows[0].plan, "PLUS");
+});
+
+// Stripe doesn't deliver events in order. These pin the guards in lib/billing.ts against stale ones.
+const withId = (sub: Stripe.Subscription, id: string) => ({ ...sub, id }) as unknown as Stripe.Subscription;
+
+test("a stale 'incomplete' update arriving after the subscription went active keeps Plus", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_123", stripeCustomerId: "cus_123" }]);
+  const live = subscription({ status: "active", periodEnd: "2026-12-22T00:00:00Z" });
+  await handleStripeEvent(event("customer.subscription.updated", subscription({ status: "incomplete" })), { db, retrieveSubscription: async () => live });
+  assert.equal(db.rows[0].plan, "PLUS");
+  assert.deepEqual(db.rows[0].planRenewsAt, new Date("2026-12-22T00:00:00Z"));
+});
+
+test("events about an old subscription don't downgrade the account's current one", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_new", stripeCustomerId: "cus_123" }]);
+  const old = withId(subscription({ status: "canceled" }), "sub_old");
+
+  const deleted = await handleStripeEvent(event("customer.subscription.deleted", old), { db });
+  assert.equal(deleted.handled, false);
+  const updated = await handleStripeEvent(event("customer.subscription.updated", old), { db });
+  assert.equal(updated.handled, false);
+  assert.equal(db.rows[0].plan, "PLUS");
+  assert.equal(db.rows[0].stripeSubscriptionId, "sub_new");
+
+  // A new subscription that does grant Plus still takes over.
+  await handleStripeEvent(event("customer.subscription.created", withId(subscription({ status: "active" }), "sub_newer")), { db });
+  assert.equal(db.rows[0].stripeSubscriptionId, "sub_newer");
+  assert.equal(db.rows[0].plan, "PLUS");
+});
+
+test("a failed invoice for an old subscription is ignored", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_new", stripeCustomerId: "cus_123" }]);
+  const invoice = { id: "in_old", object: "invoice", customer: "cus_123", parent: { type: "subscription_details", subscription_details: { subscription: "sub_old" } } };
+  const result = await handleStripeEvent(event("invoice.payment_failed", invoice), { db });
+  assert.equal(result.handled, false);
+  assert.equal(db.rows[0].plan, "PLUS");
+});
+
+test("a late payment_failed after a retry already succeeded keeps Plus", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "PLUS", stripeSubscriptionId: "sub_123", stripeCustomerId: "cus_123" }]);
+  const invoice = { id: "in_1", object: "invoice", customer: "cus_123", parent: { type: "subscription_details", subscription_details: { subscription: "sub_123" } } };
+  const { api } = stubStripe({ subscription: subscription({ status: "active", periodEnd: "2026-12-22T00:00:00Z" }) });
+  const result = await handleStripeEvent(event("invoice.payment_failed", invoice), { db, stripe: api });
+  assert.equal(result.plan, "PLUS");
+  assert.equal(db.rows[0].plan, "PLUS");
+
+  // While the subscription really is past due, Plus pauses as before.
+  const pastDue = stubStripe({ subscription: subscription({ status: "past_due" }) });
+  await handleStripeEvent(event("invoice.payment_failed", invoice), { db, stripe: pastDue.api });
+  assert.equal(db.rows[0].plan, "FREE");
 });
 
 test("events for unknown accounts and other event types change nothing", async () => {

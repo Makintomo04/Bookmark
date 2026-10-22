@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { EditionFormat } from "@prisma/client";
 import { convertPosition, progressScale, readLengthsAfterEdit } from "@/lib/progress";
-import { parseAudioMinutes } from "@/lib/bookInput";
+import { bookFieldsProblem, parseAudioMinutes } from "@/lib/bookInput";
 
 // A new cover is copied to UploadThing afterwards, by ./cover.
 
@@ -45,8 +45,12 @@ export async function PATCH( request: Request,
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const body = await request.json()
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   const { title, author, pages, coverImgSrc, cardColour, genre, format, audioMinutes } = body
+  // A cover already on the book (perhaps from before the host allowlist) can be kept as it is.
+  const fieldError = bookFieldsProblem({ title, author, genre, coverImgSrc: coverImgSrc === book.coverImage ? undefined : coverImgSrc, cardColour })
+  if (fieldError) return NextResponse.json({ error: fieldError }, { status: 400 })
   // Format and running time decide the unit: an audiobook with a running time runs on minutes.
   // Older clients send neither, which leaves the book's scale as it is.
   const parsedFormat = Object.values(EditionFormat).includes(format) ? (format as EditionFormat) : null
