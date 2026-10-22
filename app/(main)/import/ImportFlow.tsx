@@ -324,7 +324,7 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
   const [busy, setBusy] = useState(false)
   const duplicates = job.duplicates.shelf + job.duplicates.file
   const unsure = job.uncertain.length
-  const unmatched = Math.max(0, job.unmatched - unsure)
+  const unmatched = job.unmatched
 
   return (
     <section className="flex flex-col gap-6">
@@ -492,12 +492,12 @@ const WorkSearch: FC<{ id: string; initialQuery: string; others?: ImportCandidat
   const [searching, setSearching] = useState(false)
   const [searchFailed, setSearchFailed] = useState(false)
 
-  const search = async () => {
-    if (query.trim().length < 3) return
+  const search = useCallback(async (q: string) => {
+    if (q.trim().length < 3) return
     setSearching(true)
     setSearchFailed(false)
     try {
-      const res = await fetch(`/api/books/search?q=${encodeURIComponent(query.trim())}`)
+      const res = await fetch(`/api/books/search?q=${encodeURIComponent(q.trim())}`)
       if (!res.ok) throw new Error("search failed")
       setResults(((await res.json()) as Candidate[]).filter((c) => c.workKey).map(asCandidate))
     } catch {
@@ -506,14 +506,21 @@ const WorkSearch: FC<{ id: string; initialQuery: string; others?: ImportCandidat
     } finally {
       setSearching(false)
     }
-  }
+  }, [])
+
+  // With nothing to offer up front, search for the row's own title straight away.
+  useEffect(() => {
+    if (others.length === 0) search(initialQuery)
+    // Once, when the box opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // The row's own candidates first; search results fill in behind them, without repeats.
   const shown = [...others, ...(results ?? []).filter((r) => !others.some((o) => o.workKey === r.workKey))]
 
   return (
     <div className="flex flex-col gap-3">
-      <form onSubmit={(e) => { e.preventDefault(); search() }} className="flex gap-2">
+      <form onSubmit={(e) => { e.preventDefault(); search(query) }} className="flex gap-2">
         <label htmlFor={`q-${id}`} className="sr-only">Search Open Library</label>
         <input
           id={`q-${id}`}
@@ -523,7 +530,7 @@ const WorkSearch: FC<{ id: string; initialQuery: string; others?: ImportCandidat
         />
         <Button type="submit" size="sm" disabled={searching || busy}>{searching ? <Loader2 size={14} className="animate-spin" aria-label="Searching" /> : "Search"}</Button>
       </form>
-      {searchFailed && <SearchFailed onRetry={search} />}
+      {searchFailed && <SearchFailed onRetry={() => search(query)} />}
       {results && results.length === 0 && shown.length === 0 && <p className="text-sm text-muted-foreground">No results. Try a shorter title.</p>}
       {shown.length > 0 && (
         <ul className="grid gap-2 sm:grid-cols-2">

@@ -11,7 +11,7 @@ import { ShelfIndex, buildRecords, findDuplicates, newObjectId, shelfKey, type B
 import {
   type Decision, type Matches, type UncertainRow, applyModelOutcome, decide, modelPending, pendingForModel, uncertainRows, undatedFinished,
 } from "./review";
-import { type FileNotes, type ImportMatch, type ImportRow, type ImportSource, type MatchEntry, effectiveMatch } from "./types";
+import { type FileNotes, type ImportMatch, type ImportRow, type ImportSource, type MatchEntry, asMatch, effectiveMatch, isUncertain, isbnsFor } from "./types";
 
 // The server half of an import: each exported step does a bounded amount of work and returns the
 // job's new view, and the /import page calls the next step until the job is done. Every step is safe
@@ -164,6 +164,8 @@ export async function viewJob(job: ImportJob): Promise<ImportJobView> {
     }
     byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
     if (isMatched(row, matches[i])) matched++;
+    // Uncertain matches are listed in `uncertain`, not counted here, until the reader decides.
+    else if (isUncertain(asMatch(matches[i]))) return;
     else if (String(i) in matches) {
       unmatched++;
       if (samples.unmatched.length < 8) samples.unmatched.push(`${row.title} · ${row.author}`);
@@ -303,10 +305,10 @@ const yearOf = (d: Date | null | undefined) => (d ? d.getUTCFullYear() : null);
 
 // What the catalog files a row under: the matched work (its own title and authors), the file's ISBNs,
 // binding, publisher and year for the edition, and the row's title and author when nothing matched.
-const catalogInput = (row: ImportRow, match: ImportMatch | null): CatalogInput => ({
+const catalogInput = (row: ImportRow, entry: MatchEntry | undefined, match: ImportMatch | null): CatalogInput => ({
   workKey: row.workKey ?? match?.workKey ?? null,
-  isbn13: row.isbn13,
-  isbn10: row.isbn10,
+  // Not the file's ISBN when the lookups showed it belongs to another book (the catalog files by ISBN first).
+  ...isbnsFor(row, entry),
   title: match?.title || row.title,
   author: row.author,
   authors: match?.authors?.length ? match.authors : [row.author],
@@ -350,7 +352,7 @@ export async function importStep(job: ImportJob) {
   const filed = new Map<number, { workId: string; editionId: string }>();
   if (toFile.length) {
     try {
-      const resolved = await resolveCatalogMany(toFile.map((i) => catalogInput(rows[i], effectiveMatch(matches[i]))));
+      const resolved = await resolveCatalogMany(toFile.map((i) => catalogInput(rows[i], matches[i], effectiveMatch(matches[i]))));
       toFile.forEach((i, n) => filed.set(i, { workId: resolved[n].work.id, editionId: resolved[n].edition.id }));
     } catch (err) {
       // The books still go in; scripts/backfill-catalog.ts links them later.

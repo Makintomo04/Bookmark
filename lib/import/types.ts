@@ -87,6 +87,9 @@ export interface ImportMatch {
   reviewed?: boolean;
   // Other works that could be this book, for "pick another".
   candidates?: ImportCandidate[];
+  // The row's ISBN is filed under another book on Open Library (an audiobook or ebook ISBN mis-filed,
+  // a boxed set). The catalog must not file the book by that ISBN, or the wrong edition wins.
+  isbnDoubtful?: boolean;
 }
 
 // Looked, nothing certain: what Open Library offered, and whether the model has had a go at them.
@@ -96,7 +99,12 @@ export interface ImportNoMatch {
   candidates: ImportCandidate[];
   llm?: "none" | "skipped" | "failed" | "rejected";
   reviewed?: boolean;
+  isbnDoubtful?: boolean;
 }
+
+// ISBNs the catalog may file the row by: not when the lookups showed the ISBN points at another book.
+export const isbnsFor = (row: { isbn13: string | null; isbn10: string | null }, entry: MatchEntry | undefined) =>
+  entry?.isbnDoubtful ? { isbn13: null, isbn10: null } : { isbn13: row.isbn13, isbn10: row.isbn10 };
 
 export type MatchEntry = ImportMatch | ImportNoMatch | null;
 

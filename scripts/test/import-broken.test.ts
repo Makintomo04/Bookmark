@@ -13,7 +13,7 @@ import { DOUBTFUL, matchRows } from "../../lib/import/match.ts";
 import { LLM_MIN_CONFIDENCE, type LlmRowInput, pickWithModel, readPicks } from "../../lib/import/llmMatch.ts";
 import { type Matches, applyModelOutcome, decide, modelPending, pendingForModel, uncertainRows, undatedFinished } from "../../lib/import/review.ts";
 import { buildRecords, newObjectId } from "../../lib/import/records.ts";
-import { CONFIDENT, type ImportCandidate, type ImportRow, asMatch, effectiveMatch, isUncertain } from "../../lib/import/types.ts";
+import { CONFIDENT, type ImportCandidate, type ImportRow, asMatch, effectiveMatch, isUncertain, isbnsFor } from "../../lib/import/types.ts";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/broken/${name}`, import.meta.url), "utf8");
 const day = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : null);
@@ -233,6 +233,17 @@ test("matching: an ISBN filed under another title is doubtful, with the title se
   assert.ok(isUncertain(doubtful));
   assert.deepEqual(doubtful.candidates?.map((c) => c.workKey), ["OL3W"]);
   assert.equal(effectiveMatch(second.get(0)), null, "an unchecked doubtful match files as typed");
+
+  // The catalog files by ISBN first, so a doubtful ISBN must be kept away from it, whichever way the row goes.
+  assert.equal(doubtful.isbnDoubtful, true);
+  assert.equal(hobbit.isbnDoubtful, true, "the title hit is another work than the ISBN's");
+  assert.equal(piranesi.isbnDoubtful, undefined);
+  assert.deepEqual(isbnsFor(rows[0], second.get(0)), { isbn13: null, isbn10: null });
+  assert.deepEqual(isbnsFor(rows[3], matches.get(3)), { isbn13: "9781635575965", isbn10: "1635575966" });
+  assert.deepEqual(isbnsFor(rows[0], decide(doubtful, { choice: "typed" })), { isbn13: null, isbn10: null }, "still doubtful after 'add as typed'");
+  const other = candidate("OL9W", "The Hobbit", "J.R.R. Tolkien");
+  assert.equal(asMatch(decide(doubtful, { choice: "pick", candidate: other }))?.isbnDoubtful, true, "and after 'pick another'");
+  assert.equal(asMatch(decide(doubtful, { choice: "accept" }))?.isbnDoubtful, false, "confirming the ISBN's own book clears it");
 });
 
 // ---- The model pass -----------------------------------------------------------------------

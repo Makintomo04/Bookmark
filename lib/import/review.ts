@@ -61,7 +61,7 @@ export function applyModelOutcome(matches: Matches, outcome: LlmOutcome) {
     if (!awaitingModel(entry)) return;
     const chosen = pick.candidate !== null ? entry.candidates[pick.candidate] : undefined;
     if (chosen && pick.confidence >= LLM_MIN_CONFIDENCE) {
-      matches[index] = candidateToMatch(chosen, "llm", pick.confidence, entry.candidates);
+      matches[index] = { ...candidateToMatch(chosen, "llm", pick.confidence, entry.candidates), ...(entry.isbnDoubtful && { isbnDoubtful: true }) };
     } else {
       entry.llm = "none";
     }
@@ -132,16 +132,23 @@ export function decide(entry: MatchEntry | undefined, decision: Decision): Match
   const match = asMatch(entry);
   const offered = match?.candidates ?? (entry && entry.workKey === null ? entry.candidates : []);
   if (!match && !(entry && entry.workKey === null && entry.reviewed)) return undefined;
+  // A doubtful ISBN stays doubtful through "add as typed" and "pick another": the ISBN still points at
+  // the book the reader just said this isn't. Confirming an ISBN hit itself clears it.
+  const isbnDoubtful = !!entry?.isbnDoubtful;
   switch (decision.choice) {
     case "accept":
-      return match ? { ...match, confidence: 1, reviewed: true } : undefined;
+      if (!match) return undefined;
+      return { ...match, confidence: 1, reviewed: true, isbnDoubtful: isbnDoubtful && match.by !== "isbn13" && match.by !== "isbn" };
     case "typed": {
       // Keep the pick among the candidates, so "pick another" after "add as typed" can still offer it.
       const all = match ? [matchAsCandidate(match), ...offered] : offered;
-      return { workKey: null, candidates: dedupe(all), llm: "rejected", reviewed: true };
+      return { workKey: null, candidates: dedupe(all), llm: "rejected", reviewed: true, isbnDoubtful };
     }
     case "pick":
-      return candidateToMatch(decision.candidate, "reader", 1, dedupe(match ? [matchAsCandidate(match), ...offered] : offered));
+      return {
+        ...candidateToMatch(decision.candidate, "reader", 1, dedupe(match ? [matchAsCandidate(match), ...offered] : offered)),
+        isbnDoubtful,
+      };
   }
 }
 

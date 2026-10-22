@@ -236,7 +236,11 @@ export async function matchRows(
     if (match && doc) {
       // An ISBN that Open Library files under a book with another title is a doubtful match (an
       // audiobook or ebook ISBN mis-filed, or a boxed set), to be checked rather than filed as is.
-      match.confidence = plausibleMatch(r, doc) ? 1 : DOUBTFUL;
+      if (plausibleMatch(r, doc)) match.confidence = 1;
+      else {
+        match.confidence = DOUBTFUL;
+        match.isbnDoubtful = true;
+      }
       matches.set(i, match);
     }
     // Open Library has stray one-edition works with no cover; a title search often finds the main one,
@@ -250,6 +254,8 @@ export async function matchRows(
       const { match: byTitle, candidates } = await searchTitle(rows[i], fetchImpl);
       if (byTitle) {
         byTitle.confidence = 1;
+        // The ISBN points at another book: the title hit is the match, and the ISBN stays out of the catalog.
+        if (byIsbn?.isbnDoubtful && byIsbn.workKey !== byTitle.workKey) byTitle.isbnDoubtful = true;
         // A plausible title hit outranks a doubtful ISBN hit, and a cover outranks none.
         const keep = !byIsbn || isUncertain(byIsbn) || byTitle.coverUrl ? byTitle : byIsbn;
         matches.set(i, keep);
