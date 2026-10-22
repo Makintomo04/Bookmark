@@ -46,8 +46,8 @@ const PLUS_SOON = [
 const CURRENCY_NAME: Record<PlusCurrency, string> = { USD: 'US dollars', GBP: 'pounds', EUR: 'euros' }
 
 const cardClassName = 'rounded-[20px] border border-neutral-200 dark:border-neutral-800'
-const mutedClassName = 'text-slate-600 dark:text-gray-300/90'
-const ctaClassName = 'inline-flex h-12 w-full items-center justify-center gap-2 rounded-md px-6 text-base font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:opacity-60'
+const mutedClassName = 'text-neutral-600 dark:text-neutral-300/90'
+const ctaClassName = 'inline-flex h-12 w-full items-center justify-center gap-2 rounded-md px-6 text-base font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'
 const fmtCount = (n: number) => n.toLocaleString('en-US')
 
 const Feature: FC<{ children: string; soon?: boolean; strong?: boolean }> = ({ children, soon, strong }) => (
@@ -131,7 +131,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-sm font-semibold text-brand-fill dark:text-brand">
           <Sparkles size={14} aria-hidden /> Bookmark Plus
         </span>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">All your stats are free.</h1>
+        <h1 className="display-hero mt-4">All your stats are free.</h1>
         <p className={cn('mt-4 text-base md:text-lg', mutedClassName)}>
           Plus adds recaps, hosting tools and personalisation. It never gates your stats, your import, or the circles your friends invite you to.
         </p>
@@ -296,13 +296,13 @@ const RedeemGift: FC<{ onRedeemed: () => void }> = ({ onRedeemed }) => {
           spellCheck={false}
           aria-invalid={!!error}
           aria-describedby={error ? 'gift-code-error' : undefined}
-          className="h-10 min-w-0 flex-1 rounded-md border border-neutral-300 dark:border-input bg-background px-3 text-sm uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <button type="submit" disabled={pending || !code.trim()} className="inline-flex h-10 items-center gap-2 rounded-md bg-foreground px-4 text-sm font-semibold text-background transition hover:opacity-90 disabled:opacity-60">
           {pending && <Loader2 size={15} className="animate-spin" aria-hidden />}Redeem
         </button>
       </div>
-      {error && <p id="gift-code-error" role="alert" className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+      {error && <p id="gift-code-error" role="alert" className="text-sm text-danger">{error}</p>}
     </form>
   )
 }

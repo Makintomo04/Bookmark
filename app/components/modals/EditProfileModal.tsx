@@ -198,7 +198,7 @@ const EditProfileModal: FC = () => {
           disabled={isSaving}
           aria-invalid={!!errors.username}
           aria-describedby="username-hint"
-          className={cn(fieldClass, "h-10", errors.username ? "border-rose-500" : "border-neutral-300 dark:border-input")}
+          className={cn(fieldClass, "h-10", errors.username ? "border-danger" : "border-input")}
           {...register("username", {
             validate: (v) => {
               const t = v.trim()
@@ -209,14 +209,14 @@ const EditProfileModal: FC = () => {
           })}
         />
         {errors.username
-          ? <p id="username-hint" role="alert" className="text-sm text-rose-600 dark:text-rose-400">{errors.username.message}</p>
+          ? <p id="username-hint" role="alert" className="text-sm text-danger">{errors.username.message}</p>
           : <p id="username-hint" className="text-xs text-muted-foreground break-all">Your profile lives at /u/{username?.trim() || "…"}</p>}
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor="bio" className="text-sm font-medium">Bio <span className="font-normal text-muted-foreground">· optional</span></label>
-          <span className={cn("text-xs tabular-nums", (bio?.length ?? 0) > BIO_MAX ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground")} aria-live="polite">
+          <span className={cn("text-xs tabular-nums", (bio?.length ?? 0) > BIO_MAX ? "text-danger" : "text-muted-foreground")} aria-live="polite">
             {bio?.length ?? 0}/{BIO_MAX}
           </span>
         </div>
@@ -226,10 +226,10 @@ const EditProfileModal: FC = () => {
           disabled={isSaving}
           placeholder="What do you like to read?"
           aria-invalid={!!errors.bio}
-          className={cn(fieldClass, "py-2 resize-y", errors.bio ? "border-rose-500" : "border-neutral-300 dark:border-input")}
+          className={cn(fieldClass, "py-2 resize-y", errors.bio ? "border-danger" : "border-input")}
           {...register("bio", { maxLength: { value: BIO_MAX, message: `Keep your bio to ${BIO_MAX} characters.` } })}
         />
-        {errors.bio && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{errors.bio.message}</p>}
+        {errors.bio && <p role="alert" className="text-sm text-danger">{errors.bio.message}</p>}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -253,14 +253,14 @@ const EditProfileModal: FC = () => {
   )
 
   const dangerZone = (
-    <div className="rounded-lg border border-rose-500/30 p-4">
+    <div className="rounded-lg border border-danger/30 p-4">
       {!showDeleteConfirm ? (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium">Delete account</p>
             <p className="text-xs text-muted-foreground">Permanently remove your account, books, notes, goals and followers.</p>
           </div>
-          <Button type="button" variant="outline" disabled={isBusy} className="shrink-0 border-rose-500/60 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-600" onClick={() => setShowDeleteConfirm(true)}>
+          <Button type="button" variant="outline" disabled={isBusy} className="shrink-0 border-danger/60 text-danger hover:bg-danger/10 hover:text-danger" onClick={() => setShowDeleteConfirm(true)}>
             Delete account
           </Button>
         </div>
@@ -278,10 +278,10 @@ const EditProfileModal: FC = () => {
             disabled={isDeleting}
             autoComplete="off"
             spellCheck={false}
-            className={cn(fieldClass, "h-10 border-neutral-300 dark:border-input sm:max-w-xs")}
+            className={cn(fieldClass, "h-10 border-input sm:max-w-xs")}
           />
           <div className="flex flex-wrap gap-2">
-            <Button type="button" disabled={isDeleting || deleteConfirmText !== user?.username} className="bg-rose-700 hover:bg-rose-800 text-white" onClick={handleDeleteAccount}>
+            <Button type="button" disabled={isDeleting || deleteConfirmText !== user?.username} variant="destructive" onClick={handleDeleteAccount}>
               {isDeleting ? "Deleting…" : "Delete my account"}
             </Button>
             <Button type="button" variant="outline" disabled={isDeleting} onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText("") }}>Keep my account</Button>

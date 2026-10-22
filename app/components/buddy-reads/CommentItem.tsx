@@ -105,7 +105,7 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {comment.mine && <DropdownMenuItem onSelect={() => { setDraft(comment.body ?? ""); setEditing(true) }}>Edit</DropdownMenuItem>}
-                {canModerate && <DropdownMenuItem onSelect={remove} className="text-rose-600 dark:text-rose-400">Delete</DropdownMenuItem>}
+                {canModerate && <DropdownMenuItem onSelect={remove} className="text-danger">Delete</DropdownMenuItem>}
                 {canReport && (
                   <>
                     {canModerate && <DropdownMenuSeparator />}
@@ -131,7 +131,7 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
               rows={3}
               autoFocus
               disabled={busy}
-              className="w-full rounded-md border border-neutral-300 dark:border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
             />
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setEditing(false)} disabled={busy} className={secondaryButtonClass}>Cancel</button>

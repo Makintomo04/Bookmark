@@ -119,7 +119,7 @@ export const ReaderTagsEditor: FC<ReaderTagsEditorProps> = ({ value, onChange, d
 
   const removeWarning = (t: WarningTopic) => onChange({ ...value, warnings: value.warnings.filter((w) => w.topic !== t) })
 
-  const selectClass = "h-9 rounded-md border border-neutral-300 dark:border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  const selectClass = "h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
   return (
     <div className="flex flex-col gap-7">

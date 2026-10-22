@@ -15,7 +15,7 @@ import {
   EditableQuest, GOAL_TYPES, QUEST_COUNT_MAX, QUEST_DESCRIPTION_MAX, QUEST_ICONS, QUEST_TITLE_MAX, QuestGoalType, describeGoal, emptyQuest, parseGoal, slugify,
 } from '@/lib/questRules'
 
-const fieldClass = "w-full rounded-md border border-neutral-300 dark:border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
+const fieldClass = "w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
 const labelClass = "flex flex-col gap-1.5 text-sm font-medium"
 const hintClass = "font-normal text-muted-foreground"
 
@@ -185,11 +185,11 @@ const QuestEditorModal: FC<{ initial: EditableQuest, onClose: () => void }> = ({
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
       {!isNew && (confirmDelete ? (
         <div className="mr-auto flex items-center gap-2">
-          <Button type="button" onClick={remove} disabled={isSaving} className="bg-rose-700 hover:bg-rose-800 text-white">Delete quest</Button>
+          <Button type="button" onClick={remove} disabled={isSaving} variant="destructive">Delete quest</Button>
           <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)} disabled={isSaving}>Keep it</Button>
         </div>
       ) : (
-        <Button type="button" variant="outline" onClick={() => setConfirmDelete(true)} disabled={isSaving} className="mr-auto text-rose-600 dark:text-rose-400 hover:text-rose-600">Delete</Button>
+        <Button type="button" variant="outline" onClick={() => setConfirmDelete(true)} disabled={isSaving} className="mr-auto text-danger hover:text-danger">Delete</Button>
       ))}
       <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="hidden sm:inline-flex">{isDirty ? "Cancel" : "Close"}</Button>
       <Button type="button" onClick={save} disabled={isSaving || !isDirty || !draft.title.trim() || !goal}>

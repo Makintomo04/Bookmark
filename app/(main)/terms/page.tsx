@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 const Section: FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="flex flex-col gap-2 mb-8">
     <h2 className="text-xl font-bold">{title}</h2>
-    <div className="text-sm text-slate-600 dark:text-gray-300/90 flex flex-col gap-3">{children}</div>
+    <div className="text-sm text-neutral-600 dark:text-neutral-300/90 flex flex-col gap-3">{children}</div>
   </div>
 )
 
@@ -17,7 +17,7 @@ const Page: FC = () => {
   return (
     <div className="mt-12 mb-20">
       <Container className="max-w-2xl">
-        <h1 className="text-4xl font-bold mb-2">Terms of Service</h1>
+        <h1 className="page-title mb-2">Terms of Service</h1>
         <p className="text-xs text-muted-foreground mb-10">Last updated: {new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
         <Section title="1. Acceptance of these terms">

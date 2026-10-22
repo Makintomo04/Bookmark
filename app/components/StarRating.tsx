@@ -1,6 +1,6 @@
 "use client"
 import { FC, KeyboardEvent, MouseEvent, useState } from 'react'
-import { IoIosStar, IoIosStarHalf, IoIosStarOutline } from "react-icons/io"
+import { Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface StarRatingProps {
@@ -15,8 +15,19 @@ interface StarRatingProps {
   className?: string
 }
 
-const COLOUR = "#f44336"
 const STEP = 0.5
+
+// An empty outline in the control-border colour (3:1 in both themes), with the brand fill clipped over it.
+const StarIcon: FC<{ fill: number; size: number }> = ({ fill, size }) => (
+  <span className="relative block" style={{ width: size, height: size }}>
+    <Star size={size} className="absolute inset-0 text-input" />
+    {fill > 0 && (
+      <span className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: size * fill }}>
+        <Star size={size} className="text-brand" fill="currentColor" />
+      </span>
+    )}
+  </span>
+)
 
 const clampRating = (n: number) => Math.max(STEP, Math.min(5, Math.round(n / STEP) * STEP))
 export const formatRating = (n: number) => `${n} ${n === 1 ? "star" : "stars"}`
@@ -60,7 +71,7 @@ const StarRating: FC<StarRatingProps> = ({ value, onChange, disabled, readOnly, 
   }
 
   const stars = [1, 2, 3, 4, 5].map((n) => {
-    const Icon = display >= n ? IoIosStar : display >= n - STEP ? IoIosStarHalf : IoIosStarOutline
+    const fill = display >= n ? 1 : display >= n - STEP ? 0.5 : 0
     return (
       <span
         key={n}
@@ -69,7 +80,7 @@ const StarRating: FC<StarRatingProps> = ({ value, onChange, disabled, readOnly, 
         onClick={interactive ? (e) => set(pointerValue(e, n)) : undefined}
         className={cn(interactive && "p-1 cursor-pointer", !readOnly && !interactive && "p-1")}
       >
-        <Icon size={size} color={COLOUR} />
+        <StarIcon fill={fill} size={size} />
       </span>
     )
   })

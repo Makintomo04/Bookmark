@@ -9,7 +9,7 @@ import { Button } from '../ui/button'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import axios from 'axios'
 import { notify } from '@/lib/notify'
-import { VscDiffRemoved } from "react-icons/vsc"
+import { Trash2 } from 'lucide-react'
 import useBookNotesModal from '@/app/hooks/useBookNotesModal'
 import useBookNotes from '@/app/hooks/useBookNotes'
 import { Note } from '@prisma/client'
@@ -103,7 +103,9 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
                 <p className='text-sm whitespace-pre-wrap'>{note.title ? note.content : `"${note.content}"`}</p>
                 <p className='text-xs text-muted-foreground mt-1'>{moment(note.createdAt).format("DD/MM/YYYY")}</p>
               </div>
-              <VscDiffRemoved size={18} className='cursor-pointer flex-shrink-0 mt-1' onClick={() => handleDelete(note.id)}/>
+              <button type="button" aria-label="Delete note" onClick={() => handleDelete(note.id)} className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Trash2 size={16} aria-hidden />
+              </button>
             </div>
           ))}
         </div>

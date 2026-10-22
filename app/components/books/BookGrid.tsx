@@ -79,18 +79,18 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
   const viewToggle = (
     <div className="flex items-center gap-2">
     <button type="button" aria-pressed={selecting} onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
-      className="h-10 rounded-full px-4 text-sm font-medium bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-700 transition">
+      className="h-10 rounded-full px-4 text-sm font-medium bg-neutral-200 dark:bg-neutral-700/60 hover:bg-neutral-300 dark:hover:bg-neutral-700 transition">
       {selecting ? "Done" : "Select"}
     </button>
-    <div className="flex gap-1 bg-slate-200 dark:bg-slate-700/60 rounded-full p-1">
+    <div className="flex gap-1 bg-neutral-200 dark:bg-neutral-700/60 rounded-full p-1">
       <button type="button" aria-label="Comfortable view" aria-pressed={activeMode === 'comfortable'} onClick={() => setViewMode('comfortable')}
         className={cn("h-8 w-8 rounded-full flex items-center justify-center transition",
-          activeMode === 'comfortable' && "bg-white dark:bg-slate-900 shadow-sm")}>
+          activeMode === 'comfortable' && "bg-white dark:bg-neutral-900 shadow-sm")}>
         <LayoutGrid size={18} />
       </button>
       <button type="button" aria-label="Compact view" aria-pressed={activeMode === 'compact'} onClick={() => setViewMode('compact')}
         className={cn("h-8 w-8 rounded-full flex items-center justify-center transition",
-          activeMode === 'compact' && "bg-white dark:bg-slate-900 shadow-sm")}>
+          activeMode === 'compact' && "bg-white dark:bg-neutral-900 shadow-sm")}>
         <Grid3x3 size={18} />
       </button>
     </div>

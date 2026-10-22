@@ -39,7 +39,7 @@ const ListCard: FC<{ list: ListSummary, className?: string, hideOwner?: boolean 
         {(list.isPick || !hideOwner) && <span aria-hidden>·</span>}
         <span className="whitespace-nowrap">{plural(list.itemCount, "book")}</span>
         {list.visibility === "PRIVATE" && <span className="inline-flex items-center gap-1 whitespace-nowrap"><Lock size={12} aria-hidden />Private</span>}
-        {list.reportCount > 0 && <span className="inline-flex items-center gap-1 whitespace-nowrap text-rose-600 dark:text-rose-400"><Flag size={12} aria-hidden />{plural(list.reportCount, "report")}</span>}
+        {list.reportCount > 0 && <span className="inline-flex items-center gap-1 whitespace-nowrap text-danger"><Flag size={12} aria-hidden />{plural(list.reportCount, "report")}</span>}
       </p>
     </div>
   </Link>

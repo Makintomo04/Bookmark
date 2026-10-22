@@ -1,6 +1,6 @@
 "use client";
 import { FC, useCallback, useEffect, useId, useRef } from 'react'
-import { IoClose } from 'react-icons/io5';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ModalProps {
@@ -117,11 +117,11 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         <div className="p-6 pb-0 h-auto md:h-full overflow-hidden">
           <div className="flex justify-between items-center">
           <h2 id={titleId} className='text-3xl font-bold'>{title}</h2>
-          <button type="button" aria-label="Close" className="p-2 bg-slate-200 dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer transition rounded-full" onClick={handleClose}>
-          <IoClose size={24} />
+          <button type="button" aria-label="Close" className="p-2 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 cursor-pointer transition rounded-full" onClick={handleClose}>
+          <X size={20} aria-hidden />
           </button>
           </div>
-          <hr className='my-6 border-1 border-slate-400/40'/>
+          <hr className='my-6 border-1 border-neutral-400/40'/>
         </div>
           <div className={cn("flex flex-col justify-between w-full h-full min-h-0 flex-1 relative", !compact && "sm:min-h-[500px]")}>
         {/* grid-cols-1 caps the column at the modal's width; an auto column grows to the widest child and spills off narrow screens. */}

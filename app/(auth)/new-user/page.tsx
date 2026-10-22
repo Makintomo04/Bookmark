@@ -38,7 +38,7 @@ const STEPS: Step[] = [1, 2, 3]
 const Progress = ({ step }: { step: Step }) => (
   <div className="mb-6 flex flex-col items-center gap-2">
     <div className="flex w-32 gap-1.5" aria-hidden>
-      {STEPS.map((n) => <span key={n} className={cn("h-1 flex-1 rounded-full transition-colors", n <= step ? "bg-red-500" : "bg-neutral-300 dark:bg-neutral-700")} />)}
+      {STEPS.map((n) => <span key={n} className={cn("h-1 flex-1 rounded-full transition-colors", n <= step ? "bg-brand" : "bg-neutral-300 dark:bg-neutral-700")} />)}
     </div>
     <p className="text-xs text-muted-foreground">Step {step} of {STEPS.length}</p>
   </div>
@@ -131,9 +131,9 @@ const Page = () => {
   const busy = saving || avatar.isUploading
 
   const usernameHint = errors.username
-    ? <p id="username-hint" role="alert" className="text-sm text-rose-600 dark:text-rose-400">{errors.username.message}</p>
+    ? <p id="username-hint" role="alert" className="text-sm text-danger">{errors.username.message}</p>
     : availability === "taken"
-      ? <p id="username-hint" role="alert" className="text-sm text-rose-600 dark:text-rose-400">That username is already taken.</p>
+      ? <p id="username-hint" role="alert" className="text-sm text-danger">That username is already taken.</p>
       : availability === "available"
         ? <p id="username-hint" className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1 break-all"><Check size={14} aria-hidden /> Available · your profile will be /u/{savedName}</p>
         : <p id="username-hint" className="text-xs text-muted-foreground break-all">{availability === "checking" ? "Checking…" : `Your profile will be /u/${savedName || "…"}`}</p>
@@ -141,7 +141,7 @@ const Page = () => {
   const profileStep = (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6" noValidate>
       <div className="text-center">
-        <h1 className="text-2xl font-bold">Set up your profile</h1>
+        <h1 className="page-title">Set up your profile</h1>
         <p className="mt-2 text-sm text-muted-foreground">This is how other readers see you. You can change it any time.</p>
       </div>
 
@@ -198,7 +198,7 @@ const Page = () => {
           disabled={saving}
           aria-invalid={!!errors.username || availability === "taken"}
           aria-describedby="username-hint"
-          className={cn(fieldClass, errors.username || availability === "taken" ? "border-rose-500" : "border-neutral-300 dark:border-input")}
+          className={cn(fieldClass, errors.username || availability === "taken" ? "border-danger" : "border-input")}
           {...register("username", {
             validate: (v) => {
               const t = v.trim()
@@ -228,7 +228,7 @@ const Page = () => {
         </div>
       </div>
 
-      <Button type="submit" disabled={busy || availability === "checking"} className="mt-2 bg-red-500 text-white hover:bg-red-600 rounded-md py-2">
+      <Button type="submit" disabled={busy || availability === "checking"} className="mt-2 rounded-md py-2">
         {saving ? "Saving…" : nextPath ? "Save and continue" : "Continue"}
       </Button>
     </form>
@@ -237,7 +237,7 @@ const Page = () => {
   const shelfStep = (
     <div className="flex flex-col gap-6">
       <div className="text-center">
-        <h1 className="text-2xl font-bold break-words">Welcome, {savedName}</h1>
+        <h1 className="page-title break-words">Welcome, {savedName}</h1>
         <p className="mt-2 text-sm text-muted-foreground">Your profile is ready. Put a few books on it so it feels like yours.</p>
       </div>
       <div className="flex flex-col gap-3">
@@ -255,16 +255,16 @@ const Page = () => {
         />
         <GoalOption />
       </div>
-      <Button type="button" onClick={() => router.push(profileHref)} variant="outline" className="rounded-md py-2 dark:border-slate-100/50">
+      <Button type="button" onClick={() => router.push(profileHref)} variant="outline" className="rounded-md py-2 dark:border-neutral-100/50">
         Go to my profile
       </Button>
     </div>
   )
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-red-400">
+    <div className="min-h-screen w-full overflow-x-hidden bg-background">
         <div className="flex min-h-screen w-full items-center justify-center sm:px-4 sm:py-10">
-          <div className="min-h-screen w-full rounded-none bg-slate-100 p-6 pt-12 dark:bg-background sm:min-h-0 sm:w-[560px] sm:rounded-lg sm:p-8">
+          <div className="min-h-screen w-full rounded-none bg-background p-6 pt-12 sm:min-h-0 sm:w-[560px] sm:rounded-xl sm:border sm:bg-popover sm:p-8">
             <div className="mb-4 flex justify-center">
               <Image src='/logo.svg' width={40} height={40} alt='Bookmark' />
             </div>
@@ -280,9 +280,9 @@ const ShelfOption = ({ icon, title, description, onClick }: { icon: React.ReactN
   <button
     type="button"
     onClick={onClick}
-    className="group flex w-full items-center gap-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-background p-4 text-left transition hover:border-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    className="group flex w-full items-center gap-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-background p-4 text-left transition hover:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
   >
-    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-600 dark:text-red-400">{icon}</span>
+    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand/10 text-brand-text">{icon}</span>
     <span className="min-w-0 flex-1">
       <span className="block font-medium">{title}</span>
       <span className="block text-sm text-muted-foreground">{description}</span>
@@ -321,7 +321,7 @@ const GoalOption = () => {
   return (
     <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-background p-4">
       <div className="flex items-center gap-4">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-600 dark:text-red-400"><Target size={20} aria-hidden /></span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand/10 text-brand-text"><Target size={20} aria-hidden /></span>
         <div className="min-w-0 flex-1">
           <p id="goal-label" className="font-medium">Set a {year} reading goal</p>
           <p className="text-sm text-muted-foreground" aria-live="polite">
@@ -339,7 +339,7 @@ const GoalOption = () => {
             aria-pressed={saved === n}
             className={cn(
               "h-8 rounded-full border px-3 text-sm font-medium transition disabled:opacity-60",
-              saved === n ? "border-red-500 bg-red-500 text-white" : "border-neutral-300 dark:border-neutral-700 hover:border-red-400"
+              saved === n ? "border-brand-fill bg-brand-fill text-white" : "border-neutral-300 dark:border-neutral-700 hover:border-brand"
             )}
           >
             {saving && target === n ? <Loader2 size={14} className="animate-spin" aria-label="Saving" /> : n}
@@ -362,9 +362,9 @@ const GoalOption = () => {
             aria-describedby={rangeError ? "goal-error" : undefined}
             className="h-8 w-20 rounded-full border border-neutral-300 dark:border-neutral-700 bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          {custom && <button type="submit" disabled={saving} className="h-8 rounded-full px-3 text-sm font-medium text-red-600 dark:text-red-400 hover:underline">Set</button>}
+          {custom && <button type="submit" disabled={saving} className="h-8 rounded-full px-3 text-sm font-medium text-brand-text hover:underline">Set</button>}
         </form>
-        {rangeError && <p id="goal-error" role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{rangeError}</p>}
+        {rangeError && <p id="goal-error" role="alert" className="w-full text-sm text-danger">{rangeError}</p>}
       </div>
     </div>
   )

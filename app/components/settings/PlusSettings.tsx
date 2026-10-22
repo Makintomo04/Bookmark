@@ -135,7 +135,7 @@ const CopyField: FC<{ id: string; label: string; value: string }> = ({ id, label
   }
   return (
     <div className="flex gap-2">
-      <input id={id} aria-label={label} readOnly value={value} onFocus={(e) => e.currentTarget.select()} className="h-9 min-w-0 flex-1 rounded-md border border-neutral-300 dark:border-input bg-background px-3 text-xs" />
+      <input id={id} aria-label={label} readOnly value={value} onFocus={(e) => e.currentTarget.select()} className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-xs" />
       <Button type="button" variant="outline" onClick={copy} className="h-9 shrink-0 gap-1.5 px-3 text-xs">
         {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}{copied ? "Copied" : "Copy"}
       </Button>

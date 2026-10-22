@@ -34,7 +34,7 @@ if(isErrorUser || isErrorBooks) return <FetchErrorState error={isErrorUser || is
 if(isLoadingUser || isLoadingBooks) return <Loader notScreen/>
 if(myFavBooks?.length === 0) return (
 <div className="">
-<p className='text-lg'>You have no books favourited, visit <Link href="/" className='text-[#F13c3d] hover:underline transition'>Home</Link> to view your books or create an entry.</p>
+<p className='text-lg'>You have no books favourited, visit <Link href="/" className='text-brand-text hover:underline transition'>Home</Link> to view your books or create an entry.</p>
 </div>
 )
   return <BookGrid books={myFavBooks} flat/>

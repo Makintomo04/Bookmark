@@ -41,7 +41,7 @@ function Segmented<T extends string>({ label, value, options, onChange }: { labe
             aria-checked={value === o.value}
             onClick={() => onChange(o.value)}
             className={cn(
-              "h-7 px-3 rounded text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
+              "h-7 px-3 rounded text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               value === o.value ? "bg-foreground text-background" : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
             )}
           >
@@ -138,7 +138,7 @@ const EmbedDialog: FC<EmbedDialogProps> = ({ isOpen, onClose, target, available 
             aria-selected={s.key === snippet.key}
             onClick={() => setActive(s.key)}
             className={cn(
-              "-mb-px h-9 px-3 text-sm font-medium border-b-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
+              "-mb-px h-9 px-3 text-sm font-medium border-b-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               s.key === snippet.key ? "border-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
@@ -157,7 +157,7 @@ const EmbedDialog: FC<EmbedDialogProps> = ({ isOpen, onClose, target, available 
           <button
             type="button"
             onClick={() => copy(snippet)}
-            className="inline-flex items-center gap-2 h-8 px-3 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex items-center gap-2 h-8 px-3 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             {copied === snippet.key ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
             {copied === snippet.key ? "Copied" : `Copy ${snippet.label}`}
@@ -169,7 +169,7 @@ const EmbedDialog: FC<EmbedDialogProps> = ({ isOpen, onClose, target, available 
           aria-label={`${snippet.label} snippet`}
           onFocus={(e) => e.currentTarget.select()}
           rows={3}
-          className="w-full resize-none rounded-md border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3 font-mono text-xs leading-relaxed break-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+          className="w-full resize-none rounded-md border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3 font-mono text-xs leading-relaxed break-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <p className="text-xs text-muted-foreground">
           {target.kind === "profile"

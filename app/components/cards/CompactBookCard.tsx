@@ -2,11 +2,9 @@
 import { FC } from 'react'
 import { Status, type Book } from '@prisma/client';
 import Image from 'next/image';
-import { IoIosStar } from "react-icons/io";
 import BookCover from './BookCover';
 import ShelfMenuItems from '../books/ShelfMenuItems';
-import { TbBook, TbBook2 } from "react-icons/tb";
-import { Check, CircleSlash, EyeOff, MoreVertical, Pause } from 'lucide-react';
+import { Book as BookClosed, BookOpen, Check, CircleSlash, EyeOff, MoreVertical, Pause, Star } from 'lucide-react';
 import useUser from '@/app/hooks/useUser';
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal';
 import useBookEditModal from '@/app/hooks/useBookEditModal';
@@ -61,21 +59,21 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
   const handleRemove = () => removeBookWithUndo(book, booksMutate, mutateFav)
 
   return (
-    <div onClick={handleOpenBookModal} className="cursor-pointer flex gap-3 items-center p-3 rounded-xl border border-neutral-700/50 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition relative">
+    <div onClick={handleOpenBookModal} className="cursor-pointer flex gap-3 items-center p-3 rounded-xl border border-neutral-700/50 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition relative">
       <BookCover book={book} fallbackColour={user?.favColour} variant="thumb" sizes="48px" className="w-10 flex-shrink-0 rounded" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-sm">{title}</p>
         <p className="truncate text-xs text-muted-foreground">{author}</p>
         <div className="flex items-center gap-2 mt-1">
-          {status === Status.STARTED ? <TbBook size={14} className="text-muted-foreground flex-shrink-0" />
-            : status === Status.NOT_STARTED ? <TbBook2 size={14} className="text-muted-foreground flex-shrink-0" />
+          {status === Status.STARTED ? <BookOpen size={14} className="text-muted-foreground flex-shrink-0" />
+            : status === Status.NOT_STARTED ? <BookClosed size={14} className="text-muted-foreground flex-shrink-0" />
             : status === Status.PAUSED ? <Pause size={14} aria-label="Paused" className="text-muted-foreground flex-shrink-0" />
             : status === Status.DNF ? <CircleSlash size={14} aria-label="Did not finish" className="text-muted-foreground flex-shrink-0" />
             : status === Status.NOT_INTERESTED ? <EyeOff size={14} aria-label="Will not read" className="text-muted-foreground flex-shrink-0" />
             : <Check size={14} className="text-muted-foreground flex-shrink-0" />}
           {rating ? (
             <div className="flex items-center gap-0.5">
-              <IoIosStar size={12} />
+              <Star size={12} fill="currentColor" aria-hidden />
               <p className="text-xs">{rating}</p>
             </div>
           ) : null}
@@ -96,7 +94,7 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <div onClick={(e) => e.stopPropagation()} className="h-6 w-6 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer">
+          <div onClick={(e) => e.stopPropagation()} className="h-6 w-6 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer">
             <MoreVertical size={16} />
           </div>
         </DropdownMenuTrigger>

@@ -85,7 +85,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
             type="button"
             onClick={openProgress}
             aria-label={`Update progress for ${title}, ${position}, ${progress}%`}
-            className="group mt-auto -mx-2 -mb-2 p-2 rounded-md text-left transition hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+            className="group mt-auto -mx-2 -mb-2 p-2 rounded-md text-left transition hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {counts}
             <div className="flex items-center gap-3">

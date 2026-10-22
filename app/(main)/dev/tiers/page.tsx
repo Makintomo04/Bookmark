@@ -21,7 +21,7 @@ const Page = async () => {
   return (
     <div className="mt-8 sm:mt-12">
       <Container>
-        <h1 className="text-3xl font-bold">Reader tiers</h1>
+        <h1 className="page-title">Reader tiers</h1>
         <p className="mt-2 text-muted-foreground">Dev only. Each avatar is rendered at its tier&apos;s threshold.</p>
         <TierPreviewControls />
 

@@ -14,7 +14,7 @@ const Page: FC<pageProps> = ({}) => {
   return <div className='mt-12'>
     <Container>
 {/* <Link href="/">Home</Link> */}
-   <h1 className='text-4xl font-bold'>Favourites</h1>
+   <h1 className='page-title'>Favourites</h1>
    <div className="mt-6">
     <FavBookList/>
     </div>

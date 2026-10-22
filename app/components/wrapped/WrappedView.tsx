@@ -50,7 +50,7 @@ const Card: FC<{ tone: Tone; accent: string; label: string; children: ReactNode;
 }
 
 const Kicker: FC<{ children: ReactNode }> = ({ children }) => <p className="text-sm font-semibold uppercase tracking-[0.2em] opacity-80">{children}</p>
-const Big: FC<{ children: ReactNode }> = ({ children }) => <p className="mt-3 text-6xl sm:text-8xl font-black tracking-tight tabular-nums leading-none">{children}</p>
+const Big: FC<{ children: ReactNode }> = ({ children }) => <p className="mt-3 text-6xl sm:text-8xl font-display font-semibold tracking-tight tabular-nums leading-none">{children}</p>
 const Line: FC<{ children: ReactNode }> = ({ children }) => (children ? <p className="mt-5 max-w-xl text-lg sm:text-2xl font-medium leading-snug opacity-90">{children}</p> : null)
 
 const Stars: FC<{ rating: number }> = ({ rating }) => (
@@ -92,7 +92,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, accent, own, 
       <div className="space-y-6">
         <Card tone="ink" accent={accent} label={title}>
           <Kicker>Bookmark Wrapped</Kicker>
-          <h1 className="mt-3 text-4xl sm:text-6xl font-black tracking-tight">{title}</h1>
+          <h1 className="mt-3 text-4xl sm:text-6xl font-display font-semibold tracking-[-0.02em]">{title}</h1>
           <Line>
             {own
               ? w.isCurrentYear
@@ -123,7 +123,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, accent, own, 
     <div className="space-y-6">
       <Card tone="ink" accent={accent} label="Introduction">
         <Kicker>Bookmark Wrapped</Kicker>
-        <h1 className="mt-3 text-5xl sm:text-7xl font-black tracking-tight leading-[0.95]">{title}</h1>
+        <h1 className="mt-3 text-5xl sm:text-7xl font-display font-semibold tracking-[-0.02em] leading-[0.95]">{title}</h1>
         <Line>{copy.introLine(w, voice)}</Line>
         <p className="mt-10 text-sm opacity-70">Scroll down ↓</p>
       </Card>
@@ -218,7 +218,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, accent, own, 
         {w.tier ? (
           <p className="mt-4">
             <span
-              className="inline-block rounded-full px-6 py-3 text-4xl sm:text-6xl font-black text-neutral-900"
+              className="inline-block rounded-full px-6 py-3 text-4xl sm:text-6xl font-display font-semibold text-neutral-900"
               style={{ background: `linear-gradient(135deg, ${w.tier.light}, ${w.tier.colour} 55%, ${w.tier.shade})` }}
             >
               {w.tier.label}
@@ -239,7 +239,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, accent, own, 
 
       <Card tone="ink" accent={accent} label="Share" className="items-center text-center">
         <Kicker>That&apos;s a wrap</Kicker>
-        <p className="mt-4 max-w-xl text-3xl sm:text-5xl font-black tracking-tight leading-tight">{copy.outroLine(w, voice)}</p>
+        <p className="mt-4 max-w-xl text-3xl sm:text-5xl font-display font-semibold tracking-tight leading-tight">{copy.outroLine(w, voice)}</p>
         {own ? (
           <WrappedShare
             shareUrl={shareUrl}

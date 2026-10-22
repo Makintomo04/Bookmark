@@ -46,7 +46,7 @@ const ProfileMenu: FC<ProfileMenuProps> = ({ username, isBlocked }) => {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem onSelect={toggleBlock} className={cn("gap-2", !isBlocked && "text-rose-600 dark:text-rose-400")}>
+        <DropdownMenuItem onSelect={toggleBlock} className={cn("gap-2", !isBlocked && "text-danger")}>
           <Ban size={14} aria-hidden />
           {isBlocked ? `Unblock ${username}` : `Block ${username}`}
         </DropdownMenuItem>

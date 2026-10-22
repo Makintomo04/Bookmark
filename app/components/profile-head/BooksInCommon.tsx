@@ -19,7 +19,7 @@ const CommonCover: FC<{ book: InCommonBook; accentColour?: string | null }> = ({
       type="button"
       onClick={() => openDetails({ workKey: book.workKey, title: book.title, author: book.author, pages: null, coverUrl: book.coverImage || null })}
       aria-label={`${book.title} by ${book.author}`}
-      className="group flex flex-col gap-1.5 text-left rounded-md outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+      className="group flex flex-col gap-1.5 text-left rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
     >
       <BookCover book={book} fallbackColour={accentColour} variant="thumb" sizes="(min-width: 768px) 110px, 22vw" className="transition group-hover:opacity-90" />
       <span title={book.title} className="text-xs font-medium leading-snug line-clamp-2">{book.title}</span>

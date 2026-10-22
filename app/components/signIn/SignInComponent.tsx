@@ -144,16 +144,16 @@ const SignInComponent =  () => {
     <AnimatePresence>
     <motion.div
     {...{initial,animate,transition,exit}}
-    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>
+    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
       <div className="flex justify-center items-center gap-3 mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='Bookmark'/>
       </div>
     <div className="w-full">
-    <h1 className="text-2xl font-bold mb-10 text-center">{linkSentTo ? "Check your inbox" : "Welcome back"}</h1>
+    <h1 className="page-title mb-10 text-center">{linkSentTo ? "Check your inbox" : "Welcome back"}</h1>
   </div>
   {linkSentTo ? (
     <div role="status" className="flex flex-col gap-4 text-sm">
-      <div className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex flex-col gap-2">
+      <div className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 flex flex-col gap-2">
         <p>We sent a sign-in link to <span className="font-semibold break-all">{linkSentTo}</span>.</p>
         <p className="text-muted-foreground">It works once and expires in 1 hour. Can&apos;t find it? Check your spam folder. No account yet? The link creates one.</p>
       </div>
@@ -164,11 +164,11 @@ const SignInComponent =  () => {
     {justVerified && !unverifiedEmail && <p role="status" className="mb-4 rounded-md bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300 text-sm px-3 py-2">Email confirmed. Sign in to continue.</p>}
     {unverifiedEmail && <div className="mb-4"><CheckInboxNotice email={unverifiedEmail} title="Confirm your email to sign in"/></div>}
     {wrongPassword && (
-      <p role="alert" className="mb-4 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm px-3 py-2">
+      <p role="alert" className="mb-4 rounded-md bg-danger/10 text-danger text-sm px-3 py-2">
         That email and password don&apos;t match. <Link href="/forgot-password" className="font-semibold underline">Reset your password</Link>, or email yourself a sign-in link. That also works if you signed up with Google or GitHub.
       </p>
     )}
-    {authError && <p role="alert" className="mb-4 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm px-3 py-2">{authError}</p>}
+    {authError && <p role="alert" className="mb-4 rounded-md bg-danger/10 text-danger text-sm px-3 py-2">{authError}</p>}
     <form method="post" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <div className="flex flex-col gap-2">
         <label htmlFor="email">Email</label>
@@ -181,15 +181,15 @@ const SignInComponent =  () => {
         </div>
         <PasswordInput register={register} errors={errors} inputValidation={{required:true, message:"Enter your password."}} name="password" id="password" autoComplete="current-password" className="w-full" required/>
       </div>
-      <Button type="submit" disabled={!mounted || isSubmitting || sendingLink} className="bg-red-500 text-white rounded-md py-2 mt-2">{isSubmitting ? "Signing in…" : "Sign in"}</Button>
-      <Button type="button" variant="outline" onClick={sendLink} disabled={!mounted || isSubmitting || sendingLink} className="rounded-md py-2 dark:border-slate-100/50">
+      <Button type="submit" disabled={!mounted || isSubmitting || sendingLink} className="rounded-md py-2 mt-2">{isSubmitting ? "Signing in…" : "Sign in"}</Button>
+      <Button type="button" variant="outline" onClick={sendLink} disabled={!mounted || isSubmitting || sendingLink} className="rounded-md py-2 dark:border-neutral-100/50">
         {sendingLink ? "Sending link…" : "Email me a sign-in link instead"}
       </Button>
     </form>
     <div className="flex gap-3 items-center justify-center my-6 w-full">
-      <hr className='border-1 border-slate-400/50 w-full'/>
-      <span className='text-sm font-semibold text-slate-400'>OR</span>
-      <hr className='border-1 border-slate-400/50 w-full'/>
+      <hr className='border-1 border-neutral-400/50 w-full'/>
+      <span className='text-sm font-semibold text-neutral-400'>OR</span>
+      <hr className='border-1 border-neutral-400/50 w-full'/>
     </div>
     <div className="flex gap-2 w-full">
               <SignInWithOAuthButton provider="Google" callbackPath={callbackPath}/>

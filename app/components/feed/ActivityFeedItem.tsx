@@ -5,9 +5,7 @@ import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import Image from 'next/image'
 import Link from 'next/link'
 import moment from 'moment'
-import { IoIosStar } from "react-icons/io"
-import { TbBook2, TbBookUpload } from "react-icons/tb"
-import { Check, BookPlus, CircleSlash } from 'lucide-react'
+import { Check, BookOpen, BookPlus, BookUp, CircleSlash, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReviewText from './ReviewText'
 
@@ -37,11 +35,11 @@ const typeCopy: Record<ActivityFeedItemData["type"], (bookTitle: string) => stri
 const renderTypeIcon = (type: ActivityFeedItemData["type"]) => {
   switch (type) {
     case "ADDED_BOOK": return <BookPlus size={18} className="flex-shrink-0 text-muted-foreground"/>
-    case "STARTED_BOOK": return <TbBook2 size={18} className="flex-shrink-0 text-muted-foreground"/>
+    case "STARTED_BOOK": return <BookOpen size={18} className="flex-shrink-0 text-muted-foreground"/>
     case "COMPLETED_BOOK": return <Check size={18} className="flex-shrink-0 text-muted-foreground"/>
     case "DNF_BOOK": return <CircleSlash size={18} className="flex-shrink-0 text-muted-foreground"/>
-    case "RATED_BOOK": return <IoIosStar size={18} className="flex-shrink-0 text-muted-foreground"/>
-    case "REVIEWED_BOOK": return <TbBookUpload size={18} className="flex-shrink-0 text-muted-foreground"/>
+    case "RATED_BOOK": return <Star size={18} className="flex-shrink-0 text-muted-foreground"/>
+    case "REVIEWED_BOOK": return <BookUp size={18} className="flex-shrink-0 text-muted-foreground"/>
   }
 }
 
@@ -52,7 +50,7 @@ const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
 
   return (
     <div className={cn("flex gap-3 p-3 rounded-lg border border-neutral-700", review ? "items-start" : "items-center")}>
-      <Link href={`/u/${activity.user.username}`} className="h-10 w-10 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: activity.user.favColour || "#f44336", ...tierRingStyle(booksReadFor(activity.user.username, booksReadOf(activity.user))) }}>
+      <Link href={`/u/${activity.user.username}`} className="h-10 w-10 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: activity.user.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(activity.user.username, booksReadOf(activity.user))) }}>
         {activity.user.image && <Image src={activity.user.image} alt="" fill className="object-cover" />}
       </Link>
       <div className="min-w-0 flex-1">

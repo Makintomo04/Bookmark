@@ -38,7 +38,7 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
   return (
     <div className="flex flex-col gap-6">
       <div className="text-center">
-        <h1 className="text-2xl font-bold">Your reading community</h1>
+        <h1 className="page-title">Your reading community</h1>
         <p className="mt-2 text-sm text-muted-foreground">Choose what other readers see and how they can reach you. You can change any of this later in Edit profile.</p>
       </div>
 
@@ -57,7 +57,7 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
                 onClick={() => toggleGenre(genre.slug)}
                 className={cn(
                   "inline-flex h-8 items-center gap-1 rounded-full border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
-                  on ? "border-red-500 bg-red-500 text-white" : "border-neutral-300 bg-background hover:border-red-400 dark:border-neutral-700"
+                  on ? "border-brand-fill bg-brand-fill text-white" : "border-neutral-300 bg-background hover:border-brand dark:border-neutral-700"
                 )}
               >
                 {on && <Check size={14} aria-hidden />}
@@ -106,7 +106,7 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
       </section>
 
       <div className="flex flex-col gap-2">
-        <Button type="button" onClick={submit} disabled={saving} className="bg-red-500 text-white hover:bg-red-600 rounded-md py-2">
+        <Button type="button" onClick={submit} disabled={saving} className="rounded-md py-2">
           {saving ? "Saving…" : "Continue"}
         </Button>
         <Button type="button" onClick={onDone} disabled={saving} variant="ghost" className="rounded-md py-2 text-muted-foreground">

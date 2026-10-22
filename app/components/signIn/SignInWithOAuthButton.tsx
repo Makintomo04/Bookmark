@@ -18,7 +18,7 @@ const SignInWithOAuthButton: FC<SignInButtonProps> = ({provider, callbackPath = 
     )
   }
   const name = provider === "Github" ? "GitHub" : String(provider)
-  return <div className='w-full'><Button type="button" variant="outline" size={'lg'} aria-label={`Continue with ${name}`} className='w-full flex gap-2 px-4 dark:border-slate-100/50' onClick={()=>onSubmit()} >
+  return <div className='w-full'><Button type="button" variant="outline" size={'lg'} aria-label={`Continue with ${name}`} className='w-full flex gap-2 px-4 dark:border-neutral-100/50' onClick={()=>onSubmit()} >
   {provider === "Google" ? <FaGoogle size={18} aria-hidden/> : <FaGithub size={20} aria-hidden/> }
   <span>{name}</span>
 </Button></div>

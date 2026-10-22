@@ -206,7 +206,7 @@ const ReadingGoalWidget: FC = () => {
           type="button"
           onClick={startEditing}
           aria-label={`Edit ${year} reading goal`}
-          className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+          className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Pencil size={15} aria-hidden />
         </button>

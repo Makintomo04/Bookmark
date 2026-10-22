@@ -67,7 +67,7 @@ const Page = async ({ params }: PageProps) => {
             <p className="text-xs font-semibold uppercase tracking-widest text-white/75">
               Seasonal quest · {questDates(quest.startsAt, quest.endsAt)}
             </p>
-            <h1 className="mt-2 text-3xl sm:text-4xl font-bold leading-tight">{quest.title}</h1>
+            <h1 className="page-title mt-2">{quest.title}</h1>
             <p className="mt-3 max-w-2xl text-white/85 whitespace-pre-line">{quest.description}</p>
             <p className="mt-4 text-sm font-medium">
               {phase === "ended"

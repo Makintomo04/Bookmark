@@ -345,7 +345,7 @@ const BookUpdateModal: FC = () => {
             save()
           }}
           disabled={isSaving}
-          className="h-10 w-[120px] rounded-md border border-neutral-300 dark:border-input bg-background px-3 text-base tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="h-10 w-[120px] rounded-md border border-input bg-background px-3 text-base tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
         <span id="page-total" className="text-sm text-muted-foreground">of {fmt(pages)}</span>
       </div>
@@ -449,7 +449,7 @@ const BookUpdateModal: FC = () => {
           rows={4}
           placeholder="What did you think?"
           disabled={isSaving}
-          className="w-full rounded-md border border-neutral-300 dark:border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
         />
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <label className="inline-flex items-center gap-2 cursor-pointer">

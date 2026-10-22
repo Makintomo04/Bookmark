@@ -26,14 +26,14 @@ const CheckInboxNotice = ({ email, title = "Check your inbox" }: CheckInboxNotic
   }
 
   return (
-    <div role="status" className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 text-sm flex flex-col gap-3">
+    <div role="status" className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 text-sm flex flex-col gap-3">
       <p className="font-semibold text-base">{title}</p>
       <p>We sent a link to <span className="font-semibold break-all">{email}</span>. Open it to confirm your email, then sign in.</p>
       <p className="text-muted-foreground">The link expires in 24 hours. Can&apos;t find it? Check your spam folder or send a new one.</p>
-      <Button type="button" onClick={resend} disabled={sending} className="bg-red-500 text-white rounded-md py-2 self-start">
+      <Button type="button" onClick={resend} disabled={sending} className="rounded-md py-2 self-start">
         {sending ? "Sending…" : "Resend link"}
       </Button>
-      {status && <p className={status.tone === "error" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>{status.text}</p>}
+      {status && <p className={status.tone === "error" ? "text-danger" : "text-muted-foreground"}>{status.text}</p>}
     </div>
   )
 }

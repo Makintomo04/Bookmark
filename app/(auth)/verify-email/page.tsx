@@ -4,7 +4,7 @@ import VerifyEmailComponent from '@/app/components/signIn/VerifyEmailComponent'
 
 const Page = () => {
   return (
-    <div className="w-screen h-screen bg-red-400">
+    <div className="w-full min-h-screen bg-background">
       <Container>
         <div className="w-full h-screen flex justify-center items-center">
           <Suspense fallback={null}>
