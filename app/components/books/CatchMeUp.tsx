@@ -232,7 +232,7 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
   }
 
   return (
-    <section aria-label="Catch me up" className={cn('flex flex-col gap-3', view.kind !== 'idle' && 'rounded-2xl border p-4')}>
+    <section aria-label="Catch me up" className={cn('flex flex-col gap-3', view.kind !== 'idle' && view.kind !== 'upgrade' && 'rounded-2xl border p-4')}>
       {view.kind === 'idle' ? buttons : body}
       {view.kind !== 'idle' && view.kind !== 'recap' && view.kind !== 'loading' && buttons}
       {view.kind === 'idle' && unavailable}
