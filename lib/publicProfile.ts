@@ -4,7 +4,7 @@ import { getMilestone } from "@/lib/achievements-catalog";
 import { canView, getRelation, privacyOf, privacySelect, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
 import { isFinishedBook } from "@/lib/readerTier";
 import { resolveBanner } from "@/lib/banners";
-import { personalisationOf, personalisationSelect, shelfAccent } from "@/lib/personalisation";
+import { supporterOf, supporterSelect } from "@/lib/supporter";
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
@@ -45,7 +45,7 @@ async function loadProfileRecord(username: string) {
       favColour: true,
       createdAt: true,
       ...privacySelect,
-      ...personalisationSelect,
+      ...supporterSelect,
       books: {
         where: { status: { in: ["STARTED", "COMPLETED", "NOT_STARTED"] } },
         orderBy: { createdAt: "desc" },
@@ -98,13 +98,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     // A reader who hasn't chosen a banner gets the preset seeded from their id, same as they see themselves.
     banner: resolveBanner(record.banner, record.id),
     favColour: record.favColour,
-    // Plus personalisation, already reduced to the defaults when the account isn't on Plus. The plan
-    // itself never leaves; `supporter` is the public part of it (the profile badge).
-    profileTheme: personalisationOf(record).profileTheme,
-    shelfColour: shelfAccent(record),
-    supporter: personalisationOf(record).supporter,
-    founding: personalisationOf(record).founding,
-    badge: personalisationOf(record).badge,
+    // The plan itself never leaves; the supporter badge is the public part of it.
+    ...supporterOf(record),
     createdAt: record.createdAt,
     books,
     achievements: record.achievements,

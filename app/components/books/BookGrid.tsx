@@ -5,7 +5,6 @@ import { LayoutGrid, Grid3x3, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
 import useViewMode from '@/app/hooks/useViewMode'
-import { shelfAccent } from '@/lib/personalisation'
 import BookCoverCard from '../cards/BookCoverCard'
 import CompactBookCard from '../cards/CompactBookCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
@@ -23,8 +22,7 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
   const [mounted, setMounted] = useState(false)
   const { viewMode, setViewMode } = useViewMode()
   const { user } = useUser()
-  // The shelf card colour (Plus) when set, else the profile colour.
-  const accent = user ? shelfAccent(user) : null
+  const accent = user?.favColour ?? null
   // Select mode: cards become checkboxes and BulkBar acts on the picked ones.
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())

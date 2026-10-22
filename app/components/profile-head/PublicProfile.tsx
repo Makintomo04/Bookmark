@@ -15,7 +15,6 @@ import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols 
 import ProfileLists from '../discover/ProfileLists'
 import ProfileQuestMedals from '../quests/ProfileQuestMedals'
 import { isFinishedBook } from '@/lib/readerTier'
-import ProfileThemeFrame from '../profile/ProfileThemeFrame'
 
 interface PublicProfileProps {
   profile: SerializedProfile
@@ -50,7 +49,6 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
   ]
 
   return (
-    <ProfileThemeFrame theme={profile.profileTheme} accent={profile.favColour}>
     <div className="w-full">
       <ProfileHeader
         username={profile.username}
@@ -78,14 +76,14 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
             {reading.length > 0 && (
               <ShelfSection id="public-shelf-reading" title="Currently reading" count={reading.length}>
                 <div className={cn("grid grid-cols-1 gap-4", readingGridCols(reading.length))}>
-                  {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={profile.shelfColour} readOnly isReread={isRereading(book, finished)} />)}
+                  {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={profile.favColour} readOnly isReread={isRereading(book, finished)} />)}
                 </div>
               </ShelfSection>
             )}
             {finished.length > 0 && (
               <ShelfSection id="public-shelf-finished" title="Finished" count={finished.length}>
                 <div className={coverGridClass}>
-                  {finished.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.shelfColour} readOnly />)}
+                  {finished.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
                 </div>
               </ShelfSection>
             )}
@@ -93,7 +91,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
             {wantToRead.length > 0 && (
               <ShelfSection id="public-shelf-want" title="Want to read" count={wantToRead.length}>
                 <div className={coverGridClass}>
-                  {wantToRead.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.shelfColour} readOnly />)}
+                  {wantToRead.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
                 </div>
               </ShelfSection>
             )}
@@ -103,7 +101,6 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         <ProfileLists username={profile.username} isSelf={false} />
       </div>
     </div>
-    </ProfileThemeFrame>
   )
 }
 

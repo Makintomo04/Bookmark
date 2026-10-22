@@ -19,7 +19,7 @@ const CHECK_ONLY = process.argv.includes("--check");
 
 type ProductKey = "plus" | "patron" | "lifetime";
 const PRODUCTS: Record<ProductKey, { name: string; description: string }> = {
-  plus: { name: "Bookmark Plus", description: "Recaps, hosting tools and personalisation for Bookmark. Every stat stays free." },
+  plus: { name: "Bookmark Plus", description: "Recaps, hosting tools and extra goals for Bookmark. Every stat stays free." },
   patron: { name: "Bookmark Plus Patron", description: "Bookmark Plus, paid at a higher price to support Bookmark. Same features, a Patron badge." },
   lifetime: { name: "Bookmark Plus Lifetime", description: "Bookmark Plus for good, with one payment." },
 };

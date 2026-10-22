@@ -107,10 +107,6 @@ model User {
   patron               Boolean?
   // Free Plus earned by inviting friends or from a gift code, until this date. No Stripe subscription.
   compPlusUntil        DateTime?
-  // Personalisation (Plus). Null reads as the defaults; see lib/personalisation.ts.
-  profileTheme         ProfileTheme?
-  // #rrggbb for the shelf's cover fallbacks and progress bars, instead of favColour.
-  shelfCardColour      String?
 
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
@@ -119,15 +115,6 @@ model User {
 enum Plan {
   FREE
   PLUS
-}
-
-// How the profile page is dressed. CLASSIC is what every account had before themes existed.
-enum ProfileTheme {
-  CLASSIC
-  // Near-black ground with the reader's colour glowing from a corner, like the reader card.
-  INK
-  // A soft wash of the reader's colour behind the page.
-  TINT
 }
 
 enum ProfileVisibility {

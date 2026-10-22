@@ -1,5 +1,5 @@
-// Bookmark Plus: entitlements for free and Plus, the hosting limit with a plan, the Plus goal and
-// personalisation gates, and the Stripe webhook's state machine against a stubbed database.
+// Bookmark Plus: entitlements for free and Plus, the hosting limit with a plan, the Plus goal gates,
+// and the Stripe webhook's state machine against a stubbed database.
 // No network and no real database: the webhook signature is made locally with Stripe's test helper.
 //
 //   node --import ./scripts/test/register.mjs --test scripts/test/billing.test.ts
@@ -12,7 +12,7 @@ import { canRedeemGift, extendComp, isNewAccount, makeGiftCode, normaliseGiftCod
 import { hostingAllowance } from "@/lib/buddyReads";
 import { handleStripeEvent, planForStatus, type BillingDb, type BillingStripeApi } from "@/lib/billing";
 import { formatPace, goalInputSchema, goalProgress, monthTarget, monthlyPace, setsExtraGoals } from "@/lib/goals";
-import { personalisationOf, personalisationSchema, setsPersonalisation, shelfAccent } from "@/lib/personalisation";
+import { supporterOf } from "@/lib/supporter";
 import { CHECKOUT_INTEGRATION_ID, stripeWebhooks } from "@/lib/stripe";
 
 // ---- Entitlements ------------------------------------------------------------------------
@@ -23,7 +23,6 @@ test("a free account gets the free allowances and no Plus features", () => {
   assert.equal(free.canHostUnlimited, false);
   assert.equal(free.extraGoalTypes, false);
   assert.equal(free.customWrapDesigns, false);
-  assert.equal(free.personalisation, false);
   assert.deepEqual(free.allowances, { askShelfSearches: 5, recaps: 3 });
 });
 
@@ -38,7 +37,6 @@ test("a Plus account gets every Plus feature and the fair-use allowances", () =>
   assert.equal(plus.canHostUnlimited, true);
   assert.equal(plus.extraGoalTypes, true);
   assert.equal(plus.customWrapDesigns, true);
-  assert.equal(plus.personalisation, true);
   assert.deepEqual(plus.allowances, { askShelfSearches: 100, recaps: 30 });
 });
 
@@ -127,7 +125,7 @@ test("a free host's refusal at two active circles offers the upgrade", () => {
   assert.equal(hostingAllowance(0, "free").upgrade, false);
 });
 
-// ---- Goals and personalisation gates -------------------------------------------------------
+// ---- Goal gates ----------------------------------------------------------------------------
 
 test("only setting a page or monthly goal needs Plus", () => {
   const parse = (body: unknown) => goalInputSchema.parse(body);
@@ -148,21 +146,6 @@ test("goal progress counts this year's pages and this month's books", () => {
     { status: "STARTED", completedAt: null, pages: 400 },
   ];
   assert.deepEqual(goalProgress(books, now), { books: 2, pages: 500, thisMonth: 1, month: 9 });
-});
-
-test("personalisation applies only on Plus, and going back to the defaults is always allowed", () => {
-  const stored = { profileTheme: "INK" as const, shelfCardColour: "#2f9e44", favColour: "#D92D2D" };
-  assert.deepEqual(personalisationOf({ ...stored, plan: "PLUS" }), { profileTheme: "INK", shelfCardColour: "#2F9E44", supporter: true, founding: false, badge: "supporter" });
-  assert.deepEqual(personalisationOf({ ...stored, plan: "FREE" }), { profileTheme: "CLASSIC", shelfCardColour: null, supporter: false, founding: false, badge: null });
-  assert.equal(shelfAccent({ ...stored, plan: "PLUS" }), "#2F9E44");
-  assert.equal(shelfAccent({ ...stored, plan: "FREE" }), "#D92D2D");
-
-  assert.equal(setsPersonalisation(personalisationSchema.parse({ profileTheme: "TINT" })), true);
-  assert.equal(setsPersonalisation(personalisationSchema.parse({ shelfCardColour: "#123456" })), true);
-  assert.equal(setsPersonalisation(personalisationSchema.parse({ profileTheme: "CLASSIC" })), false);
-  assert.equal(setsPersonalisation(personalisationSchema.parse({ shelfCardColour: null })), false);
-  assert.equal(personalisationSchema.safeParse({ profileTheme: "NEON" }).success, false);
-  assert.equal(personalisationSchema.safeParse({ plan: "PLUS" }).success, false);
 });
 
 // ---- The webhook ---------------------------------------------------------------------------
@@ -495,14 +478,11 @@ test("lifetime sells to 500 buyers during the launch window", () => {
 test("supporter badges: Patron, Lifetime, Founding Reader, Supporter; free months earn none", () => {
   const now = new Date();
   const later = new Date(Date.now() + 10 * 86_400_000);
-  assert.equal(personalisationOf({ plan: "PLUS", patron: true }, now).badge, "patron");
-  assert.equal(personalisationOf({ lifetime: true }, now).badge, "lifetime");
-  assert.equal(personalisationOf({ plan: "PLUS", foundingMember: true }, now).badge, "founding");
-  assert.equal(personalisationOf({ plan: "PLUS" }, now).badge, "supporter");
-  const comp = personalisationOf({ compPlusUntil: later, profileTheme: "TINT" }, now);
-  assert.equal(comp.badge, null);
-  // Free months still unlock the looks.
-  assert.equal(comp.profileTheme, "TINT");
+  assert.equal(supporterOf({ plan: "PLUS", patron: true }, now).badge, "patron");
+  assert.equal(supporterOf({ lifetime: true }, now).badge, "lifetime");
+  assert.equal(supporterOf({ plan: "PLUS", foundingMember: true }, now).badge, "founding");
+  assert.equal(supporterOf({ plan: "PLUS" }, now).badge, "supporter");
+  assert.equal(supporterOf({ compPlusUntil: later }, now).badge, null);
 });
 
 // ---- Local prices ------------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import { REGIONAL_PRICES, currencyForCountry, type PlusCurrency } from '@/lib/re
 
 export const metadata: Metadata = {
   title: 'Bookmark Plus',
-  description: `Every stat stays free. Plus adds recaps, hosting tools and personalisation, from $${PLUS_PRICING.monthly} a month or $${PLUS_PRICING.yearly} a year, with a ${PLUS_PRICING.trialDays}-day free trial and no card needed.`,
+  description: `Every stat stays free. Plus adds recaps, hosting tools and extra goals, from $${PLUS_PRICING.monthly} a month or $${PLUS_PRICING.yearly} a year, with a ${PLUS_PRICING.trialDays}-day free trial and no card needed.`,
 }
 
 interface PageProps {

@@ -44,7 +44,7 @@ const features = [
   {
     icon: BarChart3,
     title: "Every stat, free",
-    description: "Books and pages by month, ratings, genres, authors, re-reads and your streak. All your stats are free. Plus adds recaps, hosting tools and personalisation.",
+    description: "Books and pages by month, ratings, genres, authors, re-reads and your streak. All your stats are free. Plus adds recaps, hosting tools and extra goals.",
   },
   {
     icon: Sparkles,
@@ -77,7 +77,7 @@ const steps = [
 const faqs = [
   {
     question: "Is Bookmark really free?",
-    answer: "Yes. Tracking, import, reading circles, Wrapped and export are free, and joining a circle is never limited. All your stats are free. Plus adds recaps, hosting tools and personalisation.",
+    answer: "Yes. Tracking, import, reading circles, Wrapped and export are free, and joining a circle is never limited. All your stats are free. Plus adds recaps, hosting tools and extra goals.",
   },
   {
     question: "How do spoilers stay hidden in a reading circle?",
