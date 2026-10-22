@@ -1,3 +1,4 @@
+import { bookFieldsProblem } from "@/lib/bookInput";
 import { requireUser } from "@/lib/apiAuth";
 import { qualifyReferral } from "@/lib/referrals";
 import prisma from "@/lib/db";
@@ -53,14 +54,17 @@ return NextResponse.json(books.map((b) => {
 }
 export async function POST(req:Request, res:Response) {
 
-  const body = await req.json()
-  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, format, audioMinutes } = body
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 })
+  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, format, audioMinutes } = body
 
 if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {
   return NextResponse.json({ error: "Title and author are required" }, { status: 400 })
 }
+const fieldError = bookFieldsProblem({ title, author, genre, coverImgSrc })
+if (fieldError) return NextResponse.json({ error: fieldError }, { status: 400 })
 const parsedFormat = z.nativeEnum(EditionFormat).safeParse(format)
 // An audiobook runs on minutes listened; its page count is optional (Open Library often knows the
 // print length, which keeps "pages read" stats honest, but nobody has to type it).

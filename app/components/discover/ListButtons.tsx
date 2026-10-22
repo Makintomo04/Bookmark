@@ -3,6 +3,7 @@ import { FC, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
 import { notify } from '@/lib/notify'
+import { followButtonLabel } from '@/lib/followRules'
 import { Flag, Pencil, Plus } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import useUser from '@/app/hooks/useUser'
@@ -34,6 +35,7 @@ export const EditListButton: FC<{ list: EditableList }> = ({ list }) => {
 export const FollowButton: FC<{ username: string, initialFollowing: boolean }> = ({ username, initialFollowing }) => {
   const { user } = useUser()
   const [following, setFollowing] = useState(initialFollowing)
+  const [requested, setRequested] = useState(false)
   const [isBusy, setIsBusy] = useState(false)
 
   if (!user?.id) {
@@ -44,15 +46,18 @@ export const FollowButton: FC<{ username: string, initialFollowing: boolean }> =
     setIsBusy(true)
     axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
       .then((res) => {
-        setFollowing(res.data.isFollowing)
+        setFollowing(!!res.data.isFollowing)
+        setRequested(!!res.data.requested)
+        if (res.data.requested) notify.success(`Asked to follow ${username}. You'll be following once they accept.`)
       })
-      .catch(() => notify.error(following ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { retry: toggle }))
+      // No retry action: the endpoint toggles, so retrying a request that did land would undo it.
+      .catch(() => notify.error(following ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again."))
       .finally(() => setIsBusy(false))
   }
 
   return (
-    <button type="button" onClick={toggle} disabled={isBusy} aria-pressed={following} className={following ? secondaryButtonClass : primaryButtonClass}>
-      {following ? "Following" : "Follow"}
+    <button type="button" onClick={toggle} disabled={isBusy} aria-pressed={following || requested} className={following || requested ? secondaryButtonClass : primaryButtonClass}>
+      {followButtonLabel({ isFollowing: following, requested, needsApproval: false })}
     </button>
   )
 }

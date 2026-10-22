@@ -4,8 +4,11 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { User } from "@prisma/client";
-import { BIO_MAX, USERNAME_MAX, USERNAME_MIN } from "@/lib/profile";
+import { BIO_MAX, isAllowedImageUrl, isHexColour, normaliseUsername, usernameProblem } from "@/lib/profile";
 import { isStorableBanner } from "@/lib/banners";
+import { SubscriptionCancelError, deleteAccount } from "@/lib/accountDeletion";
+import { isStripeConfigured, stripeBillingApi } from "@/lib/stripe";
+import { deleteBuddyReadDataFor } from "@/lib/buddyReadsServer";
 export async function GET (req:Request, res:Response) {
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
@@ -25,14 +28,26 @@ return NextResponse.json(sanitizeUser(user))
 
 }
 export async function POST (req:Request, res:Response) {
-  const body = await req.json();
 const { user: currentUser, response } = await requireUser();
-const {imageSrc,bannerSrc,bio,color} = body;
-const username = typeof body.username === "string" ? body.username.trim() : body.username;
 if (response) return response;
+const body = await req.json().catch(() => null);
+if (!body || typeof body !== "object") {
+  return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+}
+const {imageSrc,bannerSrc,bio,color} = body;
+const username = typeof body.username === "string" ? normaliseUsername(body.username) : null;
 
-if (typeof username !== "string" || username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
-  return NextResponse.json({ error: `Usernames are ${USERNAME_MIN}–${USERNAME_MAX} characters.` }, { status: 400 });
+if (username === null) {
+  return NextResponse.json({ error: "Choose a username." }, { status: 400 });
+}
+// Checked only when it changes, so an older name that predates these rules can still be kept.
+const usernameChanged = username !== currentUser.username?.toLowerCase();
+const usernameError = usernameChanged ? usernameProblem(username) : null;
+if (usernameError) {
+  return NextResponse.json({ error: usernameError }, { status: 400 });
+}
+if (bio != null && typeof bio !== "string") {
+  return NextResponse.json({ error: "Invalid bio." }, { status: 400 });
 }
 if (typeof bio === "string" && bio.length > BIO_MAX) {
   return NextResponse.json({ error: `Bios are up to ${BIO_MAX} characters.` }, { status: 400 });
@@ -40,29 +55,36 @@ if (typeof bio === "string" && bio.length > BIO_MAX) {
 if (!isStorableBanner(bannerSrc)) {
   return NextResponse.json({ error: "That banner pattern doesn't exist." }, { status: 400 });
 }
+if (imageSrc != null && imageSrc !== currentUser.image && !isAllowedImageUrl(imageSrc)) {
+  return NextResponse.json({ error: "That picture can't be used. Upload it instead." }, { status: 400 });
+}
+if (color != null && !isHexColour(color)) {
+  return NextResponse.json({ error: "Pick a colour from the list or the picker." }, { status: 400 });
+}
 
 const updatedData:Record<string,string | null> = {
 };
 
 // Check for changed fields and update data accordingly
-if (username !== currentUser.username) {
+if (usernameChanged) {
   updatedData["username"] = username;
 }
 if (imageSrc !== currentUser.image) {
-  updatedData["image"] = imageSrc;
+  updatedData["image"] = imageSrc ?? null;
 }
 if (bannerSrc !== currentUser.banner) {
   updatedData["banner"] = bannerSrc ?? null;
 }
-if (body.bio !== currentUser.bio) {
+if (bio !== undefined && bio !== currentUser.bio) {
   updatedData["bio"] = bio;
 }
-if (color !== currentUser.favColour) {
+if (color != null && color !== currentUser.favColour) {
   updatedData["favColour"] = color;
 }
 
 if (updatedData.username) {
-  const existingUser = await prisma.user.findUnique({ where: { username: updatedData.username } });
+  // Case-insensitive, so a new "alice" can't sit beside an older "Alice".
+  const existingUser = await prisma.user.findFirst({ where: { username: { equals: updatedData.username, mode: "insensitive" }, NOT: { id: currentUser.id } }, select: { id: true } });
   if (existingUser && existingUser.id !== currentUser.id) {
     return NextResponse.json({ error: "That username is already taken." }, { status: 409 });
   }
@@ -89,26 +111,22 @@ export async function DELETE(req: Request) {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
-  // Mongo doesn't enforce cascade deletes at the database level the way a
-  // relational DB would, so clean up everything referencing this user
-  // explicitly rather than relying on the schema's onDelete: Cascade alone.
-  await prisma.note.deleteMany({ where: { book: { userId: currentUser.id } } });
-  await prisma.activity.deleteMany({ where: { OR: [{ userId: currentUser.id }, { book: { userId: currentUser.id } }] } });
-  await prisma.notification.deleteMany({ where: { OR: [{ userId: currentUser.id }, { actorId: currentUser.id }] } });
-  await prisma.book.deleteMany({ where: { userId: currentUser.id } });
-  await prisma.readingGoal.deleteMany({ where: { userId: currentUser.id } });
-  await prisma.recap.deleteMany({ where: { userId: currentUser.id } });
-  await prisma.referral.deleteMany({ where: { OR: [{ inviterId: currentUser.id }, { inviteeId: currentUser.id }] } });
-  // Codes they gave out and that were used stay used; their own unused codes go.
-  await prisma.giftCode.updateMany({ where: { redeemedById: currentUser.id }, data: { redeemedById: null } });
-  await prisma.giftCode.deleteMany({ where: { ownerId: currentUser.id } });
-  await prisma.listReport.deleteMany({ where: { OR: [{ reporterId: currentUser.id }, { list: { ownerId: currentUser.id } }] } });
-  await prisma.listItem.deleteMany({ where: { list: { ownerId: currentUser.id } } });
-  await prisma.list.deleteMany({ where: { ownerId: currentUser.id } });
-  await prisma.follow.deleteMany({ where: { OR: [{ followerId: currentUser.id }, { followingId: currentUser.id }] } });
-  await prisma.account.deleteMany({ where: { userId: currentUser.id } });
-  await prisma.session.deleteMany({ where: { userId: currentUser.id } });
-  await prisma.user.delete({ where: { id: currentUser.id } });
+  try {
+    await deleteAccount(currentUser, {
+      db: prisma,
+      cancelSubscription: isStripeConfigured() ? (id) => stripeBillingApi().cancelSubscription(id) : undefined,
+      deleteCircleData: deleteBuddyReadDataFor,
+    });
+  } catch (err) {
+    if (err instanceof SubscriptionCancelError) {
+      console.error(`[account] couldn't cancel the subscription for user ${currentUser.id}, nothing deleted:`, err.message);
+      return NextResponse.json(
+        { error: "We couldn't cancel your Plus subscription, so your account hasn't been deleted. Please try again in a few minutes." },
+        { status: 502 }
+      );
+    }
+    throw err;
+  }
 
   return NextResponse.json({ message: "Account deleted." });
 }

@@ -165,7 +165,7 @@ export default ImportFlow
 const HOW_TO: { source: string; steps: string; href?: string }[] = [
   { source: "Goodreads", steps: "My Books → Import and export → Export library. The CSV arrives a minute or so later.", href: "https://www.goodreads.com/review/import" },
   { source: "StoryGraph", steps: "Your profile → Manage account → Export StoryGraph library.", href: "https://app.thestorygraph.com/user-export" },
-  { source: "Bookmark", steps: "An export from Bookmark itself (Edit profile → Export books) imports exactly as it left." },
+  { source: "Bookmark", steps: "An export from Bookmark itself (Settings → Your data → Export books) imports exactly as it left." },
 ]
 
 const UploadStep: FC<{ onFile: (file: File) => Promise<void> }> = ({ onFile }) => {

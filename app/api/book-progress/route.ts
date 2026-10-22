@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { qualifyReferral } from "@/lib/referrals";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
+import { progressTriggers } from "@/lib/achievementTriggers";
 import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
 import { OPEN_READ_STATUSES, RATING_ERROR, ratingInputSchema, readFromBook } from "@/lib/readHistory";
 import { lengthSnapshot, progressScale } from "@/lib/progress";
@@ -219,7 +220,14 @@ export async function POST(req: Request) {
     await prisma.activity.create({ data: { userId: currentUser.id, bookId: book.id, type } })
   }
   await onBuddyReadProgress(currentUser.id, updated)
-  await awardNewAchievements(currentUser.id)
+  await awardNewAchievements(currentUser.id, {
+    trigger: progressTriggers({
+      action,
+      moved: updated.currentPage !== book.currentPage || updated.currentMinute !== book.currentMinute,
+      rated: activities.includes("RATED_BOOK"),
+      reviewed: activities.includes("REVIEWED_BOOK"),
+    }),
+  })
   // Logging reading is what makes a referral count for whoever invited this reader.
   await qualifyReferral(currentUser.id).catch((e) => console.error("[referrals]", e))
   return NextResponse.json(updated)

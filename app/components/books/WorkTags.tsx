@@ -2,6 +2,7 @@
 import { FC, useState } from 'react'
 import { ChevronDown, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { readableInk } from '@/lib/colour'
 import {
   MOODS, MOOD_LABEL, MOODS_MAX, WARNING_LEVELS, WARNING_LEVEL_LABEL, WARNING_TOPICS,
   type ContentWarning, type Mood, type ReaderTagsInput, type TagAggregate, type WarningLevel, type WarningTopic,
@@ -138,7 +139,7 @@ export const ReaderTagsEditor: FC<ReaderTagsEditorProps> = ({ value, onChange, d
                 aria-pressed={on}
                 disabled={disabled || (!on && value.moods.length >= MOODS_MAX)}
                 onClick={() => toggleMood(mood)}
-                style={on && accent ? { background: accent, borderColor: accent, color: "#fff" } : undefined}
+                style={on && accent ? { background: accent, borderColor: accent, color: readableInk(accent) } : undefined}
                 className={cn(chipBase, "border", on ? "border-foreground bg-foreground text-background" : "border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900")}
               >
                 {MOOD_LABEL[mood]}

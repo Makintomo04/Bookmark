@@ -11,6 +11,8 @@ import { PLUS_PRICING } from "./entitlements.ts";
 //   - a dispute or an early fraud warning on a subscription charge, or a full refund of one → the
 //     subscription is cancelled in Stripe straight away (no more charges) and the account is FREE.
 //     A partial refund is a goodwill gesture and changes nothing.
+//   - Stripe delivers events out of order, so lifecycle events read the subscription as it is now when
+//     Stripe can be called, and events about a subscription the account no longer follows change nothing.
 
 // Stripe statuses that mean the reader has Plus right now. "past_due" is deliberately not here: a
 // failed renewal pauses Plus rather than running a grace period we would have to track ourselves.
@@ -89,10 +91,12 @@ export function planUpdateFor(snapshot: SubscriptionSnapshot, foundingPriceId?: 
 // The slice of Prisma the handler uses. prisma.user satisfies it; tests pass a stub.
 export interface BillingUserRow {
   id: string;
+  // The subscription the account follows, if any. Events about any other subscription are stale.
+  stripeSubscriptionId?: string | null;
 }
 export interface BillingDb {
   user: {
-    findFirst(args: { where: Record<string, unknown>; select: { id: true } }): Promise<BillingUserRow | null>;
+    findFirst(args: { where: Record<string, unknown>; select: { id: true; stripeSubscriptionId: true } }): Promise<BillingUserRow | null>;
     update(args: { where: { id: string }; data: Record<string, unknown> }): Promise<unknown>;
   };
 }
@@ -147,8 +151,14 @@ async function findUser(db: BillingDb, ids: { subscriptionId?: string | null; cu
   if (ids.customerId) or.push({ stripeCustomerId: ids.customerId });
   if (isObjectId(ids.userId)) or.push({ id: ids.userId });
   if (or.length === 0) return null;
-  return db.user.findFirst({ where: { OR: or }, select: { id: true } });
+  return db.user.findFirst({ where: { OR: or }, select: { id: true, stripeSubscriptionId: true } });
 }
+
+// Whether an event about `subscriptionId` may move this account. An account follows one subscription;
+// Stripe doesn't deliver events in order, so one about a replaced or cancelled subscription can arrive
+// after the current one started, and mustn't downgrade it.
+const followsSubscription = (user: BillingUserRow, subscriptionId: string | null) =>
+  !user.stripeSubscriptionId || user.stripeSubscriptionId === subscriptionId;
 
 const outcome = (handled: boolean, userId: string | null, plan: Plan | null, note: string): BillingOutcome => ({ handled, userId, plan, note });
 
@@ -234,9 +244,16 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
 
     case "customer.subscription.created":
     case "customer.subscription.updated": {
-      const snapshot = snapshotSubscription(event.data.object);
+      // The event's copy may be older than another event already applied, so read the subscription as it
+      // is now when Stripe can be called.
+      const subscription = retrieveSubscription ? await retrieveSubscription(event.data.object.id) : event.data.object;
+      const snapshot = snapshotSubscription(subscription);
       const user = await findUser(db, { subscriptionId: snapshot.id, customerId: snapshot.customerId, userId: snapshot.userId });
       if (!user) return outcome(false, null, null, "no user for subscription");
+      // A new subscription that grants Plus replaces the old one; anything else about another one is stale.
+      if (!followsSubscription(user, snapshot.id) && !PLUS_STATUSES.has(snapshot.status)) {
+        return outcome(false, user.id, null, `ignored ${snapshot.status} on a subscription the account no longer follows`);
+      }
       const data = planUpdateFor(snapshot, deps.foundingPriceId, deps.patronPriceId);
       await db.user.update({ where: { id: user.id }, data });
       return outcome(true, user.id, data.plan, `subscription ${snapshot.status}`);
@@ -246,6 +263,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       const snapshot = snapshotSubscription(event.data.object);
       const user = await findUser(db, { subscriptionId: snapshot.id, customerId: snapshot.customerId, userId: snapshot.userId });
       if (!user) return outcome(false, null, null, "no user for deleted subscription");
+      if (!followsSubscription(user, snapshot.id)) return outcome(false, user.id, null, "deleted a subscription the account no longer follows");
       // The customer stays, so the portal can still show invoices and a resubscribe skips the trial.
       await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, stripeSubscriptionId: null, patron: false } });
       return outcome(true, user.id, "FREE", "subscription deleted");
@@ -290,12 +308,17 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice & { subscription?: string | { id: string } | null };
       const subscriptionId = subscriptionOfInvoice(invoice);
-      const customerId = idOf(invoice.customer);
-      const user = await findUser(db, { subscriptionId, customerId });
+      if (!subscriptionId) return outcome(false, null, null, "not a subscription invoice");
+      const user = await findUser(db, { subscriptionId, customerId: idOf(invoice.customer) });
       if (!user) return outcome(false, null, null, "no user for failed invoice");
+      if (!followsSubscription(user, subscriptionId)) return outcome(false, user.id, null, "failed invoice for a subscription the account no longer follows");
       // Plus pauses until a retry succeeds; invoice.paid or customer.subscription.updated (active) restores it.
-      await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null } });
-      return outcome(true, user.id, "FREE", "payment failed");
+      // The live subscription decides when Stripe can be called: a retry may already have succeeded.
+      const data = retrieveSubscription
+        ? planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)), deps.foundingPriceId, deps.patronPriceId)
+        : { plan: "FREE" as const, planRenewsAt: null };
+      await db.user.update({ where: { id: user.id }, data });
+      return outcome(true, user.id, data.plan, data.plan === "FREE" ? "payment failed" : "payment failed, but a retry already succeeded");
     }
 
     default:

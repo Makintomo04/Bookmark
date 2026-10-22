@@ -52,16 +52,16 @@ const ResetPasswordComponent = () => {
     initial={{ opacity: 1,y:-50 }}
     animate={{ opacity: 1,y:0 }}
     transition={{ ease: "circIn" }}
-    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
+    className='w-full min-h-dvh sm:w-[500px] sm:min-h-0 rounded-none py-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
       <div className="flex justify-center items-center gap-3 mb-6">
-      <Image src='/logo.svg' width={40} height={40} alt='Bookmark'/>
+      <Link href="/" className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Image src='/logo.svg' width={40} height={40} alt='Bookmark home'/></Link>
       </div>
     <div className="w-full">
     <h1 className="page-title mb-4 text-center">Set a new password</h1>
   </div>
   <div className="">
     {!token || !email ? (
-      <p className='text-center text-sm'>This reset link is invalid or has expired. <Link href="/forgot-password" className='text-[#F13C3C] font-semibold hover:underline'>Request a new one</Link>.</p>
+      <p className='text-center text-sm'>This reset link is invalid or has expired. <Link href="/forgot-password" className='text-brand-text font-semibold hover:underline'>Request a new one</Link>.</p>
     ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full" noValidate>
       {serverError && (

@@ -1,6 +1,7 @@
 "use client"
 import { FC } from 'react'
 import useSettings from '@/app/hooks/useSettings'
+import FollowRequests from '../profile-head/FollowRequests'
 import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS, Segmented, Toggle } from './controls'
 
 // Each setting saves as soon as it changes, separately from the profile form. The server enforces them (lib/privacy.ts).
@@ -11,6 +12,7 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
 
   return (
     <>
+      <FollowRequests />
       <div className="rounded-lg border p-4 flex flex-col gap-5">
         <div>
           <p className="text-sm font-medium">Privacy</p>

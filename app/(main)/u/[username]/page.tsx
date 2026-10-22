@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { hasRequested, needsFollowApproval } from '@/lib/followRequests'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { currentBook, getProfileView, getPublicProfile, readingCounts, serializeProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
@@ -58,12 +59,13 @@ export default async function Page({ params }: PageProps) {
       <RestrictedProfile
         profile={data.profile}
         reason={data.reason}
-        viewer={viewer ? { isFollowing: data.relation.isFollower } : null}
+        viewer={viewer ? { isFollowing: data.relation.isFollower, requested: await hasRequested(viewer.id, data.userId) } : null}
       />
     )
   } else if (viewer && data.relation.isSelf) {
     const profile = serializeProfile(data.profile)
-    const { hashedPassword, password, ...self } = viewer
+    // Credentials and the subscription id stay on the server (as lib/sanitizeUser.ts does for the API).
+    const { hashedPassword, password, stripeSubscriptionId, ...self } = viewer
     const profileKey = `/api/users/${encodeURIComponent(profile.username)}`
     content = (
       <OwnerProfile
@@ -80,7 +82,11 @@ export default async function Page({ params }: PageProps) {
     content = (
       <PublicProfile
         profile={serializeProfile(data.profile)}
-        viewer={viewer ? { isFollowing: data.relation.isFollower } : null}
+        viewer={viewer ? {
+          isFollowing: data.relation.isFollower,
+          requested: !data.relation.isFollower && await hasRequested(viewer.id, data.userId),
+          needsApproval: needsFollowApproval(data.privacy),
+        } : null}
       />
     )
   }

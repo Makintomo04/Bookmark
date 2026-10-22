@@ -14,13 +14,13 @@ const Page: FC<pageProps> = ({}) => {
         <div className='max-w-2xl mx-auto flex flex-col gap-6'>
           <h1 className='page-title'>About Bookmark</h1>
           <p className='text-base text-neutral-600 dark:text-neutral-300/90'>
-            Bookmark is a simple way to track what you read. Log a book, follow your progress page by page, rate and review it when you&apos;re done, and jot down notes or favourite quotes along the way — all without the clutter.
+            Bookmark is for reading with friends. Start a reading circle for a book, share one link, and talk about it as you go.
           </p>
           <p className='text-base text-neutral-600 dark:text-neutral-300/90'>
-            Set a yearly reading goal and watch it fill up as you finish books. Follow other readers, see what&apos;s on their shelf, and share your own public profile with friends.
+            Every comment is pinned to the point in the book where it was written, and stays hidden until you&apos;ve read that far. Read at your own pace, in any edition or on audio, without anyone spoiling the ending.
           </p>
           <p className='text-base text-neutral-600 dark:text-neutral-300/90'>
-            It&apos;s built for readers who want a clean, focused place to keep track of their books — nothing more, nothing less.
+            Around that, Bookmark keeps track of everything you read: your progress, a yearly goal, and stats on your reading. Bring your history with you from Goodreads or StoryGraph, and take all of it with you whenever you like.
           </p>
           <Button asChild className='bg-brand-fill hover:bg-brand-fill-hover text-white px-6 py-6 text-base w-fit mt-2'>
             <Link href='/'>Back to Home</Link>

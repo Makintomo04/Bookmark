@@ -9,6 +9,7 @@ import axios from 'axios'
 import useSWRInfinite from 'swr/infinite'
 import { useSWRConfig } from 'swr'
 import { notify } from '@/lib/notify'
+import { followButtonLabel } from '@/lib/followRules'
 import { cn } from '@/lib/utils'
 import type { FollowListKind, FollowListUser } from '@/lib/follows'
 import Modal from './Modal'
@@ -36,7 +37,11 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
   const signedIn = !!user?.id
   // Kept locally so a row doesn't jump around or refetch while you're working down the list.
   const [followState, setFollowState] = useState<Record<string, boolean>>({})
+  const [requestedState, setRequestedState] = useState<Record<string, boolean>>({})
+  const [removed, setRemoved] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState<string | null>(null)
+  // Your own followers: each row can be removed (and asks again if your profile isn't public).
+  const ownFollowers = kind === "followers" && !!user?.username && user.username === username
 
   const base = `/api/users/${encodeURIComponent(username)}/${kind}`
   const { data, error, isLoading, isValidating, size, setSize } = useSWRInfinite<FollowPage>(
@@ -52,18 +57,31 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
     setBusy(person)
     axios.post(`/api/users/${encodeURIComponent(person)}/follow`)
       .then((res) => {
-        setFollowState((state) => ({ ...state, [person]: res.data.isFollowing }))
+        setFollowState((state) => ({ ...state, [person]: !!res.data.isFollowing }))
+        setRequestedState((state) => ({ ...state, [person]: !!res.data.requested }))
         // Follower/following counts on any open profile (including your own) are now stale.
         mutate((key) => typeof key === "string" && key.startsWith("/api/users/") && !key.includes("/search"))
       })
-      .catch(() => notify.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { retry: () => handleFollow(person, current) }))
+      // No retry action: the endpoint toggles, so retrying a request that did land would undo it.
+      .catch(() => notify.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again."))
+      .finally(() => setBusy(null))
+  }
+
+  const handleRemove = (person: string) => {
+    setBusy(person)
+    axios.delete(`/api/followers/${encodeURIComponent(person)}`)
+      .then(() => {
+        setRemoved((set) => new Set(set).add(person))
+        mutate((key) => typeof key === "string" && key.startsWith("/api/users/") && !key.includes("/search"))
+      })
+      .catch(() => notify.error(`Couldn't remove ${person}. Try again.`))
       .finally(() => setBusy(null))
   }
 
   if (isLoading) return <Loader notScreen />
   if (error) return <p className="py-8 text-center text-sm text-muted-foreground">Couldn&apos;t load this list. Try again in a moment.</p>
 
-  const people = data?.flatMap((page) => page.users) ?? []
+  const people = (data?.flatMap((page) => page.users) ?? []).filter((p) => !removed.has(p.username))
   const hasMore = !!data?.[data.length - 1]?.nextCursor
   const isLoadingMore = isValidating && size > (data?.length ?? 0)
 
@@ -80,9 +98,10 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
       <ul className="flex flex-col">
         {people.map((person) => {
           const following = followState[person.username] ?? person.isFollowing
+          const requested = requestedState[person.username] ?? false
           return (
             <li key={person.username} className="flex items-center justify-between gap-3 py-2.5">
-              <Link href={`/u/${person.username}`} onClick={onNavigate} className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Link href={`/u/${encodeURIComponent(person.username)}`} onClick={onNavigate} className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <div className="relative size-11 shrink-0 overflow-hidden rounded-[14px]" style={{ background: person.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(person.username, booksReadOf(person))) }}>
                   {person.image
                     ? <Image src={person.image} alt="" fill sizes="44px" className="object-cover" />
@@ -94,18 +113,31 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
                 </div>
               </Link>
               {signedIn && !person.isSelf && (
+                <div className="flex shrink-0 items-center gap-2">
+                {ownFollowers && (
+                  <button
+                    type="button"
+                    disabled={busy === person.username}
+                    onClick={() => handleRemove(person.username)}
+                    aria-label={`Remove ${person.username} from your followers`}
+                    className="h-8 px-3 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                  >
+                    Remove
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={busy === person.username}
-                  aria-pressed={following}
+                  aria-pressed={following || requested}
                   onClick={() => handleFollow(person.username, following)}
                   className={cn(
                     "shrink-0 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
-                    following ? "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900" : "bg-foreground text-background hover:opacity-90"
+                    following || requested ? "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900" : "bg-foreground text-background hover:opacity-90"
                   )}
                 >
-                  {following ? "Following" : "Follow"}
+                  {followButtonLabel({ isFollowing: following, requested, needsApproval: false })}
                 </button>
+                </div>
               )}
             </li>
           )

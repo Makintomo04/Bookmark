@@ -16,6 +16,7 @@ import useBookEditModal from '@/app/hooks/useBookEditModal'
 import { GENRES, isOpenLibraryCover } from '@/utils/helpers'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import FormatPicker, { type FormatChoice, formatPayload } from '../books/FormatPicker'
+import { readableInk } from '@/lib/colour'
 
 interface BookEditModalProps {
 
@@ -25,6 +26,8 @@ const colourList = ["#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", "#219
 
 const BookEditModal: FC<BookEditModalProps> = ({}) => {
   const { user } = useUser()
+  const accent = user?.favColour || '#D92D2D'
+  const accentInk = readableInk(accent)
   const { mutate: booksMutate } = useBooks()
   const bookEditModal = useBookEditModal()
   const { book, isOpen, onClose } = bookEditModal
@@ -144,7 +147,7 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
             <div className="min-w-max">
               <h2 className='text-md font-bold mb-2'>Book Cover</h2>
               <UploadButton
-                appearance={{ button({ ready, isUploading, uploadProgress }) { return { background: user?.favColour } } }}
+                appearance={{ button({ ready, isUploading, uploadProgress }) { return { background: accent, color: accentInk } } }}
                 className='items-start'
                 endpoint="imageUploader"
                 onClientUploadComplete={(res) => {
@@ -176,7 +179,7 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
     <div className="w-full h-full mt-auto p-6">
       <div className="flex items-center gap-3 justify-end mt-auto">
         <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button style={{ background: `${user?.favColour}` }} onClick={handleSubmit(onSubmit)}>Save Changes</Button>
+        <Button style={{ background: accent, color: accentInk }} onClick={handleSubmit(onSubmit)}>Save Changes</Button>
       </div>
     </div>
   )

@@ -2,6 +2,7 @@
 import { FC, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import axios from 'axios'
 import { notify } from '@/lib/notify'
 import { useForm } from 'react-hook-form'
@@ -10,7 +11,7 @@ import Modal from './Modal'
 import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
-import { BIO_MAX, DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN } from '@/lib/profile'
+import { BIO_MAX, DEFAULT_COLOUR, normaliseUsername, usernameProblem } from '@/lib/profile'
 import { bannerPresetOf, bannerPresetValue, isBannerPresetValue, resolveBanner } from '@/lib/banners'
 import BannerPattern from '../profile/BannerPattern'
 import BannerPresetPicker from '../profile/BannerPresetPicker'
@@ -33,6 +34,8 @@ const overlayButtonClass = "inline-flex items-center gap-1.5 h-8 px-3 rounded-fu
 
 const EditProfileModal: FC = () => {
   const { user, isLoading: isUserLoading, mutate } = useUser()
+  const router = useRouter()
+  const pathname = usePathname()
   const { isOpen, onClose } = useEditProfileModal()
   const [isSaving, setIsSaving] = useState(false)
   const avatarInput = useRef<HTMLInputElement>(null)
@@ -81,9 +84,16 @@ const EditProfileModal: FC = () => {
   const onSubmit = async (profile: ProfileForm) => {
     setIsSaving(true)
     try {
-      const res = await axios.post("/api/user", { ...profile, username: profile.username.trim(), imageSrc: profile.imageSrc || null, bannerSrc: profile.bannerSrc || null })
-      if (res.data?.id) mutate(res.data, { revalidate: false })
+      const res = await axios.post("/api/user", { ...profile, username: normaliseUsername(profile.username), imageSrc: profile.imageSrc || null, bannerSrc: profile.bannerSrc || null })
+      // Revalidated: the POST reply lacks the counts GET adds (books read and the like).
+      if (res.data?.id) mutate(res.data)
       onClose()
+      // A rename moves the profile, and the old /u/ address no longer exists.
+      const before = user?.username
+      const after = res.data?.username
+      if (before && after && after !== before && decodeURIComponent(pathname ?? "").startsWith(`/u/${before}`)) {
+        router.replace(`/u/${encodeURIComponent(after)}`)
+      }
     } catch (err: any) {
       const message = err?.response?.data?.error
       if (err?.response?.status === 409) {
@@ -182,16 +192,16 @@ const EditProfileModal: FC = () => {
           className={cn(fieldClass, "h-10", errors.username ? "border-danger" : "border-input")}
           {...register("username", {
             validate: (v) => {
-              const t = v.trim()
-              if (t.length < USERNAME_MIN) return `Use at least ${USERNAME_MIN} characters.`
-              if (t.length > USERNAME_MAX) return `Use ${USERNAME_MAX} characters or fewer.`
-              return true
+              const name = normaliseUsername(v)
+              // A name from before the current rules can be kept; only a new one has to meet them.
+              if (name === user?.username?.toLowerCase()) return true
+              return usernameProblem(name) ?? true
             },
           })}
         />
         {errors.username
           ? <p id="username-hint" role="alert" className="text-sm text-danger">{errors.username.message}</p>
-          : <p id="username-hint" className="text-xs text-muted-foreground break-all">Your profile lives at /u/{username?.trim() || "…"}</p>}
+          : <p id="username-hint" className="text-xs text-muted-foreground break-all">Your profile lives at /u/{username ? normaliseUsername(username) : "…"}</p>}
       </div>
 
       <div className="flex flex-col gap-2">
