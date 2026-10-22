@@ -336,7 +336,7 @@ const FOLLOWER: Relation = { isSelf: false, isFollower: true, blocked: null }
 type FollowedPerson = Curator & { privacy: ReturnType<typeof privacyOf> }
 
 // The people the viewer follows whose profile they may see, minus blocks either way.
-async function followedPeople(viewerId: string) {
+export async function followedPeople(viewerId: string) {
   const [follows, blocked] = await Promise.all([
     prisma.follow.findMany({
       where: { followerId: viewerId },
@@ -362,7 +362,7 @@ async function followedPeople(viewerId: string) {
   return { followsAnyone: true, people }
 }
 
-const publicPerson = ({ privacy, ...person }: FollowedPerson): Curator => person
+export const publicPerson = ({ privacy, ...person }: FollowedPerson): Curator => person
 
 // A review as a reason: only when the viewer may read it, and never a spoiler.
 function reviewSnippet(book: { review: string | null, reviewSpoiler: boolean | null, reviewPrivate: boolean | null }, person: FollowedPerson) {

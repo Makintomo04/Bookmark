@@ -6,14 +6,14 @@ import assert from "node:assert/strict";
 import { acceptsBuddyReadInvite, preferencesOf } from "@/lib/preferences";
 
 test("unset preferences read as the old behaviour", () => {
-  assert.deepEqual(preferencesOf({}), { buddyReadInvites: "EVERYONE", showSpoilers: false, defaultListVisibility: "PRIVATE" });
-  assert.deepEqual(preferencesOf({ buddyReadInvites: null, showSpoilers: null, defaultListVisibility: null }), preferencesOf({}));
+  assert.deepEqual(preferencesOf({}), { buddyReadInvites: "EVERYONE", showSpoilers: false, defaultListVisibility: "PRIVATE", showRecaps: true });
+  assert.deepEqual(preferencesOf({ buddyReadInvites: null, showSpoilers: null, defaultListVisibility: null, showRecaps: null }), preferencesOf({}));
 });
 
 test("stored preferences win over the defaults", () => {
   assert.deepEqual(
-    preferencesOf({ buddyReadInvites: "NOBODY", showSpoilers: true, defaultListVisibility: "PUBLIC" }),
-    { buddyReadInvites: "NOBODY", showSpoilers: true, defaultListVisibility: "PUBLIC" },
+    preferencesOf({ buddyReadInvites: "NOBODY", showSpoilers: true, defaultListVisibility: "PUBLIC", showRecaps: false }),
+    { buddyReadInvites: "NOBODY", showSpoilers: true, defaultListVisibility: "PUBLIC", showRecaps: false },
   );
 });
 

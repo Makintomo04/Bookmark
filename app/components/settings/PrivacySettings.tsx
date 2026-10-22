@@ -53,6 +53,19 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           disabled={busy}
         />
       </div>
+      <div className="rounded-lg border p-4 flex flex-col gap-5">
+        <div>
+          <p className="text-sm font-medium">AI features</p>
+          <p className="text-xs text-muted-foreground">Only ever for something you ask for, always labelled, and never about you.</p>
+        </div>
+        <Toggle
+          label="Offer Catch me up recaps"
+          hint="A short AI recap of the story so far when you come back to a book, or of the earlier books when you start the next in a series. Only you see them."
+          checked={settings.showRecaps}
+          onChange={(v) => save("showRecaps", v)}
+          disabled={busy}
+        />
+      </div>
     </>
   )
 }

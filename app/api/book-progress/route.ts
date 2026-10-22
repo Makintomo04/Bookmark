@@ -193,6 +193,8 @@ export async function POST(req: Request) {
           data = { status: "NOT_INTERESTED" }
           break
       }
+      // When the reader last moved their place in the book (lib/recap.ts tells a book left untouched by it).
+      if (action === "start" || action === "restart" || action === "progress" || action === "resume") data.progressAt = now
       if (rating !== undefined) data.rating = rating
       if (review !== undefined) data.review = review
       if (reviewSpoiler !== undefined) data.reviewSpoiler = reviewSpoiler
