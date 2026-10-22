@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { monthlyPace } from "@/lib/goals";
 import prisma from "@/lib/db";
 import { getMilestone } from "@/lib/achievements-catalog";
 import { getReadingStreak } from "@/lib/achievements";
@@ -46,6 +47,16 @@ export interface GoalResult {
   target: number;
   completed: number;
   met: boolean;
+  // Plus goals (lib/goals.ts). Null when not set; the pages and months are counted either way.
+  targetPages: number | null;
+  pages: number;
+  targetBooksPerMonth: number | null;
+  // Books a month: the custom target when set, otherwise the yearly goal over twelve months. Free.
+  pacePerMonth: number;
+  paceIsCustom: boolean;
+  // Months of the year (so far, for this year) that reached the monthly pace.
+  monthsMet: number;
+  monthsCounted: number;
 }
 
 export interface ReadingStats {
@@ -118,7 +129,7 @@ async function loadReadingData(userId: string) {
       select: { bookId: true, status: true, finishedAt: true, rating: true },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.readingGoal.findMany({ where: { userId, targetBooks: { gt: 0 } }, select: { year: true, targetBooks: true } }),
+    prisma.readingGoal.findMany({ where: { userId, targetBooks: { gt: 0 } }, select: { year: true, targetBooks: true, targetPages: true, targetBooksPerMonth: true } }),
   ]);
 
   const timeZone = user?.timeZone && isValidTimeZone(user.timeZone) ? user.timeZone : DEFAULT_TIME_ZONE;
@@ -171,6 +182,7 @@ async function loadReadingData(userId: string) {
     finishes,
     goals,
     currentYear: Number(localDay(new Date(), timeZone).slice(0, 4)),
+    currentMonth: Number(localDay(new Date(), timeZone).slice(5, 7)) - 1,
     // Books finished at least once, re-reads included: what the reader tier counts (lib/readerTier.ts).
     completedBooks: books.filter((b) => b.status === "COMPLETED" || b.timesRead >= 1).length,
   };
@@ -218,7 +230,7 @@ const emptyMonths = (): PeriodCount[] => Array.from({ length: 12 }, () => ({ boo
 
 export async function getReadingStats(userId: string): Promise<ReadingStats> {
   const [data, streak] = await Promise.all([readingData(userId), getReadingStreak(userId)]);
-  const { finishes, books, goals, currentYear, timeZone } = data;
+  const { finishes, books, goals, currentYear, currentMonth, timeZone } = data;
 
   const completed = finishes.filter((f) => f.outcome === "COMPLETED");
   const dnf = finishes.length - completed.length;
@@ -271,9 +283,25 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     years,
     months,
     goals: goals
-      .map((g) => {
+      .map((g): GoalResult => {
         const done = finishesInYear(g.year);
-        return { year: g.year, target: g.targetBooks, completed: done, met: done >= g.targetBooks };
+        const inYear = months[g.year] ?? emptyMonths();
+        // This year counts the months that have started; a past year counts all twelve.
+        const counted = g.year < currentYear ? 12 : g.year === currentYear ? currentMonth + 1 : 0;
+        const pace = monthlyPace(g);
+        return {
+          year: g.year,
+          target: g.targetBooks,
+          completed: done,
+          met: done >= g.targetBooks,
+          targetPages: g.targetPages ?? null,
+          pages: inYear.reduce((s, m) => s + m.pages, 0),
+          targetBooksPerMonth: g.targetBooksPerMonth ?? null,
+          pacePerMonth: pace.perMonth,
+          paceIsCustom: pace.custom,
+          monthsMet: inYear.slice(0, counted).filter((m) => m.books >= pace.perMonth).length,
+          monthsCounted: counted,
+        };
       })
       .sort((a, b) => b.year - a.year),
     streak,
@@ -292,6 +320,8 @@ export interface WrappedMedal {
 
 export interface WrappedData {
   year: number;
+  // Set for a monthly Wrap card (0 to 11): every count below is for that month alone.
+  month: number | null;
   isCurrentYear: boolean;
   books: number; // finishes in the year, re-reads included
   distinctBooks: number;
@@ -310,17 +340,21 @@ export interface WrappedData {
   tier: { key: string; label: string; light: string; colour: string; shade: string } | null;
   // Books counted for the tier at the end of the year.
   tierBooks: number;
-  goal: Omit<GoalResult, "year"> | null;
+  // The yearly book goal; for a month, the monthly pace if one is set.
+  goal: { target: number; completed: number; met: boolean } | null;
 }
 
-export async function getWrapped(userId: string, year: number): Promise<WrappedData> {
+// A year's Wrapped, or with `month` (0 to 11) one month of it: the same numbers for that month only,
+// which the monthly share card (Plus) draws.
+export async function getWrapped(userId: string, year: number, month: number | null = null): Promise<WrappedData> {
   const [data, earned] = await Promise.all([
     readingData(userId),
     prisma.userAchievement.findMany({ where: { userId }, select: { key: true, earnedAt: true }, orderBy: { earnedAt: "asc" } }),
   ]);
   const { finishes, goals, currentYear, timeZone, completedBooks } = data;
 
-  const inYear = finishes.filter((f) => f.year === year).sort((a, b) => a.at!.getTime() - b.at!.getTime());
+  const inPeriod = (f: Finish) => f.year === year && (month === null || f.month === month);
+  const inYear = finishes.filter(inPeriod).sort((a, b) => a.at!.getTime() - b.at!.getTime());
   const completed = inYear.filter((f) => f.outcome === "COMPLETED");
   const finished = distinctBooks(completed);
 
@@ -336,7 +370,8 @@ export async function getWrapped(userId: string, year: number): Promise<WrappedD
 
   const medals: WrappedMedal[] = [];
   for (const e of earned) {
-    if (Number(localDay(e.earnedAt, timeZone).slice(0, 4)) !== year) continue;
+    const day = localDay(e.earnedAt, timeZone);
+    if (Number(day.slice(0, 4)) !== year || (month !== null && Number(day.slice(5, 7)) - 1 !== month)) continue;
     const found = getMilestone(e.key);
     if (found) medals.push({ key: e.key, achievementKey: found.achievement.key, title: found.milestone.title, achievement: found.achievement.title, earnedAt: e.earnedAt.toISOString() });
   }
@@ -356,12 +391,14 @@ export async function getWrapped(userId: string, year: number): Promise<WrappedD
   }
   const tier = getReaderTier(tierBooks);
 
-  const goal = goals.find((g) => g.year === year);
+  const yearGoal = goals.find((g) => g.year === year);
+  const target = month === null ? yearGoal?.targetBooks : yearGoal?.targetBooksPerMonth;
   const perBook = new Map<string, number>();
   for (const f of completed) perBook.set(f.book.id, (perBook.get(f.book.id) ?? 0) + 1);
 
   return {
     year,
+    month,
     isCurrentYear: year === currentYear,
     books: completed.length,
     distinctBooks: finished.length,
@@ -379,8 +416,20 @@ export async function getWrapped(userId: string, year: number): Promise<WrappedD
     medals,
     tier: tier && { key: tier.key, label: tier.label, light: tier.light, colour: tier.colour, shade: tier.shade },
     tierBooks,
-    goal: goal ? { target: goal.targetBooks, completed: completed.length, met: completed.length >= goal.targetBooks } : null,
+    goal: target ? { target, completed: completed.length, met: completed.length >= target } : null,
   };
+}
+
+// The year and month (0 to 11) a monthly card URL names, if that month has started: 2000 up to now.
+export function parseWrappedMonth(rawYear: string, rawMonth: string, now = new Date()): { year: number; month: number } | null {
+  const year = parseWrappedYear(rawYear, now);
+  if (!year || !/^\d{1,2}$/.test(rawMonth)) return null;
+  const month = Number(rawMonth) - 1;
+  if (month < 0 || month > 11) return null;
+  // UTC+14 reaches a new month first, same as parseWrappedYear.
+  const ahead = new Date(now.getTime() + 14 * 3600_000);
+  if (year === ahead.getUTCFullYear() && month > ahead.getUTCMonth()) return null;
+  return { year, month };
 }
 
 // Years worth a Wrapped: any with a dated finish, and this one. Newest first.

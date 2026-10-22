@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { buddyReadError, joinBuddyRead, parseBody } from "@/lib/buddyReadsServer";
+import { attachReferral } from "@/lib/referrals";
 
 const joinSchema = z.object({ code: z.string().trim().regex(/^[a-z0-9]{6,20}$/, "That invite link doesn't look right.") });
 
@@ -25,5 +26,7 @@ export async function POST(req: Request) {
 
   const result = await joinBuddyRead(buddyRead, currentUser.id);
   if (!result.ok) return buddyReadError(result.error, result.status);
+  // A new reader who came in through this circle's invite was brought by its host.
+  await attachReferral(currentUser.id, buddyRead.hostId, "circle").catch((e) => console.error("[referrals]", e));
   return NextResponse.json(result);
 }

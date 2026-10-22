@@ -81,8 +81,53 @@ model User {
   showSpoilers          Boolean?
   // What a new list starts as in the editor.
   defaultListVisibility ListVisibility?
+  referralsMade Referral[] @relation("ReferralInviter")
+  referredBy    Referral? @relation("ReferralInvitee")
+  giftCodesOwned    GiftCode[] @relation("GiftCodeOwner")
+  giftCodesRedeemed GiftCode[] @relation("GiftCodeRedeemer")
   blocking      Block[] @relation("UserBlocks")
   blockedBy     Block[] @relation("UserBlockedBy")
+  // Bookmark Plus. Stripe's webhook (app/api/billing/webhook) is the only writer of these; lib/entitlements.ts
+  // turns the plan into what the account may do. Optional like the other later fields: accounts made
+  // before billing have no value stored, and planOf() reads that as FREE. New accounts get FREE.
+  plan                 Plan?     @default(FREE)
+  // When the current paid or trial period ends. Informational: the webhook moves `plan`.
+  planRenewsAt         DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  // Set once a trial has been used, so a second Checkout doesn't grant another.
+  trialEndsAt          DateTime?
+  // Subscribed at the Founding Reader price (lib/entitlements.ts FOUNDING). Set by the webhook, never
+  // cleared, and counted against the founding cap. Shows a Founding badge while on Plus.
+  foundingMember       Boolean?
+  // Bought the one-time lifetime Plus (lib/entitlements.ts LIFETIME). Plus for good; subscription events
+  // never downgrade it. Cleared only by a full refund or a dispute of that payment.
+  lifetime             Boolean?
+  // On the Patron yearly price: same features, a Patron badge. Follows the subscription.
+  patron               Boolean?
+  // Free Plus earned by inviting friends or from a gift code, until this date. No Stripe subscription.
+  compPlusUntil        DateTime?
+  // Personalisation (Plus). Null reads as the defaults; see lib/personalisation.ts.
+  profileTheme         ProfileTheme?
+  // #rrggbb for the shelf's cover fallbacks and progress bars, instead of favColour.
+  shelfCardColour      String?
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+}
+
+enum Plan {
+  FREE
+  PLUS
+}
+
+// How the profile page is dressed. CLASSIC is what every account had before themes existed.
+enum ProfileTheme {
+  CLASSIC
+  // Near-black ground with the reader's colour glowing from a corner, like the reader card.
+  INK
+  // A soft wash of the reader's colour behind the page.
+  TINT
 }
 
 enum ProfileVisibility {
@@ -141,11 +186,47 @@ model ReadingGoal {
   userId String @db.ObjectId
   year Int
   targetBooks Int
+  // Plus goals (lib/entitlements.ts: extraGoalTypes). Null means not set; a free account keeps what it set while on Plus.
+  targetPages Int?
+  targetBooksPerMonth Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, year])
+}
+
+// Who brought whom to Bookmark (lib/referrals.ts). One per invitee. The inviter earns a month of Plus when
+// the invitee first logs reading (qualifiedAt), up to REFERRALS.perYear a calendar year (rewardedAt).
+model Referral {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  inviterId  String    @db.ObjectId
+  inviteeId  String    @unique @db.ObjectId
+  // "link" (a personal invite link) or "circle" (joined the inviter's reading circle as a new reader).
+  source     String
+  createdAt  DateTime  @default(now())
+  qualifiedAt DateTime?
+  rewardedAt  DateTime?
+
+  inviter User @relation("ReferralInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User @relation("ReferralInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@index([inviterId, rewardedAt])
+}
+
+// A one-month Plus gift a lifetime buyer can hand to a friend who has never had Plus (lib/giftCodes.ts).
+model GiftCode {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  code         String    @unique
+  ownerId      String    @db.ObjectId
+  redeemedById String?   @db.ObjectId
+  redeemedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  owner      User  @relation("GiftCodeOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  redeemedBy User? @relation("GiftCodeRedeemer", fields: [redeemedById], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
 }
 
 model VerificationToken {

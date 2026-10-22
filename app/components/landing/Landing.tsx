@@ -44,7 +44,7 @@ const features = [
   {
     icon: TbChartBar,
     title: "Every stat, free",
-    description: "Books and pages by month, ratings, genres, authors, re-reads and your streak. No upgrade, no paywall.",
+    description: "Books and pages by month, ratings, genres, authors, re-reads and your streak. All your stats are free. Plus adds recaps, hosting tools and personalisation.",
   },
   {
     icon: TbSparkles,
@@ -77,7 +77,7 @@ const steps = [
 const faqs = [
   {
     question: "Is Bookmark really free?",
-    answer: "Yes. Every feature, including your full reading stats, is free. There's no paid plan and nothing locked behind an upgrade.",
+    answer: "Yes. Tracking, import, reading circles, Wrapped and export are free, and joining a circle is never limited. All your stats are free. Plus adds recaps, hosting tools and personalisation.",
   },
   {
     question: "How do spoilers stay hidden in a reading circle?",
@@ -154,7 +154,7 @@ const Landing: FC = () => {
               Read with your friends.<br className="hidden sm:block" /> Nobody gets spoiled.
             </h1>
             <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
-              Bookmark is the group chat for your book, built so comments stay locked until you reach them. Start a reading circle, share one link, and read at your own pace. Free, with no paywall.
+              Bookmark is the group chat for your book, built so comments stay locked until you reach them. Start a reading circle, share one link, and read at your own pace. Free to use, every stat included.
             </p>
             <Button asChild className={`${ctaClassName} mt-8`}>
               <Link href="/register">Start a reading circle — it&apos;s free</Link>
