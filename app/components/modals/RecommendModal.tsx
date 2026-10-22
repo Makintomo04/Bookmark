@@ -59,9 +59,9 @@ const RecommendModal: FC = () => {
             return (
               <li key={f.username}>
                 <button type="button" aria-pressed={on} onClick={() => toggle(f.username)}
-                  className={cn("w-full flex items-center gap-3 rounded-md p-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800",
-                    on && "bg-slate-100 dark:bg-slate-800")}>
-                  <span className="h-8 w-8 rounded-full overflow-hidden relative flex-shrink-0" style={{ background: f.favColour || "#f44336" }}>
+                  className={cn("w-full flex items-center gap-3 rounded-md p-2 text-left transition hover:bg-neutral-100 dark:hover:bg-neutral-800",
+                    on && "bg-neutral-100 dark:bg-neutral-800")}>
+                  <span className="h-8 w-8 rounded-full overflow-hidden relative flex-shrink-0" style={{ background: f.favColour || "#D92D2D" }}>
                     {f.image && <Image src={f.image} alt="" fill className="object-cover" />}
                   </span>
                   <span className="flex-1 min-w-0">

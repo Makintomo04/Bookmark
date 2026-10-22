@@ -17,7 +17,7 @@ interface CommentComposerProps {
   autoFocus?: boolean
 }
 
-const inputClass = "h-9 w-full rounded-md border border-neutral-300 dark:border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+const inputClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
 // A comment is pinned where the author is, so it stays hidden from anyone who hasn't got there.
 // They can pull it earlier ("this is about chapter 3"), never later.
@@ -74,7 +74,7 @@ const CommentComposer: FC<CommentComposerProps> = ({ buddyReadId, progress, pare
         autoFocus={autoFocus}
         placeholder={isReply ? "Reply…" : "What do you make of it so far?"}
         disabled={isSaving}
-        className="w-full rounded-md border border-neutral-300 dark:border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
       />
 
       {showPin && (

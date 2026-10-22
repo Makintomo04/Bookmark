@@ -58,7 +58,7 @@ const Page = async () => {
       <Container className="flex flex-col gap-10">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold">Quests</h1>
+            <h1 className="page-title">Quests</h1>
             <p className="mt-1 max-w-2xl text-muted-foreground">
               Seasonal reading challenges from the Bookmark team. Finish one before it ends to earn a limited-edition medal, yours for good.
               There&apos;s nothing to join: every book you finish during a quest counts.

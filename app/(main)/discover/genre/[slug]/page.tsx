@@ -48,7 +48,7 @@ const Page = async ({ params }: PageProps) => {
           {/* Same look as the Discover tile, scaled up, using this page's own top covers. */}
           <div className="group relative mt-3 flex h-32 sm:h-40 items-end overflow-hidden rounded-2xl p-6 sm:p-8" style={{ background: genreBackground(genre.colour), color: readableInk(genre.colour) }}>
             <GenreArt genre={genre} size="hero" covers={books.map((b) => b.coverUrl).filter((url): url is string => !!url).slice(0, 3)} />
-            <h1 className="relative z-10 text-3xl sm:text-4xl font-bold drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]">{genre.label}</h1>
+            <h1 className="page-title relative z-10 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]">{genre.label}</h1>
           </div>
         </div>
 

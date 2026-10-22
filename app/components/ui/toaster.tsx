@@ -21,7 +21,7 @@ export default function Toaster() {
           title: "!text-sm !font-medium",
           description: "!text-muted-foreground",
           actionButton: "!bg-foreground !text-background !rounded-md !font-medium",
-          error: "[&_[data-icon]]:!text-red-500",
+          error: "[&_[data-icon]]:!text-danger",
           success: "[&_[data-icon]]:!text-emerald-500",
         },
       }}

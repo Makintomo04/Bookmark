@@ -7,7 +7,7 @@ export default function NotFound() {
     <div className="py-24">
       <Container>
         <div className="max-w-md mx-auto text-center">
-          <h1 className="text-2xl font-bold">This reader couldn&apos;t be found</h1>
+          <h1 className="page-title">This reader couldn&apos;t be found</h1>
           <p className="mt-2 text-sm text-muted-foreground">The username may have changed, or the account no longer exists.</p>
           <Link href="/discover" className={`${secondaryButtonClass} mt-6`}>Discover readers</Link>
         </div>

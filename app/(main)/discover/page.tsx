@@ -75,7 +75,7 @@ const Page = async () => {
       <Container className="flex flex-col gap-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold">Discover</h1>
+            <h1 className="page-title">Discover</h1>
             <p className="mt-1 text-muted-foreground">Find your next read, and the readers behind it.</p>
           </div>
           <NewPickButton />
@@ -124,7 +124,7 @@ const Page = async () => {
 
             {/* Staff only: findLists returns nothing for anyone else. */}
             {reported.length > 0 && (
-              <section aria-labelledby="review-heading" className="rounded-2xl border border-rose-500/30 p-5">
+              <section aria-labelledby="review-heading" className="rounded-2xl border border-danger/30 p-5">
                 <h2 id="review-heading" className="text-xl font-bold">Reported lists</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Only the Bookmark team sees this. Open a list and switch on Hidden in its editor to take it down.</p>
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">

@@ -1,28 +1,28 @@
 "use client"
 import { FC, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import axios from 'axios'
 import { notify } from '@/lib/notify'
-import { signOut } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
+import type { ProfileTheme } from '@prisma/client'
 import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
 import { BIO_MAX, DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN } from '@/lib/profile'
+import { isUpgradeRequired } from '@/lib/entitlements'
+import type { PersonalisationInput } from '@/lib/personalisation'
 import { bannerPresetOf, bannerPresetValue, isBannerPresetValue, resolveBanner } from '@/lib/banners'
 import BannerPattern from '../profile/BannerPattern'
 import BannerPresetPicker from '../profile/BannerPresetPicker'
 import useImageUpload from '@/app/hooks/useImageUpload'
 import useUser from '@/app/hooks/useUser'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
-import DataExport from '../settings/DataExport'
 import InitialAvatar from '../profile/InitialAvatar'
-import PrivacySettings from '../settings/PrivacySettings'
-import AppearanceSettings from '../settings/AppearanceSettings'
-import PlusSettings from '../settings/PlusSettings'
 import ColourSwatches from '../profile/ColourSwatches'
+import ProfileStyling from '../profile/ProfileStyling'
 
 type ProfileForm = {
   username: string
@@ -30,6 +30,9 @@ type ProfileForm = {
   imageSrc: string
   bannerSrc: string
   color: string
+  // Plus styling. An empty shelf colour follows the profile colour.
+  profileTheme: ProfileTheme
+  shelfCardColour: string
 }
 
 const fieldClass = "w-full rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
@@ -39,14 +42,11 @@ const EditProfileModal: FC = () => {
   const { user, isLoading: isUserLoading, mutate } = useUser()
   const { isOpen, onClose } = useEditProfileModal()
   const [isSaving, setIsSaving] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [deleteConfirmText, setDeleteConfirmText] = useState("")
-  const [isDeleting, setIsDeleting] = useState(false)
   const avatarInput = useRef<HTMLInputElement>(null)
   const bannerInput = useRef<HTMLInputElement>(null)
 
-  const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors, isDirty } } = useForm<ProfileForm>({
-    defaultValues: { username: "", bio: "", imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR },
+  const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors, isDirty, dirtyFields } } = useForm<ProfileForm>({
+    defaultValues: { username: "", bio: "", imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR, profileTheme: "CLASSIC", shelfCardColour: "" },
   })
 
   const setField = (name: keyof ProfileForm, value: string) =>
@@ -55,7 +55,7 @@ const EditProfileModal: FC = () => {
   const avatar = useImageUpload((url) => setField("imageSrc", url))
   const banner = useImageUpload((url) => setField("bannerSrc", url))
   const isUploading = avatar.isUploading || banner.isUploading
-  const isBusy = isSaving || isUploading || isDeleting
+  const isBusy = isSaving || isUploading
 
   // Start from the saved profile every time the modal opens, so abandoned edits don't linger.
   useEffect(() => {
@@ -66,14 +66,14 @@ const EditProfileModal: FC = () => {
       imageSrc: user.image ?? "",
       bannerSrc: user.banner ?? "",
       color: toHex(user.favColour ?? "") ?? DEFAULT_COLOUR,
+      profileTheme: user.profileTheme ?? "CLASSIC",
+      shelfCardColour: toHex(user.shelfCardColour ?? "") ?? "",
     })
-    setShowDeleteConfirm(false)
-    setDeleteConfirmText("")
   // Keyed on the id so a background refetch mid-edit doesn't wipe what the user typed.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user?.id, reset])
 
-  const [username, bio, imageSrc, bannerSrc, colour] = watch(["username", "bio", "imageSrc", "bannerSrc", "color"])
+  const [username, bio, imageSrc, bannerSrc, colour, profileTheme, shelfCardColour] = watch(["username", "bio", "imageSrc", "bannerSrc", "color", "profileTheme", "shelfCardColour"])
   const accent = colour || DEFAULT_COLOUR
   const accentInk = readableInk(accent)
   const avatarSrc = avatar.preview || imageSrc
@@ -87,32 +87,36 @@ const EditProfileModal: FC = () => {
     onClose()
   }
 
-  const onSubmit = (data: ProfileForm) => {
-    setIsSaving(true)
-    axios.post("/api/user", { ...data, username: data.username.trim(), imageSrc: data.imageSrc || null, bannerSrc: data.bannerSrc || null })
-      .then((res) => {
-        if (res.data?.id) mutate(res.data, { revalidate: false })
-        onClose()
-      })
-      .catch((err) => {
-        const message = err?.response?.data?.error
-        if (err?.response?.status === 409) {
-          setError("username", { type: "server", message: message || "That username is already taken." }, { shouldFocus: true })
-          return
-        }
-        notify.error(message || "Couldn't save your profile. Check your connection and try again.")
-      })
-      .finally(() => setIsSaving(false))
-  }
+  // The profile first, then the Plus styling if it changed, so one Save covers everything in the modal.
+  const onSubmit = async (data: ProfileForm) => {
+    const { profileTheme, shelfCardColour, ...profile } = data
+    const looks: PersonalisationInput = {}
+    if (dirtyFields.profileTheme) looks.profileTheme = profileTheme
+    if (dirtyFields.shelfCardColour) looks.shelfCardColour = shelfCardColour || null
 
-  const handleDeleteAccount = () => {
-    setIsDeleting(true)
-    axios.delete("/api/user")
-      .then(() => signOut({ callbackUrl: `${window.location.origin}/` }))
-      .catch(() => {
-        notify.error("Couldn't delete your account. Try again.", { retry: handleDeleteAccount })
-        setIsDeleting(false)
-      })
+    setIsSaving(true)
+    try {
+      const res = await axios.post("/api/user", { ...profile, username: profile.username.trim(), imageSrc: profile.imageSrc || null, bannerSrc: profile.bannerSrc || null })
+      let saved = res.data?.id ? res.data : user
+      if (res.data?.id) mutate(saved, { revalidate: false })
+      if (Object.keys(looks).length > 0) {
+        const styled = await axios.patch("/api/user/personalisation", looks)
+        saved = { ...saved, ...styled.data }
+        mutate(saved, { revalidate: false })
+      }
+      onClose()
+    } catch (err: any) {
+      const message = err?.response?.data?.error
+      if (err?.response?.status === 409) {
+        setError("username", { type: "server", message: message || "That username is already taken." }, { shouldFocus: true })
+      } else if (isUpgradeRequired(err?.response?.data)) {
+        notify.error("Profile themes and shelf colours are part of Plus.")
+      } else {
+        notify.error(message || "Couldn't save your profile. Check your connection and try again.")
+      }
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const fileInput = (ref: typeof avatarInput, onFile: (f: File | undefined) => void, label: string) => (
@@ -198,7 +202,7 @@ const EditProfileModal: FC = () => {
           disabled={isSaving}
           aria-invalid={!!errors.username}
           aria-describedby="username-hint"
-          className={cn(fieldClass, "h-10", errors.username ? "border-rose-500" : "border-neutral-300 dark:border-input")}
+          className={cn(fieldClass, "h-10", errors.username ? "border-danger" : "border-input")}
           {...register("username", {
             validate: (v) => {
               const t = v.trim()
@@ -209,14 +213,14 @@ const EditProfileModal: FC = () => {
           })}
         />
         {errors.username
-          ? <p id="username-hint" role="alert" className="text-sm text-rose-600 dark:text-rose-400">{errors.username.message}</p>
+          ? <p id="username-hint" role="alert" className="text-sm text-danger">{errors.username.message}</p>
           : <p id="username-hint" className="text-xs text-muted-foreground break-all">Your profile lives at /u/{username?.trim() || "…"}</p>}
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor="bio" className="text-sm font-medium">Bio <span className="font-normal text-muted-foreground">· optional</span></label>
-          <span className={cn("text-xs tabular-nums", (bio?.length ?? 0) > BIO_MAX ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground")} aria-live="polite">
+          <span className={cn("text-xs tabular-nums", (bio?.length ?? 0) > BIO_MAX ? "text-danger" : "text-muted-foreground")} aria-live="polite">
             {bio?.length ?? 0}/{BIO_MAX}
           </span>
         </div>
@@ -226,10 +230,10 @@ const EditProfileModal: FC = () => {
           disabled={isSaving}
           placeholder="What do you like to read?"
           aria-invalid={!!errors.bio}
-          className={cn(fieldClass, "py-2 resize-y", errors.bio ? "border-rose-500" : "border-neutral-300 dark:border-input")}
+          className={cn(fieldClass, "py-2 resize-y", errors.bio ? "border-danger" : "border-input")}
           {...register("bio", { maxLength: { value: BIO_MAX, message: `Keep your bio to ${BIO_MAX} characters.` } })}
         />
-        {errors.bio && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{errors.bio.message}</p>}
+        {errors.bio && <p role="alert" className="text-sm text-danger">{errors.bio.message}</p>}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -252,44 +256,6 @@ const EditProfileModal: FC = () => {
     </div>
   )
 
-  const dangerZone = (
-    <div className="rounded-lg border border-rose-500/30 p-4">
-      {!showDeleteConfirm ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium">Delete account</p>
-            <p className="text-xs text-muted-foreground">Permanently remove your account, books, notes, goals and followers.</p>
-          </div>
-          <Button type="button" variant="outline" disabled={isBusy} className="shrink-0 border-rose-500/60 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-600" onClick={() => setShowDeleteConfirm(true)}>
-            Delete account
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium">Delete your account for good?</p>
-          <p className="text-xs text-muted-foreground">
-            This can&apos;t be undone. Everything on Bookmark goes with it. Type <span className="font-semibold text-foreground">{user?.username}</span> to confirm.
-          </p>
-          <input
-            autoFocus
-            aria-label="Type your username to confirm"
-            value={deleteConfirmText}
-            onChange={(e) => setDeleteConfirmText(e.target.value)}
-            disabled={isDeleting}
-            autoComplete="off"
-            spellCheck={false}
-            className={cn(fieldClass, "h-10 border-neutral-300 dark:border-input sm:max-w-xs")}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" disabled={isDeleting || deleteConfirmText !== user?.username} className="bg-rose-700 hover:bg-rose-800 text-white" onClick={handleDeleteAccount}>
-              {isDeleting ? "Deleting…" : "Delete my account"}
-            </Button>
-            <Button type="button" variant="outline" disabled={isDeleting} onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText("") }}>Keep my account</Button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
 
   const body = isUserLoading || !user ? (
     <div className="w-full px-6 self-start flex flex-col gap-4" aria-busy="true">
@@ -306,11 +272,18 @@ const EditProfileModal: FC = () => {
     >
       {preview}
       {fields}
-      <AppearanceSettings disabled={isBusy} />
-      <PlusSettings disabled={isBusy} />
-      <PrivacySettings disabled={isBusy} />
-      <DataExport disabled={isBusy} />
-      {dangerZone}
+      <ProfileStyling
+        theme={profileTheme}
+        shelfColour={shelfCardColour || null}
+        profileColour={accent}
+        onThemeChange={(t) => setValue("profileTheme", t, { shouldDirty: true })}
+        onShelfColourChange={(c) => setValue("shelfCardColour", c ?? "", { shouldDirty: true })}
+        disabled={isBusy}
+      />
+      <p className="border-t pt-4 text-xs text-muted-foreground">
+        Theme, privacy, Plus billing and your data are in{" "}
+        <Link href="/settings" onClick={close} className="font-medium text-foreground underline-offset-4 hover:underline">Settings</Link>.
+      </p>
     </form>
   )
 

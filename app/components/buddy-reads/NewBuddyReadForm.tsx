@@ -22,7 +22,7 @@ const SHELVES: Record<string, string> = { STARTED: "Reading", PAUSED: "Paused", 
 
 type Row = { label: string, until: string, due: string }
 
-const inputClass = "h-9 w-full rounded-md border border-neutral-300 dark:border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+const inputClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
 const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => {
   const router = useRouter()
@@ -68,7 +68,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
         <Link href="/circles" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft size={14} aria-hidden /> Reading circles
         </Link>
-        <h1 className="text-3xl font-bold">Start a reading circle</h1>
+        <h1 className="page-title">Start a reading circle</h1>
         <p className="text-muted-foreground">Choose a book from your shelf. You&apos;ll get a link to share; anyone with it can join, and the book goes on their shelf too.</p>
       </div>
 
@@ -108,7 +108,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
           </ul>
         )}
         {chosen && !chosenHasLength && (
-          <p className="text-sm text-rose-600 dark:text-rose-400">This book has no page count or running time, so progress can&apos;t be tracked. Add one from the book first.</p>
+          <p className="text-sm text-danger">This book has no page count or running time, so progress can&apos;t be tracked. Add one from the book first.</p>
         )}
       </fieldset>
 

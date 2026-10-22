@@ -44,12 +44,12 @@ const Page = async ({ params }: PageProps) => {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {list.isPick && <PickBadge />}
             {list.visibility === "PRIVATE" && <span className="inline-flex items-center gap-1"><Lock size={14} aria-hidden />Only you can see this</span>}
-            {list.hidden && <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400"><EyeOff size={14} aria-hidden />Hidden</span>}
-            {list.reportCount > 0 && <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400"><Flag size={14} aria-hidden />{list.reportCount} {list.reportCount === 1 ? "report" : "reports"}</span>}
+            {list.hidden && <span className="inline-flex items-center gap-1 text-danger"><EyeOff size={14} aria-hidden />Hidden</span>}
+            {list.reportCount > 0 && <span className="inline-flex items-center gap-1 text-danger"><Flag size={14} aria-hidden />{list.reportCount} {list.reportCount === 1 ? "report" : "reports"}</span>}
           </div>
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="min-w-0 max-w-3xl">
-              <h1 className="text-3xl sm:text-4xl font-bold leading-tight break-words">{list.title}</h1>
+              <h1 className="page-title break-words">{list.title}</h1>
               {list.description && <p className="mt-3 text-muted-foreground whitespace-pre-line">{list.description}</p>}
               <div className="mt-3 empty:hidden"><RemixInfo forkedFrom={list.forkedFrom} remixCount={list.remixCount} /></div>
             </div>

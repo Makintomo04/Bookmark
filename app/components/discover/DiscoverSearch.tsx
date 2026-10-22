@@ -183,7 +183,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
             placeholder={mode === "books" ? "Search by title or author" : "Search readers by username"}
             aria-label={mode === "books" ? "Search for books" : "Search for readers"}
             autoComplete="off"
-            className="h-12 w-full rounded-full border border-neutral-300 dark:border-input bg-background pl-11 pr-11 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-search-cancel-button]:hidden"
+            className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-11 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-search-cancel-button]:hidden"
           />
           {query && (
             <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 grid size-7 place-items-center rounded-full text-muted-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-foreground">

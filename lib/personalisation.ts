@@ -68,7 +68,7 @@ export function shelfAccent(user: Stored & { favColour?: string | null }): strin
   return personalisationOf(user).shelfCardColour ?? user.favColour ?? null;
 }
 
-// Any subset; each control saves on change. A null colour means "same as my profile colour".
+// Any subset; Edit profile sends what changed with the rest of the profile. A null colour means "same as my profile colour".
 export const personalisationSchema = z.object({
   profileTheme: z.enum(PROFILE_THEME_IDS),
   shelfCardColour: z.string().regex(/^#[0-9a-f]{6}$/i, "Pick a colour").transform((c) => c.toUpperCase()).nullable(),

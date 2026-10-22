@@ -71,7 +71,7 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
       {...interactiveProps}
       className={cn(
         "group flex flex-col gap-3 rounded-lg",
-        !readOnly && "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+        !readOnly && "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
       )}
     >
       <div className="relative">

@@ -91,7 +91,7 @@ const BuddyReadsList: FC = () => {
     <div className="flex flex-col gap-10">
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div className="max-w-xl">
-          <h1 className="text-3xl sm:text-4xl font-bold">Reading circles</h1>
+          <h1 className="page-title">Reading circles</h1>
           <p className="mt-2 text-muted-foreground">
             Read a book with friends. See where everyone is, and talk about it as you go. Comments stay locked until you reach them.
           </p>

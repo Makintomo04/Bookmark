@@ -3,60 +3,60 @@ import Link from 'next/link'
 import { FC } from 'react'
 import { Button } from '../ui/button'
 import {
-  TbArrowRight,
-  TbBook2,
-  TbChartBar,
-  TbChevronDown,
-  TbFileImport,
-  TbHeadphones,
-  TbLock,
-  TbMedal,
-  TbShieldHalf,
-  TbSparkles,
-  TbTarget,
-  TbUsers,
-} from 'react-icons/tb'
+  ArrowRight,
+  BookOpen,
+  BarChart3,
+  ChevronDown,
+  FileInput,
+  Headphones,
+  Lock,
+  Medal,
+  ShieldHalf,
+  Sparkles,
+  Target,
+  Users,
+} from 'lucide-react'
 
 // Every claim here has to match something the app really does: no invented
 // reader counts or testimonials. Add social proof once there are real numbers.
 
 const features = [
   {
-    icon: TbLock,
+    icon: Lock,
     title: "Nobody gets spoiled",
     description: "Every comment in a reading circle is pinned to where its writer was in the book. You see it only once you've read that far. Your own are always open.",
   },
   {
-    icon: TbUsers,
+    icon: Users,
     title: "One link, any edition",
     description: "Share an invite link and friends join with their own copy: paperback, ebook or audiobook. Progress is a percent, so everyone's on one track.",
   },
   {
-    icon: TbHeadphones,
+    icon: Headphones,
     title: "Audiobooks count",
     description: "Log an audiobook by minutes listened instead of pages. Reading circles, stats and your goal treat it just like a print book.",
   },
   {
-    icon: TbShieldHalf,
+    icon: ShieldHalf,
     title: "Moods and content warnings",
     description: "Readers tag a book's moods and content warnings when they review it. Warnings stay folded until you tap, so you decide what you see.",
   },
   {
-    icon: TbChartBar,
+    icon: BarChart3,
     title: "Every stat, free",
     description: "Books and pages by month, ratings, genres, authors, re-reads and your streak. All your stats are free. Plus adds recaps, hosting tools and personalisation.",
   },
   {
-    icon: TbSparkles,
+    icon: Sparkles,
     title: "Your year, Wrapped",
     description: "When the year ends, get a recap of everything you read, ready to share with friends.",
   },
 ]
 
 const extras = [
-  { icon: TbBook2, text: "Track every page, keep notes and favourite quotes" },
-  { icon: TbTarget, text: "Set a yearly goal and watch the bar fill" },
-  { icon: TbMedal, text: "Finish seasonal quests for limited-edition medals" },
+  { icon: BookOpen, text: "Track every page, keep notes and favourite quotes" },
+  { icon: Target, text: "Set a yearly goal and watch the bar fill" },
+  { icon: Medal, text: "Finish seasonal quests for limited-edition medals" },
 ]
 
 const steps = [
@@ -100,7 +100,7 @@ const faqs = [
 
 const ctaClassName = "bg-brand-fill hover:bg-brand-fill-hover text-white h-12 px-7 text-base font-semibold w-full sm:w-auto"
 const cardClassName = "rounded-[20px] border border-neutral-200 dark:border-neutral-800"
-const mutedClassName = "text-slate-600 dark:text-gray-300/90"
+const mutedClassName = "text-neutral-600 dark:text-neutral-300/90"
 
 // A still of what a circle looks like: three readers on one track, a locked comment ahead.
 const readers = [
@@ -135,7 +135,7 @@ const CircleStill: FC = () => (
         <p>Okay the letter in chapter 6. I had to put it down for a minute.</p>
       </div>
       <div className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm text-muted-foreground">
-        <TbLock size={16} aria-hidden className="shrink-0" />
+        <Lock size={16} aria-hidden className="shrink-0" />
         2 comments ahead at <span className="font-semibold tabular-nums text-foreground">67%</span>
       </div>
     </div>
@@ -150,7 +150,7 @@ const Landing: FC = () => {
         <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
             <Image src="/logo.svg" width={48} height={48} alt="Bookmark logo" className="mb-6" />
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.08] tracking-tight max-w-3xl">
+            <h1 className="display-hero max-w-3xl">
               Read with your friends.<br className="hidden sm:block" /> Nobody gets spoiled.
             </h1>
             <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
@@ -173,7 +173,7 @@ const Landing: FC = () => {
       <section className="px-6">
         <div className={`max-w-5xl mx-auto p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-5 md:gap-8 ${cardClassName}`}>
           <div className="h-12 w-12 shrink-0 rounded-full bg-brand/10 flex items-center justify-center">
-            <TbFileImport size={24} className="text-brand" />
+            <FileInput size={24} className="text-brand" />
           </div>
           <div className="flex-1">
             <h2 className="text-lg md:text-xl font-bold">Your reading history comes with you</h2>
@@ -185,7 +185,7 @@ const Landing: FC = () => {
             href="/register"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-fill dark:text-brand hover:underline shrink-0"
           >
-            Sign up and import <TbArrowRight size={16} aria-hidden />
+            Sign up and import <ArrowRight size={16} aria-hidden />
           </Link>
         </div>
       </section>
@@ -244,7 +244,7 @@ const Landing: FC = () => {
             <details key={question} className={`group px-6 py-5 ${cardClassName}`}>
               <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">
                 {question}
-                <TbChevronDown size={20} aria-hidden className="shrink-0 transition-transform group-open:rotate-180" />
+                <ChevronDown size={20} aria-hidden className="shrink-0 transition-transform group-open:rotate-180" />
               </summary>
               <p className={`text-sm md:text-base mt-3 ${mutedClassName}`}>{answer}</p>
             </details>

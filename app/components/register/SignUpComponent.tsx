@@ -83,13 +83,13 @@ if (!isMobile) {
     <AnimatePresence>
     <motion.div
     {...{initial,animate,transition,exit}}
-    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>
+    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
       <div className="flex justify-center items-center gap-3 mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='Bookmark'/>
       </div>
   {registeredEmail ? (
   <div className="">
-    <h1 className="text-2xl font-bold mb-10 text-center">Check your inbox</h1>
+    <h1 className="page-title mb-10 text-center">Check your inbox</h1>
     <CheckInboxNotice
       email={registeredEmail}
       title={resent ? "You'd already started signing up" : "Account created"}
@@ -99,9 +99,9 @@ if (!isMobile) {
   </div>
   ) : (
   <div className="">
-    <h1 className="text-2xl font-bold mb-10 text-center">Create your account</h1>
+    <h1 className="page-title mb-10 text-center">Create your account</h1>
     {serverError && (
-      <p role="alert" className="mb-4 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm px-3 py-2">
+      <p role="alert" className="mb-4 rounded-md bg-danger/10 text-danger text-sm px-3 py-2">
         {serverError} {serverError.includes("already exists") && <Link href={withCallback("/signin", callbackPath)} className="font-semibold underline">Sign in</Link>}
       </p>
     )}
@@ -130,12 +130,12 @@ if (!isMobile) {
           errors={errors} name="password" id="password" autoComplete="new-password" className="w-full"/>
         {!errors.password && <p className='text-xs text-muted-foreground'>At least {PASSWORD_MIN} characters.</p>}
       </div>
-      <Button disabled={isLoading} className="bg-red-500 text-white rounded-md py-2 mt-2">{isLoading ? "Creating account…" : "Create account"}</Button>
+      <Button disabled={isLoading} className="rounded-md py-2 mt-2">{isLoading ? "Creating account…" : "Create account"}</Button>
     </form>
     <div className="flex gap-3 items-center justify-center my-6">
-      <hr className='border-1 border-slate-400/50 w-full'/>
-      <span className='text-sm font-semibold text-slate-400'>OR</span>
-      <hr className='border-1 border-slate-400/50 w-full'/>
+      <hr className='border-1 border-neutral-400/50 w-full'/>
+      <span className='text-sm font-semibold text-neutral-400'>OR</span>
+      <hr className='border-1 border-neutral-400/50 w-full'/>
     </div>
     <div className="flex gap-2 w-full">
               <SignInWithOAuthButton provider="Google" callbackPath={callbackPath}/>

@@ -15,7 +15,7 @@ const Page = async () => {
   return (
     <div className="mt-8 sm:mt-12">
       <Container>
-        <h1 className="text-3xl sm:text-4xl font-bold mb-8">Achievements</h1>
+        <h1 className="page-title mb-8">Achievements</h1>
         <AchievementsView />
       </Container>
     </div>

@@ -1,7 +1,7 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users } from 'lucide-react'
+import { Search, Users } from 'lucide-react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
@@ -18,7 +18,6 @@ import useBookSearch from '@/app/hooks/useBookSearch'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import { GENRES } from '@/utils/helpers'
-import { IoSearch } from 'react-icons/io5'
 import { readableInk } from '@/lib/colour'
 import BookBlurb from '../books/BookBlurb'
 import useBookDescription from '@/app/hooks/useBookDescription'
@@ -177,7 +176,7 @@ const BookEntryModal: FC = () => {
   const searchBody = (
     <div className="w-full h-full px-6 self-start">
       <div className="relative">
-        <IoSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
         <input
           autoFocus
           value={query}
@@ -185,7 +184,7 @@ const BookEntryModal: FC = () => {
           placeholder="Search by title or author"
           aria-label="Search for a book"
           autoComplete="off"
-          className="flex h-12 w-full rounded-md border border-neutral-300 dark:border-input bg-background pl-10 pr-3 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex h-12 w-full rounded-md border border-input bg-background pl-10 pr-3 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
       </div>
       <div className="mt-3">
@@ -382,7 +381,7 @@ const BookEntryModal: FC = () => {
   const footer = (
     <div className="w-full h-full mt-auto p-6">
       <div className="flex items-center gap-3 justify-end mt-auto">
-        <Button onClick={bookEntryModal.onClose} variant="outline" className="border-slate-700 rounded-md py-2" disabled={isLoading}>Cancel</Button>
+        <Button onClick={bookEntryModal.onClose} variant="outline" className="border-neutral-700 rounded-md py-2" disabled={isLoading}>Cancel</Button>
         {stage === "shelf" && (
           <Button style={{ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading}>
             {SHELVES.find((s) => s.value === shelf)?.action}

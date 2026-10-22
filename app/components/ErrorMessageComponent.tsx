@@ -10,7 +10,7 @@ interface ErrorMessageComponentProps {
 const ErrorMessageComponent: FC<ErrorMessageComponentProps> = ({errors,name}) => {
   return (
     <ErrorMessage errors={errors} name={name}
-           render={({ message }) => <p className='text-rose-500 text-sm'>{message}</p>}/>
+           render={({ message }) => <p className='text-danger text-sm'>{message}</p>}/>
   )
 }
 

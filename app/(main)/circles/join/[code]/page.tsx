@@ -58,7 +58,7 @@ const Page = async ({ params }: PageProps) => {
           />
           <div className="flex flex-col gap-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reading circle</p>
-            <h1 className="text-3xl sm:text-4xl font-bold leading-tight">{buddyRead.title}</h1>
+            <h1 className="page-title">{buddyRead.title}</h1>
             <p className="text-muted-foreground">{buddyRead.author}</p>
           </div>
 

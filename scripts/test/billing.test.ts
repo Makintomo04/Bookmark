@@ -11,7 +11,7 @@ import { ASSUMED_USD_PER, REGIONAL_PRICES, currencyForCountry, formatPrice } fro
 import { canRedeemGift, extendComp, isNewAccount, makeGiftCode, normaliseGiftCode, referralRewardAllowed } from "@/lib/plusRewards";
 import { hostingAllowance } from "@/lib/buddyReads";
 import { handleStripeEvent, planForStatus, type BillingDb, type BillingStripeApi } from "@/lib/billing";
-import { formatPace, goalInputSchema, goalProgress, monthlyPace, setsExtraGoals } from "@/lib/goals";
+import { formatPace, goalInputSchema, goalProgress, monthTarget, monthlyPace, setsExtraGoals } from "@/lib/goals";
 import { personalisationOf, personalisationSchema, setsPersonalisation, shelfAccent } from "@/lib/personalisation";
 import { CHECKOUT_INTEGRATION_ID, stripeWebhooks } from "@/lib/stripe";
 
@@ -418,6 +418,21 @@ test("everyone gets a monthly pace from the yearly goal; Plus can set its own", 
   assert.deepEqual(monthlyPace({ targetBooks: 24, targetBooksPerMonth: 3 }, false), { perMonth: 2, custom: false });
   assert.equal(formatPace(monthlyPace({ targetBooks: 50 }).perMonth), "4.2");
   assert.equal(formatPace(2), "2");
+});
+
+test("this month's target is whole books to stay on track for the yearly goal", () => {
+  // 14 a year, none read by October: 14 left over Oct–Dec, so 5 this month (not 14/12 = 1.2).
+  assert.deepEqual(monthTarget({ targetBooks: 14 }, 0, 9), { perMonth: 5, custom: false });
+  // In January it's the even share, rounded up.
+  assert.deepEqual(monthTarget({ targetBooks: 14 }, 0, 0), { perMonth: 2, custom: false });
+  // Ahead of pace needs less; the goal already met needs nothing.
+  assert.deepEqual(monthTarget({ targetBooks: 24 }, 22, 9), { perMonth: 1, custom: false });
+  assert.deepEqual(monthTarget({ targetBooks: 24 }, 30, 9), { perMonth: 0, custom: false });
+  // December takes everything that's left.
+  assert.deepEqual(monthTarget({ targetBooks: 24 }, 20, 11), { perMonth: 4, custom: false });
+  // A Plus target replaces it while Plus lasts.
+  assert.deepEqual(monthTarget({ targetBooks: 14, targetBooksPerMonth: 3 }, 0, 9), { perMonth: 3, custom: true });
+  assert.deepEqual(monthTarget({ targetBooks: 14, targetBooksPerMonth: 3 }, 0, 9, false), { perMonth: 5, custom: false });
 });
 
 const FOUNDING_PRICE = "price_founding";

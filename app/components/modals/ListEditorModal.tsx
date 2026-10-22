@@ -21,7 +21,7 @@ import useBookSearch from '@/app/hooks/useBookSearch'
 import useListEditorModal, { EditableList, EditableListItem } from '@/app/hooks/useListEditorModal'
 import { isListsKey } from '@/app/hooks/useLists'
 
-const fieldClass = "w-full rounded-md border border-neutral-300 dark:border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
+const fieldClass = "w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
 const chipClass = "h-8 px-3 rounded-full text-xs font-medium border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 const iconButtonClass = "grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-foreground disabled:opacity-30 disabled:pointer-events-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
@@ -339,11 +339,11 @@ const ListEditorModal: FC = () => {
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
       {!isNew && (confirmDelete ? (
         <div className="mr-auto flex items-center gap-2">
-          <Button type="button" onClick={remove} disabled={isSaving} className="bg-rose-700 hover:bg-rose-800 text-white">Delete list</Button>
+          <Button type="button" onClick={remove} disabled={isSaving} variant="destructive">Delete list</Button>
           <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)} disabled={isSaving}>Keep it</Button>
         </div>
       ) : (
-        <Button type="button" variant="outline" onClick={() => setConfirmDelete(true)} disabled={isSaving} className="mr-auto text-rose-600 dark:text-rose-400 hover:text-rose-600">Delete</Button>
+        <Button type="button" variant="outline" onClick={() => setConfirmDelete(true)} disabled={isSaving} className="mr-auto text-danger hover:text-danger">Delete</Button>
       ))}
       <Button type="button" variant="outline" onClick={close} disabled={isSaving} className="hidden sm:inline-flex">{isDirty ? "Cancel" : "Close"}</Button>
       <Button type="button" onClick={save} disabled={isSaving || !isDirty || !draft.title.trim()} style={{ background: accent, color: readableInk(accent) }}>

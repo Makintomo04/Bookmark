@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Literata } from "next/font/google";
 import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Providers } from "./providers/provider";
@@ -10,7 +10,9 @@ import { Analytics } from '@vercel/analytics/react';
 import { siteUrl } from "@/lib/siteUrl";
 import Toaster from "./components/ui/toaster";
 
-const font = Inter({ subsets: ["latin"] });
+const font = Inter({ subsets: ["latin"], variable: "--font-sans" });
+// The display face: page titles, heroes, Wrapped, big numbers and quotes. Never for UI controls.
+const display = Literata({ subsets: ["latin"], variable: "--font-display", style: ["normal", "italic"], axes: ["opsz"] });
 
 const description = "Track every book you read, hit your yearly reading goals, and follow what your friends are reading on Bookmark.";
 
@@ -43,7 +45,8 @@ export default function RootLayout({
 }>) {
   
   return (
-    <html lang="en">
+    // next-themes adds the theme class on the client, so the html attributes differ from the server render by design.
+    <html lang="en" className={`${font.variable} ${display.variable}`} suppressHydrationWarning>
       <body className={font.className}>
         <Providers>
         <Toaster />

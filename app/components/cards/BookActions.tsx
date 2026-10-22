@@ -23,7 +23,7 @@ import {
 
 const tones = {
   overlay: "bg-black/60 text-white hover:bg-black/80 focus-visible:ring-white",
-  plain: "text-muted-foreground hover:text-foreground hover:bg-neutral-200 dark:hover:bg-neutral-800 focus-visible:ring-neutral-400",
+  plain: "text-muted-foreground hover:text-foreground hover:bg-neutral-200 dark:hover:bg-neutral-800 focus-visible:ring-ring",
 }
 
 interface BookActionsProps {
@@ -82,7 +82,7 @@ const BookActions: FC<BookActionsProps> = ({ book, onUpdateProgress, tone = 'ove
           <DropdownMenuSeparator />
           <ShelfMenuItems book={book} />
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={removeBook} className="text-red-500 focus:text-red-500">Remove</DropdownMenuItem>
+          <DropdownMenuItem onSelect={removeBook} className="text-danger focus:text-danger">Remove</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -9,7 +9,7 @@ interface FooterProps {
 
 const Footer: FC<FooterProps> = ({}) => {
   return (
-  <div className="h-auto sm:h-28 sm:max-h-28 w-full p-8 dark:bg-background bg-slate-100/40 mt-auto">
+  <div className="h-auto sm:h-28 sm:max-h-28 w-full p-8 dark:bg-background bg-neutral-100/40 mt-auto">
     <Container>
       <div className="flex flex-col gap-3 items-center sm:items-stretch justify-center sm:justify-between h-full w-full">
       <Logo/>

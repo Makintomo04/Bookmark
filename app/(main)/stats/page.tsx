@@ -37,7 +37,7 @@ const Page = async ({ searchParams }: PageProps) => {
   return (
     <div className={`mt-8 sm:mt-12 ${ACCENT_SCOPE}`} style={accentVars(readerAccent(user.favColour))}>
       <Container>
-        <h1 className="text-3xl sm:text-4xl font-bold">Your reading stats</h1>
+        <h1 className="page-title">Your reading stats</h1>
         <p className="mt-2 mb-8 text-muted-foreground">All of it, free. No upgrade, no paywall: it&apos;s your data.</p>
         {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<MonthlyWrapCards />} />}
       </Container>

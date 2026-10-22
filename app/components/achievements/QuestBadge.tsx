@@ -29,7 +29,7 @@ const QuestBadge: FC<QuestBadgeProps> = ({ achievement, onSelect }) => {
         type="button"
         onClick={onSelect}
         aria-label={`${achievement.title}: ${rung.earned ? "earned" : `${towards} of ${rung.value} books`}. View quest medal`}
-        className="group flex w-full flex-col items-center rounded-xl p-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+        className="group flex w-full flex-col items-center rounded-xl p-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="relative w-full max-w-[120px] aspect-[5/6] transition-transform duration-200 group-hover:-translate-y-0.5">
           <svg viewBox="0 0 100 120" aria-hidden className="absolute inset-0 h-full w-full">

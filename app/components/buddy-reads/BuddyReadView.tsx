@@ -92,7 +92,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Reading circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}{buddyRead.audioMinutes ? " · audiobook" : ""}
           </p>
-          <h1 className="text-2xl sm:text-3xl font-bold leading-tight break-words">{buddyRead.title}</h1>
+          <h1 className="page-title break-words">{buddyRead.title}</h1>
           <p className="text-muted-foreground">{buddyRead.author}</p>
           <p className="text-sm text-muted-foreground" suppressHydrationWarning>
             {notStarted ? `Starts ${moment(buddyRead.startsAt).format("D MMMM")}` : `Started ${moment(buddyRead.startsAt).format("D MMMM YYYY")}`}

@@ -4,13 +4,14 @@ import Image from 'next/image'
 import Container from '@/app/components/Container'
 import TierAvatar from '@/app/components/profile-head/TierAvatar'
 import TierPreviewControls from '@/app/components/dev/TierPreviewControls'
+import PlanPreviewControls from '@/app/components/dev/PlanPreviewControls'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { READER_TIERS, tierRingStyle } from '@/lib/readerTier'
 
-export const metadata: Metadata = { title: "Reader tiers" }
+export const metadata: Metadata = { title: "Dev tools" }
 
-// Dev-only gallery of every reader tier, using your own avatar, so tiers can be
-// QA'd without seeding hundreds of books. Not served in production.
+// Dev-only tools for your own account: a gallery of every reader tier, using your own avatar, so
+// tiers can be QA'd without seeding hundreds of books, and a Plus switch. Not served in production.
 const Page = async () => {
   if (process.env.NODE_ENV === 'production') notFound()
   const user = await getCurrentUser()
@@ -21,9 +22,10 @@ const Page = async () => {
   return (
     <div className="mt-8 sm:mt-12">
       <Container>
-        <h1 className="text-3xl font-bold">Reader tiers</h1>
+        <h1 className="page-title">Dev tools</h1>
         <p className="mt-2 text-muted-foreground">Dev only. Each avatar is rendered at its tier&apos;s threshold.</p>
         <TierPreviewControls />
+        <PlanPreviewControls />
 
         <ul className="mt-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8">
           {samples.map((s) => (

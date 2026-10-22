@@ -21,14 +21,26 @@ const config = {
       
     },
     extend: {
+      // Focus rings sit 2px off the page ground in both themes (Tailwind's default offset is white).
+      ringOffsetColor: {
+        DEFAULT: "hsl(var(--background))",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        display: ["var(--font-display)", "Georgia", "Times New Roman", "serif"],
+      },
       colors: {
         // `fill` is the brand red darkened so white text on it passes 4.5:1;
-        // DEFAULT stays for marks and text on the dark ground, where it reads better.
+        // DEFAULT stays for marks (logo, your progress, stars) and never sits under white text.
+        // `text` is red words and links, darkened in light mode to keep 4.5:1.
         brand: {
           DEFAULT: "#F13C3C",
           fill: "#D92D2D",
           "fill-hover": "#C42727",
+          text: "hsl(var(--brand-text))",
         },
+        // Error text and invalid field edges; `destructive` is the fill for the final irreversible confirm.
+        danger: "hsl(var(--danger))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

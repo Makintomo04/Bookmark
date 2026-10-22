@@ -9,10 +9,10 @@ import { usePathname } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
-import { IoClose } from 'react-icons/io5'
-import { BarChart3, ChevronRight, Compass, Crown, Flag, Heart, Home, LogOut, Rss, Sparkles, Users, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronRight, Compass, Crown, Flag, Heart, Home, LogOut, Rss, Settings, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isWrappedSeason } from '@/lib/wrappedSeason'
+import { tierPreviewEnabled } from '@/app/hooks/useTierPreview'
 interface UserMenuProps {
 
 }
@@ -80,8 +80,8 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
       const active = href === "/" ? pathname === `/u/${user.username}` : pathname?.startsWith(href)
       return (
         <Link key={href} href={href} onClick={close} aria-current={active ? "page" : undefined}
-          className={cn("flex items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm font-medium transition hover:bg-slate-100 dark:hover:bg-slate-800",
-            active && "bg-slate-100 dark:bg-slate-800", inHeader && "sm:hidden")}>
+          className={cn("flex items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm font-medium transition hover:bg-neutral-100 dark:hover:bg-neutral-800",
+            active && "bg-neutral-100 dark:bg-neutral-800", inHeader && "sm:hidden")}>
           <Icon size={18} className="text-muted-foreground shrink-0" aria-hidden />
           {label}
         </Link>
@@ -92,14 +92,14 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
       <>
         <div className="flex gap-2 relative items-center">
             {wrappedYear && (
-              <Link href={`/wrapped/${wrappedYear}`} className="hidden sm:inline-flex h-9 items-center px-3 rounded-full text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+              <Link href={`/wrapped/${wrappedYear}`} className="hidden sm:inline-flex h-9 items-center px-3 rounded-full text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 Your {wrappedYear} Wrapped
               </Link>
             )}
             <NotificationBell/>
 
         <button type="button" aria-label="Open menu" aria-expanded={showMenu} onClick={()=>setShowMenu((state)=>!state)}
-          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-4 focus-visible:ring-offset-background">
+          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
           {avatar()}
         </button>
         {showMenu && <>
@@ -109,12 +109,12 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <div className="flex items-center gap-3 px-4 pt-5 pb-4 md:pt-4">
               {avatar("h-11 w-11 md:h-9 md:w-9")}
               <p className="min-w-0 flex-1 font-semibold truncate">{user.username}</p>
-              <button type="button" aria-label="Close menu" onClick={close} className="p-2 bg-slate-200 dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 transition rounded-full md:hidden">
-                <IoClose size={22} />
+              <button type="button" aria-label="Close menu" onClick={close} className="p-2 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition rounded-full md:hidden">
+                <X size={20} aria-hidden />
               </button>
             </div>
 
-            <Link href="/achievements" onClick={close} className="group mx-4 mb-2 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 transition hover:bg-slate-50 dark:hover:bg-slate-900">
+            <Link href="/achievements" onClick={close} className="group mx-4 mb-2 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 transition hover:bg-neutral-50 dark:hover:bg-neutral-900">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">{tier ? `${tier.label} reader` : "Reading tier"}</p>
                 <ChevronRight size={16} className="text-muted-foreground transition group-hover:translate-x-0.5" aria-hidden />
@@ -133,8 +133,10 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <hr className="mx-4 border-neutral-200 dark:border-neutral-800" />
             <div className="flex flex-col px-2 py-2">{secondary.map(navLink)}</div>
             <div className="mx-2 mt-auto md:mt-0 border-t border-neutral-200 dark:border-neutral-800 py-2">
+              {navLink({ href: "/settings", label: "Settings", icon: Settings })}
+              {tierPreviewEnabled && navLink({ href: "/dev/tiers", label: "Dev tools", icon: Wrench })}
               <button type="button" onClick={() => signOut({ callbackUrl: `${window.location.origin}/signin` })}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm font-medium text-muted-foreground transition hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-foreground">
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm font-medium text-muted-foreground transition hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-foreground">
                 <LogOut size={18} className="shrink-0" aria-hidden />
                 Log out
               </button>
@@ -150,10 +152,10 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
   // Sign in reads like the page links beside it, so Sign up is the one thing in the row that stands out.
   return (
     <div className="flex items-center gap-2 sm:gap-4">
-      <Link href="/signin" className="inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+      <Link href="/signin" className="inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         Sign in
       </Link>
-      <Link href="/register" className="inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+      <Link href="/register" className="inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         Sign up
       </Link>
     </div>

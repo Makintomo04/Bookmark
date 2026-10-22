@@ -138,7 +138,7 @@ const ImportFlow: FC = () => {
   return (
     <div className="flex flex-col gap-8">
       {error && (
-        <div role="alert" className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/40 dark:border-red-900 px-4 py-3 text-sm flex flex-wrap items-center gap-3">
+        <div role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm flex flex-wrap items-center gap-3">
           <span className="flex-1 min-w-[12rem]">{error}</span>
           {(job?.status === "matching" || job?.status === "importing") && (
             <Button type="button" size="sm" variant="outline" onClick={resume}>Carry on</Button>
@@ -182,7 +182,7 @@ const UploadStep: FC<{ onFile: (file: File) => Promise<void> }> = ({ onFile }) =
   return (
     <>
       <header>
-        <h1 className="text-3xl sm:text-4xl font-bold">Bring your library with you</h1>
+        <h1 className="page-title">Bring your library with you</h1>
         <p className="mt-3 text-muted-foreground max-w-prose">
           Bring your shelves, star ratings, reviews and every reading date from Goodreads or StoryGraph.
           You&apos;ll see a preview before anything is added, and your data leaves whenever you do.
@@ -254,7 +254,7 @@ const ProgressStep: FC<{ title: string; detail: string; value: number; max: numb
   <section className="flex flex-col gap-5 py-8" aria-live="polite">
     <div className="flex items-center gap-3">
       <Loader2 className="animate-spin text-muted-foreground" aria-hidden />
-      <h1 className="text-2xl sm:text-3xl font-bold">{title}</h1>
+      <h1 className="page-title">{title}</h1>
     </div>
     <ProgressBar value={value} max={max} />
     <p className="text-sm text-muted-foreground tabular-nums">{detail}</p>
@@ -339,7 +339,7 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
     <section className="flex flex-col gap-6">
       <header>
         <p className="text-sm text-muted-foreground">{SOURCE_LABEL[job.source]} export{job.fileName ? ` · ${job.fileName}` : ""}</p>
-        <h1 className="mt-1 text-3xl sm:text-4xl font-bold">Ready to import {plural(job.toImport, "book")}</h1>
+        <h1 className="page-title mt-1">Ready to import {plural(job.toImport, "book")}</h1>
       </header>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -587,7 +587,7 @@ const SummaryStep: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => vo
     <section className="flex flex-col gap-8">
       <header className="text-center flex flex-col items-center gap-3 py-4">
         <span className="rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 p-3"><Check size={28} aria-hidden /></span>
-        <h1 className="text-3xl sm:text-4xl font-bold">{headline}</h1>
+        <h1 className="page-title">{headline}</h1>
         <p className="text-muted-foreground">
           Welcome home.{result.duplicates > 0 && ` ${plural(result.duplicates, "book")} already on your shelf ${result.duplicates === 1 ? "was" : "were"} left as ${result.duplicates === 1 ? "it was" : "they were"}.`}
         </p>

@@ -27,7 +27,7 @@ const TierPreviewControls: FC = () => {
               aria-checked={active}
               onClick={() => setBooksRead(o.booksRead)}
               className={cn(
-                "h-9 rounded-md px-3 text-sm font-medium border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
+                "h-9 rounded-md px-3 text-sm font-medium border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active ? "bg-foreground text-background border-foreground" : "border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900"
               )}
             >

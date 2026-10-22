@@ -93,7 +93,7 @@ const BulkBar: FC<{ selected: Book[], onDone: () => void, onCancel: () => void }
           {lists.map((l) => <DropdownMenuItem key={l.id} onSelect={() => addToList(l.id)}>{l.title}</DropdownMenuItem>)}
         </DropdownMenuContent>
       </DropdownMenu>
-      <Button size="sm" variant="outline" disabled={busy || selected.length === 0} onClick={remove} className="text-red-500 hover:text-red-500">Remove</Button>
+      <Button size="sm" variant="outline" disabled={busy || selected.length === 0} onClick={remove} className="text-danger hover:text-danger">Remove</Button>
       <Button size="sm" variant="ghost" onClick={onCancel}>Done</Button>
     </div>
   )

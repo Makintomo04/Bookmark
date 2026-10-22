@@ -52,12 +52,12 @@ const ResetPasswordComponent = () => {
     initial={{ opacity: 1,y:-50 }}
     animate={{ opacity: 1,y:0 }}
     transition={{ ease: "circIn" }}
-    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-slate-100 dark:bg-background sm:rounded-lg'>
+    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
       <div className="flex justify-center items-center gap-3 mb-6">
       <Image src='/logo.svg' width={40} height={40} alt='Bookmark'/>
       </div>
     <div className="w-full">
-    <h1 className="text-2xl font-bold mb-4 text-center">Set a new password</h1>
+    <h1 className="page-title mb-4 text-center">Set a new password</h1>
   </div>
   <div className="">
     {!token || !email ? (
@@ -65,7 +65,7 @@ const ResetPasswordComponent = () => {
     ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full" noValidate>
       {serverError && (
-        <p role="alert" className="rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-sm px-3 py-2">
+        <p role="alert" className="rounded-md bg-danger/10 text-danger text-sm px-3 py-2">
           {serverError} {serverError.includes("invalid or has expired") && <Link href="/forgot-password" className="font-semibold underline">Request a new link</Link>}
         </p>
       )}
@@ -85,7 +85,7 @@ const ResetPasswordComponent = () => {
           name="password" id="password" autoComplete="new-password" className="w-full"/>
         {!errors.password && <p className='text-xs text-muted-foreground'>At least {PASSWORD_MIN} characters.</p>}
       </div>
-      <Button disabled={isLoading} className="bg-red-500 text-white rounded-md py-2">{isLoading ? "Saving…" : "Save and sign in"}</Button>
+      <Button disabled={isLoading} className="rounded-md py-2">{isLoading ? "Saving…" : "Save and sign in"}</Button>
     </form>
     )}
   </div>

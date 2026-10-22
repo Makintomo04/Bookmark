@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
-import { IoNotificationsOutline } from "react-icons/io5"
+import { Bell } from "lucide-react"
 import Image from 'next/image'
 import Link from 'next/link'
 import moment from 'moment'
@@ -70,8 +70,8 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
   return (
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
-        <div className="relative cursor-pointer p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition">
-          <IoNotificationsOutline size={22}/>
+        <div className="relative cursor-pointer p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition">
+          <Bell size={20} aria-hidden />
           {unreadCount > 0 && (
             <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-brand-fill text-white text-[10px] flex items-center justify-center font-bold">
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -84,8 +84,8 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           <p className="p-3 text-sm text-muted-foreground">No notifications yet.</p>
         )}
         {notifications.map((n: any) => (
-          <Link key={n.id} href={notificationHref(n)} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: n.actor.favColour || "#f44336", ...tierRingStyle(booksReadFor(n.actor.username, booksReadOf(n.actor))) }}>
+          <Link key={n.id} href={notificationHref(n)} className="flex items-center gap-3 p-2 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition">
+            <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: n.actor.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(n.actor.username, booksReadOf(n.actor))) }}>
               {n.actor.image && <Image src={n.actor.image} alt="" fill className="object-cover"/>}
             </div>
             <div className="min-w-0">

@@ -60,13 +60,13 @@ const ErrorState: FC<ErrorStateProps> = ({ error, reset, fullScreen }) => {
   return (
     <div className={cn('flex flex-col items-center justify-center px-4 py-16', fullScreen ? 'min-h-screen' : 'min-h-[65vh]')}>
       {fullScreen && (
-        <Link href="/" className="mb-12 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+        <Link href="/" className="mb-12 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Logo />
         </Link>
       )}
       <div role="alert" className="flex flex-col items-center text-center max-w-md">
         <LostBookmark />
-        <h1 ref={headingRef} tabIndex={-1} className="mt-8 text-2xl sm:text-3xl font-bold tracking-tight focus:outline-none">
+        <h1 ref={headingRef} tabIndex={-1} className="page-title mt-8 focus:outline-none">
           We lost your place
         </h1>
         <p className="mt-3 text-muted-foreground">
@@ -91,7 +91,7 @@ const ErrorState: FC<ErrorStateProps> = ({ error, reset, fullScreen }) => {
             <button
               type="button"
               onClick={copyDigest}
-              className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono bg-neutral-100 dark:bg-neutral-900 hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+              className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono bg-neutral-100 dark:bg-neutral-900 hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={copied ? 'Reference copied' : `Copy error reference ${error.digest}`}
             >
               {error.digest}

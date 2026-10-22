@@ -42,7 +42,7 @@ const UpgradePrompt: FC<UpgradePromptProps> = ({ feature, variant = 'card', mess
       </div>
       <Link
         href={UPGRADE_URL}
-        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-brand-fill px-4 text-sm font-semibold text-white transition hover:bg-brand-fill-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-brand-fill px-4 text-sm font-semibold text-white transition hover:bg-brand-fill-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         See Bookmark Plus <ArrowRight size={14} aria-hidden />
       </Link>
