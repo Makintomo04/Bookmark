@@ -74,7 +74,8 @@ export const PICKS_SCHEMA = {
         properties: {
           r: { type: "integer", description: "The row's index, as given." },
           c: { type: ["integer", "null"], description: "The chosen candidate's position, or null for none." },
-          confidence: { type: "number", minimum: 0, maximum: 1 },
+          // No minimum/maximum: structured outputs reject them, and readPicks clamps to 0–1 anyway.
+          confidence: { type: "number", description: "0 to 1." },
         },
         required: ["r", "c", "confidence"],
         additionalProperties: false,
