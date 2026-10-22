@@ -1,9 +1,20 @@
-import nodemailer, { Transporter } from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 let transporterPromise: Promise<Transporter> | null = null;
 
-function buildTransporter(): Promise<Transporter> {
-  if (process.env.EMAIL_SERVER_HOST) {
+// How mail goes out. Without an SMTP host, development falls back to a disposable Ethereal test inbox;
+// production (which on Vercel includes preview deployments) refuses instead, so verification,
+// password-reset and magic-link emails can never silently go to a throwaway inbox.
+export function mailTransportFor(env: { NODE_ENV?: string; EMAIL_SERVER_HOST?: string }): "smtp" | "ethereal" {
+  if (env.EMAIL_SERVER_HOST) return "smtp";
+  if (env.NODE_ENV === "production") {
+    throw new Error("EMAIL_SERVER_HOST is not set: production can't send verification, password-reset or sign-in emails.");
+  }
+  return "ethereal";
+}
+
+async function buildTransporter(): Promise<Transporter> {
+  if (mailTransportFor(process.env) === "smtp") {
     return Promise.resolve(
       nodemailer.createTransport({
         host: process.env.EMAIL_SERVER_HOST,
@@ -16,8 +27,7 @@ function buildTransporter(): Promise<Transporter> {
     );
   }
 
-  // No production email provider configured - fall back to a disposable
-  // Ethereal test inbox so email flows are still testable in local dev.
+  // Development only (see mailTransportFor), so the test inbox's login is fine to log.
   return nodemailer.createTestAccount().then((testAccount) => {
     console.warn(
       `No EMAIL_SERVER_HOST set - using a disposable Ethereal test inbox for dev. Preview sent mail at https://ethereal.email using login ${testAccount.user} / ${testAccount.pass}`
@@ -36,7 +46,11 @@ function buildTransporter(): Promise<Transporter> {
 
 function getTransporter(): Promise<Transporter> {
   if (!transporterPromise) {
-    transporterPromise = buildTransporter();
+    // Not cached when it fails, so a missing setting is reported on every send rather than once.
+    transporterPromise = buildTransporter().catch((err) => {
+      transporterPromise = null;
+      throw err;
+    });
   }
   return transporterPromise;
 }
