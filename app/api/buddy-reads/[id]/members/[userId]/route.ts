@@ -12,7 +12,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string, u
   if (notMember) return notMember;
 
   const leaving = params.userId === currentUser.id;
-  if (leaving && membership.isHost) return buddyReadError("Hosts can't leave. Archive the buddy read instead.", 400);
+  if (leaving && membership.isHost) return buddyReadError("Hosts can't leave. Archive the reading circle instead.", 400);
   if (!leaving && !membership.isHost) return buddyReadError("Only the host can remove readers.", 403);
   if (!isObjectId(params.userId)) return buddyReadError("Reader not found", 404);
 

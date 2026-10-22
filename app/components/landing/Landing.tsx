@@ -30,7 +30,7 @@ const features = [
   },
   {
     icon: TbEyeOff,
-    title: "Buddy reads, no spoilers",
+    title: "Reading circles, no spoilers",
     description: "Read a book with friends. Everyone's progress sits in one place, and comments stay hidden until you reach them.",
   },
   {
@@ -75,7 +75,7 @@ const faqs = [
     answer: "Yes. Import your shelves, ratings, reviews and reading dates in about a minute, right after you sign up.",
   },
   {
-    question: "Will buddy-read comments spoil the book?",
+    question: "Will reading circle comments spoil the book?",
     answer: "No. Comments stay hidden until you reach the part of the book they're about, so you can read at your own pace.",
   },
   {

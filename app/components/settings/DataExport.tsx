@@ -1,6 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import Link from 'next/link'
 import { Download, FileUp, Loader2 } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -34,7 +34,7 @@ const DataExport: FC<{ disabled?: boolean }> = ({ disabled }) => {
       a.remove()
       URL.revokeObjectURL(url)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't export your data. Try again.", { position: "bottom-center" })
+      notify.error(err instanceof Error ? err.message : "Couldn't export your data. Try again.", { retry: () => download(format) })
     } finally {
       setPending(null)
     }

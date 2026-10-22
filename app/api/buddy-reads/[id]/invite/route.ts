@@ -4,18 +4,20 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { BUDDY_READ_MAX_MEMBERS } from "@/lib/buddyReads";
+import { acceptsBuddyReadInvite, preferencesOf, preferencesSelect } from "@/lib/preferences";
 import { buddyReadError, isBlockedEitherWay, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 
 const inviteSchema = z.object({ username: z.string().trim().min(1, "Enter a username").max(60) });
 
-// Any member can invite a reader by username. Following isn't needed, and the invite link works without this.
+// Any member can invite a reader by username, if the reader's buddyReadInvites preference allows it.
+// The invite link works regardless: joining through it is the reader's own choice.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);
   if (notMember) return notMember;
   const { buddyRead } = membership;
-  if (buddyRead.status === "ARCHIVED") return buddyReadError("This buddy read has ended.", 409);
+  if (buddyRead.status === "ARCHIVED") return buddyReadError("This reading circle has ended.", 409);
 
   const parsed = await parseBody(req, inviteSchema);
   if (parsed.response) return parsed.response;
@@ -23,19 +25,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const limit = rateLimit(`buddy-read-invite:${currentUser.id}`, 30, 60 * 60 * 1000);
   if (!limit.ok) return buddyReadError(tooManyRequestsMessage, 429);
 
-  const invitee = await prisma.user.findUnique({ where: { username: parsed.data.username.replace(/^@/, "") }, select: { id: true } });
+  const invitee = await prisma.user.findUnique({ where: { username: parsed.data.username.replace(/^@/, "") }, select: { id: true, ...preferencesSelect } });
   // Blocked readers look the same as unknown ones.
   if (!invitee || (await isBlockedEitherWay(currentUser.id, invitee.id)) || (await isBlockedEitherWay(buddyRead.hostId, invitee.id))) {
     return buddyReadError("No reader with that username.", 404);
   }
   if (invitee.id === currentUser.id) return buddyReadError("You're already here.", 400);
 
+  const preferences = preferencesOf(invitee);
+  const followsInviter = preferences.buddyReadInvites === "FOLLOWING"
+    && !!(await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: invitee.id, followingId: currentUser.id } }, select: { id: true } }));
+  if (!acceptsBuddyReadInvite(preferences, followsInviter)) {
+    return buddyReadError("They aren't taking invites from you. Send them the invite link instead.", 403);
+  }
+
   const [isMember, count] = await Promise.all([
     prisma.buddyReadMember.findUnique({ where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId: invitee.id } }, select: { id: true } }),
     prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } }),
   ]);
   if (isMember) return buddyReadError("They're already reading along.", 409);
-  if (count >= BUDDY_READ_MAX_MEMBERS) return buddyReadError(`This buddy read is full (${BUDDY_READ_MAX_MEMBERS} readers).`, 409);
+  if (count >= BUDDY_READ_MAX_MEMBERS) return buddyReadError(`This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, 409);
 
   // Inviting twice is a no-op, so nobody gets a second notification.
   const existing = await prisma.buddyReadInvite.findUnique({ where: { buddyReadId_inviteeId: { buddyReadId: buddyRead.id, inviteeId: invitee.id } } });

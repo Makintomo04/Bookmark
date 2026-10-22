@@ -13,7 +13,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);
   if (notMember) return notMember;
   const { buddyRead, progress } = membership;
-  if (buddyRead.status === "ARCHIVED") return buddyReadError("This buddy read has ended.", 409);
+  if (buddyRead.status === "ARCHIVED") return buddyReadError("This reading circle has ended.", 409);
 
   const parsed = await parseBody(req, commentSchema);
   if (parsed.response) return parsed.response;

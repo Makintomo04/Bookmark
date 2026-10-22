@@ -1,4 +1,4 @@
-// Buddy reads: the rules shared by the API and the client, and the spoiler lock itself.
+// Reading circles: the rules shared by the API and the client, and the spoiler lock itself.
 // No database or "@/" imports here, so scripts/check-buddy-read-spoilers.ts can run it under plain Node.
 import { z } from "zod";
 
@@ -6,7 +6,7 @@ export const BUDDY_READ_MAX_MEMBERS = 15
 export const COMMENT_MAX = 2000
 export const LABEL_MAX = 40
 export const SCHEDULE_MAX = 30
-// How often an open buddy read page polls. There's no realtime service; this keeps running costs near zero.
+// How often an open reading circle page polls. There's no realtime service; this keeps running costs near zero.
 export const BUDDY_READ_REFRESH_MS = 20_000
 
 // One tap each. A small fixed set keeps reactions calm and the unique index small.

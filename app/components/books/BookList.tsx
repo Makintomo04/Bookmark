@@ -5,7 +5,10 @@ import { FC } from 'react'
 import Loader from '../Loader';
 import { Book } from '@prisma/client';
 import useBooks from '@/app/hooks/useBooks';
-import { IoAddOutline } from 'react-icons/io5';
+import Link from 'next/link';
+import { FileUp, Plus } from 'lucide-react';
+import { readableInk } from '@/lib/colour';
+import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader';
 import BookGrid from './BookGrid';
 import FetchErrorState from '../FetchErrorState';
 
@@ -30,13 +33,26 @@ const BookList: FC<BookListProps> = ({}) => {
     return dateB.getTime() - dateA.getTime()
 })
 if(isErrorBooks) return <FetchErrorState error={isErrorBooks} what="your books" onRetry={() => mutateBooks()}/>
+// Matches the Lists empty state below it. The header already has Add a book, so this card's
+// main job is the import nudge: most new readers have a shelf somewhere else already.
 if(sortedBooks?.length === 0) return (
-  <div className="flex px-4 justify-center items-center h-32 bg-slate-100/40 dark:bg-neutral-900/40 border border-dashed rounded-lg text-muted-foreground">
-    <div className="flex gap-3 items-center">
-  <p className='text-lg'>You have no book entries, create an entry.</p>
-  <div style={{background:`${user?.favColour}`}} onClick={() => bookEntryModal.onOpen()} className="group hidden hover:-translate-y-[1px] transition h-24 w-full cursor-pointer sm:h-16 sm:w-16 md:h-10 md:w-10 bg-slate-200 hover:bg-slate-100 rounded-lg sm:rounded-full md:flex items-center justify-center sm:mt-0">
-      <IoAddOutline className="text-white text-5xl sm:text-3xl"/>
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
+    <div>
+      <p className="font-medium">Your shelf is empty</p>
+      <p className="mt-1 text-sm text-muted-foreground">Add the book you&apos;re reading now, or bring your whole history over from Goodreads or StoryGraph in about a minute.</p>
     </div>
+    <div className="flex flex-wrap gap-2 shrink-0">
+      <button
+        type="button"
+        onClick={() => bookEntryModal.onOpen()}
+        className={primaryButtonClass}
+        style={user?.favColour ? { background: user.favColour, color: readableInk(user.favColour) } : undefined}
+      >
+        <Plus size={16} aria-hidden />Add a book
+      </button>
+      <Link href="/import" className={secondaryButtonClass}>
+        <FileUp size={15} aria-hidden />Import your books
+      </Link>
     </div>
   </div>
   )

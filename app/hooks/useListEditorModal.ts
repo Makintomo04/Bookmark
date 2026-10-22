@@ -27,10 +27,11 @@ export interface EditableList {
   items: EditableListItem[]
 }
 
-export const emptyList = (isStaff = false): EditableList => ({
+// Readers' lists start as their defaultListVisibility preference; staff picks are always public.
+export const emptyList = (isStaff = false, visibility: EditableList["visibility"] = "PRIVATE"): EditableList => ({
   title: "",
   description: "",
-  visibility: isStaff ? "PUBLIC" : "PRIVATE",
+  visibility: isStaff ? "PUBLIC" : visibility,
   genres: [],
   tags: [],
   isPick: isStaff,

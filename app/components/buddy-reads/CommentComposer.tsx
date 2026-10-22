@@ -1,7 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { COMMENT_MAX, LABEL_MAX, formatPercent } from '@/lib/buddyReads'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 
@@ -50,7 +50,7 @@ const CommentComposer: FC<CommentComposerProps> = ({ buddyReadId, progress, pare
       setPosition(null)
       onPosted()
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't post that. Check your connection and try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't post that. Check your connection and try again."))
     }).finally(() => setIsSaving(false))
   }
 

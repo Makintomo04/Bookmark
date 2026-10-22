@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
@@ -149,12 +149,12 @@ const BookEntryModal: FC = () => {
       rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
-      toast.success(`Added to ${label}`, { position: "bottom-center" })
+      notify.success(`Added to ${label}`)
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't add that book. Try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't add that book. Try again."))
     }).finally(() => setIsLoading(false))
   }
 
@@ -246,11 +246,10 @@ const BookEntryModal: FC = () => {
             onUploadBegin={() => setIsLoading(true)}
             onClientUploadComplete={(res) => {
               setValue("coverImgSrc", res[0]?.url)
-              toast.success("Cover uploaded", { position: "bottom-center" })
               setIsLoading(false)
             }}
             onUploadError={(error: Error) => {
-              toast.error(error.message, { position: "bottom-center" })
+              notify.error(error.message || "Upload failed. Try another image.")
               setIsLoading(false)
             }}
           />

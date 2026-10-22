@@ -5,11 +5,10 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Providers } from "./providers/provider";
 import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
 import { extractRouterConfig } from "uploadthing/server";
-import { ToastContainer } from 'react-toastify';
 import { ourFileRouter } from "@/app/api/uploadthing/core";
-import 'react-toastify/dist/ReactToastify.css';
 import { Analytics } from '@vercel/analytics/react';
 import { siteUrl } from "@/lib/siteUrl";
+import Toaster from "./components/ui/toaster";
 
 const font = Inter({ subsets: ["latin"] });
 
@@ -47,7 +46,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={font.className}>
         <Providers>
-        <ToastContainer />
+        <Toaster />
         <SpeedInsights/>
         <NextSSRPlugin
           routerConfig={extractRouterConfig(ourFileRouter)}

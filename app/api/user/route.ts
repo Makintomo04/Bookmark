@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { User } from "@prisma/client";
 import { BIO_MAX, USERNAME_MAX, USERNAME_MIN } from "@/lib/profile";
+import { isStorableBanner } from "@/lib/banners";
 export async function GET (req:Request, res:Response) {
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
@@ -36,6 +37,9 @@ if (typeof username !== "string" || username.length < USERNAME_MIN || username.l
 if (typeof bio === "string" && bio.length > BIO_MAX) {
   return NextResponse.json({ error: `Bios are up to ${BIO_MAX} characters.` }, { status: 400 });
 }
+if (!isStorableBanner(bannerSrc)) {
+  return NextResponse.json({ error: "That banner pattern doesn't exist." }, { status: 400 });
+}
 
 const updatedData:Record<string,string | null> = {
 };
@@ -48,7 +52,7 @@ if (imageSrc !== currentUser.image) {
   updatedData["image"] = imageSrc;
 }
 if (bannerSrc !== currentUser.banner) {
-  updatedData["banner"] = bannerSrc;
+  updatedData["banner"] = bannerSrc ?? null;
 }
 if (body.bio !== currentUser.bio) {
   updatedData["bio"] = bio;

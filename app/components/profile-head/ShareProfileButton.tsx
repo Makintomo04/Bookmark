@@ -1,7 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
 import { Check, Code2, Link2, Share2 } from 'lucide-react'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { secondaryButtonClass } from './ProfileHeader'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
@@ -37,10 +37,9 @@ const ShareProfileButton: FC<ShareProfileButtonProps> = ({ username, embeddable 
     try {
       await copyText(url)
       setCopied(true)
-      toast.success("Profile link copied.", { position: "bottom-center" })
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error("Couldn't copy the link.", { position: "bottom-center" })
+      notify.error("Couldn't copy the link.")
     }
   }
 

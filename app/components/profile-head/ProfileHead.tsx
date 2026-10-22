@@ -17,6 +17,7 @@ import ReadingGoalWidget from './ReadingGoalWidget'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
+import { resolveBanner } from '@/lib/banners'
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -66,7 +67,7 @@ const ProfileHead: FC = () => {
         booksRead={booksReadFor(user.username, booksRead)}
         bio={user.bio}
         image={user.image}
-        banner={user.banner}
+        banner={resolveBanner(user.banner, user.id)}
         colour={user.favColour}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
