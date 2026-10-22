@@ -117,7 +117,15 @@ export function readPicks(raw: unknown, rows: LlmRowInput[]): LlmPick[] {
 // One request to Claude Haiku 5.5 for a batch of rows. Throws on any failure (the caller skips the pass).
 export const askClaude: AskFn = async (rows) => {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 1, timeout: REQUEST_TIMEOUT_MS });
+  // An organisation-level key (one not scoped to a workspace) must say which workspace to bill:
+  // ANTHROPIC_WORKSPACE_ID from the Console's workspace settings. A workspace-scoped key needs nothing.
+  const workspace = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    maxRetries: 1,
+    timeout: REQUEST_TIMEOUT_MS,
+    ...(workspace && { defaultHeaders: { "anthropic-workspace-id": workspace } }),
+  });
   const response = await client.messages.create({
     model: LLM_MODEL,
     // Room for the model's (brief) thinking as well as 25 short answers.
