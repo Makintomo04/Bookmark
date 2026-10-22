@@ -9,7 +9,7 @@ import useReadingGoal from '@/app/hooks/useReadingGoal'
 import useUser from '@/app/hooks/useUser'
 import { cn } from '@/lib/utils'
 import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
-import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, formatPace, goalProgress, monthlyPace } from '@/lib/goals'
+import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, goalProgress, monthTarget } from '@/lib/goals'
 import { Input as RawInput } from '../ui/input'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import { useForm, FieldValues, SubmitHandler } from 'react-hook-form'
@@ -169,9 +169,9 @@ const ReadingGoalWidget: FC = () => {
   const ratio = Math.min(1, completedThisYear / target)
   const status = pace(completedThisYear, target)
   // The page goal shows while on Plus; a lapsed account keeps it for when it comes back. The monthly
-  // pace is a stat everyone gets: the yearly goal over twelve months, or the Plus custom target.
+  // target is a stat everyone gets: whole books this month to stay on track, or the Plus custom target.
   const pagesTarget = canExtra ? goal?.targetPages : null
-  const monthPace = monthlyPace(goal, canExtra)
+  const monthGoal = monthTarget(goal, progress.books - progress.thisMonth, progress.month, canExtra)
 
   return (
     <div className="mt-5 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
@@ -212,13 +212,14 @@ const ReadingGoalWidget: FC = () => {
         </button>
       </div>
       <div className="mt-3 flex flex-col gap-2.5 border-t border-neutral-200 dark:border-neutral-800 pt-3">
-        <ExtraGoal
-          label={monthPace.custom ? `Books in ${MONTHS[progress.month]}` : `Books in ${MONTHS[progress.month]} · pace for your goal`}
-          done={progress.thisMonth}
-          target={monthPace.perMonth}
-          targetLabel={formatPace(monthPace.perMonth)}
-          colour={colour}
-        />
+        {monthGoal.perMonth > 0 && (
+          <ExtraGoal
+            label={monthGoal.custom ? `Books in ${MONTHS[progress.month]}` : `Books in ${MONTHS[progress.month]} · to stay on track`}
+            done={progress.thisMonth}
+            target={monthGoal.perMonth}
+            colour={colour}
+          />
+        )}
         {pagesTarget ? <ExtraGoal label={`Pages in ${year}`} done={progress.pages} target={pagesTarget} colour={colour} /> : null}
       </div>
     </div>

@@ -42,6 +42,16 @@ export function monthlyPace(goal: StoredGoal, allowCustom = true): MonthlyPace {
   return { perMonth: goal.targetBooks / 12, custom: false };
 }
 
+// Whole books to finish this month to stay on course for the yearly goal: what was left at the start of
+// the month, shared over the months that remain (this one included), rounded up. So a reader behind
+// pace sees what catching up takes, and one ahead sees less. 0 once the goal is already met.
+// A custom monthly target (Plus) replaces it. `month` is 0–11.
+export function monthTarget(goal: StoredGoal, finishedBeforeMonth: number, month: number, allowCustom = true): MonthlyPace {
+  if (allowCustom && goal.targetBooksPerMonth && goal.targetBooksPerMonth > 0) return { perMonth: goal.targetBooksPerMonth, custom: true };
+  const left = Math.max(0, goal.targetBooks - finishedBeforeMonth);
+  return { perMonth: Math.ceil(left / (12 - month)), custom: false };
+}
+
 // "2", or "2.5" for a pace that isn't whole.
 export function formatPace(perMonth: number): string {
   const rounded = Math.round(perMonth * 10) / 10;
