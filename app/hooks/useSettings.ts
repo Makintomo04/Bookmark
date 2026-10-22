@@ -1,6 +1,6 @@
 import { useState } from "react"
 import axios from "axios"
-import { toast } from "react-toastify"
+import { notify } from "@/lib/notify"
 import { useSWRConfig } from "swr"
 import useUser from "@/app/hooks/useUser"
 import { privacyOf, type PrivacySettings } from "@/lib/privacyRules"
@@ -31,7 +31,7 @@ export default function useSettings() {
       })
       .catch(() => {
         mutate(user, { revalidate: false })
-        toast.error("Couldn't save that setting. Try again.", { position: "bottom-center" })
+        notify.error("Couldn't save that setting.", { retry: () => save(key, value) })
       })
       .finally(() => setPending(null))
   }

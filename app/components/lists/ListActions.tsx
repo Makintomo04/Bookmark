@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSWRConfig } from 'swr'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Copy } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
 import { isListsKey } from '@/app/hooks/useLists'
@@ -27,11 +27,11 @@ export const CopyListButton: FC<{ listId: string }> = ({ listId }) => {
     setIsBusy(true)
     axios.post(`/api/lists/${listId}/copy`)
       .then((res) => {
-        toast.success("Copied to your lists. Only you can see it until you share it.", { position: "bottom-center" })
+        notify.success("Copied to your lists", { description: "Only you can see it until you share it." })
         mutate(isListsKey)
         router.push(`/lists/${res.data.id}`)
       })
-      .catch((err) => toast.error(err?.response?.data?.error || "Couldn't copy this list. Try again.", { position: "bottom-center" }))
+      .catch((err) => notify.error(apiError(err, "Couldn't copy this list. Try again."), { retry: copy }))
       .finally(() => setIsBusy(false))
   }
 

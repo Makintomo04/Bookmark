@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { toast } from "react-toastify"
+import { notify } from "@/lib/notify"
 import { useUploadThing } from "@/utils/uploadthing"
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
@@ -8,7 +8,7 @@ const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 export default function useImageUpload(onDone: (url: string) => void) {
   const [preview, setPreview] = useState<string | null>(null)
   const { startUpload, isUploading } = useUploadThing("imageUploader", {
-    onUploadError: (e) => toast.error(e.message || "Upload failed. Try another image.", { position: "bottom-center" }),
+    onUploadError: (e) => notify.error(e.message || "Upload failed. Try another image."),
   })
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
@@ -16,11 +16,11 @@ export default function useImageUpload(onDone: (url: string) => void) {
   const upload = async (file: File | undefined) => {
     if (!file) return
     if (!file.type.startsWith("image/")) {
-      toast.error("Choose an image file.", { position: "bottom-center" })
+      notify.error("Choose an image file.")
       return
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      toast.error("That image is over 4MB. Choose a smaller one.", { position: "bottom-center" })
+      notify.error("That image is over 4MB.", { description: "Choose a smaller one." })
       return
     }
     setPreview(URL.createObjectURL(file))

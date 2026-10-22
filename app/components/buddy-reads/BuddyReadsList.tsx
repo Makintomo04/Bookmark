@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Plus } from 'lucide-react'
 import useBuddyReads, { type BuddyReadSummary } from '@/app/hooks/useBuddyReads'
 import { formatPercent } from '@/lib/buddyReads'
@@ -58,10 +58,10 @@ const BuddyReadsList: FC = () => {
   const accept = (inviteId: string, code: string) => {
     setBusyInvite(inviteId)
     axios.post("/api/buddy-reads/join", { code }).then(({ data }) => {
-      if (data.addedToShelf) toast.success("Added to your Currently reading shelf", { position: "bottom-center" })
+      if (data.addedToShelf) notify.info("Added to your Currently reading shelf")
       router.push(`/circles/${data.buddyReadId}`)
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't join.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't join."), { retry: () => accept(inviteId, code) })
       setBusyInvite(null)
     })
   }

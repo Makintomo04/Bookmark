@@ -1,7 +1,7 @@
 "use client"
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { BookCheck, Check, CopyX, FileUp, Loader2, Search, Upload } from 'lucide-react'
 import type { Status } from '@prisma/client'
 import { Button } from '@/app/components/ui/button'
@@ -448,7 +448,7 @@ const UnmatchedRow: FC<{ jobId: string; entry: { bookId: string; title: string; 
       const next = await step(jobId, { bookId: entry.bookId, ...body })
       if (next) onChange(next)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save that.", { position: "bottom-center" })
+      notify.error(err instanceof Error ? err.message : "Couldn't save that.", { retry: () => send(body) })
       setBusy(false)
     }
   }

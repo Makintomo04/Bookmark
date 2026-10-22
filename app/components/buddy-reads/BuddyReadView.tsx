@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import moment from 'moment'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { ArrowLeft } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import useBuddyRead from '@/app/hooks/useBuddyRead'
@@ -49,7 +49,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
     // The cached shelf can predate joining; check the server before saying the book is gone.
     const book = myBook ?? ((await refreshBooks()) as Book[] | undefined)?.find((b) => b.id === view?.viewer.bookId)
     if (!book) {
-      toast.info("This book isn't on your shelf any more. Rejoin from the invite link to add it back.", { position: "bottom-center" })
+      notify.info("This book isn't on your shelf any more.", { description: "Rejoin from the invite link to add it back." })
       return
     }
     bookUpdateModal.setBookIdState(book.id)
@@ -60,19 +60,19 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   const setStatus = (status: "ACTIVE" | "FINISHED" | "ARCHIVED") => {
     if (status === "ARCHIVED" && !window.confirm("Archive this reading circle? It's hidden from everyone's list and closed to new comments.")) return
     axios.patch(`/api/buddy-reads/${id}`, { status }).then(() => mutate())
-      .catch((err) => toast.error(err?.response?.data?.error || "Couldn't update it.", { position: "bottom-center" }))
+      .catch((err) => notify.error(apiError(err, "Couldn't update the reading circle."), { retry: () => setStatus(status) }))
   }
 
   const remove = (userId: string, username: string | null) => {
     if (!window.confirm(`Remove ${username ?? "this reader"}? Their comments will be hidden too.`)) return
     axios.delete(`/api/buddy-reads/${id}/members/${userId}`).then(() => mutate())
-      .catch((err) => toast.error(err?.response?.data?.error || "Couldn't remove them.", { position: "bottom-center" }))
+      .catch((err) => notify.error(apiError(err, "Couldn't remove them.")))
   }
 
   const leave = () => {
     if (!window.confirm("Leave this reading circle? The book stays on your shelf.")) return
     axios.delete(`/api/buddy-reads/${id}/members/${viewer.userId}`).then(() => router.push("/circles"))
-      .catch((err) => toast.error(err?.response?.data?.error || "Couldn't leave.", { position: "bottom-center" }))
+      .catch((err) => notify.error(apiError(err, "Couldn't leave the reading circle.")))
   }
 
   return (

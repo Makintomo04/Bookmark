@@ -1,7 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { Check } from 'lucide-react'
 import { Button } from '@/app/components/ui/button'
 import useUser from '@/app/hooks/useUser'
@@ -30,7 +30,7 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
       mutate((user: object | undefined) => user && { ...user, ...res.data }, { revalidate: false })
       onDone()
     } catch {
-      toast.error("Couldn't save your choices. Try again, or skip for now.", { position: "bottom-center" })
+      notify.error("Couldn't save your choices.", { description: "Try again, or skip for now.", retry: submit })
       setSaving(false)
     }
   }

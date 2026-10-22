@@ -2,7 +2,7 @@
 import { FC, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 
 interface FollowButtonProps {
@@ -20,12 +20,11 @@ const FollowButton: FC<FollowButtonProps> = ({ username, initialFollowing }) => 
     axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
       .then((res) => {
         setIsFollowing(res.data.isFollowing)
-        toast.success(res.data.isFollowing ? `Following ${username}!` : `Unfollowed ${username}.`, { position: "bottom-center" })
         // Re-renders the server header so the follower count moves too.
         router.refresh()
       })
       .catch(() => {
-        toast.error("Something went wrong.", { position: "bottom-center" })
+        notify.error(isFollowing ? `Couldn't unfollow ${username}. Try again.` : `Couldn't follow ${username}. Try again.`, { retry: toggle })
       })
       .finally(() => setIsLoading(false))
   }

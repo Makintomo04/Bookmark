@@ -2,7 +2,7 @@
 import { FC, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Pencil, Plus } from 'lucide-react'
 import Modal from '../modals/Modal'
 import { Button } from '../ui/button'
@@ -54,12 +54,11 @@ const QuestEditorModal: FC<{ initial: EditableQuest, onClose: () => void }> = ({
     const request = isNew ? axios.post('/api/quests', draft) : axios.patch(`/api/quests/${initial.id}`, draft)
     request
       .then((res) => {
-        toast.success(isNew ? "Quest created" : "Quest saved", { position: "bottom-center" })
         onClose()
         router.push(`/quests/${res.data.slug}`)
         router.refresh()
       })
-      .catch((e) => toast.error(e?.response?.data?.error ?? "Couldn't save the quest. Try again.", { position: "bottom-center" }))
+      .catch((e) => notify.error(apiError(e, "Couldn't save the quest. Try again."), { retry: save }))
       .finally(() => setIsSaving(false))
   }
 
@@ -67,12 +66,12 @@ const QuestEditorModal: FC<{ initial: EditableQuest, onClose: () => void }> = ({
     setIsSaving(true)
     axios.delete(`/api/quests/${initial.id}`)
       .then(() => {
-        toast.success("Quest deleted", { position: "bottom-center" })
+        notify.success("Quest deleted")
         onClose()
         router.push('/quests')
         router.refresh()
       })
-      .catch((e) => toast.error(e?.response?.data?.error ?? "Couldn't delete the quest.", { position: "bottom-center" }))
+      .catch((e) => notify.error(apiError(e, "Couldn't delete the quest.")))
       .finally(() => { setIsSaving(false); setConfirmDelete(false) })
   }
 

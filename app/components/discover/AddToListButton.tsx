@@ -1,7 +1,8 @@
 "use client"
 import { FC, useState } from 'react'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
+import { useRouter } from 'next/navigation'
 import { useSWRConfig } from 'swr'
 import { Check, ListPlus, Lock, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,7 @@ const AddToListButton: FC<{ book: DiscoverBook, className?: string }> = ({ book,
   const [open, setOpen] = useState(false)
   // Only fetch the reader's lists once they open the menu, not for every card on the page.
   const { lists, isLoading } = useMyLists(signedIn && open)
+  const router = useRouter()
   const { mutate } = useSWRConfig()
   const { onOpen } = useListEditorModal()
   const [addingTo, setAddingTo] = useState<string | null>(null)
@@ -36,10 +38,10 @@ const AddToListButton: FC<{ book: DiscoverBook, className?: string }> = ({ book,
     setAddingTo(listId)
     axios.post(`/api/lists/${listId}/items`, book)
       .then(() => {
-        toast.success(`Added to ${title}`, { position: "bottom-center" })
+        notify.success(`Added to ${title}`, { action: { label: "View list", onClick: () => router.push(`/lists/${listId}`) } })
         mutate(isListsKey)
       })
-      .catch((err) => toast.error(err?.response?.data?.error || "Couldn't add to that list. Try again.", { position: "bottom-center" }))
+      .catch((err) => notify.error(apiError(err, "Couldn't add to that list. Try again."), { retry: () => add(listId, title) }))
       .finally(() => setAddingTo(null))
   }
 

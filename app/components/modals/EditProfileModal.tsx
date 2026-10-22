@@ -2,7 +2,7 @@
 import { FC, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { signOut } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
 import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
@@ -84,7 +84,6 @@ const EditProfileModal: FC = () => {
     axios.post("/api/user", { ...data, username: data.username.trim(), imageSrc: data.imageSrc || null, bannerSrc: data.bannerSrc || null })
       .then((res) => {
         if (res.data?.id) mutate(res.data, { revalidate: false })
-        toast.success("Profile saved", { position: "bottom-center" })
         onClose()
       })
       .catch((err) => {
@@ -93,7 +92,7 @@ const EditProfileModal: FC = () => {
           setError("username", { type: "server", message: message || "That username is already taken." }, { shouldFocus: true })
           return
         }
-        toast.error(message || "Couldn't save your profile. Check your connection and try again.", { position: "bottom-center" })
+        notify.error(message || "Couldn't save your profile. Check your connection and try again.")
       })
       .finally(() => setIsSaving(false))
   }
@@ -103,7 +102,7 @@ const EditProfileModal: FC = () => {
     axios.delete("/api/user")
       .then(() => signOut({ callbackUrl: `${window.location.origin}/` }))
       .catch(() => {
-        toast.error("Couldn't delete your account. Try again.", { position: "bottom-center" })
+        notify.error("Couldn't delete your account. Try again.", { retry: handleDeleteAccount })
         setIsDeleting(false)
       })
   }

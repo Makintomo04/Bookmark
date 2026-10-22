@@ -8,7 +8,7 @@ import { Textarea } from '../ui/textarea'
 import { Button } from '../ui/button'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { VscDiffRemoved } from "react-icons/vsc"
 import useBookNotesModal from '@/app/hooks/useBookNotesModal'
 import useBookNotes from '@/app/hooks/useBookNotes'
@@ -42,7 +42,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
       reset({ title: "", content: "" })
       mutate()
     }).catch(() => {
-      toast.error("Something went wrong!", { position: "bottom-center" })
+      notify.error("Couldn't save that note. Try again.")
     }).finally(() => setIsSaving(false))
   }
 
@@ -50,7 +50,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
     axios.delete(`/api/books/${bookId}/notes/${noteId}`).then(() => {
       mutate()
     }).catch(() => {
-      toast.error("Something went wrong!", { position: "bottom-center" })
+      notify.error("Couldn't delete that note.", { retry: () => handleDelete(noteId) })
     })
   }
 

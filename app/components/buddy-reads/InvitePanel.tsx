@@ -1,7 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Check, Link2 } from 'lucide-react'
 import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
@@ -40,10 +40,10 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
     if (!name || isSending) return
     setIsSending(true)
     axios.post(`/api/buddy-reads/${buddyReadId}/invite`, { username: name }).then(() => {
-      toast.success(`Invited ${name.replace(/^@/, "")}`, { position: "bottom-center" })
+      notify.success(`Invited ${name.replace(/^@/, "")}`)
       setUsername("")
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't send that invite.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't send that invite."), { retry: invite })
     }).finally(() => setIsSending(false))
   }
 

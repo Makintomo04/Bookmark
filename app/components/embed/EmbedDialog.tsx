@@ -1,7 +1,7 @@
 "use client"
 import { FC, useEffect, useId, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import Modal from '../modals/Modal'
 import { copyText } from './copyText'
@@ -78,10 +78,9 @@ const EmbedDialog: FC<EmbedDialogProps> = ({ isOpen, onClose, target, available 
     try {
       await copyText(s.code)
       setCopied(s.key)
-      toast.success(`${s.label} snippet copied.`, { position: "bottom-center" })
       setTimeout(() => setCopied((k) => (k === s.key ? null : k)), 2000)
     } catch {
-      toast.error("Couldn't copy the snippet.", { position: "bottom-center" })
+      notify.error("Couldn't copy the snippet.", { description: "Select the code and copy it by hand." })
     }
   }
 

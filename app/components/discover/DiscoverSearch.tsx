@@ -7,7 +7,7 @@ import InitialAvatar from '@/app/components/profile/InitialAvatar'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { warmCoverConnections } from '@/utils/helpers'
@@ -82,9 +82,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
     axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
       .then((res) => {
         setFollowState((state) => ({ ...state, [username]: res.data.isFollowing }))
-        toast.success(res.data.isFollowing ? `Following ${username}` : `Unfollowed ${username}`, { position: "bottom-center" })
       })
-      .catch(() => toast.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { position: "bottom-center" }))
+      .catch(() => notify.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { retry: () => handleFollow(username, current) }))
   }
 
   const tabs = (

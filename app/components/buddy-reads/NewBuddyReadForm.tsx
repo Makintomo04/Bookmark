@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import moment from 'moment'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
@@ -50,7 +50,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
     }).then(({ data }) => {
       router.push(`/circles/${data.id}`)
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't start the reading circle.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't start the reading circle."))
       setIsSaving(false)
     })
   }

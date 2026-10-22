@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { useForm } from 'react-hook-form'
 import { BookOpen, Camera, Check, ChevronRight, Loader2, Target, Upload } from 'lucide-react'
 import Loader from '@/app/components/Loader'
@@ -112,7 +112,7 @@ const Page = () => {
       if (axios.isAxiosError(err) && err.response?.data?.field === "username") {
         setError("username", { type: "server", message }, { shouldFocus: true })
       } else {
-        toast.error(message, { position: "bottom-center" })
+        notify.error(message)
       }
     }
     setSaving(false)
@@ -284,19 +284,21 @@ const GoalOption = () => {
   const [custom, setCustom] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<number | null>(null)
+  const [rangeError, setRangeError] = useState<string | null>(null)
 
   const save = async (value: number) => {
     if (!Number.isInteger(value) || value < 1 || value > 999) {
-      toast.error("Pick a goal between 1 and 999 books.", { position: "bottom-center" })
+      setRangeError("Pick a goal between 1 and 999 books.")
       return
     }
+    setRangeError(null)
     setTarget(value)
     setSaving(true)
     try {
       await axios.post("/api/reading-goal", { year, targetBooks: value })
       setSaved(value)
     } catch (err) {
-      toast.error(axios.isAxiosError(err) && err.response?.data?.error || "Couldn't save your goal. Try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't save your goal. Try again."), { retry: () => save(value) })
     } finally {
       setSaving(false)
     }
@@ -342,10 +344,13 @@ const GoalOption = () => {
             onChange={(e) => setCustom(e.target.value)}
             placeholder="Other"
             aria-label="Other goal"
+            aria-invalid={!!rangeError}
+            aria-describedby={rangeError ? "goal-error" : undefined}
             className="h-8 w-20 rounded-full border border-neutral-300 dark:border-neutral-700 bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {custom && <button type="submit" disabled={saving} className="h-8 rounded-full px-3 text-sm font-medium text-red-600 dark:text-red-400 hover:underline">Set</button>}
         </form>
+        {rangeError && <p id="goal-error" role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{rangeError}</p>}
       </div>
     </div>
   )
