@@ -1,55 +1,25 @@
 "use client"
 import { FC, useState } from 'react'
 import Link from 'next/link'
-import axios from 'axios'
 import moment from 'moment'
 import { Check, Copy, Gift, Loader2, Sparkles } from 'lucide-react'
 import useSWR from 'swr'
 import { fetcher, swrOptions } from '@/lib/fetcher'
-import type { ProfileTheme } from '@prisma/client'
-import { notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
-import { DEFAULT_COLOUR } from '@/lib/profile'
-import { toHex } from '@/lib/colour'
-import { REFERRALS, entitlementsOf, isUpgradeRequired, planStatusOf } from '@/lib/entitlements'
-import { PROFILE_THEMES, type PersonalisationInput } from '@/lib/personalisation'
+import { REFERRALS, planStatusOf } from '@/lib/entitlements'
 import useUser from '@/app/hooks/useUser'
 import useBilling from '@/app/hooks/useBilling'
 import { Button } from '../ui/button'
-import ColourSwatches from '../profile/ColourSwatches'
-import UpgradePrompt from '../plus/UpgradePrompt'
-import { Segmented } from './controls'
 
-const THEME_OPTIONS = PROFILE_THEMES.map((t) => ({ value: t.id, label: t.name }))
-
-// Bookmark Plus in settings: the plan, the way to manage it in Stripe's portal, and the
-// personalisation it unlocks. Each personalisation control saves on change; the server
-// refuses (402) a free account, so the controls here are a convenience, not the gate.
+// Bookmark Plus in settings: the plan, the way to manage it in Stripe's portal, and invite rewards.
+// The looks Plus unlocks (profile theme, shelf colour) live in Edit profile (profile/ProfileStyling).
 const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
-  const { user, mutate } = useUser()
+  const { user } = useUser()
   const billing = useBilling()
-  const [saving, setSaving] = useState<keyof PersonalisationInput | null>(null)
   if (!user) return null
 
   const status = planStatusOf(user)
-  const { personalisation: canPersonalise } = entitlementsOf(user)
-  const busy = disabled || saving !== null || billing.pending !== null
-  const theme: ProfileTheme = canPersonalise && user.profileTheme ? user.profileTheme : "CLASSIC"
-  const shelfColour = toHex(user.shelfCardColour ?? "")
-
-  const save = (patch: PersonalisationInput) => {
-    const key = Object.keys(patch)[0] as keyof PersonalisationInput
-    setSaving(key)
-    mutate({ ...user, ...patch }, { revalidate: false })
-    axios.patch("/api/user/personalisation", patch)
-      .then((res) => mutate({ ...user, ...res.data }, { revalidate: false }))
-      .catch((err) => {
-        mutate(user, { revalidate: false })
-        if (isUpgradeRequired(err?.response?.data)) notify.error("Profile themes and shelf colours are part of Plus.")
-        else notify.error("Couldn't save that setting.", { retry: () => save(patch) })
-      })
-      .finally(() => setSaving(null))
-  }
+  const busy = disabled || billing.pending !== null
 
   const summary = status.source === "lifetime" ? "Lifetime Plus. Thank you for backing Bookmark from the start."
     : status.source === "subscription"
@@ -90,24 +60,6 @@ const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           )}
         </div>
       </div>
-
-      <div className={cn("flex flex-col gap-5", !canPersonalise && "opacity-60")}>
-        <div className="flex flex-col gap-1.5">
-          <Segmented id="plus-theme" label="Profile theme" options={THEME_OPTIONS} value={theme} onChange={(v) => save({ profileTheme: v })} disabled={busy || !canPersonalise} />
-          <p className="text-xs text-muted-foreground">{PROFILE_THEMES.find((t) => t.id === theme)?.hint}</p>
-        </div>
-        <div className="flex flex-col gap-2">
-          <span id="plus-shelf-colour" className="text-sm font-medium">Shelf card colour</span>
-          <p className="-mt-1 text-xs text-muted-foreground">Covers without art and progress bars on your shelf. Your profile colour stays as it is.</p>
-          <ColourSwatches value={shelfColour ?? toHex(user.favColour ?? "") ?? DEFAULT_COLOUR} onChange={(c) => save({ shelfCardColour: c })} labelledBy="plus-shelf-colour" disabled={busy || !canPersonalise} />
-          {shelfColour && canPersonalise && (
-            <button type="button" disabled={busy} onClick={() => save({ shelfCardColour: null })} className="self-start text-xs font-medium underline-offset-4 hover:underline disabled:opacity-60">
-              Use my profile colour
-            </button>
-          )}
-        </div>
-      </div>
-      {!canPersonalise && <UpgradePrompt feature="personalisation" />}
       <PlusRewards />
     </div>
   )

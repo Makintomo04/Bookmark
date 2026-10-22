@@ -14,7 +14,7 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
       <div className="rounded-lg border p-4 flex flex-col gap-5">
         <div>
           <p className="text-sm font-medium">Privacy</p>
-          <p className="text-xs text-muted-foreground">Changes save straight away. Blocked readers never see your profile, whatever you choose here.</p>
+          <p className="text-xs text-muted-foreground">Blocked readers never see your profile, whatever you choose here.</p>
         </div>
         <div className="flex flex-col gap-1.5">
           <Segmented id="privacy-profile" label="Who can see your profile" options={PROFILE_OPTIONS} value={settings.profileVisibility} onChange={(v) => save("profileVisibility", v)} disabled={busy} />
