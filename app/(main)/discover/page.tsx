@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Sparkles } from 'lucide-react'
 import Container from '@/app/components/Container'
 import DiscoverSearch from '@/app/components/discover/DiscoverSearch'
 import GenreTile from '@/app/components/discover/GenreTile'
@@ -43,6 +43,24 @@ const Spotlight = ({ list }: { list: ListSummary }) => (
   </Link>
 )
 
+// The way into Ask the shelf: a search the reader starts, never a feed of AI picks.
+const AskShelfEntry = () => (
+  <Link
+    href="/discover/ask"
+    className="group flex items-center gap-4 rounded-2xl border border-neutral-300 dark:border-neutral-700 p-5 transition hover:bg-neutral-50 dark:hover:bg-neutral-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+  >
+    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand/10 text-brand"><Sparkles size={20} aria-hidden /></span>
+    <span className="min-w-0 flex-1">
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold">Ask the shelf</span>
+        <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">AI search</span>
+      </span>
+      <span className="mt-0.5 block text-sm text-muted-foreground">Describe the read you&apos;re in the mood for, like &ldquo;cosy and low-stakes&rdquo; or &ldquo;fantasy under 400 pages&rdquo;. Your friends&apos; favourites come first.</span>
+    </span>
+    <ArrowRight size={18} aria-hidden className="shrink-0 transition-transform group-hover:translate-x-1" />
+  </Link>
+)
+
 const Page = async () => {
   const viewer = await getCurrentUser()
   const [featured, picks, community, reported] = await Promise.all([
@@ -67,6 +85,7 @@ const Page = async () => {
           <div className="flex flex-col gap-12">
             {featured[0] && <Spotlight list={featured[0]} />}
             <ActiveQuestCard />
+            <AskShelfEntry />
 
             <section aria-labelledby="genres-heading">
               <h2 id="genres-heading" className="text-xl font-bold">Browse by genre</h2>
