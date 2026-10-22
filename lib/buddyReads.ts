@@ -24,12 +24,13 @@ export { progressPercent, roundPercent, type ProgressBook } from "./progress.ts"
 
 // ---- Hosting ------------------------------------------------------------------------------
 
-// Joining is never limited. Hosting is: a free account runs one active circle at a time, and Bookmark
+// Joining is never limited. Hosting is: a free account runs two active circles at a time, and Bookmark
 // Plus lifts the limit (lib/entitlements.ts canHostUnlimited). Everything that asks "may they host
 // another?" goes through canHostAnotherCircle() in lib/buddyReadsServer.ts, which looks the plan up,
 // counts, and then calls this.
 export type HostingPlan = "free" | "plus"
-export const ACTIVE_HOSTED_LIMIT: Record<HostingPlan, number> = { free: 1, plus: Infinity }
+// The free limit is promised publicly never to go down; raise it, never lower it.
+export const ACTIVE_HOSTED_LIMIT: Record<HostingPlan, number> = { free: 2, plus: Infinity }
 
 export type HostingAllowance = {
   allowed: boolean
@@ -41,6 +42,8 @@ export type HostingAllowance = {
   upgrade: boolean
   message: string | null
 }
+
+const NUMBER_WORDS: Record<number, string> = { 2: "two", 3: "three", 4: "four", 5: "five" }
 
 export function hostingAllowance(activeHosted: number, plan: HostingPlan = "free"): HostingAllowance {
   const limit = ACTIVE_HOSTED_LIMIT[plan]
@@ -54,7 +57,7 @@ export function hostingAllowance(activeHosted: number, plan: HostingPlan = "free
     message: allowed ? null
       : limit === 1
         ? "You're already hosting an active circle. Mark it as finished or archive it to start another. Joining circles is never limited."
-        : `You're already hosting ${limit} active circles. Finish or archive one to start another. Joining circles is never limited.`,
+        : `You're already hosting ${NUMBER_WORDS[limit] ?? limit} active circles. Mark one as finished or archive it to start another. Joining circles is never limited.`,
   }
 }
 

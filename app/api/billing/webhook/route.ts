@@ -28,6 +28,7 @@ export async function POST(req: Request) {
   const outcome = await handleStripeEvent(event, {
     db: prisma,
     stripe: isStripeConfigured() ? stripeBillingApi() : undefined,
+    foundingPriceId: process.env.STRIPE_PRICE_FOUNDING || null,
   });
   // 200 even when nothing matched: Stripe would otherwise retry an event we can never use.
   return NextResponse.json({ received: true, ...outcome });

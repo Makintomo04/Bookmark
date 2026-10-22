@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { BookOpen, Flame, Headphones, Repeat, Ruler, Sparkles, Undo2 } from 'lucide-react'
 import type { ReadingStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
+import { formatPace } from '@/lib/goals'
 import { ColumnChart, Datum, RankedBars } from './Charts'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -214,9 +215,9 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
                   {g.targetPages ? (
                     <GoalLine label="Page goal" value={`${fmt(g.pages)} of ${plural(g.targetPages, 'page')}`} met={g.pages >= g.targetPages} />
                   ) : null}
-                  {g.targetBooksPerMonth && g.monthsCounted > 0 ? (
+                  {g.monthsCounted > 0 ? (
                     <GoalLine
-                      label={`${plural(g.targetBooksPerMonth, 'book')} a month`}
+                      label={g.paceIsCustom ? `${plural(g.pacePerMonth, 'book')} a month` : `Pace: ${formatPace(g.pacePerMonth)} a month`}
                       value={`${g.monthsMet} of ${plural(g.monthsCounted, 'month')} on pace`}
                       met={g.monthsMet === g.monthsCounted}
                     />

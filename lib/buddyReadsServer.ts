@@ -76,7 +76,7 @@ const progressBookSelect = { id: true, ...progressSelect } as const
 
 // ---- Hosting ------------------------------------------------------------------------------
 
-// May this reader start another circle? Free accounts host one active circle at a time and Plus has
+// May this reader start another circle? Free accounts host two active circles at a time and Plus has
 // no limit (the rule is hostingAllowance() in lib/buddyReads.ts); joining is never limited. The
 // create route refuses with `message` when not allowed.
 export async function canHostAnotherCircle(userId: string): Promise<HostingAllowance> {

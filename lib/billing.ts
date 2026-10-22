@@ -33,6 +33,8 @@ export interface SubscriptionSnapshot {
   cancelAtPeriodEnd: boolean;
   // The Bookmark user id Checkout put in the subscription's metadata.
   userId: string | null;
+  // The price on the first item: the Founding Reader price marks the subscriber as a founder.
+  priceId: string | null;
 }
 
 export function snapshotSubscription(sub: Stripe.Subscription): SubscriptionSnapshot {
@@ -46,6 +48,7 @@ export function snapshotSubscription(sub: Stripe.Subscription): SubscriptionSnap
     trialEnd: fromUnix(sub.trial_end),
     cancelAtPeriodEnd: !!sub.cancel_at_period_end,
     userId: sub.metadata?.userId || null,
+    priceId: idOf(item?.price as Stripe.Price | string | undefined),
   };
 }
 
@@ -56,11 +59,16 @@ export type PlanUpdate = {
   stripeSubscriptionId: string | null;
   stripeCustomerId?: string;
   trialEndsAt?: Date;
+  foundingMember?: true;
 }
 
-// The User fields a subscription snapshot sets.
-export function planUpdateFor(snapshot: SubscriptionSnapshot): PlanUpdate {
+// The User fields a subscription snapshot sets. `foundingPriceId` is the Founding Reader price
+// (STRIPE_PRICE_FOUNDING); a paid subscription on it marks the account as a founder, which is never
+// undone. Trials don't count, so the founding cap can't fill up with trials that never convert; a trial
+// started on the Founding price keeps that price when it converts, and is counted then.
+export function planUpdateFor(snapshot: SubscriptionSnapshot, foundingPriceId?: string | null): PlanUpdate {
   const plan = planForStatus(snapshot.status);
+  const founder = !!foundingPriceId && snapshot.priceId === foundingPriceId && snapshot.status === "active";
   return {
     plan,
     planRenewsAt: plan === "PLUS" ? snapshot.periodEnd : null,
@@ -68,6 +76,7 @@ export function planUpdateFor(snapshot: SubscriptionSnapshot): PlanUpdate {
     ...(snapshot.customerId && { stripeCustomerId: snapshot.customerId }),
     // Recorded once so a second Checkout doesn't grant a second trial.
     ...(snapshot.trialEnd && { trialEndsAt: snapshot.trialEnd }),
+    ...(founder && { foundingMember: true as const }),
   };
 }
 
@@ -106,6 +115,8 @@ export interface BillingDeps {
   stripe?: BillingStripeApi;
   // Kept for callers that only need the subscription lookup.
   retrieveSubscription?: (id: string) => Promise<Stripe.Subscription>;
+  // STRIPE_PRICE_FOUNDING, to recognise founders.
+  foundingPriceId?: string | null;
   now?: () => Date;
 }
 
@@ -179,7 +190,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
 
       let data: PlanUpdate;
       if (subscriptionId && retrieveSubscription) {
-        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)));
+        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)), deps.foundingPriceId);
       } else {
         // Without the subscription, assume what Checkout always starts: a Plus trial of the full length.
         const now = (deps.now ?? (() => new Date()))();
@@ -199,7 +210,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       const snapshot = snapshotSubscription(event.data.object);
       const user = await findUser(db, { subscriptionId: snapshot.id, customerId: snapshot.customerId, userId: snapshot.userId });
       if (!user) return outcome(false, null, null, "no user for subscription");
-      const data = planUpdateFor(snapshot);
+      const data = planUpdateFor(snapshot, deps.foundingPriceId);
       await db.user.update({ where: { id: user.id }, data });
       return outcome(true, user.id, data.plan, `subscription ${snapshot.status}`);
     }
@@ -223,7 +234,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       let data: PlanUpdate;
       if (retrieveSubscription) {
         // The subscription's own status and period end are the source of truth.
-        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)));
+        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)), deps.foundingPriceId);
       } else {
         // A paid subscription invoice means the period it covers is paid for.
         data = { plan: "PLUS", planRenewsAt: fromUnix(invoice.lines?.data?.[0]?.period?.end), stripeSubscriptionId: subscriptionId };

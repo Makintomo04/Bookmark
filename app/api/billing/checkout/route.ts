@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { appUrl } from "@/lib/siteUrl";
 import { PLUS_PRICING, planStatusOf } from "@/lib/entitlements";
+import { currentFoundingStatus } from "@/lib/entitlementsServer";
 import { CHECKOUT_INTEGRATION_ID, billingIntervalSchema, isStripeConfigured, priceIdFor, stripe } from "@/lib/stripe";
 
 const bodySchema = z.object({ interval: billingIntervalSchema });
@@ -22,7 +23,11 @@ export async function POST(req: Request) {
   }
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose monthly or yearly." }, { status: 400 });
-  const price = priceIdFor(parsed.data.interval);
+  const { interval } = parsed.data;
+  // Yearly sign-ups get the Founding Reader price while the window is open. The server decides, so a
+  // pricing page loaded before the window closed can't claim it afterwards.
+  const founding = interval === "yearly" && (await currentFoundingStatus()).open;
+  const price = priceIdFor(founding ? "founding" : interval);
   if (!price) return NextResponse.json({ error: "That price isn't set up yet." }, { status: 503 });
 
   const status = planStatusOf(user);
@@ -55,13 +60,13 @@ export async function POST(req: Request) {
     // No card for the trial. A reader who already had one pays up front.
     payment_method_collection: trial ? "if_required" : "always",
     subscription_data: {
-      metadata: { userId: user.id },
+      metadata: { userId: user.id, ...(founding && { founding: "true" }) },
       ...(trial && {
         trial_period_days: PLUS_PRICING.trialDays,
         trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
       }),
     },
-    metadata: { userId: user.id, interval: parsed.data.interval },
+    metadata: { userId: user.id, interval, ...(founding && { founding: "true" }) },
     success_url: `${appUrl}/plus?checkout=success`,
     cancel_url: `${appUrl}/plus?checkout=cancelled`,
   });

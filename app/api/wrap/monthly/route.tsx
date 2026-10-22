@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/apiAuth'
-import { guardEntitlement } from '@/lib/entitlementsServer'
 import { getWrapped, parseWrappedMonth } from '@/lib/stats'
 import { wrappedStoryImage } from '@/app/components/wrapped/wrappedImage'
 
-// A 1080×1920 share card for one month, from the Wrapped image generator. Plus only
-// (lib/entitlements.ts monthlyWrapCards); the year-end Wrapped and its images stay free.
+// A 1080×1920 share card for one month, from the Wrapped image generator. Free for everyone: it's the
+// reader's own numbers, and every card carries Bookmark's name and link. Alternative designs are the
+// Plus part (lib/entitlements.ts customWrapDesigns, planned).
 //   GET /api/wrap/monthly?year=2026&month=10   (month 1–12)
 export async function GET(req: Request) {
   const { user, response } = await requireUser('Sign in to make a monthly Wrap card.')
@@ -15,9 +15,6 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const period = parseWrappedMonth(searchParams.get('year') ?? '', searchParams.get('month') ?? '')
   if (!period) return NextResponse.json({ error: 'Pick a month that has already started.' }, { status: 400 })
-
-  const refused = await guardEntitlement(user.id, 'monthlyWrapCards')
-  if (refused) return refused
 
   const wrapped = await getWrapped(user.id, period.year, period.month)
   const stamp = `${period.year}-${String(period.month + 1).padStart(2, '0')}`

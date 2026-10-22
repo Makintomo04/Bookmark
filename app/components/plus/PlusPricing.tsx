@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import moment from 'moment'
 import { Check, Loader2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { PLUS_PRICING, type PlanStatus } from '@/lib/entitlements'
+import { FOUNDING, MONTHLY_ALLOWANCES, PLUS_PRICING, type PlanStatus } from '@/lib/entitlements'
 import type { BillingInterval } from '@/lib/stripe'
 import useBilling from '@/app/hooks/useBilling'
 
@@ -14,23 +14,32 @@ import useBilling from '@/app/hooks/useBilling'
 const FREE = [
   'Import from Goodreads and StoryGraph',
   'Every personal stat, your Wrapped and a yearly goal',
+  'A monthly Wrap card for any month, and your monthly pace',
   'Join any circle: every comment, reply and reaction',
-  'Host one active reading circle at a time',
+  'Host two active reading circles at a time',
   'Reviews, notes, lists, feed, follows and privacy controls',
   'DNF, paused, re-reads, half stars, quests and medals',
   'Export all your data, always',
 ]
-const FREE_SOON = ['Ask the shelf: 5 mood searches a month', 'Catch me up: 3 recaps a month']
+const FREE_SOON = [
+  `Ask the shelf: ${MONTHLY_ALLOWANCES.askShelfSearches.free} mood searches a month`,
+  `Catch me up: ${MONTHLY_ALLOWANCES.recaps.free} recaps a month`,
+]
 
+// Supporting Bookmark leads, then hosting, goals and looks. AI comes last and is opt-in.
 const PLUS = [
   'Everything in Free',
+  'Keep Bookmark independent and ad-free, with a supporter badge on your profile',
   'Host as many active circles as you like',
-  'A page goal and a monthly pace beside your yearly goal',
-  'Monthly Wrap cards to share any month',
+  'A page goal and your own monthly target',
   'Profile themes and your own shelf card colour',
-  'A supporter badge on your profile',
 ]
-const PLUS_SOON = ['Unlimited Ask the shelf searches', 'Unlimited Catch me up recaps']
+const PLUS_SOON = [
+  'Your say on the roadmap, and early access to new features',
+  'More Wrap card designs',
+  `Ask the shelf: up to ${MONTHLY_ALLOWANCES.askShelfSearches.plus} searches a month (opt-in AI)`,
+  `Catch me up: up to ${MONTHLY_ALLOWANCES.recaps.plus} recaps a month (opt-in AI)`,
+]
 
 const cardClassName = 'rounded-[20px] border border-neutral-200 dark:border-neutral-800'
 const mutedClassName = 'text-slate-600 dark:text-gray-300/90'
@@ -52,9 +61,13 @@ interface PlusPricingProps {
   signedIn: boolean
   status: (Omit<PlanStatus, 'until'> & { until: string | null }) | null
   checkout: 'success' | 'cancelled' | null
+  // The Founding Reader window, from the server. Checkout decides again when the reader clicks.
+  founding: { open: boolean; remaining: number; closesAt: string | null }
 }
 
-const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout }) => {
+const fmtCount = (n: number) => n.toLocaleString('en-US')
+
+const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, founding }) => {
   const router = useRouter()
   const billing = useBilling()
   const [interval, setBillingInterval] = useState<BillingInterval>('yearly')
@@ -70,7 +83,9 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout }) => {
     return () => window.clearTimeout(timer)
   }, [waiting, waited, router])
 
-  const price = interval === 'yearly' ? PLUS_PRICING.yearly : PLUS_PRICING.monthly
+  // Yearly sign-ups get the Founding Reader price while the window is open.
+  const foundingOffer = interval === 'yearly' && founding.open && !isPlus
+  const price = interval === 'yearly' ? (foundingOffer ? FOUNDING.yearly : PLUS_PRICING.yearly) : PLUS_PRICING.monthly
   const per = interval === 'yearly' ? 'year' : 'month'
 
   let cta
@@ -148,15 +163,24 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout }) => {
         <section aria-labelledby="plus-heading" className="relative flex flex-col rounded-[20px] border-2 border-brand/60 p-6 shadow-sm sm:p-8">
           <div className="flex items-center justify-between gap-3">
             <h2 id="plus-heading" className="flex items-center gap-2 text-lg font-bold"><Sparkles size={18} aria-hidden className="text-brand" /> Plus</h2>
-            {isPlus && <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand-fill dark:text-brand">{status?.trialing ? 'On trial' : 'Your plan'}</span>}
+            {isPlus && <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand-fill dark:text-brand">{status?.founding ? 'Founding Reader' : status?.trialing ? 'On trial' : 'Your plan'}</span>}
           </div>
-          <p className="mt-3 flex items-baseline gap-1.5">
+          <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="text-4xl font-bold tracking-tight tabular-nums">${price}</span>
+            {foundingOffer && <s className={cn('text-lg tabular-nums', mutedClassName)} aria-label={`usually $${PLUS_PRICING.yearly}`}>${PLUS_PRICING.yearly}</s>}
             <span className={mutedClassName}>a {per}</span>
           </p>
-          <p className={cn('mt-2 text-sm', mutedClassName)}>
-            {interval === 'yearly' ? `That's about $${(PLUS_PRICING.yearly / 12).toFixed(2)} a month, billed once a year.` : 'Billed monthly. Cancel any time.'}
-          </p>
+          {foundingOffer ? (
+            <p className="mt-2 rounded-lg bg-brand/10 px-3 py-2 text-sm text-foreground">
+              <span className="font-semibold">Founding Reader price.</span> Yours for as long as you stay subscribed.{' '}
+              <span className="tabular-nums">{fmtCount(founding.remaining)} of {fmtCount(FOUNDING.cap)} left</span>
+              {founding.closesAt ? `, until ${moment(founding.closesAt).format('D MMMM')}` : ''}.
+            </p>
+          ) : (
+            <p className={cn('mt-2 text-sm', mutedClassName)}>
+              {interval === 'yearly' ? `That's about $${(PLUS_PRICING.yearly / 12).toFixed(2)} a month, billed once a year.` : 'Billed monthly. Cancel any time.'}
+            </p>
+          )}
           <ul className="mt-6 flex flex-col gap-3">
             {PLUS.map((f, i) => <Feature key={f} strong={i === 0}>{f}</Feature>)}
             {PLUS_SOON.map((f) => <Feature key={f} soon>{f}</Feature>)}

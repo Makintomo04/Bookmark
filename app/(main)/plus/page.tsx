@@ -3,6 +3,7 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import Container from '@/app/components/Container'
 import PlusPricing from '@/app/components/plus/PlusPricing'
 import { PLUS_PRICING, planStatusOf } from '@/lib/entitlements'
+import { currentFoundingStatus } from '@/lib/entitlementsServer'
 
 export const metadata: Metadata = {
   title: 'Bookmark Plus',
@@ -15,7 +16,7 @@ interface PageProps {
 
 // The pricing page. Public: signed-out visitors see the same table and a sign-up button.
 export default async function Page({ searchParams }: PageProps) {
-  const user = await getCurrentUser()
+  const [user, founding] = await Promise.all([getCurrentUser(), currentFoundingStatus()])
   const status = user ? planStatusOf(user) : null
   const checkout = searchParams.checkout === 'success' || searchParams.checkout === 'cancelled' ? searchParams.checkout : null
 
@@ -26,6 +27,7 @@ export default async function Page({ searchParams }: PageProps) {
           signedIn={!!user}
           status={status && { ...status, until: status.until?.toISOString() ?? null }}
           checkout={checkout}
+          founding={{ open: founding.open, remaining: founding.remaining, closesAt: founding.closesAt?.toISOString() ?? null }}
         />
       </Container>
     </div>

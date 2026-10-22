@@ -1,7 +1,6 @@
 "use client"
 import { FC, useMemo, useState } from 'react'
 import { Download, ExternalLink } from 'lucide-react'
-import UpgradePrompt from '../plus/UpgradePrompt'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const button = 'inline-flex h-9 items-center gap-2 rounded-md px-3.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400'
@@ -14,13 +13,11 @@ function recentMonths(now = new Date()) {
   })
 }
 
-// Monthly Wrap share cards (Plus): pick a month, get the 1080×1920 story image from /api/wrap/monthly,
-// which checks the plan itself. Free accounts see what it is and where to get it.
-const MonthlyWrapCards: FC<{ allowed: boolean }> = ({ allowed }) => {
+// Monthly Wrap share cards, free for everyone: pick a month, get the 1080×1920 story image from
+// /api/wrap/monthly.
+const MonthlyWrapCards: FC = () => {
   const months = useMemo(() => recentMonths(), [])
   const [picked, setPicked] = useState(0)
-
-  if (!allowed) return <UpgradePrompt feature="monthlyWrapCards" />
 
   const { year, month, label } = months[picked]
   const href = `/api/wrap/monthly?year=${year}&month=${month}`

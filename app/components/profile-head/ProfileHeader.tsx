@@ -36,6 +36,8 @@ interface ProfileHeaderProps {
   booksRead: number
   // A Bookmark Plus account: shows the supporter badge beside the name.
   supporter?: boolean
+  // A founder on Plus: the badge reads "Founding Reader".
+  founding?: boolean
 }
 
 export const primaryButtonClass = "inline-flex items-center justify-center gap-2 h-9 px-4 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
@@ -53,17 +55,17 @@ const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   return <span className={className}>{content}</span>
 }
 
-export const SupporterBadge: FC = () => (
+export const SupporterBadge: FC<{ founding?: boolean }> = ({ founding }) => (
   <Link
     href="/plus"
-    title="Supports Bookmark with Plus"
+    title={founding ? "One of Bookmark's founding Plus supporters" : "Supports Bookmark with Plus"}
     className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2.5 py-0.5 align-middle text-xs font-semibold text-brand-fill dark:text-brand transition hover:bg-brand/15"
   >
-    <Sparkles size={12} aria-hidden /> Supporter
+    <Sparkles size={12} aria-hidden /> {founding ? 'Founding Reader' : 'Supporter'}
   </Link>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter }) => {
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding }) => {
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
   const preset = bannerPresetOf(shownBanner)
@@ -92,7 +94,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
         <div className="mt-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="text-2xl sm:text-3xl font-bold leading-tight break-words">{username}</h1>
-            {supporter && <SupporterBadge />}
+            {supporter && <SupporterBadge founding={founding} />}
           </div>
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">

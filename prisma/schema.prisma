@@ -93,6 +93,9 @@ model User {
   stripeSubscriptionId String?
   // Set once a trial has been used, so a second Checkout doesn't grant another.
   trialEndsAt          DateTime?
+  // Subscribed at the Founding Reader price (lib/entitlements.ts FOUNDING). Set by the webhook, never
+  // cleared, and counted against the founding cap. Shows a Founding badge while on Plus.
+  foundingMember       Boolean?
   // Personalisation (Plus). Null reads as the defaults; see lib/personalisation.ts.
   profileTheme         ProfileTheme?
   // #rrggbb for the shelf's cover fallbacks and progress bars, instead of favColour.

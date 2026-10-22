@@ -73,7 +73,11 @@ export function stripeBillingApi(): BillingStripeApi {
 export const billingIntervalSchema = z.enum(["monthly", "yearly"]);
 export type BillingInterval = z.infer<typeof billingIntervalSchema>;
 
-export function priceIdFor(interval: BillingInterval): string | null {
-  const id = interval === "monthly" ? process.env.STRIPE_PRICE_MONTHLY : process.env.STRIPE_PRICE_YEARLY;
+// The Stripe price for a plan. "founding" is the $24.99 yearly Founding Reader price; it must never
+// be archived while founders are on it, and it must not be offered in the customer portal.
+export function priceIdFor(plan: BillingInterval | "founding"): string | null {
+  const id = plan === "monthly" ? process.env.STRIPE_PRICE_MONTHLY
+    : plan === "yearly" ? process.env.STRIPE_PRICE_YEARLY
+    : process.env.STRIPE_PRICE_FOUNDING;
   return id || null;
 }

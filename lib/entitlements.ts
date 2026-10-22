@@ -8,32 +8,42 @@ import type { Plan } from "@prisma/client";
 // Final prices: the Stripe prices are tax-inclusive (tax_behavior "inclusive"), so readers pay
 // exactly these wherever they are, with any VAT or sales tax taken out of them.
 export const PLUS_PRICING = {
-  monthly: 2.99,
-  yearly: 24.99,
+  monthly: 3.99,
+  yearly: 29.99,
   currency: "USD",
   trialDays: 14,
 } as const;
 
+// The Founding Reader price: the yearly plan at $24.99, kept for as long as the subscription runs.
+// Offered until FOUNDING_CAP founders have subscribed or the window closes (PLUS_FOUNDING_CLOSES_AT,
+// set at launch to launch + 90 days), whichever comes first. foundingStatus() decides.
+export const FOUNDING = {
+  yearly: 24.99,
+  cap: 1000,
+} as const;
+
 // Monthly allowances for the AI slices that come later (mood search, recaps). Counted per calendar
-// month; null means unlimited. Metering goes through allowanceLeft() so the numbers live here only.
+// month. Plus has a stated fair-use ceiling, never "unlimited": raising a cap later reads as a gift,
+// capping an unlimited promise reads as a betrayal. Metering goes through allowanceLeft().
 export const MONTHLY_ALLOWANCES = {
-  askShelfSearches: { free: 5, plus: null },
-  recaps: { free: 3, plus: null },
+  askShelfSearches: { free: 5, plus: 100 },
+  recaps: { free: 3, plus: 30 },
 } as const satisfies Record<string, { free: number; plus: number | null }>;
 
 export type AllowanceKey = keyof typeof MONTHLY_ALLOWANCES;
 
-export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "monthlyWrapCards" | "personalisation";
+export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns" | "personalisation";
 
 export interface Entitlements {
   plan: Plan;
   isPlus: boolean;
-  // Active hosted reading circles: free hosts one at a time (lib/buddyReads.ts hostingAllowance).
+  // Active hosted reading circles: free hosts two at a time (lib/buddyReads.ts hostingAllowance).
   canHostUnlimited: boolean;
-  // A page goal and a monthly book goal beside the yearly count.
+  // A page goal and a custom monthly target beside the yearly count. The pace worked out from the
+  // yearly goal is a stat, so it's free.
   extraGoalTypes: boolean;
-  // Share cards for a single month, from the Wrapped image generator.
-  monthlyWrapCards: boolean;
+  // Alternative Wrap card designs (planned). The standard monthly Wrap card is free.
+  customWrapDesigns: boolean;
   // Profile themes and the shelf card colour.
   personalisation: boolean;
   // Per calendar month; null is unlimited.
@@ -59,7 +69,7 @@ export function entitlementsOf(user: StoredPlan): Entitlements {
     isPlus,
     canHostUnlimited: isPlus,
     extraGoalTypes: isPlus,
-    monthlyWrapCards: isPlus,
+    customWrapDesigns: isPlus,
     personalisation: isPlus,
     allowances: {
       askShelfSearches: MONTHLY_ALLOWANCES.askShelfSearches[tier],
@@ -83,15 +93,15 @@ export function hasAllowance(entitlements: Entitlements, key: AllowanceKey, used
 export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string; message: string }> = {
   canHostUnlimited: {
     title: "Host as many circles as you like",
-    message: "Free accounts host one active circle at a time. Plus lifts the limit. Joining is never limited.",
+    message: "Free accounts host two active circles at a time. Plus lifts the limit. Joining is never limited.",
   },
   extraGoalTypes: {
     title: "Goals beyond one number",
-    message: "Add a page goal and a monthly pace beside your yearly count, and see them in your stats.",
+    message: "Add a page goal and your own monthly target beside your yearly count, and see them in your stats.",
   },
-  monthlyWrapCards: {
-    title: "Monthly Wrap cards",
-    message: "A share-ready card for any month, in the same style as your Wrapped. The year-end Wrapped stays free.",
+  customWrapDesigns: {
+    title: "Your Wrap, your way",
+    message: "Pick other designs for your Wrap cards. The standard monthly card and your year-end Wrapped stay free.",
   },
   personalisation: {
     title: "Make your profile yours",
@@ -99,13 +109,38 @@ export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string
   },
   askShelfSearches: {
     title: "Ask the shelf, without limits",
-    message: `Free accounts get ${MONTHLY_ALLOWANCES.askShelfSearches.free} mood searches a month. Plus is unlimited.`,
+    message: `Free accounts get ${MONTHLY_ALLOWANCES.askShelfSearches.free} mood searches a month. Plus raises it to ${MONTHLY_ALLOWANCES.askShelfSearches.plus}.`,
   },
   recaps: {
-    title: "Catch me up, without limits",
-    message: `Free accounts get ${MONTHLY_ALLOWANCES.recaps.free} recaps a month. Plus is unlimited.`,
+    title: "Catch me up more often",
+    message: `Free accounts get ${MONTHLY_ALLOWANCES.recaps.free} recaps a month. Plus raises it to ${MONTHLY_ALLOWANCES.recaps.plus}.`,
   },
 };
+
+// ---- The Founding Reader window ----------------------------------------------------------------
+
+export interface FoundingStatus {
+  open: boolean;
+  // Founders still to come before the cap; 0 once it's reached.
+  remaining: number;
+  // When the window closes, if a date is set.
+  closesAt: Date | null;
+}
+
+// Open while fewer than FOUNDING.cap founders have subscribed and the closing date (if set) hasn't
+// passed. A founder keeps the price for as long as the subscription runs; this only decides who can start one.
+export function foundingStatus(founders: number, closesAt: Date | null, now = new Date(), cap: number = FOUNDING.cap): FoundingStatus {
+  const remaining = Math.max(0, cap - founders);
+  const beforeClose = !closesAt || now.getTime() < closesAt.getTime();
+  return { open: remaining > 0 && beforeClose, remaining, closesAt };
+}
+
+// PLUS_FOUNDING_CLOSES_AT as a date, or null when unset or unreadable.
+export function parseFoundingClose(raw: string | undefined | null): Date | null {
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 export const UPGRADE_URL = "/plus";
 
@@ -144,10 +179,12 @@ export function isUpgradeRequired(body: unknown): body is UpgradeRequiredBody {
 
 // ---- Plan status, for settings and the pricing page ------------------------------------------
 
-type StoredBilling = StoredPlan & { planRenewsAt?: Date | string | null; trialEndsAt?: Date | string | null; stripeCustomerId?: string | null };
+type StoredBilling = StoredPlan & { planRenewsAt?: Date | string | null; trialEndsAt?: Date | string | null; stripeCustomerId?: string | null; foundingMember?: boolean | null };
 
 export interface PlanStatus {
   plan: Plan;
+  // Subscribed at the Founding Reader price.
+  founding: boolean;
   // On Plus through a trial that hasn't ended yet.
   trialing: boolean;
   // When the trial or the paid period ends. Null on free.
@@ -167,6 +204,7 @@ export function planStatusOf(user: StoredBilling, now = new Date()): PlanStatus 
   const trialing = plan === "PLUS" && !!trialEndsAt && trialEndsAt.getTime() > now.getTime();
   return {
     plan,
+    founding: !!user.foundingMember,
     trialing,
     until: plan === "PLUS" ? (trialing ? trialEndsAt : renewsAt) : null,
     hasBilling: !!user.stripeCustomerId,

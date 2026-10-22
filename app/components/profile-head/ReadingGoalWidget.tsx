@@ -9,7 +9,7 @@ import useReadingGoal from '@/app/hooks/useReadingGoal'
 import useUser from '@/app/hooks/useUser'
 import { cn } from '@/lib/utils'
 import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
-import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, goalProgress } from '@/lib/goals'
+import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, formatPace, goalProgress, monthlyPace } from '@/lib/goals'
 import { Input as RawInput } from '../ui/input'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import { useForm, FieldValues, SubmitHandler } from 'react-hook-form'
@@ -46,13 +46,13 @@ const toneClass = {
 // "" clears a Plus goal; a number sets it.
 const extraValue = (raw: unknown) => (raw === "" || raw === undefined || raw === null ? null : Number(raw))
 
-// One thin bar for a Plus goal under the yearly ring.
-const ExtraGoal: FC<{ label: string; done: number; target: number; colour: string }> = ({ label, done, target, colour }) => (
+// One thin bar under the yearly ring: the monthly pace (everyone) or the page goal (Plus).
+const ExtraGoal: FC<{ label: string; done: number; target: number; targetLabel?: string; colour: string }> = ({ label, done, target, targetLabel, colour }) => (
   <div>
     <div className="flex items-baseline justify-between gap-3 text-xs">
       <span className="text-muted-foreground">{label}</span>
       <span className={cn("tabular-nums", done >= target ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
-        {fmt(done)} of {fmt(target)}
+        {fmt(done)} of {targetLabel ?? fmt(target)}
       </span>
     </div>
     <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(done, target)} className="mt-1 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800">
@@ -138,10 +138,10 @@ const ReadingGoalWidget: FC = () => {
               </div>
               <label htmlFor="targetBooksPerMonth" className="text-sm text-muted-foreground">books every month</label>
             </div>
-            <p className="text-xs text-muted-foreground">Leave one empty to turn it off.</p>
+            <p className="text-xs text-muted-foreground">Leave one empty to turn it off. Without a monthly target, your pace comes from your yearly goal.</p>
           </fieldset>
         ) : (
-          <UpgradePrompt feature="extraGoalTypes" variant="inline" message="Want a page goal or a monthly pace too? They're part of Plus." className="mt-3 block" />
+          <UpgradePrompt feature="extraGoalTypes" variant="inline" message="Want a page goal or your own monthly target? They're part of Plus." className="mt-3 block" />
         )}
         {refused && <UpgradePrompt feature="extraGoalTypes" className="mt-3" />}
 
@@ -168,9 +168,10 @@ const ReadingGoalWidget: FC = () => {
 
   const ratio = Math.min(1, completedThisYear / target)
   const status = pace(completedThisYear, target)
-  // Shown while on Plus; a lapsed account keeps the values for when it comes back.
+  // The page goal shows while on Plus; a lapsed account keeps it for when it comes back. The monthly
+  // pace is a stat everyone gets: the yearly goal over twelve months, or the Plus custom target.
   const pagesTarget = canExtra ? goal?.targetPages : null
-  const monthlyTarget = canExtra ? goal?.targetBooksPerMonth : null
+  const monthPace = monthlyPace(goal, canExtra)
 
   return (
     <div className="mt-5 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
@@ -210,12 +211,16 @@ const ReadingGoalWidget: FC = () => {
           <Pencil size={15} aria-hidden />
         </button>
       </div>
-      {(pagesTarget || monthlyTarget) && (
-        <div className="mt-3 flex flex-col gap-2.5 border-t border-neutral-200 dark:border-neutral-800 pt-3">
-          {pagesTarget ? <ExtraGoal label={`Pages in ${year}`} done={progress.pages} target={pagesTarget} colour={colour} /> : null}
-          {monthlyTarget ? <ExtraGoal label={`Books in ${MONTHS[progress.month]}`} done={progress.thisMonth} target={monthlyTarget} colour={colour} /> : null}
-        </div>
-      )}
+      <div className="mt-3 flex flex-col gap-2.5 border-t border-neutral-200 dark:border-neutral-800 pt-3">
+        <ExtraGoal
+          label={monthPace.custom ? `Books in ${MONTHS[progress.month]}` : `Books in ${MONTHS[progress.month]} · pace for your goal`}
+          done={progress.thisMonth}
+          target={monthPace.perMonth}
+          targetLabel={formatPace(monthPace.perMonth)}
+          colour={colour}
+        />
+        {pagesTarget ? <ExtraGoal label={`Pages in ${year}`} done={progress.pages} target={pagesTarget} colour={colour} /> : null}
+      </div>
     </div>
   )
 }

@@ -101,7 +101,7 @@ export async function POST(req: Request) {
       : "Add the book's page count first, so everyone's progress can be tracked.", 400);
   }
 
-  // Free accounts host one active circle at a time; Plus has no limit. Joining is never limited.
+  // Free accounts host two active circles at a time; Plus has no limit. Joining is never limited.
   const hosting = await canHostAnotherCircle(currentUser.id);
   if (!hosting.allowed) return hostingRefusal(hosting);
 

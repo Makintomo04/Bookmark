@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { monthlyPace } from "@/lib/goals";
 import prisma from "@/lib/db";
 import { getMilestone } from "@/lib/achievements-catalog";
 import { getReadingStreak } from "@/lib/achievements";
@@ -50,6 +51,9 @@ export interface GoalResult {
   targetPages: number | null;
   pages: number;
   targetBooksPerMonth: number | null;
+  // Books a month: the custom target when set, otherwise the yearly goal over twelve months. Free.
+  pacePerMonth: number;
+  paceIsCustom: boolean;
   // Months of the year (so far, for this year) that reached the monthly pace.
   monthsMet: number;
   monthsCounted: number;
@@ -284,7 +288,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
         const inYear = months[g.year] ?? emptyMonths();
         // This year counts the months that have started; a past year counts all twelve.
         const counted = g.year < currentYear ? 12 : g.year === currentYear ? currentMonth + 1 : 0;
-        const pace = g.targetBooksPerMonth ?? null;
+        const pace = monthlyPace(g);
         return {
           year: g.year,
           target: g.targetBooks,
@@ -292,8 +296,10 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
           met: done >= g.targetBooks,
           targetPages: g.targetPages ?? null,
           pages: inYear.reduce((s, m) => s + m.pages, 0),
-          targetBooksPerMonth: pace,
-          monthsMet: pace ? inYear.slice(0, counted).filter((m) => m.books >= pace).length : 0,
+          targetBooksPerMonth: g.targetBooksPerMonth ?? null,
+          pacePerMonth: pace.perMonth,
+          paceIsCustom: pace.custom,
+          monthsMet: inYear.slice(0, counted).filter((m) => m.books >= pace.perMonth).length,
           monthsCounted: counted,
         };
       })

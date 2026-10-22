@@ -6,10 +6,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type Stripe from "stripe";
-import { EntitlementError, allowanceLeft, entitlementErrorBody, entitlementsOf, hasAllowance, isUpgradeRequired, planStatusOf } from "@/lib/entitlements";
+import { EntitlementError, FOUNDING, PLUS_PRICING, allowanceLeft, entitlementErrorBody, entitlementsOf, foundingStatus, hasAllowance, isUpgradeRequired, parseFoundingClose, planStatusOf } from "@/lib/entitlements";
 import { hostingAllowance } from "@/lib/buddyReads";
 import { handleStripeEvent, planForStatus, type BillingDb, type BillingStripeApi } from "@/lib/billing";
-import { goalInputSchema, goalProgress, setsExtraGoals } from "@/lib/goals";
+import { formatPace, goalInputSchema, goalProgress, monthlyPace, setsExtraGoals } from "@/lib/goals";
 import { personalisationOf, personalisationSchema, setsPersonalisation, shelfAccent } from "@/lib/personalisation";
 import { CHECKOUT_INTEGRATION_ID, stripeWebhooks } from "@/lib/stripe";
 
@@ -20,7 +20,7 @@ test("a free account gets the free allowances and no Plus features", () => {
   assert.equal(free.isPlus, false);
   assert.equal(free.canHostUnlimited, false);
   assert.equal(free.extraGoalTypes, false);
-  assert.equal(free.monthlyWrapCards, false);
+  assert.equal(free.customWrapDesigns, false);
   assert.equal(free.personalisation, false);
   assert.deepEqual(free.allowances, { askShelfSearches: 5, recaps: 3 });
 });
@@ -30,17 +30,17 @@ test("accounts made before billing (no plan stored) are free", () => {
   assert.deepEqual(entitlementsOf({ plan: null }), entitlementsOf({ plan: "FREE" }));
 });
 
-test("a Plus account gets every Plus feature and unlimited allowances", () => {
+test("a Plus account gets every Plus feature and the fair-use allowances", () => {
   const plus = entitlementsOf({ plan: "PLUS" });
   assert.equal(plus.isPlus, true);
   assert.equal(plus.canHostUnlimited, true);
   assert.equal(plus.extraGoalTypes, true);
-  assert.equal(plus.monthlyWrapCards, true);
+  assert.equal(plus.customWrapDesigns, true);
   assert.equal(plus.personalisation, true);
-  assert.deepEqual(plus.allowances, { askShelfSearches: null, recaps: null });
+  assert.deepEqual(plus.allowances, { askShelfSearches: 100, recaps: 30 });
 });
 
-test("monthly allowances count down on free and never run out on Plus", () => {
+test("monthly allowances count down, with a higher stated ceiling on Plus", () => {
   const free = entitlementsOf({ plan: "FREE" });
   const plus = entitlementsOf({ plan: "PLUS" });
   assert.equal(allowanceLeft(free, "askShelfSearches", 0), 5);
@@ -48,8 +48,9 @@ test("monthly allowances count down on free and never run out on Plus", () => {
   assert.equal(allowanceLeft(free, "recaps", 7), 0);
   assert.equal(hasAllowance(free, "recaps", 2), true);
   assert.equal(hasAllowance(free, "recaps", 3), false);
-  assert.equal(allowanceLeft(plus, "recaps", 500), null);
-  assert.equal(hasAllowance(plus, "askShelfSearches", 500), true);
+  assert.equal(allowanceLeft(plus, "recaps", 10), 20);
+  assert.equal(hasAllowance(plus, "askShelfSearches", 99), true);
+  assert.equal(hasAllowance(plus, "askShelfSearches", 100), false);
 });
 
 test("a refused entitlement becomes a 402 body the client recognises", () => {
@@ -67,7 +68,7 @@ test("plan status reads trials, renewals and a used trial", () => {
   const now = new Date("2026-10-22T12:00:00Z");
   const trialEnds = new Date("2026-11-05T12:00:00Z");
   const trial = planStatusOf({ plan: "PLUS", trialEndsAt: trialEnds, planRenewsAt: trialEnds, stripeCustomerId: "cus_1" }, now);
-  assert.deepEqual(trial, { plan: "PLUS", trialing: true, until: trialEnds, hasBilling: true, trialUsed: true });
+  assert.deepEqual(trial, { plan: "PLUS", founding: false, trialing: true, until: trialEnds, hasBilling: true, trialUsed: true });
 
   const renews = new Date("2026-11-22T12:00:00Z");
   const paid = planStatusOf({ plan: "PLUS", trialEndsAt: new Date("2026-09-01T00:00:00Z"), planRenewsAt: renews, stripeCustomerId: "cus_1" }, now);
@@ -75,8 +76,35 @@ test("plan status reads trials, renewals and a used trial", () => {
   assert.deepEqual(paid.until, renews);
 
   const lapsed = planStatusOf({ plan: "FREE", trialEndsAt: new Date("2026-09-01T00:00:00Z"), stripeCustomerId: "cus_1" }, now);
-  assert.deepEqual(lapsed, { plan: "FREE", trialing: false, until: null, hasBilling: true, trialUsed: true });
-  assert.deepEqual(planStatusOf({}, now), { plan: "FREE", trialing: false, until: null, hasBilling: false, trialUsed: false });
+  assert.deepEqual(lapsed, { plan: "FREE", founding: false, trialing: false, until: null, hasBilling: true, trialUsed: true });
+  assert.deepEqual(planStatusOf({}, now), { plan: "FREE", founding: false, trialing: false, until: null, hasBilling: false, trialUsed: false });
+  assert.equal(planStatusOf({ plan: "PLUS", foundingMember: true }, now).founding, true);
+});
+
+// ---- Prices and the Founding Reader window -----------------------------------------------------
+
+test("Plus costs $3.99 a month or $29.99 a year, and founders pay $24.99 a year", () => {
+  assert.equal(PLUS_PRICING.monthly, 3.99);
+  assert.equal(PLUS_PRICING.yearly, 29.99);
+  assert.equal(FOUNDING.yearly, 24.99);
+  assert.equal(FOUNDING.cap, 1000);
+  // The yearly plan is a 37% saving on twelve monthly payments.
+  assert.equal(Math.round((1 - PLUS_PRICING.yearly / (PLUS_PRICING.monthly * 12)) * 100), 37);
+});
+
+test("the Founding window closes at the cap or on its closing date, whichever comes first", () => {
+  const now = new Date("2026-11-01T12:00:00Z");
+  const closes = new Date("2027-01-30T00:00:00Z");
+  assert.deepEqual(foundingStatus(0, closes, now), { open: true, remaining: 1000, closesAt: closes });
+  assert.deepEqual(foundingStatus(999, closes, now), { open: true, remaining: 1, closesAt: closes });
+  assert.deepEqual(foundingStatus(1000, closes, now), { open: false, remaining: 0, closesAt: closes });
+  assert.equal(foundingStatus(1200, null, now).remaining, 0);
+  assert.equal(foundingStatus(10, closes, new Date("2027-01-30T00:00:00Z")).open, false);
+  // No closing date set: only the cap applies.
+  assert.equal(foundingStatus(10, null, now).open, true);
+  assert.deepEqual(parseFoundingClose("2027-01-30"), new Date("2027-01-30T00:00:00Z"));
+  assert.equal(parseFoundingClose("not a date"), null);
+  assert.equal(parseFoundingClose(undefined), null);
 });
 
 // ---- Hosting -------------------------------------------------------------------------------
@@ -87,10 +115,11 @@ test("a Plus host has no active-circle limit", () => {
   assert.equal(hostingAllowance(250, "plus").allowed, true);
 });
 
-test("a free host's refusal offers the upgrade", () => {
-  const free = hostingAllowance(1, "free");
+test("a free host's refusal at two active circles offers the upgrade", () => {
+  assert.equal(hostingAllowance(1, "free").allowed, true);
+  const free = hostingAllowance(2, "free");
   assert.equal(free.allowed, false);
-  assert.equal(free.limit, 1);
+  assert.equal(free.limit, 2);
   assert.equal(free.upgrade, true);
   assert.match(free.message ?? "", /Joining circles is never limited/);
   assert.equal(hostingAllowance(0, "free").upgrade, false);
@@ -121,8 +150,8 @@ test("goal progress counts this year's pages and this month's books", () => {
 
 test("personalisation applies only on Plus, and going back to the defaults is always allowed", () => {
   const stored = { profileTheme: "INK" as const, shelfCardColour: "#2f9e44", favColour: "#D92D2D" };
-  assert.deepEqual(personalisationOf({ ...stored, plan: "PLUS" }), { profileTheme: "INK", shelfCardColour: "#2F9E44", supporter: true });
-  assert.deepEqual(personalisationOf({ ...stored, plan: "FREE" }), { profileTheme: "CLASSIC", shelfCardColour: null, supporter: false });
+  assert.deepEqual(personalisationOf({ ...stored, plan: "PLUS" }), { profileTheme: "INK", shelfCardColour: "#2F9E44", supporter: true, founding: false });
+  assert.deepEqual(personalisationOf({ ...stored, plan: "FREE" }), { profileTheme: "CLASSIC", shelfCardColour: null, supporter: false, founding: false });
   assert.equal(shelfAccent({ ...stored, plan: "PLUS" }), "#2F9E44");
   assert.equal(shelfAccent({ ...stored, plan: "FREE" }), "#D92D2D");
 
@@ -375,4 +404,40 @@ test("risk events on charges that aren't for a subscription, or without Stripe a
 
 test("Checkout sessions carry a fixed integration identifier with an 8-letter suffix", () => {
   assert.match(CHECKOUT_INTEGRATION_ID, /^bookmark_plus_checkout_[a-z]{8}$/);
+});
+
+// ---- The free monthly pace, and founders --------------------------------------------------------
+
+test("everyone gets a monthly pace from the yearly goal; Plus can set its own", () => {
+  assert.deepEqual(monthlyPace({ targetBooks: 24 }), { perMonth: 2, custom: false });
+  assert.deepEqual(monthlyPace({ targetBooks: 24, targetBooksPerMonth: 3 }), { perMonth: 3, custom: true });
+  // A lapsed Plus account keeps its stored target but sees the worked-out pace.
+  assert.deepEqual(monthlyPace({ targetBooks: 24, targetBooksPerMonth: 3 }, false), { perMonth: 2, custom: false });
+  assert.equal(formatPace(monthlyPace({ targetBooks: 50 }).perMonth), "4.2");
+  assert.equal(formatPace(2), "2");
+});
+
+const FOUNDING_PRICE = "price_founding";
+const onPrice = (sub: Stripe.Subscription, price: string) =>
+  ({ ...sub, items: { ...sub.items, data: [{ ...sub.items.data[0], price: { id: price } }] } }) as unknown as Stripe.Subscription;
+
+test("a paid subscription on the Founding price marks a founder; a trial or another price doesn't", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "FREE" }]);
+  const trial = onPrice(subscription({ status: "trialing", trialEnd: "2026-11-05T00:00:00Z" }), FOUNDING_PRICE);
+  await handleStripeEvent(event("customer.subscription.created", trial), { db, foundingPriceId: FOUNDING_PRICE });
+  assert.equal(db.rows[0].plan, "PLUS");
+  assert.equal(db.rows[0].foundingMember, undefined);
+
+  const paid = onPrice(subscription({ status: "active" }), FOUNDING_PRICE);
+  await handleStripeEvent(event("customer.subscription.updated", paid), { db, foundingPriceId: FOUNDING_PRICE });
+  assert.equal(db.rows[0].foundingMember, true);
+
+  const other = stubDb([{ id: USER_ID, plan: "FREE" }]);
+  await handleStripeEvent(event("customer.subscription.updated", onPrice(subscription({ status: "active" }), "price_yearly")), { db: other, foundingPriceId: FOUNDING_PRICE });
+  assert.equal(other.rows[0].foundingMember, undefined);
+
+  // Cancelling later never takes the founder mark away.
+  await handleStripeEvent(event("customer.subscription.deleted", onPrice(subscription({ status: "canceled" }), FOUNDING_PRICE)), { db, foundingPriceId: FOUNDING_PRICE });
+  assert.equal(db.rows[0].plan, "FREE");
+  assert.equal(db.rows[0].foundingMember, true);
 });

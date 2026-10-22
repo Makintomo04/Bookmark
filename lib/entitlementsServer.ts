@@ -5,9 +5,21 @@ import {
   entitlementErrorBody,
   entitlementsOf,
   entitlementsSelect,
+  foundingStatus,
+  parseFoundingClose,
   type EntitlementKey,
   type Entitlements,
+  type FoundingStatus,
 } from "@/lib/entitlements";
+
+// Whether a new subscriber can still get the Founding Reader price. Closed when the founding Stripe
+// price isn't configured, so the pricing page never offers what Checkout can't charge.
+export async function currentFoundingStatus(now = new Date()): Promise<FoundingStatus> {
+  const closesAt = parseFoundingClose(process.env.PLUS_FOUNDING_CLOSES_AT);
+  if (!process.env.STRIPE_PRICE_FOUNDING) return { open: false, remaining: 0, closesAt };
+  const founders = await prisma.user.count({ where: { foundingMember: true } });
+  return foundingStatus(founders, closesAt, now);
+}
 
 // The server side of lib/entitlements.ts: look the plan up, and refuse with a 402 the client
 // understands. Route handlers:

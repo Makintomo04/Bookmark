@@ -56,12 +56,13 @@ test("the aggregate counts readers, ranks moods and picks each warning's commone
   assert.equal(aggregateTags([]).readers, 0);
 });
 
-test("free accounts host one active circle at a time", () => {
-  assert.deepEqual(hostingAllowance(0), { allowed: true, active: 0, limit: 1, plan: "free", upgrade: false, message: null });
-  const blocked = hostingAllowance(1);
+test("free accounts host two active circles at a time", () => {
+  assert.deepEqual(hostingAllowance(0), { allowed: true, active: 0, limit: 2, plan: "free", upgrade: false, message: null });
+  assert.equal(hostingAllowance(1).allowed, true);
+  const blocked = hostingAllowance(2);
   assert.equal(blocked.allowed, false);
-  assert.equal(blocked.limit, 1);
-  assert.match(blocked.message ?? "", /already hosting an active circle/);
+  assert.equal(blocked.limit, 2);
+  assert.match(blocked.message ?? "", /already hosting two active circles/);
   assert.match(blocked.message ?? "", /Joining circles is never limited/);
   assert.equal(hostingAllowance(5).allowed, false);
 });

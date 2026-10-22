@@ -29,6 +29,25 @@ export interface StoredGoal {
   targetBooksPerMonth?: number | null;
 }
 
+export interface MonthlyPace {
+  // Books a month: the reader's own target (Plus), or the yearly goal spread over twelve months.
+  perMonth: number;
+  custom: boolean;
+}
+
+// The monthly pace is a stat everyone gets, worked out from the yearly goal. A custom monthly target
+// replaces it while `allowCustom` (Plus); a lapsed account falls back to the worked-out pace.
+export function monthlyPace(goal: StoredGoal, allowCustom = true): MonthlyPace {
+  if (allowCustom && goal.targetBooksPerMonth && goal.targetBooksPerMonth > 0) return { perMonth: goal.targetBooksPerMonth, custom: true };
+  return { perMonth: goal.targetBooks / 12, custom: false };
+}
+
+// "2", or "2.5" for a pace that isn't whole.
+export function formatPace(perMonth: number): string {
+  const rounded = Math.round(perMonth * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 export interface GoalBook {
   status: string;
   completedAt: Date | string | null;

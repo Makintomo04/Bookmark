@@ -17,7 +17,7 @@ export const PROFILE_THEMES: { id: ProfileTheme; name: string; hint: string }[] 
 export const PROFILE_THEME_IDS = PROFILE_THEMES.map((t) => t.id) as [ProfileTheme, ...ProfileTheme[]];
 
 // The User fields these need. Spread into a Prisma `select`.
-export const personalisationSelect = { plan: true, profileTheme: true, shelfCardColour: true } as const;
+export const personalisationSelect = { plan: true, profileTheme: true, shelfCardColour: true, foundingMember: true } as const;
 
 export interface Personalisation {
   profileTheme: ProfileTheme;
@@ -25,9 +25,11 @@ export interface Personalisation {
   shelfCardColour: string | null;
   // Plus accounts show the supporter badge on their profile.
   supporter: boolean;
+  // A founder on Plus: the badge reads "Founding Reader".
+  founding: boolean;
 }
 
-type Stored = { plan?: Plan | null; profileTheme?: ProfileTheme | null; shelfCardColour?: string | null };
+type Stored = { plan?: Plan | null; profileTheme?: ProfileTheme | null; shelfCardColour?: string | null; foundingMember?: boolean | null };
 
 export function personalisationOf(user: Stored): Personalisation {
   const plus = planOf(user) === "PLUS";
@@ -36,6 +38,7 @@ export function personalisationOf(user: Stored): Personalisation {
     // Upper case, like the swatches compare against.
     shelfCardColour: plus ? toHex(user.shelfCardColour ?? "")?.toUpperCase() ?? null : null,
     supporter: plus,
+    founding: plus && !!user.foundingMember,
   };
 }
 
