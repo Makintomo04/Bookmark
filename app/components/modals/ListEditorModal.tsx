@@ -17,6 +17,7 @@ import { sameBook } from '@/lib/workKey'
 import { LIST_DESCRIPTION_MAX as DESCRIPTION_MAX, LIST_ITEMS_MAX as ITEMS_MAX, LIST_NOTE_MAX as NOTE_MAX, LIST_TITLE_MAX as TITLE_MAX } from '@/lib/listRules'
 import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
+import useBookSearch from '@/app/hooks/useBookSearch'
 import useListEditorModal, { EditableList, EditableListItem } from '@/app/hooks/useListEditorModal'
 import { isListsKey } from '@/app/hooks/useLists'
 
@@ -48,10 +49,8 @@ const ListEditorModal: FC = () => {
   const [draft, setDraft] = useState<EditableList | null>(null)
   const [source, setSource] = useState<"search" | "shelf">("search")
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<BookSearchResult[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchFailed, setSearchFailed] = useState(false)
   const [searchAttempt, setSearchAttempt] = useState(0)
+  const { results, isSearching, searchFailed } = useBookSearch(query, { enabled: source === "search", attempt: searchAttempt })
   const [tagInput, setTagInput] = useState("")
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -63,31 +62,10 @@ const ListEditorModal: FC = () => {
     if (!isOpen || !initial) return
     setDraft(initial)
     setQuery("")
-    setResults([])
     setTagInput("")
     setOpenNote(null)
     setConfirmDelete(false)
   }, [isOpen, initial])
-
-  useEffect(() => {
-    if (source !== "search" || query.trim().length < 3) {
-      setResults([])
-      setIsSearching(false)
-      setSearchFailed(false)
-      return
-    }
-    // A slower earlier search must not overwrite the results for what's typed now.
-    let current = true
-    setIsSearching(true)
-    setSearchFailed(false)
-    const timeout = setTimeout(() => {
-      axios.get(`/api/books/search?q=${encodeURIComponent(query.trim())}`)
-        .then((res) => { if (current) setResults(res.data) })
-        .catch(() => { if (current) { setResults([]); setSearchFailed(true) } })
-        .finally(() => { if (current) setIsSearching(false) })
-    }, 400)
-    return () => { current = false; clearTimeout(timeout) }
-  }, [query, source, searchAttempt])
 
   const shelfMatches = useMemo(() => {
     const all = Array.isArray(books) ? (books as Book[]) : []

@@ -1,0 +1,64 @@
+import { useEffect, useState } from 'react'
+import axios from 'axios'
+import type { DiscoverBook } from '@/lib/openLibrary'
+
+// Shelf matches are cheap, so they go out almost at once; the full search (which asks Open Library) waits
+// for a pause in typing.
+const SHELVES_DELAY = 150
+const FULL_DELAY = 400
+
+interface Options {
+  enabled: boolean
+  limit?: 6 | 12
+  // Bump to retry after a failure.
+  attempt?: number
+}
+
+// Book search for the search boxes: books already on Bookmark's shelves show first, then the merged list
+// replaces them once Open Library answers. `isSearching` stays true only while there's nothing to show.
+export default function useBookSearch(query: string, { enabled, limit = 6, attempt = 0 }: Options) {
+  const [results, setResults] = useState<DiscoverBook[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
+  const q = query.trim()
+
+  useEffect(() => {
+    if (!enabled || q.length < 3) {
+      setResults([])
+      setIsSearching(false)
+      setSearchFailed(false)
+      return
+    }
+    // A slower earlier search must not overwrite the results for what's typed now.
+    let current = true
+    let fullDone = false
+    let shown = 0
+    setResults([])
+    setIsSearching(true)
+    setSearchFailed(false)
+    const url = `/api/books/search?q=${encodeURIComponent(q)}&limit=${limit}`
+
+    const shelves = setTimeout(() => {
+      axios.get(`${url}&source=shelves`)
+        .then((res) => {
+          if (!current || fullDone || !Array.isArray(res.data) || res.data.length === 0) return
+          shown = res.data.length
+          setResults(res.data)
+          setIsSearching(false)
+        })
+        .catch(() => {})
+    }, SHELVES_DELAY)
+
+    const full = setTimeout(() => {
+      axios.get(url)
+        .then((res) => { fullDone = true; if (current) setResults(res.data) })
+        // Shelf matches already on screen are better than an error.
+        .catch(() => { fullDone = true; if (current && shown === 0) { setResults([]); setSearchFailed(true) } })
+        .finally(() => { if (current) setIsSearching(false) })
+    }, FULL_DELAY)
+
+    return () => { current = false; clearTimeout(shelves); clearTimeout(full) }
+  }, [q, enabled, limit, attempt])
+
+  return { results, isSearching, searchFailed }
+}
