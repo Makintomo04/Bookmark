@@ -6,6 +6,9 @@ import { isStorableBanner } from "@/lib/banners";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { attachReferralByUsername } from "@/lib/referrals";
+import { REFERRAL_COOKIE } from "@/lib/plusRewards";
 
 // Onboarding's live "is this username free?" check. Usernames are public, so this reveals nothing new.
 export async function GET(req: Request) {
@@ -63,7 +66,12 @@ export async function POST(req: Request) {
         ...(typeof body?.bannerSrc === "string" && body.bannerSrc ? { banner: body.bannerSrc } : {}),
       },
     });
-    return NextResponse.json(sanitizeUser(user));
+    // Signed up through someone's invite link (app/components/register/SignUpComponent.tsx keeps it).
+    const ref = cookies().get(REFERRAL_COOKIE)?.value;
+    if (ref) await attachReferralByUsername(user.id, decodeURIComponent(ref), "link").catch((e) => console.error("[referrals]", e));
+    const res = NextResponse.json(sanitizeUser(user));
+    if (ref) res.cookies.delete(REFERRAL_COOKIE);
+    return res;
   } catch (error) {
     // Someone claimed the name between the check and the update.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

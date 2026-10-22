@@ -97,6 +97,10 @@ export async function DELETE(req: Request) {
   await prisma.notification.deleteMany({ where: { OR: [{ userId: currentUser.id }, { actorId: currentUser.id }] } });
   await prisma.book.deleteMany({ where: { userId: currentUser.id } });
   await prisma.readingGoal.deleteMany({ where: { userId: currentUser.id } });
+  await prisma.referral.deleteMany({ where: { OR: [{ inviterId: currentUser.id }, { inviteeId: currentUser.id }] } });
+  // Codes they gave out and that were used stay used; their own unused codes go.
+  await prisma.giftCode.updateMany({ where: { redeemedById: currentUser.id }, data: { redeemedById: null } });
+  await prisma.giftCode.deleteMany({ where: { ownerId: currentUser.id } });
   await prisma.listReport.deleteMany({ where: { OR: [{ reporterId: currentUser.id }, { list: { ownerId: currentUser.id } }] } });
   await prisma.listItem.deleteMany({ where: { list: { ownerId: currentUser.id } } });
   await prisma.list.deleteMany({ where: { ownerId: currentUser.id } });

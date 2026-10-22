@@ -10,7 +10,7 @@ import useUser from '@/app/hooks/useUser'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
 import { IoClose } from 'react-icons/io5'
-import { BarChart3, ChevronRight, Compass, Flag, Heart, Home, LogOut, Rss, Sparkles, Users, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronRight, Compass, Crown, Flag, Heart, Home, LogOut, Rss, Sparkles, Users, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isWrappedSeason } from '@/lib/wrappedSeason'
 interface UserMenuProps {
@@ -30,6 +30,7 @@ const SECONDARY: NavItem[] = [
   { href: "/favourites", label: "Favourites", icon: Heart },
   { href: "/stats", label: "Stats", icon: BarChart3, inHeader: true },
   { href: "/quests", label: "Quests", icon: Flag },
+  { href: "/plus", label: "Bookmark Plus", icon: Crown },
 ]
 
 const UserMenu: FC<UserMenuProps> = ({}) => {

@@ -15,6 +15,7 @@ import { formatLength, progressScale } from '@/lib/progress'
 import BookCover from '../cards/BookCover'
 import FetchErrorState from '../FetchErrorState'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
+import UpgradePrompt from '../plus/UpgradePrompt'
 
 // Books worth reading together: not ones already finished or given up on.
 const SHELVES: Record<string, string> = { STARTED: "Reading", PAUSED: "Paused", NOT_STARTED: "Want to read" }
@@ -71,7 +72,8 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
         <p className="text-muted-foreground">Choose a book from your shelf. You&apos;ll get a link to share; anyone with it can join, and the book goes on their shelf too.</p>
       </div>
 
-      {blocked && (
+      {blocked && hosting.upgrade && <UpgradePrompt feature="canHostUnlimited" message={hosting.message ?? undefined} />}
+      {blocked && !hosting.upgrade && (
         <p className="flex items-start gap-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 px-4 py-3 text-sm">
           <Lock size={16} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
           <span>{hosting.message} <Link href="/circles" className="font-medium underline underline-offset-4">See your reading circles</Link></span>

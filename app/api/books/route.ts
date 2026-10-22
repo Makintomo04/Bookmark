@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/apiAuth";
+import { qualifyReferral } from "@/lib/referrals";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
@@ -143,5 +144,7 @@ if (shelf !== "NOT_INTERESTED") await prisma.activity.create({
   }
 })
 if (isCompleted) await awardNewAchievements(currentUser.id)
+// Adding a book is logging reading: a referral for this reader counts now.
+await qualifyReferral(currentUser.id).catch((e) => console.error("[referrals]", e))
 return NextResponse.json(book)
 }

@@ -5,6 +5,7 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import { getReadingStats, isWrappedSeason } from '@/lib/stats'
 import StatsView, { StatsEmpty } from '@/app/components/stats/StatsView'
 import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/accent'
+import MonthlyWrapCards from '@/app/components/wrapped/MonthlyWrapCards'
 
 export const metadata: Metadata = {
   title: 'Reading stats',
@@ -38,7 +39,7 @@ const Page = async ({ searchParams }: PageProps) => {
       <Container>
         <h1 className="text-3xl sm:text-4xl font-bold">Your reading stats</h1>
         <p className="mt-2 mb-8 text-muted-foreground">All of it, free. No upgrade, no paywall: it&apos;s your data.</p>
-        {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} />}
+        {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<MonthlyWrapCards />} />}
       </Container>
     </div>
   )

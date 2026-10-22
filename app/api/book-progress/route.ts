@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/apiAuth";
+import { qualifyReferral } from "@/lib/referrals";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
@@ -216,5 +217,7 @@ export async function POST(req: Request) {
   }
   await onBuddyReadProgress(currentUser.id, updated)
   await awardNewAchievements(currentUser.id)
+  // Logging reading is what makes a referral count for whoever invited this reader.
+  await qualifyReferral(currentUser.id).catch((e) => console.error("[referrals]", e))
   return NextResponse.json(updated)
 }
