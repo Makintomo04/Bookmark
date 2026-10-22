@@ -41,7 +41,7 @@ const steps = [
   },
   {
     title: "Start a reading circle and share the link",
-    description: "One tap on the book page. Your friends don't need to be on Bookmark yet: anyone can open the invite, and a quick sign-up drops them straight into the circle.",
+    description: "Start one from any book on your shelf, right where you update your progress. Your friends don't need to be on Bookmark yet: anyone can open the invite, and a quick sign-up drops them straight into the circle.",
   },
   {
     title: "Read, and talk as you go",
@@ -52,7 +52,7 @@ const steps = [
 const faqs = [
   {
     question: "Is Bookmark really free?",
-    answer: "Yes. Tracking, import, every stat, reading circles, Wrapped and export are free, and joining a circle is never limited. An optional Plus plan adds extras, such as hosting more than one circle at a time.",
+    answer: "Yes. Tracking, import, every stat, reading circles, Wrapped and export are free, and joining a circle is never limited. The free plan hosts one active circle at a time; the optional Plus plan lets you host more.",
   },
   {
     question: "None of my friends use Bookmark. Does that matter?",

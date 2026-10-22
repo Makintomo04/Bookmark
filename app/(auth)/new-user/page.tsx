@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { useForm } from 'react-hook-form'
-import { BookOpen, Camera, Check, ChevronRight, Loader2, Target, Upload } from 'lucide-react'
+import { BookOpen, Camera, Check, ChevronRight, Loader2, Target, Upload, Users } from 'lucide-react'
 import Loader from '@/app/components/Loader'
+import FetchErrorState from '@/app/components/FetchErrorState'
 import { Button } from '@/app/components/ui/button'
 import ColourSwatches from '@/app/components/profile/ColourSwatches'
 import CommunityStep from '@/app/components/new-user/CommunityStep'
@@ -16,7 +17,7 @@ import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import { safeCallbackPath } from '@/lib/callbackUrl'
-import { DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN, suggestUsername } from '@/lib/profile'
+import { DEFAULT_COLOUR, normaliseUsername, suggestUsername, usernameProblem } from '@/lib/profile'
 import { BannerPresetId, defaultBannerPreset, bannerPresetValue } from '@/lib/banners'
 import BannerPattern from '@/app/components/profile/BannerPattern'
 import BannerPresetPicker from '@/app/components/profile/BannerPresetPicker'
@@ -45,7 +46,7 @@ const Progress = ({ step }: { step: Step }) => (
 )
 
 const Page = () => {
-  const { user, mutate } = useUser()
+  const { user, mutate, isError } = useUser()
   const router = useRouter()
   const openBookEntry = useBookEntryModal((s) => s.onOpen)
   const [ready, setReady] = useState(false)
@@ -81,8 +82,8 @@ const Page = () => {
 
   // Debounced, and ignores replies to names the reader has since typed past.
   useEffect(() => {
-    const name = username.trim()
-    if (name.length < USERNAME_MIN || name.length > USERNAME_MAX) {
+    const name = normaliseUsername(username)
+    if (usernameProblem(name)) {
       setAvailability("idle")
       return
     }
@@ -103,7 +104,7 @@ const Page = () => {
     }
     setSaving(true)
     try {
-      const res = await axios.post("/api/new-user", { username: data.username.trim(), color: data.color, imageSrc: data.imageSrc || undefined, bannerSrc: bannerPresetValue(data.banner) })
+      const res = await axios.post("/api/new-user", { username: normaliseUsername(data.username), color: data.color, imageSrc: data.imageSrc || undefined, bannerSrc: bannerPresetValue(data.banner) })
       mutate(res.data, { revalidate: false })
       if (nextPath) {
         router.push(nextPath)
@@ -122,9 +123,21 @@ const Page = () => {
     setSaving(false)
   }
 
-  if (!ready) return <div className="h-screen w-full"><Loader /></div>
+  if (!ready) {
+    // Without this, a failed /api/user (signed out, offline, a server error) would spin forever.
+    if (isError) {
+      return (
+        <div className="min-h-dvh w-full flex items-start sm:items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md">
+            <FetchErrorState error={isError} what="your account" onRetry={() => mutate()} />
+          </div>
+        </div>
+      )
+    }
+    return <div className="min-h-dvh w-full"><Loader /></div>
+  }
 
-  const savedName = username.trim()
+  const savedName = normaliseUsername(username)
   const profileHref = `/u/${encodeURIComponent(savedName)}`
   const initial = (savedName[0] ?? "?").toUpperCase()
   const avatarSrc = avatar.preview || imageSrc
@@ -201,11 +214,9 @@ const Page = () => {
           className={cn(fieldClass, errors.username || availability === "taken" ? "border-danger" : "border-input")}
           {...register("username", {
             validate: (v) => {
-              const t = v.trim()
-              if (!t) return "Choose a username."
-              if (t.length < USERNAME_MIN) return `Use at least ${USERNAME_MIN} characters.`
-              if (t.length > USERNAME_MAX) return `Use ${USERNAME_MAX} characters or fewer.`
-              return true
+              const name = normaliseUsername(v)
+              if (!name) return "Choose a username."
+              return usernameProblem(name) ?? true
             },
           })}
         />
@@ -238,9 +249,16 @@ const Page = () => {
     <div className="flex flex-col gap-6">
       <div className="text-center">
         <h1 className="page-title break-words">Welcome, {savedName}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Your profile is ready. Put a few books on it so it feels like yours.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Your profile is ready. Start a circle with friends, or put a few books on your shelf.</p>
       </div>
       <div className="flex flex-col gap-3">
+        {/* What the landing page promises, so it comes first: pick the book, then the circle form opens with it. */}
+        <ShelfOption
+          icon={<Users size={20} aria-hidden />}
+          title="Start a reading circle"
+          description="Pick a book, share one link, and talk about it as you go."
+          onClick={() => { openBookEntry(undefined, { shelf: "STARTED", startCircle: true }); router.push(profileHref) }}
+        />
         <ShelfOption
           icon={<BookOpen size={20} aria-hidden />}
           title="Add the book you're reading"
@@ -262,9 +280,9 @@ const Page = () => {
   )
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-background">
-        <div className="flex min-h-screen w-full items-center justify-center sm:px-4 sm:py-10">
-          <div className="min-h-screen w-full rounded-none bg-background p-6 pt-12 sm:min-h-0 sm:w-[560px] sm:rounded-xl sm:border sm:bg-popover sm:p-8">
+    <div className="min-h-dvh w-full overflow-x-hidden bg-background">
+        <div className="flex min-h-dvh w-full items-start justify-center sm:items-center sm:px-4 sm:py-10">
+          <div className="min-h-dvh w-full rounded-none bg-background p-6 pt-12 sm:min-h-0 sm:w-[560px] sm:rounded-xl sm:border sm:bg-popover sm:p-8">
             <div className="mb-4 flex justify-center">
               <Image src='/logo.svg' width={40} height={40} alt='Bookmark' />
             </div>

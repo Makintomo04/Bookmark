@@ -102,6 +102,7 @@ const BookEntryModal: FC = () => {
     }
     const startShelf = bookEntryModal.shelf ?? "NOT_STARTED"
     setShelf(startShelf)
+    setStartCircle(bookEntryModal.startCircle)
     // Opened from Discover with a book already chosen: skip straight to picking a shelf.
     if (bookEntryModal.prefill) handleSelect(bookEntryModal.prefill, startShelf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -279,7 +280,7 @@ const BookEntryModal: FC = () => {
         <div className="flex flex-col gap-2 sm:col-span-2">
           <Label>Cover <span className="font-normal text-muted-foreground">· optional</span></Label>
           <UploadButton
-            appearance={{ button: () => ({ background: user?.favColour }) }}
+            appearance={{ button: () => ({ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }) }}
             className="items-start"
             endpoint="imageUploader"
             onUploadBegin={() => setIsLoading(true)}

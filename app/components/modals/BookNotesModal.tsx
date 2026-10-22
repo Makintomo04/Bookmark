@@ -16,6 +16,7 @@ import { Note } from '@prisma/client'
 import moment from 'moment'
 import useBooks from '@/app/hooks/useBooks'
 import { RECOMMENDED_BY_MAX, recommendedByOf } from '@/lib/recommendRules'
+import { readableInk } from '@/lib/colour'
 
 interface BookNotesModalProps {
 
@@ -23,6 +24,7 @@ interface BookNotesModalProps {
 
 const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
   const { user } = useUser()
+  const accent = user?.favColour || '#D92D2D'
   const bookNotesModal = useBookNotesModal()
   const { isOpen, bookId, bookTitle, onClose } = bookNotesModal
   const { notes, isLoading, mutate } = useBookNotes(isOpen ? bookId : undefined)
@@ -91,7 +93,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
           <Label className="text-md font-bold" htmlFor="content">Note or Quote</Label>
           <Textarea register={register} errors={errors} name="content" id="content" autoComplete='off' placeholder="Jot something down..."/>
         </div>
-        <Button disabled={isSaving} style={{background:`${user?.favColour}`}} onClick={handleSubmit(onSubmit)} className="w-fit">Add</Button>
+        <Button disabled={isSaving} style={{ background: accent, color: readableInk(accent) }} onClick={handleSubmit(onSubmit)} className="w-fit">Add</Button>
         <hr className='my-2'/>
         <div className="flex flex-col gap-3 max-h-64 overflow-y-auto">
           {isLoading && <p className='text-sm text-muted-foreground'>Loading...</p>}

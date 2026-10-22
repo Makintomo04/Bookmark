@@ -15,13 +15,13 @@ const MagicLinkLanding = () => {
   const [going, setGoing] = useState(false)
 
   return (
-    <div className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
+    <div className='w-full min-h-dvh sm:w-[500px] sm:min-h-0 rounded-none py-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
       <div className="flex justify-center items-center gap-3 mb-6">
-        <Image src='/logo.svg' width={40} height={40} alt='Bookmark'/>
+        <Link href="/" className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Image src='/logo.svg' width={40} height={40} alt='Bookmark home'/></Link>
       </div>
       <h1 className="page-title mb-6 text-center">Sign in to Bookmark</h1>
       {!valid ? (
-        <p className='text-center text-sm'>This sign-in link is invalid. <Link href="/signin" className='text-[#F13C3C] font-semibold hover:underline'>Request a new one</Link>.</p>
+        <p className='text-center text-sm'>This sign-in link is invalid. <Link href="/signin" className='text-brand-text font-semibold hover:underline'>Request a new one</Link>.</p>
       ) : (
         <div className="flex flex-col gap-4 text-sm">
           <p className="text-center">You&apos;re one click away. The link works once and expires an hour after it was sent.</p>

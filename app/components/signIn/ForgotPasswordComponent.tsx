@@ -39,9 +39,9 @@ const ForgotPasswordComponent = () => {
     initial={{ opacity: 1,y:-50 }}
     animate={{ opacity: 1,y:0 }}
     transition={{ ease: "circIn" }}
-    className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
-      <div className="flex justify-center items-center gap-3 cursor-pointer mb-6">
-      <Image src='/logo.svg' width={40} height={40} alt='logo'/>
+    className='w-full min-h-dvh sm:w-[500px] sm:min-h-0 rounded-none py-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
+      <div className="flex justify-center items-center gap-3 mb-6">
+      <Link href="/" className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Image src='/logo.svg' width={40} height={40} alt='Bookmark home'/></Link>
       </div>
     <div className="w-full">
     <h1 className="page-title mb-4 text-center">Forgot your password?</h1>
@@ -63,7 +63,7 @@ const ForgotPasswordComponent = () => {
       <Button disabled={isLoading} className="rounded-md py-2">Send reset link</Button>
     </form>
     )}
-    <p className='text-sm mt-4 text-center'><Link href="/signin" className='text-[#F13C3C] font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Back to sign in</Link></p>
+    <p className='text-sm mt-4 text-center'><Link href="/signin" className='text-brand-text font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Back to sign in</Link></p>
   </div>
   </motion.div>
   </AnimatePresence>

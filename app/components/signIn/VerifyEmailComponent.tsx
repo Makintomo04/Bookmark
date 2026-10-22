@@ -33,13 +33,13 @@ const VerifyEmailComponent = () => {
   const signInHref = withCallback(`/signin${email ? `?email=${encodeURIComponent(email)}` : ""}`, callbackPath)
 
   return (
-    <div className='w-screen h-screen sm:w-[500px] sm:h-auto rounded-none p-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
+    <div className='w-full min-h-dvh sm:w-[500px] sm:min-h-0 rounded-none py-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
       <div className="flex justify-center items-center gap-3 mb-6">
-        <Image src='/logo.svg' width={40} height={40} alt='Bookmark'/>
+        <Link href="/" className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Image src='/logo.svg' width={40} height={40} alt='Bookmark home'/></Link>
       </div>
       <h1 className="page-title mb-6 text-center">Confirm your email</h1>
       {!token || !email ? (
-        <p className='text-center text-sm'>This verification link is invalid. <Link href="/signin" className='text-[#F13C3C] font-semibold hover:underline'>Sign in</Link> to get a new one.</p>
+        <p className='text-center text-sm'>This verification link is invalid. <Link href="/signin" className='text-brand-text font-semibold hover:underline'>Sign in</Link> to get a new one.</p>
       ) : state === "done" ? (
         <p role="status" className="text-center text-sm">Email confirmed. Taking you to Bookmark…</p>
       ) : (

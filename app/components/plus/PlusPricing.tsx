@@ -18,7 +18,7 @@ const FREE = [
   'Every personal stat, your Wrapped and a yearly goal',
   'A monthly Wrap card for any month, and your monthly pace',
   'Join any circle: every comment, reply and reaction',
-  'Host two active reading circles at a time',
+  'Host one active reading circle at a time',
   'Reviews, notes, lists, feed, follows and privacy controls',
   'DNF, paused, re-reads, half stars, quests and medals',
   'Export all your data, always',
@@ -132,7 +132,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
         </span>
         <h1 className="display-hero mt-4">All your stats are free.</h1>
         <p className={cn('mt-4 text-base md:text-lg', mutedClassName)}>
-          Plus adds recaps, hosting tools and extra goals. It never gates your stats, your import, or the circles your friends invite you to.
+          Plus lets you host more circles and set extra goals, with AI recaps on the way. It never gates your stats, your import, or the circles your friends invite you to.
         </p>
       </header>
 

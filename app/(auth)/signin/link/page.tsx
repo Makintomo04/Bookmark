@@ -4,9 +4,9 @@ import MagicLinkLanding from '@/app/components/signIn/MagicLinkLanding'
 
 const Page = () => {
   return (
-    <div className="w-full min-h-screen bg-background">
+    <div className="w-full min-h-dvh bg-background">
       <Container>
-        <div className="w-full h-screen flex justify-center items-center">
+        <div className="w-full min-h-dvh flex justify-center items-start sm:items-center sm:py-10">
           <Suspense fallback={null}>
             <MagicLinkLanding/>
           </Suspense>

@@ -62,7 +62,7 @@ export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrap
 export interface Entitlements {
   plan: Plan;
   isPlus: boolean;
-  // Active hosted reading circles: free hosts two at a time (lib/buddyReads.ts hostingAllowance).
+  // Active hosted reading circles: free hosts one at a time (lib/buddyReads.ts hostingAllowance).
   canHostUnlimited: boolean;
   // A page goal and a custom monthly target beside the yearly count. The pace worked out from the
   // yearly goal is a stat, so it's free.
@@ -129,7 +129,7 @@ export function hasAllowance(entitlements: Entitlements, key: AllowanceKey, used
 export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string; message: string }> = {
   canHostUnlimited: {
     title: "Host as many circles as you like",
-    message: "Free accounts host two active circles at a time. Plus lifts the limit. Joining is never limited.",
+    message: "Free accounts host one active circle at a time. Plus lifts the limit. Joining is never limited.",
   },
   extraGoalTypes: {
     title: "Goals beyond one number",

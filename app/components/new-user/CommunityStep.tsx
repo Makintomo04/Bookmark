@@ -40,7 +40,7 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
     <div className="flex flex-col gap-6">
       <div className="text-center">
         <h1 className="page-title">What do you like to read?</h1>
-        <p className="mt-2 text-sm text-muted-foreground">We&apos;ll use this to suggest books and readers. Everything else starts on sensible defaults you can change in Edit profile.</p>
+        <p className="mt-2 text-sm text-muted-foreground">We&apos;ll use this to suggest books and readers. Everything else starts on sensible defaults you can change in Settings.</p>
       </div>
 
       <section aria-labelledby="genres-label" className="flex flex-col gap-2">
