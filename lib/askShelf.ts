@@ -144,13 +144,20 @@ export async function parseIntent(query: string, ask: AskJson): Promise<ShelfInt
     schema: INTENT_SCHEMA as unknown as Record<string, unknown>,
     maxTokens: 2048,
     effort: "low",
+    // A reader is waiting, and both jobs are lookups, not reasoning.
+    thinking: false,
   });
   return readIntent(data);
 }
 
 // True when the intent gives retrieval something to go on.
 export const hasSearchableIntent = (intent: ShelfIntent) =>
-  intent.moods.length + intent.genres.length + intent.subjects.length + intent.mustHaves.length > 0;
+  intent.moods.length + intent.genres.length + intent.subjects.length + intent.mustHaves.length > 0
+  || intent.minPages !== null || intent.maxPages !== null || intent.format !== null;
+
+// Only a length or a format ("a short read", "an audiobook"): retrieval goes by editions instead of words.
+export const isShapeOnly = (intent: ShelfIntent) =>
+  intent.moods.length + intent.genres.length + intent.subjects.length + intent.mustHaves.length === 0;
 
 // ---- Step 2: retrieval and scoring ---------------------------------------------------------------
 
@@ -181,6 +188,7 @@ export interface ShelfEntry {
   workId: string | null;
   workKey: string | null;
   status: string;
+  rating?: number | null;
 }
 
 export interface SignalPerson {
@@ -244,14 +252,9 @@ const inSubjectsOrBlurb = (hay: Haystack, term: string) => {
   return re.test(hay.subjects) || re.test(hay.description);
 };
 
-// A must-have like "strong female lead": the whole phrase, or most of its longer words.
-function mustHaveMatches(hay: Haystack, phrase: string) {
-  if (inSubjectsOrBlurb(hay, phrase)) return true;
-  const words = phrase.split(" ").filter((w) => w.length > 3);
-  if (words.length < 2) return false;
-  const hits = words.filter((w) => inSubjectsOrBlurb(hay, w)).length;
-  return hits / words.length >= 0.6;
-}
+// Words that only say what kind of book it is. As a theme they're worth little: "romance" in the
+// themes of a request for an enemies-to-lovers romance matches half the catalog.
+const GENRE_WORDS = new Set([...Object.keys(GENRE_GROUPS), ...Object.values(GENRE_GROUPS).flat(2), "fiction", "novel", "love story", "love"]);
 
 const moodShare = (c: CatalogCandidate, mood: Mood) => c.moods.find((m) => m.mood === mood)?.share ?? 0;
 
@@ -274,6 +277,11 @@ export interface Scored {
   score: number;
   // What it matched, for the reasons call and for checking results by hand.
   matched: string[];
+  // How many of the reader's moods, themes and must-haves it matched, beyond the genre.
+  beyondGenre: number;
+  // How many must-haves, and how many themes (not genre words), it matched.
+  mustHits: number;
+  themeHits: number;
 }
 
 export type Exclusion = "shelf" | "warning" | "avoided" | "length" | "genre" | "irrelevant";
@@ -298,8 +306,12 @@ export function scoreCandidate(intent: ShelfIntent, candidate: CatalogCandidate)
   const genresHit = intent.genres.filter((g) => genreGroups(g).some((group) => group.every((t) => inSubjectsOrBlurb(hay, t))));
   if (intent.genres.length > 0 && genresHit.length === 0) return { excluded: "genre" };
 
-  // Then relevance.
+  // Then relevance. Must-haves are what the reader insisted on, so they weigh most; a theme that is
+  // only a genre word weighs least and doesn't count as matching anything beyond the genre.
   let score = 0;
+  let beyondGenre = 0;
+  let mustHits = 0;
+  let themeHits = 0;
   const matched: string[] = [];
   for (const genre of genresHit) {
     score += 3;
@@ -307,57 +319,81 @@ export function scoreCandidate(intent: ShelfIntent, candidate: CatalogCandidate)
   }
   for (const subject of intent.subjects) {
     const re = wordRegex(subject);
-    const hit = re.test(hay.subjects) ? 3 : re.test(hay.description) ? 2 : re.test(hay.title) ? 1 : 0;
-    if (hit) {
+    let hit = re.test(hay.subjects) ? 3 : re.test(hay.description) ? 2 : re.test(hay.title) ? 1 : 0;
+    // Readers' warnings describe what's in a book too: "grief" is a theme as well as a warning.
+    if (!hit && candidate.warnings.some((w) => re.test(w.topic))) hit = 2;
+    if (!hit) continue;
+    matched.push(subject);
+    if (GENRE_WORDS.has(subject)) score += 1;
+    else {
       score += hit;
-      matched.push(subject);
+      beyondGenre++;
+      themeHits++;
     }
   }
   for (const want of intent.mustHaves) {
-    if (mustHaveMatches(hay, want)) {
-      score += 3;
-      matched.push(want);
+    if (!inSubjectsOrBlurb(hay, want)) continue;
+    matched.push(want);
+    // "magic" as a must-have for a fantasy request says no more than the genre does.
+    if (GENRE_WORDS.has(want)) score += 1;
+    else {
+      score += 5;
+      beyondGenre++;
+      mustHits++;
     }
   }
   for (const mood of intent.moods) {
     const share = moodShare(candidate, mood);
     if (share > 0) {
       score += 5 * share;
+      beyondGenre++;
       matched.push(MOOD_LABEL[mood]);
     }
   }
   if (intent.pace) for (const mood of PACE_MOODS[intent.pace]) score += 1.5 * moodShare(candidate, mood);
   for (const mood of intent.avoidMoods) score -= 4 * moodShare(candidate, mood);
   if (intent.format && candidate.formats.includes(intent.format)) score += 1;
-  // A length was asked for and nobody knows this one's: still shown, a little lower.
-  if (candidate.pages === null && (intent.minPages !== null || intent.maxPages !== null)) score -= 0.5;
-
-  // Genre alone isn't a match when the reader asked for more than a genre.
-  const beyondGenre = matched.length - genresHit.length;
-  const askedBeyondGenre = intent.moods.length + intent.subjects.length + intent.mustHaves.length > 0;
-  if (score <= 0 || (askedBeyondGenre && beyondGenre === 0 && genresHit.length === 0)) return { excluded: "irrelevant" };
-  return { candidate, score, matched };
+  // A length was asked for: in range counts for a little, unknown counts against a little (still shown).
+  if (intent.minPages !== null || intent.maxPages !== null) score += candidate.pages === null ? -0.5 : 1;
+  if (score <= 0) return { excluded: "irrelevant" };
+  return { candidate, score, matched, beyondGenre, mustHits, themeHits };
 }
 
-// The reader's shelf as sets, for leaving it out. NOT_INTERESTED is always left out, re-reads or not.
-function shelfFilter(shelf: ShelfEntry[], rereads: boolean) {
-  const ids = new Set<string>();
-  const keys = new Set<string>();
+// The reader's shelf, by work. NOT_INTERESTED is always left out, re-reads or not; everything else is
+// left out unless re-reads were asked for.
+function shelfLookup(shelf: ShelfEntry[]) {
+  const ids = new Map<string, ShelfEntry>();
+  const keys = new Map<string, ShelfEntry>();
   for (const entry of shelf) {
-    if (rereads && entry.status !== "NOT_INTERESTED") continue;
-    if (entry.workId) ids.add(entry.workId);
-    if (entry.workKey) keys.add(entry.workKey);
+    if (entry.workId) ids.set(entry.workId, entry);
+    if (entry.workKey) keys.set(entry.workKey, entry);
   }
-  return (c: CatalogCandidate) => ids.has(c.workId) || (!!c.workKey && keys.has(c.workKey));
+  return (c: CatalogCandidate) => ids.get(c.workId) ?? (c.workKey ? keys.get(c.workKey) : undefined) ?? null;
 }
 
-const signalTier = (signal: FriendSignal | undefined) => (signal?.kind === "followed" ? 0 : signal?.kind === "circle" ? 1 : 2);
+// A re-read request: books the reader finished and rated this well come first among the matches.
+const REREAD_LOVED_RATING = 4;
+const REREAD_BOOST = 4;
+
+const signalTier = (signal: FriendSignal | null) => (signal?.kind === "followed" ? 0 : signal?.kind === "circle" ? 1 : 2);
+
+// A strong match scores at least this share of the best one and matches more than the genre. When any
+// candidate meets one of the reader's must-haves, only those can be strong (likewise themes before moods).
+export const STRONG_MATCH_SHARE = 0.5;
 
 export interface Ranked extends Scored {
   signal: FriendSignal | null;
+  strong: boolean;
+  // Set when the book is on the reader's own shelf (only possible on a re-read request).
+  shelf: { status: string; rating: number | null } | null;
 }
 
 // Candidates → the ranked results: shelf out (unless re-reads), filters, score, then friends first.
+//
+// Friends first among the strong matches: a book people the reader follows rated 4+ comes before a cold
+// book that fits just as well, then books from their circles, then the rest. A friend's favourite that
+// only shares the genre doesn't jump a book that is what the reader asked for; it leads the weaker
+// matches below them instead.
 export function rankCandidates(
   intent: ShelfIntent,
   candidates: CatalogCandidate[],
@@ -365,19 +401,44 @@ export function rankCandidates(
   signals: Map<string, FriendSignal>,
   limit = ASK_RESULTS_MAX,
 ): Ranked[] {
-  const onShelf = shelfFilter(shelf, intent.rereads);
+  const shelfEntry = shelfLookup(shelf);
+  const askedBeyondGenre = intent.moods.length + intent.subjects.length + intent.mustHaves.length > 0;
   const seen = new Set<string>();
-  const ranked: Ranked[] = [];
+  const scored: (Scored & { entry: ShelfEntry | null })[] = [];
   for (const candidate of candidates) {
     if (seen.has(candidate.workId)) continue;
     seen.add(candidate.workId);
-    if (onShelf(candidate)) continue;
-    const scored = scoreCandidate(intent, candidate);
-    if ("excluded" in scored) continue;
-    ranked.push({ ...scored, signal: signals.get(candidate.workId) ?? null });
+    const entry = shelfEntry(candidate);
+    if (entry && (!intent.rereads || entry.status === "NOT_INTERESTED")) continue;
+    const result = scoreCandidate(intent, candidate);
+    if ("excluded" in result) continue;
+    if (entry && entry.status === "COMPLETED" && (entry.rating ?? 0) >= REREAD_LOVED_RATING) result.score += REREAD_BOOST;
+    scored.push({ ...result, entry });
   }
+
+  // How a strong match is judged: by the most specific kind of match any candidate reached. Must-haves
+  // if anything met one, else themes, else moods and genre.
+  // When the reader named themes or must-haves and no book meets any of them, nothing is strong: a mood
+  // match alone is "the closest", not "what was asked for".
+  const askedThemes = [...intent.subjects, ...intent.mustHaves].some((t) => !GENRE_WORDS.has(t));
+  const level = (s: Scored) =>
+    scored.some((x) => x.mustHits > 0) ? s.mustHits
+    : scored.some((x) => x.themeHits > 0) ? s.themeHits
+    : askedThemes ? 0
+    : s.beyondGenre;
+  const pool = scored.filter((s) => level(s) > 0);
+  const best = Math.max(0, ...pool.map((s) => s.score));
+  const noLevel = !askedThemes && !askedBeyondGenre;
+  const ranked: Ranked[] = scored.map(({ entry, ...s }) => ({
+    ...s,
+    signal: signals.get(s.candidate.workId) ?? null,
+    // A genre- or length-only request has nothing finer to judge by: everything that passed is strong.
+    strong: noLevel || (level(s) > 0 && s.score >= best * STRONG_MATCH_SHARE),
+    shelf: entry ? { status: entry.status, rating: entry.rating ?? null } : null,
+  }));
   ranked.sort((a, b) =>
-    signalTier(a.signal ?? undefined) - signalTier(b.signal ?? undefined)
+    Number(b.strong) - Number(a.strong)
+    || signalTier(a.signal) - signalTier(b.signal)
     || b.score - a.score
     || (b.candidate.tagReaders - a.candidate.tagReaders)
     || a.candidate.title.localeCompare(b.candidate.title));
@@ -390,7 +451,8 @@ const REASONS_SYSTEM = `You write one short line about each book you're given, f
 
 Rules:
 - Write about the book only. Never address or mention the reader: no "you", "your", "readers", "fans", "perfect for", "if you like".
-- Use only the given description, subjects and moods. Don't invent plot, characters or details that aren't there. If little is given, say less.
+- Use only the given description, subjects and moods. Don't invent plot, characters or details that aren't there. If little is given, write a shorter line.
+- Never comment on the information itself ("few details given", "described as", "according to its tags"): just say what the book is like.
 - Never mention any other book, series or author.
 - No spoilers beyond what the description gives away.
 - One sentence, at most 25 words, plain and specific. No marketing language ("unputdownable", "masterpiece").
@@ -442,12 +504,14 @@ export function reasonsPromptFor(intent: ShelfIntent, results: Ranked[]) {
 
 // Anything that talks to or about the reader, or reads like an ad.
 const ABOUT_THE_READER = /\b(you|your|you're|you'll|yours|yourself|reader|readers|fans?|perfect for|if you)\b/i;
+// The model talking about what it was handed instead of about the book.
+const ABOUT_THE_PROMPT = /\b(few|no|little) (other |more )?(details|information|description|subjects)\b|\blittle more\b|\b(details|information|more) (is |are )?(given|provided|known)\b|\bdescribed as\b|\baccording to\b/i;
 
 // A reason as shown, or null when it breaks the rules (the card then shows no reason, not a bad one).
 export function cleanReason(raw: unknown, own: CatalogCandidate, others: CatalogCandidate[]): string | null {
   if (typeof raw !== "string") return null;
   let text = raw.replace(/\s+/g, " ").trim();
-  if (text.length < 8 || ABOUT_THE_READER.test(text)) return null;
+  if (text.length < 8 || ABOUT_THE_READER.test(text) || ABOUT_THE_PROMPT.test(text)) return null;
   const lower = text.toLowerCase();
   // Another result's title in this one's reason (short titles are too likely to be ordinary words).
   if (others.some((o) => o.workId !== own.workId && o.title.length >= 6 && lower.includes(o.title.toLowerCase()))) return null;
@@ -464,6 +528,8 @@ export async function writeReasons(intent: ShelfIntent, results: Ranked[], ask: 
     schema: REASONS_SCHEMA as unknown as Record<string, unknown>,
     maxTokens: 4096,
     effort: "low",
+    // A reader is waiting, and both jobs are lookups, not reasoning.
+    thinking: false,
   });
   const list = Array.isArray((data as { reasons?: unknown })?.reasons) ? (data as { reasons: unknown[] }).reasons : [];
   const candidates = results.map((r) => r.candidate);
@@ -509,6 +575,10 @@ export interface AskResult {
   // Written by the model, labelled as such in the UI. Null when it wasn't written or broke the rules.
   reason: string | null;
   matched: string[];
+  // Fits what was asked; false for the weaker matches listed after them.
+  strong: boolean;
+  // On the reader's own shelf: only on a re-read request.
+  shelf: { status: string; rating: number | null } | null;
 }
 
 export interface AskShelfResponse {
@@ -534,6 +604,8 @@ const toResult = (r: Ranked, reason: string | null): AskResult => ({
   signal: r.signal,
   reason,
   matched: r.matched,
+  strong: r.strong,
+  shelf: r.shelf,
 });
 
 // The search. Throws an AiError when the intent call fails (the caller refunds the allowance); a

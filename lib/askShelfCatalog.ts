@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 import { followedPeople, publicPerson } from "@/lib/lists";
 import { blockedUserIds, canView, privacyOf, privacySelect } from "@/lib/privacy";
 import { aggregateTags } from "@/lib/workTags";
-import { searchTerms, type AskFormat, type CatalogCandidate, type CatalogSource, type FriendSignal, type ShelfIntent, type SignalPerson } from "@/lib/askShelf";
+import { isShapeOnly, searchTerms, type AskFormat, type CatalogCandidate, type CatalogSource, type FriendSignal, type ShelfIntent, type SignalPerson } from "@/lib/askShelf";
 
 // The database side of Ask the shelf (lib/askShelf.ts): which works might match, the reader's shelf,
 // and the friend signals.
@@ -56,6 +56,21 @@ async function candidateIds(intent: ShelfIntent): Promise<string[]> {
       const id = oid(row);
       if (id) ids.add(id);
     }
+  }
+
+  // "A short read", "an audiobook": the works with an edition of that shape.
+  if (isShapeOnly(intent)) {
+    const editions = await prisma.edition.findMany({
+      where: {
+        ...((intent.minPages !== null || intent.maxPages !== null) && {
+          pages: { ...(intent.minPages !== null && { gte: intent.minPages }), ...(intent.maxPages !== null ? { lte: intent.maxPages } : { gt: 0 }) },
+        }),
+        ...(intent.format && { format: { in: (Object.keys(FORMAT_OF) as EditionFormat[]).filter((f) => FORMAT_OF[f] === intent.format) } }),
+      },
+      select: { workId: true },
+      take: CANDIDATES_MAX * 2,
+    });
+    for (const e of editions) if (ids.size < CANDIDATES_MAX) ids.add(e.workId);
   }
 
   if (intent.moods.length > 0 && ids.size < CANDIDATES_MAX) {
@@ -227,7 +242,7 @@ async function circleSignals(userId: string, candidates: CatalogCandidate[], sig
 export const prismaAskCatalog: CatalogSource = {
   candidates: loadCandidates,
   async shelf(userId) {
-    return prisma.book.findMany({ where: { userId }, select: { workId: true, workKey: true, status: true } });
+    return prisma.book.findMany({ where: { userId }, select: { workId: true, workKey: true, status: true, rating: true } });
   },
   async signals(userId, candidates) {
     const signals = new Map<string, FriendSignal>();

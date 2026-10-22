@@ -314,3 +314,70 @@ test("with no API key nothing is called and the failure is a clean 'unavailable'
     if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved;
   }
 });
+
+test("a friend's pick that only shares the genre doesn't jump a book that is what was asked for", () => {
+  const want = intent({ genres: ["fantasy"], mustHaves: ["dragons"], subjects: ["romance", "enemies to lovers"] });
+  const works = [
+    work("dragonsCold", { subjects: ["Fantasy", "Dragons", "Enemies to lovers"] }),
+    work("friendGenreOnly", { subjects: ["Fantasy", "Romance"] }),
+    work("friendDragons", { subjects: ["Fantasy", "Dragons"] }),
+  ];
+  const friend = { username: "maya", image: null, favColour: null };
+  const signals = new Map<string, FriendSignal>([
+    ["friendGenreOnly", { kind: "followed", people: [friend], rating: 5 }],
+    ["friendDragons", { kind: "followed", people: [friend], rating: 4 }],
+  ]);
+  const ranked = rankCandidates(want, works, [], signals);
+  assert.deepEqual(ranked.map((r) => r.candidate.workId), ["friendDragons", "dragonsCold", "friendGenreOnly"]);
+  assert.deepEqual(ranked.map((r) => r.strong), [true, true, false]);
+});
+
+test("when some books meet a must-have, a mood match alone isn't strong", () => {
+  const want = intent({ genres: ["fantasy"], mustHaves: ["dragons"], moods: ["ADVENTUROUS"] });
+  const works = [
+    work("dragons", { subjects: ["Fantasy", "Dragons"] }),
+    work("moodOnly", { subjects: ["Fantasy"], tags: [{ moods: ["ADVENTUROUS"] }] }),
+  ];
+  const friend = { username: "maya", image: null, favColour: null };
+  const ranked = rankCandidates(want, works, [], new Map([["moodOnly", { kind: "followed", people: [friend], rating: 5 } as FriendSignal]]));
+  assert.deepEqual(ranked.map((r) => [r.candidate.workId, r.strong]), [["dragons", true], ["moodOnly", false]]);
+});
+
+test("a length-only request still searches, and keeps to the length", async () => {
+  const works = [work("short", { pages: 180 }), work("long", { pages: 620 }), work("unknown", { pages: null })];
+  const { ask } = fakeModel({ ...emptyIntent(), maxPages: 300, pace: "any", format: "any" });
+  const { results } = await askShelf("reader", "a short read for the weekend", { ask, catalog: memoryCatalog(works) });
+  assert.deepEqual(ids(results), ["short"]);
+});
+
+test("on a re-read request, the reader's own well-rated books lead and say so", () => {
+  const want = intent({ subjects: ["dragons"], rereads: true });
+  const works = [work("fresh", { subjects: ["Dragons"] }), work("loved", { subjects: ["Dragons"] }), work("meh", { subjects: ["Dragons"] })];
+  const shelf: ShelfEntry[] = [
+    { workId: "loved", workKey: null, status: "COMPLETED", rating: 5 },
+    { workId: "meh", workKey: null, status: "COMPLETED", rating: 2 },
+  ];
+  const ranked = rankCandidates(want, works, shelf, new Map());
+  assert.equal(ranked[0].candidate.workId, "loved");
+  assert.deepEqual(ranked[0].shelf, { status: "COMPLETED", rating: 5 });
+  assert.equal(ranked.find((r) => r.candidate.workId === "fresh")?.shelf, null);
+});
+
+test("a must-have that is only a genre word doesn't make a match strong", () => {
+  const want = intent({ genres: ["fantasy"], mustHaves: ["magic", "dark academia"], subjects: ["universities"] });
+  const works = [
+    work("academy", { subjects: ["Fantasy", "Universities and colleges", "Magic"] }),
+    work("justMagic", { subjects: ["Fantasy", "Magic"] }),
+  ];
+  const friend = { username: "maya", image: null, favColour: null };
+  const ranked = rankCandidates(want, works, [], new Map([["justMagic", { kind: "followed", people: [friend], rating: 5 } as FriendSignal]]));
+  assert.deepEqual(ranked.map((r) => [r.candidate.workId, r.strong]), [["academy", true], ["justMagic", false]]);
+});
+
+test("when no book meets any theme the reader named, mood matches are only the closest", () => {
+  const want = intent({ genres: ["fantasy"], subjects: ["dark academia"], moods: ["DARK"] });
+  const works = [work("moody", { subjects: ["Fantasy"], tags: [{ moods: ["DARK"] }] })];
+  assert.equal(rankCandidates(want, works, [], new Map())[0].strong, false);
+  // A genre-only request has nothing finer to judge by.
+  assert.equal(rankCandidates(intent({ genres: ["fantasy"] }), works, [], new Map())[0].strong, true);
+});

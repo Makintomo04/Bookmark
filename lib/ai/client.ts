@@ -67,6 +67,9 @@ export interface JsonRequest {
   maxTokens: number;
   // How much the model thinks first. These are small, well-specified jobs: "low" unless measured otherwise.
   effort?: AiEffort;
+  // false: answer straight away, no thinking first. For short, well-specified jobs where a reader is
+  // waiting on the answer. Claude Haiku 5.5 accepts this at effort "high" or below.
+  thinking?: boolean;
   model?: string;
   timeoutMs?: number;
 }
@@ -89,6 +92,7 @@ export const askJson: AskJson = async (request) => {
         model: request.model ?? AI_MODELS.fast,
         max_tokens: request.maxTokens,
         output_config: { effort: request.effort ?? "low", format: { type: "json_schema", schema: request.schema } },
+        ...(request.thinking === false && { thinking: { type: "disabled" as const } }),
         system: request.system,
         messages: [{ role: "user", content: request.prompt }],
       },

@@ -1,7 +1,7 @@
 "use client"
 import { FC, FormEvent, useState } from 'react'
 import axios from 'axios'
-import { ListPlus, Loader2, Sparkles, Star, AlertTriangle, Users } from 'lucide-react'
+import { BookCheck, ListPlus, Loader2, Sparkles, Star, AlertTriangle, Users } from 'lucide-react'
 import { apiError } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { isUpgradeRequired } from '@/lib/entitlements'
@@ -87,6 +87,12 @@ const Warnings: FC<{ result: AskResult }> = ({ result }) => {
 
 const ResultContext: FC<{ result: AskResult }> = ({ result }) => (
   <div className="flex flex-col gap-2">
+    {result.shelf && (
+      <p className="flex items-center gap-1.5 text-[11px] font-medium">
+        <BookCheck size={12} aria-hidden className="shrink-0" />
+        {result.shelf.status === "COMPLETED" && result.shelf.rating ? `You rated it ${formatRating(result.shelf.rating)}` : "On your shelf"}
+      </p>
+    )}
     {result.signal && <SignalLine signal={result.signal} />}
     {result.reason && (
       <p className="rounded-lg bg-neutral-50 dark:bg-neutral-900/60 px-2.5 py-2 text-xs leading-snug">
@@ -285,13 +291,24 @@ const AskShelf: FC<AskShelfProps> = ({ available, initialStatus }) => {
                 : "No book in Bookmark's catalog matches all of that yet. Try fewer conditions, or a different way of putting it."}
             </p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-10">
-              {outcome.results.map((result) => (
-                <DiscoverBookCard
-                  key={result.workId}
-                  book={{ workKey: result.workKey, title: result.title, author: result.author, pages: result.pages, coverUrl: result.coverUrl, year: result.year }}
-                  context={<ResultContext result={result} />}
-                />
+            <div className="flex flex-col gap-8">
+              {[outcome.results.filter((r) => r.strong), outcome.results.filter((r) => !r.strong)].map((group, g) => group.length > 0 && (
+                <div key={g} className="flex flex-col gap-4">
+                  {g === 1 && (
+                    <h3 className="text-sm font-semibold text-muted-foreground">
+                      {group.length === outcome.results.length ? "Nothing fits all of that, so these are the closest" : "Closer to some of it than all of it"}
+                    </h3>
+                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-10">
+                    {group.map((result) => (
+                      <DiscoverBookCard
+                        key={result.workId}
+                        book={{ workKey: result.workKey, title: result.title, author: result.author, pages: result.pages, coverUrl: result.coverUrl, year: result.year }}
+                        context={<ResultContext result={result} />}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
