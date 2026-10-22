@@ -2,6 +2,8 @@
 import { FC, useState } from 'react'
 import { EyeOff, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { preferencesOf } from '@/lib/preferences'
+import useUser from '@/app/hooks/useUser'
 
 interface ReviewTextProps {
   review: string
@@ -21,9 +23,12 @@ function preview(text: string, max: number) {
   return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`
 }
 
-// A review as others see it: spoilers stay covered until the reader asks, long ones are truncated.
+// A review as others see it: spoilers stay covered until the reader asks (or has asked for them
+// always shown, via showSpoilers), long ones are truncated.
 const ReviewText: FC<ReviewTextProps> = ({ review, spoiler = false, hidden = false, maxChars = 280, className }) => {
-  const [revealed, setRevealed] = useState(!spoiler)
+  const { user } = useUser()
+  const [clicked, setClicked] = useState(false)
+  const revealed = !spoiler || clicked || (!!user && preferencesOf(user).showSpoilers)
   const [expanded, setExpanded] = useState(false)
   const isLong = review.length > maxChars
 
@@ -52,7 +57,7 @@ const ReviewText: FC<ReviewTextProps> = ({ review, spoiler = false, hidden = fal
       ) : (
         <button
           type="button"
-          onClick={() => setRevealed(true)}
+          onClick={() => setClicked(true)}
           className="w-full rounded-md border border-dashed border-neutral-300 dark:border-neutral-700 px-3 py-2.5 text-left text-muted-foreground hover:text-foreground hover:border-neutral-400 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="inline-flex items-center gap-1.5 font-medium"><EyeOff size={14} aria-hidden />This review contains spoilers</span>

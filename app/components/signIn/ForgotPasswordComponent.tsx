@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Button } from '../ui/button'
 import { motion,AnimatePresence } from 'framer-motion'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import axios from 'axios'
 
 const ForgotPasswordComponent = () => {
@@ -27,7 +27,7 @@ const ForgotPasswordComponent = () => {
       await axios.post("/api/auth/forgot-password", data)
       setIsSubmitted(true)
     } catch (error) {
-      toast.error(axios.isAxiosError(error) && error.response?.data?.error || "Something went wrong.")
+      notify.error(apiError(error, "Couldn't send the reset email. Try again."))
     } finally {
       setIsLoading(false)
     }

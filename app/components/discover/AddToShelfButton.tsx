@@ -1,8 +1,9 @@
 "use client"
 import { FC, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Check, Loader2, Plus } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,7 @@ const base = "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-f
 const outline = "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900"
 
 const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book, className }) => {
+  const router = useRouter()
   const { user } = useUser()
   const { books, mutate } = useBooks()
   const bookEntryModal = useBookEntryModal()
@@ -57,12 +59,12 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
       isbn10: book.isbn10 ?? undefined,
       status: "NOT_STARTED",
     }).then(({ data: saved }) => {
-      toast.success("Added to Want to read", { position: "bottom-center" })
+      notify.success("Added to Want to read", { action: { label: "View shelf", onClick: () => router.push("/") } })
       mutate()
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't add that book. Try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't add that book. Try again."), { retry: add })
     }).finally(() => setIsAdding(false))
   }
 

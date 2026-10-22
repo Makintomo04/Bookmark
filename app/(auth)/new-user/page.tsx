@@ -3,12 +3,13 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { useForm } from 'react-hook-form'
 import { BookOpen, Camera, Check, ChevronRight, Loader2, Target, Upload } from 'lucide-react'
 import Loader from '@/app/components/Loader'
 import { Button } from '@/app/components/ui/button'
 import ColourSwatches from '@/app/components/profile/ColourSwatches'
+import CommunityStep from '@/app/components/new-user/CommunityStep'
 import useUser from '@/app/hooks/useUser'
 import useImageUpload from '@/app/hooks/useImageUpload'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
@@ -16,23 +17,30 @@ import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import { safeCallbackPath } from '@/lib/callbackUrl'
 import { DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN, suggestUsername } from '@/lib/profile'
+import { BannerPresetId, defaultBannerPreset, bannerPresetValue } from '@/lib/banners'
+import BannerPattern from '@/app/components/profile/BannerPattern'
+import BannerPresetPicker from '@/app/components/profile/BannerPresetPicker'
 
-// Two screens: the profile (username, colour and an optional photo), then a few ways to start the shelf.
-// Saving happens at the end of the first, so the second is genuinely optional, and readers who arrived
-// from somewhere (e.g. a buddy-read invite) skip it and go straight back there.
+// Three screens: the profile (username, colour and an optional photo), community choices (genres, privacy,
+// who can invite you), then a few ways to start the shelf. The profile saves at the end of the first, so the
+// rest are genuinely optional, and readers who arrived from somewhere (e.g. a reading circle invite) skip them
+// and go straight back there.
 
-type ProfileForm = { username: string; color: string; imageSrc: string }
+type ProfileForm = { username: string; color: string; imageSrc: string; banner: BannerPresetId }
 type Availability = "idle" | "checking" | "available" | "taken"
 
 const fieldClass = "w-full h-10 rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
 const GOAL_PRESETS = [12, 24, 52]
 
-const Progress = ({ step }: { step: 1 | 2 }) => (
+type Step = 1 | 2 | 3
+const STEPS: Step[] = [1, 2, 3]
+
+const Progress = ({ step }: { step: Step }) => (
   <div className="mb-6 flex flex-col items-center gap-2">
-    <div className="flex w-24 gap-1.5" aria-hidden>
-      {[1, 2].map((n) => <span key={n} className={cn("h-1 flex-1 rounded-full transition-colors", n <= step ? "bg-red-500" : "bg-neutral-300 dark:bg-neutral-700")} />)}
+    <div className="flex w-32 gap-1.5" aria-hidden>
+      {STEPS.map((n) => <span key={n} className={cn("h-1 flex-1 rounded-full transition-colors", n <= step ? "bg-red-500" : "bg-neutral-300 dark:bg-neutral-700")} />)}
     </div>
-    <p className="text-xs text-muted-foreground">Step {step} of 2</p>
+    <p className="text-xs text-muted-foreground">Step {step} of {STEPS.length}</p>
   </div>
 )
 
@@ -41,20 +49,20 @@ const Page = () => {
   const router = useRouter()
   const openBookEntry = useBookEntryModal((s) => s.onOpen)
   const [ready, setReady] = useState(false)
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<Step>(1)
   const [saving, setSaving] = useState(false)
   const [nextPath, setNextPath] = useState<string | null>(null)
   const [availability, setAvailability] = useState<Availability>("idle")
   const avatarInput = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors } } = useForm<ProfileForm>({
-    defaultValues: { username: "", color: DEFAULT_COLOUR, imageSrc: "" },
+    defaultValues: { username: "", color: DEFAULT_COLOUR, imageSrc: "", banner: "dots" },
   })
-  const [username, colour, imageSrc] = watch(["username", "color", "imageSrc"])
+  const [username, colour, imageSrc, bannerPreset] = watch(["username", "color", "imageSrc", "banner"])
   const accent = colour || DEFAULT_COLOUR
   const avatar = useImageUpload((url) => setValue("imageSrc", url, { shouldDirty: true }))
 
-  // Decided once, on the first load: a background refetch after saving must not bounce the reader off step 2.
+  // Decided once, on the first load: a background refetch after saving must not bounce the reader off the later steps.
   const checked = useRef(false)
   useEffect(() => {
     if (!user || checked.current) return
@@ -66,7 +74,8 @@ const Page = () => {
       return
     }
     // Google and GitHub accounts arrive with a name and photo; start from those.
-    reset({ username: suggestUsername(user), color: DEFAULT_COLOUR, imageSrc: user.image ?? "" })
+    // The banner starts on the same preset they'd get by default, so saving it is a choice they can see.
+    reset({ username: suggestUsername(user), color: DEFAULT_COLOUR, imageSrc: user.image ?? "", banner: defaultBannerPreset(user.id) })
     setReady(true)
   }, [user, router, reset])
 
@@ -94,19 +103,20 @@ const Page = () => {
     }
     setSaving(true)
     try {
-      const res = await axios.post("/api/new-user", { username: data.username.trim(), color: data.color, imageSrc: data.imageSrc || undefined })
+      const res = await axios.post("/api/new-user", { username: data.username.trim(), color: data.color, imageSrc: data.imageSrc || undefined, bannerSrc: bannerPresetValue(data.banner) })
       mutate(res.data, { revalidate: false })
       if (nextPath) {
         router.push(nextPath)
         return
       }
       setStep(2)
+      window.scrollTo(0, 0)
     } catch (err) {
       const message = axios.isAxiosError(err) && err.response?.data?.error || "Couldn't save your profile. Check your connection and try again."
       if (axios.isAxiosError(err) && err.response?.data?.field === "username") {
         setError("username", { type: "server", message }, { shouldFocus: true })
       } else {
-        toast.error(message, { position: "bottom-center" })
+        notify.error(message)
       }
     }
     setSaving(false)
@@ -137,7 +147,9 @@ const Page = () => {
 
       {/* Live preview of the profile header, which doubles as the photo picker. */}
       <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-background">
-        <div className="h-16 transition-colors" style={{ background: accent }} />
+        <div className="relative h-20 overflow-hidden transition-colors" style={{ background: accent }}>
+          <BannerPattern preset={bannerPreset} colour={accent} />
+        </div>
         <div className="flex items-end gap-3 px-4 pb-4">
           <button
             type="button"
@@ -202,9 +214,17 @@ const Page = () => {
 
       <div className="flex flex-col gap-2">
         <span id="colour-label" className="text-sm font-medium">Your colour</span>
-        <p className="-mt-1 text-xs text-muted-foreground">Fills your banner and avatar until you add photos.</p>
+        <p className="-mt-1 text-xs text-muted-foreground">Tints your banner, your avatar until you add a photo, and your buttons.</p>
         <div className="mt-1">
           <ColourSwatches value={accent} onChange={(c) => setValue("color", c, { shouldDirty: true })} labelledBy="colour-label" disabled={saving} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span id="banner-label" className="text-sm font-medium">Your banner</span>
+        <p className="-mt-1 text-xs text-muted-foreground">A pattern in your colour. You can upload a photo later from your profile.</p>
+        <div className="mt-1">
+          <BannerPresetPicker value={bannerPreset} colour={accent} onChange={(id) => setValue("banner", id, { shouldDirty: true })} labelledBy="banner-label" disabled={saving} />
         </div>
       </div>
 
@@ -249,7 +269,7 @@ const Page = () => {
               <Image src='/logo.svg' width={40} height={40} alt='Bookmark' />
             </div>
             {!nextPath && <Progress step={step} />}
-            {step === 1 ? profileStep : shelfStep}
+            {step === 1 ? profileStep : step === 2 ? <CommunityStep onDone={() => { setStep(3); window.scrollTo(0, 0) }} /> : shelfStep}
           </div>
         </div>
     </div>
@@ -278,19 +298,21 @@ const GoalOption = () => {
   const [custom, setCustom] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<number | null>(null)
+  const [rangeError, setRangeError] = useState<string | null>(null)
 
   const save = async (value: number) => {
     if (!Number.isInteger(value) || value < 1 || value > 999) {
-      toast.error("Pick a goal between 1 and 999 books.", { position: "bottom-center" })
+      setRangeError("Pick a goal between 1 and 999 books.")
       return
     }
+    setRangeError(null)
     setTarget(value)
     setSaving(true)
     try {
       await axios.post("/api/reading-goal", { year, targetBooks: value })
       setSaved(value)
     } catch (err) {
-      toast.error(axios.isAxiosError(err) && err.response?.data?.error || "Couldn't save your goal. Try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't save your goal. Try again."), { retry: () => save(value) })
     } finally {
       setSaving(false)
     }
@@ -336,10 +358,13 @@ const GoalOption = () => {
             onChange={(e) => setCustom(e.target.value)}
             placeholder="Other"
             aria-label="Other goal"
+            aria-invalid={!!rangeError}
+            aria-describedby={rangeError ? "goal-error" : undefined}
             className="h-8 w-20 rounded-full border border-neutral-300 dark:border-neutral-700 bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {custom && <button type="submit" disabled={saving} className="h-8 rounded-full px-3 text-sm font-medium text-red-600 dark:text-red-400 hover:underline">Set</button>}
         </form>
+        {rangeError && <p id="goal-error" role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{rangeError}</p>}
       </div>
     </div>
   )

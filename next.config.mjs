@@ -14,6 +14,13 @@ const nextConfig = {
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
     ],
   },
+  // Buddy reads were renamed reading circles: old links (shared invites, notifications, bookmarks) keep working.
+  async redirects() {
+    return [
+      { source: '/buddy-reads', destination: '/circles', permanent: true },
+      { source: '/buddy-reads/:path*', destination: '/circles/:path*', permanent: true },
+    ];
+  },
   async headers() {
     return [
       // Only the embeds (/embed/*) may be framed, by any site. They're also kept out of search results:

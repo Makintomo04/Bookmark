@@ -1,8 +1,8 @@
 "use client"
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { toast } from 'react-toastify'
-import { BookCheck, CalendarOff, Check, CopyX, FileUp, HelpCircle, Loader2, Search, Sparkles, Upload } from 'lucide-react'
+import { notify } from '@/lib/notify'
+import { BookCheck, Check, CopyX, ExternalLink, FileUp, Loader2, Search, Upload } from 'lucide-react'
 import type { Status } from '@prisma/client'
 import { Button } from '@/app/components/ui/button'
 import Medal from '@/app/components/achievements/Medal'
@@ -161,9 +161,9 @@ export default ImportFlow
 
 // ---- Upload ------------------------------------------------------------------------------
 
-const HOW_TO: { source: string; steps: string }[] = [
-  { source: "Goodreads", steps: "My Books → Import and export → Export library. The CSV arrives a minute or so later." },
-  { source: "StoryGraph", steps: "Your profile → Manage account → Export StoryGraph library." },
+const HOW_TO: { source: string; steps: string; href?: string }[] = [
+  { source: "Goodreads", steps: "My Books → Import and export → Export library. The CSV arrives a minute or so later.", href: "https://www.goodreads.com/review/import" },
+  { source: "StoryGraph", steps: "Your profile → Manage account → Export StoryGraph library.", href: "https://app.thestorygraph.com/user-export" },
   { source: "Bookmark", steps: "An export from Bookmark itself (Edit profile → Export books) imports exactly as it left." },
 ]
 
@@ -181,7 +181,7 @@ const UploadStep: FC<{ onFile: (file: File) => Promise<void> }> = ({ onFile }) =
   return (
     <>
       <header>
-        <h1 className="text-3xl sm:text-4xl font-bold">Leave Goodreads in 60 seconds</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold">Bring your library with you</h1>
         <p className="mt-3 text-muted-foreground max-w-prose">
           Bring your shelves, star ratings, reviews and every reading date from Goodreads or StoryGraph.
           You&apos;ll see a preview before anything is added, and your data leaves whenever you do.
@@ -219,9 +219,17 @@ const UploadStep: FC<{ onFile: (file: File) => Promise<void> }> = ({ onFile }) =
         <h2 id="how-to" className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Where to find your export</h2>
         <ul className="grid gap-3 sm:grid-cols-3">
           {HOW_TO.map((h) => (
-            <li key={h.source} className="rounded-lg border p-4">
+            <li key={h.source} className="rounded-lg border p-4 flex flex-col">
               <p className="font-medium">{h.source}</p>
               <p className="mt-1 text-sm text-muted-foreground">{h.steps}</p>
+              {h.href && (
+                <Button asChild size="sm" variant="outline" className="mt-3 self-start gap-1.5">
+                  <a href={h.href} target="_blank" rel="noopener noreferrer">
+                    Open {h.source} export <ExternalLink size={13} aria-hidden />
+                    <span className="sr-only">(opens in a new tab)</span>
+                  </a>
+                </Button>
+              )}
             </li>
           ))}
         </ul>
@@ -674,7 +682,7 @@ const UnmatchedRow: FC<{ jobId: string; entry: { bookId: string; title: string; 
       const next = await step(jobId, { bookId: entry.bookId, ...body })
       if (next) onChange(next)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save that.", { position: "bottom-center" })
+      notify.error(err instanceof Error ? err.message : "Couldn't save that.", { retry: () => send(body) })
       setBusy(false)
     }
   }

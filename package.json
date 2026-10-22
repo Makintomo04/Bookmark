@@ -60,7 +60,7 @@
     "react-icons": "^5.0.1",
     "react-loaders": "^3.0.1",
     "react-modal-image": "^2.6.0",
-    "react-toastify": "^10.0.4",
+    "sonner": "^2.0.7",
     "swr": "^2.2.4",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",

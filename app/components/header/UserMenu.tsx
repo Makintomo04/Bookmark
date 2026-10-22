@@ -7,7 +7,6 @@ import InitialAvatar, { avatarColour } from '../profile/InitialAvatar'
 import { useSession, signIn, signOut } from "next-auth/react"
 import { useRouter } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
-import { ThemeSwitcher } from '../ThemeSwitcher'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
 import { IoClose } from 'react-icons/io5'
@@ -26,7 +25,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
     setShowMenu(false)
   }
 
-  const {user} = useUser()
+  const {user, isLoading} = useUser()
   const booksReadFor = useBooksReadFor()
   // From 1 December, in the reader's own calendar. Set after mount, so the server's clock (UTC) never disagrees with the browser's at hydration.
   const [wrappedYear, setWrappedYear] = useState<number | null>(null)
@@ -50,7 +49,6 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
                 Your {wrappedYear} Wrapped
               </Link>
             )}
-            <ThemeSwitcher/>
             <NotificationBell/>
 
         <Avatar className='cursor-pointer ' style={{background: avatarColour(user?.favColour), ...tierRingStyle(booksReadFor(user?.username, booksReadOf(user)))}} onClick={()=>setShowMenu((state)=>!state)}>
@@ -74,7 +72,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/feed">Feed</Link>
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/discover">Discover</Link>
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/stats">Stats</Link>
-            <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/buddy-reads">Buddy reads</Link>
+            <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/circles">Reading circles</Link>
             <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href="/quests">Quests</Link>
             {wrappedYear && <Link onClick={()=>setShowMenu(false)}  className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4'href={`/wrapped/${wrappedYear}`}>Your {wrappedYear} Wrapped</Link>}
             <button className='text-left p-12  text-2xl md:text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition font-semibold h-full md:p-4' onClick={() => signOut({
@@ -88,11 +86,17 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
       </>
     )
     }
+  // Until we know who's here, show nothing: a signed-in reader shouldn't see Sign in flash past.
+  if (isLoading) return <div className="h-9" aria-hidden />
+  // Sign in reads like the page links beside it, so Sign up is the one thing in the row that stands out.
   return (
-    <div className="flex gap-2 items-center">
-      <ThemeSwitcher/>
-      <Link href="/signin" className="text-sm font-semibold hover:underline">Sign in</Link>
-      <Link href="/register" className="text-sm font-semibold text-white bg-brand-fill rounded-md px-4 py-2 hover:bg-brand-fill-hover transition">Sign up</Link>
+    <div className="flex items-center gap-2 sm:gap-4">
+      <Link href="/signin" className="inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+        Sign in
+      </Link>
+      <Link href="/register" className="inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400">
+        Sign up
+      </Link>
     </div>
   )
 }

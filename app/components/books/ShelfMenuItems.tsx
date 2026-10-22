@@ -1,7 +1,7 @@
 "use client"
 import { FC } from 'react'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import type { Book, Status } from '@prisma/client'
 import useBooks from '@/app/hooks/useBooks'
 import { DropdownMenuItem } from '../ui/dropdown-menu'
@@ -29,11 +29,11 @@ const MOVES: Record<Status, ShelfAction[]> = {
 export async function moveBook(bookId: string, action: ShelfAction, extra: Record<string, unknown> = {}) {
   try {
     await axios.post("/api/book-progress", { id: bookId, action, ...extra })
-    toast.success(copy[action].done, { position: "bottom-center" })
+    notify.success(copy[action].done)
     return true
   } catch (err) {
     const message = axios.isAxiosError(err) ? err.response?.data?.error : undefined
-    toast.error(message || copy[action].failed, { position: "bottom-center" })
+    notify.error(message || copy[action].failed)
     return false
   }
 }

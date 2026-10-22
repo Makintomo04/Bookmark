@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
 import moment from 'moment'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Lock, MoreHorizontal, SmilePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BUDDY_READ_EMOJI, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, type SerializedComment, type UnlockedComment } from '@/lib/buddyReads'
@@ -22,8 +22,7 @@ interface CommentItemProps {
   isReply?: boolean
 }
 
-const errorToast = (err: any, fallback: string) =>
-  toast.error(err?.response?.data?.error || fallback, { position: "bottom-center" })
+const errorToast = (err: unknown, fallback: string) => notify.error(apiError(err, fallback))
 
 const chipClass = "h-7 inline-flex items-center gap-1 rounded-full px-2 text-sm tabular-nums transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
@@ -60,7 +59,7 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
 
   const report = (reason: string) => {
     axios.post(`${base}/report`, { reason })
-      .then(() => toast.success("Thanks. We'll take a look.", { position: "bottom-center" }))
+      .then(() => notify.success("Thanks. We'll take a look."))
       .catch((err) => errorToast(err, "Couldn't send the report."))
   }
 

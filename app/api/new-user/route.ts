@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { BIO_MAX, DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN } from "@/lib/profile";
+import { isStorableBanner } from "@/lib/banners";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -40,6 +41,9 @@ export async function POST(req: Request) {
   }
   if (bio.length > BIO_MAX) {
     return invalid(`Bios are up to ${BIO_MAX} characters.`, "bio");
+  }
+  if (!isStorableBanner(body?.bannerSrc)) {
+    return invalid("That banner pattern doesn't exist.", "banner");
   }
 
   const taken = await prisma.user.findUnique({ where: { username } });

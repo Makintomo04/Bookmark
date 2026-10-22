@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
@@ -12,6 +12,7 @@ import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { Button } from '../ui/button'
 import axios from 'axios'
 import BookSearchResults, { BookSearchResult } from './BookSearchResults'
+import useBookSearch from '@/app/hooks/useBookSearch'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import { GENRES } from '@/utils/helpers'
@@ -56,35 +57,14 @@ const BookEntryModal: FC = () => {
   const [rating, setRating] = useState(0)
 
   const [query, setQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<BookSearchResult[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchFailed, setSearchFailed] = useState(false)
   const [searchAttempt, setSearchAttempt] = useState(0)
+  const { results: searchResults, isSearching, searchFailed } = useBookSearch(query, { enabled: stage === "search", attempt: searchAttempt })
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FieldValues>({ defaultValues })
   const [title, author, pages, coverImgSrc, workKey] = watch(["title", "author", "pages", "coverImgSrc", "workKey"])
   const year = new Date().getFullYear()
   const [published, setPublished] = useState<number | null>(null)
   const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null)
-
-  useEffect(() => {
-    if (stage !== "search" || query.trim().length < 3) {
-      setSearchResults([])
-      setSearchFailed(false)
-      return
-    }
-    // A slower earlier search must not overwrite the results for what's typed now.
-    let current = true
-    setIsSearching(true)
-    setSearchFailed(false)
-    const timeout = setTimeout(() => {
-      axios.get(`/api/books/search?q=${encodeURIComponent(query.trim())}`)
-        .then((res) => { if (current) setSearchResults(res.data) })
-        .catch(() => { if (current) { setSearchResults([]); setSearchFailed(true) } })
-        .finally(() => { if (current) setIsSearching(false) })
-    }, 400)
-    return () => { current = false; clearTimeout(timeout) }
-  }, [query, stage, searchAttempt])
 
   const resetAll = () => {
     reset(defaultValues)
@@ -95,7 +75,6 @@ const BookEntryModal: FC = () => {
     setRating(0)
     setPublished(null)
     setQuery("")
-    setSearchResults([])
   }
 
   useEffect(() => {
@@ -149,12 +128,12 @@ const BookEntryModal: FC = () => {
       rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
-      toast.success(`Added to ${label}`, { position: "bottom-center" })
+      notify.success(`Added to ${label}`)
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't add that book. Try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't add that book. Try again."))
     }).finally(() => setIsLoading(false))
   }
 
@@ -246,11 +225,10 @@ const BookEntryModal: FC = () => {
             onUploadBegin={() => setIsLoading(true)}
             onClientUploadComplete={(res) => {
               setValue("coverImgSrc", res[0]?.url)
-              toast.success("Cover uploaded", { position: "bottom-center" })
               setIsLoading(false)
             }}
             onUploadError={(error: Error) => {
-              toast.error(error.message, { position: "bottom-center" })
+              notify.error(error.message || "Upload failed. Try another image.")
               setIsLoading(false)
             }}
           />

@@ -7,12 +7,12 @@ import InitialAvatar from '@/app/components/profile/InitialAvatar'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { warmCoverConnections } from '@/utils/helpers'
-import type { DiscoverBook } from '@/lib/openLibrary'
 import useUser from '@/app/hooks/useUser'
+import useBookSearch from '@/app/hooks/useBookSearch'
 import DiscoverBookCard from './DiscoverBookCard'
 
 type Mode = "books" | "people"
@@ -34,10 +34,9 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const signedIn = !!user?.id
   const [mode, setMode] = useState<Mode>("books")
   const [query, setQuery] = useState("")
-  const [books, setBooks] = useState<DiscoverBook[]>([])
   const [people, setPeople] = useState<SearchUser[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchFailed, setSearchFailed] = useState(false)
+  const [isSearchingPeople, setIsSearchingPeople] = useState(false)
+  const [peopleFailed, setPeopleFailed] = useState(false)
   const [searchAttempt, setSearchAttempt] = useState(0)
   const [followState, setFollowState] = useState<Record<string, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
@@ -54,26 +53,31 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const q = query.trim()
   const isActive = q.length >= MIN_CHARS[mode]
 
+  const bookSearch = useBookSearch(q, { enabled: mode === "books", limit: 12, attempt: searchAttempt })
+  const books = bookSearch.results
+  const isSearching = mode === "books" ? bookSearch.isSearching : isSearchingPeople
+  const searchFailed = mode === "books" ? bookSearch.searchFailed : peopleFailed
+
   useEffect(() => {
-    if (!isActive || (mode === "people" && !signedIn)) {
-      setBooks([])
+    if (mode === "books" && isActive) warmCoverConnections()
+  }, [mode, isActive])
+
+  useEffect(() => {
+    if (mode !== "people" || !isActive || !signedIn) {
       setPeople([])
-      setIsSearching(false)
-      setSearchFailed(false)
+      setIsSearchingPeople(false)
+      setPeopleFailed(false)
       return
     }
     // A slower earlier search must not overwrite the results for what's typed now.
     let current = true
-    setIsSearching(true)
-    setSearchFailed(false)
-    if (mode === "books") warmCoverConnections()
+    setIsSearchingPeople(true)
+    setPeopleFailed(false)
     const timeout = setTimeout(() => {
-      const request = mode === "books"
-        ? axios.get(`/api/books/search?q=${encodeURIComponent(q)}&limit=12`).then((res) => { if (current) setBooks(res.data) })
-        : axios.get(`/api/users/search?q=${encodeURIComponent(q)}`).then((res) => { if (current) setPeople(res.data) })
-      request
-        .catch(() => { if (current) { setBooks([]); setPeople([]); setSearchFailed(true) } })
-        .finally(() => { if (current) setIsSearching(false) })
+      axios.get(`/api/users/search?q=${encodeURIComponent(q)}`)
+        .then((res) => { if (current) setPeople(res.data) })
+        .catch(() => { if (current) { setPeople([]); setPeopleFailed(true) } })
+        .finally(() => { if (current) setIsSearchingPeople(false) })
     }, 400)
     return () => { current = false; clearTimeout(timeout) }
   }, [q, mode, isActive, signedIn, searchAttempt])
@@ -82,9 +86,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
     axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
       .then((res) => {
         setFollowState((state) => ({ ...state, [username]: res.data.isFollowing }))
-        toast.success(res.data.isFollowing ? `Following ${username}` : `Unfollowed ${username}`, { position: "bottom-center" })
       })
-      .catch(() => toast.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { position: "bottom-center" }))
+      .catch(() => notify.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { retry: () => handleFollow(username, current) }))
   }
 
   const tabs = (

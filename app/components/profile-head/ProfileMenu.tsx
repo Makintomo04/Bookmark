@@ -2,7 +2,7 @@
 import { FC, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Ban, MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
@@ -28,12 +28,12 @@ const ProfileMenu: FC<ProfileMenuProps> = ({ username, isBlocked }) => {
     const request = isBlocked ? axios.delete(url) : axios.post(url)
     request
       .then(() => {
-        toast.success(isBlocked ? `Unblocked ${username}.` : `Blocked ${username}.`, { position: "bottom-center" })
+        notify.success(isBlocked ? `Unblocked ${username}` : `Blocked ${username}`)
         // The server page re-renders with the new relationship.
         router.refresh()
       })
       .catch((err) => {
-        toast.error(err?.response?.data?.error || "Something went wrong.", { position: "bottom-center" })
+        notify.error(apiError(err, isBlocked ? `Couldn't unblock ${username}. Try again.` : `Couldn't block ${username}. Try again.`))
       })
       .finally(() => setIsLoading(false))
   }

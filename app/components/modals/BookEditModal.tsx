@@ -3,7 +3,7 @@ import { FC, useEffect } from 'react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
@@ -77,12 +77,11 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
   const onSubmit: SubmitHandler<FieldValues> = (data) => {
     if (!book) return
     axios.patch(`/api/books/${book.id}`, data).then(() => {
-      toast.success("Book Updated!", { position: "bottom-center" })
       booksMutate()
       copyCoverLater(book.id)
       onClose()
     }).catch(() => {
-      toast.error("Something went wrong!", { position: "bottom-center" })
+      notify.error("Couldn't save those changes. Try again.")
     })
   }
 
@@ -118,10 +117,9 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
                 endpoint="imageUploader"
                 onClientUploadComplete={(res) => {
                   setCustomValue("coverImgSrc", res[0]?.url)
-                  toast.success("Upload completed", { position: "bottom-center" })
                 }}
                 onUploadError={(error: Error) => {
-                  toast.error(error.message, { position: "bottom-center" })
+                  notify.error(error.message || "Upload failed. Try another image.")
                 }}
               />
             </div>
