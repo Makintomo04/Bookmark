@@ -11,12 +11,16 @@ import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
 import { BIO_MAX, DEFAULT_COLOUR, USERNAME_MAX, USERNAME_MIN } from '@/lib/profile'
+import { bannerPresetOf, bannerPresetValue, isBannerPresetValue, resolveBanner } from '@/lib/banners'
+import BannerPattern from '../profile/BannerPattern'
+import BannerPresetPicker from '../profile/BannerPresetPicker'
 import useImageUpload from '@/app/hooks/useImageUpload'
 import useUser from '@/app/hooks/useUser'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import DataExport from '../settings/DataExport'
 import InitialAvatar from '../profile/InitialAvatar'
 import PrivacySettings from '../settings/PrivacySettings'
+import AppearanceSettings from '../settings/AppearanceSettings'
 import ColourSwatches from '../profile/ColourSwatches'
 
 type ProfileForm = {
@@ -72,7 +76,10 @@ const EditProfileModal: FC = () => {
   const accent = colour || DEFAULT_COLOUR
   const accentInk = readableInk(accent)
   const avatarSrc = avatar.preview || imageSrc
-  const bannerShown = banner.preview || bannerSrc
+  // An uploaded photo (or one mid-upload), a chosen preset, or the seeded default when the banner is empty.
+  const bannerShown = banner.preview || resolveBanner(bannerSrc, user?.id ?? "")
+  const bannerPreset = banner.preview ? null : bannerPresetOf(bannerShown)
+  const hasBannerPhoto = !!bannerSrc && !isBannerPresetValue(bannerSrc)
 
   const close = () => {
     if (isBusy) return
@@ -125,9 +132,9 @@ const EditProfileModal: FC = () => {
   const preview = (
     <div>
       <div className="relative h-32 sm:h-40 overflow-hidden rounded-xl transition-colors" style={{ background: accent }}>
-        {bannerShown && (
-          <Image src={bannerShown} alt="" fill sizes="(min-width: 768px) 800px, 100vw" unoptimized={!!banner.preview} className={cn("object-cover", banner.isUploading && "opacity-60")} />
-        )}
+        {bannerPreset
+          ? <BannerPattern preset={bannerPreset} colour={accent} />
+          : <Image src={bannerShown} alt="" fill sizes="(min-width: 768px) 800px, 100vw" unoptimized={!!banner.preview} className={cn("object-cover", banner.isUploading && "opacity-60")} />}
         {banner.isUploading && (
           <div className="absolute inset-0 grid place-items-center">
             <Loader2 className="size-6 animate-spin text-white drop-shadow" aria-hidden />
@@ -135,10 +142,10 @@ const EditProfileModal: FC = () => {
         )}
         <div className="absolute right-3 top-3 flex gap-2">
           <button type="button" onClick={() => bannerInput.current?.click()} disabled={isBusy} className={overlayButtonClass}>
-            <ImagePlus size={14} aria-hidden />{bannerSrc ? "Change banner" : "Add banner"}
+            <ImagePlus size={14} aria-hidden />{hasBannerPhoto ? "Change photo" : "Upload a photo"}
           </button>
-          {bannerSrc && !banner.isUploading && (
-            <button type="button" onClick={() => setField("bannerSrc", "")} disabled={isBusy} aria-label="Remove banner" className={cn(overlayButtonClass, "px-2")}>
+          {hasBannerPhoto && !banner.isUploading && (
+            <button type="button" onClick={() => setField("bannerSrc", "")} disabled={isBusy} aria-label="Remove banner photo" className={cn(overlayButtonClass, "px-2")}>
               <Trash2 size={14} aria-hidden />
             </button>
           )}
@@ -231,6 +238,16 @@ const EditProfileModal: FC = () => {
           <ColourSwatches value={accent} onChange={(c) => setField("color", c)} labelledBy="colour-label" disabled={isSaving} />
         </div>
       </div>
+
+      <div className="flex flex-col gap-2">
+        <span id="banner-label" className="text-sm font-medium">Banner</span>
+        <p className="text-xs text-muted-foreground -mt-1">
+          {hasBannerPhoto ? "Pick a pattern to replace your photo, in your colour." : "A pattern in your colour. Or upload a photo above."}
+        </p>
+        <div className="mt-1">
+          <BannerPresetPicker value={bannerPreset} colour={accent} onChange={(id) => setField("bannerSrc", bannerPresetValue(id))} labelledBy="banner-label" disabled={isBusy} />
+        </div>
+      </div>
     </div>
   )
 
@@ -288,6 +305,7 @@ const EditProfileModal: FC = () => {
     >
       {preview}
       {fields}
+      <AppearanceSettings disabled={isBusy} />
       <PrivacySettings disabled={isBusy} />
       <DataExport disabled={isBusy} />
       {dangerZone}
