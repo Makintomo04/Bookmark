@@ -3,6 +3,10 @@ import { requireUser } from '@/lib/apiAuth'
 import { getWrapped, parseWrappedMonth } from '@/lib/stats'
 import { wrappedStoryImage } from '@/app/components/wrapped/wrappedImage'
 
+// Drawing a story image (reading data, fonts from Google, a cover fetch, then Satori) can run past
+// Vercel's default 10 seconds: the current year's story was timing out with a 504.
+export const maxDuration = 30
+
 // A 1080×1920 share card for one month, from the Wrapped image generator. Free for everyone: it's the
 // reader's own numbers, and every card carries Bookmark's name and link. Alternative designs are the
 // Plus part (lib/entitlements.ts customWrapDesigns, planned).
