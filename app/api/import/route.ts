@@ -23,6 +23,14 @@ const uploadSchema = z.object({
     .refine((f) => f.size <= MAX_FILE_BYTES, "That file is over 5 MB. Export just your books (CSV), not a full data archive."),
 });
 
+// UTF-8 (BOM or not), or UTF-16 with a BOM, which is what Excel writes when a CSV is saved as "Unicode text".
+function decodeCsv(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder("utf-16le").decode(buffer);
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder("utf-16be").decode(buffer);
+  return new TextDecoder("utf-8").decode(buffer);
+}
+
 // POST /api/import (multipart, field "file"): parses the CSV and creates the job. Nothing is added to the
 // shelf until the reader confirms the preview.
 export async function POST(req: Request) {
@@ -52,7 +60,7 @@ export async function POST(req: Request) {
   const fileName = file instanceof File ? file.name.slice(0, 200) : null;
 
   try {
-    const text = new TextDecoder("utf-8").decode(await file.arrayBuffer());
+    const text = decodeCsv(await file.arrayBuffer());
     const job = await createJob(user.id, text, fileName);
     return NextResponse.json(await viewJob(job), { status: 201 });
   } catch (err) {

@@ -9,7 +9,7 @@ import { parseCsv } from "../../lib/import/csv.ts";
 import { cleanIsbn, parseDateRanges, parseImport, roundRating, stripSeries } from "../../lib/import/formats.ts";
 import { matchRows, plausibleMatch } from "../../lib/import/match.ts";
 import { REVIEW_MAX, buildRecords, findDuplicates, newObjectId } from "../../lib/import/records.ts";
-import type { ImportMatch, ImportRow, ImportSource } from "../../lib/import/types.ts";
+import { type ImportMatch, type ImportRow, type ImportSource, asMatch } from "../../lib/import/types.ts";
 import { booksToCsv } from "../../lib/export.ts";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
@@ -289,13 +289,14 @@ test("matching: ISBN-13, then ISBN-10 in one batched request, then title + autho
 
   const { matches } = await matchRows(rows, rows.map((_, i) => i), { deadline: Date.now() + 5000, fetchImpl: fakeFetch });
   assert.equal(urls.filter((u) => u.includes("isbn%3A")).length, 1, "all ISBNs share one request");
-  assert.equal(matches.get(0)?.by, "isbn13");
-  assert.equal(matches.get(0)?.coverUrl, "https://covers.openlibrary.org/b/id/1-L.jpg");
-  assert.equal(matches.get(0)?.genre, "Fantasy");
-  assert.equal(matches.get(1)?.workKey, "OL893414W");
-  assert.equal(matches.get(1)?.by, "title");
-  assert.equal(matches.get(2)?.by, "isbn", "found by its ISBN-10 when the ISBN-13 isn't listed");
-  assert.equal(matches.get(4), null, "an implausible top hit is rejected");
+  assert.equal(asMatch(matches.get(0))?.by, "isbn13");
+  assert.equal(asMatch(matches.get(0))?.coverUrl, "https://covers.openlibrary.org/b/id/1-L.jpg");
+  assert.equal(asMatch(matches.get(0))?.genre, "Fantasy");
+  assert.equal(asMatch(matches.get(1))?.workKey, "OL893414W");
+  assert.equal(asMatch(matches.get(1))?.by, "title");
+  assert.equal(asMatch(matches.get(2))?.by, "isbn", "found by its ISBN-10 when the ISBN-13 isn't listed");
+  assert.equal(asMatch(matches.get(4)), null, "an implausible top hit is rejected");
+  assert.equal(matches.get(4)?.candidates?.length, 1, "but kept as a candidate for the model and the reader");
   assert.equal(matches.size, rows.length);
 });
 

@@ -8,7 +8,8 @@ import { Button } from '@/app/components/ui/button'
 import Medal from '@/app/components/achievements/Medal'
 import { cn } from '@/lib/utils'
 import type { ImportJobView } from '@/lib/import/job'
-import { SOURCE_LABEL } from '@/lib/import/types'
+import type { UncertainRow } from '@/lib/import/review'
+import { SOURCE_LABEL, type FileNotes, type ImportCandidate } from '@/lib/import/types'
 import { SearchFailed } from "@/app/components/modals/BookSearchResults";
 
 const MAX_BYTES = 5 * 1024 * 1024
@@ -23,6 +24,7 @@ const SHELVES: { status: Status; label: string }[] = [
 
 const fmt = (n: number) => n.toLocaleString("en-GB")
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`
+const FORMAT_LABEL: Record<string, string> = { AUDIOBOOK: "Audiobook", EBOOK: "Ebook", HARDCOVER: "Hardcover", PAPERBACK: "Paperback" }
 
 class StepError extends Error {
   constructor(message: string, public status: number) { super(message) }
@@ -143,8 +145,12 @@ const ImportFlow: FC = () => {
         </div>
       )}
       {!job || job.status === "cancelled" ? <UploadStep onFile={upload} />
-        : job.status === "matching" ? <ProgressStep title="Matching your books" detail={`Looking up ${fmt(job.looked)} of ${fmt(job.total)} on Open Library`} value={job.looked} max={job.total} job={job} />
-        : job.status === "ready" ? <PreviewStep job={job} onConfirm={confirm} onCancel={startOver} />
+        : job.status === "matching" ? (
+          job.checking > 0 && job.looked >= job.total
+            ? <ProgressStep title="Checking the unsure ones" detail={`${plural(job.checking, "title")} left to check against Open Library's suggestions`} value={job.total - job.checking} max={job.total} job={job} />
+            : <ProgressStep title="Matching your books" detail={`Looking up ${fmt(job.looked)} of ${fmt(job.total)} on Open Library`} value={job.looked} max={job.total} job={job} />
+        )
+        : job.status === "ready" ? <PreviewStep job={job} onConfirm={confirm} onCancel={startOver} onChange={setJob} />
         : job.status === "importing" ? <ProgressStep title="Adding books to your shelves" detail={`${fmt(Math.min(job.imported, job.total))} of ${fmt(job.total)}`} value={job.imported} max={job.total} />
         : <SummaryStep job={job} onChange={setJob} onAnother={startOver} />}
     </div>
@@ -269,9 +275,64 @@ const Stat: FC<{ value: number; label: string; className?: string }> = ({ value,
   </div>
 )
 
-const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCancel: () => void }> = ({ job, onConfirm, onCancel }) => {
+// What the pre-cleaner set aside or had to decide, and the finishes it left undated. Shown before and after.
+const FileNotesList: FC<{ notes: FileNotes | null; undatedFinished: number }> = ({ notes, undatedFinished }) => {
+  const items: { key: string; icon: typeof CalendarOff; text: string; detail?: string }[] = []
+  if (undatedFinished > 0) {
+    items.push({
+      key: "undated",
+      icon: CalendarOff,
+      text: `${plural(undatedFinished, "finished book has", "finished books have")} no finish date in your file.`,
+      detail: "They're kept as finished with the date left blank rather than dated today, so your stats stay honest. Add a date from the book's page whenever you like.",
+    })
+  }
+  if (notes?.quarantined.length) {
+    const lines = notes.quarantined.slice(0, 6).map((q) => `row ${fmt(q.line)}${q.detail ? ` (${q.detail})` : ""}`).join("; ")
+    items.push({
+      key: "quarantined",
+      icon: HelpCircle,
+      text: `${plural(notes.quarantined.length, "row has", "rows have")} no title and ${notes.quarantined.length === 1 ? "was" : "were"} set aside.`,
+      detail: `${lines}${notes.quarantined.length > 6 ? "…" : ""}. Everything else in the file came through.`,
+    })
+  }
+  if (notes?.dateOrderGuessed) {
+    items.push({
+      key: "order",
+      icon: HelpCircle,
+      text: `Dates like 03/04/2024 were read as day/month${notes.dayFirst ? "" : " and month/day"}.`,
+      detail: "Nothing in the file settled which way round they are. If yours are month/day, re-export from the app rather than a spreadsheet.",
+    })
+  }
+  if (notes?.unreadableDateCount) {
+    const examples = notes.unreadableDates.slice(0, 4).map((d) => `"${d.value}" (row ${fmt(d.line)})`).join(", ")
+    items.push({
+      key: "unreadable",
+      icon: HelpCircle,
+      text: `${plural(notes.unreadableDateCount, "date")} couldn't be read and ${notes.unreadableDateCount === 1 ? "was" : "were"} left blank.`,
+      detail: `${examples}${notes.unreadableDateCount > 4 ? "…" : ""}.`,
+    })
+  }
+  if (items.length === 0) return null
+  return (
+    <ul className="flex flex-col gap-3 text-sm">
+      {items.map((item) => (
+        <li key={item.key} className="flex gap-3">
+          <item.icon size={18} className="mt-0.5 flex-shrink-0 text-muted-foreground" aria-hidden />
+          <span>
+            {item.text}
+            {item.detail && <span className="block mt-1 text-muted-foreground">{item.detail}</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCancel: () => void; onChange: (job: ImportJobView) => void }> = ({ job, onConfirm, onCancel, onChange }) => {
   const [busy, setBusy] = useState(false)
   const duplicates = job.duplicates.shelf + job.duplicates.file
+  const unsure = job.uncertain.length
+  const unmatched = job.unmatched
 
   return (
     <section className="flex flex-col gap-6">
@@ -289,11 +350,19 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
           <BookCheck size={18} className="mt-0.5 flex-shrink-0 text-emerald-600" aria-hidden />
           <span><strong className="tabular-nums">{fmt(job.matched)}</strong> matched on Open Library, with covers and work details.</span>
         </li>
-        {job.unmatched > 0 && (
+        {unsure > 0 && (
+          <li className="flex gap-3">
+            <Sparkles size={18} className="mt-0.5 flex-shrink-0 text-amber-600" aria-hidden />
+            <span>
+              <strong className="tabular-nums">{fmt(unsure)}</strong> {unsure === 1 ? "match" : "matches"} to check below. Any you don&apos;t check {unsure === 1 ? "is" : "are"} added as typed.
+            </span>
+          </li>
+        )}
+        {unmatched > 0 && (
           <li className="flex gap-3">
             <Search size={18} className="mt-0.5 flex-shrink-0 text-amber-600" aria-hidden />
             <span>
-              <strong className="tabular-nums">{fmt(job.unmatched)}</strong> without a match. They&apos;re still imported, and you can match them afterwards.
+              <strong className="tabular-nums">{fmt(unmatched)}</strong> without a match. They&apos;re still imported, and you can match them afterwards.
               {job.samples.unmatched.length > 0 && <span className="block mt-1 text-muted-foreground">{job.samples.unmatched.join("; ")}{job.unmatched > job.samples.unmatched.length && "…"}</span>}
             </span>
           </li>
@@ -309,6 +378,10 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
         )}
       </ul>
 
+      <FileNotesList notes={job.notes} undatedFinished={job.undatedFinished} />
+
+      {unsure > 0 && <ReviewList job={job} onChange={onChange} />}
+
       <p className="text-sm text-muted-foreground">
         Imported books won&apos;t appear in your followers&apos; feeds, and only books you finished this year count toward this year&apos;s goal.
       </p>
@@ -321,6 +394,178 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
         <Button type="button" variant="outline" onClick={onCancel}>Choose a different file</Button>
       </div>
     </section>
+  )
+}
+
+// ---- Review ------------------------------------------------------------------------------
+
+// Matches the matcher wasn't sure of: one tap each, before anything is filed. Unchecked rows import as typed.
+const ReviewList: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => void }> = ({ job, onChange }) => {
+  const [shown, setShown] = useState(8)
+  const rows = job.uncertain
+  return (
+    <section aria-labelledby="review" className="flex flex-col gap-3">
+      <div>
+        <h2 id="review" className="text-lg font-semibold">{plural(rows.length, "match", "matches")} to check</h2>
+        <p className="text-sm text-muted-foreground">
+          Open Library wasn&apos;t sure about these. Confirm the suggestion, pick another, or add the book as it is in your file.
+        </p>
+      </div>
+      <ul className="flex flex-col divide-y rounded-lg border">
+        {rows.slice(0, shown).map((row) => <ReviewRow key={row.index} jobId={job.id} row={row} onChange={onChange} />)}
+      </ul>
+      {rows.length > shown && (
+        <Button type="button" variant="ghost" onClick={() => setShown((n) => n + 20)} className="self-start">Show more</Button>
+      )}
+    </section>
+  )
+}
+
+const CoverThumb: FC<{ url: string | null }> = ({ url }) =>
+  url
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={url.replace(/-L\.jpg$/, "-M.jpg")} alt="" className="h-20 w-14 rounded object-cover flex-shrink-0 bg-muted" />
+    : <span className="h-20 w-14 rounded bg-muted flex-shrink-0" aria-hidden />
+
+const ReviewRow: FC<{ jobId: string; row: UncertainRow; onChange: (job: ImportJobView) => void }> = ({ jobId, row, onChange }) => {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const yours = [row.author, row.year, row.format && FORMAT_LABEL[row.format]].filter(Boolean).join(" · ")
+  const theirs = [row.pick.authors.slice(0, 2).join(", "), row.pick.year].filter(Boolean).join(" · ")
+
+  const send = async (body: Record<string, unknown>) => {
+    setBusy(true)
+    try {
+      const next = await step(jobId, { action: "decide", index: row.index, ...body })
+      if (next) onChange(next)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save that.", { position: "bottom-center" })
+    } finally {
+      setBusy(false)
+    }
+  }
+  const pick = (c: ImportCandidate) => send({ choice: "pick", candidate: c })
+
+  return (
+    <li className="p-3 sm:p-4 flex flex-col gap-3">
+      <div className="flex gap-3">
+        <CoverThumb url={row.pick.coverUrl} />
+        <div className="min-w-0 flex-1 flex flex-col gap-2">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">In your file</p>
+            <p className="font-medium leading-tight">{row.title}</p>
+            {yours && <p className="text-sm text-muted-foreground">{yours}</p>}
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Best guess <span className="normal-case tracking-normal tabular-nums">· {Math.round(row.confidence * 100)}% sure</span>
+            </p>
+            <p className="font-medium leading-tight">{row.pick.title ?? "Untitled"}</p>
+            {theirs && <p className="text-sm text-muted-foreground">{theirs}</p>}
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" disabled={busy} onClick={() => send({ choice: "accept" })} className="gap-1.5 flex-1 sm:flex-none">
+          <Check size={14} aria-hidden /> That&apos;s right
+        </Button>
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setOpen((o) => !o)} className="flex-1 sm:flex-none" aria-expanded={open}>
+          Pick another
+        </Button>
+        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => send({ choice: "typed" })} className="flex-1 sm:flex-none">
+          Add as typed
+        </Button>
+      </div>
+      {open && <WorkSearch id={`review-${row.index}`} initialQuery={`${row.title} ${row.author === "Unknown" ? "" : row.author}`.trim()} others={row.others} busy={busy} onPick={pick} />}
+    </li>
+  )
+}
+
+type Candidate = { workKey: string | null; title: string; author: string; pages: number | null; coverUrl: string | null; year?: number | null }
+
+const asCandidate = (c: Candidate): ImportCandidate => ({
+  workKey: c.workKey!,
+  title: c.title,
+  authors: c.author ? [c.author] : [],
+  year: c.year ?? null,
+  coverUrl: c.coverUrl,
+  pages: c.pages,
+  subjects: [],
+})
+
+// Other works to choose from: what the search already found for the row, then an Open Library search box.
+const WorkSearch: FC<{ id: string; initialQuery: string; others?: ImportCandidate[]; busy: boolean; onPick: (c: ImportCandidate) => void }> = ({ id, initialQuery, others = [], busy, onPick }) => {
+  const [query, setQuery] = useState(initialQuery)
+  const [results, setResults] = useState<ImportCandidate[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
+
+  const search = useCallback(async (q: string) => {
+    if (q.trim().length < 3) return
+    setSearching(true)
+    setSearchFailed(false)
+    try {
+      const res = await fetch(`/api/books/search?q=${encodeURIComponent(q.trim())}`)
+      if (!res.ok) throw new Error("search failed")
+      setResults(((await res.json()) as Candidate[]).filter((c) => c.workKey).map(asCandidate))
+    } catch {
+      setResults(null)
+      setSearchFailed(true)
+    } finally {
+      setSearching(false)
+    }
+  }, [])
+
+  // With nothing to offer up front, search for the row's own title straight away.
+  useEffect(() => {
+    if (others.length === 0) search(initialQuery)
+    // Once, when the box opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // The row's own candidates first; search results fill in behind them, without repeats.
+  const shown = [...others, ...(results ?? []).filter((r) => !others.some((o) => o.workKey === r.workKey))]
+
+  return (
+    <div className="flex flex-col gap-3">
+      <form onSubmit={(e) => { e.preventDefault(); search(query) }} className="flex gap-2">
+        <label htmlFor={`q-${id}`} className="sr-only">Search Open Library</label>
+        <input
+          id={`q-${id}`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="flex-1 min-w-0 rounded-md border bg-background px-3 py-1.5 text-sm"
+        />
+        <Button type="submit" size="sm" disabled={searching || busy}>{searching ? <Loader2 size={14} className="animate-spin" aria-label="Searching" /> : "Search"}</Button>
+      </form>
+      {searchFailed && <SearchFailed onRetry={() => search(query)} />}
+      {results && results.length === 0 && shown.length === 0 && <p className="text-sm text-muted-foreground">No results. Try a shorter title.</p>}
+      {shown.length > 0 && (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {shown.map((c) => (
+            <li key={c.workKey}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onPick(c)}
+                className="w-full flex gap-3 items-center rounded-md border p-2 text-left hover:bg-muted disabled:opacity-50"
+              >
+                {c.coverUrl
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={c.coverUrl.replace(/-L\.jpg$/, "-S.jpg")} alt="" className="h-14 w-10 rounded object-cover flex-shrink-0 bg-muted" />
+                  : <span className="h-14 w-10 rounded bg-muted flex-shrink-0" />}
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium leading-tight truncate">{c.title ?? "Untitled"}</span>
+                  <span className="block text-xs text-muted-foreground truncate">
+                    {c.authors.slice(0, 2).join(", ")}{c.year ? ` · ${c.year}` : ""}{c.pages ? ` · ${fmt(c.pages)} pages` : ""}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -362,6 +607,8 @@ const SummaryStep: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => vo
           <Link href="/achievements" className="mt-4 inline-block text-sm underline underline-offset-4">See all achievements</Link>
         </section>
       )}
+
+      <FileNotesList notes={result.file ?? null} undatedFinished={result.undatedFinished} />
 
       {result.unmatched.length > 0 && <UnmatchedList job={job} onChange={onChange} />}
 
@@ -405,8 +652,6 @@ function useCovers(job: ImportJobView, onChange: (job: ImportJobView) => void) {
   }, [job.id, pending])
 }
 
-type Candidate = { workKey: string | null; title: string; author: string; pages: number | null; coverUrl: string | null }
-
 const UnmatchedList: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => void }> = ({ job, onChange }) => {
   const unmatched = job.result!.unmatched
   const [shown, setShown] = useState(10)
@@ -429,26 +674,7 @@ const UnmatchedList: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => 
 
 const UnmatchedRow: FC<{ jobId: string; entry: { bookId: string; title: string; author: string }; onChange: (job: ImportJobView) => void }> = ({ jobId, entry, onChange }) => {
   const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState(`${entry.title} ${entry.author === "Unknown" ? "" : entry.author}`.trim())
-  const [results, setResults] = useState<Candidate[] | null>(null)
   const [busy, setBusy] = useState(false)
-  const [searchFailed, setSearchFailed] = useState(false)
-
-  const search = async () => {
-    if (query.trim().length < 3) return
-    setBusy(true)
-    setSearchFailed(false)
-    try {
-      const res = await fetch(`/api/books/search?q=${encodeURIComponent(query.trim())}`)
-      if (!res.ok) throw new Error("search failed")
-      setResults(((await res.json()) as Candidate[]).filter((c) => c.workKey))
-    } catch {
-      setResults(null)
-      setSearchFailed(true)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const send = async (body: Record<string, unknown>) => {
     setBusy(true)
@@ -468,47 +694,16 @@ const UnmatchedRow: FC<{ jobId: string; entry: { bookId: string; title: string; 
           <p className="font-medium leading-tight">{entry.title}</p>
           <p className="text-sm text-muted-foreground">{entry.author}</p>
         </div>
-        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setOpen((o) => !o); if (!results) search() }}>Find match</Button>
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setOpen((o) => !o)} aria-expanded={open}>Find match</Button>
         <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => send({ action: "keep" })}>Keep as is</Button>
       </div>
       {open && (
-        <div className="flex flex-col gap-3">
-          <form onSubmit={(e) => { e.preventDefault(); search() }} className="flex gap-2">
-            <label htmlFor={`q-${entry.bookId}`} className="sr-only">Search Open Library</label>
-            <input
-              id={`q-${entry.bookId}`}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 min-w-0 rounded-md border bg-background px-3 py-1.5 text-sm"
-            />
-            <Button type="submit" size="sm" disabled={busy}>{busy ? <Loader2 size={14} className="animate-spin" aria-label="Searching" /> : "Search"}</Button>
-          </form>
-          {searchFailed && <SearchFailed onRetry={search} />}
-          {results && results.length === 0 && <p className="text-sm text-muted-foreground">No results. Try a shorter title.</p>}
-          {results && results.length > 0 && (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {results.map((c) => (
-                <li key={c.workKey}>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => send({ action: "fix", workKey: c.workKey, coverUrl: c.coverUrl, pages: c.pages })}
-                    className="w-full flex gap-3 items-center rounded-md border p-2 text-left hover:bg-muted disabled:opacity-50"
-                  >
-                    {c.coverUrl
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={c.coverUrl.replace(/-L\.jpg$/, "-S.jpg")} alt="" className="h-14 w-10 rounded object-cover flex-shrink-0 bg-muted" />
-                      : <span className="h-14 w-10 rounded bg-muted flex-shrink-0" />}
-                    <span className="min-w-0">
-                      <span className="block text-sm font-medium leading-tight truncate">{c.title}</span>
-                      <span className="block text-xs text-muted-foreground truncate">{c.author}{c.pages ? ` · ${fmt(c.pages)} pages` : ""}</span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <WorkSearch
+          id={entry.bookId}
+          initialQuery={`${entry.title} ${entry.author === "Unknown" ? "" : entry.author}`.trim()}
+          busy={busy}
+          onPick={(c) => send({ action: "fix", workKey: c.workKey, coverUrl: c.coverUrl, pages: c.pages })}
+        />
       )}
     </li>
   )
