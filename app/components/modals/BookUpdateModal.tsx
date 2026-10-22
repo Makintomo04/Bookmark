@@ -432,7 +432,7 @@ const BookUpdateModal: FC = () => {
   )
 
   const ratingAndReview = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">Rating <span className="font-normal text-muted-foreground">· optional</span></span>
         <StarRating value={rating} onChange={setRating} disabled={isSaving} label="Your rating" />

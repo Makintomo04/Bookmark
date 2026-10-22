@@ -125,11 +125,11 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         </div>
           <div className={cn("flex flex-col justify-between w-full h-full min-h-0 flex-1 relative", !compact && "sm:min-h-[500px]")}>
         {/* grid-cols-1 caps the column at the modal's width; an auto column grows to the widest child and spills off narrow screens. */}
-        <div className="h-auto grid grid-cols-1 place-items-baseline sm:place-items-center overflow-y-auto overflow-x-hidden overscroll-contain flex-grow min-h-0 max-h-max pt-2 -mt-2">
+        <div className="h-auto grid grid-cols-1 place-items-baseline sm:place-items-center overflow-y-auto overflow-x-hidden overscroll-contain flex-grow min-h-0 max-h-max py-2 -mt-2">
 
         {body}
         </div>
-        <div className="pt-4">
+        <div className="pt-2">
         {footer}
 
           </div>

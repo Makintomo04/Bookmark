@@ -122,9 +122,10 @@ export const ReaderTagsEditor: FC<ReaderTagsEditorProps> = ({ value, onChange, d
   const selectClass = "h-9 rounded-md border border-neutral-300 dark:border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-7">
+      {/* A legend sits outside its fieldset's flex flow, so gap doesn't reach it: it needs its own margin. */}
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">
+        <legend className="mb-2 text-sm font-medium">
           How did it feel? <span className="font-normal text-muted-foreground">· optional, up to {MOODS_MAX}</span>
         </legend>
         <div className="flex flex-wrap gap-1.5">
@@ -148,10 +149,10 @@ export const ReaderTagsEditor: FC<ReaderTagsEditorProps> = ({ value, onChange, d
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">
+        <legend className="mb-1 text-sm font-medium">
           Content warnings <span className="font-normal text-muted-foreground">· optional</span>
         </legend>
-        <p className="text-sm text-muted-foreground">Other readers see these collapsed, so nobody gets more than they asked for.</p>
+        <p className="mb-1 text-sm text-muted-foreground">Other readers see these collapsed, so nobody gets more than they asked for.</p>
         {value.warnings.length > 0 && (
           <ul className="flex flex-wrap gap-1.5">
             {value.warnings.map((w) => (
