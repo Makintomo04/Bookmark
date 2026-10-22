@@ -62,6 +62,11 @@ export function stripeBillingApi(): BillingStripeApi {
       return Array.from(subscriptions);
     },
 
+    async lifetimeBuyerOfPaymentIntent(paymentIntentId) {
+      const intent = await client.paymentIntents.retrieve(paymentIntentId);
+      return intent.metadata?.plan === "lifetime" ? intent.metadata.userId || null : null;
+    },
+
     async cancelSubscription(id) {
       const sub = await client.subscriptions.retrieve(id);
       if (sub.status === "canceled" || sub.status === "incomplete_expired") return;
@@ -73,11 +78,17 @@ export function stripeBillingApi(): BillingStripeApi {
 export const billingIntervalSchema = z.enum(["monthly", "yearly"]);
 export type BillingInterval = z.infer<typeof billingIntervalSchema>;
 
-// The Stripe price for a plan. "founding" is the $24.99 yearly Founding Reader price; it must never
-// be archived while founders are on it, and it must not be offered in the customer portal.
-export function priceIdFor(plan: BillingInterval | "founding"): string | null {
-  const id = plan === "monthly" ? process.env.STRIPE_PRICE_MONTHLY
-    : plan === "yearly" ? process.env.STRIPE_PRICE_YEARLY
-    : process.env.STRIPE_PRICE_FOUNDING;
-  return id || null;
+// The Stripe price for a plan (scripts/stripe-setup.ts creates them). "founding" is the $24.99 yearly
+// Founding Reader price: never archive it while founders are on it, and never offer it in the portal.
+// "lifetime" is a one-time price; the others recur.
+export type CheckoutPlan = BillingInterval | "founding" | "patron" | "lifetime";
+const PRICE_ENV: Record<CheckoutPlan, string> = {
+  monthly: "STRIPE_PRICE_MONTHLY",
+  yearly: "STRIPE_PRICE_YEARLY",
+  founding: "STRIPE_PRICE_FOUNDING",
+  patron: "STRIPE_PRICE_PATRON",
+  lifetime: "STRIPE_PRICE_LIFETIME",
+};
+export function priceIdFor(plan: CheckoutPlan): string | null {
+  return process.env[PRICE_ENV[plan]] || null;
 }

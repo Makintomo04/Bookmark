@@ -60,13 +60,16 @@ export type PlanUpdate = {
   stripeCustomerId?: string;
   trialEndsAt?: Date;
   foundingMember?: true;
+  patron?: boolean;
 }
 
 // The User fields a subscription snapshot sets. `foundingPriceId` is the Founding Reader price
 // (STRIPE_PRICE_FOUNDING); a paid subscription on it marks the account as a founder, which is never
 // undone. Trials don't count, so the founding cap can't fill up with trials that never convert; a trial
 // started on the Founding price keeps that price when it converts, and is counted then.
-export function planUpdateFor(snapshot: SubscriptionSnapshot, foundingPriceId?: string | null): PlanUpdate {
+// `patronPriceId` (STRIPE_PRICE_PATRON) sets the Patron badge while the subscription is on that price; it
+// follows the subscription, so switching back to the standard yearly price clears it.
+export function planUpdateFor(snapshot: SubscriptionSnapshot, foundingPriceId?: string | null, patronPriceId?: string | null): PlanUpdate {
   const plan = planForStatus(snapshot.status);
   const founder = !!foundingPriceId && snapshot.priceId === foundingPriceId && snapshot.status === "active";
   return {
@@ -77,6 +80,7 @@ export function planUpdateFor(snapshot: SubscriptionSnapshot, foundingPriceId?: 
     // Recorded once so a second Checkout doesn't grant a second trial.
     ...(snapshot.trialEnd && { trialEndsAt: snapshot.trialEnd }),
     ...(founder && { foundingMember: true as const }),
+    ...(patronPriceId && { patron: plan === "PLUS" && snapshot.priceId === patronPriceId }),
   };
 }
 
@@ -105,6 +109,9 @@ export interface BillingStripeApi {
   subscriptionsForPaymentIntent(paymentIntentId: string): Promise<string[]>;
   // Cancels straight away. Resolves quietly when it's already cancelled.
   cancelSubscription(id: string): Promise<void>;
+  // The Bookmark user a lifetime payment belongs to (its PaymentIntent metadata), or null when the
+  // payment wasn't a lifetime purchase.
+  lifetimeBuyerOfPaymentIntent(paymentIntentId: string): Promise<string | null>;
 }
 
 export interface BillingDeps {
@@ -117,6 +124,10 @@ export interface BillingDeps {
   retrieveSubscription?: (id: string) => Promise<Stripe.Subscription>;
   // STRIPE_PRICE_FOUNDING, to recognise founders.
   foundingPriceId?: string | null;
+  // STRIPE_PRICE_PATRON, to set the Patron badge.
+  patronPriceId?: string | null;
+  // Called once when a lifetime purchase lands, to hand out the gift codes (lib/giftCodes.ts).
+  onLifetimeGranted?: (userId: string) => Promise<void>;
   now?: () => Date;
 }
 
@@ -159,14 +170,21 @@ async function handleRisk(kind: RiskKind, chargeId: string | null, paymentIntent
   const intent = paymentIntentId ?? (chargeId ? await stripe.paymentIntentOfCharge(chargeId) : null);
   if (!intent) return outcome(false, null, null, `${kind}: charge has no PaymentIntent`);
   const subscriptionIds = await stripe.subscriptionsForPaymentIntent(intent);
-  if (subscriptionIds.length === 0) return outcome(false, null, null, `${kind}: not a subscription charge`);
+  if (subscriptionIds.length === 0) {
+    // Not a subscription: perhaps the one-time lifetime payment, which a refund or dispute takes back.
+    const buyer = await stripe.lifetimeBuyerOfPaymentIntent(intent);
+    if (!buyer || !isObjectId(buyer)) return outcome(false, null, null, `${kind}: not a Plus charge`);
+    await db.user.update({ where: { id: buyer }, data: { lifetime: false } });
+    console.warn(`[billing] ${kind} on lifetime payment ${intent}: removed lifetime Plus from user ${buyer}`);
+    return outcome(true, buyer, null, `${kind}: lifetime removed`);
+  }
 
   let last: BillingOutcome = outcome(false, null, null, `${kind}: no account for the subscription`);
   for (const subscriptionId of subscriptionIds) {
     await stripe.cancelSubscription(subscriptionId);
     const user = await findUser(db, { subscriptionId });
     if (!user) continue;
-    await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, stripeSubscriptionId: null } });
+    await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, stripeSubscriptionId: null, patron: false } });
     // Server log, so the owner can follow up from the Dashboard (evidence for a dispute, a refund for a fraud warning).
     console.warn(`[billing] ${kind} on ${subscriptionId}: cancelled the subscription and moved user ${user.id} to FREE`);
     last = outcome(true, user.id, "FREE", `${kind}: subscription cancelled`);
@@ -181,6 +199,15 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;
+      if (session.mode === "payment" && session.metadata?.plan === "lifetime") {
+        if (session.payment_status !== "paid") return outcome(false, null, null, "lifetime checkout not paid yet");
+        const customerId = idOf(session.customer);
+        const user = await findUser(db, { customerId, userId: session.client_reference_id || session.metadata?.userId });
+        if (!user) return outcome(false, null, null, "no user for lifetime checkout");
+        await db.user.update({ where: { id: user.id }, data: { lifetime: true, ...(customerId && { stripeCustomerId: customerId }) } });
+        await deps.onLifetimeGranted?.(user.id);
+        return outcome(true, user.id, "PLUS", "lifetime purchased");
+      }
       if (session.mode !== "subscription") return outcome(false, null, null, "not a subscription checkout");
       const subscriptionId = idOf(session.subscription);
       const customerId = idOf(session.customer);
@@ -190,7 +217,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
 
       let data: PlanUpdate;
       if (subscriptionId && retrieveSubscription) {
-        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)), deps.foundingPriceId);
+        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)), deps.foundingPriceId, deps.patronPriceId);
       } else {
         // Without the subscription, assume what Checkout always starts: a Plus trial of the full length.
         const now = (deps.now ?? (() => new Date()))();
@@ -210,7 +237,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       const snapshot = snapshotSubscription(event.data.object);
       const user = await findUser(db, { subscriptionId: snapshot.id, customerId: snapshot.customerId, userId: snapshot.userId });
       if (!user) return outcome(false, null, null, "no user for subscription");
-      const data = planUpdateFor(snapshot, deps.foundingPriceId);
+      const data = planUpdateFor(snapshot, deps.foundingPriceId, deps.patronPriceId);
       await db.user.update({ where: { id: user.id }, data });
       return outcome(true, user.id, data.plan, `subscription ${snapshot.status}`);
     }
@@ -220,7 +247,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       const user = await findUser(db, { subscriptionId: snapshot.id, customerId: snapshot.customerId, userId: snapshot.userId });
       if (!user) return outcome(false, null, null, "no user for deleted subscription");
       // The customer stays, so the portal can still show invoices and a resubscribe skips the trial.
-      await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, stripeSubscriptionId: null } });
+      await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, stripeSubscriptionId: null, patron: false } });
       return outcome(true, user.id, "FREE", "subscription deleted");
     }
 
@@ -234,7 +261,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       let data: PlanUpdate;
       if (retrieveSubscription) {
         // The subscription's own status and period end are the source of truth.
-        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)), deps.foundingPriceId);
+        data = planUpdateFor(snapshotSubscription(await retrieveSubscription(subscriptionId)), deps.foundingPriceId, deps.patronPriceId);
       } else {
         // A paid subscription invoice means the period it covers is paid for.
         data = { plan: "PLUS", planRenewsAt: fromUnix(invoice.lines?.data?.[0]?.period?.end), stripeSubscriptionId: subscriptionId };

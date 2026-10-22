@@ -60,6 +60,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         colour={profile.favColour}
         supporter={profile.supporter}
         founding={profile.founding}
+        badge={profile.badge}
         actions={actions}
         stats={[
           { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },

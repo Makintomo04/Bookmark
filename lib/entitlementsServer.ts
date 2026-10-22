@@ -6,6 +6,7 @@ import {
   entitlementsOf,
   entitlementsSelect,
   foundingStatus,
+  lifetimeStatus,
   parseFoundingClose,
   type EntitlementKey,
   type Entitlements,
@@ -19,6 +20,14 @@ export async function currentFoundingStatus(now = new Date()): Promise<FoundingS
   if (!process.env.STRIPE_PRICE_FOUNDING) return { open: false, remaining: 0, closesAt };
   const founders = await prisma.user.count({ where: { foundingMember: true } });
   return foundingStatus(founders, closesAt, now);
+}
+
+// Whether lifetime Plus is still on sale: the launch window (the Founding closing date) and LIFETIME.cap.
+export async function currentLifetimeStatus(now = new Date()): Promise<FoundingStatus> {
+  const closesAt = parseFoundingClose(process.env.PLUS_FOUNDING_CLOSES_AT);
+  if (!process.env.STRIPE_PRICE_LIFETIME) return { open: false, remaining: 0, closesAt };
+  const sold = await prisma.user.count({ where: { lifetime: true } });
+  return lifetimeStatus(sold, closesAt, now);
 }
 
 // The server side of lib/entitlements.ts: look the plan up, and refuse with a 402 the client

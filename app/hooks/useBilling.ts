@@ -1,7 +1,7 @@
 import { useState } from "react"
 import axios from "axios"
 import { notify, apiError } from "@/lib/notify"
-import type { BillingInterval } from "@/lib/stripe"
+export type PlusChoice = "monthly" | "yearly" | "patron" | "lifetime"
 
 // Sends the reader to Stripe: Checkout to start Plus, the customer portal to manage it.
 // Both routes hand back a URL; the plan itself only changes when Stripe's webhook arrives.
@@ -22,7 +22,7 @@ export default function useBilling() {
 
   return {
     pending,
-    startCheckout: (interval: BillingInterval) => go("checkout", { interval }),
+    startCheckout: (plan: PlusChoice) => go("checkout", { plan }),
     openPortal: () => go("portal"),
   }
 }

@@ -104,6 +104,7 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     shelfColour: shelfAccent(record),
     supporter: personalisationOf(record).supporter,
     founding: personalisationOf(record).founding,
+    badge: personalisationOf(record).badge,
     createdAt: record.createdAt,
     books,
     achievements: record.achievements,

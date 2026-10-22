@@ -5,6 +5,7 @@ import { Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
 import { bannerPresetOf, resolveBanner } from '@/lib/banners'
+import type { SupporterBadgeKind } from '@/lib/personalisation'
 import BannerPattern from '../profile/BannerPattern'
 import TierAvatar from './TierAvatar'
 import FollowListStat from './FollowListStat'
@@ -38,6 +39,15 @@ interface ProfileHeaderProps {
   supporter?: boolean
   // A founder on Plus: the badge reads "Founding Reader".
   founding?: boolean
+  // Which supporter badge, when the profile has one. Takes over from supporter/founding.
+  badge?: SupporterBadgeKind | null
+}
+
+const BADGE: Record<SupporterBadgeKind, { label: string; title: string }> = {
+  patron: { label: "Patron", title: "Supports Bookmark as a Patron" },
+  lifetime: { label: "Lifetime", title: "Has lifetime Bookmark Plus" },
+  founding: { label: "Founding Reader", title: "One of Bookmark's founding Plus supporters" },
+  supporter: { label: "Supporter", title: "Supports Bookmark with Plus" },
 }
 
 export const primaryButtonClass = "inline-flex items-center justify-center gap-2 h-9 px-4 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
@@ -55,17 +65,17 @@ const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   return <span className={className}>{content}</span>
 }
 
-export const SupporterBadge: FC<{ founding?: boolean }> = ({ founding }) => (
+export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind }> = ({ founding, kind = founding ? "founding" : "supporter" }) => (
   <Link
     href="/plus"
-    title={founding ? "One of Bookmark's founding Plus supporters" : "Supports Bookmark with Plus"}
+    title={BADGE[kind].title}
     className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2.5 py-0.5 align-middle text-xs font-semibold text-brand-fill dark:text-brand transition hover:bg-brand/15"
   >
-    <Sparkles size={12} aria-hidden /> {founding ? 'Founding Reader' : 'Supporter'}
+    <Sparkles size={12} aria-hidden /> {BADGE[kind].label}
   </Link>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding }) => {
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge }) => {
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
   const preset = bannerPresetOf(shownBanner)
@@ -94,7 +104,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
         <div className="mt-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="text-2xl sm:text-3xl font-bold leading-tight break-words">{username}</h1>
-            {supporter && <SupporterBadge founding={founding} />}
+            {badge ? <SupporterBadge kind={badge} /> : supporter && <SupporterBadge founding={founding} />}
           </div>
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Plan, ProfileTheme } from "@prisma/client";
 import { z } from "zod";
-import { planOf } from "./entitlements.ts";
+import { planOf, plusSourceOf } from "./entitlements.ts";
 import { toHex } from "./colour.ts";
 
 // Personalisation (Bookmark Plus): how the profile page is dressed and what colour the shelf's
@@ -17,7 +17,10 @@ export const PROFILE_THEMES: { id: ProfileTheme; name: string; hint: string }[] 
 export const PROFILE_THEME_IDS = PROFILE_THEMES.map((t) => t.id) as [ProfileTheme, ...ProfileTheme[]];
 
 // The User fields these need. Spread into a Prisma `select`.
-export const personalisationSelect = { plan: true, profileTheme: true, shelfCardColour: true, foundingMember: true } as const;
+export const personalisationSelect = { plan: true, profileTheme: true, shelfCardColour: true, foundingMember: true, lifetime: true, patron: true, compPlusUntil: true } as const;
+
+// The badge beside a paying reader's name, most generous first. Free months earn none.
+export type SupporterBadgeKind = "patron" | "lifetime" | "founding" | "supporter";
 
 export interface Personalisation {
   profileTheme: ProfileTheme;
@@ -27,18 +30,36 @@ export interface Personalisation {
   supporter: boolean;
   // A founder on Plus: the badge reads "Founding Reader".
   founding: boolean;
+  badge: SupporterBadgeKind | null;
 }
 
-type Stored = { plan?: Plan | null; profileTheme?: ProfileTheme | null; shelfCardColour?: string | null; foundingMember?: boolean | null };
+type Stored = {
+  plan?: Plan | null;
+  profileTheme?: ProfileTheme | null;
+  shelfCardColour?: string | null;
+  foundingMember?: boolean | null;
+  lifetime?: boolean | null;
+  patron?: boolean | null;
+  compPlusUntil?: Date | string | null;
+};
 
-export function personalisationOf(user: Stored): Personalisation {
-  const plus = planOf(user) === "PLUS";
+export function personalisationOf(user: Stored, now = new Date()): Personalisation {
+  const plus = planOf(user, now) === "PLUS";
+  // Paying readers: a subscription or lifetime. Free months unlock the looks but not a supporter badge.
+  const source = plusSourceOf(user, now);
+  const paying = source === "subscription" || source === "lifetime";
+  const badge: SupporterBadgeKind | null = !paying ? null
+    : source === "subscription" && user.patron ? "patron"
+    : source === "lifetime" ? "lifetime"
+    : user.foundingMember ? "founding"
+    : "supporter";
   return {
     profileTheme: plus && user.profileTheme ? user.profileTheme : "CLASSIC",
     // Upper case, like the swatches compare against.
     shelfCardColour: plus ? toHex(user.shelfCardColour ?? "")?.toUpperCase() ?? null : null,
-    supporter: plus,
-    founding: plus && !!user.foundingMember,
+    supporter: paying,
+    founding: paying && !!user.foundingMember,
+    badge,
   };
 }
 

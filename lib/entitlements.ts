@@ -22,6 +22,31 @@ export const FOUNDING = {
   cap: 1000,
 } as const;
 
+// Patron: the yearly plan at a higher, optional price for readers who want to give more. Same
+// features, a Patron badge. Left out of every forecast.
+export const PATRON = {
+  yearly: 49.99,
+} as const;
+
+// Lifetime Plus: one payment, sold only during the launch window (the Founding window's closing date)
+// and to at most `cap` buyers. Each buyer gets `giftCodes` one-month Plus gifts to hand out. The AI
+// allowances are the same fair-use ceiling as Plus.
+export const LIFETIME = {
+  price: 79,
+  cap: 500,
+  giftCodes: 3,
+} as const;
+
+// Referral months: an inviter earns `days` of Plus for each invited friend who joins and logs some
+// reading, up to `perYear` a calendar year. Inviter only.
+export const REFERRALS = {
+  perYear: 2,
+  days: 30,
+} as const;
+
+// A gift code from a lifetime buyer is worth this many days of Plus to a reader who has never had it.
+export const GIFT_DAYS = 30;
+
 // Monthly allowances for the AI slices that come later (mood search, recaps). Counted per calendar
 // month. Plus has a stated fair-use ceiling, never "unlimited": raising a cap later reads as a gift,
 // capping an unlimited promise reads as a betrayal. Metering goes through allowanceLeft().
@@ -51,17 +76,31 @@ export interface Entitlements {
 }
 
 // The User fields these need. Spread into a Prisma `select`.
-export const entitlementsSelect = { plan: true } as const;
+export const entitlementsSelect = { plan: true, lifetime: true, compPlusUntil: true } as const;
 
-type StoredPlan = { plan?: Plan | null };
+type StoredPlan = { plan?: Plan | null; lifetime?: boolean | null; compPlusUntil?: Date | string | null };
 
-// Accounts made before billing have no plan stored; they're free.
-export function planOf(user: StoredPlan): Plan {
-  return user.plan === "PLUS" ? "PLUS" : "FREE";
+const asDate = (value: Date | string | null | undefined) => (value ? new Date(value) : null);
+
+// Where an account's Plus comes from: a Stripe subscription (or trial), a lifetime purchase, or free
+// months earned by inviting friends or from a gift code. Null on free.
+export type PlusSource = "subscription" | "lifetime" | "comp";
+
+export function plusSourceOf(user: StoredPlan, now = new Date()): PlusSource | null {
+  if (user.lifetime) return "lifetime";
+  if (user.plan === "PLUS") return "subscription";
+  const comp = asDate(user.compPlusUntil);
+  if (comp && comp.getTime() > now.getTime()) return "comp";
+  return null;
 }
 
-export function entitlementsOf(user: StoredPlan): Entitlements {
-  const plan = planOf(user);
+// Accounts made before billing have no plan stored; they're free.
+export function planOf(user: StoredPlan, now = new Date()): Plan {
+  return plusSourceOf(user, now) ? "PLUS" : "FREE";
+}
+
+export function entitlementsOf(user: StoredPlan, now = new Date()): Entitlements {
+  const plan = planOf(user, now);
   const isPlus = plan === "PLUS";
   const tier = isPlus ? "plus" : "free";
   return {
@@ -142,6 +181,11 @@ export function parseFoundingClose(raw: string | undefined | null): Date | null 
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+// The lifetime offer shares the Founding window's closing date and has its own cap.
+export function lifetimeStatus(sold: number, closesAt: Date | null, now = new Date()): FoundingStatus {
+  return foundingStatus(sold, closesAt, now, LIFETIME.cap);
+}
+
 export const UPGRADE_URL = "/plus";
 
 // Thrown by requireEntitlement(); API routes map it to a 402 JSON body (entitlementResponse()).
@@ -179,12 +223,24 @@ export function isUpgradeRequired(body: unknown): body is UpgradeRequiredBody {
 
 // ---- Plan status, for settings and the pricing page ------------------------------------------
 
-type StoredBilling = StoredPlan & { planRenewsAt?: Date | string | null; trialEndsAt?: Date | string | null; stripeCustomerId?: string | null; foundingMember?: boolean | null };
+type StoredBilling = StoredPlan & {
+  planRenewsAt?: Date | string | null;
+  trialEndsAt?: Date | string | null;
+  stripeCustomerId?: string | null;
+  foundingMember?: boolean | null;
+  patron?: boolean | null;
+};
 
 export interface PlanStatus {
   plan: Plan;
+  // Where Plus comes from, or null on free.
+  source: PlusSource | null;
   // Subscribed at the Founding Reader price.
   founding: boolean;
+  patron: boolean;
+  lifetime: boolean;
+  // Free months (referrals, gift codes) run until this date.
+  compUntil: Date | null;
   // On Plus through a trial that hasn't ended yet.
   trialing: boolean;
   // When the trial or the paid period ends. Null on free.
@@ -195,19 +251,29 @@ export interface PlanStatus {
   trialUsed: boolean;
 }
 
-const asDate = (value: Date | string | null | undefined) => (value ? new Date(value) : null);
-
 export function planStatusOf(user: StoredBilling, now = new Date()): PlanStatus {
-  const plan = planOf(user);
+  const source = plusSourceOf(user, now);
+  const plan: Plan = source ? "PLUS" : "FREE";
   const trialEndsAt = asDate(user.trialEndsAt);
   const renewsAt = asDate(user.planRenewsAt);
-  const trialing = plan === "PLUS" && !!trialEndsAt && trialEndsAt.getTime() > now.getTime();
+  const compUntil = asDate(user.compPlusUntil);
+  const trialing = source === "subscription" && !!trialEndsAt && trialEndsAt.getTime() > now.getTime();
   return {
     plan,
+    source,
     founding: !!user.foundingMember,
+    patron: source === "subscription" && !!user.patron,
+    lifetime: source === "lifetime",
+    compUntil: compUntil && compUntil.getTime() > now.getTime() ? compUntil : null,
     trialing,
-    until: plan === "PLUS" ? (trialing ? trialEndsAt : renewsAt) : null,
+    until: source === "subscription" ? (trialing ? trialEndsAt : renewsAt) : source === "comp" ? compUntil : null,
     hasBilling: !!user.stripeCustomerId,
     trialUsed: !!trialEndsAt,
   };
+}
+
+// Can this reader start a subscription or buy lifetime? Not while already subscribed or lifetime.
+// Free months don't block it: a reader can subscribe before they run out.
+export function canStartCheckout(status: PlanStatus): boolean {
+  return status.source !== "subscription" && status.source !== "lifetime";
 }

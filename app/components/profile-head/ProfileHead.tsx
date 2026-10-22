@@ -72,6 +72,7 @@ const ProfileHead: FC = () => {
         colour={user.favColour}
         supporter={personalisationOf(user).supporter}
         founding={personalisationOf(user).founding}
+        badge={personalisationOf(user).badge}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },

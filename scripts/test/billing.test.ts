@@ -6,7 +6,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type Stripe from "stripe";
-import { EntitlementError, FOUNDING, PLUS_PRICING, allowanceLeft, entitlementErrorBody, entitlementsOf, foundingStatus, hasAllowance, isUpgradeRequired, parseFoundingClose, planStatusOf } from "@/lib/entitlements";
+import { EntitlementError, FOUNDING, LIFETIME, PLUS_PRICING, REFERRALS, allowanceLeft, canStartCheckout, entitlementErrorBody, entitlementsOf, foundingStatus, hasAllowance, isUpgradeRequired, lifetimeStatus, parseFoundingClose, planOf, planStatusOf, plusSourceOf } from "@/lib/entitlements";
+import { ASSUMED_USD_PER, REGIONAL_PRICES, currencyForCountry, formatPrice } from "@/lib/regionalPricing";
+import { canRedeemGift, extendComp, isNewAccount, makeGiftCode, normaliseGiftCode, referralRewardAllowed } from "@/lib/plusRewards";
 import { hostingAllowance } from "@/lib/buddyReads";
 import { handleStripeEvent, planForStatus, type BillingDb, type BillingStripeApi } from "@/lib/billing";
 import { formatPace, goalInputSchema, goalProgress, monthlyPace, setsExtraGoals } from "@/lib/goals";
@@ -68,7 +70,7 @@ test("plan status reads trials, renewals and a used trial", () => {
   const now = new Date("2026-10-22T12:00:00Z");
   const trialEnds = new Date("2026-11-05T12:00:00Z");
   const trial = planStatusOf({ plan: "PLUS", trialEndsAt: trialEnds, planRenewsAt: trialEnds, stripeCustomerId: "cus_1" }, now);
-  assert.deepEqual(trial, { plan: "PLUS", founding: false, trialing: true, until: trialEnds, hasBilling: true, trialUsed: true });
+  assert.deepEqual(trial, { plan: "PLUS", source: "subscription", founding: false, patron: false, lifetime: false, compUntil: null, trialing: true, until: trialEnds, hasBilling: true, trialUsed: true });
 
   const renews = new Date("2026-11-22T12:00:00Z");
   const paid = planStatusOf({ plan: "PLUS", trialEndsAt: new Date("2026-09-01T00:00:00Z"), planRenewsAt: renews, stripeCustomerId: "cus_1" }, now);
@@ -76,8 +78,8 @@ test("plan status reads trials, renewals and a used trial", () => {
   assert.deepEqual(paid.until, renews);
 
   const lapsed = planStatusOf({ plan: "FREE", trialEndsAt: new Date("2026-09-01T00:00:00Z"), stripeCustomerId: "cus_1" }, now);
-  assert.deepEqual(lapsed, { plan: "FREE", founding: false, trialing: false, until: null, hasBilling: true, trialUsed: true });
-  assert.deepEqual(planStatusOf({}, now), { plan: "FREE", founding: false, trialing: false, until: null, hasBilling: false, trialUsed: false });
+  assert.deepEqual(lapsed, { plan: "FREE", source: null, founding: false, patron: false, lifetime: false, compUntil: null, trialing: false, until: null, hasBilling: true, trialUsed: true });
+  assert.deepEqual(planStatusOf({}, now), { plan: "FREE", source: null, founding: false, patron: false, lifetime: false, compUntil: null, trialing: false, until: null, hasBilling: false, trialUsed: false });
   assert.equal(planStatusOf({ plan: "PLUS", foundingMember: true }, now).founding, true);
 });
 
@@ -150,8 +152,8 @@ test("goal progress counts this year's pages and this month's books", () => {
 
 test("personalisation applies only on Plus, and going back to the defaults is always allowed", () => {
   const stored = { profileTheme: "INK" as const, shelfCardColour: "#2f9e44", favColour: "#D92D2D" };
-  assert.deepEqual(personalisationOf({ ...stored, plan: "PLUS" }), { profileTheme: "INK", shelfCardColour: "#2F9E44", supporter: true, founding: false });
-  assert.deepEqual(personalisationOf({ ...stored, plan: "FREE" }), { profileTheme: "CLASSIC", shelfCardColour: null, supporter: false, founding: false });
+  assert.deepEqual(personalisationOf({ ...stored, plan: "PLUS" }), { profileTheme: "INK", shelfCardColour: "#2F9E44", supporter: true, founding: false, badge: "supporter" });
+  assert.deepEqual(personalisationOf({ ...stored, plan: "FREE" }), { profileTheme: "CLASSIC", shelfCardColour: null, supporter: false, founding: false, badge: null });
   assert.equal(shelfAccent({ ...stored, plan: "PLUS" }), "#2F9E44");
   assert.equal(shelfAccent({ ...stored, plan: "FREE" }), "#D92D2D");
 
@@ -309,7 +311,7 @@ test("the webhook accepts Stripe's signature over the raw body and rejects a tam
 // ---- invoice.paid and the risk events --------------------------------------------------------
 
 // Stripe's object graph for the risk events, as a stub: charge → PaymentIntent → subscriptions.
-function stubStripe(graph: { charges?: Record<string, string | null>; intents?: Record<string, string[]>; subscription?: Stripe.Subscription }) {
+function stubStripe(graph: { charges?: Record<string, string | null>; intents?: Record<string, string[]>; subscription?: Stripe.Subscription; lifetime?: Record<string, string> }) {
   const cancelled: string[] = [];
   const api: BillingStripeApi = {
     async retrieveSubscription() {
@@ -319,6 +321,7 @@ function stubStripe(graph: { charges?: Record<string, string | null>; intents?: 
     async paymentIntentOfCharge(chargeId) { return graph.charges?.[chargeId] ?? null; },
     async subscriptionsForPaymentIntent(intent) { return graph.intents?.[intent] ?? []; },
     async cancelSubscription(id) { cancelled.push(id); },
+    async lifetimeBuyerOfPaymentIntent(intent) { return graph.lifetime?.[intent] ?? null; },
   };
   return { api, cancelled };
 }
@@ -440,4 +443,153 @@ test("a paid subscription on the Founding price marks a founder; a trial or anot
   await handleStripeEvent(event("customer.subscription.deleted", onPrice(subscription({ status: "canceled" }), FOUNDING_PRICE)), { db, foundingPriceId: FOUNDING_PRICE });
   assert.equal(db.rows[0].plan, "FREE");
   assert.equal(db.rows[0].foundingMember, true);
+});
+
+// ---- Where Plus comes from: subscriptions, lifetime, free months ---------------------------------
+
+test("lifetime and unexpired free months are Plus; expired free months aren't", () => {
+  const now = new Date("2026-11-01T00:00:00Z");
+  assert.equal(plusSourceOf({ lifetime: true }, now), "lifetime");
+  assert.equal(plusSourceOf({ plan: "PLUS" }, now), "subscription");
+  assert.equal(plusSourceOf({ compPlusUntil: new Date("2026-11-20T00:00:00Z") }, now), "comp");
+  assert.equal(plusSourceOf({ compPlusUntil: new Date("2026-10-20T00:00:00Z") }, now), null);
+  // A lifetime reader whose old subscription ended is still Plus.
+  assert.equal(planOf({ plan: "FREE", lifetime: true }, now), "PLUS");
+  assert.equal(entitlementsOf({ compPlusUntil: "2026-11-20T00:00:00Z" }, now).canHostUnlimited, true);
+  const comp = planStatusOf({ compPlusUntil: new Date("2026-11-20T00:00:00Z") }, now);
+  assert.equal(comp.source, "comp");
+  assert.deepEqual(comp.until, new Date("2026-11-20T00:00:00Z"));
+});
+
+test("readers on free months can still subscribe; subscribers and lifetime readers can't check out again", () => {
+  const now = new Date("2026-11-01T00:00:00Z");
+  assert.equal(canStartCheckout(planStatusOf({}, now)), true);
+  assert.equal(canStartCheckout(planStatusOf({ compPlusUntil: new Date("2026-11-20T00:00:00Z") }, now)), true);
+  assert.equal(canStartCheckout(planStatusOf({ plan: "PLUS" }, now)), false);
+  assert.equal(canStartCheckout(planStatusOf({ lifetime: true }, now)), false);
+});
+
+test("lifetime sells to 500 buyers during the launch window", () => {
+  const now = new Date("2026-11-01T00:00:00Z");
+  assert.equal(LIFETIME.price, 79);
+  assert.deepEqual(lifetimeStatus(0, null, now), { open: true, remaining: 500, closesAt: null });
+  assert.equal(lifetimeStatus(500, null, now).open, false);
+  assert.equal(lifetimeStatus(10, new Date("2026-10-31T00:00:00Z"), now).open, false);
+});
+
+test("supporter badges: Patron, Lifetime, Founding Reader, Supporter; free months earn none", () => {
+  const now = new Date();
+  const later = new Date(Date.now() + 10 * 86_400_000);
+  assert.equal(personalisationOf({ plan: "PLUS", patron: true }, now).badge, "patron");
+  assert.equal(personalisationOf({ lifetime: true }, now).badge, "lifetime");
+  assert.equal(personalisationOf({ plan: "PLUS", foundingMember: true }, now).badge, "founding");
+  assert.equal(personalisationOf({ plan: "PLUS" }, now).badge, "supporter");
+  const comp = personalisationOf({ compPlusUntil: later, profileTheme: "TINT" }, now);
+  assert.equal(comp.badge, null);
+  // Free months still unlock the looks.
+  assert.equal(comp.profileTheme, "TINT");
+});
+
+// ---- Local prices ------------------------------------------------------------------------------
+
+test("no local price is above the US price at the assumed exchange rates", () => {
+  for (const currency of ["GBP", "EUR"] as const) {
+    for (const [plan, amount] of Object.entries(REGIONAL_PRICES[currency])) {
+      const inUsd = amount * ASSUMED_USD_PER[currency];
+      const usd = REGIONAL_PRICES.USD[plan as keyof typeof REGIONAL_PRICES.USD];
+      assert.ok(inUsd <= usd, `${currency} ${plan}: ${amount} is $${inUsd.toFixed(2)}, above $${usd}`);
+    }
+  }
+});
+
+test("the US prices are the Plus prices, and visitors see their own currency", () => {
+  assert.deepEqual(REGIONAL_PRICES.USD, { monthly: 3.99, yearly: 29.99, founding: 24.99, patron: 49.99, lifetime: 79 });
+  assert.equal(currencyForCountry("GB"), "GBP");
+  assert.equal(currencyForCountry("de"), "EUR");
+  assert.equal(currencyForCountry("IE"), "EUR");
+  assert.equal(currencyForCountry("US"), "USD");
+  assert.equal(currencyForCountry("CA"), "USD");
+  assert.equal(currencyForCountry(null), "USD");
+  assert.equal(formatPrice("GBP", 21.99), "£21.99");
+  assert.equal(formatPrice("USD", 79), "$79");
+});
+
+// ---- Referral months and gift codes ------------------------------------------------------------
+
+test("a free month adds to free Plus already running", () => {
+  const now = new Date("2026-11-01T00:00:00Z");
+  assert.deepEqual(extendComp(null, now, 30), new Date("2026-12-01T00:00:00Z"));
+  assert.deepEqual(extendComp(new Date("2026-11-11T00:00:00Z"), now, 30), new Date("2026-12-11T00:00:00Z"));
+  // Expired free months start again from today.
+  assert.deepEqual(extendComp(new Date("2026-10-01T00:00:00Z"), now, 30), new Date("2026-12-01T00:00:00Z"));
+});
+
+test("referrals count only for new readers, and reward an inviter twice a year at most", () => {
+  const now = new Date("2026-11-01T00:00:00Z");
+  assert.equal(isNewAccount(new Date("2026-10-25T00:00:00Z"), now), true);
+  assert.equal(isNewAccount(new Date("2026-09-01T00:00:00Z"), now), false);
+  assert.equal(REFERRALS.perYear, 2);
+  assert.equal(referralRewardAllowed(0), true);
+  assert.equal(referralRewardAllowed(1), true);
+  assert.equal(referralRewardAllowed(2), false);
+});
+
+test("gift codes are for readers who have never had Plus", () => {
+  assert.equal(canRedeemGift({}), true);
+  assert.equal(canRedeemGift({ trialEndsAt: new Date() }), false);
+  assert.equal(canRedeemGift({ plan: "PLUS" }), false);
+  assert.equal(canRedeemGift({ lifetime: true }), false);
+  assert.equal(canRedeemGift({ compPlusUntil: new Date() }), false);
+  assert.equal(canRedeemGift({ stripeSubscriptionId: "sub_1" }), false);
+});
+
+test("gift codes read clearly and survive sloppy typing", () => {
+  const code = makeGiftCode((n) => Uint8Array.from({ length: n }, (_, i) => i * 7));
+  assert.match(code, /^BKMK-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  assert.equal(normaliseGiftCode(code.toLowerCase().replace(/-/g, " ")), code);
+  assert.equal(normaliseGiftCode(code.slice(5)), code);
+  assert.equal(normaliseGiftCode("BKMK-0000-1111"), null);
+  assert.equal(normaliseGiftCode("nope"), null);
+  assert.equal(normaliseGiftCode(42), null);
+});
+
+// ---- The webhook: Patron and lifetime ----------------------------------------------------------
+
+test("the Patron price sets the Patron flag, and switching back clears it", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "FREE" }]);
+  const deps = { db, patronPriceId: "price_patron" };
+  await handleStripeEvent(event("customer.subscription.updated", onPrice(subscription({ status: "active" }), "price_patron")), deps);
+  assert.equal(db.rows[0].patron, true);
+  await handleStripeEvent(event("customer.subscription.updated", onPrice(subscription({ status: "active" }), "price_yearly")), deps);
+  assert.equal(db.rows[0].patron, false);
+});
+
+test("a paid lifetime checkout grants lifetime Plus and the gift codes; an unpaid one doesn't", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "FREE" }]);
+  const granted: string[] = [];
+  const deps = { db, onLifetimeGranted: async (id: string) => { granted.push(id); } };
+  const session = { id: "cs_life", object: "checkout.session", mode: "payment", customer: "cus_9", client_reference_id: USER_ID, metadata: { userId: USER_ID, plan: "lifetime" } };
+
+  const unpaid = await handleStripeEvent(event("checkout.session.completed", { ...session, payment_status: "unpaid" }), deps);
+  assert.equal(unpaid.handled, false);
+  assert.equal(db.rows[0].lifetime, undefined);
+
+  const paid = await handleStripeEvent(event("checkout.session.completed", { ...session, payment_status: "paid" }), deps);
+  assert.equal(paid.plan, "PLUS");
+  assert.equal(db.rows[0].lifetime, true);
+  assert.equal(db.rows[0].stripeCustomerId, "cus_9");
+  assert.deepEqual(granted, [USER_ID]);
+  // An old subscription ending later doesn't touch lifetime.
+  await handleStripeEvent(event("customer.subscription.deleted", { ...subscription({ status: "canceled" }), customer: "cus_9" }), deps);
+  assert.equal(planOf(db.rows[0] as never), "PLUS");
+});
+
+test("a full refund or dispute of the lifetime payment takes lifetime back", async () => {
+  const db = stubDb([{ id: USER_ID, plan: "FREE", lifetime: true }]);
+  const { api, cancelled } = stubStripe({ intents: {}, lifetime: { pi_life: USER_ID } });
+  const refund = { id: "ch_life", object: "charge", payment_intent: "pi_life", refunded: true, amount_refunded: 7900 };
+  const result = await handleStripeEvent(event("charge.refunded", refund), { db, stripe: api });
+  assert.equal(result.handled, true);
+  assert.equal(db.rows[0].lifetime, false);
+  assert.deepEqual(cancelled, []);
 });
