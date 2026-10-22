@@ -14,7 +14,8 @@ export const OPEN_READ_STATUSES = ["STARTED", "PAUSED"] as const satisfies reado
 // Statuses whose book has at least one read. NOT_STARTED books may still have closed DNF reads.
 export const READ_STATUSES = ["STARTED", "PAUSED", "COMPLETED", "DNF"] as const satisfies readonly Status[];
 
-type BookForRead = Pick<Book, "id" | "userId" | "status" | "startedAt" | "completedAt" | "stoppedAt" | "rating" | "currentPage">;
+type BookForRead = Pick<Book, "id" | "userId" | "status" | "startedAt" | "completedAt" | "stoppedAt" | "rating" | "currentPage"
+  | "progressUnit" | "audioMinutes" | "currentMinute">;
 
 // The single read implied by a book's own fields. Used when a book is created, by the backfill for books
 // shelved before BookRead existed, and as a fallback when a book has no open read to update.
@@ -29,5 +30,10 @@ export function readFromBook(book: BookForRead) {
     finishedAt: book.status === "COMPLETED" ? book.completedAt : book.status === "DNF" ? book.stoppedAt : null,
     rating: book.status === "COMPLETED" || book.status === "DNF" ? book.rating : null,
     stoppedAtPage: book.status === "DNF" ? book.currentPage ?? 0 : null,
+    // Audiobooks: the read carries the scale it was listened on.
+    progressUnit: book.progressUnit ?? null,
+    audioMinutes: book.progressUnit === "MINUTES" ? book.audioMinutes ?? null : null,
+    currentMinute: book.progressUnit === "MINUTES" ? book.currentMinute ?? 0 : null,
+    stoppedAtMinute: book.status === "DNF" && book.progressUnit === "MINUTES" ? book.currentMinute ?? 0 : null,
   };
 }

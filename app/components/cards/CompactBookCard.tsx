@@ -13,7 +13,7 @@ import useBookEditModal from '@/app/hooks/useBookEditModal';
 import useBookNotesModal from '@/app/hooks/useBookNotesModal';
 import useBooks from '@/app/hooks/useBooks';
 import useFavourite from '@/app/hooks/useFavourite';
-import { calculatePercentageComplete } from '@/utils/helpers';
+import { formatStoppedAt, progressScale, progressWhole } from '@/lib/progress';
 import axios from 'axios';
 import { notify } from '@/lib/notify';
 import { removeBookWithUndo } from '../books/removeBookWithUndo';
@@ -29,7 +29,8 @@ interface CompactBookCardProps {
 }
 
 const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
-  const { title, author, pages, currentPage, status, rating } = book
+  const { title, author, status, rating } = book
+  const scale = progressScale(book)
   const { user, mutate } = useUser()
   const { mutate: booksMutate } = useBooks()
   const { hasFavourited, mutate: mutateFav } = useFavourite()
@@ -75,10 +76,10 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
             </div>
           ) : null}
           {status === Status.DNF && (
-            <p className="text-xs text-muted-foreground tabular-nums">Stopped at p. {currentPage ?? 0}</p>
+            <p className="text-xs text-muted-foreground tabular-nums">{formatStoppedAt(book)}</p>
           )}
           {(status === Status.STARTED || status === Status.PAUSED) && (
-            <progress className="h-[4px] rounded-full overflow-hidden flex-1 min-w-0" value={currentPage!} max={pages}>{calculatePercentageComplete(pages, currentPage!)}%</progress>
+            <progress className="h-[4px] rounded-full overflow-hidden flex-1 min-w-0" value={scale.current} max={scale.total || 1}>{progressWhole(book)}%</progress>
           )}
         </div>
       </div>

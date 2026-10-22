@@ -73,7 +73,7 @@ const Page = async ({ params }: PageProps) => {
               {members.length > 1 ? ` with ${members.length - 1} ${members.length - 1 === 1 ? "other" : "others"}` : ""}.
             </p>
             <p className="max-w-md text-sm text-muted-foreground">
-              Everyone&apos;s progress in one place, in any edition. Comments are pinned to where they were written and stay hidden until you get there.
+              Everyone&apos;s progress in one place, in any edition or on audio. Comments are pinned to where they were written and stay locked until you get there.
             </p>
           </div>
 

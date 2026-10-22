@@ -32,7 +32,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
 
   // Saving progress in the book modal refreshes the shelf; pick that up straight away rather than at the next poll.
   const myBook = view ? ((books ?? []) as Book[]).find((b) => b.id === view.viewer.bookId) : undefined
-  const bookStamp = myBook ? `${myBook.status}:${myBook.currentPage}:${myBook.pages}` : ""
+  const bookStamp = myBook ? `${myBook.status}:${myBook.currentPage}:${myBook.pages}:${myBook.currentMinute}:${myBook.audioMinutes}` : ""
   const lastStamp = useRef(bookStamp)
   useEffect(() => {
     if (bookStamp && lastStamp.current && bookStamp !== lastStamp.current) mutate()
@@ -90,7 +90,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         />
         <div className="min-w-0 flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Reading circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}
+            Reading circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}{buddyRead.audioMinutes ? " · audiobook" : ""}
           </p>
           <h1 className="text-2xl sm:text-3xl font-bold leading-tight break-words">{buddyRead.title}</h1>
           <p className="text-muted-foreground">{buddyRead.author}</p>
@@ -124,6 +124,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
             <h2 className="font-semibold">How it works</h2>
             <p className="text-muted-foreground">
               Comments are pinned to how far their writer had read. You&apos;ll see each one once you reach that point, and you can always see your own.
+              Listening instead? Minutes count the same way: progress is a percent of your own copy.
             </p>
           </section>
           <section className="flex flex-col items-start gap-2">

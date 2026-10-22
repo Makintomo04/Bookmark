@@ -1,6 +1,6 @@
 import { FC, ReactNode } from 'react'
 import Link from 'next/link'
-import { BookOpen, Flame, Repeat, Ruler, Sparkles, Undo2 } from 'lucide-react'
+import { BookOpen, Flame, Headphones, Repeat, Ruler, Sparkles, Undo2 } from 'lucide-react'
 import type { ReadingStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 import { ColumnChart, Datum, RankedBars } from './Charts'
@@ -97,6 +97,9 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears }) 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Tile icon={<BookOpen size={16} />} label="Books read" value={fmt(stats.booksRead)} note={stats.undatedFinishes ? `${plural(stats.undatedFinishes, 'finish', 'finishes')} without a date` : undefined} />
         <Tile icon={<Sparkles size={16} />} label="Pages read" value={fmt(stats.pagesRead)} note="across every finished read" />
+        {stats.minutesListened > 0 && (
+          <Tile icon={<Headphones size={16} />} label="Hours listened" value={fmt(Math.round(stats.minutesListened / 60))} note="of audiobooks finished" />
+        )}
         <Tile icon={<Ruler size={16} />} label="Average length" value={stats.averagePages ? `${fmt(stats.averagePages)}` : '–'} note="pages per book" />
         <Tile icon={<Flame size={16} />} label="Current streak" value={plural(stats.streak, 'day')} note={stats.streak ? 'keep it going today' : 'read a page to start one'} />
         <Tile icon={<Repeat size={16} />} label="Re-reads" value={fmt(stats.rereads)} note={stats.rereadBooks ? `across ${plural(stats.rereadBooks, 'book')}` : 'none yet'} />
