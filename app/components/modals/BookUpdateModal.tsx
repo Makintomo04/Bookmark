@@ -4,6 +4,7 @@ import axios from 'axios'
 import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
 import { Book, Status } from '@prisma/client'
+import { Send } from 'lucide-react'
 import Modal from './Modal'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
@@ -17,6 +18,7 @@ import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookEditModal from '@/app/hooks/useBookEditModal'
+import useRecommendModal from '@/app/hooks/useRecommendModal'
 import BuddyReadEntry from '../buddy-reads/BuddyReadEntry'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from '@/lib/progress'
@@ -38,6 +40,7 @@ const BookUpdateModal: FC = () => {
   const { books, mutate: booksMutate } = useBooks()
   const { onClose, getBookIsOpen, book } = useBookUpdateModal()
   const bookEditModal = useBookEditModal()
+  const recommendModal = useRecommendModal()
   const isOpen = getBookIsOpen(book?.id, useBookUpdateModal.getState())
   const { reads, mutate: readsMutate } = useBookReads(isOpen ? book?.id : null)
   const { tags: workTags, mutate: tagsMutate } = useWorkTags({ bookId: isOpen ? book?.id : null })
@@ -142,6 +145,13 @@ const BookUpdateModal: FC = () => {
     bookEditModal.onOpen(book)
   }
 
+  // One quiet link in the book block in every state, plus a toast action the moment a book is finished,
+  // when "you have to read this" is strongest. This modal closes first, so the two never stack.
+  const sendToFriend = () => {
+    close()
+    recommendModal.onOpen(book.id, book.title)
+  }
+
   const save = () => {
     if (!canSave) return
     let payload: Record<string, unknown>
@@ -174,10 +184,16 @@ const BookUpdateModal: FC = () => {
         .catch((err) => notify.error(apiError(err, "Couldn't save your moods and warnings.")))
       : Promise.resolve()
 
+    // Read now: by the time the toast's action is pressed, this modal has closed and moved on.
+    const { id: bookId, title: bookTitle } = book
+    const sendAction = isActive && finished
+      ? { action: { label: "Send to a friend", onClick: () => recommendModal.onOpen(bookId, bookTitle) } }
+      : undefined
+
     setIsSaving(true)
     axios.post("/api/book-progress", payload).then(async () => {
       await saveTags
-      if (success) notify.success(success)
+      if (success) notify.success(success, sendAction)
       mutate()
       refreshAfterBookChange()
       readsMutate()
@@ -482,6 +498,10 @@ const BookUpdateModal: FC = () => {
           <p className="text-lg md:text-xl font-bold leading-snug break-words">{book.title}</p>
           <p className="text-sm text-muted-foreground">{book.author}</p>
           {meta && <p className="mt-2 text-xs text-muted-foreground">{meta}</p>}
+          {/* An action on the book, so it sits with the book rather than among the progress controls. */}
+          <button type="button" onClick={sendToFriend} disabled={isSaving} className="mt-3 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <Send size={14} aria-hidden />Send to a friend
+          </button>
         </div>
       </div>
 
