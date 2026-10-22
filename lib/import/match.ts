@@ -17,12 +17,15 @@ interface Doc {
   author_name?: string[];
   cover_i?: number;
   number_of_pages_median?: number;
+  first_publish_year?: number;
   isbn?: string[];
   subject?: string[];
 }
 
 const SEARCH = "https://openlibrary.org/search.json";
-const FIELDS = "key,title,author_name,cover_i,number_of_pages_median,subject";
+const FIELDS = "key,title,author_name,cover_i,number_of_pages_median,first_publish_year,subject";
+// Open Library lists a hundred-odd subjects for a popular work; the catalog keeps the first few.
+const SUBJECTS_KEPT = 30;
 export const ISBNS_PER_REQUEST = 25;
 const TIMEOUT_MS = 6000;
 
@@ -37,6 +40,10 @@ function toMatch(doc: Doc, by: ImportMatch["by"]): ImportMatch | null {
     pages: doc.number_of_pages_median || null,
     genre: genreFromSubjects(doc.subject),
     by,
+    title: doc.title || null,
+    authors: doc.author_name ?? [],
+    subjects: (doc.subject ?? []).slice(0, SUBJECTS_KEPT),
+    year: doc.first_publish_year || null,
   };
 }
 

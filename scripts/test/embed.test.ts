@@ -37,7 +37,7 @@ function assertSafe(svg: string) {
   assert.ok(!/\son\w+=/i.test(svg), "no event handler attributes")
   assert.ok(!/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(svg), "no XML-invalid control characters")
   // Only data: images, never a remote reference GitHub's camo would refuse (or that would track viewers).
-  for (const m of svg.matchAll(/href="([^"]*)"/g)) assert.ok(m[1].startsWith("data:") || m[1].startsWith("url(#") || m[1] === "", `unexpected href ${m[1].slice(0, 40)}`)
+  for (const m of Array.from(svg.matchAll(/href="([^"]*)"/g))) assert.ok(m[1].startsWith("data:") || m[1].startsWith("url(#") || m[1] === "", `unexpected href ${m[1].slice(0, 40)}`)
   // Balanced tags (a cheap well-formedness check).
   const opens = (svg.match(/<(?!\/)(?![!?])[a-zA-Z]+(?:\s[^>]*?)?(?<!\/)>/g) ?? []).length
   const closes = (svg.match(/<\/[a-zA-Z]+>/g) ?? []).length

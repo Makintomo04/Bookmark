@@ -1,4 +1,5 @@
-import type { Status } from "@prisma/client";
+import type { EditionFormat, Status } from "@prisma/client";
+import type { Series } from "../catalog/normalise.ts";
 
 // Kept free of "@/" imports (type-only imports are fine) so scripts/test/import.test.ts runs under plain Node.
 
@@ -24,6 +25,12 @@ export interface ImportRow {
   author: string;
   isbn13: string | null;
   isbn10: string | null;
+  // Goodreads "Binding", StoryGraph "Format": which Edition this is (lib/catalog.ts).
+  format: EditionFormat | null;
+  publisher: string | null;
+  publishedYear: number | null;
+  // From a Goodreads title: "(The Stormlight Archive, #2)".
+  series: Series | null;
   status: Status;
   // 0.5 to 5 in half-star steps, or null for unrated.
   rating: number | null;
@@ -56,6 +63,11 @@ export interface ImportMatch {
   pages: number | null;
   genre: string | null;
   by: "isbn13" | "isbn" | "title";
+  // What the catalog Work is created from. Optional: matches saved before these existed lack them.
+  title?: string | null;
+  authors?: string[];
+  subjects?: string[];
+  year?: number | null;
 }
 
 export interface ParsedImport {

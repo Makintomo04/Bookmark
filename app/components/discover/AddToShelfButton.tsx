@@ -52,6 +52,9 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
       pages: book.pages,
       coverImgSrc: book.coverUrl || "",
       workKey: book.workKey,
+      editionKey: book.editionKey ?? undefined,
+      isbn13: book.isbn13 ?? undefined,
+      isbn10: book.isbn10 ?? undefined,
       status: "NOT_STARTED",
     }).then(({ data: saved }) => {
       toast.success("Added to Want to read", { position: "bottom-center" })

@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { Prisma, type ImportJob, type Status } from "@prisma/client";
 import { syncAchievements } from "@/lib/achievements";
 import { isOpenLibraryCoverUrl, mirrorCover } from "@/lib/covers";
+import { catalogIds, linkCatalog, resolveCatalogMany, type CatalogInput } from "@/lib/catalog";
 import { normaliseWorkKey } from "@/lib/workKey";
 import { parseImport } from "./formats";
 import { matchRows } from "./match";
@@ -237,6 +238,25 @@ export async function startImport(job: ImportJob) {
 
 const yearOf = (d: Date | null | undefined) => (d ? d.getUTCFullYear() : null);
 
+// What the catalog files a row under: the matched work (its own title and authors), the file's ISBNs,
+// binding, publisher and year for the edition, and the row's title and author when nothing matched.
+const catalogInput = (row: ImportRow, match: ImportMatch | null): CatalogInput => ({
+  workKey: row.workKey ?? match?.workKey ?? null,
+  isbn13: row.isbn13,
+  isbn10: row.isbn10,
+  title: match?.title || row.title,
+  author: row.author,
+  authors: match?.authors?.length ? match.authors : [row.author],
+  subjects: match?.subjects ?? null,
+  coverUrl: row.coverUrl ?? match?.coverUrl ?? null,
+  year: match?.year ?? null,
+  series: row.series,
+  pages: row.pages ?? match?.pages ?? null,
+  format: row.format,
+  publisher: row.publisher,
+  publishedYear: row.publishedYear,
+});
+
 export async function importStep(job: ImportJob) {
   if (job.status !== "importing") return job;
   const rows = rowsOf(job);
@@ -260,6 +280,21 @@ export async function importStep(job: ImportJob) {
   );
   const shelf = new ShelfIndex(await loadShelf(job.userId));
 
+  // File this batch's new books under the shared catalog in one pass (a handful of queries, no Open
+  // Library calls: the match step already asked). Rows an interrupted attempt inserted keep their links.
+  const toFile: number[] = [];
+  for (let i = start; i < end; i++) if (!already.has(job.bookIds[i])) toFile.push(i);
+  const filed = new Map<number, { workId: string; editionId: string }>();
+  if (toFile.length) {
+    try {
+      const resolved = await resolveCatalogMany(toFile.map((i) => catalogInput(rows[i], matches[i] ?? null)));
+      toFile.forEach((i, n) => filed.set(i, { workId: resolved[n].work.id, editionId: resolved[n].edition.id }));
+    } catch (err) {
+      // The books still go in; scripts/backfill-catalog.ts links them later.
+      console.warn("import: couldn't file this batch in the catalog:", err instanceof Error ? err.message : err);
+    }
+  }
+
   const books: BookInsert[] = [];
   const reads: ReadInsert[] = [];
   const notes: NoteInsert[] = [];
@@ -269,7 +304,7 @@ export async function importStep(job: ImportJob) {
     const row = rows[i];
     const match = matches[i] ?? null;
     const bookId = job.bookIds[i];
-    const records = buildRecords(row, match, { userId: job.userId, bookId, now, source });
+    const records = buildRecords(row, match, { userId: job.userId, bookId, now, source, catalog: filed.get(i) ?? null });
 
     if (already.has(bookId)) {
       if (!withReads.has(bookId)) reads.push(...records.reads);
@@ -347,12 +382,12 @@ export async function coversStep(job: ImportJob): Promise<number> {
   if (job.status !== "done") return 0;
   const ids = job.bookIds;
   let cursor = job.coverCursor;
-  const picked: { id: string; coverImage: string }[] = [];
+  const picked: { id: string; coverImage: string; workId: string | null; editionId: string | null }[] = [];
   while (cursor < ids.length && picked.length < COVERS_PER_STEP) {
     const window = ids.slice(cursor, cursor + 100);
     const found = await prisma.book.findMany({
       where: { userId: job.userId, id: { in: window }, coverImage: { startsWith: "https://covers.openlibrary.org/" } },
-      select: { id: true, coverImage: true },
+      select: { id: true, coverImage: true, workId: true, editionId: true },
     });
     const order = new Map(window.map((id, i) => [id, i]));
     found.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
@@ -366,8 +401,13 @@ export async function coversStep(job: ImportJob): Promise<number> {
       // Falls back to the original URL on failure, which leaves the book as it was.
       const copy = await mirrorCover(book.coverImage);
       if (copy === book.coverImage) return;
-      // The where clause skips a book whose cover the reader changed meanwhile.
-      await prisma.book.updateMany({ where: { id: book.id, coverImage: book.coverImage }, data: { coverImage: copy } });
+      // The where clause skips a book whose cover the reader changed meanwhile. The catalog rows that
+      // hotlink the same cover take the copy too.
+      await Promise.all([
+        prisma.book.updateMany({ where: { id: book.id, coverImage: book.coverImage }, data: { coverImage: copy } }),
+        book.editionId && prisma.edition.updateMany({ where: { id: book.editionId, coverUrl: book.coverImage }, data: { coverUrl: copy } }),
+        book.workId && prisma.work.updateMany({ where: { id: book.workId, coverUrl: book.coverImage }, data: { coverUrl: copy } }),
+      ]);
     })
   );
   await prisma.importJob.update({ where: { id: job.id }, data: { coverCursor: cursor } });
@@ -393,10 +433,17 @@ export async function resolveUnmatched(
     const clash = await prisma.book.findFirst({ where: { userId: job.userId, workKey, id: { not: book.id } }, select: { title: true } });
     if (clash) return { job, error: `"${clash.title}" is already on your shelf as that book.` };
     const cover = input.coverUrl && isOpenLibraryCoverUrl(input.coverUrl) ? await mirrorCover(input.coverUrl) : null;
+    // Re-file the book under the work the reader picked (it was filed by title and author).
+    const filed = await linkCatalog(
+      { workKey, title: book.title, author: book.author, pages: input.pages ?? book.pages, coverUrl: cover ?? input.coverUrl ?? null },
+      { lookup: true, describe: true },
+    );
     await prisma.book.update({
       where: { id: book.id },
       data: {
         workKey,
+        ...(filed && catalogIds(filed)),
+        ...(filed?.work.description && !book.description && { description: filed.work.description }),
         ...(cover && !book.coverImage && { coverImage: cover }),
         ...(cover && book.coverImage && isOpenLibraryCoverUrl(book.coverImage) && { coverImage: cover }),
         // Only fill in a page count the file didn't have; progress may depend on the reader's own.

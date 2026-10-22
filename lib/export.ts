@@ -44,7 +44,10 @@ type ExportBook = Pick<
   Book,
   | "id" | "title" | "author" | "pages" | "currentPage" | "rating" | "review" | "timesRead"
   | "status" | "genre" | "createdAt" | "startedAt" | "completedAt" | "workKey" | "coverImage"
->;
+> & {
+  // The catalog edition the book is filed under (null until the backfill has run for it).
+  edition?: { isbn10: string | null; isbn13: string | null } | null;
+};
 
 type Column = { header: string; value: (book: ExportBook, ctx: { favouriteIds: Set<string> }) => string | number };
 
@@ -54,8 +57,10 @@ export const CSV_COLUMNS: Column[] = [
   { header: "Title", value: (b) => b.title },
   { header: "Author", value: (b) => b.author },
   { header: "Author l-f", value: (b) => authorLastFirst(b.author) },
-  { header: "ISBN", value: () => "" },
-  { header: "ISBN13", value: () => "" },
+  // Plain digits, not Goodreads' ="…" formula guard: every importer reads these, and the guard is one
+  // of the things that breaks Goodreads files elsewhere.
+  { header: "ISBN", value: (b) => b.edition?.isbn10 ?? "" },
+  { header: "ISBN13", value: (b) => b.edition?.isbn13 ?? "" },
   // Goodreads ratings are whole stars, 0 meaning unrated. The exact value is in "Bookmark Rating".
   { header: "My Rating", value: (b) => (b.rating ? Math.round(b.rating) : 0) },
   { header: "Number of Pages", value: (b) => b.pages ?? "" },
@@ -92,7 +97,11 @@ export function booksToCsv(books: ExportBook[], favouriteIds: string[]): string 
 }
 
 export async function loadBooks(userId: string) {
-  return prisma.book.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
+  return prisma.book.findMany({
+    where: { userId },
+    orderBy: { createdAt: "asc" },
+    include: { edition: { select: { isbn10: true, isbn13: true } } },
+  });
 }
 
 export async function buildJsonExport(userId: string) {
