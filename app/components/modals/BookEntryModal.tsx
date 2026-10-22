@@ -37,6 +37,10 @@ const defaultValues = {
   genre: "",
   currentPage: "",
   workKey: "",
+  // Which Open Library edition the search hit was, so the catalog files this copy under it.
+  editionKey: "",
+  isbn13: "",
+  isbn10: "",
 }
 
 const BookEntryModal: FC = () => {
@@ -109,6 +113,9 @@ const BookEntryModal: FC = () => {
       pages: result.pages ? String(result.pages) : "",
       coverImgSrc: result.coverUrl || "",
       workKey: result.workKey || "",
+      editionKey: result.editionKey || "",
+      isbn13: result.isbn13 || "",
+      isbn10: result.isbn10 || "",
     })
     setPublished(result.year ?? null)
     // Open Library doesn't always know the page count, and we need it for progress.
@@ -132,6 +139,9 @@ const BookEntryModal: FC = () => {
       coverImgSrc: data.coverImgSrc,
       genre: data.genre,
       workKey: data.workKey || undefined,
+      editionKey: data.editionKey || undefined,
+      isbn13: data.isbn13 || undefined,
+      isbn10: data.isbn10 || undefined,
       description: description || undefined,
       status: shelf,
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,

@@ -1,22 +1,30 @@
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
+import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
 import { normaliseWorkKey } from "@/lib/workKey";
 import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
 import { RATING_ERROR, ratingSchema, readFromBook } from "@/lib/readHistory";
-import { Status } from "@prisma/client";
+import { EditionFormat, Status } from "@prisma/client";
 import { z } from "zod";
 
 const statusSchema = z.nativeEnum(Status)
+const optionalText = z.string().max(40).nullish()
+const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
 
-// The add-book modal sends the blurb it already showed; one-click adds from Discover don't,
-// so look it up here. Never let a slow or failed lookup block saving the book.
-async function resolveDescription(description: unknown, workKey: unknown) {
+// The add-book modal sends the blurb it already showed; one-click adds from Discover don't, so take
+// the catalog's (fetched when the work is new to it), or look it up. Never let a slow or failed
+// lookup block saving the book.
+async function resolveDescription(description: unknown, workKey: unknown, catalog: Resolved | null) {
   if (typeof description === "string" && description.trim()) return description.trim().slice(0, DESCRIPTION_MAX)
+  if (catalog?.work.description) return catalog.work.description
   const key = normaliseWorkKey(typeof workKey === "string" ? workKey : null)
   return key ? workDescription(key).catch(() => null) : null
 }
 import { NextResponse } from "next/server";
+
+// Filing a book new to the catalog asks Open Library about it (a request or two, each capped at 8s).
+export const maxDuration = 30;
 
 // Covers are copied to UploadThing afterwards, by /api/books/[bookId]/cover.
 
@@ -38,7 +46,7 @@ return NextResponse.json(books)
 export async function POST(req:Request, res:Response) {
 
   const body = await req.json()
-  const { title, author, coverImgSrc, pages, status, currentPage, finishedThisYear, rating, genre, workKey, description } = body
+  const { title, author, coverImgSrc, pages, status, currentPage, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, format } = body
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
 
@@ -63,6 +71,24 @@ const shelf = parsedStatus.data
 const isCompleted = shelf === "COMPLETED"
 const isStopped = shelf === "DNF" || shelf === "PAUSED"
 const startPage = Math.max(0, Math.min(totalPages, parseInt(currentPage) || 0))
+const parsedFormat = z.nativeEnum(EditionFormat).safeParse(format)
+// The shared catalog: the Work and Edition this copy is of. A search hit carries its work key and
+// usually an edition key or ISBN; a book typed in by hand is filed by title and author.
+const catalog = await linkCatalog(
+  {
+    workKey: optionalText.safeParse(workKey).success ? str(workKey) : null,
+    editionKey: optionalText.safeParse(editionKey).success ? str(editionKey) : null,
+    isbn13: optionalText.safeParse(isbn13).success ? str(isbn13) : null,
+    isbn10: optionalText.safeParse(isbn10).success ? str(isbn10) : null,
+    title: title.trim(),
+    author: author.trim(),
+    pages: totalPages,
+    coverUrl: str(coverImgSrc),
+    description: str(description)?.slice(0, DESCRIPTION_MAX) ?? null,
+    format: parsedFormat.success ? parsedFormat.data : null,
+  },
+  { lookup: true, describe: true },
+)
 const book = await prisma.book.create({
   data:{
     userId: currentUser.id,
@@ -72,8 +98,9 @@ const book = await prisma.book.create({
     pages: totalPages,
     status: shelf,
     genre: genre || null,
-    workKey: normaliseWorkKey(workKey),
-    description: await resolveDescription(description, workKey),
+    workKey: normaliseWorkKey(workKey) ?? catalog?.work.openLibraryKey ?? null,
+    ...catalogIds(catalog),
+    description: await resolveDescription(description, workKey, catalog),
     // The start date only feeds a "Started 3 Mar" label, so default it to today rather than asking.
     startedAt: shelf === "STARTED" ? now : null,
     currentPage: isCompleted ? totalPages : shelf === "STARTED" || isStopped ? startPage : 0,

@@ -1,4 +1,4 @@
-import { normaliseWorkKey } from "./workKey"
+import { normaliseWorkKey } from "./workKey.ts"
 
 export interface DiscoverBook {
   workKey: string | null
@@ -8,6 +8,11 @@ export interface DiscoverBook {
   coverUrl: string | null
   // Optional: books from lists and shelves don't carry it, only fresh Open Library results.
   year?: number | null
+  // Optional, from fresh results only: the edition Open Library ranks first for the query, so a book
+  // added from search lands on a real Edition in the catalog (lib/catalog.ts) rather than a guess.
+  editionKey?: string | null
+  isbn13?: string | null
+  isbn10?: string | null
 }
 
 export const coverUrlFor = (coverId?: number | null, size: "S" | "M" | "L" = "L") =>
@@ -20,21 +25,34 @@ interface SearchDoc {
   cover_i?: number
   number_of_pages_median?: number
   first_publish_year?: number
+  subject?: string[]
+  // The "editions" sub-query: the edition that best matches the search, with its ISBNs.
+  editions?: { docs?: { key?: string, isbn?: string[] }[] }
 }
 
-const FIELDS = "key,title,author_name,cover_i,number_of_pages_median,first_publish_year"
+const FIELDS = "key,title,author_name,cover_i,number_of_pages_median,first_publish_year,editions,editions.key,editions.isbn"
+
+const pickIsbns = (isbns?: string[]) => ({
+  isbn13: isbns?.find((i) => /^\d{13}$/.test(i)) ?? null,
+  isbn10: isbns?.find((i) => /^\d{9}[\dX]$/.test(i)) ?? null,
+})
 
 const toDiscoverBooks = (data: any): DiscoverBook[] =>
   ((data?.docs || []) as SearchDoc[])
     .filter((doc) => doc.title)
-    .map((doc) => ({
-      workKey: normaliseWorkKey(doc.key),
-      title: doc.title,
-      author: doc.author_name?.[0] || "Unknown",
-      pages: doc.number_of_pages_median || null,
-      coverUrl: coverUrlFor(doc.cover_i),
-      year: doc.first_publish_year || null,
-    }))
+    .map((doc) => {
+      const edition = doc.editions?.docs?.[0]
+      return {
+        workKey: normaliseWorkKey(doc.key),
+        title: doc.title,
+        author: doc.author_name?.[0] || "Unknown",
+        pages: doc.number_of_pages_median || null,
+        coverUrl: coverUrlFor(doc.cover_i),
+        year: doc.first_publish_year || null,
+        editionKey: edition?.key?.match(/OL\d+M/)?.[0] ?? null,
+        ...pickIsbns(edition?.isbn),
+      }
+    })
 
 export async function searchBooks(query: string, limit = 6): Promise<DiscoverBook[]> {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${FIELDS}&limit=${limit}`
@@ -105,4 +123,92 @@ export async function trendingSubjectBooks(subject: string, offset = 0, limit = 
   const data = await res.json()
   const docs = [...(data?.docs || [])].sort((a, b) => weekScore(b) - weekScore(a))
   return toDiscoverBooks({ docs: docs.slice(offset, offset + limit) })
+}
+
+// ---- Catalog lookups (lib/catalog) -----------------------------------------------------------
+
+export interface OpenLibraryWork {
+  workKey: string
+  title: string | null
+  authors: string[]
+  coverUrl: string | null
+  year: number | null
+  subjects: string[]
+  pages: number | null
+}
+
+const WORK_FIELDS = "key,title,author_name,cover_i,first_publish_year,subject,number_of_pages_median"
+export const WORKS_PER_REQUEST = 25
+
+const toWork = (doc: SearchDoc): OpenLibraryWork | null => {
+  const workKey = normaliseWorkKey(doc.key)
+  return workKey
+    ? {
+        workKey,
+        title: doc.title || null,
+        authors: doc.author_name ?? [],
+        coverUrl: coverUrlFor(doc.cover_i),
+        year: doc.first_publish_year || null,
+        subjects: doc.subject ?? [],
+        pages: doc.number_of_pages_median || null,
+      }
+    : null
+}
+
+// Several works in one request (`key:/works/A OR key:/works/B`): title, authors, cover, year and subjects.
+// Throws on failure so callers can tell it from "not found".
+export async function worksByKeys(workKeys: string[]): Promise<Map<string, OpenLibraryWork>> {
+  const found = new Map<string, OpenLibraryWork>()
+  const keys = Array.from(new Set(workKeys.map((k) => normaliseWorkKey(k)).filter((k): k is string => !!k))).slice(0, WORKS_PER_REQUEST)
+  if (!keys.length) return found
+  const q = keys.map((k) => `key:/works/${k}`).join(" OR ")
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&fields=${WORK_FIELDS}&limit=${keys.length}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  if (!res.ok) throw new Error(`Open Library work lookup failed: ${res.status}`)
+  const data = await res.json()
+  for (const doc of (data?.docs || []) as SearchDoc[]) {
+    const work = toWork(doc)
+    if (work) found.set(work.workKey, work)
+  }
+  return found
+}
+
+export interface OpenLibraryEdition {
+  editionKey: string | null
+  workKey: string | null
+  title: string | null
+  isbn13: string | null
+  isbn10: string | null
+  pages: number | null
+  publisher: string | null
+  // "2012", "June 1, 1990": the caller picks the year out.
+  publishDate: string | null
+  // "Paperback", "Audio CD"...: the caller maps it to a format.
+  physicalFormat: string | null
+  coverUrl: string | null
+  series: string[]
+}
+
+// One edition by ISBN (either form), from /isbn/<isbn>.json. Null when Open Library has no such edition.
+export async function editionByIsbn(isbn: string): Promise<OpenLibraryEdition | null> {
+  const clean = isbn.replace(/[^0-9Xx]/g, "").toUpperCase()
+  if (!/^(\d{13}|\d{9}[\dX])$/.test(clean)) return null
+  const res = await fetch(`https://openlibrary.org/isbn/${clean}.json`, { signal: AbortSignal.timeout(8000), redirect: "follow" })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`Open Library ISBN lookup failed: ${res.status}`)
+  const data = await res.json()
+  if (!data || typeof data !== "object") return null
+  return {
+    editionKey: typeof data.key === "string" ? data.key.match(/OL\d+M/)?.[0] ?? null : null,
+    workKey: normaliseWorkKey(data.works?.[0]?.key),
+    title: typeof data.title === "string" ? data.title : null,
+    isbn13: data.isbn_13?.[0] ?? null,
+    isbn10: data.isbn_10?.[0] ?? null,
+    pages: typeof data.number_of_pages === "number" && data.number_of_pages > 0 ? data.number_of_pages : null,
+    publisher: data.publishers?.[0] ?? null,
+    publishDate: typeof data.publish_date === "string" ? data.publish_date : null,
+    physicalFormat: typeof data.physical_format === "string" ? data.physical_format : null,
+    coverUrl: coverUrlFor(data.covers?.find((c: unknown) => typeof c === "number" && c > 0)),
+    series: Array.isArray(data.series) ? data.series.filter((x: unknown) => typeof x === "string") : [],
+  }
 }

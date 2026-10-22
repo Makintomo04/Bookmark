@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
 import type { Status } from "@prisma/client";
+import { newObjectId } from "../objectId.ts";
 import { sameBook } from "../workKey.ts";
 import { SOURCE_LABEL, type ImportMatch, type ImportRow, type ImportSource } from "./types.ts";
 
@@ -9,12 +9,9 @@ import { SOURCE_LABEL, type ImportMatch, type ImportRow, type ImportSource } fro
 // Matches the API's limit (app/api/book-progress), so an imported review can still be edited and re-saved.
 export const REVIEW_MAX = 2000;
 
-// MongoDB ObjectId: 4-byte seconds, 8 random bytes. Ids are chosen when the job is created so a retried
-// batch finds the books it already inserted instead of inserting them twice.
-export function newObjectId(at = Date.now()) {
-  const seconds = Math.floor(at / 1000).toString(16).padStart(8, "0");
-  return seconds + randomBytes(8).toString("hex");
-}
+// Ids are chosen when the job is created so a retried batch finds the books it already inserted instead
+// of inserting them twice.
+export { newObjectId };
 
 export interface BookInsert {
   id: string;
@@ -34,6 +31,9 @@ export interface BookInsert {
   completedAt: Date | null;
   stoppedAt: Date | null;
   workKey: string | null;
+  // The shared catalog row the book was filed under, when the import step resolved one.
+  workId: string | null;
+  editionId: string | null;
 }
 
 export interface ReadInsert {
@@ -72,7 +72,7 @@ function orderedCreatedAt(dates: (Date | null)[], anchor: Date): Date[] {
 export function buildRecords(
   row: ImportRow,
   match: ImportMatch | null,
-  ctx: { userId: string; bookId: string; now: Date; source: ImportSource }
+  ctx: { userId: string; bookId: string; now: Date; source: ImportSource; catalog?: { workId: string; editionId: string } | null }
 ): { book: BookInsert; reads: ReadInsert[]; notes: NoteInsert[] } {
   const { userId, bookId, now, source } = ctx;
   const status = row.status;
@@ -116,6 +116,8 @@ export function buildRecords(
     completedAt: date(row.completedAt),
     stoppedAt,
     workKey: row.workKey ?? match?.workKey ?? null,
+    workId: ctx.catalog?.workId ?? null,
+    editionId: ctx.catalog?.editionId ?? null,
   };
 
   // Finished reads, then the current one (open, or the DNF). Book.status mirrors the last read.

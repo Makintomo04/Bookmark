@@ -2,6 +2,7 @@ import type { Status } from "@prisma/client";
 import { parseCsvRecords } from "./csv.ts";
 import { genreFromTags } from "./genre.ts";
 import type { ImportRow, ImportSource, ImportedRead, ParsedImport } from "./types.ts";
+import { formatFrom, seriesFromTitle, yearFrom } from "../catalog/normalise.ts";
 
 // Detects Goodreads, StoryGraph and Bookmark CSV exports and maps each row onto Bookmark's model.
 // Kept free of "@/" imports so scripts/test/import.test.ts can load it with plain Node.
@@ -113,6 +114,10 @@ const base = (line: number): Omit<ImportRow, "title" | "author" | "status"> => (
   line,
   isbn13: null,
   isbn10: null,
+  format: null,
+  publisher: null,
+  publishedYear: null,
+  series: null,
   rating: null,
   pages: null,
   currentPage: null,
@@ -159,6 +164,10 @@ function goodreadsRow(r: Record<string, string>, line: number): ImportRow {
     author: text(r["Author"]) || "Unknown",
     isbn13: isbn13 ?? isbn.isbn13,
     isbn10: isbn.isbn10,
+    format: formatFrom(r["Binding"]),
+    publisher: orNull(r["Publisher"]),
+    publishedYear: yearFrom(r["Year Published"]),
+    series: seriesFromTitle(text(r["Title"])),
     status,
     rating: roundRating(r["My Rating"]),
     pages: int(r["Number of Pages"]) || null,
@@ -231,6 +240,7 @@ function storygraphRow(r: Record<string, string>, line: number): ImportRow {
     author: splitList(r["Authors"])[0] || "Unknown",
     isbn13: isbn.isbn13,
     isbn10: isbn.isbn10,
+    format: formatFrom(r["Format"]),
     status,
     rating: roundRating(r["Star Rating"]),
     review: cleanReview(r["Review"]),
@@ -255,11 +265,16 @@ function bookmarkRow(r: Record<string, string>, line: number): ImportRow {
   const startedAt = parseDate(r["Date Started"]);
   const exact = text(r["Bookmark Rating"]);
   const workKey = text(r["Open Library Work Key"]).match(/OL\d+W/)?.[0] ?? null;
+  // Exports made since the catalog carry the edition's ISBNs (lib/export.ts).
+  const isbn = cleanIsbn(r["ISBN"]);
+  const isbn13 = cleanIsbn(r["ISBN13"]).isbn13;
 
   return {
     ...base(line),
     title: text(r["Title"]),
     author: text(r["Author"]) || "Unknown",
+    isbn13: isbn13 ?? isbn.isbn13,
+    isbn10: isbn.isbn10,
     status,
     rating: roundRating(exact || r["My Rating"]),
     pages: int(r["Number of Pages"]),

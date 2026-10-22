@@ -173,7 +173,14 @@ model Book {
   stoppedAt DateTime?
   // Open Library work key (e.g. OL45883W), so the same book can be matched across readers and lists.
   workKey String?
+  // The shared catalog (Work and Edition below). Optional while rows shelved before the catalog existed
+  // are backfilled (scripts/backfill-catalog.ts); title, author, cover and pages above stay the reader's
+  // own copy, so every existing query keeps working.
+  workId String? @db.ObjectId
+  editionId String? @db.ObjectId
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  work Work? @relation(fields: [workId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  edition Edition? @relation(fields: [editionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   activities Activity[]
   reads BookRead[]
 
@@ -181,6 +188,78 @@ model Book {
   @@index([userId, status])
   // "Picked by people you follow" in book details: this book on followed readers' shelves.
   @@index([workKey, userId])
+  // The same, keyed on the catalog: every reader of a work, and every reader of one edition.
+  @@index([workId, userId])
+  @@index([editionId])
+}
+
+// ---- Shared catalog -------------------------------------------------------------------------
+// One Work per book (what Open Library calls a work: "Dune"), one Edition per printing of it (the 2019
+// Ace paperback, the audiobook). Shared by every reader: two readers adding the same ISBN point at the
+// same Edition, and two editions of one book point at the same Work. lib/catalog.ts is the only writer.
+
+enum EditionFormat {
+  PAPERBACK
+  HARDCOVER
+  EBOOK
+  AUDIOBOOK
+}
+
+model Work {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // Identity, always set: "ol:OL45883W" for an Open Library work, or "title:<normalised title>|<normalised author>"
+  // for a book nobody could match. Required so the unique index needs no sparse handling of nulls.
+  key String @unique
+  // Open Library work key (OL45883W), when known. Null for manual entries.
+  openLibraryKey String?
+  title String
+  authors String[] @db.String
+  description String?
+  // Open Library subjects, capped, as the seed for genres and (later) mood search.
+  subjects String[] @db.String
+  seriesName String?
+  // 1, 2, 2.5…
+  seriesPosition Float?
+  coverUrl String?
+  firstPublishYear Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  editions Edition[]
+  books Book[]
+
+  @@index([openLibraryKey])
+}
+
+model Edition {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  workId String @db.ObjectId
+  // Identity, always set: "ol:OL7353617M", else "isbn:<isbn13>", else "isbn10:<isbn10>", else
+  // "generic:<workId>:<format>:<pages>" for a best guess with no identifier (backfilled and manual books).
+  key String @unique
+  // Open Library edition key (OL7353617M), when known.
+  openLibraryKey String?
+  isbn10 String?
+  isbn13 String?
+  format EditionFormat?
+  pages Int?
+  // Audiobooks: running time.
+  audioMinutes Int?
+  publisher String?
+  publishedYear Int?
+  coverUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+  books Book[]
+
+  // A work's editions.
+  @@index([workId])
+  // Resolving by identifier (lib/catalog.ts). Plain indexes: uniqueness is the key above.
+  @@index([openLibraryKey])
+  @@index([isbn13])
+  @@index([isbn10])
 }
 model Note {
   id String   @id @default(auto()) @map("_id") @db.ObjectId

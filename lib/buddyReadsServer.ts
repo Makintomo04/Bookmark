@@ -6,6 +6,7 @@ import { Prisma, type Book, type BuddyRead, type NotificationType } from "@prism
 import { NextResponse } from "next/server";
 import type { z } from "zod";
 import { awardNewAchievements } from "@/lib/achievements";
+import { catalogIds, linkCatalog } from "@/lib/catalog";
 import { readFromBook } from "@/lib/readHistory";
 import { booksReadCount, booksReadOf } from "@/lib/readerTier";
 import { sameBook } from "@/lib/workKey";
@@ -187,6 +188,8 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
   if (existing) return { bookId: existing.id, added: false }
 
   const now = new Date()
+  // Filed under the same catalog Work as the host's copy (no Open Library call: the host's add made it).
+  const catalog = await linkCatalog({ workKey: buddyRead.workKey, title: buddyRead.title, author: buddyRead.author, pages: buddyRead.pages, coverUrl: buddyRead.coverImage })
   const book = await prisma.book.create({
     data: {
       userId,
@@ -196,6 +199,7 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
       cardColour: buddyRead.cardColour,
       pages: buddyRead.pages,
       workKey: buddyRead.workKey,
+      ...catalogIds(catalog),
       status: "STARTED",
       startedAt: now,
       currentPage: 0,
