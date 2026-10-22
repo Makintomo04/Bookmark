@@ -1,5 +1,6 @@
 "use client";
 import { FC, useCallback, useEffect, useId, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,18 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
   // Read through a ref so a parent re-render doesn't re-run the focus effect below.
   const closeRef = useRef(handleClose)
   closeRef.current = handleClose
+
+  // Modals live in the layout and open from global stores, so they'd outlive a page change. A link inside one
+  // (See Bookmark Plus, Settings, a book) navigates away, and the modal goes with the page it was opened on.
+  const pathname = usePathname()
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const lastPath = useRef(pathname)
+  useEffect(() => {
+    if (lastPath.current === pathname) return
+    lastPath.current = pathname
+    if (isOpen) onCloseRef.current()
+  }, [pathname, isOpen])
 
   // Freeze the page behind, otherwise a swipe on the header, footer or past the end of the body scrolls the page.
   useEffect(() => {
