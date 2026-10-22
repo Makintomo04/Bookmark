@@ -3,6 +3,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
+import { bannerPresetOf, resolveBanner } from '@/lib/banners'
+import BannerPattern from '../profile/BannerPattern'
 import TierAvatar from './TierAvatar'
 import FollowListStat from './FollowListStat'
 
@@ -22,6 +24,8 @@ interface ProfileHeaderProps {
   username: string
   bio?: string | null
   image?: string | null
+  // An uploaded image URL or a "preset:<id>" pattern. Callers resolve the seeded default from the
+  // user's id; with nothing passed, the username seeds one so the header never renders bare.
   banner?: string | null
   colour?: string | null
   stats: ProfileStat[]
@@ -48,14 +52,18 @@ const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
 
 const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead }) => {
   const accent = colour || "#F13C3C"
+  const shownBanner = resolveBanner(banner, username)
+  const preset = bannerPresetOf(shownBanner)
   const avatar = (
     <TierAvatar image={image} username={username} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} className="w-24 sm:w-28" />
   )
 
   return (
     <header>
-      <div className={cn("relative overflow-hidden rounded-2xl", banner ? "h-32 sm:h-44" : "h-20 sm:h-28")} style={{ background: accent }}>
-        {banner && <Image src={banner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
+      <div className="relative h-32 sm:h-44 overflow-hidden rounded-2xl" style={{ background: accent }}>
+        {preset
+          ? <BannerPattern preset={preset} colour={accent} />
+          : <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
       </div>
 
       <div className="px-4 sm:px-8">

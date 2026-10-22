@@ -63,8 +63,9 @@ export const authOptions: AuthOptions = {
           throw new Error('Invalid email or password');
         }
         // Checked after the password so this only tells someone who already knows it. The sign-in page
-        // reads this code and offers to resend the link.
-        if (!user.emailVerified) {
+        // reads this code and offers to resend the link. Skipped in `next dev` so local accounts can sign
+        // in without the email round trip; `next build`/`next start` always set NODE_ENV to production.
+        if (!user.emailVerified && process.env.NODE_ENV !== 'development') {
           throw new Error(EMAIL_NOT_VERIFIED)
         }
         return user

@@ -2,7 +2,7 @@
 import { FC, useEffect, useState } from 'react'
 import axios from 'axios'
 import moment from 'moment'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Book, Status } from '@prisma/client'
 import Modal from './Modal'
 import BookCover from '../cards/BookCover'
@@ -145,7 +145,8 @@ const BookUpdateModal: FC = () => {
   const save = () => {
     if (!canSave) return
     let payload: Record<string, unknown>
-    let success: string
+    // Only a move between shelves gets a toast: the book leaves the shelf you are looking at.
+    let success: string | null
     const ratingAndReviewPayload = { rating: rating > 0 ? rating : null, review, reviewSpoiler, reviewPrivate }
     if (status === "NOT_STARTED") {
       payload = { id: book.id, action: "start", ...at(page) }
@@ -158,32 +159,31 @@ const BookUpdateModal: FC = () => {
       success = "Moved to Did not finish"
     } else if (status === "STARTED") {
       payload = { id: book.id, action: "progress", ...at(page) }
-      success = "Progress saved"
+      success = null
     } else if (status === "PAUSED") {
       payload = { id: book.id, action: "resume", ...at(page) }
       success = onMinutes ? "Back to Currently listening" : "Back to Currently reading"
     } else {
       payload = { id: book.id, action: "rate", ...ratingAndReviewPayload }
-      success = ratingChanged && reviewChanged ? "Rating and review saved"
-        : ratingChanged ? "Rating saved" : reviewChanged ? "Review saved" : "Moods and warnings saved"
+      success = null
     }
 
     // Tags go to the shared Work in their own request; the rating and shelf change don't wait on it.
     const saveTags = (isClosed || finished || stopping) && tagsChanged
       ? axios.put("/api/works/tags", { bookId: book.id, ...tags }).then(() => tagsMutate())
-        .catch((err) => toast.error(err?.response?.data?.error || "Couldn't save your moods and warnings.", { position: "bottom-center" }))
+        .catch((err) => notify.error(apiError(err, "Couldn't save your moods and warnings.")))
       : Promise.resolve()
 
     setIsSaving(true)
     axios.post("/api/book-progress", payload).then(async () => {
       await saveTags
-      toast.success(success, { position: "bottom-center" })
+      if (success) notify.success(success)
       mutate()
       refreshAfterBookChange()
       readsMutate()
       close()
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't save. Check your connection and try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't save. Check your connection and try again."), { retry: save })
     }).finally(() => setIsSaving(false))
   }
 

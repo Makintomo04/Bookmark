@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import moment from 'moment'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { ArrowLeft, Lock, Plus, X } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
@@ -54,9 +54,9 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
       startsAt: moment(startsOn, "YYYY-MM-DD").toISOString(),
       schedule,
     }).then(({ data }) => {
-      router.push(`/buddy-reads/${data.id}`)
+      router.push(`/circles/${data.id}`)
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't start the circle.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't start the reading circle."))
       setIsSaving(false)
     })
   }
@@ -64,17 +64,17 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
   return (
     <form onSubmit={(e) => { e.preventDefault(); submit() }} className="flex flex-col gap-10">
       <div className="flex flex-col gap-3">
-        <Link href="/buddy-reads" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft size={14} aria-hidden /> Circles
+        <Link href="/circles" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft size={14} aria-hidden /> Reading circles
         </Link>
-        <h1 className="text-3xl font-bold">Start a circle</h1>
+        <h1 className="text-3xl font-bold">Start a reading circle</h1>
         <p className="text-muted-foreground">Choose a book from your shelf. You&apos;ll get a link to share; anyone with it can join, and the book goes on their shelf too.</p>
       </div>
 
       {blocked && (
         <p className="flex items-start gap-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 px-4 py-3 text-sm">
           <Lock size={16} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
-          <span>{hosting.message} <Link href="/buddy-reads" className="font-medium underline underline-offset-4">See your circles</Link></span>
+          <span>{hosting.message} <Link href="/circles" className="font-medium underline underline-offset-4">See your reading circles</Link></span>
         </p>
       )}
 
@@ -140,7 +140,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
       </fieldset>
 
       <div className="flex justify-end gap-3 border-t border-neutral-200 dark:border-neutral-800 pt-6">
-        <Link href="/buddy-reads" className={secondaryButtonClass}>Cancel</Link>
+        <Link href="/circles" className={secondaryButtonClass}>Cancel</Link>
         <button type="submit" disabled={!chosen || !chosenHasLength || blocked || isSaving} className={primaryButtonClass}>
           {isSaving ? "Starting…" : "Start and get the link"}
         </button>

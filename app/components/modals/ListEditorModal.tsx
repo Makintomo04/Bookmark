@@ -3,7 +3,7 @@ import { FC, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSWRConfig } from 'swr'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { ArrowDown, ArrowUp, MessageSquareQuote, Plus, Search, X } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import Modal from './Modal'
@@ -17,6 +17,7 @@ import { sameBook } from '@/lib/workKey'
 import { LIST_DESCRIPTION_MAX as DESCRIPTION_MAX, LIST_ITEMS_MAX as ITEMS_MAX, LIST_NOTE_MAX as NOTE_MAX, LIST_TITLE_MAX as TITLE_MAX } from '@/lib/listRules'
 import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
+import useBookSearch from '@/app/hooks/useBookSearch'
 import useListEditorModal, { EditableList, EditableListItem } from '@/app/hooks/useListEditorModal'
 import { isListsKey } from '@/app/hooks/useLists'
 
@@ -48,44 +49,23 @@ const ListEditorModal: FC = () => {
   const [draft, setDraft] = useState<EditableList | null>(null)
   const [source, setSource] = useState<"search" | "shelf">("search")
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<BookSearchResult[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchFailed, setSearchFailed] = useState(false)
   const [searchAttempt, setSearchAttempt] = useState(0)
+  const { results, isSearching, searchFailed } = useBookSearch(query, { enabled: source === "search", attempt: searchAttempt })
   const [tagInput, setTagInput] = useState("")
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Why the last pick didn't go on the list, shown under the search box until the next search or add.
+  const [addNotice, setAddNotice] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isOpen || !initial) return
     setDraft(initial)
     setQuery("")
-    setResults([])
     setTagInput("")
     setOpenNote(null)
     setConfirmDelete(false)
   }, [isOpen, initial])
-
-  useEffect(() => {
-    if (source !== "search" || query.trim().length < 3) {
-      setResults([])
-      setIsSearching(false)
-      setSearchFailed(false)
-      return
-    }
-    // A slower earlier search must not overwrite the results for what's typed now.
-    let current = true
-    setIsSearching(true)
-    setSearchFailed(false)
-    const timeout = setTimeout(() => {
-      axios.get(`/api/books/search?q=${encodeURIComponent(query.trim())}`)
-        .then((res) => { if (current) setResults(res.data) })
-        .catch(() => { if (current) { setResults([]); setSearchFailed(true) } })
-        .finally(() => { if (current) setIsSearching(false) })
-    }, 400)
-    return () => { current = false; clearTimeout(timeout) }
-  }, [query, source, searchAttempt])
 
   const shelfMatches = useMemo(() => {
     const all = Array.isArray(books) ? (books as Book[]) : []
@@ -106,13 +86,14 @@ const ListEditorModal: FC = () => {
 
   const addBook = (book: BookSearchResult) => {
     if (draft.items.some((item) => sameBook(item, book))) {
-      toast.info("That book is already on this list.", { position: "bottom-center" })
+      setAddNotice(`"${book.title}" is already on this list.`)
       return
     }
     if (draft.items.length >= ITEMS_MAX) {
-      toast.error(`Lists can hold up to ${ITEMS_MAX} books.`, { position: "bottom-center" })
+      setAddNotice(`Lists can hold up to ${ITEMS_MAX} books.`)
       return
     }
+    setAddNotice(null)
     setItems([...draft.items, { workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverUrl, pages: book.pages, note: "" }])
   }
 
@@ -136,33 +117,30 @@ const ListEditorModal: FC = () => {
   }
 
   const save = () => {
-    if (!draft.title.trim()) {
-      toast.error("Give your list a title.", { position: "bottom-center" })
-      return
-    }
+    // The Save button is disabled without a title, so this only guards a keyboard submit.
+    if (!draft.title.trim()) return
     setIsSaving(true)
     const request = isNew ? axios.post("/api/lists", draft) : axios.patch(`/api/lists/${draft.id}`, draft)
     request.then((res) => {
-      toast.success(isNew ? "List created" : "List saved", { position: "bottom-center" })
       onClose()
       mutate(isListsKey)
       if (isNew) router.push(`/lists/${res.data.id}`)
       else router.refresh()
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't save this list. Try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't save this list. Try again."), { retry: save })
     }).finally(() => setIsSaving(false))
   }
 
   const remove = () => {
     setIsSaving(true)
     axios.delete(`/api/lists/${draft.id}`).then(() => {
-      toast.success("List deleted", { position: "bottom-center" })
+      notify.success("List deleted")
       onClose()
       mutate(isListsKey)
       router.push(isStaff || !user?.username ? "/discover" : `/u/${user.username}`)
       router.refresh()
     }).catch(() => {
-      toast.error("Couldn't delete this list. Try again.", { position: "bottom-center" })
+      notify.error("Couldn't delete this list. Try again.", { retry: remove })
     }).finally(() => setIsSaving(false))
   }
 
@@ -196,8 +174,9 @@ const ListEditorModal: FC = () => {
       </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={source === "search" ? "Search by title or author to add" : "Filter your books"} aria-label="Find a book to add" autoComplete="off" disabled={isSaving} className={cn(fieldClass, "h-10 pl-9")} />
+        <input value={query} onChange={(e) => { setQuery(e.target.value); setAddNotice(null) }} placeholder={source === "search" ? "Search by title or author to add" : "Filter your books"} aria-label="Find a book to add" autoComplete="off" disabled={isSaving} className={cn(fieldClass, "h-10 pl-9")} />
       </div>
+      {addNotice && <p role="status" className="px-1 text-sm text-amber-700 dark:text-amber-400">{addNotice}</p>}
       {source === "search"
         ? query.trim().length >= 3 && <BookSearchResults results={results} isLoading={isSearching} onSelect={addBook} failed={searchFailed} onRetry={() => setSearchAttempt((n) => n + 1)} />
         : shelfMatches.length === 0

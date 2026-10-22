@@ -75,6 +75,12 @@ model User {
   reviewVisibility  ReviewVisibility?
   hideWantToRead    Boolean?
   hideFollowCounts  Boolean?
+  // Community preferences, optional for the same reason (EVERYONE, false, PRIVATE). See lib/preferences.ts.
+  buddyReadInvites      BuddyReadInviteAudience?
+  // Reveal reviews marked as spoilers instead of covering them.
+  showSpoilers          Boolean?
+  // What a new list starts as in the editor.
+  defaultListVisibility ListVisibility?
   blocking      Block[] @relation("UserBlocks")
   blockedBy     Block[] @relation("UserBlockedBy")
 }
@@ -89,6 +95,14 @@ enum ReviewVisibility {
   EVERYONE
   FOLLOWERS
   ONLY_ME
+}
+
+// Who can invite this reader to a reading circle by username. The invite link always works.
+enum BuddyReadInviteAudience {
+  EVERYONE
+  // Only readers they follow.
+  FOLLOWING
+  NOBODY
 }
 
 // blockerId has blocked blockedId. Either direction hides the two from each other (lib/privacy.ts).
@@ -414,7 +428,7 @@ model Notification {
   type NotificationType
   bookId String? @db.ObjectId
   achievementKey String?
-  // Buddy-read notifications: which buddy read, and how many joins or unlocked comments one row stands for.
+  // Reading circle notifications: which reading circle, and how many joins or unlocked comments one row stands for.
   buddyReadId String? @db.ObjectId
   count Int?
   read Boolean @default(false)
@@ -432,9 +446,9 @@ enum NotificationType {
   ACHIEVEMENT_EARNED
   // A member asked you to read along.
   BUDDY_READ_INVITE
-  // Someone joined a buddy read you host. Unread ones are batched: count says how many joined.
+  // Someone joined a reading circle you host. Unread ones are batched: count says how many joined.
   BUDDY_READ_JOINED
-  // Your progress passed other members' comments. Batched per buddy read: count says how many unlocked.
+  // Your progress passed other members' comments. Batched per reading circle: count says how many unlocked.
   COMMENTS_UNLOCKED
   // You finished a seasonal quest. achievementKey is "QUEST:<questId>".
   QUEST_COMPLETED
@@ -574,7 +588,7 @@ model ImportJob {
   @@index([userId, createdAt])
 }
 
-// ---- Buddy reads ---------------------------------------------------------------------------
+// ---- Reading circles ---------------------------------------------------------------------------
 // Reading one book together. Each member reads their own shelf Book (editions differ, so progress is a
 // percent), and comments are pinned to a percent and stay locked until a reader gets there.
 // Users and Books are referenced by scalar ids, not relations, so those models stay untouched:
@@ -611,7 +625,7 @@ model BuddyRead {
   comments BuddyReadComment[]
   invites BuddyReadInvite[]
 
-  // Hosted buddy reads (the medal, and the host's list).
+  // Hosted reading circles (the medal, and the host's list).
   @@index([hostId, createdAt])
 }
 
@@ -631,9 +645,9 @@ model BuddyReadMember {
 
   // One membership each. The prefix covers the buddyReadId foreign key.
   @@unique([buddyReadId, userId])
-  // "My buddy reads", and the finished-a-buddy-read medal.
+  // "My reading circles", and the finished-a-reading-circle medal.
   @@index([userId, joinedAt])
-  // A progress update finds the buddy reads its book belongs to.
+  // A progress update finds the reading circles its book belongs to.
   @@index([bookId])
 }
 

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Button } from '../ui/button'
 import { motion,AnimatePresence } from 'framer-motion'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import axios from 'axios'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -42,7 +42,7 @@ const ResetPasswordComponent = () => {
     }
     // They've just proved the inbox and typed the new password, so sign straight in.
     const res = await signIn("credentials", { redirect: false, email, password: data.password }).catch(() => null)
-    toast.success("Password updated.",{ position: "bottom-center" })
+    notify.success("Password updated")
     router.push(res?.ok ? afterSignInPath(null) : `/signin?email=${encodeURIComponent(email)}`)
   }
 

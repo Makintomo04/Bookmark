@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import moment from 'moment'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { ArrowLeft } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import useBuddyRead from '@/app/hooks/useBuddyRead'
@@ -39,7 +39,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
     lastStamp.current = bookStamp
   }, [bookStamp, mutate])
 
-  if (!view) return <FetchErrorState error={isError} what="this circle" onRetry={() => mutate()} />
+  if (!view) return <FetchErrorState error={isError} what="this reading circle" onRetry={() => mutate()} />
 
   const { buddyRead, viewer, members, comments } = view
   const archived = buddyRead.status === "ARCHIVED"
@@ -49,7 +49,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
     // The cached shelf can predate joining; check the server before saying the book is gone.
     const book = myBook ?? ((await refreshBooks()) as Book[] | undefined)?.find((b) => b.id === view?.viewer.bookId)
     if (!book) {
-      toast.info("This book isn't on your shelf any more. Rejoin from the invite link to add it back.", { position: "bottom-center" })
+      notify.info("This book isn't on your shelf any more.", { description: "Rejoin from the invite link to add it back." })
       return
     }
     bookUpdateModal.setBookIdState(book.id)
@@ -58,27 +58,27 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
   }
 
   const setStatus = (status: "ACTIVE" | "FINISHED" | "ARCHIVED") => {
-    if (status === "ARCHIVED" && !window.confirm("Archive this circle? It's hidden from everyone's list and closed to new comments.")) return
+    if (status === "ARCHIVED" && !window.confirm("Archive this reading circle? It's hidden from everyone's list and closed to new comments.")) return
     axios.patch(`/api/buddy-reads/${id}`, { status }).then(() => mutate())
-      .catch((err) => toast.error(err?.response?.data?.error || "Couldn't update it.", { position: "bottom-center" }))
+      .catch((err) => notify.error(apiError(err, "Couldn't update the reading circle."), { retry: () => setStatus(status) }))
   }
 
   const remove = (userId: string, username: string | null) => {
     if (!window.confirm(`Remove ${username ?? "this reader"}? Their comments will be hidden too.`)) return
     axios.delete(`/api/buddy-reads/${id}/members/${userId}`).then(() => mutate())
-      .catch((err) => toast.error(err?.response?.data?.error || "Couldn't remove them.", { position: "bottom-center" }))
+      .catch((err) => notify.error(apiError(err, "Couldn't remove them.")))
   }
 
   const leave = () => {
-    if (!window.confirm("Leave this circle? The book stays on your shelf.")) return
-    axios.delete(`/api/buddy-reads/${id}/members/${viewer.userId}`).then(() => router.push("/buddy-reads"))
-      .catch((err) => toast.error(err?.response?.data?.error || "Couldn't leave.", { position: "bottom-center" }))
+    if (!window.confirm("Leave this reading circle? The book stays on your shelf.")) return
+    axios.delete(`/api/buddy-reads/${id}/members/${viewer.userId}`).then(() => router.push("/circles"))
+      .catch((err) => notify.error(apiError(err, "Couldn't leave the reading circle.")))
   }
 
   return (
     <div className="flex flex-col gap-10">
-      <Link href="/buddy-reads" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft size={14} aria-hidden /> Circles
+      <Link href="/circles" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft size={14} aria-hidden /> Reading circles
       </Link>
 
       <header className="flex gap-5">
@@ -90,7 +90,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         />
         <div className="min-w-0 flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}{buddyRead.audioMinutes ? " · audiobook" : ""}
+            Reading circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}{buddyRead.audioMinutes ? " · audiobook" : ""}
           </p>
           <h1 className="text-2xl sm:text-3xl font-bold leading-tight break-words">{buddyRead.title}</h1>
           <p className="text-muted-foreground">{buddyRead.author}</p>
@@ -135,7 +135,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
                 {!archived && <button type="button" onClick={() => setStatus("ARCHIVED")} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Archive</button>}
               </>
             ) : (
-              <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this circle</button>
+              <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this reading circle</button>
             )}
           </section>
         </aside>

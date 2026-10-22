@@ -15,7 +15,8 @@ import useBooks from '@/app/hooks/useBooks';
 import useFavourite from '@/app/hooks/useFavourite';
 import { formatStoppedAt, progressScale, progressWhole } from '@/lib/progress';
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import { notify } from '@/lib/notify';
+import { removeBookWithUndo } from '../books/removeBookWithUndo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,26 +46,16 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
 
   const handleFavClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    axios.post(`/api/favourites/${book.id}`).then(() => {
-      toast.success(hasFavourited(book.id) ? "Removed from Favourites!" : "Added to Favourites!", { position: "bottom-center" })
-    }).catch(() => {
-      toast.error("Error Adding to Favourites!", { position: "bottom-center" })
+    const isFavourite = hasFavourited(book.id)
+    axios.post(`/api/favourites/${book.id}`).catch(() => {
+      notify.error(isFavourite ? "Couldn't remove it from your favourites." : "Couldn't add it to your favourites.")
     }).finally(() => {
       mutateFav()
       mutate()
     })
   }
 
-  const handleRemove = () => {
-    axios.delete(`/api/books/${book.id}`).then(() => {
-      toast.success("Book Removed!", { position: "bottom-center" })
-    }).catch(() => {
-      toast.error("Something went wrong!!", { position: "bottom-center" })
-    }).finally(() => {
-      booksMutate()
-      mutateFav()
-    })
-  }
+  const handleRemove = () => removeBookWithUndo(book, booksMutate, mutateFav)
 
   return (
     <div onClick={handleOpenBookModal} className="cursor-pointer flex gap-3 items-center p-3 rounded-xl border border-neutral-700/50 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition relative">

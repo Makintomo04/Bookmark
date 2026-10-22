@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Loader2, Users } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
@@ -31,7 +31,7 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string }> = ({ boo
   if (!user?.id) {
     return (
       <Link href="/register" className={cn(base, outline, className)}>
-        <Users size={14} aria-hidden />Start a circle
+        <Users size={14} aria-hidden />Start a reading circle
       </Link>
     )
   }
@@ -39,7 +39,7 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string }> = ({ boo
   const onShelf = Array.isArray(books) ? (books as Book[]).find((b) => sameBook(b, book)) : undefined
   const go = (bookId: string) => {
     closeDetails()
-    router.push(`/buddy-reads/new?bookId=${bookId}`)
+    router.push(`/circles/new?bookId=${bookId}`)
   }
 
   const start = () => {
@@ -64,13 +64,12 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string }> = ({ boo
       isbn10: book.isbn10 ?? undefined,
       status: "NOT_STARTED",
     }).then(({ data: saved }) => {
-      toast.success("Added to Want to read", { position: "bottom-center" })
       mutate()
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       go(saved.id)
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't add that book. Try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't add that book. Try again."), { retry: start })
       setIsWorking(false)
     })
   }
@@ -80,11 +79,11 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string }> = ({ boo
       type="button"
       onClick={start}
       disabled={isWorking}
-      aria-label={`Start a circle for ${book.title}`}
+      aria-label={`Start a reading circle for ${book.title}`}
       className={cn(base, outline, "disabled:opacity-60", className)}
     >
       {isWorking ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Users size={14} aria-hidden />}
-      Start a circle
+      Start a reading circle
     </button>
   )
 }

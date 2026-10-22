@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     prisma.notification.count({ where: { userId: currentUser.id, read: false } }),
   ])
 
-  // Buddy-read notifications name the book. buddyReadId is a plain id, so look the titles up in one go.
+  // Reading circle notifications name the book. buddyReadId is a plain id, so look the titles up in one go.
   const buddyReadIds = Array.from(new Set(notifications.flatMap((n) => (n.buddyReadId ? [n.buddyReadId] : []))))
   const buddyReads = buddyReadIds.length > 0
     ? await prisma.buddyRead.findMany({ where: { id: { in: buddyReadIds } }, select: { id: true, title: true, inviteCode: true } })

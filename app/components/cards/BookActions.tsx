@@ -1,7 +1,8 @@
 "use client"
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
+import { removeBookWithUndo } from '../books/removeBookWithUndo'
 import type { Book } from '@prisma/client'
 import { Bookmark, MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -37,31 +38,19 @@ const BookActions: FC<BookActionsProps> = ({ book, onUpdateProgress, tone = 'ove
   const { hasFavourited, mutate: mutateFav } = useFavourite()
   const bookEditModal = useBookEditModal()
   const bookNotesModal = useBookNotesModal()
-  const [confirmingRemove, setConfirmingRemove] = useState(false)
   const isFavourite = hasFavourited(book.id)
   const buttonClass = cn("h-8 w-8 rounded-full flex items-center justify-center transition focus-visible:outline-none focus-visible:ring-2", tones[tone])
 
   const toggleFavourite = () => {
-    axios.post(`/api/favourites/${book.id}`).then(() => {
-      toast.success(isFavourite ? "Removed from Favourites" : "Added to Favourites", { position: "bottom-center" })
-    }).catch(() => {
-      toast.error("Couldn't update favourites", { position: "bottom-center" })
+    axios.post(`/api/favourites/${book.id}`).catch(() => {
+      notify.error(isFavourite ? "Couldn't remove it from your favourites." : "Couldn't add it to your favourites.", { retry: toggleFavourite })
     }).finally(() => {
       mutateFav()
       mutateUser()
     })
   }
 
-  const removeBook = () => {
-    axios.delete(`/api/books/${book.id}`).then(() => {
-      toast.success(`Removed "${book.title}"`, { position: "bottom-center" })
-    }).catch(() => {
-      toast.error("Couldn't remove this book", { position: "bottom-center" })
-    }).finally(() => {
-      booksMutate()
-      mutateFav()
-    })
-  }
+  const removeBook = () => removeBookWithUndo(book, booksMutate, mutateFav)
 
   return (
     // Menu items render in a portal but still bubble through React, so stop clicks reaching the card.
@@ -75,7 +64,7 @@ const BookActions: FC<BookActionsProps> = ({ book, onUpdateProgress, tone = 'ove
       >
         <Bookmark size={16} className={cn(isFavourite && "fill-current", isFavourite && tone === 'plain' && "text-[#F13C3C]")} />
       </button>
-      <DropdownMenu onOpenChange={(open) => { if (!open) setConfirmingRemove(false) }}>
+      <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" aria-label={`More actions for ${book.title}`} className={buttonClass}>
             <MoreHorizontal size={16} />
@@ -88,19 +77,7 @@ const BookActions: FC<BookActionsProps> = ({ book, onUpdateProgress, tone = 'ove
           {book.status !== "NOT_STARTED" && <DropdownMenuSeparator />}
           <ShelfMenuItems book={book} />
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={(e) => {
-              if (!confirmingRemove) {
-                e.preventDefault()
-                setConfirmingRemove(true)
-                return
-              }
-              removeBook()
-            }}
-            className="text-red-500 focus:text-red-500"
-          >
-            {confirmingRemove ? "Click again to remove" : "Remove"}
-          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={removeBook} className="text-red-500 focus:text-red-500">Remove</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

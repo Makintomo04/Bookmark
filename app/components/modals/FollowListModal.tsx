@@ -8,7 +8,7 @@ import Link from 'next/link'
 import axios from 'axios'
 import useSWRInfinite from 'swr/infinite'
 import { useSWRConfig } from 'swr'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import type { FollowListKind, FollowListUser } from '@/lib/follows'
 import Modal from './Modal'
@@ -56,7 +56,7 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
         // Follower/following counts on any open profile (including your own) are now stale.
         mutate((key) => typeof key === "string" && key.startsWith("/api/users/") && !key.includes("/search"))
       })
-      .catch(() => toast.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { position: "bottom-center" }))
+      .catch(() => notify.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { retry: () => handleFollow(person, current) }))
       .finally(() => setBusy(null))
   }
 

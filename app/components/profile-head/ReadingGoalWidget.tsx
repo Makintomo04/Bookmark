@@ -2,7 +2,7 @@
 import { FC, useState } from 'react'
 import { Book } from '@prisma/client'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { Pencil, Target } from 'lucide-react'
 import useBooks from '@/app/hooks/useBooks'
 import useReadingGoal from '@/app/hooks/useReadingGoal'
@@ -63,12 +63,11 @@ const ReadingGoalWidget: FC = () => {
     setIsSaving(true)
     axios.post("/api/reading-goal", { year, targetBooks: data.targetBooks })
       .then(() => {
-        toast.success("Reading goal saved", { position: "bottom-center" })
         mutate()
         setIsEditing(false)
       })
       .catch(() => {
-        toast.error("Couldn't save your goal. Try again.", { position: "bottom-center" })
+        notify.error("Couldn't save your goal. Try again.", { retry: () => onSubmit(data) })
       })
       .finally(() => setIsSaving(false))
   }

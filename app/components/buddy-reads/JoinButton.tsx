@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { useSWRConfig } from 'swr'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { primaryButtonClass } from '../profile-head/ProfileHeader'
 
 const JoinButton: FC<{ code: string }> = ({ code }) => {
@@ -14,19 +14,19 @@ const JoinButton: FC<{ code: string }> = ({ code }) => {
   const join = () => {
     setIsJoining(true)
     axios.post("/api/buddy-reads/join", { code }).then(async ({ data }) => {
-      if (data.addedToShelf) toast.success("Added to your Currently reading shelf", { position: "bottom-center" })
-      // The buddy read finds your copy in the cached shelf, which the layout keeps mounted: refresh it first.
+      if (data.addedToShelf) notify.info("Added to your Currently reading shelf")
+      // The reading circle finds your copy in the cached shelf, which the layout keeps mounted: refresh it first.
       await mutate("/api/books/")
-      router.push(`/buddy-reads/${data.buddyReadId}`)
+      router.push(`/circles/${data.buddyReadId}`)
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't join. Try again.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't join. Try again."), { retry: join })
       setIsJoining(false)
     })
   }
 
   return (
     <button type="button" onClick={join} disabled={isJoining} className={`${primaryButtonClass} h-11 px-6 text-base`}>
-      {isJoining ? "Joining…" : "Join the circle"}
+      {isJoining ? "Joining…" : "Join the reading circle"}
     </button>
   )
 }

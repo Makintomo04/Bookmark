@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify, apiError } from '@/lib/notify'
 import { Lock, Plus } from 'lucide-react'
 import useBuddyReads, { type BuddyReadSummary } from '@/app/hooks/useBuddyReads'
 import { formatPercent } from '@/lib/buddyReads'
@@ -28,7 +28,7 @@ const BuddyReadCard: FC<{ buddyRead: BuddyReadSummary }> = ({ buddyRead }) => {
     : `${ahead} ${ahead === 1 ? "reader is" : "readers are"} ahead of you`
   return (
     <Link
-      href={`/buddy-reads/${buddyRead.id}`}
+      href={`/circles/${buddyRead.id}`}
       className="flex gap-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <BookCover book={cover(buddyRead)} variant="thumb" sizes="64px" className="w-16 shrink-0 self-start shadow-sm" />
@@ -70,10 +70,10 @@ const BuddyReadsList: FC = () => {
   const accept = (inviteId: string, code: string) => {
     setBusyInvite(inviteId)
     axios.post("/api/buddy-reads/join", { code }).then(({ data }) => {
-      if (data.addedToShelf) toast.success("Added to your Currently reading shelf", { position: "bottom-center" })
-      router.push(`/buddy-reads/${data.buddyReadId}`)
+      if (data.addedToShelf) notify.info("Added to your Currently reading shelf")
+      router.push(`/circles/${data.buddyReadId}`)
     }).catch((err) => {
-      toast.error(err?.response?.data?.error || "Couldn't join.", { position: "bottom-center" })
+      notify.error(apiError(err, "Couldn't join."), { retry: () => accept(inviteId, code) })
       setBusyInvite(null)
     })
   }
@@ -90,12 +90,12 @@ const BuddyReadsList: FC = () => {
     <div className="flex flex-col gap-10">
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div className="max-w-xl">
-          <h1 className="text-3xl sm:text-4xl font-bold">Circles</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold">Reading circles</h1>
           <p className="mt-2 text-muted-foreground">
             Read a book with friends. See where everyone is, and talk about it as you go. Comments stay locked until you reach them.
           </p>
         </div>
-        <Link href="/buddy-reads/new" className={`${primaryButtonClass} shrink-0`}><Plus size={16} aria-hidden />Start a circle</Link>
+        <Link href="/circles/new" className={`${primaryButtonClass} shrink-0`}><Plus size={16} aria-hidden />Start a reading circle</Link>
       </header>
 
       {hosting && !hosting.allowed && (
@@ -105,7 +105,7 @@ const BuddyReadsList: FC = () => {
         </p>
       )}
 
-      {isError && !buddyReads && <FetchErrorState error={isError} what="your circles" onRetry={() => mutate()} />}
+      {isError && !buddyReads && <FetchErrorState error={isError} what="your reading circles" onRetry={() => mutate()} />}
 
       {invites.length > 0 && (
         <section aria-labelledby="invites-heading" className="flex flex-col gap-3">
@@ -134,11 +134,11 @@ const BuddyReadsList: FC = () => {
         </div>
       ) : buddyReads && active.length === 0 && finished.length === 0 ? (
         <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-10 text-center flex flex-col items-center gap-3">
-          <p className="font-medium">No circles yet</p>
+          <p className="font-medium">No reading circles yet</p>
           <p className="max-w-md text-sm text-muted-foreground">
             Pick a book from your shelf, share the link, and read it together. Up to 15 readers, any edition.
           </p>
-          <Link href="/buddy-reads/new" className={primaryButtonClass}>Start one</Link>
+          <Link href="/circles/new" className={primaryButtonClass}>Start one</Link>
         </div>
       ) : (
         <>

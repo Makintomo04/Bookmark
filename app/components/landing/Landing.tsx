@@ -24,7 +24,7 @@ const features = [
   {
     icon: TbLock,
     title: "Nobody gets spoiled",
-    description: "Every comment in a circle is pinned to where its writer was in the book. You see it only once you've read that far. Your own are always open.",
+    description: "Every comment in a reading circle is pinned to where its writer was in the book. You see it only once you've read that far. Your own are always open.",
   },
   {
     icon: TbUsers,
@@ -34,7 +34,7 @@ const features = [
   {
     icon: TbHeadphones,
     title: "Audiobooks count",
-    description: "Log an audiobook by minutes listened instead of pages. Circles, stats and your goal treat it just like a print book.",
+    description: "Log an audiobook by minutes listened instead of pages. Reading circles, stats and your goal treat it just like a print book.",
   },
   {
     icon: TbShieldHalf,
@@ -65,7 +65,7 @@ const steps = [
     description: "Search for it, or add it straight from your Goodreads or StoryGraph import. Audiobook? Enter the running time.",
   },
   {
-    title: "Start a circle and share the link",
+    title: "Start a reading circle and share the link",
     description: "One tap on the book page. Friends open the link, the book lands on their shelf, and they're in. No account needed to see the invite.",
   },
   {
@@ -80,7 +80,7 @@ const faqs = [
     answer: "Yes. Every feature, including your full reading stats, is free. There's no paid plan and nothing locked behind an upgrade.",
   },
   {
-    question: "How do spoilers stay hidden in a circle?",
+    question: "How do spoilers stay hidden in a reading circle?",
     answer: "Each comment is locked to the percent its writer had reached. Until your own progress passes that point, you see only that something is there, not what it says.",
   },
   {
@@ -92,8 +92,9 @@ const faqs = [
     answer: "Yes. Import your shelves, ratings, reviews and reading dates in about a minute, right after you sign up.",
   },
   {
+
     question: "Who can see my shelf?",
-    answer: "Your profile has its own public link, so friends can see what you're reading and follow you. Circles are private to their members.",
+    answer: "Your profile has its own public link, so friends can see what you're reading and follow you. Reading circles are private to their members.",
   },
 ]
 
@@ -112,7 +113,7 @@ const CircleStill: FC = () => (
   <div className={`w-full max-w-md p-5 text-left ${cardClassName} bg-background shadow-sm`} aria-hidden>
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Circle</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reading circle</p>
         <p className="font-bold truncate">The Night We Read Together</p>
       </div>
       <span className="shrink-0 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 text-xs font-medium">3 readers</span>
@@ -153,10 +154,10 @@ const Landing: FC = () => {
               Read with your friends.<br className="hidden sm:block" /> Nobody gets spoiled.
             </h1>
             <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
-              Bookmark is the group chat for your book, built so comments stay locked until you reach them. Start a circle, share one link, and read at your own pace. Free, with no paywall.
+              Bookmark is the group chat for your book, built so comments stay locked until you reach them. Start a reading circle, share one link, and read at your own pace. Free, with no paywall.
             </p>
             <Button asChild className={`${ctaClassName} mt-8`}>
-              <Link href="/register">Start a circle — it&apos;s free</Link>
+              <Link href="/register">Start a reading circle — it&apos;s free</Link>
             </Button>
             <p className={`text-sm mt-4 ${mutedClassName}`}>
               Paperback, ebook or audiobook: everyone reads their own copy.
@@ -193,7 +194,7 @@ const Landing: FC = () => {
         <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Built for reading together</h2>
           <p className={`text-base md:text-lg mt-4 ${mutedClassName}`}>
-            Circles are the point. Everything else keeps your own reading honest and free.
+            Reading circles are the point. Everything else keeps your own reading honest and free.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -217,7 +218,7 @@ const Landing: FC = () => {
       </section>
 
       <section className="px-6 pb-20 md:pb-28 max-w-5xl mx-auto">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center mb-12">A circle in three steps</h2>
+        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center mb-12">A reading circle in three steps</h2>
         <ol className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
           {steps.map(({ title, description }, i) => (
             <li key={title} className="flex flex-col items-center text-center md:items-start md:text-left gap-3">
@@ -231,7 +232,7 @@ const Landing: FC = () => {
         </ol>
         <div className="flex justify-center mt-12">
           <Button asChild className={ctaClassName}>
-            <Link href="/register">Start a circle — it&apos;s free</Link>
+            <Link href="/register">Start a reading circle — it&apos;s free</Link>
           </Button>
         </div>
       </section>
@@ -257,7 +258,7 @@ const Landing: FC = () => {
           Create a free account, pick the book, and send one link.
         </p>
         <Button asChild className={`${ctaClassName} mt-8`}>
-          <Link href="/register">Start a circle — it&apos;s free</Link>
+          <Link href="/register">Start a reading circle — it&apos;s free</Link>
         </Button>
       </section>
     </div>

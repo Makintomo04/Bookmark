@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
@@ -86,21 +86,20 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
     if (!book) return
     const runningTime = (parseInt(data.hours) || 0) * 60 + (parseInt(data.minutes) || 0)
     if (isAudio && runningTime <= 0) {
-      toast.error("Enter the audiobook's running time", { position: "bottom-center" })
+      notify.error("Enter the audiobook's running time")
       return
     }
     if (!isAudio && !(parseInt(data.pages) > 0)) {
-      toast.error("Enter the number of pages", { position: "bottom-center" })
+      notify.error("Enter the number of pages")
       return
     }
     const { hours, minutes, ...rest } = data
     axios.patch(`/api/books/${book.id}`, { ...rest, pages: rest.pages || "", ...formatPayload(format, runningTime) }).then(() => {
-      toast.success("Book Updated!", { position: "bottom-center" })
       booksMutate()
       copyCoverLater(book.id)
       onClose()
     }).catch(() => {
-      toast.error("Something went wrong!", { position: "bottom-center" })
+      notify.error("Couldn't save those changes. Try again.")
     })
   }
 
@@ -150,10 +149,9 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
                 endpoint="imageUploader"
                 onClientUploadComplete={(res) => {
                   setCustomValue("coverImgSrc", res[0]?.url)
-                  toast.success("Upload completed", { position: "bottom-center" })
                 }}
                 onUploadError={(error: Error) => {
-                  toast.error(error.message, { position: "bottom-center" })
+                  notify.error(error.message || "Upload failed. Try another image.")
                 }}
               />
             </div>

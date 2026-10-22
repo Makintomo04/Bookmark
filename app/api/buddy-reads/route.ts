@@ -6,8 +6,8 @@ import { createBuddyReadSchema, progressPercent } from "@/lib/buddyReads";
 import { buddyReadError, canHostAnotherCircle, isBlockedEitherWay, isObjectId, newInviteCode, parseBody } from "@/lib/buddyReadsServer";
 import { progressSelect, progressScale } from "@/lib/progress";
 
-// The reader's buddy reads (newest first) with everyone's progress, and invites waiting for them.
-// ?bookId= narrows it to the buddy reads that shelf book is in (the book modal's entry point).
+// The reader's reading circles (newest first) with everyone's progress, and invites waiting for them.
+// ?bookId= narrows it to the reading circles that shelf book is in (the book modal's entry point).
 export async function GET(req: Request) {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
@@ -80,9 +80,9 @@ export async function GET(req: Request) {
   });
 }
 
-// Starts a buddy read of a book on the host's shelf. The host is its first member.
+// Starts a reading circle for a book on the host's shelf. The host is its first member.
 export async function POST(req: Request) {
-  const { user: currentUser, response } = await requireUser("Sign in to start a circle.");
+  const { user: currentUser, response } = await requireUser("Sign in to start a reading circle.");
   if (response) return response;
 
   const parsed = await parseBody(req, createBuddyReadSchema);

@@ -1,4 +1,4 @@
-// Proves the buddy-read spoiler lock: a comment's body (and its replies, labels and author) never
+// Proves the reading circle spoiler lock: a comment's body (and its replies, labels and author) never
 // reaches a reader who hasn't got to its position. Pure functions only, no database.
 //
 //   node scripts/check-buddy-read-spoilers.ts

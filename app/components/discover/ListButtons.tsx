@@ -2,7 +2,7 @@
 import { FC, useState } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
-import { toast } from 'react-toastify'
+import { notify } from '@/lib/notify'
 import { Flag, Pencil, Plus } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import useUser from '@/app/hooks/useUser'
@@ -45,9 +45,8 @@ export const FollowButton: FC<{ username: string, initialFollowing: boolean }> =
     axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
       .then((res) => {
         setFollowing(res.data.isFollowing)
-        toast.success(res.data.isFollowing ? `Following ${username}` : `Unfollowed ${username}`, { position: "bottom-center" })
       })
-      .catch(() => toast.error("Something went wrong. Try again.", { position: "bottom-center" }))
+      .catch(() => notify.error(following ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { retry: toggle }))
       .finally(() => setIsBusy(false))
   }
 
@@ -73,9 +72,8 @@ export const ReportListButton: FC<{ listId: string, initialReported: boolean }> 
     axios.post(`/api/lists/${listId}/report`, { reason })
       .then(() => {
         setReported(true)
-        toast.success("Thanks. The Bookmark team will take a look.", { position: "bottom-center" })
       })
-      .catch(() => toast.error("Couldn't send your report. Try again.", { position: "bottom-center" }))
+      .catch(() => notify.error("Couldn't send your report. Try again.", { retry: () => report(reason) }))
       .finally(() => setIsBusy(false))
   }
 

@@ -1,4 +1,4 @@
-// Buddy reads: database work for the API routes and pages. The rules and the spoiler lock itself
+// Reading circles: database work for the API routes and pages. The rules and the spoiler lock itself
 // live in lib/buddyReads.ts (pure, so they can be checked without a database).
 import { randomBytes } from "crypto";
 import prisma from "@/lib/db";
@@ -25,8 +25,8 @@ import { progressSelect, unitOf } from "@/lib/progress";
 
 export const isObjectId = (id: string | null | undefined): id is string => !!id && /^[a-f0-9]{24}$/i.test(id)
 
-// Blocked users can't join each other's buddy reads, invite each other, or see each other's progress
-// and comments. Every buddy-read path that pairs two readers goes through here.
+// Blocked users can't join each other's reading circles, invite each other, or see each other's progress
+// and comments. Every reading circle path that pairs two readers goes through here.
 export async function isBlockedEitherWay(userA: string, userB: string): Promise<boolean> {
   if (userA === userB) return false
   const block = await prisma.block.findFirst({
@@ -50,7 +50,7 @@ export async function parseBody<T extends z.ZodTypeAny>(req: Request, schema: T)
 // The membership for a route under /api/buddy-reads/[id], or a 404 (not found and not a member look alike).
 export async function requireMembership(buddyReadId: string, userId: string) {
   const membership = await findMembership(buddyReadId, userId)
-  if (!membership) return { membership: null, response: buddyReadError("Circle not found", 404) } as const
+  if (!membership) return { membership: null, response: buddyReadError("Reading circle not found", 404) } as const
   return { membership, response: null } as const
 }
 
@@ -82,7 +82,7 @@ export async function canHostAnotherCircle(userId: string): Promise<HostingAllow
   return hostingAllowance(active, "free")
 }
 
-// A buddy read and the viewer's membership, or null if they aren't in it. Not found and not a member
+// A reading circle and the viewer's membership, or null if they aren't in it. Not found and not a member
 // look the same from outside, so ids can't be probed.
 export async function findMembership(buddyReadId: string, userId: string) {
   if (!isObjectId(buddyReadId)) return null
@@ -234,7 +234,7 @@ export type JoinResult =
   | { ok: false, error: string, status: number }
 
 export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promise<JoinResult> {
-  if (buddyRead.status === "ARCHIVED") return { ok: false, error: "This circle has ended.", status: 410 }
+  if (buddyRead.status === "ARCHIVED") return { ok: false, error: "This reading circle has ended.", status: 410 }
 
   const existing = await prisma.buddyReadMember.findUnique({ where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId } } })
   if (existing) {
@@ -247,15 +247,15 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
     return { ok: true, buddyReadId: buddyRead.id, alreadyMember: true, addedToShelf: false }
   }
 
-  if (await isBlockedEitherWay(userId, buddyRead.hostId)) return { ok: false, error: "You can't join this circle.", status: 403 }
+  if (await isBlockedEitherWay(userId, buddyRead.hostId)) return { ok: false, error: "You can't join this reading circle.", status: 403 }
   const count = await prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } })
-  if (count >= BUDDY_READ_MAX_MEMBERS) return { ok: false, error: `This circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, status: 409 }
+  if (count >= BUDDY_READ_MAX_MEMBERS) return { ok: false, error: `This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, status: 409 }
 
   const { bookId, added } = await shelfBookFor(userId, buddyRead)
   const book = await prisma.book.findUnique({ where: { id: bookId }, select: progressBookSelect })
   try {
     await prisma.buddyReadMember.create({
-      // Starting from their progress means a book already finished before joining never counts as a finished buddy read.
+      // Starting from their progress means a book already finished before joining never counts as a finished reading circle.
       data: { buddyReadId: buddyRead.id, userId, bookId, notifiedProgress: progressPercent(book) },
     })
   } catch (e) {
@@ -269,7 +269,7 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
 
   if (buddyRead.hostId !== userId) {
     await bumpNotification({ userId: buddyRead.hostId, actorId: userId, type: "BUDDY_READ_JOINED", buddyReadId: buddyRead.id, by: 1 })
-    // The host's medal counts buddy reads someone else joined.
+    // The host's medal counts reading circles someone else joined.
     await awardNewAchievements(buddyRead.hostId, { trigger: "buddyRead" })
   }
   return { ok: true, buddyReadId: buddyRead.id, alreadyMember: false, addedToShelf: added }
@@ -277,7 +277,7 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
 
 // ---- Notifications ------------------------------------------------------------------------
 
-// Buddy-read notifications are batched: while the last one for this buddy read is unread, it's bumped
+// Reading circle notifications are batched: while the last one for this reading circle is unread, it's bumped
 // ("ana and 2 others joined", "5 comments unlocked") instead of a new row per event.
 export async function bumpNotification(n: { userId: string, actorId: string, type: NotificationType, buddyReadId: string, by: number }) {
   const unread = await prisma.notification.findFirst({
@@ -297,7 +297,7 @@ export async function bumpNotification(n: { userId: string, actorId: string, typ
   }
 }
 
-// Called by /api/book-progress after a reader's page or status changes. For each buddy read the book
+// Called by /api/book-progress after a reader's page or status changes. For each reading circle the book
 // is in: records a first finish (for the medal), and if the reader moved past other members' comments,
 // adds them to one batched "N comments unlocked" notification. Cheap when the book isn't in one.
 export async function onBuddyReadProgress(userId: string, book: ProgressBook) {
@@ -339,7 +339,7 @@ export async function onBuddyReadProgress(userId: string, book: ProgressBook) {
 
 // ---- Account deletion ---------------------------------------------------------------------
 
-// Buddy-read rows reference users by id (no relation), so account deletion should call this.
+// Reading circle rows reference users by id (no relation), so account deletion should call this.
 export async function deleteBuddyReadDataFor(userId: string) {
   const hosted = await prisma.buddyRead.findMany({ where: { hostId: userId }, select: { id: true } })
   const hostedIds = hosted.map((b) => b.id)
