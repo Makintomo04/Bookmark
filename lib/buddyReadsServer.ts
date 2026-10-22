@@ -214,9 +214,13 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
       pages: buddyRead.pages,
       workKey: buddyRead.workKey,
       ...catalogIds(catalog),
+      // The host's scale: a joiner of an audiobook circle starts on minutes too, and can change it.
+      audioMinutes: buddyRead.audioMinutes,
+      progressUnit: unitOf({ progressUnit: "MINUTES", audioMinutes: buddyRead.audioMinutes }),
       status: "STARTED",
       startedAt: now,
       currentPage: 0,
+      currentMinute: 0,
     },
   })
   const firstRead = readFromBook(book)
