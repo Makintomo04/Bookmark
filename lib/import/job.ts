@@ -6,23 +6,31 @@ import { catalogIds, linkCatalog, resolveCatalogMany, type CatalogInput } from "
 import { normaliseWorkKey } from "@/lib/workKey";
 import { parseImport } from "./formats";
 import { matchRows } from "./match";
+import { llmAvailable, pickWithModel } from "./llmMatch";
 import { ShelfIndex, buildRecords, findDuplicates, newObjectId, shelfKey, type BookInsert, type NoteInsert, type ReadInsert } from "./records";
-import type { ImportMatch, ImportRow, ImportSource } from "./types";
+import {
+  type Decision, type Matches, type UncertainRow, applyModelOutcome, decide, modelPending, pendingForModel, uncertainRows, undatedFinished,
+} from "./review";
+import { type FileNotes, type ImportMatch, type ImportRow, type ImportSource, type MatchEntry, effectiveMatch } from "./types";
 
 // The server half of an import: each exported step does a bounded amount of work and returns the
 // job's new view, and the /import page calls the next step until the job is done. Every step is safe
 // to retry: matching only looks up rows it hasn't, and inserting uses book ids fixed at upload.
+//
+// Matching has two phases under the one "matching" status: Open Library lookups for every row, then
+// (when ANTHROPIC_API_KEY is set) a model pass over the rows those left uncertain, a few batches a step.
 
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 export const MAX_ROWS = 10_000;
 // Each step stops starting new work after this, leaving room for the save under a 60s function limit.
 const STEP_BUDGET_MS = 12_000;
 const MATCH_BATCH = 150;
+// Rows sent to the model per step (a few requests), so a step stays well inside its budget.
+const MODEL_BATCH = 75;
 const IMPORT_BATCH = 250;
 const COVERS_PER_STEP = 5;
 
 export type JobStatus = "matching" | "ready" | "importing" | "done" | "cancelled";
-type Matches = Record<string, ImportMatch | null>;
 
 export interface ImportMedal {
   key: string;
@@ -41,6 +49,10 @@ export interface ImportResult {
   // Imported without an Open Library match; the summary offers to fix them.
   unmatched: { bookId: string; title: string; author: string }[];
   medals: ImportMedal[];
+  // Finished books whose file had no finish date: kept undated, not dated today.
+  undatedFinished: number;
+  // What the pre-cleaner set aside or had to decide about the file. Written at upload, kept to the end.
+  file?: FileNotes;
   finishedAt?: string;
 }
 
@@ -52,6 +64,7 @@ const emptyResult = (): ImportResult => ({
   lastYear: null,
   unmatched: [],
   medals: [],
+  undatedFinished: 0,
 });
 
 const rowsOf = (job: ImportJob) => (job.rows as unknown as ImportRow[]) ?? [];
@@ -59,8 +72,9 @@ const matchesOf = (job: ImportJob) => (job.matches as unknown as Matches) ?? {};
 const resultOf = (job: ImportJob) => ({ ...emptyResult(), ...((job.result as unknown as ImportResult | null) ?? {}) });
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 
-// A row is matched if Open Library found it, or it arrived with a work key (Bookmark's own export).
-const isMatched = (row: ImportRow, match: ImportMatch | null | undefined) => !!(row.workKey || match);
+// A row is matched if Open Library found it (and the reader hasn't been left to check the match), or it
+// arrived with a work key (Bookmark's own export).
+const isMatched = (row: ImportRow, entry: MatchEntry | undefined) => !!(row.workKey || effectiveMatch(entry));
 
 async function loadShelf(userId: string) {
   return prisma.book.findMany({ where: { userId }, select: { title: true, author: true, workKey: true } });
@@ -88,12 +102,23 @@ export interface ImportJobView {
   result: ImportResult | null;
   // After the import: books whose covers are still to be checked for copying.
   coversToCheck: number;
+  // While matching: rows still waiting on the model (0 once that phase is over or skipped).
+  checking: number;
+  // Whether the model pass runs at all in this deployment.
+  modelAvailable: boolean;
+  // Before the import: matches scored too low to file without the reader's say-so.
+  uncertain: UncertainRow[];
+  // Finished books with no finish date in the file (before the import; `result` carries it after).
+  undatedFinished: number;
+  // What the pre-cleaner set aside or decided about the file.
+  notes: FileNotes | null;
 }
 
 export async function viewJob(job: ImportJob): Promise<ImportJobView> {
   const rows = rowsOf(job);
   const matches = matchesOf(job);
   const status = job.status as JobStatus;
+  const notes = (job.result as unknown as ImportResult | null)?.file ?? null;
   const base = {
     id: job.id,
     source: job.source as ImportSource,
@@ -103,6 +128,11 @@ export async function viewJob(job: ImportJob): Promise<ImportJobView> {
     looked: Object.keys(matches).length,
     imported: job.importCursor,
     result: job.result ? resultOf(job) : null,
+    checking: 0,
+    modelAvailable: llmAvailable(),
+    uncertain: [] as UncertainRow[],
+    undatedFinished: 0,
+    notes,
   };
 
   if (status === "done" || status === "cancelled") {
@@ -118,10 +148,11 @@ export async function viewJob(job: ImportJob): Promise<ImportJobView> {
       duplicates: { shelf: result.duplicates, file: 0 },
       samples: { unmatched: [], duplicates: [] },
       coversToCheck: status === "done" ? Math.max(0, job.bookIds.length - job.coverCursor) : 0,
+      undatedFinished: result.undatedFinished,
     };
   }
 
-  const dupes = findDuplicates(rows, rows.map((_, i) => matches[i]), await loadShelf(job.userId));
+  const dupes = findDuplicates(rows, rows.map((_, i) => effectiveMatch(matches[i])), await loadShelf(job.userId));
   const byStatus: Partial<Record<Status, number>> = {};
   let matched = 0;
   let unmatched = 0;
@@ -148,6 +179,9 @@ export async function viewJob(job: ImportJob): Promise<ImportJobView> {
     duplicates: { shelf: dupes.filter((d) => d === "shelf").length, file: dupes.filter((d) => d === "file").length },
     samples,
     coversToCheck: 0,
+    checking: status === "matching" && llmAvailable() ? modelPending(matches) : 0,
+    uncertain: status === "importing" ? [] : uncertainRows(rows, matches).filter((u) => !dupes[u.index]),
+    undatedFinished: undatedFinished(rows.filter((_, i) => !dupes[i])),
   };
 }
 
@@ -180,6 +214,8 @@ export async function createJob(userId: string, csvText: string, fileName: strin
       rows: json(parsed.rows),
       matches: json(matches),
       bookIds: parsed.rows.map(() => newObjectId(now)),
+      // The pre-cleaner's notes ride on the result from the start, so the preview and the summary both have them.
+      result: json({ ...emptyResult(), file: parsed.notes }),
     },
   });
   return job;
@@ -211,17 +247,44 @@ export async function matchStep(job: ImportJob) {
     if (!(String(i) in matches)) pending.push(i);
   }
 
+  const deadline = Date.now() + STEP_BUDGET_MS;
   if (pending.length > 0) {
-    const { matches: found } = await matchRows(rows, pending, { deadline: Date.now() + STEP_BUDGET_MS });
+    const { matches: found } = await matchRows(rows, pending, { deadline });
     found.forEach((match, i) => {
       matches[i] = match;
     });
   }
-  const done = rows.every((_, i) => String(i) in matches);
+  let done = rows.every((_, i) => String(i) in matches);
+
+  // Phase two: the model chooses among the candidates for rows the lookups left unmatched. Without a
+  // key (or after a failed request) every waiting row is marked skipped and the job is ready at once.
+  if (done) {
+    const waiting = pendingForModel(rows, matches);
+    if (waiting.length > 0) {
+      const outcome = await pickWithModel(waiting.slice(0, MODEL_BATCH), { deadline });
+      if (outcome.status !== "done") console.warn(`import: model pass ${outcome.status}: ${outcome.reason ?? ""}`);
+      applyModelOutcome(matches, outcome);
+      done = modelPending(matches) === 0;
+    }
+  }
+
   return prisma.importJob.update({
     where: { id: job.id },
     data: { matches: json(matches), status: done ? "ready" : "matching" },
   });
+}
+
+// ---- Reviewing uncertain matches ---------------------------------------------------------
+
+// One of the reader's one-tap decisions on a match the matcher wasn't sure of (lib/import/review.ts).
+export async function decideStep(job: ImportJob, index: number, decision: Decision): Promise<{ job: ImportJob; error?: string }> {
+  if (job.status !== "ready") return { job, error: "This import isn't at the review step." };
+  const matches = matchesOf(job);
+  if (index >= rowsOf(job).length) return { job, error: "That row isn't in this import." };
+  const next = decide(matches[index], decision);
+  if (next === undefined) return { job, error: "That book isn't waiting for a decision." };
+  matches[index] = next;
+  return { job: await prisma.importJob.update({ where: { id: job.id }, data: { matches: json(matches) } }) };
 }
 
 // ---- Importing ---------------------------------------------------------------------------
@@ -231,7 +294,7 @@ export async function startImport(job: ImportJob) {
   // The status guard makes a double click start one import, not two.
   const { count } = await prisma.importJob.updateMany({
     where: { id: job.id, status: "ready" },
-    data: { status: "importing", importCursor: 0, result: json(emptyResult()) },
+    data: { status: "importing", importCursor: 0, result: json({ ...emptyResult(), file: resultOf(job).file }) },
   });
   return count ? prisma.importJob.findUniqueOrThrow({ where: { id: job.id } }) : job;
 }
@@ -287,7 +350,7 @@ export async function importStep(job: ImportJob) {
   const filed = new Map<number, { workId: string; editionId: string }>();
   if (toFile.length) {
     try {
-      const resolved = await resolveCatalogMany(toFile.map((i) => catalogInput(rows[i], matches[i] ?? null)));
+      const resolved = await resolveCatalogMany(toFile.map((i) => catalogInput(rows[i], effectiveMatch(matches[i]))));
       toFile.forEach((i, n) => filed.set(i, { workId: resolved[n].work.id, editionId: resolved[n].edition.id }));
     } catch (err) {
       // The books still go in; scripts/backfill-catalog.ts links them later.
@@ -302,7 +365,8 @@ export async function importStep(job: ImportJob) {
 
   for (let i = start; i < end; i++) {
     const row = rows[i];
-    const match = matches[i] ?? null;
+    // An uncertain match the reader never checked files as typed, never under the doubtful work.
+    const match = effectiveMatch(matches[i]);
     const bookId = job.bookIds[i];
     const records = buildRecords(row, match, { userId: job.userId, bookId, now, source, catalog: filed.get(i) ?? null });
 
@@ -324,6 +388,7 @@ export async function importStep(job: ImportJob) {
     result.created++;
     result.byStatus[row.status] = (result.byStatus[row.status] ?? 0) + 1;
     if (!isMatched(row, match)) result.unmatched.push({ bookId, title: row.title, author: row.author });
+    if (row.status === "COMPLETED" && !row.completedAt) result.undatedFinished++;
     const dates = [records.book.createdAt, records.book.completedAt, ...records.reads.map((r) => r.finishedAt)];
     for (const year of dates.map(yearOf)) {
       if (year === null) continue;

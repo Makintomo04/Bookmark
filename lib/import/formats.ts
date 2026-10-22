@@ -2,7 +2,8 @@ import type { Status } from "@prisma/client";
 import { parseCsvRecords } from "./csv.ts";
 import { genreFromTags } from "./genre.ts";
 import type { ImportRow, ImportSource, ImportedRead, ParsedImport } from "./types.ts";
-import { formatFrom, seriesFromTitle, yearFrom } from "../catalog/normalise.ts";
+import { seriesFromTitle, yearFrom } from "../catalog/normalise.ts";
+import { cleanCsvText, cleanRecords, detectFormat } from "./clean.ts";
 
 // Detects Goodreads, StoryGraph and Bookmark CSV exports and maps each row onto Bookmark's model.
 // Kept free of "@/" imports so scripts/test/import.test.ts can load it with plain Node.
@@ -56,7 +57,9 @@ export function parseDate(raw: string | undefined): string | null {
   const [y, mo, d] = [Number(m[1]), Number(m[2] ?? 1), Number(m[3] ?? 1)];
   if (y < 1000 || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
   const date = new Date(Date.UTC(y, mo - 1, d));
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  // A day the month doesn't have (2023/02/30) is no date at all, not the 2nd of March.
+  if (Number.isNaN(date.getTime()) || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null;
+  return date.toISOString();
 }
 
 // Goodreads reviews are HTML ("<br/>" for line breaks, "<i>" for emphasis). Bookmark stores plain text.
@@ -164,7 +167,7 @@ function goodreadsRow(r: Record<string, string>, line: number): ImportRow {
     author: text(r["Author"]) || "Unknown",
     isbn13: isbn13 ?? isbn.isbn13,
     isbn10: isbn.isbn10,
-    format: formatFrom(r["Binding"]),
+    format: detectFormat(r["Binding"], shelves),
     publisher: orNull(r["Publisher"]),
     publishedYear: yearFrom(r["Year Published"]),
     series: seriesFromTitle(text(r["Title"])),
@@ -240,7 +243,7 @@ function storygraphRow(r: Record<string, string>, line: number): ImportRow {
     author: splitList(r["Authors"])[0] || "Unknown",
     isbn13: isbn.isbn13,
     isbn10: isbn.isbn10,
-    format: formatFrom(r["Format"]),
+    format: detectFormat(r["Format"], tags),
     status,
     rating: roundRating(r["Star Rating"]),
     review: cleanReview(r["Review"]),
@@ -303,20 +306,39 @@ const MAPPERS: Record<ImportSource, (r: Record<string, string>, line: number) =>
   bookmark: bookmarkRow,
 };
 
+// Whatever identifies a row that has no title, for the "set aside" note.
+function identify(record: Record<string, string>): string | null {
+  const author = text(record["Author"] ?? record["Authors"]);
+  const isbn = text(record["ISBN13"] ?? record["ISBN"] ?? record["ISBN/UID"]);
+  const shelf = text(record["Exclusive Shelf"] ?? record["Read Status"]);
+  return [author && `by ${author}`, isbn && `ISBN ${isbn}`, shelf && `shelf "${shelf}"`].filter(Boolean).join(", ") || null;
+}
+
 export function parseImport(csvText: string): ParsedImport {
-  const { headers, records } = parseCsvRecords(csvText);
+  // The pre-cleaner (lib/import/clean.ts) runs first on the text, then on the records, so the mappers
+  // below only ever see clean ISBNs and YYYY/MM/DD dates.
+  const { headers, records } = parseCsvRecords(cleanCsvText(csvText));
   const source = detectSource(headers);
   if (!source) {
     throw new ImportFormatError(
       "That doesn't look like a Goodreads, StoryGraph or Bookmark export. Upload the CSV file exactly as you downloaded it."
     );
   }
+  const notes = cleanRecords(headers, records);
   const rows: ImportRow[] = [];
   const skippedLines: number[] = [];
   records.forEach((record, i) => {
-    const row = MAPPERS[source](record, i + 1);
-    if (row.title) rows.push(row);
-    else skippedLines.push(i + 1);
+    const line = i + 1;
+    // A row with nothing in it at all (a blank line with commas) is noise, not a book; one with
+    // other cells filled in is a book Goodreads lost the title of, which the reader should hear about.
+    if (!text(record["Title"])) {
+      if (Object.values(record).some((v) => text(v) && !/^0$/.test(text(v)) && !/^(to-read|read|currently-reading)$/i.test(text(v)))) {
+        notes.quarantined.push({ line, reason: "No title", detail: identify(record) });
+      }
+      skippedLines.push(line);
+      return;
+    }
+    rows.push(MAPPERS[source](record, line));
   });
-  return { source, rows, skippedLines };
+  return { source, rows, skippedLines, notes };
 }

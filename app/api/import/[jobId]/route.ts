@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit } from "@/lib/rateLimit";
-import { cancelJob, coversStep, findJob, importStep, matchStep, resolveUnmatched, startImport, viewJob } from "@/lib/import/job";
+import { cancelJob, coversStep, decideStep, findJob, importStep, matchStep, resolveUnmatched, startImport, viewJob } from "@/lib/import/job";
+import type { Decision } from "@/lib/import/review";
 
 export const dynamic = "force-dynamic";
 // Steps stop starting new work after ~12s; covers can take ~20s each (in parallel). Well under this.
@@ -38,6 +39,23 @@ const actionSchema = z.discriminatedUnion("action", [
     pages: z.number().int().min(1).max(100_000).nullish(),
   }),
   z.object({ action: z.literal("keep"), bookId: z.string().regex(/^[a-f0-9]{24}$/) }),
+  // Before the import: the reader's call on a match the matcher wasn't sure of.
+  z.object({
+    action: z.literal("decide"),
+    index: z.number().int().min(0).max(100_000),
+    choice: z.enum(["accept", "typed", "pick"]),
+    candidate: z
+      .object({
+        workKey: z.string().regex(/OL\d+W/).max(40),
+        title: z.string().max(500).nullish(),
+        authors: z.array(z.string().max(200)).max(10).nullish(),
+        year: z.number().int().min(0).max(3000).nullish(),
+        coverUrl: z.string().url().max(300).nullish(),
+        pages: z.number().int().min(1).max(100_000).nullish(),
+        subjects: z.array(z.string().max(200)).max(30).nullish(),
+      })
+      .nullish(),
+  }),
 ]);
 
 // POST /api/import/:jobId { action }: runs one bounded step and returns the job's new view.
@@ -80,6 +98,24 @@ export async function POST(req: Request, { params }: Params) {
     case "keep": {
       if (job.status !== "done") return NextResponse.json({ error: "Finish the import first." }, { status: 409 });
       const outcome = await resolveUnmatched(job, body.action === "keep" ? { bookId: body.bookId, keep: true } : body);
+      if (outcome.error) return NextResponse.json({ error: outcome.error }, { status: 409 });
+      job = outcome.job;
+      break;
+    }
+    case "decide": {
+      let decision: Decision;
+      if (body.choice === "pick") {
+        const c = body.candidate;
+        if (!c) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+        const workKey = c.workKey.match(/OL\d+W/)![0];
+        decision = {
+          choice: "pick",
+          candidate: { workKey, title: c.title ?? null, authors: c.authors ?? [], year: c.year ?? null, coverUrl: c.coverUrl ?? null, pages: c.pages ?? null, subjects: c.subjects ?? [] },
+        };
+      } else {
+        decision = { choice: body.choice };
+      }
+      const outcome = await decideStep(job, body.index, decision);
       if (outcome.error) return NextResponse.json({ error: outcome.error }, { status: 409 });
       job = outcome.job;
       break;

@@ -10,7 +10,9 @@ import { spawn } from "node:child_process"
 import { readFileSync } from "node:fs"
 
 const TEST_DB = "bookmark-test"
-const TEST_PORT = 3030
+// `-p <port>` after the command picks another port (a second checkout alongside the usual one).
+const portArg = process.argv.indexOf("-p")
+const TEST_PORT = portArg > 0 && Number(process.argv[portArg + 1]) ? Number(process.argv[portArg + 1]) : 3030
 
 function readEnvFile(path) {
   const env = {}
