@@ -56,7 +56,7 @@ const AuthorBooks: FC<{ author: Author, initial: AuthorBooksPage }> = ({ author,
         <h2 id="more-heading" className="text-xl font-bold">{mine.length > 0 ? `More by ${author.name}` : `Books by ${author.name}`}</h2>
         {more.length > 0 ? (
           <>
-            <p className="mt-1 text-sm text-muted-foreground">Most read on Open Library first.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Most read first.</p>
             <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-8">
               {more.map((book: DiscoverBook, i) => <DiscoverBookCard key={book.workKey ?? `${book.title}-${i}`} book={book} />)}
             </div>
@@ -64,10 +64,10 @@ const AuthorBooks: FC<{ author: Author, initial: AuthorBooksPage }> = ({ author,
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">
             {initial.failed && books.length === 0
-              ? <>Open Library isn&apos;t answering right now, so we can&apos;t list {author.name}&apos;s books. Try again in a minute.</>
+              ? <>We can&apos;t list {author.name}&apos;s books right now. Try again in a minute.</>
               : books.length > 0
                 ? <>You&apos;ve shelved every book of theirs we could find.</>
-                : <>We couldn&apos;t find any books by {author.name} on Open Library. <Link href="/discover" className="font-medium text-foreground underline underline-offset-4">Search Discover</Link> for a title instead.</>}
+                : <>We couldn&apos;t find any books by {author.name}.{" "}<Link href="/discover" className="font-medium text-foreground underline underline-offset-4">Search Discover</Link> for a title instead.</>}
           </p>
         )}
         {(nextOffset !== null || failed) && (

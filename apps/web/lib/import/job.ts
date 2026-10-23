@@ -503,7 +503,7 @@ export async function resolveUnmatched(
 
   if (!input.keep) {
     const workKey = normaliseWorkKey(input.workKey);
-    if (!workKey) return { job, error: "That isn't an Open Library work." };
+    if (!workKey) return { job, error: "We couldn't find that book. Pick another, or keep it as it is in your file." };
     const book = await prisma.book.findFirst({ where: { id: input.bookId, userId: job.userId } });
     if (!book) return { job, error: "That book isn't on your shelf any more." };
     const clash = await prisma.book.findFirst({ where: { userId: job.userId, workKey, id: { not: book.id } }, select: { title: true } });

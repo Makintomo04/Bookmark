@@ -53,7 +53,6 @@ const BookBlurb: FC<BookBlurbProps> = ({ description, isLoading, className }) =>
               {expanded ? "Show less" : "Read more"}
             </button>
           )}
-          <p className="mt-2 text-xs text-muted-foreground/80">From Open Library</p>
         </>
       )}
     </section>

@@ -148,8 +148,8 @@ const ImportFlow: FC = () => {
       {!job || job.status === "cancelled" ? <UploadStep onFile={upload} />
         : job.status === "matching" ? (
           job.checking > 0 && job.looked >= job.total
-            ? <ProgressStep title="Checking the unsure ones" detail={`${plural(job.checking, "title")} left to check against Open Library's suggestions`} value={job.total - job.checking} max={job.total} job={job} />
-            : <ProgressStep title="Matching your books" detail={`Looking up ${fmt(job.looked)} of ${fmt(job.total)} on Open Library`} value={job.looked} max={job.total} job={job} />
+            ? <ProgressStep title="Checking the unsure ones" detail={`${plural(job.checking, "title")} left to check`} value={job.total - job.checking} max={job.total} job={job} />
+            : <ProgressStep title="Matching your books" detail={`Looking up ${fmt(job.looked)} of ${fmt(job.total)}`} value={job.looked} max={job.total} job={job} />
         )
         : job.status === "ready" ? <PreviewStep job={job} onConfirm={confirm} onCancel={startOver} onChange={setJob} />
         : job.status === "importing" ? <ProgressStep title="Adding books to your shelves" detail={`${fmt(Math.min(job.imported, job.total))} of ${fmt(job.total)}`} value={job.imported} max={job.total} />
@@ -349,7 +349,7 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
       <ul className="flex flex-col gap-3 text-sm">
         <li className="flex gap-3">
           <BookCheck size={18} className="mt-0.5 flex-shrink-0 text-emerald-600" aria-hidden />
-          <span><strong className="tabular-nums">{fmt(job.matched)}</strong> matched on Open Library, with covers and work details.</span>
+          <span><strong className="tabular-nums">{fmt(job.matched)}</strong> matched, with covers and book details.</span>
         </li>
         {unsure > 0 && (
           <li className="flex gap-3">
@@ -409,7 +409,7 @@ const ReviewList: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => voi
       <div>
         <h2 id="review" className="text-lg font-semibold">{plural(rows.length, "match", "matches")} to check</h2>
         <p className="text-sm text-muted-foreground">
-          Open Library wasn&apos;t sure about these. Confirm the suggestion, pick another, or add the book as it is in your file.
+          We weren&apos;t sure about these. Confirm the suggestion, pick another, or add the book as it is in your file.
         </p>
       </div>
       <ul className="flex flex-col divide-y rounded-lg border">
@@ -530,7 +530,7 @@ const WorkSearch: FC<{ id: string; initialQuery: string; others?: ImportCandidat
   return (
     <div className="flex flex-col gap-3">
       <form onSubmit={(e) => { e.preventDefault(); search(query) }} className="flex gap-2">
-        <label htmlFor={`q-${id}`} className="sr-only">Search Open Library</label>
+        <label htmlFor={`q-${id}`} className="sr-only">Search for the book</label>
         <input
           id={`q-${id}`}
           value={query}

@@ -127,7 +127,7 @@ const Page = async ({ params }: PageProps) => {
               <li>Only books you finish between {questDay(quest.startsAt)} and {questDay(quest.endsAt)} (UTC) count. You&apos;re in automatically.</li>
               <li>Each book counts once, re-reads included.</li>
               {goal?.type === "startedInWindow" && <li>The book has to be started during the quest too, so books added straight to Finished don&apos;t count.</li>}
-              {goal?.type === "pages" && <li>Page counts come from Open Library when the book is linked to it, and books over {PAGES_SANITY_MAX.toLocaleString("en-GB")} pages are left out.</li>}
+              {goal?.type === "pages" && <li>Page counts come from our book details where we have them, and books over {PAGES_SANITY_MAX.toLocaleString("en-GB")} pages are left out.</li>}
               {goal?.type === "genre" && <li>Goes by the genre on your shelf copy of the book.</li>}
               <li>Imported books count only when their own read date falls inside the quest.</li>
               <li>Earn it and the medal stays on your profile after the quest ends.</li>
