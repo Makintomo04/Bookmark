@@ -1,4 +1,4 @@
-import type { ProfileVisibility } from "@prisma/client";
+import type { ProfileVisibility } from "./enums.ts";
 
 // Pure follow-request rules, safe for client components. lib/followRequests.ts has the database side.
 

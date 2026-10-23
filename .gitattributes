@@ -1,3 +1,3 @@
 # A test input, byte for byte: this export's Windows (CRLF) line endings must survive checkout on any OS,
-# or scripts/test/import-broken.test.ts stops testing them.
-scripts/test/fixtures/broken/storygraph-bom-crlf.csv -text
+# or apps/web/scripts/test/import-broken.test.ts stops testing them.
+apps/web/scripts/test/fixtures/broken/storygraph-bom-crlf.csv -text

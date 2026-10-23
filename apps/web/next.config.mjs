@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // packages/shared ships TypeScript source, so Next compiles it like the app's own files.
+  transpilePackages: ['@bookmark/shared'],
   // Lets a second dev server use its own build folder (see scripts/dev-isolated.mjs).
   distDir: process.env.NEXT_DIST_DIR || '.next',
   images: {

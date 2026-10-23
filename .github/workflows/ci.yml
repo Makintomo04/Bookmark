@@ -1,6 +1,6 @@
 # Type-check, lint, unit tests (including the reading-circle spoiler checks) and a production
-# dependency audit on every push and pull request. The tests never touch a database
-# (scripts/test/register.mjs pins DATABASE_URL to an unreachable address).
+# dependency audit on every push and pull request, for each workspace package. The tests never touch a
+# database (apps/web/scripts/test/register.mjs pins DATABASE_URL to an unreachable address).
 name: CI
 
 on:
@@ -16,16 +16,18 @@ jobs:
       DATABASE_URL: mongodb://127.0.0.1:1/ci
     steps:
       - uses: actions/checkout@v4
+      # Takes the version from packageManager in the root package.json.
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npx tsc --noEmit -p .
-      - run: npm run lint
-      - run: npm test
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @bookmark/web exec prisma generate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
       # Known, tracked advisories (Next 14, Tailwind 3 tooling) fail this until the upgrades land, so it
-      # reports without blocking for now. Make it blocking once `npm audit --omit=dev` is clean.
-      - run: npm audit --omit=dev --audit-level=high
+      # reports without blocking for now. Make it blocking once `pnpm audit --prod` is clean.
+      - run: pnpm audit --prod --audit-level=high
         continue-on-error: true

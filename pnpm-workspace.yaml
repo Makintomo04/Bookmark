@@ -1,0 +1,18 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Install scripts pnpm may run; it blocks any others.
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  bcrypt: true
+  prisma: true
+  unrs-resolver: true
+  '@vercel/speed-insights': false
+
+# next-auth 4 declares an optional peer of nodemailer ^7; the app pins 10.0.16 for the high-severity
+# advisories up to 10.0.5 and replaces next-auth's default sender with lib/mailer, so the newer major is fine.
+peerDependencyRules:
+  allowedVersions:
+    next-auth>nodemailer: "10"

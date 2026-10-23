@@ -1,5 +1,5 @@
 // List limits and report reasons, shared by the API (lib/lists.ts) and the client. No database imports here.
-import { canView, type PrivacySettings, type Relation } from "./privacyRules"
+import { canView, type PrivacySettings, type Relation } from "./privacyRules.ts"
 
 export const LIST_TITLE_MAX = 80
 export const LIST_DESCRIPTION_MAX = 500

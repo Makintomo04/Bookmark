@@ -1,4 +1,4 @@
-import { GENRES, genreBySlug } from "./genres"
+import { GENRES, genreBySlug } from "./genres.ts"
 
 // Seasonal quests: the parts the browser needs too (goal shapes, wording, the staff form's checks).
 // Server-side counting lives in lib/quests.ts.
