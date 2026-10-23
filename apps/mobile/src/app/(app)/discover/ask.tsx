@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import useSWR from "swr";
-import { AlertTriangle, BookCheck, Sparkles, Star, UsersRound } from "lucide-react-native";
+import { AlertTriangle, BookCheck, Star, UsersRound } from "lucide-react-native";
 import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { MOOD_LABEL, WARNING_LEVEL_LABEL, type Mood, type MoodCount, type WarningSummary } from "@bookmark/shared/workTags";
 import { BookCover } from "@/components/books/BookCover";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
+import { AiLabel } from "@/components/ui/AiLabel";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
@@ -83,15 +84,6 @@ function intentChips(intent: Intent): string[] {
   return chips;
 }
 
-function AiLabel() {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.ai, { backgroundColor: colors.muted }]} accessibilityLabel="Written by AI">
-      <Sparkles size={10} color={colors.brand} />
-      <Text style={{ fontSize: 10, color: colors.brandText, letterSpacing: 0.5 }}>AI</Text>
-    </View>
-  );
-}
 
 export default function AskTheShelf() {
   const { colors } = useTheme();
@@ -244,7 +236,6 @@ function ResultCard({ result }: { result: Result }) {
 const styles = StyleSheet.create({
   examples: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 6 },
-  ai: { flexDirection: "row", alignItems: "center", gap: 3, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
   card: { borderWidth: 1, padding: 12, gap: 10 },
   reason: { flexDirection: "row", gap: 8, padding: 10, alignItems: "flex-start" },
 });

@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from "@bookmark/shared/progress";
 import { BookCover } from "@/components/books/BookCover";
+import { CatchMeUp } from "@/components/books/CatchMeUp";
 import { StarRating } from "@/components/books/StarRating";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -199,6 +200,9 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
       </View>
 
       {error && <Notice tone="error" message={error} />}
+
+      {/* Coming back to a book (or starting the next in a series): the recap offer comes first. */}
+      {(isActive || status === "NOT_STARTED") && !finished && !stopping && <CatchMeUp bookId={book.id} />}
 
       {status === "NOT_STARTED" && (
         showStartPage ? (

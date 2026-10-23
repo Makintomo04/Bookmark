@@ -8,6 +8,8 @@ import { getReaderTier } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, isValidTimeZone, localDay } from "@/lib/timeZone";
 import { isWrappedSeason } from "@/lib/wrappedSeason";
 import { isProfilePublic } from "@/lib/privacy";
+import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData } from "@bookmark/shared/statsTypes";
+export type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData };
 
 export { isWrappedSeason };
 
@@ -20,73 +22,6 @@ export { isWrappedSeason };
 // same year counts twice, and undated finishes count toward totals but not toward any year.
 //
 // Years and months are the reader's calendar, in their stored time zone (UTC without one).
-
-export interface BookSummary {
-  id: string;
-  title: string;
-  author: string;
-  pages: number;
-  // Set for an audiobook listened on minutes: its running time.
-  audioMinutes: number | null;
-  coverImage: string;
-  cardColour: string | null;
-  genre: string | null;
-}
-
-export interface Tally {
-  name: string;
-  count: number;
-}
-
-export interface PeriodCount {
-  books: number;
-  pages: number;
-}
-
-export interface GoalResult {
-  year: number;
-  target: number;
-  completed: number;
-  met: boolean;
-  // Plus goals (lib/goals.ts). Null when not set; the pages and months are counted either way.
-  targetPages: number | null;
-  pages: number;
-  targetBooksPerMonth: number | null;
-  // Books a month: the custom target when set, otherwise the yearly goal over twelve months. Free.
-  pacePerMonth: number;
-  paceIsCustom: boolean;
-  // Months of the year (so far, for this year) that reached the monthly pace.
-  monthsMet: number;
-  monthsCounted: number;
-}
-
-export interface ReadingStats {
-  timeZone: string;
-  booksRead: number; // distinct books finished at least once
-  finishes: number; // completed reads, re-reads included
-  pagesRead: number; // pages across every finish
-  minutesListened: number; // audiobook running time across every finish of one
-  undatedFinishes: number;
-  rereads: number; // finishes beyond each book's first
-  rereadBooks: number;
-  dnf: number;
-  // DNF reads out of every read that ended (finished or abandoned). Null before any ended.
-  dnfRate: number | null;
-  averagePages: number | null;
-  longestBook: BookSummary | null;
-  ratedBooks: number;
-  averageRating: number | null;
-  // 0.5 to 5, every half star, including empty buckets.
-  ratings: { rating: number; count: number }[];
-  genres: Tally[];
-  authors: Tally[];
-  // Every year from the first dated finish to this year, oldest first.
-  years: (PeriodCount & { year: number })[];
-  // Per year in `years`, twelve months.
-  months: Record<number, PeriodCount[]>;
-  goals: GoalResult[]; // newest first
-  streak: number;
-}
 
 const TOP = 8;
 const STAR_STEPS = Array.from({ length: 10 }, (_, i) => (i + 1) / 2);
@@ -325,40 +260,6 @@ export async function getGoalProgress(userId: string, year: number): Promise<Goa
 }
 
 // ---- Wrapped ----------------------------------------------------------------------------------
-
-export interface WrappedMedal {
-  key: string; // the stored milestone, e.g. "BOOKS_READ:25"
-  achievementKey: string; // its ladder, e.g. "BOOKS_READ" (what <Medal> draws)
-  title: string;
-  achievement: string;
-  earnedAt: string;
-}
-
-export interface WrappedData {
-  year: number;
-  // Set for a monthly Wrap card (0 to 11): every count below is for that month alone.
-  month: number | null;
-  isCurrentYear: boolean;
-  books: number; // finishes in the year, re-reads included
-  distinctBooks: number;
-  pages: number;
-  rereads: number;
-  dnf: number;
-  topGenre: Tally | null;
-  topAuthor: Tally | null;
-  topRated: (BookSummary & { rating: number }) | null;
-  longestBook: BookSummary | null;
-  firstBook: BookSummary | null;
-  lastBook: BookSummary | null;
-  busiestMonth: (PeriodCount & { month: number }) | null;
-  months: PeriodCount[];
-  medals: WrappedMedal[];
-  tier: { key: string; label: string; light: string; colour: string; shade: string } | null;
-  // Books counted for the tier at the end of the year.
-  tierBooks: number;
-  // The yearly book goal; for a month, the monthly pace if one is set.
-  goal: { target: number; completed: number; met: boolean } | null;
-}
 
 // A year's Wrapped, or with `month` (0 to 11) one month of it: the same numbers for that month only,
 // which the monthly share card (Plus) draws.
