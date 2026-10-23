@@ -22,7 +22,8 @@ export function ProfileHeader({ user }: { user: ProfileUser }) {
   const colour = user.favColour || DEFAULT_COLOUR;
   const banner = resolveBanner(user.banner, user.id);
   const preset = bannerPresetOf(banner);
-  const booksRead = user._count?.books ?? 0;
+  // Only when known: a restricted profile doesn't say how much they read.
+  const booksRead = user._count?.books;
   return (
     <View>
       <View style={styles.banner}>
@@ -32,7 +33,7 @@ export function ProfileHeader({ user }: { user: ProfileUser }) {
         <Avatar image={user.image} name={user.username ?? user.name} colour={colour} size={84} ring />
         <View style={{ gap: 2 }}>
           <Text variant="display">{user.name || user.username}</Text>
-          {user.username && <Text variant="muted">@{user.username} · {booksRead.toLocaleString("en-GB")} {booksRead === 1 ? "book" : "books"} read</Text>}
+          {user.username && <Text variant="muted">@{user.username}{booksRead !== undefined ? ` · ${booksRead.toLocaleString("en-GB")} ${booksRead === 1 ? "book" : "books"} read` : ""}</Text>}
         </View>
         {user.bio ? <Text>{user.bio}</Text> : null}
       </View>

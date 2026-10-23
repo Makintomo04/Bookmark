@@ -4,7 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR from "swr";
 import { Plus } from "lucide-react-native";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { FollowRequests } from "@/components/library/FollowRequests";
 import { GoalCard } from "@/components/library/GoalCard";
+import { NotificationBell } from "@/components/social/NotificationBell";
 import { Shelves } from "@/components/library/Shelves";
 import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHeader";
 import { Button } from "@/components/ui/Button";
@@ -28,11 +30,15 @@ export default function Library() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); }} tintColor={colors.mutedForeground} />}
       >
+        <View style={styles.topBar}>
+          <NotificationBell color="#ffffff" />
+        </View>
         {user && <ProfileHeader user={user} />}
         <View style={styles.actions}>
           <View style={{ flex: 1 }}><Button title="Add a book" icon={<Plus size={18} color={colors.onBrand} />} onPress={() => router.push("/add-book")} /></View>
           <View style={{ flex: 1 }}><Button title="Edit profile" variant="outline" onPress={() => router.push("/profile/edit")} /></View>
         </View>
+        <FollowRequests />
         <GoalCard accent={accent} />
         {isLoading && <ActivityIndicator color={colors.mutedForeground} />}
         {error && (
@@ -56,5 +62,7 @@ export default function Library() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   actions: { flexDirection: "row", gap: 10 },
+  // Sits over the banner's top-right corner.
+  topBar: { position: "absolute", top: 8, right: 8, zIndex: 1, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.35)" },
   content: { width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40, gap: 20 },
 });

@@ -1,5 +1,6 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { getProfileView } from "@/lib/publicProfile";
+import { hasRequested } from "@/lib/followRequests";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -16,11 +17,14 @@ export async function GET(
   }
 
   const { relation } = view;
+  // A follow request waiting on the owner, so the button can say "Requested" (the web page asks this itself).
+  const requested = !!currentUser && !relation.isSelf && !relation.isFollower && (await hasRequested(currentUser.id, view.userId));
   return NextResponse.json({
     ...view.profile,
     // null when the whole profile is visible; otherwise why it isn't.
     restricted: view.access === "restricted" ? view.reason : null,
     isFollowing: relation.isFollower,
+    requested,
     isSelf: relation.isSelf,
     isBlocked: relation.blocked === "byViewer",
   });

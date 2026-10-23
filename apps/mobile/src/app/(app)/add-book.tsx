@@ -33,11 +33,17 @@ const ADDED: Record<Shelf, string> = { NOT_STARTED: "Want to read", STARTED: "Re
 type Draft = { title: string; author: string; pages: string; coverUrl: string | null; found: FoundBook | null };
 
 export default function AddBook() {
-  const params = useLocalSearchParams<{ shelf?: string; startCircle?: string }>();
+  const params = useLocalSearchParams<{ shelf?: string; startCircle?: string; title?: string; author?: string; coverUrl?: string; pages?: string; workKey?: string }>();
   const startCircle = params.startCircle === "1";
   const [query, setQuery] = useState("");
   const [attempt, setAttempt] = useState(0);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  // Opened on a book from Discover, a list or Ask the shelf: straight to choosing the shelf.
+  const [draft, setDraft] = useState<Draft | null>(() => {
+    if (!params.title || !params.author) return null;
+    const pages = params.pages ? parseInt(params.pages, 10) || null : null;
+    const found: FoundBook = { workKey: params.workKey ?? null, title: params.title, author: params.author, pages, coverUrl: params.coverUrl ?? null };
+    return { title: params.title, author: params.author, pages: pages ? String(pages) : "", coverUrl: params.coverUrl ?? null, found };
+  });
   const { results, isSearching, failed } = useBookSearch(query, { attempt });
   const { colors, radii } = useTheme();
 
