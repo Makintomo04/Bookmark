@@ -192,6 +192,9 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
           <Text variant="title" style={{ fontSize: 20, lineHeight: 26 }}>{book.title}</Text>
           <Text variant="muted">{book.author}</Text>
           {meta ? <Text variant="small">{meta}</Text> : null}
+          <View style={{ alignItems: "flex-start" }}>
+            <Button title="Edit details" variant="ghost" disabled={saving} onPress={() => router.push(`/book/edit/${book.id}`)} />
+          </View>
         </View>
       </View>
 
@@ -247,7 +250,10 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
           )}
         </View>
       ) : (
-        <Text variant="muted">This book doesn{"’"}t have a page count or running time yet, so progress can{"’"}t be tracked. Add one by editing the book on the web.</Text>
+        <View style={{ gap: 4, alignItems: "flex-start" }}>
+          <Text variant="muted">This book doesn{"’"}t have a page count or running time yet, so progress can{"’"}t be tracked.</Text>
+          <Button title="Add it" variant="ghost" onPress={() => router.push(`/book/edit/${book.id}`)} />
+        </View>
       ))}
 
       {isActive && !stopping && (

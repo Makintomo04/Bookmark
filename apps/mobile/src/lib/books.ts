@@ -13,6 +13,7 @@ export interface Book extends ProgressBook {
   author: string;
   coverImage: string;
   cardColour: string | null;
+  genre: string | null;
   status: Status;
   rating: number | null;
   review: string | null;

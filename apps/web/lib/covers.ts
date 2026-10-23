@@ -46,6 +46,15 @@ export async function copyCoverToUploadThing(url: string) {
   return uploaded.data.url;
 }
 
+// Uploads an image the reader picked (the mobile app's photos and covers, app/api/mobile/upload) and
+// returns its utfs.io URL. Throws on any failure.
+export async function uploadImage(file: File) {
+  utapi ??= new UTApi();
+  const uploaded = await withTimeout(utapi.uploadFiles(file), UPLOAD_TIMEOUT_MS, "image upload");
+  if (uploaded.error) throw new Error(`image upload failed: ${uploaded.error.message}`);
+  return uploaded.data.url;
+}
+
 // Hotlinked Open Library covers all vanish when their cover server is down, so keep our own copy.
 // Never throws: adding or editing a book shouldn't fail over a cover, so it falls back to the original URL.
 export async function mirrorCover(url: string) {

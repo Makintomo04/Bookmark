@@ -29,7 +29,10 @@ export default function Library() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); }} tintColor={colors.mutedForeground} />}
       >
         {user && <ProfileHeader user={user} />}
-        <Button title="Add a book" icon={<Plus size={18} color={colors.onBrand} />} onPress={() => router.push("/add-book")} />
+        <View style={styles.actions}>
+          <View style={{ flex: 1 }}><Button title="Add a book" icon={<Plus size={18} color={colors.onBrand} />} onPress={() => router.push("/add-book")} /></View>
+          <View style={{ flex: 1 }}><Button title="Edit profile" variant="outline" onPress={() => router.push("/profile/edit")} /></View>
+        </View>
         <GoalCard accent={accent} />
         {isLoading && <ActivityIndicator color={colors.mutedForeground} />}
         {error && (
@@ -52,5 +55,6 @@ export default function Library() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  actions: { flexDirection: "row", gap: 10 },
   content: { width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40, gap: 20 },
 });

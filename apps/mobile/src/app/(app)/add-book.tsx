@@ -2,7 +2,9 @@ import { useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Switch, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Search } from "lucide-react-native";
+import { formatPayload, runningTimeOf, type FormatChoice } from "@bookmark/shared/bookFormat";
 import { BookCover } from "@/components/books/BookCover";
+import { FormatFields } from "@/components/books/FormatFields";
 import { StarRating } from "@/components/books/StarRating";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -18,7 +20,7 @@ import { useTheme } from "@/lib/theme";
 
 // Adding a book, after the web's BookEntryModal: search by title or author (or type it in), choose the
 // shelf, add. Opened with ?shelf=STARTED to start on Reading, and ?startCircle=1 to go straight on to
-// starting a reading circle with it. Audiobooks and editing details before adding follow in the port.
+// starting a reading circle with it. Details can be corrected afterwards from the book (Edit details).
 
 type Shelf = "NOT_STARTED" | "STARTED" | "COMPLETED";
 const SHELVES: { value: Shelf; label: string }[] = [
@@ -100,14 +102,20 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, onBack }: { dra
   const [currentPage, setCurrentPage] = useState("");
   const [rating, setRating] = useState(0);
   const [finishedThisYear, setFinishedThisYear] = useState(true);
+  const [format, setFormat] = useState<FormatChoice>("PRINT");
+  const [hours, setHours] = useState("");
+  const [minutes, setMinutes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const manual = !draft.found;
+  const isAudio = format === "AUDIOBOOK";
+  const runningTime = runningTimeOf(hours, minutes);
   // A reading circle is for a book you're reading or about to; Finished isn't offered then.
   const shelves = startCircle ? SHELVES.filter((s) => s.value !== "COMPLETED") : SHELVES;
 
   const add = async () => {
     if (!draft.title.trim() || !draft.author.trim()) return setError("Add the title and author.");
+    if (isAudio && runningTime <= 0) return setError("Enter the audiobook's running time.");
     setSaving(true);
     setError(null);
     try {
@@ -121,7 +129,10 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, onBack }: { dra
         isbn13: draft.found?.isbn13 || undefined,
         isbn10: draft.found?.isbn10 || undefined,
         status: shelf,
-        currentPage: shelf === "STARTED" && currentPage ? parseInt(currentPage, 10) : undefined,
+        ...formatPayload(format, runningTime),
+        // For an audiobook the "current page" field holds minutes listened.
+        currentPage: shelf === "STARTED" && !isAudio && currentPage ? parseInt(currentPage, 10) : undefined,
+        currentMinute: shelf === "STARTED" && isAudio && currentPage ? parseInt(currentPage, 10) : undefined,
         finishedThisYear: shelf === "COMPLETED" ? finishedThisYear : undefined,
         rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
       });
@@ -153,9 +164,15 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, onBack }: { dra
           <TextField label="Pages · optional" value={draft.pages} onChangeText={(pages) => setDraft({ ...draft, pages: pages.replace(/\D/g, "").slice(0, 5) })} keyboardType="number-pad" />
         </View>
       )}
+      <FormatFields format={format} onFormat={setFormat} hours={hours} minutes={minutes} onHours={setHours} onMinutes={setMinutes} disabled={saving} />
       <Segmented label="Shelf" options={shelves} value={shelf} onChange={setShelf} disabled={saving} />
       {shelf === "STARTED" && (
-        <TextField label={`Current page · optional${draft.pages ? ` (of ${draft.pages})` : ""}`} value={currentPage} onChangeText={(t) => setCurrentPage(t.replace(/\D/g, "").slice(0, 5))} keyboardType="number-pad" />
+        <TextField
+          label={isAudio ? `Minutes listened · optional${runningTime ? ` (of ${runningTime})` : ""}` : `Current page · optional${draft.pages ? ` (of ${draft.pages})` : ""}`}
+          value={currentPage}
+          onChangeText={(t) => setCurrentPage(t.replace(/\D/g, "").slice(0, 5))}
+          keyboardType="number-pad"
+        />
       )}
       {shelf === "COMPLETED" && (
         <View style={{ gap: 12 }}>

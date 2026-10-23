@@ -36,9 +36,12 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="book/[id]" options={{ title: "" }} />
       <Stack.Screen name="add-book" options={{ title: "Add a book", presentation: "modal" }} />
+      <Stack.Screen name="book/edit/[id]" options={{ title: "Edit details" }} />
+      <Stack.Screen name="profile/edit" options={{ title: "Edit profile" }} />
       <Stack.Screen name="circles/[id]" options={{ title: "Reading circle" }} />
       <Stack.Screen name="circles/new" options={{ title: "Start a reading circle", presentation: "modal" }} />
       <Stack.Screen name="circles/join/[code]" options={{ title: "Reading circle" }} />
+      <Stack.Screen name="circles/schedule/[id]" options={{ title: "Schedule" }} />
     </Stack>
   );
 }

@@ -2,14 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import useSWR from "swr";
-import { BookOpen, Check, ChevronRight, Target, Upload, UsersRound } from "lucide-react-native";
-import { BANNER_PRESETS, bannerPresetValue, defaultBannerPreset, type BannerPresetId } from "@bookmark/shared/banners";
+import { BookOpen, ChevronRight, Target, Upload, UsersRound } from "lucide-react-native";
+import { bannerPresetValue, defaultBannerPreset, type BannerPresetId } from "@bookmark/shared/banners";
 import { GENRES } from "@bookmark/shared/genres";
 import { GOAL_BOOKS_MAX } from "@bookmark/shared/goals";
-import { DEFAULT_COLOUR, SWATCHES, normaliseUsername, suggestUsername, usernameProblem } from "@bookmark/shared/profile";
+import { DEFAULT_COLOUR, normaliseUsername, suggestUsername, usernameProblem } from "@bookmark/shared/profile";
 import { PROFILE_HINT, PROFILE_OPTIONS } from "@bookmark/shared/settingsCopy";
 import type { ProfileVisibility } from "@bookmark/shared/enums";
-import { Avatar } from "@/components/profile/Avatar";
+import { BannerPicker, ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
 import { BannerPattern } from "@/components/profile/BannerPattern";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -30,7 +30,6 @@ import { useTheme } from "@/lib/theme";
 // leaves step 3 (refreshUser), so steps 2 and 3 aren't skipped.
 
 type Step = 1 | 2 | 3;
-type Availability = "idle" | "checking" | "available" | "taken";
 type Me = { id: string; name: string | null; email: string | null; image: string | null };
 type Settings = { favGenres: string[]; profileVisibility: ProfileVisibility };
 
@@ -78,24 +77,13 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
   const [username, setUsername] = useState(() => suggestUsername(me));
   const [colour, setColour] = useState(DEFAULT_COLOUR);
   const [banner, setBanner] = useState<BannerPresetId>(() => defaultBannerPreset(me.id));
-  const [availability, setAvailability] = useState<Availability>("idle");
+  // Google and Apple accounts may arrive with a picture; start from it.
+  const [image, setImage] = useState<string | null>(me.image || null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const name = normaliseUsername(username);
   const problem = name ? usernameProblem(name) : null;
-
-  // Debounced, and ignores answers about a name the reader has since typed past.
-  useEffect(() => {
-    if (usernameProblem(name)) return setAvailability("idle");
-    setAvailability("checking");
-    let current = true;
-    const timer = setTimeout(() => {
-      api.get<{ available: boolean }>(`/api/new-user?username=${encodeURIComponent(name)}`)
-        .then((res) => current && setAvailability(res.available ? "available" : "taken"))
-        .catch(() => current && setAvailability("idle"));
-    }, 350);
-    return () => { current = false; clearTimeout(timer); };
-  }, [name]);
+  const availability = useUsernameAvailability(username);
 
   const save = async () => {
     if (problem) return setError(problem);
@@ -103,18 +91,13 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
     setSaving(true);
     setError(null);
     try {
-      await api.post("/api/new-user", { username: name, color: colour, imageSrc: me.image || undefined, bannerSrc: bannerPresetValue(banner) });
+      await api.post("/api/new-user", { username: name, color: colour, imageSrc: image || undefined, bannerSrc: bannerPresetValue(banner) });
       onDone();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't save your profile. Check your connection and try again.");
       setSaving(false);
     }
   };
-
-  const hint = availability === "taken" ? "That username is already taken."
-    : availability === "available" ? `Available · your profile will be /u/${name}`
-    : availability === "checking" ? "Checking…"
-    : `Your profile will be /u/${name || "…"}`;
 
   return (
     <View style={styles.step}>
@@ -125,51 +108,16 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
 
       <View style={[styles.preview, { borderRadius: radii.lg }]}>
         <BannerPattern preset={banner} colour={colour} />
-        <View style={styles.previewAvatar}>
-          <Avatar image={me.image} name={name} colour={colour} size={64} ring />
-        </View>
       </View>
+      <PhotoPicker image={image} name={name} colour={colour} onChange={setImage} />
 
       <View style={{ gap: 6 }}>
         <TextField label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} error={error ?? problem} />
-        {!error && !problem && <Text variant="small" style={availability === "taken" && { color: colors.danger }}>{hint}</Text>}
+        {!error && !problem && <Text variant="small" style={availability === "taken" && { color: colors.danger }}>{usernameHint(name, availability)}</Text>}
       </View>
 
-      <View style={{ gap: 10 }}>
-        <Text variant="label">Your colour</Text>
-        <View accessibilityRole="radiogroup" style={styles.swatches}>
-          {SWATCHES.map((swatch) => (
-            <Pressable
-              key={swatch}
-              accessibilityRole="radio"
-              accessibilityLabel={swatch}
-              accessibilityState={{ checked: colour === swatch }}
-              onPress={() => setColour(swatch)}
-              style={[styles.swatch, { backgroundColor: swatch, borderColor: colour === swatch ? colors.foreground : "transparent" }]}
-            >
-              {colour === swatch && <Check size={16} color="#ffffff" />}
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      <View style={{ gap: 10 }}>
-        <Text variant="label">Your banner</Text>
-        <View accessibilityRole="radiogroup" style={styles.banners}>
-          {BANNER_PRESETS.map((preset) => (
-            <Pressable
-              key={preset.id}
-              accessibilityRole="radio"
-              accessibilityLabel={preset.name}
-              accessibilityState={{ checked: banner === preset.id }}
-              onPress={() => setBanner(preset.id)}
-              style={[styles.bannerOption, { borderRadius: radii.md, borderColor: banner === preset.id ? colors.foreground : colors.border }]}
-            >
-              <BannerPattern preset={preset.id} colour={colour} />
-            </Pressable>
-          ))}
-        </View>
-      </View>
+      <ColourPicker value={colour} onChange={setColour} />
+      <BannerPicker value={banner} colour={colour} onChange={setBanner} />
 
       <Button title={saving ? "Saving…" : "Continue"} loading={saving} disabled={availability === "checking"} onPress={save} />
     </View>
@@ -327,12 +275,7 @@ const styles = StyleSheet.create({
   step: { gap: 20 },
   intro: { gap: 8 },
   center: { textAlign: "center" },
-  preview: { height: 120, overflow: "hidden", justifyContent: "flex-end" },
-  previewAvatar: { padding: 12 },
-  swatches: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 3, alignItems: "center", justifyContent: "center" },
-  banners: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  bannerOption: { width: "31%", flexGrow: 1, height: 56, overflow: "hidden", borderWidth: 2 },
+  preview: { height: 96, overflow: "hidden" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "flex-end" },
   option: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderWidth: 1 },
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },

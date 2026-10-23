@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { progressScale } from "@bookmark/shared/progress";
 import { BookCover } from "@/components/books/BookCover";
+import { ScheduleEditor, scheduleOf, type ScheduleRow } from "@/components/circles/ScheduleEditor";
+import { DateField, dayOf } from "@/components/ui/DateField";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -11,7 +14,7 @@ import { useBooks, type Book } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
 
 // Starting a reading circle (the web's /circles/new): pick the book from your shelf, or find another,
-// then start. Inviting happens from the circle itself. A reading schedule can be added on the web for now.
+// set the start date and, if you like, a schedule, then start. Inviting happens from the circle itself.
 
 const SHELF: Partial<Record<Book["status"], string>> = { STARTED: "Reading", PAUSED: "Paused", NOT_STARTED: "Want to read" };
 
@@ -22,15 +25,25 @@ export default function NewCircle() {
   const [chosen, setChosen] = useState<string | null>(bookId ?? null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startsOn, setStartsOn] = useState(() => dayOf(new Date()));
+  const [rows, setRows] = useState<ScheduleRow[]>([]);
   const candidates = (books ?? []).filter((b) => SHELF[b.status]);
   const book = books?.find((b) => b.id === chosen) ?? null;
+  // Pages or minutes: either works, as long as there's a length to measure progress against.
+  const hasLength = !!book && progressScale(book).total > 0;
 
   const start = async () => {
     if (!book) return;
     setStarting(true);
     setError(null);
     try {
-      const circle = await api.post<{ id: string }>("/api/buddy-reads", { bookId: book.id });
+      const schedule = scheduleOf(rows);
+      const circle = await api.post<{ id: string }>("/api/buddy-reads", {
+        bookId: book.id,
+        // Local midnight on the chosen day.
+        startsAt: new Date(`${startsOn}T00:00:00`).toISOString(),
+        ...(schedule.length && { schedule }),
+      });
       router.replace(`/circles/${circle.id}?invite=1`);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't start the circle. Try again.");
@@ -51,8 +64,19 @@ export default function NewCircle() {
           </View>
         </View>
         <Text>Everyone reads their own copy, in any edition or on audio. Comments are pinned to where they were written and stay locked until each reader gets there.</Text>
+        {!hasLength && (
+          <View style={{ gap: 4, alignItems: "flex-start" }}>
+            <Notice tone="error" message="This book has no page count or running time, so progress can't be tracked. Add one first." />
+            <Button title="Edit details" variant="ghost" onPress={() => router.push(`/book/edit/${book.id}`)} />
+          </View>
+        )}
+        <DateField label="Start date" value={startsOn} onChange={(day) => day && setStartsOn(day)} />
+        <View style={{ gap: 6 }}>
+          <Text variant="label">Schedule · optional</Text>
+          <ScheduleEditor rows={rows} onChange={setRows} disabled={starting} />
+        </View>
         {error && <Notice tone="error" message={error} />}
-        <Button title="Start the circle" loading={starting} onPress={start} />
+        <Button title="Start and get the link" loading={starting} disabled={!hasLength} onPress={start} />
         {!bookId && <Button title="Choose another book" variant="ghost" disabled={starting} onPress={() => setChosen(null)} />}
       </Screen>
     );
