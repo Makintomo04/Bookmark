@@ -17,7 +17,8 @@ export async function GET(_req: Request, { params }: { params: { username: strin
     if (viewer?.id !== owner.id) return new Response('Not found', { status: 404 })
   }
 
-  const wrapped = await getWrapped(owner.id, year)
+  // A story image is made to be posted, so private books stay out of it even for the owner.
+  const wrapped = await getWrapped(owner.id, year, null, { sharedOnly: true })
   return wrappedStoryImage(
     { wrapped, username: owner.username, favColour: owner.favColour },
     {

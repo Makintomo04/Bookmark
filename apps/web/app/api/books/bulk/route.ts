@@ -13,6 +13,9 @@ const bodySchema = z.discriminatedUnion("action", [
   // open or close a read (start, finish, DNF) stay one book at a time through /api/book-progress.
   z.object({ action: z.literal("notInterested"), ids: z.array(objectId).min(1).max(BULK_MAX) }),
   z.object({ action: z.literal("wantToRead"), ids: z.array(objectId).min(1).max(BULK_MAX) }),
+  // Private books stay on the reader's shelf but drop out of everything others see.
+  z.object({ action: z.literal("makePrivate"), ids: z.array(objectId).min(1).max(BULK_MAX) }),
+  z.object({ action: z.literal("makePublic"), ids: z.array(objectId).min(1).max(BULK_MAX) }),
   z.object({ action: z.literal("addToList"), ids: z.array(objectId).min(1).max(BULK_MAX), listId: objectId }),
   z.object({ action: z.literal("remove"), ids: z.array(objectId).min(1).max(BULK_MAX) }),
 ]);
@@ -36,6 +39,11 @@ export async function POST(req: Request) {
     }
     case "wantToRead": {
       const { count } = await prisma.book.updateMany({ where: { ...mine, status: "NOT_INTERESTED" }, data: { status: "NOT_STARTED" } });
+      return NextResponse.json({ updated: count, skipped: ids.length - count });
+    }
+    case "makePrivate":
+    case "makePublic": {
+      const { count } = await prisma.book.updateMany({ where: mine, data: { isPrivate: body.action === "makePrivate" } });
       return NextResponse.json({ updated: count, skipped: ids.length - count });
     }
     case "addToList": {

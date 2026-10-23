@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const owner = year ? await getWrappedOwner(params.username) : null
   if (!year || !owner || !(await isWrappedPublic(owner))) return { title: 'Wrapped not found', robots: { index: false } }
 
-  const w = await getWrapped(owner.id, year)
+  const w = await getWrapped(owner.id, year, null, { sharedOnly: true })
   const title = `${owner.username}'s ${year} in books`
   const description = w.books
     ? `${owner.username} finished ${plural(w.books, 'book')} and ${plural(w.pages, 'page')} in ${year}${w.topGenre ? `, mostly ${w.topGenre.name}` : ''}. See their Bookmark Wrapped.`
@@ -43,7 +43,9 @@ export default async function Page({ params }: PageProps) {
   const own = viewer?.id === owner.id
   if (!own && !(await canViewUser(viewer?.id, owner.id, 'profile'))) notFound()
 
-  const [wrapped, years] = await Promise.all([getWrapped(owner.id, year), getWrappedYears(owner.id)])
+  // Private books are the owner's alone, so anyone else sees the year without them.
+  const sharedOnly = !own
+  const [wrapped, years] = await Promise.all([getWrapped(owner.id, year, null, { sharedOnly }), getWrappedYears(owner.id, { sharedOnly })])
   const accent = readerAccent(owner.favColour)
 
   return (

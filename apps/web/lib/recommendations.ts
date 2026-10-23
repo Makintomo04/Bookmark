@@ -4,6 +4,7 @@ import { isBlockedEitherWay } from "@/lib/buddyReadsServer";
 import { sameBook } from "@/lib/workKey";
 import type { RecommendFriend } from "@/lib/recommendRules";
 import { coverToShare } from "@/lib/uploads";
+import { sharedBookWhere } from "@/lib/privacy";
 
 export { RECOMMEND_MAX_FRIENDS, RECOMMEND_MESSAGE_MAX, type RecommendFriend } from "@/lib/recommendRules";
 
@@ -32,7 +33,8 @@ export async function recommendFriends(userId: string, book: { title: string; au
   const [users, shelved] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, username: true, image: true, favColour: true } }),
     prisma.book.findMany({
-      where: { userId: { in: ids }, OR: [...(book.workKey ? [{ workKey: book.workKey }] : []), { title: { equals: book.title, mode: "insensitive" as const } }] },
+      // A friend's private copy reads as not having it: sending it anyway is better than giving it away.
+      where: { userId: { in: ids }, AND: [sharedBookWhere], OR: [...(book.workKey ? [{ workKey: book.workKey }] : []), { title: { equals: book.title, mode: "insensitive" as const } }] },
       select: { userId: true, title: true, author: true, workKey: true },
     }),
   ]);

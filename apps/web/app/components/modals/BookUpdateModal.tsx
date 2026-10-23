@@ -5,13 +5,13 @@ import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
-import { Send } from 'lucide-react'
+import { Lock, Send, Unlock } from 'lucide-react'
 import Modal from './Modal'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import { Button } from '../ui/button'
 import { isRereading } from '../books/shelf'
-import { moveBook, type ShelfAction } from '../books/ShelfMenuItems'
+import { moveBook, setBookPrivacy, type ShelfAction } from '../books/ShelfMenuItems'
 import useBookReads from '@/app/hooks/useBookReads'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
@@ -60,6 +60,8 @@ const BookUpdateModal: FC = () => {
   const [review, setReview] = useState("")
   const [reviewSpoiler, setReviewSpoiler] = useState(false)
   const [reviewPrivate, setReviewPrivate] = useState(false)
+  // The whole book private, not just the review. Saved on its own, straight away (togglePrivate).
+  const [isPrivate, setIsPrivate] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -83,6 +85,7 @@ const BookUpdateModal: FC = () => {
     setReview(book.review ?? "")
     setReviewSpoiler(!!book.reviewSpoiler)
     setReviewPrivate(!!book.reviewPrivate)
+    setIsPrivate(!!book.isPrivate)
   }, [isOpen, book])
 
   useEffect(() => {
@@ -219,6 +222,16 @@ const BookUpdateModal: FC = () => {
       booksMutate()
       readsMutate()
       close()
+    }).finally(() => setIsSaving(false))
+  }
+
+  // Applies straight away, apart from the progress form: it's about who sees the book, not the read.
+  const togglePrivate = () => {
+    setIsSaving(true)
+    setBookPrivacy(book.id, !isPrivate).then((ok) => {
+      if (!ok) return
+      setIsPrivate(!isPrivate)
+      booksMutate()
     }).finally(() => setIsSaving(false))
   }
 
@@ -509,6 +522,15 @@ const BookUpdateModal: FC = () => {
           <button type="button" onClick={sendToFriend} disabled={isSaving} className="mt-3 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             <Send size={14} aria-hidden />Send to a friend
           </button>
+          {/* Will not read is private already. */}
+          {status !== "NOT_INTERESTED" && (
+            <div className="mt-2">
+              {isPrivate && <p className="text-xs text-muted-foreground">Private: only you can see this book.</p>}
+              <button type="button" onClick={togglePrivate} disabled={isSaving} className="mt-1 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                {isPrivate ? <><Unlock size={14} aria-hidden />Share on profile</> : <><Lock size={14} aria-hidden />Make private</>}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

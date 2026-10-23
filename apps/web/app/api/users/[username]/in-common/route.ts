@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
-import { canView, getRelation, privacyOf, privacySelect } from "@/lib/privacy";
+import { canView, getRelation, privacyOf, privacySelect, sharedBookWhere } from "@/lib/privacy";
 import { isFinishedBook } from "@/lib/readerTier";
 
 export interface InCommonBook {
@@ -87,7 +87,7 @@ export async function GET(
   if (keys.length === 0) return NextResponse.json(NOTHING);
 
   const ownerBooks = await prisma.book.findMany({
-    where: { userId: owner.id, workKey: { in: keys } },
+    where: { userId: owner.id, workKey: { in: keys }, ...sharedBookWhere },
     select: bookSelect,
   });
   const theirs = shelfByWork(ownerBooks);

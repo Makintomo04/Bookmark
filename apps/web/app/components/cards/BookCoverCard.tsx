@@ -3,7 +3,7 @@ import { FC, KeyboardEvent } from 'react'
 import moment from 'moment'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
-import { Bookmark, Star } from 'lucide-react'
+import { Bookmark, Lock, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatLength, formatPosition, formatStoppedAt, progressWhole } from '@/lib/progress'
 import useFavourite from '@/app/hooks/useFavourite'
@@ -82,6 +82,11 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
           sizes="(min-width: 1280px) 180px, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw"
         />
         {!readOnly && <OwnerOverlay book={book} onUpdateProgress={openProgress} />}
+        {book.isPrivate && (
+          <span className="pointer-events-none absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white">
+            <Lock size={10} aria-hidden />Private
+          </span>
+        )}
       </div>
 
       <div className={cn("min-w-0 transition-[padding]", selecting && "px-2.5 pb-2.5")}>

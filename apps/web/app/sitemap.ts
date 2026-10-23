@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 import prisma from '@/lib/db'
 import { GENRES } from '@/lib/genres'
-import { publicProfileWhere } from '@/lib/privacy'
+import { publicProfileWhere, sharedBookWhere } from '@/lib/privacy'
 import { siteUrl } from '@/lib/siteUrl'
 
 // Lists users and lists from the database: refresh hourly instead of freezing it at build time.
@@ -25,7 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       where: {
         AND: [
           { username: { not: null } },
-          { books: { some: { status: { in: ['STARTED', 'COMPLETED'] } } } },
+          { books: { some: { status: { in: ['STARTED', 'COMPLETED'] }, ...sharedBookWhere } } },
           publicProfileWhere,
         ],
       },
