@@ -5,21 +5,12 @@ import * as WebBrowser from "expo-web-browser";
 import { isWrappedSeason } from "@bookmark/shared/wrappedSeason";
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
-import { Segmented } from "@/components/ui/Segmented";
 import { Text } from "@/components/ui/Text";
 import { useAuth } from "@/lib/auth";
 import { webUrl } from "@/lib/config";
-import { useThemePreference, type ThemePreference } from "@/lib/theme";
 
-const APPEARANCE: { value: ThemePreference; label: string }[] = [
-  { value: "dark", label: "Dark" },
-  { value: "light", label: "Light" },
-  { value: "system", label: "Match device" },
-];
-
-// Settings and the rest of the web's user menu. For now: stats and Wrapped, appearance, the account, and the legal pages.
+// The rest of the web's user menu: your reading, then the account (settings, Plus, import), and the legal pages.
 export default function More() {
-  const { preference, setPreference } = useThemePreference();
   const { user, signOut } = useAuth();
 
   return (
@@ -29,21 +20,18 @@ export default function More() {
       <View style={styles.section}>
         <Text variant="title">Your reading</Text>
         <Button title="Stats" variant="outline" onPress={() => router.push("/stats")} />
-        <Button title="Achievements" variant="outline" onPress={() => router.push("/achievements" as never)} />
+        <Button title="Achievements" variant="outline" onPress={() => router.push("/achievements")} />
         <Button title="Quests" variant="outline" onPress={() => router.push("/quests" as never)} />
-        <Button title="Import from Goodreads or StoryGraph" variant="outline" onPress={() => router.push("/import" as never)} />
         {/* From 1 December, as in the web's menu. Every year with a Wrapped is linked from Stats. */}
         {isWrappedSeason() && <Button title={`Your ${new Date().getFullYear()} Wrapped`} variant="outline" onPress={() => router.push(`/wrapped/${new Date().getFullYear()}`)} />}
       </View>
 
       <View style={styles.section}>
-        <Text variant="title">Appearance</Text>
-        <Segmented options={APPEARANCE} value={preference} onChange={setPreference} />
-      </View>
-
-      <View style={styles.section}>
         <Text variant="title">Account</Text>
         <Text variant="muted">Signed in as {user?.username ? `@${user.username}` : user?.email}</Text>
+        <Button title="Settings" variant="outline" onPress={() => router.push("/settings" as never)} />
+        <Button title="Bookmark Plus" variant="outline" onPress={() => router.push("/plus" as never)} />
+        <Button title="Import from Goodreads or StoryGraph" variant="outline" onPress={() => router.push("/import" as never)} />
         <Button title="Sign out" variant="outline" onPress={signOut} />
       </View>
 
