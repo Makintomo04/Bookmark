@@ -28,7 +28,8 @@ export const authOptions: AuthOptions = {
   pages: {
     signIn: '/signin',
     error: '/signin',
-    // signOut: '/signin',
+    // Only reached when a sign-out fails NextAuth's CSRF check; it retries instead of showing NextAuth's own page.
+    signOut: '/signout',
     newUser: '/new-user',
   },
   providers: [
