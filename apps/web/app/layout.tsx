@@ -15,7 +15,7 @@ const font = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const display = Literata({ subsets: ["latin"], variable: "--font-display", style: ["normal", "italic"], axes: ["opsz"] });
 
 const title = "Bookmark — Your reading and your friends, in one app";
-const description = "Track every book with free stats, goals and Wrapped, and read with friends in reading circles where nobody gets spoiled. Import from Goodreads or StoryGraph in a minute.";
+const description = "Stop logging every book twice. Bookmark puts free stats, goals and Wrapped alongside friends and private reading circles, and imports your Goodreads and StoryGraph history in a minute.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

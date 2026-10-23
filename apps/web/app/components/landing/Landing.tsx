@@ -70,8 +70,8 @@ const steps = [
     description: "Import your shelves, ratings, reviews and reading dates from Goodreads or StoryGraph in about a minute.",
   },
   {
-    title: "Keep tracking as you read",
-    description: "Update your page as you go, or your minutes for an audiobook. Your stats, goal and streak keep up on their own.",
+    title: "Update once",
+    description: "Log your page, or your minutes for an audiobook. Your stats, goal and streak move, and so does your place in every reading circle you're in.",
   },
   {
     title: "Bring your friends",
@@ -85,8 +85,12 @@ const faqs = [
     answer: "Yes. Tracking, import, every stat, Wrapped, reading circles and export are free, and joining a circle is never limited. The free plan hosts one active circle at a time; the optional Plus plan lets you host more.",
   },
   {
+    question: "How is Bookmark different from Goodreads and StoryGraph?",
+    answer: "Lots of readers keep Goodreads because their friends are there and StoryGraph for its stats, and log every book in both. Bookmark does both jobs in one place: free stats, goals and Wrapped, alongside friends, a feed and private reading circles. Your friends don't have to move first, because anyone can open a reading circle invite without an account.",
+  },
+  {
     question: "Can I bring my Goodreads or StoryGraph history?",
-    answer: "Yes. Import your shelves, ratings, reviews and reading dates in about a minute, right after you sign up. You can export everything again whenever you like.",
+    answer: "Yes, from either or both. Import your shelves, ratings, reviews and reading dates in about a minute, right after you sign up. Books already on your shelf are skipped, and you can export everything again whenever you like.",
   },
   {
     question: "None of my friends use Bookmark. Does that matter?",
@@ -184,17 +188,21 @@ const Landing: FC = () => {
         <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
             <Image src="/logo.svg" width={48} height={48} alt="Bookmark logo" className="mb-6" />
+            {/* Names the habit the page is for, so readers who keep both apps recognise themselves at once. */}
+            <p className="text-sm font-semibold text-brand-fill dark:text-brand mb-3">
+              Goodreads for friends, StoryGraph for stats?
+            </p>
             <h1 className="display-hero max-w-3xl">
               Your reading and your friends, in one app.
             </h1>
             <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
-              No more one app for your stats and another for your friends. Bookmark tracks every book you read, and lets you read the next one together without spoiling a thing.
+              Stop logging every book twice. Bookmark tracks every book with free stats, goals and streaks, and lets you read the next one with friends in a private reading circle.
             </p>
             <Button asChild className={`${ctaClassName} mt-8`}>
               <Link href="/register">Start reading free</Link>
             </Button>
             <p className={`text-sm mt-4 ${mutedClassName}`}>
-              No card needed. Bring your Goodreads or StoryGraph history in about a minute.
+              No card needed. Import from Goodreads, StoryGraph, or both, in about a minute.
             </p>
           </div>
           <div className="flex flex-col gap-4 w-full max-w-md mx-auto lg:mr-0">
@@ -211,9 +219,9 @@ const Landing: FC = () => {
             <FileInput size={24} className="text-brand" />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg md:text-xl font-bold">Coming from Goodreads or StoryGraph? Keep everything.</h2>
+            <h2 className="text-lg md:text-xl font-bold">Using both? Bring both.</h2>
             <p className={`text-sm md:text-base mt-1 ${mutedClassName}`}>
-              Your shelves, ratings, reviews and reading dates come over in about a minute. You can export it all again any time.
+              Import your shelves, ratings, reviews and reading dates from Goodreads and StoryGraph. Books already on your shelf are skipped, so nothing doubles up, and you can export it all again any time.
             </p>
           </div>
           <Link
