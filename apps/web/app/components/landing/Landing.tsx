@@ -4,59 +4,97 @@ import { FC } from 'react'
 import { Button } from '../ui/button'
 import {
   ArrowRight,
+  BarChart3,
   ChevronDown,
   FileInput,
+  Flame,
   Headphones,
   Lock,
+  NotebookPen,
+  Rss,
+  Sparkles,
   Users,
 } from 'lucide-react'
 
 // Every claim here has to match something the app really does: no invented
 // reader counts or testimonials. Add social proof once there are real numbers.
-// The cards sell reading together; solo tracking gets one line, so the page
-// doesn't read like another tracker.
+// The pitch is one app instead of two: readers keep one app for their stats and
+// another for their friends. Tracking and reading together get equal space, and
+// reading circles are the proof that the friends half is more than a feed.
+// Don't claim spoiler-locked comments are unique: StoryGraph's buddy reads have them too.
 
-const features = [
+const tracking = [
   {
-    icon: Lock,
-    title: "Nobody gets spoiled",
-    description: "Every comment in a reading circle is pinned to where its writer was in the book. You see it only once you've read that far. Your own are always open.",
+    icon: BarChart3,
+    title: "Stats you'll actually look at",
+    description: "Books and pages by year, how you rate, and your top genres and authors, filled in as you finish each book.",
   },
   {
-    icon: Users,
-    title: "One link, any edition",
-    description: "Share an invite link and friends join with their own copy. Paperback, Kindle or audiobook, you'll always know who's ahead.",
+    icon: Flame,
+    title: "Goals and streaks",
+    description: "Set a goal for the year and watch it fill. Read a page a day to keep your streak, and pick up milestones along the way.",
+  },
+  {
+    icon: NotebookPen,
+    title: "Notes and quotes",
+    description: "Keep the lines you underlined and the thoughts you had, with each book they came from.",
   },
   {
     icon: Headphones,
     title: "Audiobooks count",
-    description: "Listening counts as reading. Log an audiobook by minutes and it sits in the circle, your stats and your goal like any other book.",
+    description: "Log an audiobook by minutes and it counts towards your stats and your goal like any other book.",
+  },
+]
+
+const together = [
+  {
+    icon: Lock,
+    title: "Reading circles where nobody gets spoiled",
+    description: "A private chat for one book. Every comment is pinned to where its writer was, and stays locked until you've read that far.",
+  },
+  {
+    icon: Users,
+    title: "One link, any edition",
+    description: "Friends join with their own copy, paperback, Kindle or audiobook, and don't need an account to open the invite.",
+  },
+  {
+    icon: Rss,
+    title: "See what your friends are reading",
+    description: "Follow friends, see what they've started and finished in your feed, and send them a book you think they'd like.",
   },
 ]
 
 const steps = [
   {
-    title: "Pick the book",
-    description: "Search for it, or bring it over from Goodreads or StoryGraph.",
+    title: "Bring your history",
+    description: "Import your shelves, ratings, reviews and reading dates from Goodreads or StoryGraph in about a minute.",
   },
   {
-    title: "Start a reading circle and share the link",
-    description: "Start one from any book on your shelf, right where you update your progress. Your friends don't need to be on Bookmark yet: anyone can open the invite, and a quick sign-up drops them straight into the circle.",
+    title: "Update once",
+    description: "Log your page, or your minutes for an audiobook. Your stats, goal and streak move, and so does your place in every reading circle you're in.",
   },
   {
-    title: "Read, and talk as you go",
-    description: "Post at the point you've reached. Everyone sees where the others are, and comments ahead of you stay locked until you catch up.",
+    title: "Bring your friends",
+    description: "Follow the friends already here, or start a reading circle from any book on your shelf and share the link.",
   },
 ]
 
 const faqs = [
   {
     question: "Is Bookmark really free?",
-    answer: "Yes. Tracking, import, every stat, reading circles, Wrapped and export are free, and joining a circle is never limited. The free plan hosts one active circle at a time; the optional Plus plan lets you host more.",
+    answer: "Yes. Tracking, import, every stat, Wrapped, reading circles and export are free, and joining a circle is never limited. The free plan hosts one active circle at a time; the optional Plus plan lets you host more.",
+  },
+  {
+    question: "How is Bookmark different from Goodreads and StoryGraph?",
+    answer: "Lots of readers keep Goodreads because their friends are there and StoryGraph for its stats, and log every book in both. Bookmark does both jobs in one place: free stats, goals and Wrapped, alongside friends, a feed and private reading circles. Your friends don't have to move first, because anyone can open a reading circle invite without an account.",
+  },
+  {
+    question: "Can I bring my Goodreads or StoryGraph history?",
+    answer: "Yes, from either or both. Import your shelves, ratings, reviews and reading dates in about a minute, right after you sign up. Books already on your shelf are skipped, and you can export everything again whenever you like.",
   },
   {
     question: "None of my friends use Bookmark. Does that matter?",
-    answer: "No. Send them the link anyway. They can open the invite without an account, and signing up takes them straight into your circle.",
+    answer: "No. Bookmark works as a tracker on its own, and when you want to read with someone, send them a reading circle link. They can open the invite without an account, and signing up takes them straight into your circle.",
   },
   {
     question: "How do spoilers stay hidden in a reading circle?",
@@ -67,11 +105,6 @@ const faqs = [
     answer: "No. Everyone reads their own copy, and progress is tracked as a percent of it. A friend on the audiobook sees the same track as one on the paperback.",
   },
   {
-    question: "Can I bring my Goodreads or StoryGraph history?",
-    answer: "Yes. Import your shelves, ratings, reviews and reading dates in about a minute, right after you sign up.",
-  },
-  {
-
     question: "Who can see my shelf?",
     answer: "Your profile has its own public link, so friends can see what you're reading and follow you. Reading circles are private to their members.",
   },
@@ -81,7 +114,29 @@ const ctaClassName = "bg-brand-fill hover:bg-brand-fill-hover text-white h-12 px
 const cardClassName = "rounded-[20px] border border-neutral-200 dark:border-neutral-800"
 const mutedClassName = "text-neutral-600 dark:text-neutral-300/90"
 
-// A still of what a circle looks like: three readers on one track, a locked comment ahead.
+// Stills of the two halves of the app, side by side in the hero: a year of tracking, then a circle.
+const TrackerStill: FC = () => (
+  <div className={`w-full p-5 text-left ${cardClassName} bg-background shadow-sm`} aria-hidden>
+    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your year</p>
+    <div className="mt-3 grid grid-cols-3 gap-3">
+      {[["31", "books"], ["9,840", "pages"], ["12", "day streak"]].map(([value, label]) => (
+        <div key={label}>
+          <p className="font-display text-2xl font-semibold tabular-nums">{value}</p>
+          <p className="text-xs text-muted-foreground">{label}</p>
+        </div>
+      ))}
+    </div>
+    <div className="mt-4">
+      <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
+        <span>Goal: 40 books</span><span>31 of 40</span>
+      </div>
+      <div className="mt-1.5 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800">
+        <div className="h-full w-[77.5%] rounded-full bg-brand-fill" />
+      </div>
+    </div>
+  </div>
+)
+
 const readers = [
   { name: "you", at: 42, colour: "#D92D2D" },
   { name: "Sam", at: 67, colour: "#2F80ED" },
@@ -89,7 +144,7 @@ const readers = [
 ]
 
 const CircleStill: FC = () => (
-  <div className={`w-full max-w-md p-5 text-left ${cardClassName} bg-background shadow-sm`} aria-hidden>
+  <div className={`w-full p-5 text-left ${cardClassName} bg-background shadow-sm`} aria-hidden>
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reading circle</p>
@@ -108,16 +163,20 @@ const CircleStill: FC = () => (
         </li>
       ))}
     </ul>
-    <div className="mt-4 flex flex-col gap-2">
-      <div className="rounded-xl bg-neutral-100 dark:bg-neutral-900 px-3 py-2 text-sm">
-        <p className="text-xs text-muted-foreground">Priya · at 24%</p>
-        <p>Okay the letter in chapter 6. I had to put it down for a minute.</p>
-      </div>
-      <div className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm text-muted-foreground">
-        <Lock size={16} aria-hidden className="shrink-0" />
-        2 comments ahead at <span className="font-semibold tabular-nums text-foreground">67%</span>
-      </div>
+    <div className="mt-4 flex items-center gap-2 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm text-muted-foreground">
+      <Lock size={16} aria-hidden className="shrink-0" />
+      2 comments ahead at <span className="font-semibold tabular-nums text-foreground">67%</span>
     </div>
+  </div>
+)
+
+const FeatureCard: FC<{ icon: typeof Lock; title: string; description: string }> = ({ icon: Icon, title, description }) => (
+  <div className={`flex flex-col items-start gap-3 p-6 ${cardClassName}`}>
+    <div className="h-12 w-12 rounded-full bg-brand/10 flex items-center justify-center">
+      <Icon size={24} className="text-brand" />
+    </div>
+    <h3 className="text-lg font-bold">{title}</h3>
+    <p className={`text-sm ${mutedClassName}`}>{description}</p>
   </div>
 )
 
@@ -129,21 +188,26 @@ const Landing: FC = () => {
         <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
             <Image src="/logo.svg" width={48} height={48} alt="Bookmark logo" className="mb-6" />
+            {/* Names the habit the page is for, so readers who keep both apps recognise themselves at once. */}
+            <p className="text-sm font-semibold text-brand-fill dark:text-brand mb-3">
+              Goodreads for friends, StoryGraph for stats?
+            </p>
             <h1 className="display-hero max-w-3xl">
-              Read with your friends.<br className="hidden sm:block" /> Nobody gets spoiled.
+              Your reading and your friends, in one app.
             </h1>
             <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
-              The group chat for your book, minus the &lsquo;don&apos;t read past chapter 12&rsquo;. Everyone reads at their own pace, and comments stay hidden until you catch up.
+              Stop logging every book twice. Bookmark tracks every book with free stats, goals and streaks, and lets you read the next one with friends in a private reading circle.
             </p>
             <Button asChild className={`${ctaClassName} mt-8`}>
-              <Link href="/register">Start a reading circle — it&apos;s free</Link>
+              <Link href="/register">Start reading free</Link>
             </Button>
             <p className={`text-sm mt-4 ${mutedClassName}`}>
-              Paperback, ebook or audiobook: everyone reads their own copy.
+              No card needed. Import from Goodreads, StoryGraph, or both, in about a minute.
             </p>
           </div>
-          <div className="flex justify-center lg:justify-end">
-            <CircleStill />
+          <div className="flex flex-col gap-4 w-full max-w-md mx-auto lg:mr-0">
+            <TrackerStill />
+            <div className="sm:ml-10"><CircleStill /></div>
           </div>
         </div>
       </section>
@@ -155,45 +219,57 @@ const Landing: FC = () => {
             <FileInput size={24} className="text-brand" />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg md:text-xl font-bold">Your reading history comes with you</h2>
+            <h2 className="text-lg md:text-xl font-bold">Using both? Bring both.</h2>
             <p className={`text-sm md:text-base mt-1 ${mutedClassName}`}>
-              Import your shelves, ratings, reviews and reading dates from Goodreads or StoryGraph in about a minute. Nothing to start over.
+              Import your shelves, ratings, reviews and reading dates from Goodreads and StoryGraph. Books already on your shelf are skipped, so nothing doubles up, and you can export it all again any time.
             </p>
           </div>
           <Link
             href="/register"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-fill dark:text-brand hover:underline shrink-0"
           >
-            Sign up and import <ArrowRight size={16} aria-hidden />
+            Import my history <ArrowRight size={16} aria-hidden />
           </Link>
+        </div>
+      </section>
+
+      <section className="px-6 pt-20 md:pt-28 max-w-6xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Everything you track on your own</h2>
+          <p className={`text-base md:text-lg mt-4 ${mutedClassName}`}>
+            Log a book, update your page, and the rest fills itself in. Every stat is free, and stays free.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {tracking.map((f) => <FeatureCard key={f.title} {...f} />)}
+        </div>
+        <div className={`mt-6 p-6 md:p-8 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 ${cardClassName}`}>
+          <div className="h-12 w-12 shrink-0 rounded-full bg-brand/10 flex items-center justify-center">
+            <Sparkles size={24} className="text-brand" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold">Your year, wrapped</h3>
+            <p className={`text-sm md:text-base mt-1 ${mutedClassName}`}>
+              Every December, a look back at what you read, how much and what you loved, ready to share. Free, like everything above.
+            </p>
+          </div>
         </div>
       </section>
 
       <section className="px-6 py-20 md:py-28 max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Talk about the book without ruining it</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">And the friends you read with</h2>
           <p className={`text-base md:text-lg mt-4 ${mutedClassName}`}>
-            A reading circle is a private chat for one book, where everyone&apos;s place in the story is shown.
+            React to the twist the moment it happens. Friends who are behind see only that you said something, not what.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {features.map(({ icon: Icon, title, description }) => (
-            <div key={title} className={`flex flex-col items-start gap-3 p-6 ${cardClassName}`}>
-              <div className="h-12 w-12 rounded-full bg-brand/10 flex items-center justify-center">
-                <Icon size={24} className="text-brand" />
-              </div>
-              <h3 className="text-lg font-bold">{title}</h3>
-              <p className={`text-sm ${mutedClassName}`}>{description}</p>
-            </div>
-          ))}
+          {together.map((f) => <FeatureCard key={f.title} {...f} />)}
         </div>
-        <p className={`mt-10 text-center text-sm md:text-base max-w-2xl mx-auto ${mutedClassName}`}>
-          It&apos;s still the tracker you&apos;d use on your own, too: goals, stats, notes, quotes and a Wrapped at the end of the year, all free.
-        </p>
       </section>
 
       <section className="px-6 pb-20 md:pb-28 max-w-5xl mx-auto">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center mb-12">A reading circle in three steps</h2>
+        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center mb-12">From two apps to one</h2>
         <ol className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
           {steps.map(({ title, description }, i) => (
             <li key={title} className="flex flex-col items-center text-center md:items-start md:text-left gap-3">
@@ -207,7 +283,7 @@ const Landing: FC = () => {
         </ol>
         <div className="flex justify-center mt-12">
           <Button asChild className={ctaClassName}>
-            <Link href="/register">Start a reading circle — it&apos;s free</Link>
+            <Link href="/register">Start reading free</Link>
           </Button>
         </div>
       </section>
@@ -228,12 +304,12 @@ const Landing: FC = () => {
       </section>
 
       <section className="flex flex-col items-center text-center px-6 py-16 md:py-24 border-t border-neutral-200 dark:border-neutral-800">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Your friends are waiting on chapter one</h2>
+        <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Bring your shelf. Bring your friends.</h2>
         <p className={`text-base md:text-lg mt-4 max-w-md ${mutedClassName}`}>
-          Create a free account, pick the book, and send one link.
+          Import your history, start a reading circle, and send the link to whoever's reading with you.
         </p>
         <Button asChild className={`${ctaClassName} mt-8`}>
-          <Link href="/register">Start a reading circle — it&apos;s free</Link>
+          <Link href="/register">Start reading free</Link>
         </Button>
       </section>
     </div>

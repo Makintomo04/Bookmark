@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { isOpenLibraryCover, openLibraryThumb, warmCoverConnections } from '@/utils/helpers'
 import type { DiscoverBook } from '@/lib/openLibrary'
+import { BookFallback } from '../cards/BookCover'
 
 export type BookSearchResult = DiscoverBook
 
@@ -17,13 +18,15 @@ interface BookSearchResultsProps {
 }
 
 // Open Library covers take a second or two to arrive, so the slot pulses until the image lands.
-const CoverThumb: FC<{ url: string | null }> = ({ url }) => {
+// With no cover it's a plain coloured book; the title is already printed beside it.
+const CoverThumb: FC<{ url: string | null, title: string, author: string }> = ({ url, title, author }) => {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const src = url && openLibraryThumb(url)
 
   return (
     <div className={cn("h-16 w-11 flex-shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-neutral-700 relative", src && !loaded && !failed && "animate-pulse")}>
+      {(!src || failed) && <BookFallback title={title} author={author} variant="blank" />}
       {src && !failed && (
         <Image
           src={src}
@@ -67,7 +70,7 @@ const BookSearchResults: FC<BookSearchResultsProps> = ({ results, isLoading, onS
             onClick={() => onSelect(result)}
             className="flex w-full items-center gap-3 p-3 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
           >
-            <CoverThumb url={result.coverUrl} />
+            <CoverThumb url={result.coverUrl} title={result.title} author={result.author} />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{result.title}</p>
               <p className="truncate text-xs text-muted-foreground">

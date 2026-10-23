@@ -370,6 +370,9 @@ model Work {
   openLibraryKey String?
   title String
   authors String[] @db.String
+  // Open Library author keys (OL7477772A), in step with `authors` where Open Library had them. The
+  // stable identity author pages (lib/authors.ts) look works up by, and that following an author will build on.
+  authorKeys String[] @db.String
   description String?
   // Open Library subjects, capped, as the seed for genres and (later) mood search.
   subjects String[] @db.String
@@ -392,6 +395,7 @@ model Work {
   readerTags ReaderTags[]
 
   @@index([openLibraryKey])
+  @@index([authorKeys])
 }
 
 // ---- Moods and content warnings -----------------------------------------------------------

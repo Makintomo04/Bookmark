@@ -7,6 +7,7 @@ import BookCover from '@/app/components/cards/BookCover'
 import Medal from '@/app/components/achievements/Medal'
 import * as copy from './copy'
 import WrappedShare from './WrappedShare'
+import AuthorLink from '@/app/components/AuthorLink'
 
 const fmt = (n: number) => n.toLocaleString('en-GB')
 
@@ -63,10 +64,10 @@ const Stars: FC<{ rating: number }> = ({ rating }) => (
 const BookFeature: FC<{ book: WrappedData['longestBook']; accent: string; children: ReactNode }> = ({ book, accent, children }) =>
   book ? (
     <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end">
-      <BookCover book={book} fallbackColour={accent} sizes="160px" className="w-32 sm:w-40 shrink-0 shadow-2xl" />
+      <BookCover book={book} sizes="160px" className="w-32 sm:w-40 shrink-0 shadow-2xl" />
       <div className="min-w-0">
         <p className="text-2xl sm:text-4xl font-bold leading-tight">{book.title}</p>
-        <p className="mt-1 text-lg opacity-80">{book.author}</p>
+        <p className="mt-1 text-lg opacity-80"><AuthorLink author={book.author} /></p>
         {children}
       </div>
     </div>
@@ -166,7 +167,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, accent, own, 
           <Line>{copy.genreLine(w, voice)}</Line>
           {w.topAuthor && w.topAuthor.count > 1 && (
             <Line>
-              Most-read author: <span className="font-bold">{w.topAuthor.name}</span>, {copy.plural(w.topAuthor.count, 'book')}.
+              Most-read author: <AuthorLink author={w.topAuthor.name} className="font-bold" />, {copy.plural(w.topAuthor.count, 'book')}.
             </Line>
           )}
         </Card>

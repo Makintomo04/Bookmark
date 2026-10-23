@@ -6,6 +6,7 @@ import { isOpenLibraryCover } from '@/utils/helpers'
 import type { ListSummary } from '@/lib/lists'
 import { Flag, Lock } from 'lucide-react'
 import PickBadge from './PickBadge'
+import { BookFallback } from '../cards/BookCover'
 
 const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
 
@@ -17,11 +18,11 @@ const CoverStack: FC<{ covers: ListSummary["items"] }> = ({ covers }) => (
     ) : covers.map((cover, i) => (
       <div
         key={i}
-        className="absolute bottom-0 aspect-[2/3] h-[85%] overflow-hidden rounded-t-md bg-neutral-300 dark:bg-neutral-700 shadow-md ring-1 ring-black/5 transition-transform group-hover:-translate-y-1"
+        className="absolute bottom-0 aspect-[2/3] h-[85%] overflow-hidden rounded-t-md shadow-md ring-1 ring-black/5 transition-transform group-hover:-translate-y-1"
         style={{ left: `${10 + i * 20}%`, zIndex: covers.length - i, transitionDelay: `${i * 30}ms` }}
       >
-        {/* The title sits under the image, so a cover that's slow or fails to load still says something. */}
-        <p className="p-1.5 text-[10px] font-semibold leading-tight line-clamp-5">{cover.title}</p>
+        {/* The book sits under the image, so a cover that's slow or fails to load still says something. */}
+        <BookFallback title={cover.title} author={cover.author} variant="thumb" />
         {cover.coverUrl && <Image src={cover.coverUrl} alt="" fill sizes="96px" unoptimized={isOpenLibraryCover(cover.coverUrl)} className="object-cover" />}
       </div>
     ))}

@@ -21,7 +21,7 @@ const CommonCover: FC<{ book: InCommonBook; accentColour?: string | null }> = ({
       aria-label={`${book.title} by ${book.author}`}
       className="group flex flex-col gap-1.5 text-left rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
     >
-      <BookCover book={book} fallbackColour={accentColour} variant="thumb" sizes="(min-width: 768px) 110px, 22vw" className="transition group-hover:opacity-90" />
+      <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 110px, 22vw" className="transition group-hover:opacity-90" />
       <span title={book.title} className="text-xs font-medium leading-snug line-clamp-2">{book.title}</span>
       {book.rating ? (
         <span className="flex items-center gap-0.5 text-xs tabular-nums text-muted-foreground" aria-label={`They rated it ${book.rating}`}>

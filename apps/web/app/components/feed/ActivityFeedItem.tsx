@@ -8,6 +8,7 @@ import moment from 'moment'
 import { Check, BookOpen, BookPlus, BookUp, CircleSlash, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReviewText from './ReviewText'
+import AuthorLink from '@/app/components/AuthorLink'
 
 export interface ActivityFeedItemData {
   id: string
@@ -59,7 +60,7 @@ const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
           {" "}{typeCopy[activity.type](activity.book.title)}
           {activity.type === "RATED_BOOK" && activity.book.rating ? ` (${activity.book.rating}★)` : ""}
         </p>
-        <p className="truncate text-xs text-muted-foreground">by {activity.book.author} &middot; {moment(activity.createdAt).fromNow()}</p>
+        <p className="truncate text-xs text-muted-foreground">by <AuthorLink author={activity.book.author} /> &middot; {moment(activity.createdAt).fromNow()}</p>
         {review && <ReviewText review={review} spoiler={activity.book.reviewSpoiler} maxChars={220} className="mt-2" />}
       </div>
       {renderTypeIcon(activity.type)}

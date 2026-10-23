@@ -1,6 +1,7 @@
 "use client"
 import { FC, KeyboardEvent } from 'react'
-import { Status, type Book } from '@prisma/client';
+import type { Book } from '@prisma/client';
+import { Status } from '@/lib/bookStatus';
 import Image from 'next/image';
 import BookCover from './BookCover';
 import ShelfMenuItems from '../books/ShelfMenuItems';
@@ -24,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import AuthorLink from '@/app/components/AuthorLink'
 
 interface CompactBookCardProps {
   book: Book
@@ -78,10 +80,10 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
       onKeyDown={handleKeyDown}
       className="cursor-pointer flex gap-3 items-center p-3 rounded-xl border border-border hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition relative outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <BookCover book={book} fallbackColour={user?.favColour} variant="thumb" sizes="48px" className="w-10 flex-shrink-0 rounded" />
+      <BookCover book={book} variant="thumb" sizes="48px" className="w-10 flex-shrink-0 rounded" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-sm">{title}</p>
-        <p className="truncate text-xs text-muted-foreground">{author}</p>
+        <p className="truncate text-xs text-muted-foreground"><AuthorLink author={author} /></p>
         <div className="flex items-center gap-2 mt-1">
           {status === Status.STARTED ? <BookOpen size={14} className="text-muted-foreground flex-shrink-0" />
             : status === Status.NOT_STARTED ? <BookClosed size={14} className="text-muted-foreground flex-shrink-0" />

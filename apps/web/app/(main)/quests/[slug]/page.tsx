@@ -9,6 +9,7 @@ import { EditQuestButton } from '@/app/components/quests/QuestEditor'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { findQuest, goalText, questDetail } from '@/lib/quests'
 import { PAGES_SANITY_MAX, questCountdown, questDates, questDay, toEditableQuest } from '@/lib/questRules'
+import AuthorLink from '@/app/components/AuthorLink'
 
 interface PageProps {
   params: { slug: string }
@@ -104,7 +105,7 @@ const Page = async ({ params }: PageProps) => {
                             <BookCover book={b} sizes="36px" variant="thumb" className="w-9 shrink-0" />
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">{b.title}</p>
-                              <p className="truncate text-xs text-muted-foreground">{b.author} · finished {questDay(b.finishedAt)}</p>
+                              <p className="truncate text-xs text-muted-foreground"><AuthorLink author={b.author} /> · finished {questDay(b.finishedAt)}</p>
                             </div>
                           </li>
                         ))}

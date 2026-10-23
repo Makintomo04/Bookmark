@@ -21,6 +21,7 @@ import Discussion from './Discussion'
 import InvitePanel from './InvitePanel'
 import HandOverDialog from './HandOverDialog'
 import UpgradePrompt from '../plus/UpgradePrompt'
+import AuthorLink from '@/app/components/AuthorLink'
 
 interface BuddyReadViewProps {
   id: string
@@ -109,7 +110,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
             Reading circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}{buddyRead.audioMinutes ? " · audiobook" : ""}
           </p>
           <h1 className="page-title break-words">{buddyRead.title}</h1>
-          <p className="text-muted-foreground">{buddyRead.author}</p>
+          <p className="text-muted-foreground"><AuthorLink author={buddyRead.author} /></p>
           <p className="text-sm text-muted-foreground" suppressHydrationWarning>
             {notStarted ? `Starts ${moment(buddyRead.startsAt).format("D MMMM")}` : `Started ${moment(buddyRead.startsAt).format("D MMMM YYYY")}`}
           </p>

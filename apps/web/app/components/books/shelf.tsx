@@ -1,5 +1,6 @@
 import { FC, ReactNode } from 'react'
-import { Book, Status } from '@prisma/client'
+import type { Book } from '@prisma/client'
+import { Status } from '@/lib/bookStatus'
 
 const time = (date: Date | string | null) => (date ? new Date(date).getTime() : 0)
 const normalize = (s: string) => s.trim().toLowerCase()

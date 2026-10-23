@@ -216,7 +216,6 @@ const BookEntryModal: FC = () => {
       <div className="flex gap-4 items-start">
         <BookCover
           book={{ title: title || "Untitled", author, coverImage: coverImgSrc, cardColour: null }}
-          fallbackColour={user?.favColour}
           sizes="72px"
           variant="thumb"
           className="w-[72px] shrink-0"

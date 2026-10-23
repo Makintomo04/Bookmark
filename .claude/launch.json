@@ -49,6 +49,24 @@
       "port": 3031
     },
     {
+      "name": "bookmark-test-3032",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@bookmark/web",
+        "exec",
+        "node",
+        "scripts/with-test-db.mjs",
+        "pnpm",
+        "exec",
+        "next",
+        "dev",
+        "-p",
+        "3032"
+      ],
+      "port": 3032
+    },
+    {
       "name": "bookmark-mobile-web",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

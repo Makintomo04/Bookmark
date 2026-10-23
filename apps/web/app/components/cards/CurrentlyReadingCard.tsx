@@ -8,6 +8,7 @@ import { readableInk } from '@/lib/colour'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import BookCover from './BookCover'
 import BookActions from './BookActions'
+import AuthorLink from '@/app/components/AuthorLink'
 
 interface CurrentlyReadingCardProps {
   book: Book
@@ -49,7 +50,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
   return (
     <article className="flex gap-4 p-4 rounded-lg bg-neutral-100 dark:bg-neutral-900">
       {/* Stretches with the card so a long title never leaves a gap under the cover. */}
-      <BookCover book={book} fallbackColour={accentColour} variant="thumb" sizes="96px" className="w-auto h-auto min-w-20 sm:min-w-24 flex-shrink-0 self-stretch" />
+      <BookCover book={book} variant="thumb" sizes="96px" className="w-auto h-auto min-w-20 sm:min-w-24 flex-shrink-0 self-stretch" />
 
       <div className="min-w-0 flex-1 flex flex-col">
         {/* Only the title shares a row with the actions; the details below get the column's full width. */}
@@ -68,7 +69,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
           </div>
         </div>
         <div className="mb-2">
-          <p className="mt-0.5 text-sm text-muted-foreground truncate">{author}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground truncate"><AuthorLink author={author} /></p>
           {started && <p className="mt-1 text-xs text-muted-foreground">{started}</p>}
         </div>
 
