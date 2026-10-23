@@ -31,6 +31,7 @@ export default function More() {
         <Button title="Stats" variant="outline" onPress={() => router.push("/stats")} />
         <Button title="Achievements" variant="outline" onPress={() => router.push("/achievements" as never)} />
         <Button title="Quests" variant="outline" onPress={() => router.push("/quests" as never)} />
+        <Button title="Import from Goodreads or StoryGraph" variant="outline" onPress={() => router.push("/import" as never)} />
         {/* From 1 December, as in the web's menu. Every year with a Wrapped is linked from Stats. */}
         {isWrappedSeason() && <Button title={`Your ${new Date().getFullYear()} Wrapped`} variant="outline" onPress={() => router.push(`/wrapped/${new Date().getFullYear()}`)} />}
       </View>

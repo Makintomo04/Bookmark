@@ -66,6 +66,7 @@ const config: ExpoConfig = {
     // Photos are only read when the reader picks one; the camera isn't used.
     ["expo-image-picker", { photosPermission: "Bookmark uses the photo you choose as your profile picture or a book cover.", cameraPermission: false, microphonePermission: false }],
     "@react-native-community/datetimepicker",
+    "expo-sharing",
     ["expo-notifications", { color: "#F13C3C" }],
     ["expo-splash-screen", { backgroundColor: "#0a0a0a", image: "./assets/images/splash-icon.png", imageWidth: 76 }],
     ...(googleIosUrlScheme ? [["@react-native-google-signin/google-signin", { iosUrlScheme: googleIosUrlScheme }] as [string, object]] : []),

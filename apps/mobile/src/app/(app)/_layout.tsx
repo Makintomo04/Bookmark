@@ -46,6 +46,7 @@ export default function AppLayout() {
       <Stack.Screen name="discover/ask" options={{ title: "" }} />
       <Stack.Screen name="stats" options={{ title: "Stats" }} />
       <Stack.Screen name="wrapped/[year]" options={{ title: "Wrapped" }} />
+      <Stack.Screen name="import" options={{ title: "Import" }} />
       <Stack.Screen name="achievements" options={{ title: "Achievements" }} />
       <Stack.Screen name="quests/index" options={{ title: "Quests" }} />
       <Stack.Screen name="quests/[slug]" options={{ title: "" }} />
