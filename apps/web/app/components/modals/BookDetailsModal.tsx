@@ -55,7 +55,7 @@ const BookDetailsModal: FC = () => {
         {reason && <CuratorNote variant="full" reason={reason} />}
         <PickedByFollowing book={book} />
         {book.workKey && !isLoading && !description ? (
-          <p className="text-sm text-muted-foreground">Open Library doesn&apos;t have a description for this book yet.</p>
+          <p className="text-sm text-muted-foreground">We don&apos;t have a description for this book yet.</p>
         ) : (
           <BookBlurb description={description} isLoading={isLoading} />
         )}

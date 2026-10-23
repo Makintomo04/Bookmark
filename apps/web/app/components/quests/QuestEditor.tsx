@@ -139,7 +139,7 @@ const QuestEditorModal: FC<{ initial: EditableQuest, onClose: () => void }> = ({
           </label>
         )}
         {draft.goal.type === "pages" && (
-          <label className={labelClass}><span>At least this many pages <span className={hintClass}>· Open Library&apos;s count when we have it</span></span>
+          <label className={labelClass}><span>At least this many pages <span className={hintClass}>· the book&apos;s listed count when we have it</span></span>
             <input type="number" min={1} max={3000} value={draft.goal.minPages ?? ""} disabled={isSaving}
               onChange={(e) => updateGoal({ minPages: Number(e.target.value) })} className={cn(fieldClass, "h-10 tabular-nums")} />
           </label>

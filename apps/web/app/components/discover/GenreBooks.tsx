@@ -28,7 +28,7 @@ const GenreBooks: FC<{ slug: string, initial: DiscoverBook[] }> = ({ slug, initi
   }
 
   if (books.length === 0) {
-    return <p className="text-sm text-muted-foreground">Open Library isn&apos;t responding right now. Try again in a minute.</p>
+    return <p className="text-sm text-muted-foreground">We can&apos;t load these books right now. Try again in a minute.</p>
   }
 
   return (

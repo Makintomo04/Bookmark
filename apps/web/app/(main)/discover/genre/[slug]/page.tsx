@@ -63,7 +63,7 @@ const Page = async ({ params }: PageProps) => {
 
         <section aria-labelledby="trending-heading">
           <h2 id="trending-heading" className="text-xl font-bold">Trending in {genre.label}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Most read by Open Library readers this week.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Most read this week.</p>
           <div className="mt-4">
             <GenreBooks slug={genre.slug} initial={books} />
           </div>
