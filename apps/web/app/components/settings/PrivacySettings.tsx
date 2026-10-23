@@ -59,10 +59,10 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           <p className="text-xs text-muted-foreground">Only ever for something you ask for, always labelled, and never about you.</p>
         </div>
         <Toggle
-          label="Offer Catch me up recaps"
-          hint="A short AI recap of the story so far when you come back to a book, or of the earlier books when you start the next in a series. Only you see them."
-          checked={settings.showRecaps}
-          onChange={(v) => save("showRecaps", v)}
+          label="Use AI features"
+          hint="Ask the shelf, which finds books from a description in your own words, and Catch me up, a short recap of the story so far when you come back to a book. Recaps are only for you."
+          checked={settings.aiFeatures}
+          onChange={(v) => save("aiFeatures", v)}
           disabled={busy}
         />
       </div>

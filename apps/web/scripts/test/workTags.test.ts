@@ -4,7 +4,7 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/workTags.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MOODS, MOODS_MAX, aggregateTags, moodsFromStoryGraph, parseWarnings, readerTagsSchema } from "@/lib/workTags";
+import { MOODS, MOODS_MAX, MOOD_FLOOR_READERS, aggregateTags, shownMoods, moodsFromStoryGraph, parseWarnings, readerTagsSchema } from "@/lib/workTags";
 import { hostingAllowance, inheritedAllowance } from "@/lib/buddyReads";
 
 test("the mood set is StoryGraph's twelve", () => {
@@ -55,6 +55,19 @@ test("the aggregate counts readers, ranks moods and picks each warning's commone
   assert.equal(aggregateTags(rows, "zz").mine, null);
   assert.equal(aggregateTags([]).readers, 0);
 });
+
+test("a mood needs a tenth of the taggers to show once a book has ten", () => {
+  const rows = (n: number, moods: string[]) => Array.from({ length: n }, (_, i) => ({ userId: `${moods.join()}${i}`, moods, warnings: [] }))
+  // Small books: every mood counts.
+  const small = aggregateTags([...rows(3, ["TENSE"]), ...rows(1, ["FUNNY"])])
+  assert.deepEqual(shownMoods(small.moods, small.readers, 6).map((m) => m.mood), ["TENSE", "FUNNY"])
+  // 1,000 taggers: a stray 2 don't show, 10% does, and the cap still applies.
+  const big = aggregateTags([...rows(898, ["TENSE", "DARK"]), ...rows(100, ["MYSTERIOUS"]), ...rows(2, ["FUNNY"])])
+  assert.ok(big.readers >= MOOD_FLOOR_READERS)
+  assert.deepEqual(shownMoods(big.moods, big.readers, 6).map((m) => m.mood), ["DARK", "TENSE", "MYSTERIOUS"])
+  assert.deepEqual(shownMoods(big.moods, big.readers, 2).map((m) => m.mood), ["DARK", "TENSE"])
+  assert.equal(big.moods.length, 4, "the aggregate itself keeps every mood")
+})
 
 test("free accounts host one active circle at a time", () => {
   assert.deepEqual(hostingAllowance(0), { allowed: true, active: 0, limit: 1, plan: "free", upgrade: false, message: null });

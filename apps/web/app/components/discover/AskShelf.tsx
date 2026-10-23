@@ -1,8 +1,8 @@
 "use client"
-import { FC, FormEvent, useState } from 'react'
+import { FC, FormEvent, useEffect, useState } from 'react'
 import axios from 'axios'
 import { BookCheck, ListPlus, Loader2, Sparkles, Star, AlertTriangle, Users } from 'lucide-react'
-import { apiError } from '@/lib/notify'
+import { apiError, notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { isUpgradeRequired } from '@/lib/entitlements'
 import { preferencesOf } from '@/lib/preferences'
@@ -138,12 +138,70 @@ const allowanceText = (status: AllowanceStatus) =>
 
 interface AskShelfProps {
   available: boolean
+  // The reader has AI features on (preferencesOf(user).aiFeatures).
+  enabled: boolean
   initialStatus: AllowanceStatus
 }
 
 type Outcome = AskShelfResponse & { query: string }
 
-const AskShelf: FC<AskShelfProps> = ({ available, initialStatus }) => {
+// The reader's recent searches with their results, newest first, kept for the browser session so
+// coming back from a book doesn't lose them. Shown again as they were, never re-run: a re-run would
+// spend another search. Keyed to the reader, so a different account on the same browser starts empty.
+const RECENT_KEY = "bookmark:ask-shelf:recent"
+const RECENT_MAX = 5
+
+const sameQuery = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+function readRecent(userId: string): Outcome[] {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(RECENT_KEY) ?? "null")
+    return stored?.userId === userId && Array.isArray(stored.searches) ? stored.searches : []
+  } catch {
+    return []
+  }
+}
+
+function addRecent(userId: string, outcome: Outcome): Outcome[] {
+  const searches = [outcome, ...readRecent(userId).filter((s) => !sameQuery(s.query, outcome.query))].slice(0, RECENT_MAX)
+  try {
+    sessionStorage.setItem(RECENT_KEY, JSON.stringify({ userId, searches }))
+  } catch {
+    // Storage full or blocked: the search still shows, it just won't be there next time.
+  }
+  return searches
+}
+
+// AI is opt-in on free accounts. The feature stays in view, with the switch right here.
+const TurnOnAi: FC<{ onEnabled: () => void }> = ({ onEnabled }) => {
+  const { user, mutate } = useUser()
+  const [saving, setSaving] = useState(false)
+  const turnOn = () => {
+    setSaving(true)
+    axios.patch("/api/user/privacy", { aiFeatures: true })
+      .then((res) => {
+        if (user) mutate({ ...user, ...res.data }, { revalidate: false })
+        onEnabled()
+      })
+      .catch((err) => notify.error(apiError(err, "Couldn't turn AI features on. Try again.")))
+      .finally(() => setSaving(false))
+  }
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6 max-w-2xl">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100 dark:bg-neutral-900"><Sparkles size={18} aria-hidden /></span>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">AI features are off.</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">Turn them on to use Ask the shelf and Catch me up recaps. AI only runs when you ask it to, is always labelled, and is never about you. You can turn it off again in settings.</p>
+      </div>
+      <button type="button" onClick={turnOn} disabled={saving} className={primaryButtonClass}>
+        {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Sparkles size={16} aria-hidden />}
+        Turn on AI features
+      </button>
+    </div>
+  )
+}
+
+const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, initialStatus }) => {
   const { user } = useUser()
   const { onOpen } = useListEditorModal()
   const [query, setQuery] = useState("")
@@ -152,6 +210,26 @@ const AskShelf: FC<AskShelfProps> = ({ available, initialStatus }) => {
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [upgrade, setUpgrade] = useState(!initialStatus.isPlus && initialStatus.left === 0)
+  const [enabled, setEnabled] = useState(initiallyEnabled)
+  const [recent, setRecent] = useState<Outcome[]>([])
+
+  // After mount, so the server render and the first client render agree.
+  const userId = user?.id
+  useEffect(() => {
+    if (!userId) return
+    const searches = readRecent(userId)
+    setRecent(searches)
+    if (searches[0]) {
+      setOutcome(searches[0])
+      setQuery(searches[0].query)
+    }
+  }, [userId])
+
+  const showRecent = (search: Outcome) => {
+    setOutcome(search)
+    setQuery(search.query)
+    setError(null)
+  }
 
   if (!available) {
     return (
@@ -165,6 +243,8 @@ const AskShelf: FC<AskShelfProps> = ({ available, initialStatus }) => {
     )
   }
 
+  if (!enabled) return <TurnOnAi onEnabled={() => setEnabled(true)} />
+
   const outOfSearches = status.left === 0
 
   const search = (text: string) => {
@@ -173,10 +253,13 @@ const AskShelf: FC<AskShelfProps> = ({ available, initialStatus }) => {
     setQuery(trimmed)
     setIsSearching(true)
     setError(null)
-    axios.post<AskShelfResponse & { left: number | null }>("/api/discover/ask", { query: trimmed })
+    axios.post<AskShelfResponse & { left: number | null, refunded?: boolean }>("/api/discover/ask", { query: trimmed })
       .then(({ data }) => {
-        setOutcome({ ...data, query: trimmed })
-        setStatus((s) => ({ ...s, used: s.used + 1, left: data.left, dailyLeft: Math.max(0, s.dailyLeft - 1) }))
+        const next = { ...data, query: trimmed }
+        setOutcome(next)
+        // Nothing found is given back, and isn't worth keeping as a recent search.
+        if (user && !data.refunded) setRecent(addRecent(user.id, next))
+        setStatus((s) => ({ ...s, used: data.refunded ? s.used : s.used + 1, left: data.left, dailyLeft: Math.max(0, s.dailyLeft - 1) }))
         if (!status.isPlus && data.left === 0) setUpgrade(true)
       })
       .catch((err) => {
@@ -256,6 +339,32 @@ const AskShelf: FC<AskShelfProps> = ({ available, initialStatus }) => {
             </ul>
           </div>
         )}
+        {recent.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-muted-foreground">Recent searches <span className="opacity-80">· opening one again is free</span></p>
+            <ul className="flex flex-wrap gap-2">
+              {recent.map((search) => {
+                const current = outcome?.query === search.query
+                return (
+                  <li key={search.query}>
+                    <button
+                      type="button"
+                      onClick={() => showRecent(search)}
+                      disabled={isSearching}
+                      aria-pressed={current}
+                      className={cn(
+                        "max-w-[18rem] truncate rounded-full border px-3 py-1.5 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+                        current ? "border-foreground bg-neutral-100 dark:bg-neutral-900" : "border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900",
+                      )}
+                    >
+                      {search.query}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
       </form>
 
       {upgrade && <UpgradePrompt feature="askShelfSearches" className="max-w-2xl" />}
@@ -289,6 +398,7 @@ const AskShelf: FC<AskShelfProps> = ({ available, initialStatus }) => {
               {chips.length === 0
                 ? "That didn't read as a book request. Describe a mood, a genre or a trope and try again."
                 : "No book in Bookmark's catalog matches all of that yet. Try fewer conditions, or a different way of putting it."}
+              {" "}That one didn&apos;t count towards your searches.
             </p>
           ) : (
             <div className="flex flex-col gap-8">

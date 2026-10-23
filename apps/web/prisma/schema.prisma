@@ -129,7 +129,10 @@ model User {
   showSpoilers          Boolean?
   // What a new list starts as in the editor.
   defaultListVisibility ListVisibility?
-  // Offer "Catch me up" recaps (lib/recap.ts). Unset reads as on; switching it off hides the feature.
+  // Ask the shelf and Catch me up recaps (lib/preferences.ts aiFeatures). Unset reads as off on free and
+  // on on Plus.
+  aiFeatures            Boolean?
+  // The old recaps switch, before aiFeatures. Read only: a Plus reader who switched it off stays off.
   showRecaps            Boolean?
   referralsMade Referral[] @relation("ReferralInviter")
   referredBy    Referral? @relation("ReferralInvitee")
