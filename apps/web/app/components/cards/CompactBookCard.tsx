@@ -1,6 +1,7 @@
 "use client"
 import { FC, KeyboardEvent } from 'react'
-import { Status, type Book } from '@prisma/client';
+import type { Book } from '@prisma/client';
+import { Status } from '@/lib/bookStatus';
 import Image from 'next/image';
 import BookCover from './BookCover';
 import ShelfMenuItems from '../books/ShelfMenuItems';

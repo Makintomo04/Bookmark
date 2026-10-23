@@ -1,7 +1,8 @@
 "use client"
 import { FC, KeyboardEvent } from 'react'
 import moment from 'moment'
-import { Status, type Book } from '@prisma/client'
+import type { Book } from '@prisma/client'
+import { Status } from '@/lib/bookStatus'
 import { Bookmark, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatLength, formatPosition, formatStoppedAt, progressWhole } from '@/lib/progress'
