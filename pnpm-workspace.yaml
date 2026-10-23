@@ -16,3 +16,64 @@ allowBuilds:
 peerDependencyRules:
   allowedVersions:
     next-auth>nodemailer: "10"
+
+# The web app is on React 18 and the mobile app on React 19. Many libraries use React's types without
+# declaring them, and find whichever copy is above them in node_modules: the root package.json installs
+# React 18's at the top, matching the web app (otherwise the mobile app's React 19 types got hoisted and
+# broke the web's type-check). The mobile app's libraries below do the same, so they're given
+# @types/react as an optional peer, which pnpm fills with the mobile app's React 19 types.
+packageExtensions:
+  "expo-router":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "expo-modules-core":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "expo-apple-authentication":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "react-native-screens":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "react-native-svg":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "react-native-safe-area-context":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "@react-native-google-signin/google-signin":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "standard-navigation":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "swr":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true

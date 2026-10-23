@@ -47,6 +47,21 @@
         "dev:test:3031"
       ],
       "port": 3031
+    },
+    {
+      "name": "bookmark-mobile-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@bookmark/mobile",
+        "exec",
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8081"
+      ],
+      "port": 8081
     }
   ]
 }

@@ -1,4 +1,4 @@
-import type { ProfileVisibility, ReviewVisibility } from "./enums.ts";
+import type { ProfileVisibility, ReviewVisibility } from "./enums";
 
 // The privacy rules as pure functions, with no database access, so client components can use the
 // same answers the server enforces (e.g. labelling the owner's own hidden reviews). Servers should

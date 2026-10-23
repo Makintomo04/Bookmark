@@ -1,4 +1,4 @@
-import { GIFT_DAYS, REFERRALS } from "./entitlements.ts";
+import { GIFT_DAYS, REFERRALS } from "./entitlements";
 
 // Free Plus months: referral rewards and gift codes. The rules, pure so they can be tested without a
 // database; lib/referrals.ts and lib/giftCodes.ts do the database work.

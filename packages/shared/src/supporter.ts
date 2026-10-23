@@ -1,5 +1,5 @@
-import type { Plan } from "./enums.ts";
-import { plusSourceOf } from "./entitlements.ts";
+import type { Plan } from "./enums";
+import { plusSourceOf } from "./entitlements";
 
 // The supporter badge beside a paying reader's name on their profile (Bookmark Plus).
 

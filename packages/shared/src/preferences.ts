@@ -1,4 +1,4 @@
-import type { BuddyReadInviteAudience, ListVisibility } from "./enums.ts";
+import type { BuddyReadInviteAudience, ListVisibility } from "./enums";
 
 // Community preferences: how the reader wants to meet other readers, rather than who can see them
 // (that's lib/privacyRules.ts), and which optional features they want. Pure, so client components can

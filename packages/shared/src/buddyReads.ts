@@ -1,7 +1,7 @@
 // Reading circles: the rules shared by the API and the client, and the spoiler lock itself.
 // No database or "@/" imports here, so scripts/check-buddy-read-spoilers.ts can run it under plain Node.
 import { z } from "zod";
-import { roundPercent } from "./progress.ts";
+import { roundPercent } from "./progress";
 
 export const BUDDY_READ_MAX_MEMBERS = 15
 export const COMMENT_MAX = 2000
@@ -20,7 +20,7 @@ export const COMMENT_REPORT_REASONS = ["Spoiler posted too early", "Hateful or h
 
 // Pages or minutes listened: the maths lives in lib/progress.ts so every surface agrees. Re-exported
 // here because the circle code and scripts/check-buddy-read-spoilers.ts have always taken it from here.
-export { progressPercent, roundPercent, type ProgressBook } from "./progress.ts"
+export { progressPercent, roundPercent, type ProgressBook } from "./progress"
 
 // ---- Hosting ------------------------------------------------------------------------------
 

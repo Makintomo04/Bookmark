@@ -1,4 +1,4 @@
-import { FOUNDING, LIFETIME, PATRON, PLUS_PRICING } from "./entitlements.ts";
+import { FOUNDING, LIFETIME, PATRON, PLUS_PRICING } from "./entitlements";
 
 // Plus in the reader's own currency. Fixed, rounded, tax-inclusive prices, each at or below the US
 // price once converted, so no reader pays more than a US reader. Stripe holds the same amounts as

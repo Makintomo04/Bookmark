@@ -25,6 +25,18 @@ const nextConfig = {
   },
   async headers() {
     return [
+      // `next dev` only: lets the mobile app's web build (`expo start --web`, port 8081) call the API from
+      // the browser. The phone apps don't need CORS, so production sends none.
+      ...(process.env.NODE_ENV === 'development'
+        ? [{
+            source: '/api/:path*',
+            headers: [
+              { key: 'Access-Control-Allow-Origin', value: process.env.MOBILE_WEB_ORIGIN || 'http://localhost:8081' },
+              { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PATCH, PUT, DELETE, OPTIONS' },
+              { key: 'Access-Control-Allow-Headers', value: 'authorization, content-type, x-time-zone, x-client' },
+            ],
+          }]
+        : []),
       // Only the embeds (/embed/*) may be framed, by any site. They're also kept out of search results:
       // the page they point back to is the one that should rank.
       {

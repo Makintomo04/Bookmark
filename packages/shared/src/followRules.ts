@@ -1,4 +1,4 @@
-import type { ProfileVisibility } from "./enums.ts";
+import type { ProfileVisibility } from "./enums";
 
 // Pure follow-request rules, safe for client components. lib/followRequests.ts has the database side.
 

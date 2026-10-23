@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { dark, light } from "@bookmark/shared/tokens";
+import { brand, dark, hex, light } from "@bookmark/shared/tokens";
 
 const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
@@ -25,4 +25,11 @@ test("light tokens match :root in globals.css", () => {
 
 test("dark tokens match .dark in globals.css", () => {
   assert.deepEqual({ ...dark }, variables(".dark"));
+});
+
+test("hex converts the HSL tokens the mobile app styles with", () => {
+  // --primary is the brand fill, which the design system also gives as hex.
+  assert.equal(hex(light.primary), brand.fill.toLowerCase());
+  assert.equal(hex("0 0% 100%"), "#ffffff");
+  assert.equal(hex(dark.background), "#0a0a0a");
 });

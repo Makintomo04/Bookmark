@@ -1,4 +1,4 @@
-import type { Plan } from "./enums.ts";
+import type { Plan } from "./enums";
 
 // Bookmark Plus: what a plan may do. Pure, so client components and tests can read it off a user
 // with nothing but `plan`. The rule from the strategy: charge for convenience and power;

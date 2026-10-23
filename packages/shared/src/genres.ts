@@ -1,4 +1,4 @@
-import { shade } from "./colour.ts"
+import { shade } from "./colour"
 
 // `subject` is the Open Library subject key behind each genre page (see subjectBooks in lib/openLibrary.ts).
 export interface Genre {
