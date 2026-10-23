@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import prisma from "@/lib/db";
 import { handleStripeEvent } from "@/lib/billing";
-import { grantLifetimeGiftCodes } from "@/lib/giftCodes";
 import { isStripeConfigured, stripeBillingApi, stripeWebhooks } from "@/lib/stripe";
 
 // Stripe calls this for the events registered on the endpoint: checkout.session.completed,
@@ -31,7 +30,6 @@ export async function POST(req: Request) {
     stripe: isStripeConfigured() ? stripeBillingApi() : undefined,
     foundingPriceId: process.env.STRIPE_PRICE_FOUNDING || null,
     patronPriceId: process.env.STRIPE_PRICE_PATRON || null,
-    onLifetimeGranted: async (userId) => { await grantLifetimeGiftCodes(userId); },
   });
   // 200 even when nothing matched: Stripe would otherwise retry an event we can never use.
   return NextResponse.json({ received: true, ...outcome });

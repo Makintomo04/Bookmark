@@ -6,9 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type Stripe from "stripe";
-import { EntitlementError, FOUNDING, LIFETIME, PLUS_PRICING, REFERRALS, allowanceLeft, canStartCheckout, entitlementErrorBody, entitlementsOf, foundingStatus, hasAllowance, isUpgradeRequired, lifetimeStatus, parseFoundingClose, planOf, planStatusOf, plusSourceOf } from "@/lib/entitlements";
+import { EntitlementError, FOUNDING, PLUS_PRICING, allowanceLeft, canStartCheckout, entitlementErrorBody, entitlementsOf, foundingStatus, hasAllowance, isUpgradeRequired, parseFoundingClose, planOf, planStatusOf, plusSourceOf } from "@/lib/entitlements";
 import { ASSUMED_USD_PER, REGIONAL_PRICES, currencyForCountry, formatPrice } from "@/lib/regionalPricing";
-import { canRedeemGift, extendComp, isNewAccount, makeGiftCode, normaliseGiftCode, referralRewardAllowed } from "@/lib/plusRewards";
 import { hostingAllowance } from "@/lib/buddyReads";
 import { handleStripeEvent, planForStatus, type BillingDb, type BillingStripeApi } from "@/lib/billing";
 import { formatPace, goalInputSchema, goalProgress, monthTarget, monthlyPace, setsExtraGoals } from "@/lib/goals";
@@ -520,14 +519,6 @@ test("readers on free months can still subscribe; subscribers and lifetime reade
   assert.equal(canStartCheckout(planStatusOf({ lifetime: true }, now)), false);
 });
 
-test("lifetime sells to 500 buyers during the launch window", () => {
-  const now = new Date("2026-11-01T00:00:00Z");
-  assert.equal(LIFETIME.price, 79);
-  assert.deepEqual(lifetimeStatus(0, null, now), { open: true, remaining: 500, closesAt: null });
-  assert.equal(lifetimeStatus(500, null, now).open, false);
-  assert.equal(lifetimeStatus(10, new Date("2026-10-31T00:00:00Z"), now).open, false);
-});
-
 test("supporter badges: Patron, Lifetime, Founding Reader, Supporter; free months earn none", () => {
   const now = new Date();
   const later = new Date(Date.now() + 10 * 86_400_000);
@@ -551,7 +542,7 @@ test("no local price is above the US price at the assumed exchange rates", () =>
 });
 
 test("the US prices are the Plus prices, and visitors see their own currency", () => {
-  assert.deepEqual(REGIONAL_PRICES.USD, { monthly: 3.99, yearly: 29.99, founding: 24.99, patron: 49.99, lifetime: 79 });
+  assert.deepEqual(REGIONAL_PRICES.USD, { monthly: 3.99, yearly: 29.99, founding: 24.99 });
   assert.equal(currencyForCountry("GB"), "GBP");
   assert.equal(currencyForCountry("de"), "EUR");
   assert.equal(currencyForCountry("IE"), "EUR");
@@ -559,49 +550,10 @@ test("the US prices are the Plus prices, and visitors see their own currency", (
   assert.equal(currencyForCountry("CA"), "USD");
   assert.equal(currencyForCountry(null), "USD");
   assert.equal(formatPrice("GBP", 21.99), "£21.99");
-  assert.equal(formatPrice("USD", 79), "$79");
+  assert.equal(formatPrice("USD", 30), "$30");
 });
 
-// ---- Referral months and gift codes ------------------------------------------------------------
-
-test("a free month adds to free Plus already running", () => {
-  const now = new Date("2026-11-01T00:00:00Z");
-  assert.deepEqual(extendComp(null, now, 30), new Date("2026-12-01T00:00:00Z"));
-  assert.deepEqual(extendComp(new Date("2026-11-11T00:00:00Z"), now, 30), new Date("2026-12-11T00:00:00Z"));
-  // Expired free months start again from today.
-  assert.deepEqual(extendComp(new Date("2026-10-01T00:00:00Z"), now, 30), new Date("2026-12-01T00:00:00Z"));
-});
-
-test("referrals count only for new readers, and reward an inviter twice a year at most", () => {
-  const now = new Date("2026-11-01T00:00:00Z");
-  assert.equal(isNewAccount(new Date("2026-10-25T00:00:00Z"), now), true);
-  assert.equal(isNewAccount(new Date("2026-09-01T00:00:00Z"), now), false);
-  assert.equal(REFERRALS.perYear, 2);
-  assert.equal(referralRewardAllowed(0), true);
-  assert.equal(referralRewardAllowed(1), true);
-  assert.equal(referralRewardAllowed(2), false);
-});
-
-test("gift codes are for readers who have never had Plus", () => {
-  assert.equal(canRedeemGift({}), true);
-  assert.equal(canRedeemGift({ trialEndsAt: new Date() }), false);
-  assert.equal(canRedeemGift({ plan: "PLUS" }), false);
-  assert.equal(canRedeemGift({ lifetime: true }), false);
-  assert.equal(canRedeemGift({ compPlusUntil: new Date() }), false);
-  assert.equal(canRedeemGift({ stripeSubscriptionId: "sub_1" }), false);
-});
-
-test("gift codes read clearly and survive sloppy typing", () => {
-  const code = makeGiftCode((n) => Uint8Array.from({ length: n }, (_, i) => i * 7));
-  assert.match(code, /^BKMK-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
-  assert.equal(normaliseGiftCode(code.toLowerCase().replace(/-/g, " ")), code);
-  assert.equal(normaliseGiftCode(code.slice(5)), code);
-  assert.equal(normaliseGiftCode("BKMK-0000-1111"), null);
-  assert.equal(normaliseGiftCode("nope"), null);
-  assert.equal(normaliseGiftCode(42), null);
-});
-
-// ---- The webhook: Patron and lifetime ----------------------------------------------------------
+// ---- The webhook: readers already on Patron or lifetime (no longer sold) ----------------------------------------------------------
 
 test("the Patron price sets the Patron flag, and switching back clears it", async () => {
   const db = stubDb([{ id: USER_ID, plan: "FREE" }]);
@@ -612,10 +564,9 @@ test("the Patron price sets the Patron flag, and switching back clears it", asyn
   assert.equal(db.rows[0].patron, false);
 });
 
-test("a paid lifetime checkout grants lifetime Plus and the gift codes; an unpaid one doesn't", async () => {
+test("a paid lifetime checkout grants lifetime Plus; an unpaid one doesn't", async () => {
   const db = stubDb([{ id: USER_ID, plan: "FREE" }]);
-  const granted: string[] = [];
-  const deps = { db, onLifetimeGranted: async (id: string) => { granted.push(id); } };
+  const deps = { db };
   const session = { id: "cs_life", object: "checkout.session", mode: "payment", customer: "cus_9", client_reference_id: USER_ID, metadata: { userId: USER_ID, plan: "lifetime" } };
 
   const unpaid = await handleStripeEvent(event("checkout.session.completed", { ...session, payment_status: "unpaid" }), deps);
@@ -626,7 +577,6 @@ test("a paid lifetime checkout grants lifetime Plus and the gift codes; an unpai
   assert.equal(paid.plan, "PLUS");
   assert.equal(db.rows[0].lifetime, true);
   assert.equal(db.rows[0].stripeCustomerId, "cus_9");
-  assert.deepEqual(granted, [USER_ID]);
   // An old subscription ending later doesn't touch lifetime.
   await handleStripeEvent(event("customer.subscription.deleted", { ...subscription({ status: "canceled" }), customer: "cus_9" }), deps);
   assert.equal(planOf(db.rows[0] as never), "PLUS");

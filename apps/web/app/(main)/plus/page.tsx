@@ -4,8 +4,7 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import Container from '@/app/components/Container'
 import PlusPricing from '@/app/components/plus/PlusPricing'
 import { PLUS_PRICING, planStatusOf } from '@/lib/entitlements'
-import { currentFoundingStatus, currentLifetimeStatus } from '@/lib/entitlementsServer'
-import { canRedeemGift } from '@/lib/plusRewards'
+import { currentFoundingStatus } from '@/lib/entitlementsServer'
 import { REGIONAL_PRICES, currencyForCountry, type PlusCurrency } from '@/lib/regionalPricing'
 
 export const metadata: Metadata = {
@@ -24,7 +23,7 @@ const serialiseWindow = (w: { open: boolean; remaining: number; closesAt: Date |
 // The pricing page. Public: signed-out visitors see the same table and a sign-up button. Prices show in
 // the visitor's currency from Vercel's country header; ?currency=GBP shows another (for checking).
 export default async function Page({ searchParams }: PageProps) {
-  const [user, founding, lifetime] = await Promise.all([getCurrentUser(), currentFoundingStatus(), currentLifetimeStatus()])
+  const [user, founding] = await Promise.all([getCurrentUser(), currentFoundingStatus()])
   const status = user ? planStatusOf(user) : null
   const checkout = searchParams.checkout === 'success' || searchParams.checkout === 'cancelled' ? searchParams.checkout : null
   const asked = searchParams.currency?.toUpperCase() as PlusCurrency | undefined
@@ -40,8 +39,6 @@ export default async function Page({ searchParams }: PageProps) {
           currency={currency}
           prices={REGIONAL_PRICES[currency]}
           founding={serialiseWindow(founding)}
-          lifetime={serialiseWindow(lifetime)}
-          canRedeemGift={!!user && canRedeemGift(user)}
         />
       </Container>
     </div>

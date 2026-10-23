@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import { BookOpen, Compass, Ellipsis, Newspaper, UsersRound } from "lucide-react-native";
 import { useTheme } from "@/lib/theme";
 
-// The signed-in app. Library is your own profile, as on the web; More holds stats, Wrapped, quests,
+// The signed-in app. Library is your own profile, as on the web; More holds stats, Wrapped,
 // achievements, favourites, Plus and settings.
 export default function TabsLayout() {
   const { colors, fonts } = useTheme();

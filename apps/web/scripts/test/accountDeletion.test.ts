@@ -86,7 +86,7 @@ test("every model that holds a reader's data is cleared", async () => {
   assert.deepEqual(missed, [], `account deletion doesn't clear: ${missed.join(", ")}`);
 
   // The data that used to be left behind.
-  for (const op of ["importJob.deleteMany", "readerTags.deleteMany", "questProgress.deleteMany"]) {
+  for (const op of ["importJob.deleteMany", "readerTags.deleteMany"]) {
     assert.ok(ops(calls).includes(op), `missing ${op}`);
   }
 });

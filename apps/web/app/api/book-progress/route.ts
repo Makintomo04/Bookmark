@@ -1,5 +1,4 @@
 import { requireUser } from "@/lib/apiAuth";
-import { qualifyReferral } from "@/lib/referrals";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { progressTriggers } from "@/lib/achievementTriggers";
@@ -228,7 +227,5 @@ export async function POST(req: Request) {
       reviewed: activities.includes("REVIEWED_BOOK"),
     }),
   })
-  // Logging reading is what makes a referral count for whoever invited this reader.
-  await qualifyReferral(currentUser.id).catch((e) => console.error("[referrals]", e))
   return NextResponse.json(updated)
 }

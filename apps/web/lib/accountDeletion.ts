@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 // be tested against a stubbed database (scripts/test/accountDeletion.test.ts).
 //
 // MongoDB doesn't enforce relations, and several models reference users by a plain id that Prisma's
-// emulated cascades never reach (reads, reading circles, tags, quests, imports), so every collection
+// emulated cascades never reach (reads, reading circles, tags, imports), so every collection
 // holding the reader's data is cleared here explicitly. A new model with a userId belongs in this list:
 // the test fails until it's here.
 
@@ -68,7 +68,6 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.notification.deleteMany({ where: { OR: [{ userId }, { actorId: userId }] } });
     await tx.book.deleteMany({ where: { userId } });
     await tx.readerTags.deleteMany({ where: { userId } });
-    await tx.questProgress.deleteMany({ where: { userId } });
     // Their AI recaps and usage counters (Catch me up, Ask the shelf).
     await tx.recap.deleteMany({ where: { userId } });
     await tx.aiUsage.deleteMany({ where: { userId } });
@@ -77,10 +76,6 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.readingGoal.deleteMany({ where: { userId } });
     await tx.readingDay.deleteMany({ where: { userId } });
     await tx.userAchievement.deleteMany({ where: { userId } });
-    await tx.referral.deleteMany({ where: { OR: [{ inviterId: userId }, { inviteeId: userId }] } });
-    // Codes they gave out and that were used stay used; their own unused codes go.
-    await tx.giftCode.updateMany({ where: { redeemedById: userId }, data: { redeemedById: null } });
-    await tx.giftCode.deleteMany({ where: { ownerId: userId } });
     await tx.listReport.deleteMany({ where: { OR: [{ reporterId: userId }, { list: { ownerId: userId } }] } });
     await tx.listItem.deleteMany({ where: { list: { ownerId: userId } } });
     await tx.list.deleteMany({ where: { ownerId: userId } });

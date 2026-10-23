@@ -1,6 +1,6 @@
 import { cache } from "react";
 import prisma from "@/lib/db";
-import { getMilestone } from "@/lib/achievements-catalog";
+import { QUEST_MEDAL_PREFIX, getMilestone } from "@/lib/achievements-catalog";
 import { canView, getRelation, privacyOf, privacySelect, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
 import { isFinishedBook } from "@/lib/readerTier";
 import { resolveBanner } from "@/lib/banners";
@@ -52,7 +52,7 @@ async function loadProfileRecord(username: string) {
         select: { ...publicBookSelect, isPrivate: true, review: true, reviewSpoiler: true, reviewPrivate: true },
       },
       _count: { select: { followers: true, following: true } },
-      achievements: { select: { key: true, earnedAt: true } },
+      achievements: { where: { NOT: { key: { startsWith: QUEST_MEDAL_PREFIX } } }, select: { key: true, earnedAt: true } },
     },
   });
   if (!user?.username) return null;

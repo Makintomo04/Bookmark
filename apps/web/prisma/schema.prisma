@@ -134,10 +134,6 @@ model User {
   aiFeatures            Boolean?
   // The old recaps switch, before aiFeatures. Read only: a Plus reader who switched it off stays off.
   showRecaps            Boolean?
-  referralsMade Referral[] @relation("ReferralInviter")
-  referredBy    Referral? @relation("ReferralInvitee")
-  giftCodesOwned    GiftCode[] @relation("GiftCodeOwner")
-  giftCodesRedeemed GiftCode[] @relation("GiftCodeRedeemer")
   blocking      Block[] @relation("UserBlocks")
   blockedBy     Block[] @relation("UserBlockedBy")
   // Bookmark Plus. Stripe's webhook (app/api/billing/webhook) is the only writer of these; lib/entitlements.ts
@@ -153,12 +149,12 @@ model User {
   // Subscribed at the Founding Reader price (lib/entitlements.ts FOUNDING). Set by the webhook, never
   // cleared, and counted against the founding cap. Shows a Founding badge while on Plus.
   foundingMember       Boolean?
-  // Bought the one-time lifetime Plus (lib/entitlements.ts LIFETIME). Plus for good; subscription events
+  // Bought the one-time lifetime Plus (no longer sold). Plus for good; subscription events
   // never downgrade it. Cleared only by a full refund or a dispute of that payment.
   lifetime             Boolean?
-  // On the Patron yearly price: same features, a Patron badge. Follows the subscription.
+  // On the Patron yearly price (no longer offered): same features, a Patron badge. Follows the subscription.
   patron               Boolean?
-  // Free Plus earned by inviting friends or from a gift code, until this date. No Stripe subscription.
+  // Free Plus until this date (from referrals and gift codes before launch, or set by staff). No Stripe subscription.
   compPlusUntil        DateTime?
   // Plus bought in the iOS or Android app, through RevenueCat (app/api/billing/revenuecat). Kept apart
   // from the Stripe fields so neither store's events can end the other's subscription. storePlusUntil is
@@ -244,39 +240,6 @@ model ReadingGoal {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, year])
-}
-
-// Who brought whom to Bookmark (lib/referrals.ts). One per invitee. The inviter earns a month of Plus when
-// the invitee first logs reading (qualifiedAt), up to REFERRALS.perYear a calendar year (rewardedAt).
-model Referral {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  inviterId  String    @db.ObjectId
-  inviteeId  String    @unique @db.ObjectId
-  // "link" (a personal invite link) or "circle" (joined the inviter's reading circle as a new reader).
-  source     String
-  createdAt  DateTime  @default(now())
-  qualifiedAt DateTime?
-  rewardedAt  DateTime?
-
-  inviter User @relation("ReferralInviter", fields: [inviterId], references: [id], onDelete: Cascade)
-  invitee User @relation("ReferralInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
-
-  @@index([inviterId, rewardedAt])
-}
-
-// A one-month Plus gift a lifetime buyer can hand to a friend who has never had Plus (lib/giftCodes.ts).
-model GiftCode {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  code         String    @unique
-  ownerId      String    @db.ObjectId
-  redeemedById String?   @db.ObjectId
-  redeemedAt   DateTime?
-  createdAt    DateTime  @default(now())
-
-  owner      User  @relation("GiftCodeOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  redeemedBy User? @relation("GiftCodeRedeemer", fields: [redeemedById], references: [id], onDelete: SetNull)
-
-  @@index([ownerId])
 }
 
 model VerificationToken {
@@ -618,7 +581,7 @@ enum NotificationType {
   BUDDY_READ_HOST_INHERITED
   // Someone asked to follow your followers-only or private profile (lib/followRequests.ts).
   FOLLOW_REQUEST
-  // You finished a seasonal quest. achievementKey is "QUEST:<questId>".
+  // You finished a seasonal quest (cut before launch; old rows are left out of the bell).
   QUEST_COMPLETED
   // A friend (someone you both follow) sent you a book, with an optional message.
   BOOK_RECOMMENDED
@@ -905,59 +868,6 @@ model BuddyReadRemoval {
   removedAt   DateTime @default(now())
 
   @@unique([buddyReadId, userId])
-  @@index([userId])
-}
-
-// ---- Seasonal quests ------------------------------------------------------------------------
-// Time-boxed reading challenges set by staff. Finishing one earns a limited-edition medal, stored as a
-// UserAchievement keyed "QUEST:<questId>" so it counts with every other medal and stays earned for good.
-// Every reader takes part automatically: progress comes from the reads they already log (lib/quests.ts).
-
-model Quest {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  // The /quests/<slug> address. Medals are keyed by id, so the slug can change.
-  slug String @unique
-  title String
-  description String
-  // The window: only reads finished between these count. endsAt is the last moment of the last day.
-  startsAt DateTime
-  endsAt DateTime
-  // What to do, as a tagged union (QuestGoal in lib/quests.ts), e.g. { "type": "pages", "count": 3, "minPages": 600 }.
-  goal Json
-  // The medal: face colour, ribbon colour and an icon name from QUEST_ICONS (lib/questMedal.ts).
-  medalColour String
-  ribbonColour String
-  medalIcon String
-  // A draft: only staff see it, and nobody can earn it.
-  hidden Boolean @default(false)
-  createdById String @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  progress QuestProgress[]
-
-  // Live and upcoming quests: endsAt from now on, then filtered by startsAt.
-  @@index([endsAt, startsAt])
-}
-
-// A reader's standing in one quest, written when it changes. Created the first time a book counts,
-// so it also answers "how many are taking part" and, with completedAt, "how many earned it".
-model QuestProgress {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  questId String @db.ObjectId
-  userId String @db.ObjectId
-  count Int @default(0)
-  // The shelf books that counted, in the order they were finished.
-  bookIds String[] @db.ObjectId
-  completedAt DateTime?
-  updatedAt DateTime @updatedAt
-
-  quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
-
-  // One row per reader per quest; the prefix covers the questId foreign key.
-  @@unique([questId, userId])
-  // "N readers earned this".
-  @@index([questId, completedAt])
   @@index([userId])
 }
 

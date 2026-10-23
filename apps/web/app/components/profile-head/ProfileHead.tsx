@@ -81,7 +81,7 @@ const ProfileHead: FC = () => {
         ]}
         actions={
           <>
-            <ShareProfileButton username={user.username} embeddable={(user.profileVisibility ?? "PUBLIC") === "PUBLIC"} />
+            <ShareProfileButton username={user.username} />
             <button type="button" onClick={editProfileModal.onOpen} className={secondaryButtonClass}>Edit profile</button>
             <button type="button" onClick={() => bookEntryModal.onOpen()} className={primaryButtonClass}>
               <Plus size={16} aria-hidden />Add a book

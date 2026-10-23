@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
-import { BarChart3, ChevronRight, Compass, Crown, Flag, Heart, Home, LogOut, Rss, Settings, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isWrappedSeason } from '@/lib/wrappedSeason'
 import { tierPreviewEnabled } from '@/app/hooks/useTierPreview'
@@ -29,7 +29,6 @@ const PRIMARY: NavItem[] = [
 const SECONDARY: NavItem[] = [
   { href: "/favourites", label: "Favourites", icon: Heart },
   { href: "/stats", label: "Stats", icon: BarChart3, inHeader: true },
-  { href: "/quests", label: "Quests", icon: Flag },
   { href: "/plus", label: "Bookmark Plus", icon: Crown },
 ]
 

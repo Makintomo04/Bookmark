@@ -10,7 +10,6 @@ import PickBadge from '@/app/components/discover/PickBadge'
 import { FollowButton, ReportListButton } from '@/app/components/discover/ListButtons'
 import ListActions from '@/app/components/lists/ListActions'
 import RemixInfo from '@/app/components/lists/RemixInfo'
-import EmbedListButton from '@/app/components/embed/EmbedListButton'
 import InitialAvatar from '@/app/components/profile/InitialAvatar'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { genreBySlug } from '@/lib/genres'
@@ -53,9 +52,7 @@ const Page = async ({ params }: PageProps) => {
               {list.description && <p className="mt-3 text-muted-foreground whitespace-pre-line">{list.description}</p>}
               <div className="mt-3 empty:hidden"><RemixInfo forkedFrom={list.forkedFrom} remixCount={list.remixCount} /></div>
             </div>
-            <ListActions listId={list.id} editable={list.canEdit ? toEditableList(list) : null} canCopy={list.canCopy}>
-              {list.visibility === "PUBLIC" && !list.hidden && <EmbedListButton id={list.id} title={list.title} />}
-            </ListActions>
+            <ListActions listId={list.id} editable={list.canEdit ? toEditableList(list) : null} canCopy={list.canCopy} />
           </div>
 
           {(genres.length > 0 || list.tags.length > 0) && (

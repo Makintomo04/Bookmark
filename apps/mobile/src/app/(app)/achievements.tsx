@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
-import { router } from "expo-router";
 import useSWR from "swr";
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
-import { ArrowRight, Check, Lock } from "lucide-react-native";
-import { questCountdown, questDates } from "@bookmark/shared/questRules";
+import { Check, Lock } from "lucide-react-native";
 import { READER_TIERS, tierProgress, type ReaderTier } from "@bookmark/shared/readerTier";
-import { Medal, MEDAL_INK, QuestMedal, getMedalColour, tierPill } from "@/components/achievements/Medal";
+import { Medal, MEDAL_INK, getMedalColour, tierPill } from "@/components/achievements/Medal";
 import type { ProfileUser } from "@/components/profile/ProfileHeader";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -14,16 +12,14 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Text } from "@/components/ui/Text";
 import { useTheme } from "@/lib/theme";
 
-// Achievements (the web's /achievements): the reading tier, then every ladder and quest medal by
+// Achievements (the web's /achievements): the reading tier, then every ladder by
 // category. Select one to see its milestones.
 
 type Milestone = { value: number; title: string; description: string; earned: boolean; earnedAt: string | null };
-type QuestItem = { slug: string; colour: string; ribbon: string; icon: string; startsAt: string; endsAt: string; phase: "upcoming" | "live" | "ended" };
-type Achievement = { key: string; title: string; category: string; current: number; milestones: Milestone[]; quest?: QuestItem };
+type Achievement = { key: string; title: string; category: string; current: number; milestones: Milestone[] };
 
-const CATEGORY_LABELS: Record<string, string> = { quests: "Seasonal quests", reading: "Reading", consistency: "Consistency", engagement: "Engagement" };
-// Quest medals lead: they're the limited ones, and the live quest is the one with a deadline.
-const CATEGORY_ORDER = ["quests", "reading", "consistency", "engagement"];
+const CATEGORY_LABELS: Record<string, string> = { reading: "Reading", consistency: "Consistency", engagement: "Engagement" };
+const CATEGORY_ORDER = ["reading", "consistency", "engagement"];
 
 // The Bookmark logo stood upright: every badge hangs on the brand's own shape.
 const BACKING_PATH = "M14 0H86C93.7 0 100 6.3 100 14V106Q100 120 87 114.8L55.6 102.2Q50 100 44.4 102.2L13 114.8Q0 120 0 106V14C0 6.3 6.3 0 14 0Z";
@@ -35,7 +31,6 @@ const formatPill = (n: number) => (n >= 10000 ? compact.format(n) : full.format(
 const formatNumber = (n: number) => full.format(n);
 const sameYear = (d: Date) => d.getFullYear() === new Date().getFullYear();
 const formatEarned = (iso: string) => { const d = new Date(iso); return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(sameYear(d) ? {} : { year: "numeric" }) }); };
-const monthYear = (iso: string | null) => (iso ? new Date(iso) : new Date()).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 
 function summarise(a: Achievement) {
   const earned = a.milestones.filter((m) => m.earned);
@@ -53,8 +48,7 @@ export default function Achievements() {
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !Array.isArray(data)) return <Screen><Notice tone="error" message="We couldn't load your achievements. Try again in a moment." /></Screen>;
 
-  // Quest medals are one-offs, not rungs of a ladder, so they're counted apart.
-  const milestones = data.filter((a) => !a.quest).flatMap((a) => a.milestones);
+  const milestones = data.flatMap((a) => a.milestones);
   const earnedCount = milestones.filter((m) => m.earned).length;
   const selected = data.find((a) => a.key === selectedKey) ?? null;
   const close = () => setSelectedKey(null);
@@ -74,18 +68,16 @@ export default function Achievements() {
           <View key={category} style={{ gap: 14, marginTop: 8 }}>
             <View style={styles.headingRow}>
               <Text variant="title" accessibilityRole="header">{CATEGORY_LABELS[category] ?? category}</Text>
-              <Text variant="small">{category === "quests" ? `${earnedHere} ${earnedHere === 1 ? "medal" : "medals"} earned` : `${earnedHere} of ${inCategory.length} milestones`}</Text>
+              <Text variant="small">{`${earnedHere} of ${inCategory.length} milestones`}</Text>
             </View>
             <View style={styles.grid}>
-              {items.map((a) => a.quest
-                ? <QuestBadge key={a.key} achievement={a} onSelect={() => setSelectedKey(a.key)} />
-                : <AchievementBadge key={a.key} achievement={a} onSelect={() => setSelectedKey(a.key)} />)}
+              {items.map((a) => <AchievementBadge key={a.key} achievement={a} onSelect={() => setSelectedKey(a.key)} />)}
             </View>
           </View>
         );
       })}
 
-      {selected && (selected.quest ? <QuestDetail achievement={selected} onClose={close} /> : <AchievementDetail achievement={selected} onClose={close} />)}
+      {selected && <AchievementDetail achievement={selected} onClose={close} />}
     </Screen>
   );
 }
@@ -140,36 +132,6 @@ function AchievementBadge({ achievement: a, onSelect }: { achievement: Achieveme
         </View>
       ) : (
         <Text variant="small" style={{ marginTop: 4 }}>All milestones earned</Text>
-      )}
-    </Pressable>
-  );
-}
-
-function QuestBadge({ achievement: a, onSelect }: { achievement: Achievement; onSelect: () => void }) {
-  const { colors } = useTheme();
-  const quest = a.quest!;
-  const rung = a.milestones[0];
-  const towards = Math.min(a.current, rung.value);
-  const percent = rung.earned ? 100 : Math.round((towards / rung.value) * 100);
-  const status = rung.earned ? `Earned ${monthYear(rung.earnedAt)}` : questCountdown(quest);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${a.title}: ${rung.earned ? "earned" : `${towards} of ${rung.value} books`}. View quest medal`}
-      onPress={onSelect}
-      style={styles.badge}
-    >
-      <View style={{ width: BADGE, height: BADGE * 1.2 }}>
-        <Backing tint={quest.ribbon} />
-        <QuestMedal design={quest} earned={rung.earned} width={BADGE * 0.62} style={{ position: "absolute", top: BADGE * 0.1, alignSelf: "center" }} />
-      </View>
-      <Text variant="label" numberOfLines={2} style={{ textAlign: "center", marginTop: 8 }}>{a.title}</Text>
-      <Text variant="small" style={{ textAlign: "center" }}>Limited edition · {status}</Text>
-      {!rung.earned && (
-        <View style={styles.barRow}>
-          <ProgressBar percent={percent} colour={quest.colour} />
-          <Text style={{ fontSize: 11, color: colors.mutedForeground }}>{formatNumber(towards)}/{formatNumber(rung.value)}</Text>
-        </View>
       )}
     </Pressable>
   );
@@ -241,48 +203,6 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
           );
         })}
       </View>
-    </Sheet>
-  );
-}
-
-function QuestDetail({ achievement: a, onClose }: { achievement: Achievement; onClose: () => void }) {
-  const { colors } = useTheme();
-  const quest = a.quest!;
-  const rung = a.milestones[0];
-  const towards = Math.min(a.current, rung.value);
-  const percent = rung.earned ? 100 : Math.round((towards / rung.value) * 100);
-  return (
-    <Sheet title={a.title} onClose={onClose}>
-      <View style={styles.detailTop}>
-        <QuestMedal design={quest} earned={rung.earned} width={80} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="small" style={{ letterSpacing: 1.5, fontWeight: "600" }}>LIMITED-EDITION QUEST MEDAL</Text>
-          <Text variant="title">{rung.earned ? "Earned. It's yours for good." : rung.description}</Text>
-          <Text variant="muted">
-            {rung.earned && rung.earnedAt ? `Earned ${new Date(rung.earnedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · ` : ""}{questDates(quest.startsAt, quest.endsAt)}
-          </Text>
-          {!rung.earned && (
-            <View style={{ marginTop: 10, gap: 6 }}>
-              <View style={styles.headingRow}>
-                <Text variant="small">{questCountdown(quest)}</Text>
-                <Text variant="small">{formatNumber(towards)} / {formatNumber(rung.value)}</Text>
-              </View>
-              <View accessibilityRole="progressbar" accessibilityLabel={`Progress on ${a.title}`} accessibilityValue={{ min: 0, max: rung.value, now: towards }} style={{ flexDirection: "row" }}>
-                <ProgressBar percent={percent} colour={quest.colour} height={6} />
-              </View>
-            </View>
-          )}
-        </View>
-      </View>
-      {rung.earned && <Text variant="muted" style={{ marginTop: 16 }}>{rung.description}.</Text>}
-      <Pressable
-        accessibilityRole="link"
-        onPress={() => { onClose(); router.push(`/quests/${quest.slug}` as never); }}
-        style={[styles.headingRow, { justifyContent: "flex-start", gap: 6, marginTop: 20, paddingVertical: 4 }]}
-      >
-        <Text variant="label">See the quest</Text>
-        <ArrowRight size={14} color={colors.foreground} />
-      </Pressable>
     </Sheet>
   );
 }

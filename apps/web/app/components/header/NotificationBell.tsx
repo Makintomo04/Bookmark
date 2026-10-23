@@ -23,7 +23,7 @@ interface NotificationBellProps {
 
 }
 
-type NotificationLike = { type: string; achievementKey?: string | null; count?: number | null; buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null; quest?: { slug: string; title: string } | null; book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null; actor: { username: string } }
+type NotificationLike = { type: string; achievementKey?: string | null; count?: number | null; buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null; book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null; actor: { username: string } }
 
 const notificationCopy = (n: NotificationLike) => {
   const others = (n.count ?? 1) - 1
@@ -31,7 +31,6 @@ const notificationCopy = (n: NotificationLike) => {
   switch (n.type) {
     case "NEW_FOLLOWER": return "started following you"
     case "ACHIEVEMENT_EARNED": return `reached the "${getAchievementTitle(n.achievementKey ?? "")}" milestone`
-    case "QUEST_COMPLETED": return `completed the ${n.quest ? `"${n.quest.title}"` : "seasonal"} quest and earned its limited-edition medal`
     case "BUDDY_READ_INVITE": return `invited you to read ${book} together`
     case "BOOK_RECOMMENDED": return `thinks you'd like ${n.book?.title ?? "a book"}`
     case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your reading circle for ${book}`
@@ -43,7 +42,6 @@ const notificationCopy = (n: NotificationLike) => {
 
 const notificationHref = (n: NotificationLike) => {
   if (n.type === "ACHIEVEMENT_EARNED") return "/achievements"
-  if (n.type === "QUEST_COMPLETED") return n.quest ? `/quests/${n.quest.slug}` : "/achievements"
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`
   if (n.buddyRead) return `/circles/${n.buddyRead.id}`
   return `/u/${encodeURIComponent(n.actor.username)}`

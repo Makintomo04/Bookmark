@@ -1,4 +1,4 @@
-import { FOUNDING, LIFETIME, PATRON, PLUS_PRICING } from "./entitlements";
+import { FOUNDING, PLUS_PRICING } from "./entitlements";
 
 // Plus in the reader's own currency. Fixed, rounded, tax-inclusive prices, each at or below the US
 // price once converted, so no reader pays more than a US reader. Stripe holds the same amounts as
@@ -9,12 +9,12 @@ import { FOUNDING, LIFETIME, PATRON, PLUS_PRICING } from "./entitlements";
 export const ASSUMED_USD_PER = { GBP: 1.36, EUR: 1.17 } as const;
 
 export type PlusCurrency = "USD" | "GBP" | "EUR";
-export type PricedPlan = "monthly" | "yearly" | "founding" | "patron" | "lifetime";
+export type PricedPlan = "monthly" | "yearly" | "founding";
 
 export const REGIONAL_PRICES: Record<PlusCurrency, Record<PricedPlan, number>> = {
-  USD: { monthly: PLUS_PRICING.monthly, yearly: PLUS_PRICING.yearly, founding: FOUNDING.yearly, patron: PATRON.yearly, lifetime: LIFETIME.price },
-  GBP: { monthly: 2.89, yearly: 21.99, founding: 17.99, patron: 35.99, lifetime: 57.99 },
-  EUR: { monthly: 3.39, yearly: 24.99, founding: 20.99, patron: 41.99, lifetime: 66.99 },
+  USD: { monthly: PLUS_PRICING.monthly, yearly: PLUS_PRICING.yearly, founding: FOUNDING.yearly },
+  GBP: { monthly: 2.89, yearly: 21.99, founding: 17.99 },
+  EUR: { monthly: 3.39, yearly: 24.99, founding: 20.99 },
 };
 
 const SYMBOL: Record<PlusCurrency, string> = { USD: "$", GBP: "£", EUR: "€" };
@@ -34,7 +34,7 @@ export function priceIn(currency: PlusCurrency, plan: PricedPlan): number {
   return REGIONAL_PRICES[currency][plan];
 }
 
-// "$29.99", "£21.99", "€24.99"; whole amounts without decimals ("$79").
+// "$29.99", "£21.99", "€24.99"; whole amounts without decimals ("$30").
 export function formatPrice(currency: PlusCurrency, amount: number): string {
   const text = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
   return `${SYMBOL[currency]}${text}`;

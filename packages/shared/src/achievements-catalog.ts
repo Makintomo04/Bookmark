@@ -12,10 +12,10 @@ export type AchievementKey =
   | "BUDDY_READS_FINISHED"
   | "BUDDY_READS_HOSTED"
 
-// "quests" holds the seasonal quest medals: one-off, defined in the database (the Quest model) rather
-// than here, and stored as "QUEST:<questId>" (lib/questRules.ts). /api/achievements merges them in.
-export type AchievementCategory = "reading" | "consistency" | "engagement" | "quests"
+export type AchievementCategory = "reading" | "consistency" | "engagement"
 
+// Seasonal quest medals were stored as "QUEST:<questId>" before quests were cut. Old rows may still
+// exist: they're left out of counts and never shown.
 export const QUEST_MEDAL_PREFIX = "QUEST:"
 
 export interface Milestone {

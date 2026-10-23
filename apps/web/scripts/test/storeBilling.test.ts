@@ -8,7 +8,6 @@ import assert from "node:assert/strict";
 import { handleRevenueCatEvent, storeUpdateFromEvent, storeUpdateFromSubscriber, type RevenueCatSubscriber, type StoreBillingDeps } from "@/lib/storeBilling";
 import { canStartCheckout, entitlementsOf, planStatusOf, plusSourceOf } from "@/lib/entitlements";
 import { supporterOf } from "@/lib/supporter";
-import { canRedeemGift } from "@/lib/plusRewards";
 
 const NOW = new Date("2026-11-01T12:00:00Z");
 const USER_ID = "6560f1c2a1b2c3d4e5f60718";
@@ -56,7 +55,7 @@ test("billing grace keeps Plus until the grace period ends", () => {
   assert.deepEqual(update.storePlusUntil, new Date("2026-11-13T12:00:00Z"));
 });
 
-test("no Plus entitlement clears the store plan but keeps the product, so gift codes know Plus was had", () => {
+test("no Plus entitlement clears the store plan but keeps the product", () => {
   assert.deepEqual(storeUpdateFromSubscriber({ entitlements: {} }, { now: NOW }), { storePlusUntil: null, storeName: null, storeTrialing: false });
 });
 
@@ -120,9 +119,4 @@ test("a store subscription is Plus until it ends, beside Stripe and free months"
   assert.equal(plusSourceOf(ended, NOW), null);
   // A Stripe subscription still counts first, so its own status and portal keep working.
   assert.equal(plusSourceOf({ ...store, plan: "PLUS" }, NOW), "subscription");
-});
-
-test("someone who had Plus in the app can't redeem a newcomer's gift code", () => {
-  assert.equal(canRedeemGift({ plan: "FREE" }), true);
-  assert.equal(canRedeemGift({ plan: "FREE", storeProductId: "plus_monthly" }), false);
 });

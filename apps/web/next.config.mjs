@@ -37,18 +37,9 @@ const nextConfig = {
             ],
           }]
         : []),
-      // Only the embeds (/embed/*) may be framed, by any site. They're also kept out of search results:
-      // the page they point back to is the one that should rank.
+      // Same-origin framing only (clickjacking). X-Frame-Options for older browsers.
       {
-        source: '/embed/:path*',
-        headers: [
-          { key: 'Content-Security-Policy', value: 'frame-ancestors *' },
-          { key: 'X-Robots-Tag', value: 'noindex' },
-        ],
-      },
-      // Everything else: same-origin framing only (clickjacking). X-Frame-Options for older browsers.
-      {
-        source: '/((?!embed/|embed$).*)',
+        source: '/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },

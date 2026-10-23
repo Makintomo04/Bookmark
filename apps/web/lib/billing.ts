@@ -130,8 +130,6 @@ export interface BillingDeps {
   foundingPriceId?: string | null;
   // STRIPE_PRICE_PATRON, to set the Patron badge.
   patronPriceId?: string | null;
-  // Called once when a lifetime purchase lands, to hand out the gift codes (lib/giftCodes.ts).
-  onLifetimeGranted?: (userId: string) => Promise<void>;
   now?: () => Date;
 }
 
@@ -215,7 +213,6 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
         const user = await findUser(db, { customerId, userId: session.client_reference_id || session.metadata?.userId });
         if (!user) return outcome(false, null, null, "no user for lifetime checkout");
         await db.user.update({ where: { id: user.id }, data: { lifetime: true, ...(customerId && { stripeCustomerId: customerId }) } });
-        await deps.onLifetimeGranted?.(user.id);
         return outcome(true, user.id, "PLUS", "lifetime purchased");
       }
       if (session.mode !== "subscription") return outcome(false, null, null, "not a subscription checkout");

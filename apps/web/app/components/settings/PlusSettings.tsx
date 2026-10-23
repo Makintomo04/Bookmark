@@ -1,17 +1,15 @@
 "use client"
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import Link from 'next/link'
 import moment from 'moment'
-import { Check, Copy, Gift, Loader2, Sparkles } from 'lucide-react'
-import useSWR from 'swr'
-import { fetcher, swrOptions } from '@/lib/fetcher'
+import { Loader2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { REFERRALS, planStatusOf } from '@/lib/entitlements'
+import { planStatusOf } from '@/lib/entitlements'
 import useUser from '@/app/hooks/useUser'
 import useBilling from '@/app/hooks/useBilling'
 import { Button } from '../ui/button'
 
-// Bookmark Plus in settings: the plan, the way to manage it in Stripe's portal, and invite rewards.
+// Bookmark Plus in settings: the plan, and the way to manage it in Stripe's portal.
 // The looks Plus unlocks (profile theme, shelf colour) live in Edit profile (profile/ProfileStyling).
 const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
   const { user } = useUser()
@@ -29,7 +27,7 @@ const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
       : status.source === "store"
         ? `Plus through ${status.store === "PLAY_STORE" ? "Google Play" : "the App Store"}${status.until ? `, renewing or ending on ${moment(status.until).format("D MMMM YYYY")}` : ""}. Manage or cancel it in ${status.store === "PLAY_STORE" ? "the Play Store app" : "your iPhone's Settings"}.`
       : status.source === "comp" && status.compUntil
-        ? `Free Plus until ${moment(status.compUntil).format("D MMMM YYYY")}, from inviting friends or a gift.`
+        ? `Free Plus until ${moment(status.compUntil).format("D MMMM YYYY")}.`
         : "You're on the free plan. Every stat, import and circle you join stays free."
   const label = status.source === "lifetime" ? "Lifetime" : status.patron ? "Patron" : status.trialing ? "Trial" : status.source === "comp" ? "Free months" : status.plan === "PLUS" ? "Active" : "Free"
 
@@ -62,73 +60,8 @@ const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           )}
         </div>
       </div>
-      <PlusRewards />
     </div>
   )
 }
 
 export default PlusSettings
-
-type Rewards = {
-  invitePath: string | null
-  referrals: { joined: number; qualified: number; rewardedThisYear: number; perYear: number }
-  giftCodes: { code: string; redeemed: boolean }[]
-}
-
-// Copies to the clipboard, falling back to selecting the text where the browser refuses.
-const CopyField: FC<{ id: string; label: string; value: string }> = ({ id, label, value }) => {
-  const [copied, setCopied] = useState(false)
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      (document.getElementById(id) as HTMLInputElement | null)?.select()
-    }
-  }
-  return (
-    <div className="flex gap-2">
-      <input id={id} aria-label={label} readOnly value={value} onFocus={(e) => e.currentTarget.select()} className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-xs" />
-      <Button type="button" variant="outline" onClick={copy} className="h-9 shrink-0 gap-1.5 px-3 text-xs">
-        {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}{copied ? "Copied" : "Copy"}
-      </Button>
-    </div>
-  )
-}
-
-// Your invite link and what it has earned, and the gift codes a lifetime buyer has to hand out.
-const PlusRewards: FC = () => {
-  const { data } = useSWR<Rewards>("/api/plus/rewards", fetcher, swrOptions)
-  if (!data?.invitePath) return null
-  const link = typeof window === "undefined" ? data.invitePath : new URL(data.invitePath, window.location.origin).toString()
-  const { referrals, giftCodes } = data
-  const left = Math.max(0, referrals.perYear - referrals.rewardedThisYear)
-
-  return (
-    <div className="flex flex-col gap-4 border-t pt-4">
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium">Invite friends, get Plus</span>
-        <p className="-mt-1 text-xs text-muted-foreground">
-          A free month of Plus for each friend who joins with your link (or through a circle you host) and logs some reading. Up to {REFERRALS.perYear} a year.
-          {referrals.joined > 0 ? ` ${referrals.joined} joined so far, ${referrals.qualified} reading. ${left} free ${left === 1 ? "month" : "months"} left to earn this year.` : ""}
-        </p>
-        <CopyField id="plus-invite-link" label="Your invite link" value={link} />
-      </div>
-      {giftCodes.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <span className="flex items-center gap-1.5 text-sm font-medium"><Gift size={14} aria-hidden className="text-brand" /> Gift codes</span>
-          <p className="-mt-1 text-xs text-muted-foreground">A month of Plus each, for friends who haven&apos;t had it. They enter the code on the Plus page.</p>
-          <ul className="flex flex-col gap-1.5">
-            {giftCodes.map((g) => (
-              <li key={g.code} className="flex items-center justify-between gap-3 text-sm">
-                <code className={cn("font-mono tracking-wider", g.redeemed && "text-muted-foreground line-through")}>{g.code}</code>
-                <span className="text-xs text-muted-foreground">{g.redeemed ? "Used" : "Ready to give"}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  )
-}

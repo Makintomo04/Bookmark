@@ -1,4 +1,4 @@
-// The site's public origin, for metadata, the sitemap, share images and embeds (server-side only).
+// The site's public origin, for metadata, the sitemap and share images (server-side only).
 // NEXT_PUBLIC_SITE_URL wins when set. On Vercel without it, production uses the project's production
 // domain and previews their own deployment URL, so links never point at localhost.
 function resolveSiteUrl() {
