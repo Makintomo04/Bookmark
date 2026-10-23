@@ -12,6 +12,7 @@ import StarRating from '../StarRating'
 import { Button } from '../ui/button'
 import { isRereading } from '../books/shelf'
 import { moveBook, setBookPrivacy, type ShelfAction } from '../books/ShelfMenuItems'
+import PrivateBadge from '../books/PrivateBadge'
 import useBookReads from '@/app/hooks/useBookReads'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
@@ -525,7 +526,7 @@ const BookUpdateModal: FC = () => {
           {/* Will not read is private already. */}
           {status !== "NOT_INTERESTED" && (
             <div className="mt-2">
-              {isPrivate && <p className="text-xs text-muted-foreground">Private: only you can see this book.</p>}
+              {isPrivate && <PrivateBadge className="mb-1" />}
               <button type="button" onClick={togglePrivate} disabled={isSaving} className="mt-1 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 {isPrivate ? <><Unlock size={14} aria-hidden />Share on profile</> : <><Lock size={14} aria-hidden />Make private</>}
               </button>

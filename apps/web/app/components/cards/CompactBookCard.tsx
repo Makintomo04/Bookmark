@@ -5,7 +5,8 @@ import { Status } from '@/lib/bookStatus';
 import Image from 'next/image';
 import BookCover from './BookCover';
 import ShelfMenuItems from '../books/ShelfMenuItems';
-import { Book as BookClosed, BookOpen, Check, CircleSlash, EyeOff, Lock, MoreVertical, Pause, Star } from 'lucide-react';
+import { Book as BookClosed, BookOpen, Check, CircleSlash, EyeOff, MoreVertical, Pause, Star } from 'lucide-react';
+import PrivateBadge from '../books/PrivateBadge';
 import useUser from '@/app/hooks/useUser';
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal';
 import useBookEditModal from '@/app/hooks/useBookEditModal';
@@ -82,7 +83,10 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
     >
       <BookCover book={book} variant="thumb" sizes="48px" className="w-10 flex-shrink-0 rounded" />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-sm">{title}</p>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="truncate font-semibold text-sm">{title}</p>
+          {book.isPrivate && <PrivateBadge className="flex-shrink-0" />}
+        </div>
         <p className="truncate text-xs text-muted-foreground"><AuthorLink author={author} /></p>
         <div className="flex items-center gap-2 mt-1">
           {status === Status.STARTED ? <BookOpen size={14} className="text-muted-foreground flex-shrink-0" />
@@ -91,7 +95,6 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
             : status === Status.DNF ? <CircleSlash size={14} aria-label="Did not finish" className="text-muted-foreground flex-shrink-0" />
             : status === Status.NOT_INTERESTED ? <EyeOff size={14} aria-label="Will not read" className="text-muted-foreground flex-shrink-0" />
             : <Check size={14} className="text-muted-foreground flex-shrink-0" />}
-          {book.isPrivate && <Lock size={12} aria-label="Private: only you can see it" className="text-muted-foreground flex-shrink-0" />}
           {rating ? (
             <div className="flex items-center gap-0.5">
               <Star size={12} fill="currentColor" aria-hidden />

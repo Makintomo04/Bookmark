@@ -8,6 +8,7 @@ import { readableInk } from '@/lib/colour'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import BookCover from './BookCover'
 import BookActions from './BookActions'
+import PrivateBadge from '../books/PrivateBadge'
 import AuthorLink from '@/app/components/AuthorLink'
 
 interface CurrentlyReadingCardProps {
@@ -65,6 +66,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
                 <Repeat2 size={11} aria-hidden="true" /> Reread
               </span>
             )}
+            {book.isPrivate && <PrivateBadge className="py-1" />}
             {!readOnly && <BookActions book={book} onUpdateProgress={openProgress} tone="plain" />}
           </div>
         </div>
