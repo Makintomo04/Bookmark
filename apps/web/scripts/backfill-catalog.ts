@@ -6,6 +6,7 @@
 //   node --env-file=.env.local scripts/backfill-catalog.ts                # link every unlinked book
 //   node --env-file=.env.local scripts/backfill-catalog.ts --no-lookup    # no Open Library calls
 //   node --env-file=.env.local scripts/backfill-catalog.ts --limit 500    # the first 500 only
+//   node --env-file=.env.local scripts/backfill-catalog.ts --skip <id>,<id>   # leave these books unlinked
 //   node --env-file=.env.local scripts/backfill-catalog.ts --unlink       # undo: clear both links
 //
 // Run `prisma db push` first so the collections and indexes exist. Safe to re-run: only books with no
@@ -32,6 +33,9 @@ const value = (name: string) => {
 const dryRun = flag("--dry-run");
 const lookup = !flag("--no-lookup");
 const limit = value("--limit") ? Number(value("--limit")) : undefined;
+// Books to leave out of the catalogue entirely (junk test entries on readers' shelves): they stay unlinked,
+// so a later run needs the same --skip.
+const skip = (value("--skip") ?? "").split(",").map((id) => id.trim()).filter(Boolean);
 
 const prisma = new PrismaClient();
 const store = scriptCatalogStore(prisma);
@@ -56,6 +60,7 @@ async function main() {
   const total = await prisma.book.count();
   const unlinked = await prisma.book.count({ where: UNLINKED });
   console.log(`${total} book(s), ${unlinked} not yet in the catalog${dryRun ? " (dry run, nothing is saved)" : ""}${lookup ? "" : " (no Open Library lookups)"}`);
+  if (skip.length) console.log(`skipping ${skip.length} book(s): ${skip.join(", ")}`);
 
   // Readers' uploads stay out of the catalogue (lib/uploads.ts).
   const uploadKeys = new Set((await prisma.upload.findMany({ select: { key: true } })).map((u) => u.key));
@@ -69,7 +74,7 @@ async function main() {
     source: {
       async unlinked(afterId, take) {
         return prisma.book.findMany({
-          where: { ...UNLINKED, ...(afterId && { id: { gt: afterId } }) },
+          where: { ...UNLINKED, id: { ...(afterId && { gt: afterId }), ...(skip.length && { notIn: skip }) } },
           orderBy: { id: "asc" },
           take,
           select: { id: true, title: true, author: true, pages: true, coverImage: true, description: true, workKey: true, workId: true, editionId: true },
