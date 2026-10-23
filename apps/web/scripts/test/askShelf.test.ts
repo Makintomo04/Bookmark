@@ -289,6 +289,16 @@ test("a refund gives back both counts, once", async () => {
   assert.equal(store.rows.get(`u4|${DAILY_FEATURE}|2026-10-22`), 0);
 });
 
+test("a search that finds nothing gives back the month's use but still counts towards the daily guard", async () => {
+  const store = memoryUsageStore();
+  const spent = await consumeAllowance("u5", "askShelfSearches", { store, account: freeAccount, now: NOW });
+  assert.ok(spent.ok);
+  if (!spent.ok) return;
+  await spent.refund({ daily: false });
+  assert.equal(store.rows.get(`u5|askShelfSearches|2026-10`), 0);
+  assert.equal(store.rows.get(`u5|${DAILY_FEATURE}|2026-10-22`), 1);
+});
+
 test("months run in the reader's time zone", () => {
   // 3am UTC on 1 November is still 31 October in New York.
   const at = new Date("2026-11-01T03:00:00Z");

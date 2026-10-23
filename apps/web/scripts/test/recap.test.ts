@@ -73,7 +73,7 @@ function memorySource(ctx: RecapContext | null, opts: { notes?: RecapNote[]; thr
   };
 }
 
-const reader = { id: "reader", showRecaps: true };
+const reader = { id: "reader", aiFeatures: true };
 const freeAccount = usageAccountOf({ plan: "FREE", timeZone: "Europe/London" });
 
 function deps(ask: AskJson, source: RecapSource, store = memoryUsageStore(), available = true) {
@@ -321,9 +321,9 @@ test("a free account's fourth recap is refused with the upgrade, without calling
 
 // ---- Preference and no key ------------------------------------------------------------------------------
 
-test("switching showRecaps off turns the feature off", async () => {
-  assert.equal(preferencesOf({}).showRecaps, true, "on by default");
-  const off = { id: "reader", showRecaps: preferencesOf({ showRecaps: false }).showRecaps };
+test("with AI features off, recaps are off", async () => {
+  assert.equal(preferencesOf({}).aiFeatures, false, "off by default on free");
+  const off = { id: "reader", aiFeatures: preferencesOf({ plan: "PLUS", aiFeatures: false }).aiFeatures };
   const source = memorySource({ book: book(), work: work("w1"), finishedInSeries: [] });
   const { ask, calls } = fakeModel(goodAnswer(40));
   const d = deps(ask, source);

@@ -4,7 +4,7 @@ import { ChevronDown, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import {
-  MOODS, MOOD_LABEL, MOODS_MAX, WARNING_LEVELS, WARNING_LEVEL_LABEL, WARNING_TOPICS,
+  MOODS, MOOD_LABEL, MOODS_MAX, WARNING_LEVELS, WARNING_LEVEL_LABEL, WARNING_TOPICS, shownMoods,
   type ContentWarning, type Mood, type ReaderTagsInput, type TagAggregate, type WarningLevel, type WarningTopic,
 } from '@/lib/workTags'
 
@@ -23,7 +23,7 @@ export const MoodChips: FC<{ moods: TagAggregate["moods"], readers: number, clas
   if (moods.length === 0) return null
   return (
     <ul className={cn("flex flex-wrap gap-1.5", className)} aria-label="Moods">
-      {moods.slice(0, 6).map(({ mood, count }) => (
+      {shownMoods(moods, readers, 6).map(({ mood, count }) => (
         <li
           key={mood}
           title={`${plural(count, "reader")} of ${readers}`}

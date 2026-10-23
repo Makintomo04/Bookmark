@@ -100,7 +100,9 @@ export async function usedThisMonth(userId: string, key: AllowanceKey, opts: Usa
 }
 
 export type ConsumeResult =
-  | { ok: true; left: number | null; refund: () => Promise<void> }
+  // refund({ daily: false }) gives back the month's use but keeps it against the daily cost guard: for
+  // a model call that worked but found nothing for the reader.
+  | { ok: true; left: number | null; refund: (opts?: { daily?: boolean }) => Promise<void> }
   // allowance: the plan's monthly allowance is spent (show the upgrade prompt). daily: the cost guard.
   | { ok: false; reason: "allowance" | "daily"; left: number | null };
 
@@ -121,10 +123,10 @@ export async function consumeAllowance(userId: string, key: AllowanceKey, opts: 
 
   const left = allowanceLeft(account.entitlements, key, await store.count(month));
   let refunded = false;
-  const refund = async () => {
+  const refund = async ({ daily = true }: { daily?: boolean } = {}) => {
     if (refunded) return;
     refunded = true;
-    await Promise.all([store.decrement(month), store.decrement(day)]);
+    await Promise.all([store.decrement(month), ...(daily ? [store.decrement(day)] : [])]);
   };
   return { ok: true, left, refund };
 }

@@ -115,6 +115,19 @@ export function aggregateTags(rows: ReaderTagsRow[], viewerId?: string | null): 
   return { readers, moods, warnings, mine }
 }
 
+// Once a book has this many taggers, a mood needs MOOD_FLOOR of them to be shown: with only twelve moods,
+// a stray pick or two would otherwise sit among the real ones on a book a thousand people tagged. Below
+// that, every mood counts, since each reader is a big share of a small number.
+export const MOOD_FLOOR_READERS = 10
+export const MOOD_FLOOR = 0.1
+
+// The moods worth showing for a book, strongest first, at most `max`. The full list stays in the
+// aggregate for search scoring, where a small share only nudges.
+export function shownMoods(moods: MoodCount[], readers: number, max: number): MoodCount[] {
+  const floor = readers >= MOOD_FLOOR_READERS ? MOOD_FLOOR : 0
+  return moods.filter((m) => m.share >= floor).slice(0, max)
+}
+
 // StoryGraph's "Moods" column: "adventurous, dark, tense". Words it doesn't use are ignored.
 export function moodsFromStoryGraph(raw: string | null | undefined): Mood[] {
   const out: Mood[] = []

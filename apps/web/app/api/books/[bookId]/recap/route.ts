@@ -17,7 +17,7 @@ import { prismaRecapSource, voteOnRecap } from "@/lib/recapSource";
 //   POST  /api/books/:id/recap { kind }            a recap: the kept one (free) or a new one (one of the month's allowance)
 //   PATCH /api/books/:id/recap { recapId, vote }   thumbs up or down (or null to clear), for quality tracking
 //
-// Refusals: 404 not the reader's book, 403 recaps switched off in settings, 409 that kind isn't offered
+// Refusals: 404 not the reader's book, 403 AI features switched off in settings, 409 that kind isn't offered
 // for the book now, 503 no model configured, 402 with the upgrade body when the month's recaps are used,
 // 429 at the daily cost guard. A recap that fails, goes past the reader's point, or that the model isn't
 // confident about is refunded.
@@ -36,7 +36,7 @@ export async function GET(_req: Request, { params }: { params: { bookId: string 
   if (response) return response;
   if (!isObjectId(params.bookId)) return NextResponse.json({ error: "Book not found" }, { status: 404 });
 
-  const reader = { id: user.id, showRecaps: preferencesOf(user).showRecaps };
+  const reader = { id: user.id, aiFeatures: preferencesOf(user).aiFeatures };
   const state = await recapState(reader, params.bookId, { source: prismaRecapSource, available: aiAvailable });
   if (!state.enabled) return NextResponse.json(state, { headers: noStore });
   const allowance = await allowanceStatus(user.id, "recaps", { account: usageAccountOf(user) });
@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: { params: { bookId: string 
     return NextResponse.json({ error: "That's a lot of recaps at once. Wait a minute and try again." }, { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } });
   }
 
-  const reader = { id: user.id, showRecaps: preferencesOf(user).showRecaps };
+  const reader = { id: user.id, aiFeatures: preferencesOf(user).aiFeatures };
   const account = usageAccountOf(user);
   const result = await catchMeUp(reader, params.bookId, parsed.data.kind, { ask: askJson, source: prismaRecapSource, available: aiAvailable, usage: { account } });
   const left = async () => (await allowanceStatus(user.id, "recaps", { account })).left;
@@ -68,7 +68,7 @@ export async function POST(req: Request, { params }: { params: { bookId: string 
     case "not_found":
       return NextResponse.json({ error: "Book not found" }, { status: 404 });
     case "off":
-      return NextResponse.json({ error: "Recaps are switched off in your settings.", code: "recaps_off" }, { status: 403 });
+      return NextResponse.json({ error: "AI features are switched off in your settings.", code: "ai_off" }, { status: 403 });
     case "not_eligible":
       return NextResponse.json({ error: "There's no recap for this book right now.", code: "not_eligible" }, { status: 409 });
     case "unavailable":

@@ -18,7 +18,7 @@ import { progressPercent, type ProgressBook } from "@/lib/progress";
 //
 // Only works the model can know well get the button at all (isWellKnown). The strategy's rules: the
 // recap is work the reader asked for, about the story and never about the reader, labelled as AI,
-// switched off with the showRecaps preference, and private (never in the feed, lists or circles).
+// switched off with the aiFeatures preference, and private (never in the feed, lists or circles).
 //
 // Each generated recap spends one of the month's `recaps` allowance; one that fails, overreaches or comes
 // back "not confident" is refunded. Recaps are kept per reader, work, kind and bucket, so reopening one
@@ -369,8 +369,8 @@ export interface RecapSource {
 
 export interface RecapReader {
   id: string;
-  // From preferencesOf(user).showRecaps.
-  showRecaps: boolean;
+  // From preferencesOf(user).aiFeatures.
+  aiFeatures: boolean;
 }
 
 export interface RecapDeps {
@@ -397,7 +397,7 @@ const keyFor = (userId: string, workId: string, option: ResumeOption | SeriesOpt
 
 // What the book page shows: the options, each with its kept recap when there is one. Spends nothing.
 export async function recapState(reader: RecapReader, bookId: string, deps: Omit<RecapDeps, "ask" | "usage">) {
-  if (!reader.showRecaps) return { enabled: false as const };
+  if (!reader.aiFeatures) return { enabled: false as const };
   const ctx = await deps.source.context(reader.id, bookId);
   if (!ctx || !ctx.work) return { enabled: true as const, available: deps.available(), resume: null, series: null };
   const workId = ctx.work.id;
@@ -411,7 +411,7 @@ export async function recapState(reader: RecapReader, bookId: string, deps: Omit
 // Ask for a recap: the kept one when there is one (free), otherwise one from the model (one of the
 // month's allowance, refunded unless a usable recap comes back).
 export async function catchMeUp(reader: RecapReader, bookId: string, kind: RecapKind, deps: RecapDeps): Promise<RecapResult> {
-  if (!reader.showRecaps) return { status: "off" };
+  if (!reader.aiFeatures) return { status: "off" };
   const ctx = await deps.source.context(reader.id, bookId);
   if (!ctx) return { status: "not_found" };
   const work = ctx.work;

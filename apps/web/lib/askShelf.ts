@@ -1,4 +1,4 @@
-import { MOODS, MOOD_LABEL, WARNING_TOPICS, type Mood, type MoodCount, type WarningSummary, type WarningTopic } from "@/lib/workTags";
+import { MOODS, MOOD_LABEL, WARNING_TOPICS, shownMoods, type Mood, type MoodCount, type WarningSummary, type WarningTopic } from "@/lib/workTags";
 import { AiError, type AskJson } from "@/lib/ai/client";
 
 // Ask the shelf: a reader describes what they're in the mood for, and gets books from Bookmark's own
@@ -497,7 +497,7 @@ export function reasonsPromptFor(intent: ShelfIntent, results: Ranked[]) {
       pages: c.pages,
       description: c.description ? c.description.slice(0, 700) : null,
       subjects: c.subjects.filter((s) => !/^nyt:|^form:|new york times|bestseller|reviewed|accessible book|protected daisy|in library/i.test(s)).slice(0, 15),
-      moods: c.moods.slice(0, 4).map((m) => MOOD_LABEL[m.mood]),
+      moods: shownMoods(c.moods, c.tagReaders, 4).map((m) => MOOD_LABEL[m.mood]),
     })),
   });
 }
@@ -598,7 +598,7 @@ const toResult = (r: Ranked, reason: string | null): AskResult => ({
   year: r.candidate.year,
   seriesName: r.candidate.seriesName,
   seriesPosition: r.candidate.seriesPosition,
-  moods: r.candidate.moods.slice(0, 3),
+  moods: shownMoods(r.candidate.moods, r.candidate.tagReaders, 3),
   warnings: r.candidate.warnings,
   tagReaders: r.candidate.tagReaders,
   signal: r.signal,

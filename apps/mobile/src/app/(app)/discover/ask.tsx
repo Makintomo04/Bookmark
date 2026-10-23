@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { AlertTriangle, BookCheck, Star, UsersRound } from "lucide-react-native";
 import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { MOOD_LABEL, WARNING_LEVEL_LABEL, type Mood, type MoodCount, type WarningSummary } from "@bookmark/shared/workTags";
@@ -30,7 +30,7 @@ const EXAMPLES = [
   "A slow-burn romance with a happy ending",
 ];
 
-type Allowance = { available: boolean; allowance: number | null; used: number; left: number | null; isPlus: boolean; dailyLeft: number };
+type Allowance = { available: boolean; enabled: boolean; allowance: number | null; used: number; left: number | null; isPlus: boolean; dailyLeft: number };
 type Signal = { kind: "followed"; people: Person[]; rating: number } | { kind: "circle"; people: Person[]; count: number; together: boolean };
 type Intent = {
   moods: Mood[];
@@ -60,7 +60,7 @@ type Result = {
   strong: boolean;
   shelf: { status: string; rating: number | null } | null;
 };
-type Outcome = { intent: Intent; results: Result[]; reasons: "done" | "failed" | "none"; left: number | null; query: string };
+type Outcome = { intent: Intent; results: Result[]; reasons: "done" | "failed" | "none"; left: number | null; refunded?: boolean; query: string };
 
 const formatRating = (rating: number) => (Number.isInteger(rating) ? String(rating) : rating.toFixed(1));
 const names = (people: Person[]) => people.map((p) => p.username ?? "a reader").join(", ");
@@ -84,13 +84,40 @@ function intentChips(intent: Intent): string[] {
   return chips;
 }
 
+// The reader's recent searches with their results, newest first, kept while the app is open so coming
+// back from a book doesn't lose them. Shown again as they were, never re-run: a re-run would spend
+// another search. Keyed to the reader, so signing in as someone else starts empty.
+const RECENT_MAX = 5;
+let recentSearches: { userId: string; searches: Outcome[] } | null = null;
+
+const recentFor = (userId: string | undefined) => (userId && recentSearches?.userId === userId ? recentSearches.searches : []);
+
+function addRecent(userId: string, outcome: Outcome): Outcome[] {
+  const same = (q: string) => q.trim().toLowerCase() === outcome.query.trim().toLowerCase();
+  const searches = [outcome, ...recentFor(userId).filter((s) => !same(s.query))].slice(0, RECENT_MAX);
+  recentSearches = { userId, searches };
+  return searches;
+}
 
 export default function AskTheShelf() {
   const { colors } = useTheme();
   const { data: status, mutate } = useSWR<Allowance>("/api/discover/ask");
-  const [query, setQuery] = useState("");
+  const { data: me } = useSWR<{ id: string }>("/api/user");
+  const [recent, setRecent] = useState(() => recentFor(me?.id));
+  const [query, setQuery] = useState(recent[0]?.query ?? "");
   const [searching, setSearching] = useState(false);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(recent[0] ?? null);
+  const [turningOn, setTurningOn] = useState(false);
+
+  // When the reader loads after the first render, bring their recent searches back then.
+  useEffect(() => {
+    if (!me || recent.length > 0) return;
+    const searches = recentFor(me.id);
+    if (searches.length === 0) return;
+    setRecent(searches);
+    setOutcome((o) => o ?? searches[0]);
+    setQuery((q) => q || searches[0].query);
+  }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [error, setError] = useState<string | null>(null);
   const [upgrade, setUpgrade] = useState(false);
 
@@ -103,6 +130,30 @@ export default function AskTheShelf() {
       </Screen>
     );
   }
+  // AI is opt-in on free accounts. The feature stays in view, with the switch right here.
+  if (!status.enabled) {
+    const turnOn = async () => {
+      setTurningOn(true);
+      setError(null);
+      try {
+        await api.patch("/api/user/privacy", { aiFeatures: true });
+        await Promise.all([mutate(), globalMutate("/api/user")]);
+      } catch {
+        setError("Couldn't turn AI features on. Try again.");
+      } finally {
+        setTurningOn(false);
+      }
+    };
+    return (
+      <Screen>
+        <Text variant="display">Ask the shelf</Text>
+        <Text variant="muted">Describe the read you{"’"}re after in your own words. AI turns it into a search of Bookmark{"’"}s catalog; books loved by people you follow come first.</Text>
+        <Notice message="AI features are off. Turn them on to use Ask the shelf and Catch me up recaps. AI only runs when you ask it to, is always labelled, and is never about you. You can turn it off again in settings." />
+        <Button title="Turn on AI features" loading={turningOn} onPress={turnOn} />
+        {error && <Notice tone="error" message={error} />}
+      </Screen>
+    );
+  }
 
   const search = async (text: string) => {
     const trimmed = text.trim();
@@ -112,7 +163,10 @@ export default function AskTheShelf() {
     setError(null);
     try {
       const result = await api.post<Omit<Outcome, "query">>("/api/discover/ask", { query: trimmed });
-      setOutcome({ ...result, query: trimmed });
+      const next = { ...result, query: trimmed };
+      setOutcome(next);
+      // Nothing found is given back, and isn't worth keeping as a recent search.
+      if (me && !result.refunded) setRecent(addRecent(me.id, next));
       await mutate();
       if (!status.isPlus && result.left === 0) setUpgrade(true);
     } catch (e) {
@@ -152,6 +206,16 @@ export default function AskTheShelf() {
       </View>
       <Button title={searching ? "Searching…" : "Search"} loading={searching} disabled={outOfSearches || query.trim().length < 3} onPress={() => search(query)} />
       <Text variant="small">{allowanceText(status)}</Text>
+      {recent.length > 0 && (
+        <View style={{ gap: 6 }}>
+          <Text variant="small">Recent searches · opening one again is free</Text>
+          <View style={styles.examples}>
+            {recent.map((r) => (
+              <Chip key={r.query} label={r.query} selected={outcome?.query === r.query} disabled={searching} onPress={() => { setOutcome(r); setQuery(r.query); setError(null); }} />
+            ))}
+          </View>
+        </View>
+      )}
       {upgrade && <Notice message={`${FEATURE_COPY.askShelfSearches.title}. ${FEATURE_COPY.askShelfSearches.message}`} />}
       {error && <Notice tone="error" message={error} />}
 
@@ -166,6 +230,7 @@ export default function AskTheShelf() {
           {outcome.results.length === 0 ? (
             <Text variant="muted">
               {chips.length === 0 ? "That didn't read as a book request. Describe a mood, a genre or a trope and try again." : "No book in Bookmark's catalog matches all of that yet. Try fewer conditions, or a different way of putting it."}
+              {outcome.refunded ? " That one didn’t count towards your searches." : ""}
             </Text>
           ) : (
             <>

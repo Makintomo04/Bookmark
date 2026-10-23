@@ -7,15 +7,17 @@ import { rateLimit } from "@/lib/rateLimit";
 import { AiError, aiAvailable, askJson } from "@/lib/ai/client";
 import { allowanceStatus, consumeAllowance, usageAccountOf } from "@/lib/ai/usage";
 import { ASK_QUERY_MAX, askShelf } from "@/lib/askShelf";
+import { preferencesOf } from "@/lib/preferences";
 import { prismaAskCatalog } from "@/lib/askShelfCatalog";
 
 // Ask the shelf (lib/askShelf.ts).
 //
-//   GET  /api/discover/ask              whether search is available, and the reader's allowance
+//   GET  /api/discover/ask              whether search is available, whether the reader has AI on, and their allowance
 //   POST /api/discover/ask { query }    one search: spends one of the month's allowance
 //
-// Refusals: 503 when no model is configured (nothing spent), 402 with the upgrade body when the
-// month's allowance is used up, 429 at the daily cost guard. A search whose model call fails is refunded.
+// Refusals: 403 when the reader has AI features switched off, 503 when no model is configured (nothing spent), 402 with the upgrade body when the
+// month's allowance is used up, 429 at the daily cost guard. A search whose model call fails is refunded,
+// and so is one that finds no books (back to the month's allowance; it still counts towards the daily guard).
 
 // Two short model calls, with a retry each in the worst case.
 export const maxDuration = 60;
@@ -31,7 +33,7 @@ export async function GET() {
   const { user, response } = await requireUser();
   if (response) return response;
   const status = await allowanceStatus(user.id, "askShelfSearches", { account: usageAccountOf(user) });
-  return NextResponse.json({ available: aiAvailable(), ...status }, { headers: noStore });
+  return NextResponse.json({ available: aiAvailable(), enabled: preferencesOf(user).aiFeatures, ...status }, { headers: noStore });
 }
 
 export async function POST(req: Request) {
@@ -40,6 +42,10 @@ export async function POST(req: Request) {
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Type what you'd like to read." }, { status: 400 });
+
+  if (!preferencesOf(user).aiFeatures) {
+    return NextResponse.json({ error: "AI features are switched off in your settings.", code: "ai_off" }, { status: 403 });
+  }
 
   if (!aiAvailable()) {
     return NextResponse.json({ error: "Search isn't available right now.", code: "ai_unavailable" }, { status: 503 });
@@ -58,6 +64,10 @@ export async function POST(req: Request) {
 
   try {
     const result = await askShelf(user.id, parsed.data.query, { ask: askJson, catalog: prismaAskCatalog });
+    if (result.results.length === 0) {
+      await spent.refund({ daily: false });
+      return NextResponse.json({ ...result, left: spent.left === null ? null : spent.left + 1, refunded: true }, { headers: noStore });
+    }
     return NextResponse.json({ ...result, left: spent.left }, { headers: noStore });
   } catch (err) {
     await spent.refund();

@@ -7,6 +7,7 @@ import { primaryButtonClass } from '@/app/components/profile-head/ProfileHeader'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { aiAvailable } from '@/lib/ai/client'
 import { allowanceStatus, usageAccountOf } from '@/lib/ai/usage'
+import { preferencesOf } from '@/lib/preferences'
 
 export const metadata: Metadata = {
   title: "Ask the shelf",
@@ -38,6 +39,7 @@ const Page = async () => {
         {viewer ? (
           <AskShelf
             available={aiAvailable()}
+            enabled={preferencesOf(viewer).aiFeatures}
             initialStatus={await allowanceStatus(viewer.id, "askShelfSearches", { account: usageAccountOf(viewer) })}
           />
         ) : (
