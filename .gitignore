@@ -1,22 +1,22 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 .yarn/install-state.gz
 
 # testing
-/coverage
+**/coverage
 
 # next.js
-/.next/
-/.next-isolated/
-/.next-test/
-/out/
+**/.next/
+**/.next-isolated/
+**/.next-test/
+**/out/
 
 # production
-/build
+**/build
 
 # misc
 .DS_Store
@@ -46,7 +46,7 @@ next-env.d.ts
 /.taste-skill/
 
 # Test accounts for the bookmark-test database
-/scripts/test/accounts.local.json
+/apps/web/scripts/test/accounts.local.json
 
 # Installed agent skills: personal tooling, not part of the app
 /.agents/skills/

@@ -3,15 +3,23 @@
   "configurations": [
     {
       "name": "bookmark-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@bookmark/web",
+        "dev"
+      ],
       "port": 3000,
       "autoPort": true
     },
     {
       "name": "bookmark-dev-isolated",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:isolated"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@bookmark/web",
+        "dev:isolated"
+      ],
       "port": 3010,
       "autoPort": true
     },
@@ -22,15 +30,56 @@
     },
     {
       "name": "bookmark-test",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:test"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@bookmark/web",
+        "dev:test"
+      ],
       "port": 3030
     },
     {
       "name": "bookmark-test-3031",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/with-test-db.mjs", "npx", "next", "dev", "-p", "3031"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@bookmark/web",
+        "dev:test:3031"
+      ],
       "port": 3031
+    },
+    {
+      "name": "bookmark-test-3032",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@bookmark/web",
+        "exec",
+        "node",
+        "scripts/with-test-db.mjs",
+        "pnpm",
+        "exec",
+        "next",
+        "dev",
+        "-p",
+        "3032"
+      ],
+      "port": 3032
+    },
+    {
+      "name": "bookmark-mobile-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@bookmark/mobile",
+        "exec",
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8081"
+      ],
+      "port": 8081
     }
   ]
 }
