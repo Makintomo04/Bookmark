@@ -6,6 +6,7 @@ import AchievementDetail from '@/app/components/achievements/AchievementDetail'
 import QuestDetail from '@/app/components/achievements/QuestDetail'
 import { Skeleton } from '@/app/components/ui/skeleton'
 import FetchErrorState from '@/app/components/FetchErrorState'
+import ReaderTierCard from '@/app/components/achievements/ReaderTierCard'
 
 const AchievementsView: FC = () => {
   const { achievements, isLoading, isError, mutate } = useAchievements()
@@ -36,6 +37,7 @@ const AchievementsView: FC = () => {
       <p className="-mt-5 mb-10 text-muted-foreground tabular-nums">
         {earnedCount} of {milestones.length} milestones earned. Select an achievement to see each milestone.
       </p>
+      <ReaderTierCard />
       <AchievementsGrid achievements={achievements} onSelect={setSelectedKey} />
       {selected?.quest
         ? <QuestDetail achievement={selected} onClose={() => setSelectedKey(null)} />
