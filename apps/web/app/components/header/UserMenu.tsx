@@ -134,10 +134,11 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <div className="mx-2 mt-auto md:mt-0 border-t border-neutral-200 dark:border-neutral-800 py-2">
               {navLink({ href: "/settings", label: "Settings", icon: Settings })}
               {tierPreviewEnabled && navLink({ href: "/dev/tiers", label: "Dev tools", icon: Wrench })}
-              <button type="button" onClick={() => signOut({ callbackUrl: `${window.location.origin}/signin` })}
+              {/* Straight to the landing page: no confirmation screen. */}
+              <button type="button" onClick={() => { close(); void signOut({ callbackUrl: '/' }) }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm font-medium text-muted-foreground transition hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-foreground">
                 <LogOut size={18} className="shrink-0" aria-hidden />
-                Log out
+                Sign out
               </button>
             </div>
           </nav>
