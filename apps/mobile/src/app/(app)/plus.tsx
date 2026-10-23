@@ -18,7 +18,8 @@ import { useTheme } from "@/lib/theme";
 
 // Bookmark Plus (the web's /plus and the Plus part of settings): your plan, this month's AI allowances,
 // the free and Plus columns, and the paywall. In the app Plus is bought through the App Store or Google
-// Play (RevenueCat), at the store's prices. A web subscription shows here too and is managed on the web.
+// Play (RevenueCat), at the store's prices, never by sending the reader to the website. A subscription
+// someone already has from the website shows here too, and is managed there.
 
 type Status = {
   plan: "FREE" | "PLUS";
@@ -148,14 +149,7 @@ function Paywall({ status, founding, onChange }: { status: Status | null; foundi
     return (
       <View style={[styles.card, { borderColor: colors.border }]}>
         <Text variant="title">Get Plus</Text>
-        {Platform.OS === "web" ? (
-          <>
-            <Text variant="muted">Plus is bought in the iPhone and Android apps, or on the Bookmark website.</Text>
-            <Button title="Open Plus on the web" variant="outline" onPress={() => void WebBrowser.openBrowserAsync(webUrl("/plus"))} />
-          </>
-        ) : (
-          <Text variant="muted">Purchases aren't set up in this build of the app yet.</Text>
-        )}
+        <Text variant="muted">Purchases aren't set up in this build of the app yet.</Text>
       </View>
     );
   }
