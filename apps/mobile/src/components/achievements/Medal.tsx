@@ -1,6 +1,7 @@
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { Award, Crown, Flame, Library, Mountain, Quote, ScrollText, Star, Target, Users } from "lucide-react-native";
+import { useTheme } from "@/lib/theme";
 
 // The medals, drawn as on the web (components/achievements/Medal.tsx and achievementTheme.ts): a
 // ladder medal in its own colour.
@@ -67,6 +68,19 @@ export function Medal({ achievementKey, earned, size }: { achievementKey: string
       <View style={[StyleSheet.absoluteFill, styles.centre]}>
         <Icon size={size * 0.4} strokeWidth={1.75} color={MEDAL_INK} />
       </View>
+    </View>
+  );
+}
+
+// A medal at list size: the real medal once a rung is earned, otherwise a dashed outline of it, so
+// what's still to earn reads as a goal rather than a greyed-out mistake (the web's MedalMark).
+export function MedalMark({ achievementKey, earned, size }: { achievementKey: string; earned: boolean; size: number }) {
+  const { colors } = useTheme();
+  if (earned) return <Medal achievementKey={achievementKey} earned size={size} />;
+  const Icon = ICONS[achievementKey] ?? Award;
+  return (
+    <View style={[styles.centre, { width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderStyle: "dashed", borderColor: colors.border }]}>
+      <Icon size={size * 0.45} strokeWidth={1.75} color={colors.mutedForeground} />
     </View>
   );
 }
