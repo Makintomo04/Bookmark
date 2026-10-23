@@ -5,7 +5,7 @@ import { PasswordInput } from '../ui/password-input'
 import { signIn } from 'next-auth/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import SignInWithOAuthButton from './SignInWithOAuthButton'
+import SignInWithOAuthButton, { appleSignInShown } from './SignInWithOAuthButton'
 import { Button } from '../ui/button'
 import { useRouter } from 'next/navigation'
 import { motion,AnimatePresence } from 'framer-motion'
@@ -194,6 +194,7 @@ const SignInComponent =  () => {
     <div className="flex gap-2 w-full">
               <SignInWithOAuthButton provider="Google" callbackPath={callbackPath}/>
               <SignInWithOAuthButton provider="Github" callbackPath={callbackPath}/>
+              {appleSignInShown && <SignInWithOAuthButton provider="Apple" callbackPath={callbackPath}/>}
     </div>
     <p className='text-sm mt-6'>First time using Bookmark? <Link href={withCallback("/register", callbackPath)} className={linkClass}>Create an account</Link></p>
   </div>

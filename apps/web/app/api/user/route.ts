@@ -9,6 +9,7 @@ import { isStorableBanner } from "@/lib/banners";
 import { SubscriptionCancelError, deleteAccount } from "@/lib/accountDeletion";
 import { isStripeConfigured, stripeBillingApi } from "@/lib/stripe";
 import { deleteBuddyReadDataFor } from "@/lib/buddyReadsServer";
+import { revenueCatApi } from "@/lib/storeBilling";
 export async function GET (req:Request, res:Response) {
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
@@ -116,6 +117,7 @@ export async function DELETE(req: Request) {
       db: prisma,
       cancelSubscription: isStripeConfigured() ? (id) => stripeBillingApi().cancelSubscription(id) : undefined,
       deleteCircleData: deleteBuddyReadDataFor,
+      deleteStoreCustomer: (id) => revenueCatApi()?.deleteSubscriber(id) ?? Promise.resolve(),
     });
   } catch (err) {
     if (err instanceof SubscriptionCancelError) {

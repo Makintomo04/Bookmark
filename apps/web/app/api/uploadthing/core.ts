@@ -1,5 +1,5 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
-import { getSession } from "@/app/actions/getCurrentUser";
+import getCurrentUser from "@/app/actions/getCurrentUser";
 
 const f = createUploadthing();
 
@@ -9,14 +9,15 @@ export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "4MB" } })
     // Set permissions and file types for this FileRoute
     .middleware(async () => {
-      // This code runs on your server before upload
-      const session = await getSession();
+      // This code runs on your server before upload. getCurrentUser takes the web's session cookie or the
+      // mobile app's bearer token.
+      const user = await getCurrentUser();
 
       // If you throw, the user will not be able to upload
-      if (!session?.user?.email) throw new Error("Unauthorized");
+      if (!user?.email) throw new Error("Unauthorized");
 
       // Whatever is returned here is accessible in onUploadComplete as `metadata`
-      return { userId: session.user.email };
+      return { userId: user.email };
     })
     .onUploadComplete(async ({ metadata, file }) => {
       // Whatever is returned here is sent to the clientside `onClientUploadComplete` callback

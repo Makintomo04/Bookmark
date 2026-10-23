@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/db";
+import { createNotifications } from "@/lib/notifications";
 import { requireUser } from "@/lib/apiAuth";
 import { isObjectId } from "@/lib/buddyReadsServer";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
@@ -57,9 +58,9 @@ export async function POST(req: Request, { params }: { params: { bookId: string 
   const fresh = ids.filter((id) => !sentBefore.has(id));
   const message = parsed.data.message || null;
   if (fresh.length > 0) {
-    await prisma.notification.createMany({
-      data: fresh.map((userId) => ({ userId, actorId: currentUser.id, type: "BOOK_RECOMMENDED" as const, bookId: book.id, message })),
-    });
+    await createNotifications(
+      fresh.map((userId) => ({ userId, actorId: currentUser.id, type: "BOOK_RECOMMENDED" as const, bookId: book.id, message })),
+    );
   }
   return NextResponse.json({ sent: fresh.length, alreadySent: sentBefore.size });
 }

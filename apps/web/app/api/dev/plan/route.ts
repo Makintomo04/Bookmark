@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     data: plus
       ? { plan: "PLUS", planRenewsAt: new Date(Date.now() + 30 * 86_400_000) }
       : { plan: "FREE", planRenewsAt: null, lifetime: false, compPlusUntil: null },
-    select: { ...entitlementsSelect, planRenewsAt: true, trialEndsAt: true, stripeCustomerId: true, foundingMember: true, patron: true },
+    select: { ...entitlementsSelect, planRenewsAt: true, trialEndsAt: true, stripeCustomerId: true, foundingMember: true, patron: true, storeName: true, storeTrialing: true },
   });
   return NextResponse.json(planStatusOf(user));
 }

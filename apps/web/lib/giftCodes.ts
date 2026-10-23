@@ -37,7 +37,7 @@ export async function redeemGiftCode(userId: string, input: unknown, now = new D
     prisma.giftCode.findUnique({ where: { code } }),
     prisma.user.findUnique({
       where: { id: userId },
-      select: { plan: true, trialEndsAt: true, stripeSubscriptionId: true, lifetime: true, compPlusUntil: true, foundingMember: true },
+      select: { plan: true, trialEndsAt: true, stripeSubscriptionId: true, lifetime: true, compPlusUntil: true, foundingMember: true, storeProductId: true },
     }),
   ]);
   if (!gift) return { ok: false, error: "We couldn't find that gift code. Check it and try again.", status: 404 };

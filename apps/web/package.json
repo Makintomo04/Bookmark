@@ -45,6 +45,7 @@
     "clsx": "^2.1.0",
     "d3-ease": "^3.0.1",
     "framer-motion": "^11.0.3",
+    "jose": "4.15.9",
     "loaders.css": "^0.1.2",
     "lucide-react": "^0.314.0",
     "moment": "^2.30.1",

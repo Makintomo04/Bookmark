@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 import { getRelation } from "@/lib/privacy";
 import { notifyRequest, toggleFollow } from "@/lib/followRequests";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
@@ -47,9 +48,7 @@ export async function POST(
       select: { id: true },
     });
     if (!unread) {
-      await prisma.notification.create({
-        data: { userId: targetUser.id, actorId: currentUser.id, type: "NEW_FOLLOWER" },
-      });
+      await createNotification({ userId: targetUser.id, actorId: currentUser.id, type: "NEW_FOLLOWER" });
     }
   }
   return NextResponse.json({ isFollowing: result.isFollowing, requested: result.requested });

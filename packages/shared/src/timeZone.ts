@@ -5,6 +5,8 @@
 // lib/achievements.ts). With neither, UTC. Safe to import from client components.
 
 export const TIME_ZONE_COOKIE = "tz";
+// The mobile app has no cookie jar, so it reports its zone on every request in this header instead.
+export const TIME_ZONE_HEADER = "x-time-zone";
 export const DEFAULT_TIME_ZONE = "UTC";
 
 export function isValidTimeZone(zone: unknown): zone is string {

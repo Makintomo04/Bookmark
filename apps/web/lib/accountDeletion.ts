@@ -18,6 +18,10 @@ export interface AccountDeletionDeps {
   // Reading circles (lib/buddyReadsServer.ts deleteBuddyReadDataFor): hosted circles pass to another member,
   // and the reader's comments stay as a former member's. Runs first, inside the transaction.
   deleteCircleData: (userId: string, tx: Tx) => Promise<void>;
+  // Removes the reader from RevenueCat (lib/storeBilling.ts revenueCatApi). App Store and Google Play
+  // subscriptions can only be cancelled by the reader in the store, which the app tells them before they
+  // delete; this only clears the purchase records. Best effort, after the database, and never blocks.
+  deleteStoreCustomer?: (userId: string) => Promise<void>;
 }
 
 // The subscription couldn't be cancelled, so nothing was deleted.
@@ -67,6 +71,13 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.followRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } });
     await tx.account.deleteMany({ where: { userId } });
     await tx.session.deleteMany({ where: { userId } });
+    // Signed-in phones and their push tokens.
+    await tx.mobileSession.deleteMany({ where: { userId } });
+    await tx.pushToken.deleteMany({ where: { userId } });
     await tx.user.delete({ where: { id: userId } });
   }, { timeout: 30_000 });
+
+  if (deps.deleteStoreCustomer) {
+    await deps.deleteStoreCustomer(user.id).catch((err) => console.error(`[account] couldn't remove user ${user.id} from RevenueCat:`, err));
+  }
 }

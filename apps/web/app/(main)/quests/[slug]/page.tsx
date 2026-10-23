@@ -2,14 +2,13 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ArrowRight, EyeOff } from 'lucide-react'
-import prisma from '@/lib/db'
 import Container from '@/app/components/Container'
 import BookCover from '@/app/components/cards/BookCover'
 import QuestMedal from '@/app/components/achievements/QuestMedal'
 import { EditQuestButton } from '@/app/components/quests/QuestEditor'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { earnedCounts, findQuest, goalOf, goalText, listTitles, medalOf, questStanding, syncQuests } from '@/lib/quests'
-import { PAGES_SANITY_MAX, QUEST_KEY_PREFIX, questCountdown, questDates, questDay, questKey, questPhase, toEditableQuest } from '@/lib/questRules'
+import { findQuest, goalText, questDetail } from '@/lib/quests'
+import { PAGES_SANITY_MAX, questCountdown, questDates, questDay, toEditableQuest } from '@/lib/questRules'
 
 interface PageProps {
   params: { slug: string }
@@ -26,28 +25,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 const Page = async ({ params }: PageProps) => {
   const viewer = await getCurrentUser()
-  const quest = await findQuest(params.slug, viewer)
-  if (!quest) notFound()
-
-  const goal = goalOf(quest)
-  const phase = questPhase(quest)
-  const design = medalOf(quest)
-  const titles = await listTitles([quest])
-
-  // The reader's standing, worked out fresh. If it's complete but unrewarded (a finish that came in
-  // some other way than a book update), award it now.
-  let earnedAt: Date | null = null
-  const standing = viewer && goal ? await questStanding(viewer.id, quest) : null
-  if (viewer) {
-    const medal = await prisma.userAchievement.findUnique({ where: { userId_key: { userId: viewer.id, key: questKey(quest.id) } } })
-    earnedAt = medal?.earnedAt ?? null
-    if (!earnedAt && standing && standing.count >= standing.target && !quest.hidden) {
-      const mine = await prisma.userAchievement.findMany({ where: { userId: viewer.id, key: { startsWith: QUEST_KEY_PREFIX } }, select: { key: true } })
-      const awarded = await syncQuests(viewer.id, new Set(mine.map((m) => m.key)))
-      if (awarded.some((a) => a.questId === quest.id)) earnedAt = new Date()
-    }
-  }
-  const earnedCount = (await earnedCounts([quest.id])).get(quest.id) ?? 0
+  const detail = await questDetail(params.slug, viewer)
+  if (!detail) notFound()
+  const { quest, goal, phase, design, titles, standing, earnedAt, earnedCount } = detail
   const readers = `${earnedCount.toLocaleString("en-GB")} ${earnedCount === 1 ? "reader" : "readers"}`
   const percent = standing ? Math.min(100, Math.round((standing.count / standing.target) * 100)) : 0
 

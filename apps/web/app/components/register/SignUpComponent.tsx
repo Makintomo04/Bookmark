@@ -5,7 +5,7 @@ import { PasswordInput } from '../ui/password-input'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '../ui/button'
-import SignInWithOAuthButton from '../signIn/SignInWithOAuthButton'
+import SignInWithOAuthButton, { appleSignInShown } from '../signIn/SignInWithOAuthButton'
 import { motion,AnimatePresence  } from 'framer-motion'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import axios from 'axios'
@@ -140,6 +140,7 @@ if (!isMobile) {
     <div className="flex gap-2 w-full">
               <SignInWithOAuthButton provider="Google" callbackPath={callbackPath}/>
               <SignInWithOAuthButton provider="Github" callbackPath={callbackPath}/>
+              {appleSignInShown && <SignInWithOAuthButton provider="Apple" callbackPath={callbackPath}/>}
     </div>
     <p className='text-sm mt-6'>Already have an account? <Link href={withCallback("/signin", callbackPath)} className={linkClass}>Sign in</Link></p>
     <p className='text-xs text-muted-foreground mt-3'>By signing up, you agree to our <Link href="/terms" className='hover:underline'>Terms</Link> and <Link href="/privacy" className='hover:underline'>Privacy Policy</Link>.</p>

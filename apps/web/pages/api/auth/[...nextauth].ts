@@ -3,16 +3,18 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import GithubProvider from "next-auth/providers/github"
 import GoogleProvider from "next-auth/providers/google"
 import EmailProvider from "next-auth/providers/email"
-import TwitterProvider from "next-auth/providers/twitter"
+import AppleProvider from "next-auth/providers/apple"
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/db";
-import bcrypt from "bcrypt";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
-import { EMAIL_NOT_VERIFIED } from "@/lib/authSchemas";
+import { checkPasswordSignIn } from "@/lib/passwordSignIn";
 import { findUserByEmail } from "@/lib/findUserByEmail";
 import { consumeVerificationToken } from "@/lib/emailVerification";
 import { MAGIC_LINK_MAX_AGE_SECONDS, sendMagicLink } from "@/lib/magicLink";
 import type { Adapter, AdapterUser } from "next-auth/adapters";
+import { appleClientSecret, appleWebConfig } from "@/lib/appleSignIn";
+
+const apple = appleWebConfig()
 
 // NextAuth lowercases magic-link emails, and older accounts may be stored in mixed case. Matching the
 // way password sign-in does stops a magic link from creating a second account for Jane@Gmail.com.
@@ -46,29 +48,7 @@ export const authOptions: AuthOptions = {
         if(!credentials || !credentials.email || !credentials.password){
           throw new Error('No credentials provided')
         }
-        // Slows password guessing: per IP across all accounts, and per account across all IPs.
-        const byIp = rateLimit(`signin:ip:${clientIp(req?.headers)}`, 20, 15 * 60 * 1000)
-        const byEmail = rateLimit(`signin:email:${credentials.email.toLowerCase()}`, 10, 15 * 60 * 1000)
-        if (!byIp.ok || !byEmail.ok) {
-          throw new Error(tooManyRequestsMessage)
-        }
-        const user = await findUserByEmail(credentials.email.trim())
-        // Same message as a wrong password, so sign-in can't be used to discover which emails have accounts.
-        if (!user || !user.hashedPassword) {
-          throw new Error('Invalid email or password')
-        }
-        const isCorrectPassword = await bcrypt.compare(credentials.password,user.hashedPassword)
-
-        if (!isCorrectPassword) {
-          throw new Error('Invalid email or password');
-        }
-        // Checked after the password so this only tells someone who already knows it. The sign-in page
-        // reads this code and offers to resend the link. Skipped in `next dev` so local accounts can sign
-        // in without the email round trip; `next build`/`next start` always set NODE_ENV to production.
-        if (!user.emailVerified && process.env.NODE_ENV !== 'development') {
-          throw new Error(EMAIL_NOT_VERIFIED)
-        }
-        return user
+        return checkPasswordSignIn(credentials.email, credentials.password, req?.headers)
       }
     }),
     // No allowDangerousEmailAccountLinking: older password accounts may still be unverified, so linking by
@@ -79,6 +59,8 @@ export const authOptions: AuthOptions = {
       clientId: process.env.GITHUB_ID as string,
       clientSecret: process.env.GITHUB_SECRET as string,
     }),
+    // Only once the Apple keys are set (lib/appleSignIn.ts).
+    ...(apple ? [AppleProvider({ clientId: apple.clientId, clientSecret: appleClientSecret(apple) })] : []),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
@@ -134,6 +116,14 @@ export const authOptions: AuthOptions = {
   session: {
     strategy: 'jwt',
   },
+  // Apple returns to the callback with a cross-site POST, which drops SameSite=Lax cookies, so the PKCE and
+  // state cookies are SameSite=None while Sign in with Apple is on.
+  ...(apple && {
+    cookies: {
+      pkceCodeVerifier: { name: "__Secure-next-auth.pkce.code_verifier", options: { httpOnly: true, sameSite: "none", path: "/", secure: true } },
+      state: { name: "__Secure-next-auth.state", options: { httpOnly: true, sameSite: "none", path: "/", secure: true } },
+    },
+  }),
   jwt: {
     secret: process.env.NEXTAUTH_JWT_SECRET,
   }

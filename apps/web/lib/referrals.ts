@@ -65,7 +65,7 @@ export async function qualifyReferral(inviteeId: string, now = new Date()): Prom
 async function rewardInviter(inviterId: string, now: Date): Promise<RewardResult> {
   const user = await prisma.user.findUnique({
     where: { id: inviterId },
-    select: { plan: true, lifetime: true, compPlusUntil: true, planRenewsAt: true, trialEndsAt: true, stripeCustomerId: true, stripeSubscriptionId: true, foundingMember: true, patron: true },
+    select: { plan: true, lifetime: true, compPlusUntil: true, planRenewsAt: true, trialEndsAt: true, stripeCustomerId: true, stripeSubscriptionId: true, foundingMember: true, patron: true, storePlusUntil: true },
   });
   if (!user) return "none";
   const status = planStatusOf(user, now);

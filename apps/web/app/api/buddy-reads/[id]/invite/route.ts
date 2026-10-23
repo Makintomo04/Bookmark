@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { BUDDY_READ_MAX_MEMBERS } from "@/lib/buddyReads";
@@ -54,9 +55,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (removal) await prisma.buddyReadRemoval.delete({ where: { id: removal.id } });
   if (!existing) {
     await prisma.buddyReadInvite.create({ data: { buddyReadId: buddyRead.id, inviterId: currentUser.id, inviteeId: invitee.id } });
-    await prisma.notification.create({
-      data: { userId: invitee.id, actorId: currentUser.id, type: "BUDDY_READ_INVITE", buddyReadId: buddyRead.id, count: 1 },
-    });
+    await createNotification({ userId: invitee.id, actorId: currentUser.id, type: "BUDDY_READ_INVITE", buddyReadId: buddyRead.id, count: 1 });
   }
   return NextResponse.json({ invited: true });
 }

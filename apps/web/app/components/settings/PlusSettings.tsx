@@ -26,6 +26,8 @@ const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
       ? status.trialing
         ? `On your free trial until ${moment(status.until).format("D MMMM")}. Add a card in the portal to keep Plus after that.`
         : status.until ? `Renews or ends on ${moment(status.until).format("D MMMM YYYY")}.` : "Thanks for supporting Bookmark."
+      : status.source === "store"
+        ? `Plus through ${status.store === "PLAY_STORE" ? "Google Play" : "the App Store"}${status.until ? `, renewing or ending on ${moment(status.until).format("D MMMM YYYY")}` : ""}. Manage or cancel it in ${status.store === "PLAY_STORE" ? "the Play Store app" : "your iPhone's Settings"}.`
       : status.source === "comp" && status.compUntil
         ? `Free Plus until ${moment(status.compUntil).format("D MMMM YYYY")}, from inviting friends or a gift.`
         : "You're on the free plan. Every stat, import and circle you join stays free."
@@ -53,7 +55,7 @@ const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
               Manage subscription
             </Button>
           )}
-          {status.source !== "subscription" && status.source !== "lifetime" && (
+          {status.source !== "subscription" && status.source !== "store" && status.source !== "lifetime" && (
             <Button asChild className="bg-brand-fill hover:bg-brand-fill-hover text-white">
               <Link href="/plus">{status.trialUsed ? "See Plus" : "Try Plus free"}</Link>
             </Button>

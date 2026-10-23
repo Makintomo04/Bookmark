@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Container from '@/app/components/Container'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { getReadingStats, isWrappedSeason } from '@/lib/stats'
+import { getReadingStats, wrappedYearsFor } from '@/lib/stats'
 import StatsView, { StatsEmpty } from '@/app/components/stats/StatsView'
 import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/accent'
 import MonthlyWrapCards from '@/app/components/wrapped/MonthlyWrapCards'
@@ -27,12 +27,7 @@ const Page = async ({ searchParams }: PageProps) => {
   const year = stats.years.some((y) => y.year === asked) ? asked : thisYear
   const isEmpty = stats.booksRead === 0 && stats.dnf === 0
 
-  // Past years with books always have a Wrapped; this year's opens in December.
-  const wrappedYears = stats.years
-    .filter((y) => y.books > 0 && (y.year < thisYear || isWrappedSeason()))
-    .map((y) => y.year)
-    .reverse()
-    .slice(0, 4)
+  const wrappedYears = wrappedYearsFor(stats)
 
   return (
     <div className={`mt-8 sm:mt-12 ${ACCENT_SCOPE}`} style={accentVars(readerAccent(user.favColour))}>

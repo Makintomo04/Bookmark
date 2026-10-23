@@ -1,10 +1,11 @@
 import prisma from "@/lib/db";
+import { createNotifications } from "@/lib/notifications";
 import { Prisma } from "@prisma/client";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { ACHIEVEMENTS, AchievementKey, AchievementDefinition, LEGACY_KEYS, Milestone, milestoneKey } from "@/lib/achievements-catalog";
 import { EarnedQuestMedal, syncQuests } from "@/lib/quests";
 import { finishedBookWhere } from "@/lib/readerTier";
-import { DEFAULT_TIME_ZONE, TIME_ZONE_COOKIE, isValidTimeZone, localDay, previousDay } from "@/lib/timeZone";
+import { DEFAULT_TIME_ZONE, TIME_ZONE_COOKIE, TIME_ZONE_HEADER, isValidTimeZone, localDay, previousDay } from "@/lib/timeZone";
 
 export { ACHIEVEMENTS, getAchievementTitle } from "@/lib/achievements-catalog";
 export type { AchievementKey, AchievementDefinition } from "@/lib/achievements-catalog";
@@ -52,11 +53,11 @@ export interface AwardOptions {
 
 // ---- Time zone ---------------------------------------------------------------------------
 
-// The `tz` cookie set by the browser (VerifyEmailBanner). Only meaningful inside the signed-in
-// user's own request, which is where awardNewAchievements runs.
+// The `tz` cookie set by the browser (VerifyEmailBanner), or the X-Time-Zone header the mobile app sends.
+// Only meaningful inside the signed-in user's own request, which is where awardNewAchievements runs.
 function requestTimeZone(): string | undefined {
   try {
-    const raw = cookies().get(TIME_ZONE_COOKIE)?.value;
+    const raw = cookies().get(TIME_ZONE_COOKIE)?.value ?? headers().get(TIME_ZONE_HEADER) ?? undefined;
     const zone = raw ? decodeURIComponent(raw) : undefined;
     return isValidTimeZone(zone) ? zone : undefined;
   } catch {
@@ -342,14 +343,14 @@ export async function syncAchievements(
       const current = highest.get(achievement.key);
       if (!current || milestone.value > current.value) highest.set(achievement.key, milestone);
     }
-    await prisma.notification.createMany({
-      data: Array.from(highest, ([key, milestone]) => ({
+    await createNotifications(
+      Array.from(highest, ([key, milestone]) => ({
         userId,
         actorId: userId,
         type: "ACHIEVEMENT_EARNED" as const,
         achievementKey: milestoneKey(key, milestone.value),
       })),
-    });
+    );
   }
 
   // Quest medals notify on their own (QUEST_COMPLETED), even on a first run: each one is news.

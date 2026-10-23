@@ -68,7 +68,7 @@ test("plan status reads trials, renewals and a used trial", () => {
   const now = new Date("2026-10-22T12:00:00Z");
   const trialEnds = new Date("2026-11-05T12:00:00Z");
   const trial = planStatusOf({ plan: "PLUS", trialEndsAt: trialEnds, planRenewsAt: trialEnds, stripeCustomerId: "cus_1" }, now);
-  assert.deepEqual(trial, { plan: "PLUS", source: "subscription", founding: false, patron: false, lifetime: false, compUntil: null, trialing: true, until: trialEnds, hasBilling: true, trialUsed: true });
+  assert.deepEqual(trial, { plan: "PLUS", source: "subscription", founding: false, patron: false, lifetime: false, compUntil: null, trialing: true, until: trialEnds, store: null, hasBilling: true, trialUsed: true });
 
   const renews = new Date("2026-11-22T12:00:00Z");
   const paid = planStatusOf({ plan: "PLUS", trialEndsAt: new Date("2026-09-01T00:00:00Z"), planRenewsAt: renews, stripeCustomerId: "cus_1" }, now);
@@ -76,8 +76,8 @@ test("plan status reads trials, renewals and a used trial", () => {
   assert.deepEqual(paid.until, renews);
 
   const lapsed = planStatusOf({ plan: "FREE", trialEndsAt: new Date("2026-09-01T00:00:00Z"), stripeCustomerId: "cus_1" }, now);
-  assert.deepEqual(lapsed, { plan: "FREE", source: null, founding: false, patron: false, lifetime: false, compUntil: null, trialing: false, until: null, hasBilling: true, trialUsed: true });
-  assert.deepEqual(planStatusOf({}, now), { plan: "FREE", source: null, founding: false, patron: false, lifetime: false, compUntil: null, trialing: false, until: null, hasBilling: false, trialUsed: false });
+  assert.deepEqual(lapsed, { plan: "FREE", source: null, founding: false, patron: false, lifetime: false, compUntil: null, trialing: false, until: null, store: null, hasBilling: true, trialUsed: true });
+  assert.deepEqual(planStatusOf({}, now), { plan: "FREE", source: null, founding: false, patron: false, lifetime: false, compUntil: null, trialing: false, until: null, store: null, hasBilling: false, trialUsed: false });
   assert.equal(planStatusOf({ plan: "PLUS", foundingMember: true }, now).founding, true);
 });
 

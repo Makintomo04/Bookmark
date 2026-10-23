@@ -2,6 +2,8 @@
 // live in lib/buddyReads.ts (pure, so they can be checked without a database).
 import { randomBytes } from "crypto";
 import prisma from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
+import { sendPushes } from "@/lib/push";
 import { Prisma, type Book, type BuddyRead, type NotificationType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import type { z } from "zod";
@@ -356,9 +358,9 @@ export async function bumpNotification(n: { userId: string, actorId: string, typ
       data: { count: { increment: n.by }, actorId: n.actorId, createdAt: new Date() },
     })
   } else {
-    await prisma.notification.create({
-      data: { userId: n.userId, actorId: n.actorId, type: n.type, buddyReadId: n.buddyReadId, count: n.by },
-    })
+    // Only a new row is pushed: while one is unread, more joins or unlocks just bump it, so a busy circle
+    // doesn't buzz the phone with every one.
+    await createNotification({ userId: n.userId, actorId: n.actorId, type: n.type, buddyReadId: n.buddyReadId, count: n.by })
   }
 }
 
@@ -415,11 +417,13 @@ export async function handOverHosting(buddyRead: BuddyRead, toUserId: string, op
     where: { id: buddyRead.id },
     data: { hostId: toUserId, inheritedAt: new Date(), ...(opts.archive && { status: "ARCHIVED" }) },
   })
-  await db.notification.create({
-    data: opts.from
-      ? { userId: toUserId, actorId: opts.from, type: "BUDDY_READ_HOSTED", buddyReadId: buddyRead.id, count: 1 }
-      : { userId: toUserId, actorId: toUserId, type: "BUDDY_READ_HOST_INHERITED", buddyReadId: buddyRead.id, count: 1 },
-  })
+  const data = opts.from
+    ? { userId: toUserId, actorId: opts.from, type: "BUDDY_READ_HOSTED" as const, buddyReadId: buddyRead.id, count: 1 }
+    : { userId: toUserId, actorId: toUserId, type: "BUDDY_READ_HOST_INHERITED" as const, buddyReadId: buddyRead.id, count: 1 }
+  await db.notification.create({ data })
+  // A host handing over is pushed. A handover inside account deletion (no `from`) runs in its transaction,
+  // which could still roll back, so it stays in the bell.
+  if (opts.from) await sendPushes([data])
 }
 
 // Who takes over when the host closes their account: the longest-standing member with room for another

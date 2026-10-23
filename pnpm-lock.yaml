@@ -237,6 +237,9 @@ importers:
       framer-motion:
         specifier: ^11.0.3
         version: 11.0.3(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      jose:
+        specifier: 4.15.9
+        version: 4.15.9
       loaders.css:
         specifier: ^0.1.2
         version: 0.1.2

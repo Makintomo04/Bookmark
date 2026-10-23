@@ -485,3 +485,14 @@ export const getWrappedOwner = cache(async (username: string) => {
 export function defaultWrappedYear(now = new Date()): number {
   return isWrappedSeason(now) ? now.getFullYear() : now.getFullYear() - 1;
 }
+
+// The Wrapped links under the stats: past years with books always have one, this year's opens in
+// December. Newest first, at most four.
+export function wrappedYearsFor(stats: ReadingStats, now = new Date()): number[] {
+  const thisYear = stats.years[stats.years.length - 1]?.year ?? now.getFullYear();
+  return stats.years
+    .filter((y) => y.books > 0 && (y.year < thisYear || isWrappedSeason(now)))
+    .map((y) => y.year)
+    .reverse()
+    .slice(0, 4);
+}

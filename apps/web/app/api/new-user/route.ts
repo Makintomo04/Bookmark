@@ -68,11 +68,13 @@ export async function POST(req: Request) {
         ...(typeof body?.bannerSrc === "string" && body.bannerSrc ? { banner: body.bannerSrc } : {}),
       },
     });
-    // Signed up through someone's invite link (app/components/register/SignUpComponent.tsx keeps it).
-    const ref = cookies().get(REFERRAL_COOKIE)?.value;
-    if (ref) await attachReferralByUsername(user.id, decodeURIComponent(ref), "link").catch((e) => console.error("[referrals]", e));
+    // Signed up through someone's invite link: the web keeps it in a cookie (app/components/register/
+    // SignUpComponent.tsx), the mobile app sends it as `ref`.
+    const cookieRef = cookies().get(REFERRAL_COOKIE)?.value;
+    const ref = cookieRef ? decodeURIComponent(cookieRef) : typeof body?.ref === "string" ? body.ref.trim().slice(0, 64) : "";
+    if (ref) await attachReferralByUsername(user.id, ref, "link").catch((e) => console.error("[referrals]", e));
     const res = NextResponse.json(sanitizeUser(user));
-    if (ref) res.cookies.delete(REFERRAL_COOKIE);
+    if (cookieRef) res.cookies.delete(REFERRAL_COOKIE);
     return res;
   } catch (error) {
     // Someone claimed the name between the check and the update.

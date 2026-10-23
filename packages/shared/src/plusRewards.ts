@@ -34,9 +34,10 @@ type GiftCandidate = {
   lifetime?: boolean | null;
   compPlusUntil?: Date | string | null;
   foundingMember?: boolean | null;
+  storeProductId?: string | null;
 };
 export function canRedeemGift(user: GiftCandidate): boolean {
-  return user.plan !== "PLUS" && !user.trialEndsAt && !user.stripeSubscriptionId && !user.lifetime && !user.compPlusUntil && !user.foundingMember;
+  return user.plan !== "PLUS" && !user.trialEndsAt && !user.stripeSubscriptionId && !user.lifetime && !user.compPlusUntil && !user.foundingMember && !user.storeProductId;
 }
 export const GIFT_DAYS_GRANTED = GIFT_DAYS;
 

@@ -81,7 +81,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
   const [interval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly')
   const [asPatron, setAsPatron] = useState(false)
   const source = status?.source ?? null
-  const subscribed = source === 'subscription' || source === 'lifetime'
+  const subscribed = source === 'subscription' || source === 'store' || source === 'lifetime'
   const trial = !status?.trialUsed
   const money = (amount: number) => formatPrice(currency, amount)
 
@@ -220,6 +220,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
             {cta}
             <p className={cn('mt-3 text-center text-xs', mutedClassName)}>
               {source === 'lifetime' ? 'Thank you for backing Bookmark from the start.'
+                : source === 'store' ? `You subscribed in the app. Manage it in ${status?.store === 'PLAY_STORE' ? 'Google Play' : 'the App Store'}.`
                 : source === 'subscription'
                   ? status?.until ? `${status.trialing ? 'Trial ends' : 'Renews or ends'} ${moment(status.until).format('D MMMM YYYY')}.` : 'Change or cancel any time in the portal.'
                   : trial
@@ -230,7 +231,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
         </section>
       </div>
 
-      {lifetime.open && source !== 'lifetime' && source !== 'subscription' && (
+      {lifetime.open && source !== 'lifetime' && source !== 'subscription' && source !== 'store' && (
         <section aria-labelledby="lifetime-heading" className={cn('flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8', cardClassName)}>
           <div className="max-w-xl">
             <h2 id="lifetime-heading" className="flex items-center gap-2 text-lg font-bold"><InfinityIcon size={18} aria-hidden className="text-brand" /> Lifetime Plus, {money(prices.lifetime)} once</h2>

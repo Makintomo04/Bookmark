@@ -1,8 +1,9 @@
 import { Prisma, Quest } from "@prisma/client";
 import prisma from "@/lib/db";
+import { createNotifications } from "@/lib/notifications";
 import { sameBook } from "@/lib/workKey";
 import {
-  QuestGoal, QuestMedalDesign, QuestPhase, bookInGenre, describeGoal, isQuestKey, parseGoal, questIdOf, questKey, questPhase, trustedPages,
+  QUEST_KEY_PREFIX, QuestGoal, QuestMedalDesign, QuestPhase, bookInGenre, describeGoal, isQuestKey, parseGoal, questIdOf, questKey, questPhase, trustedPages,
 } from "@/lib/questRules";
 
 // Seasonal quests, server side: which of a reader's finishes count, their progress, and the medal.
@@ -316,9 +317,7 @@ export async function syncQuests(userId: string, earnedKeys: Set<string>, now = 
   }
 
   if (earned.length > 0) {
-    await prisma.notification.createMany({
-      data: earned.map((q) => ({ userId, actorId: userId, type: "QUEST_COMPLETED" as const, achievementKey: questKey(q.questId) })),
-    });
+    await createNotifications(earned.map((q) => ({ userId, actorId: userId, type: "QUEST_COMPLETED" as const, achievementKey: questKey(q.questId) })));
   }
   return earned;
 }
@@ -388,4 +387,31 @@ export async function questAchievementItems(userId: string, earned: { key: strin
       },
     };
   });
+}
+
+// ---- One quest, for its page and GET /api/quests/<slug> ------------------------------------
+
+// Everything the quest page shows. The reader's standing is worked out fresh, and if it's complete but
+// unrewarded (a finish that came in some other way than a book update), the medal is awarded now.
+export async function questDetail(slug: string, viewer: Viewer) {
+  const quest = await findQuest(slug, viewer);
+  if (!quest) return null;
+  const goal = goalOf(quest);
+  const phase = questPhase(quest);
+  const design = medalOf(quest);
+  const titles = await listTitles([quest]);
+
+  let earnedAt: Date | null = null;
+  const standing = viewer && goal ? await questStanding(viewer.id, quest) : null;
+  if (viewer) {
+    const medal = await prisma.userAchievement.findUnique({ where: { userId_key: { userId: viewer.id, key: questKey(quest.id) } } });
+    earnedAt = medal?.earnedAt ?? null;
+    if (!earnedAt && standing && standing.count >= standing.target && !quest.hidden) {
+      const mine = await prisma.userAchievement.findMany({ where: { userId: viewer.id, key: { startsWith: QUEST_KEY_PREFIX } }, select: { key: true } });
+      const awarded = await syncQuests(viewer.id, new Set(mine.map((m) => m.key)));
+      if (awarded.some((a) => a.questId === quest.id)) earnedAt = new Date();
+    }
+  }
+  const earnedCount = (await earnedCounts([quest.id])).get(quest.id) ?? 0;
+  return { quest, goal, phase, design, titles, standing, earnedAt, earnedCount };
 }

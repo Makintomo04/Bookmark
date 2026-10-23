@@ -74,19 +74,22 @@ export interface Entitlements {
 }
 
 // The User fields these need. Spread into a Prisma `select`.
-export const entitlementsSelect = { plan: true, lifetime: true, compPlusUntil: true } as const;
+export const entitlementsSelect = { plan: true, lifetime: true, compPlusUntil: true, storePlusUntil: true } as const;
 
-type StoredPlan = { plan?: Plan | null; lifetime?: boolean | null; compPlusUntil?: Date | string | null };
+type StoredPlan = { plan?: Plan | null; lifetime?: boolean | null; compPlusUntil?: Date | string | null; storePlusUntil?: Date | string | null };
 
 const asDate = (value: Date | string | null | undefined) => (value ? new Date(value) : null);
 
-// Where an account's Plus comes from: a Stripe subscription (or trial), a lifetime purchase, or free
-// months earned by inviting friends or from a gift code. Null on free.
-export type PlusSource = "subscription" | "lifetime" | "comp";
+// Where an account's Plus comes from: a Stripe subscription (or trial), an App Store or Google Play
+// subscription bought in the app, a lifetime purchase, or free months earned by inviting friends or from
+// a gift code. Null on free.
+export type PlusSource = "subscription" | "store" | "lifetime" | "comp";
 
 export function plusSourceOf(user: StoredPlan, now = new Date()): PlusSource | null {
   if (user.lifetime) return "lifetime";
   if (user.plan === "PLUS") return "subscription";
+  const store = asDate(user.storePlusUntil);
+  if (store && store.getTime() > now.getTime()) return "store";
   const comp = asDate(user.compPlusUntil);
   if (comp && comp.getTime() > now.getTime()) return "comp";
   return null;
@@ -222,7 +225,11 @@ type StoredBilling = StoredPlan & {
   stripeCustomerId?: string | null;
   foundingMember?: boolean | null;
   patron?: boolean | null;
+  storeName?: string | null;
+  storeTrialing?: boolean | null;
 };
+
+export type PlusStore = "APP_STORE" | "PLAY_STORE";
 
 export interface PlanStatus {
   plan: Plan;
@@ -238,6 +245,8 @@ export interface PlanStatus {
   trialing: boolean;
   // When the trial or the paid period ends. Null on free.
   until: Date | null;
+  // On Plus through the App Store or Google Play: managed there, not in Stripe's portal.
+  store: PlusStore | null;
   // Has a Stripe customer, so the portal can open (even when back on free).
   hasBilling: boolean;
   // A trial was already used, so Checkout won't offer another.
@@ -250,7 +259,8 @@ export function planStatusOf(user: StoredBilling, now = new Date()): PlanStatus 
   const trialEndsAt = asDate(user.trialEndsAt);
   const renewsAt = asDate(user.planRenewsAt);
   const compUntil = asDate(user.compPlusUntil);
-  const trialing = source === "subscription" && !!trialEndsAt && trialEndsAt.getTime() > now.getTime();
+  const storeUntil = asDate(user.storePlusUntil);
+  const trialing = (source === "subscription" && !!trialEndsAt && trialEndsAt.getTime() > now.getTime()) || (source === "store" && !!user.storeTrialing);
   return {
     plan,
     source,
@@ -259,14 +269,15 @@ export function planStatusOf(user: StoredBilling, now = new Date()): PlanStatus 
     lifetime: source === "lifetime",
     compUntil: compUntil && compUntil.getTime() > now.getTime() ? compUntil : null,
     trialing,
-    until: source === "subscription" ? (trialing ? trialEndsAt : renewsAt) : source === "comp" ? compUntil : null,
+    until: source === "subscription" ? (trialing ? trialEndsAt : renewsAt) : source === "store" ? storeUntil : source === "comp" ? compUntil : null,
+    store: source === "store" && (user.storeName === "APP_STORE" || user.storeName === "PLAY_STORE") ? user.storeName : null,
     hasBilling: !!user.stripeCustomerId,
     trialUsed: !!trialEndsAt,
   };
 }
 
-// Can this reader start a subscription or buy lifetime? Not while already subscribed or lifetime.
-// Free months don't block it: a reader can subscribe before they run out.
+// Can this reader start a subscription or buy lifetime? Not while already subscribed (on the web or in
+// the app) or lifetime. Free months don't block it: a reader can subscribe before they run out.
 export function canStartCheckout(status: PlanStatus): boolean {
-  return status.source !== "subscription" && status.source !== "lifetime";
+  return status.source !== "subscription" && status.source !== "store" && status.source !== "lifetime";
 }

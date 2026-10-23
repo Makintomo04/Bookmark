@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { parseQuestInput, questKey } from "@/lib/questRules";
+import getCurrentUser from "@/app/actions/getCurrentUser";
+import { goalText, questDetail } from "@/lib/quests";
 
 interface Params {
   params: { id: string };
@@ -16,6 +18,25 @@ async function requireStaff() {
 }
 
 const validId = (id: string) => /^[a-f0-9]{24}$/.test(id);
+
+// One quest as its page shows it, for the mobile app. Reads take the quest's slug in this segment (the
+// address /quests/<slug> uses); edits and deletes take its id.
+export async function GET(_req: Request, { params }: Params) {
+  const viewer = await getCurrentUser();
+  const detail = await questDetail(params.id, viewer);
+  if (!detail) return NextResponse.json({ error: "Quest not found." }, { status: 404 });
+  const { quest, goal, phase, design, titles, standing, earnedAt, earnedCount } = detail;
+  return NextResponse.json({
+    quest: { id: quest.id, slug: quest.slug, title: quest.title, description: quest.description, startsAt: quest.startsAt, endsAt: quest.endsAt, hidden: quest.hidden },
+    goal,
+    goalText: goalText(quest, titles),
+    phase,
+    design,
+    standing,
+    earnedAt,
+    earnedCount,
+  });
+}
 
 // Edits apply from the next check on. Medals already earned are kept whatever changes.
 export async function PATCH(req: Request, { params }: Params) {

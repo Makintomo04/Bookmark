@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 import { blockedUserIds } from "@/lib/privacy";
 import { needsFollowApproval } from "@/lib/followRules";
 
@@ -49,7 +50,7 @@ export async function toggleFollow(viewerId: string, target: { id: string; profi
 // withdraw, and gone once the request is answered or withdrawn so the bell never offers a stale Accept.
 export async function notifyRequest(targetId: string, requesterId: string) {
   await clearRequestNotification(targetId, requesterId);
-  await prisma.notification.create({ data: { userId: targetId, actorId: requesterId, type: "FOLLOW_REQUEST" } });
+  await createNotification({ userId: targetId, actorId: requesterId, type: "FOLLOW_REQUEST" });
 }
 
 export async function clearRequestNotification(targetId: string, requesterId: string) {
