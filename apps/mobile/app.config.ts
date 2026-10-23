@@ -15,6 +15,14 @@ const domain = process.env.APP_DOMAIN;
 const projectId = process.env.EAS_PROJECT_ID;
 const googleIosUrlScheme = process.env.GOOGLE_IOS_URL_SCHEME;
 
+// One kind of data the app collects: linked to the account, used only to run the app, never to track.
+const collected = (type: string) => ({
+  NSPrivacyCollectedDataType: type,
+  NSPrivacyCollectedDataTypeLinked: true,
+  NSPrivacyCollectedDataTypeTracking: false,
+  NSPrivacyCollectedDataTypePurposes: ["NSPrivacyCollectedDataTypePurposeAppFunctionality"],
+});
+
 // The same paths apps/web/lib/appLinks.ts tells iOS and Android to hand to the app.
 const LINK_PATHS = ["/open", "/circles", "/u", "/lists", "/quests", "/reset-password", "/verify-email"];
 
@@ -34,6 +42,28 @@ const config: ExpoConfig = {
     usesAppleSignIn: true,
     ...(domain && { associatedDomains: [`applinks:${domain}`, `webcredentials:${domain}`] }),
     infoPlist: { ITSAppUsesNonExemptEncryption: false },
+    // Apple's privacy manifest. No tracking, no ads. Collected data mirrors the App Privacy answers in
+    // docs/store/app-store.md; keep the two together. The API reasons cover React Native and Expo's own
+    // use (settings storage, file dates, uptime for timers); libraries add their own manifests.
+    privacyManifests: {
+      NSPrivacyTracking: false,
+      NSPrivacyTrackingDomains: [],
+      NSPrivacyCollectedDataTypes: [
+        collected("NSPrivacyCollectedDataTypeEmailAddress"),
+        collected("NSPrivacyCollectedDataTypeName"),
+        collected("NSPrivacyCollectedDataTypeUserID"),
+        collected("NSPrivacyCollectedDataTypePhotosorVideos"),
+        collected("NSPrivacyCollectedDataTypeOtherUserContent"),
+        collected("NSPrivacyCollectedDataTypePurchaseHistory"),
+        collected("NSPrivacyCollectedDataTypeDeviceID"),
+      ],
+      NSPrivacyAccessedAPITypes: [
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults", NSPrivacyAccessedAPITypeReasons: ["CA92.1"] },
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp", NSPrivacyAccessedAPITypeReasons: ["C617.1"] },
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategorySystemBootTime", NSPrivacyAccessedAPITypeReasons: ["35F9.1"] },
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryDiskSpace", NSPrivacyAccessedAPITypeReasons: ["E174.1"] },
+      ],
+    },
   },
   android: {
     package: androidPackage,
@@ -44,6 +74,8 @@ const config: ExpoConfig = {
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     predictiveBackGestureEnabled: false,
+    // The image picker would otherwise ask for the microphone; the app never records.
+    blockedPermissions: ["android.permission.RECORD_AUDIO"],
     ...(domain && {
       intentFilters: [
         {
@@ -68,7 +100,7 @@ const config: ExpoConfig = {
     "@react-native-community/datetimepicker",
     "expo-sharing",
     ["expo-notifications", { color: "#F13C3C" }],
-    ["expo-splash-screen", { backgroundColor: "#0a0a0a", image: "./assets/images/splash-icon.png", imageWidth: 76 }],
+    ["expo-splash-screen", { backgroundColor: "#0a0a0a", image: "./assets/images/splash-icon.png", imageWidth: 96 }],
     ...(googleIosUrlScheme ? [["@react-native-google-signin/google-signin", { iosUrlScheme: googleIosUrlScheme }] as [string, object]] : []),
   ],
   experiments: {
