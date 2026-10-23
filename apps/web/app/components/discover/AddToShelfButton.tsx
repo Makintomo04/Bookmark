@@ -17,6 +17,16 @@ import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfter
 const base = "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 const outline = "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900"
 
+// Which shelf the reader already has the book on, named as the shelf headings name them.
+const SHELF_LABELS: Record<string, string> = {
+  STARTED: "Reading",
+  PAUSED: "Paused",
+  NOT_STARTED: "Want to read",
+  COMPLETED: "Finished",
+  DNF: "Did not finish",
+  NOT_INTERESTED: "Will not read",
+}
+
 const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book, className }) => {
   const router = useRouter()
   const { user } = useUser()
@@ -32,11 +42,11 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
     )
   }
 
-  const onShelf = Array.isArray(books) && (books as Book[]).some((b) => sameBook(b, book))
+  const onShelf = Array.isArray(books) ? (books as Book[]).find((b) => sameBook(b, book)) : undefined
   if (onShelf) {
     return (
       <span className={cn(base, "text-muted-foreground bg-neutral-100 dark:bg-neutral-900", className)}>
-        <Check size={14} aria-hidden />On your shelf
+        <Check size={14} aria-hidden />{SHELF_LABELS[onShelf.status] ?? "On your shelf"}
       </span>
     )
   }

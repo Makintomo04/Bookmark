@@ -5,6 +5,7 @@ import type { ReadingStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 import { formatPace } from '@/lib/goals'
 import { ColumnChart, Datum, RankedBars } from './Charts'
+import { authorHref, authorNames, isLinkableAuthor } from '@/lib/authorNames'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const fmt = (n: number) => n.toLocaleString('en-GB')
@@ -184,7 +185,7 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
           {stats.genres.length ? <RankedBars data={stats.genres.map((g) => ({ label: g.name, value: g.count, detail: plural(g.count, 'book') }))} label="Genres you read most" unit="books" /> : <Quiet>Books you finish with a genre will be counted here.</Quiet>}
         </Section>
         <Section title="Top authors">
-          {stats.authors.length ? <RankedBars data={stats.authors.map((a) => ({ label: a.name, value: a.count, detail: plural(a.count, 'book') }))} label="Authors you read most" unit="books" /> : <Quiet>Your most-read authors will show up here.</Quiet>}
+          {stats.authors.length ? <RankedBars data={stats.authors.map((a) => ({ label: a.name, value: a.count, detail: plural(a.count, 'book'), href: authorNames(a.name).length === 1 && isLinkableAuthor(a.name) ? authorHref(a.name) : undefined }))} label="Authors you read most" unit="books" /> : <Quiet>Your most-read authors will show up here.</Quiet>}
         </Section>
       </div>
 

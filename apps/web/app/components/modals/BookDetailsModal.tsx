@@ -14,6 +14,7 @@ import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useListEditorModal from '@/app/hooks/useListEditorModal'
+import AuthorLink from '@/app/components/AuthorLink'
 
 // A closer look at an Open Library book from Discover or a list, before deciding to shelve it.
 const BookDetailsModal: FC = () => {
@@ -39,7 +40,8 @@ const BookDetailsModal: FC = () => {
         <div>
           <p className="text-2xl font-bold leading-tight break-words">{book.title}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {[book.author, book.year, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")}
+            <AuthorLink author={book.author} onNavigate={onClose} />
+            {[book.year, book.pages && `${book.pages} pages`].filter(Boolean).map((part) => ` · ${part}`).join("")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-1.5">
             <AddToShelfButton book={book} />

@@ -90,7 +90,7 @@ const store = scriptCatalogStore(prisma);
 // Open Library asks bulk clients to identify themselves and keep to a few requests a second.
 const USER_AGENT = "Bookmark catalog import";
 const PAGE_SIZE = 100;
-const SEARCH_FIELDS = "key,title,author_name,cover_i,first_publish_year,subject,number_of_pages_median";
+const SEARCH_FIELDS = "key,title,author_name,author_key,cover_i,first_publish_year,subject,number_of_pages_median";
 // Description requests in flight at once, and the pause each takes after its request.
 const DESCRIBE_CONCURRENCY = 3;
 const DESCRIBE_GAP_MS = 300;
@@ -119,6 +119,7 @@ interface SearchDoc {
   key?: string;
   title?: string;
   author_name?: string[];
+  author_key?: string[];
   cover_i?: number;
   first_publish_year?: number;
   subject?: string[];
@@ -139,6 +140,7 @@ async function subjectWorks(subject: string, want: number): Promise<WorkFacts[]>
         workKey,
         title: doc.title,
         authors: doc.author_name.slice(0, 3),
+        authorKeys: (doc.author_key ?? []).slice(0, 3).map((k) => k.replace(/^\/authors\//, "")),
         coverUrl: coverUrlFor(doc.cover_i),
         year: doc.first_publish_year || null,
         subjects: doc.subject ?? [],
@@ -253,6 +255,7 @@ async function main() {
         workKey: k,
         title: f.title!,
         authors: f.authors,
+        authorKeys: f.authorKeys,
         subjects: f.subjects,
         coverUrl: f.coverUrl,
         year: f.year,

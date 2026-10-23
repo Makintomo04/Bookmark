@@ -11,6 +11,7 @@ import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import BookCover from './BookCover'
 import BookActions from './BookActions'
 import { recommendedByOf } from '@/lib/recommendRules'
+import AuthorLink from '@/app/components/AuthorLink'
 
 interface BookCoverCardProps {
   book: Book
@@ -86,7 +87,7 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
 
       <div className={cn("min-w-0 transition-[padding]", selecting && "px-2.5 pb-2.5")}>
         <h3 title={title} className="text-[15px] font-semibold leading-snug line-clamp-2">{title}</h3>
-        <p className="mt-0.5 text-sm text-muted-foreground truncate">{author}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground truncate"><AuthorLink author={author} /></p>
 
         {(status === Status.STARTED || isPaused) && (
           <div className="mt-2 flex items-center gap-2" title={formatPosition(book, { paused: isPaused })}>

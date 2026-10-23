@@ -1,5 +1,6 @@
 import { FC } from 'react'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 // Hand-rolled HTML/CSS charts: server-rendered, no chart library and no client JS. Marks use the
 // reader's accent (var(--accent), see ./accent.ts); text stays in the theme's ink. Hovering a bar
@@ -14,6 +15,8 @@ export interface Datum {
   short?: string
   // A fuller name for the tooltip and table, when the axis label is terse ("4½" → "4½ stars").
   name?: string
+  // Ranked bars only: where the name links to, e.g. an author's page.
+  href?: string
 }
 
 const fmt = (n: number) => n.toLocaleString('en-GB')
@@ -107,7 +110,9 @@ export const RankedBars: FC<RankedBarsProps> = ({ data, label, unit }) => {
         {data.map((d) => (
           <li key={d.label}>
             <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="truncate font-medium">{d.label}</span>
+              {d.href
+                ? <Link href={d.href} className="truncate font-medium hover:underline underline-offset-2">{d.label}</Link>
+                : <span className="truncate font-medium">{d.label}</span>}
               <span className="shrink-0 tabular-nums text-muted-foreground">{d.detail ?? `${fmt(d.value)} ${unit}`}</span>
             </div>
             <div aria-hidden className="mt-1 h-2 rounded-full bg-neutral-100 dark:bg-neutral-900">

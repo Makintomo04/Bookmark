@@ -10,6 +10,7 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
 import { REMOVED_MESSAGE, loadInvite, wasRemoved } from '@/lib/buddyReadsServer'
 import prisma from '@/lib/db'
+import AuthorLink from '@/app/components/AuthorLink'
 
 interface PageProps {
   params: { code: string }
@@ -60,7 +61,7 @@ const Page = async ({ params }: PageProps) => {
           <div className="flex flex-col gap-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reading circle</p>
             <h1 className="page-title">{buddyRead.title}</h1>
-            <p className="text-muted-foreground">{buddyRead.author}</p>
+            <p className="text-muted-foreground"><AuthorLink author={buddyRead.author} /></p>
           </div>
 
           <div className="flex flex-col items-center gap-3">

@@ -13,6 +13,8 @@ export interface DiscoverBook {
   editionKey?: string | null
   isbn13?: string | null
   isbn10?: string | null
+  // Optional, from fresh results only: the first author's Open Library key (OL7315784A).
+  authorKey?: string | null
 }
 
 export const coverUrlFor = (coverId?: number | null, size: "S" | "M" | "L" = "L") =>
@@ -22,6 +24,7 @@ interface SearchDoc {
   key?: string
   title: string
   author_name?: string[]
+  author_key?: string[]
   cover_i?: number
   number_of_pages_median?: number
   first_publish_year?: number
@@ -30,7 +33,7 @@ interface SearchDoc {
   editions?: { docs?: { key?: string, isbn?: string[] }[] }
 }
 
-const FIELDS = "key,title,author_name,cover_i,number_of_pages_median,first_publish_year,editions,editions.key,editions.isbn"
+const FIELDS = "key,title,author_name,author_key,cover_i,number_of_pages_median,first_publish_year,editions,editions.key,editions.isbn"
 
 const pickIsbns = (isbns?: string[]) => ({
   isbn13: isbns?.find((i) => /^\d{13}$/.test(i)) ?? null,
@@ -51,8 +54,15 @@ const toDiscoverBooks = (data: any): DiscoverBook[] =>
         year: doc.first_publish_year || null,
         editionKey: edition?.key?.match(/OL\d+M/)?.[0] ?? null,
         ...pickIsbns(edition?.isbn),
+        authorKey: normaliseAuthorKey(doc.author_key?.[0]),
       }
     })
+
+// "/authors/OL7315784A" -> "OL7315784A"; anything else becomes null.
+export function normaliseAuthorKey(key?: string | null) {
+  const match = key?.match(/OL\d+A/)
+  return match ? match[0] : null
+}
 
 export async function searchBooks(query: string, limit = 6): Promise<DiscoverBook[]> {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${FIELDS}&limit=${limit}`
@@ -105,6 +115,38 @@ export async function subjectBooks(subject: string, offset = 0, limit = 24): Pro
   return toDiscoverBooks(await res.json())
 }
 
+export interface OpenLibraryAuthor {
+  key: string
+  name: string
+  workCount: number
+}
+
+// Authors whose name matches a query, most prolific first. Several records often share a name (duplicates,
+// translators credited alongside), so the caller picks. Cached for a week: names and keys rarely change.
+export async function searchAuthors(query: string, limit = 10): Promise<OpenLibraryAuthor[]> {
+  const url = `https://openlibrary.org/search/authors.json?q=${encodeURIComponent(query)}&fields=key,name,work_count&limit=${limit}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 604800 } })
+  if (!res.ok) throw new Error(`Open Library author search failed: ${res.status}`)
+  const data = await res.json()
+  return ((data?.docs || []) as { key?: string, name?: string, work_count?: number }[])
+    .flatMap((doc) => {
+      const key = normaliseAuthorKey(doc.key)
+      return key && doc.name ? [{ key, name: doc.name, workCount: doc.work_count || 0 }] : []
+    })
+    .sort((a, b) => b.workCount - a.workCount)
+}
+
+// An author's books, most shelved first, like subjectBooks. By key when we have one; otherwise by name,
+// which can also catch namesakes. Throws on failure so the author page can tell it from "no books".
+// Cached for a day.
+export async function authorBooks(by: { key?: string | null, name: string }, offset = 0, limit = 24): Promise<DiscoverBook[]> {
+  const q = by.key ? `author_key:${by.key}` : `author:"${by.name.replace(/"/g, "")}"`
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${FIELDS}&limit=${limit}&offset=${offset}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } })
+  if (!res.ok) throw new Error(`Open Library author books failed: ${res.status}`)
+  return toDiscoverBooks(await res.json())
+}
+
 // Open Library's index keeps a reading-log activity count for each of the last seven days.
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
 const TRENDING_FIELDS = `${FIELDS},${DAYS.map((d) => `trending_score_daily_${d}`).join(",")}`
@@ -131,13 +173,14 @@ export interface OpenLibraryWork {
   workKey: string
   title: string | null
   authors: string[]
+  authorKeys: string[]
   coverUrl: string | null
   year: number | null
   subjects: string[]
   pages: number | null
 }
 
-const WORK_FIELDS = "key,title,author_name,cover_i,first_publish_year,subject,number_of_pages_median"
+const WORK_FIELDS = "key,title,author_name,author_key,cover_i,first_publish_year,subject,number_of_pages_median"
 export const WORKS_PER_REQUEST = 25
 
 const toWork = (doc: SearchDoc): OpenLibraryWork | null => {
@@ -147,6 +190,7 @@ const toWork = (doc: SearchDoc): OpenLibraryWork | null => {
         workKey,
         title: doc.title || null,
         authors: doc.author_name ?? [],
+        authorKeys: (doc.author_key ?? []).map(normaliseAuthorKey).filter((k): k is string => !!k),
         coverUrl: coverUrlFor(doc.cover_i),
         year: doc.first_publish_year || null,
         subjects: doc.subject ?? [],

@@ -27,6 +27,7 @@ import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from '@/lib
 import useWorkTags from '@/app/hooks/useWorkTags'
 import type { ReaderTagsInput } from '@/lib/workTags'
 import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../books/WorkTags'
+import AuthorLink from '@/app/components/AuthorLink'
 
 const PACE_MIN_DAYS = 7
 
@@ -502,7 +503,7 @@ const BookUpdateModal: FC = () => {
         <BookCover book={book} fallbackColour={user?.favColour} variant="thumb" sizes="(min-width: 768px) 224px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
         <div className="min-w-0">
           <p className="text-lg md:text-xl font-bold leading-snug break-words">{book.title}</p>
-          <p className="text-sm text-muted-foreground">{book.author}</p>
+          <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>
           {meta && <p className="mt-2 text-xs text-muted-foreground">{meta}</p>}
           {/* An action on the book, so it sits with the book rather than among the progress controls. */}
           <button type="button" onClick={sendToFriend} disabled={isSaving} className="mt-3 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">

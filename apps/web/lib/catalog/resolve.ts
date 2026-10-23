@@ -21,6 +21,7 @@ export interface WorkRecord {
   openLibraryKey: string | null;
   title: string;
   authors: string[];
+  authorKeys: string[];
   description: string | null;
   subjects: string[];
   seriesName: string | null;
@@ -53,6 +54,7 @@ export interface CatalogInput {
   title: string;
   author?: string | null;
   authors?: string[] | null;
+  authorKeys?: string[] | null;
   description?: string | null;
   subjects?: string[] | null;
   coverUrl?: string | null;
@@ -71,6 +73,7 @@ export interface WorkFacts {
   workKey: string;
   title?: string | null;
   authors?: string[] | null;
+  authorKeys?: string[] | null;
   description?: string | null;
   subjects?: string[] | null;
   coverUrl?: string | null;
@@ -183,6 +186,7 @@ function workRow(item: Item): WorkRecord {
     openLibraryKey: item.workKey,
     title: clean(facts?.title) ?? input.title.trim(),
     authors: cleanList(facts?.authors?.length ? facts.authors : authorsOf(input)),
+    authorKeys: cleanList(facts?.authorKeys?.length ? facts.authorKeys : input.authorKeys),
     description: clean(facts?.description ?? input.description)?.slice(0, DESCRIPTION_MAX) ?? null,
     subjects: cleanList(facts?.subjects?.length ? facts.subjects : input.subjects, SUBJECTS_MAX),
     seriesName: series?.name ?? null,
