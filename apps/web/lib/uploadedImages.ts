@@ -8,13 +8,14 @@
 // Pure apart from the two calls handed in, so scripts/test/uploadedImages.test.ts runs it with fakes.
 // The Prisma and UploadThing side is lib/uploadedImagesServer.ts.
 
-// UploadThing's file URLs: https://utfs.io/f/<key>, or https://<app>.ufs.sh/f/<key> from newer SDKs.
+// UploadThing's file URLs: https://utfs.io/a/<app>/<key> (what uploadFiles returns today),
+// https://utfs.io/f/<key>, or https://<app>.ufs.sh/f/<key> from newer SDKs.
 export function uploadThingKey(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
     const { protocol, hostname, pathname } = new URL(url);
     if (protocol !== "https:" || !(hostname === "utfs.io" || hostname.endsWith(".ufs.sh"))) return null;
-    const match = pathname.match(/^\/f\/([^/]+)$/);
+    const match = pathname.match(/^\/(?:f|a\/[^/]+)\/([^/]+)$/);
     return match ? decodeURIComponent(match[1]) : null;
   } catch {
     return null;

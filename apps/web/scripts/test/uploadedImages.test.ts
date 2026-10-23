@@ -9,6 +9,9 @@ import { deleteUnusedUploads, uploadThingKey } from "@/lib/uploadedImages";
 test("only UploadThing file URLs have a key", () => {
   assert.equal(uploadThingKey("https://utfs.io/f/abc123_cover.jpg"), "abc123_cover.jpg");
   assert.equal(uploadThingKey("https://x7y2.ufs.sh/f/abc123_cover.jpg"), "abc123_cover.jpg");
+  // The form uploadFiles returns: the app id, then the key.
+  assert.equal(uploadThingKey("https://utfs.io/a/eepqfzt9a5/febf277a-1a2f_photo.jpg"), "febf277a-1a2f_photo.jpg");
+  assert.equal(uploadThingKey("https://utfs.io/a/eepqfzt9a5"), null);
   assert.equal(uploadThingKey("https://covers.openlibrary.org/b/id/123-L.jpg"), null);
   assert.equal(uploadThingKey("https://lh3.googleusercontent.com/a/photo"), null);
   assert.equal(uploadThingKey("http://utfs.io/f/abc"), null);
@@ -50,7 +53,7 @@ test("files something else still shows are kept: a circle snapshot, a copied lis
 
 test("a file named by two URLs is kept when either is still used", async () => {
   const f = fakes(["https://app1.ufs.sh/f/same.jpg"]);
-  await deleteUnusedUploads(["https://utfs.io/f/same.jpg", "https://app1.ufs.sh/f/same.jpg"], f.deps);
+  await deleteUnusedUploads(["https://utfs.io/a/app1/same.jpg", "https://app1.ufs.sh/f/same.jpg"], f.deps);
   assert.deepEqual(f.deleted, []);
 });
 
