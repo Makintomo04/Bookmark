@@ -26,6 +26,10 @@ type Status = "loading" | "signedOut" | "signedIn";
 interface AuthState {
   status: Status;
   user: SessionUser | null;
+  // Where to go once the app (tabs) has mounted, e.g. the choice made at the end of onboarding. Navigating
+  // straight away would happen before the root layout swaps onboarding for the app.
+  pendingPath: string | null;
+  setPendingPath(path: string | null): void;
   restore(): Promise<void>;
   completeSignIn(response: SignInResponse): Promise<void>;
   refreshUser(): Promise<void>;
@@ -59,6 +63,8 @@ const clearCache = async () => {
 export const useAuth = create<AuthState>()((set, get) => ({
   status: "loading",
   user: null,
+  pendingPath: null,
+  setPendingPath: (pendingPath) => set({ pendingPath }),
 
   async restore() {
     if (!(await storedRefreshToken())) return set({ status: "signedOut", user: null });

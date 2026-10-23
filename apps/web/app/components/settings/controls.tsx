@@ -1,40 +1,10 @@
 "use client"
 import { FC } from 'react'
 import { cn } from '@/lib/utils'
-import type { Settings } from '@/app/hooks/useSettings'
+import type { Option } from '@bookmark/shared/settingsCopy'
 
-export type Option<T extends string> = { value: T; label: string }
-
-export const PROFILE_OPTIONS: Option<Settings["profileVisibility"]>[] = [
-  { value: "PUBLIC", label: "Public" },
-  { value: "FOLLOWERS", label: "Followers only" },
-  { value: "PRIVATE", label: "Private" },
-]
-export const REVIEW_OPTIONS: Option<Settings["reviewVisibility"]>[] = [
-  { value: "EVERYONE", label: "Everyone" },
-  { value: "FOLLOWERS", label: "Followers" },
-  { value: "ONLY_ME", label: "Only me" },
-]
-export const INVITE_OPTIONS: Option<Settings["buddyReadInvites"]>[] = [
-  { value: "EVERYONE", label: "Anyone" },
-  { value: "FOLLOWING", label: "People I follow" },
-  { value: "NOBODY", label: "No one" },
-]
-export const LIST_OPTIONS: Option<Settings["defaultListVisibility"]>[] = [
-  { value: "PRIVATE", label: "Private" },
-  { value: "PUBLIC", label: "Public" },
-]
-
-export const PROFILE_HINT: Record<Settings["profileVisibility"], string> = {
-  PUBLIC: "Anyone can see your shelf, and your profile can show up in search engines.",
-  FOLLOWERS: "Only followers you've approved see your shelf and activity. Others see your name and can ask to follow.",
-  PRIVATE: "Only you see your shelf. You're hidden from search, your activity stays out of feeds, and new followers need your approval.",
-}
-export const INVITE_HINT: Record<Settings["buddyReadInvites"], string> = {
-  EVERYONE: "Any reader can invite you by username.",
-  FOLLOWING: "Only readers you follow can invite you by username.",
-  NOBODY: "Nobody can invite you by username.",
-}
+// The options and hints live in packages/shared, so the mobile app's settings say the same.
+export { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS, type Option } from '@bookmark/shared/settingsCopy'
 
 export const Segmented = <T extends string>({ id, label, options, value, onChange, disabled }: {
   id: string

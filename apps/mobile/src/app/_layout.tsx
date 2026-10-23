@@ -14,7 +14,7 @@ import { useTheme } from "@/lib/theme";
 // The app's root: fonts, theme, data fetching, and which part of the app the reader can reach.
 //   - signed out: the sign-in screens, (auth)
 //   - signed in, onboarding not finished: setup
-//   - signed in: the tabs, (tabs), and everything pushed over them
+//   - signed in: the app, (app): the tabs and everything pushed over them
 // Email sign-in links (open/signin, signin/link) work either way.
 
 SplashScreen.preventAutoHideAsync();
@@ -51,7 +51,7 @@ export default function RootLayout() {
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
           <Stack.Protected guard={signedIn && !!user?.onboarded}>
-            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(app)" />
           </Stack.Protected>
           <Stack.Protected guard={signedIn && !user?.onboarded}>
             <Stack.Screen name="setup" />
