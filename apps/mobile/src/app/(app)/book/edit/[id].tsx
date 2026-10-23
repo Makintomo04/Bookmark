@@ -54,7 +54,7 @@ function EditForm({ book }: { book: Book }) {
     setBusy("cover");
     setError(null);
     try {
-      const url = await pickAndUploadImage([2, 3]);
+      const url = await pickAndUploadImage([2, 3], "cover");
       if (url) setCover(url);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't upload that cover. Try again.");

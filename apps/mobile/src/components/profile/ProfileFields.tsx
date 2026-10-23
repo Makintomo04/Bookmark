@@ -75,7 +75,7 @@ export function PhotoPicker({ image, name, colour, onChange }: { image: string |
     setError(null);
     setUploading(true);
     try {
-      const url = await pickAndUploadImage([1, 1]);
+      const url = await pickAndUploadImage([1, 1], "avatar");
       if (url) onChange(url);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't upload that photo. Try again.");

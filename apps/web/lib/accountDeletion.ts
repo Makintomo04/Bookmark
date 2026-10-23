@@ -48,12 +48,20 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
   await deps.db.$transaction(async (tx) => {
     const userId = user.id;
     await deps.deleteCircleData(userId, tx);
-    // The avatar, banner and shelf covers, read before their rows go, so the files can follow.
-    const [profile, covers] = await Promise.all([
+    // Everything they uploaded, plus the avatar, banner and shelf covers (our copies of Open Library covers
+    // among them), read before their rows go, so the files can follow.
+    const [profile, covers, uploads] = await Promise.all([
       tx.user.findUnique({ where: { id: userId }, select: { image: true, banner: true } }),
       tx.book.findMany({ where: { userId }, select: { coverImage: true } }),
+      tx.upload.findMany({ where: { userId }, select: { url: true } }),
     ]);
-    imageUrls = [profile?.image, profile?.banner, ...(Array.isArray(covers) ? covers.map((b) => b.coverImage) : [])].filter((u): u is string => !!u);
+    const list = <T,>(rows: T[] | unknown) => (Array.isArray(rows) ? (rows as T[]) : []);
+    imageUrls = Array.from(new Set([
+      profile?.image,
+      profile?.banner,
+      ...list<{ coverImage: string }>(covers).map((b) => b.coverImage),
+      ...list<{ url: string }>(uploads).map((u) => u.url),
+    ].filter((u): u is string => !!u)));
     await tx.note.deleteMany({ where: { book: { userId } } });
     await tx.bookRead.deleteMany({ where: { userId } });
     await tx.activity.deleteMany({ where: { OR: [{ userId }, { book: { userId } }] } });
@@ -84,6 +92,7 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     // Signed-in phones and their push tokens.
     await tx.mobileSession.deleteMany({ where: { userId } });
     await tx.pushToken.deleteMany({ where: { userId } });
+    await tx.upload.deleteMany({ where: { userId } });
     await tx.user.delete({ where: { id: userId } });
   }, { timeout: 30_000 });
 

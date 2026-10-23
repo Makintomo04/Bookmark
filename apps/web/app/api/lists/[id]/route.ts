@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { requireUser } from "@/lib/apiAuth";
 import { carryOverItems, findList, parseListInput } from "@/lib/lists";
+import { withoutUploadedCovers } from "@/lib/uploads";
 
 type Params = { params: { id: string } };
 
@@ -34,7 +35,7 @@ export async function PATCH(req: Request, { params }: Params) {
     prisma.listItem.deleteMany({ where: { listId: list.id } }),
     prisma.list.update({
       where: { id: list.id },
-      data: { ...parsed.data, items: { createMany: { data: carryOverItems(list.items, parsed.items) } } },
+      data: { ...parsed.data, items: { createMany: { data: carryOverItems(list.items, await withoutUploadedCovers(parsed.items)) } } },
     }),
   ]);
   return NextResponse.json({ id: list.id });

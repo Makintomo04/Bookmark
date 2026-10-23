@@ -1,5 +1,6 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import getCurrentUser from "@/app/actions/getCurrentUser";
+import { recordUpload } from "@/lib/uploads";
 
 const f = createUploadthing();
 
@@ -14,13 +15,14 @@ export const ourFileRouter = {
       const user = await getCurrentUser();
 
       // If you throw, the user will not be able to upload
-      if (!user?.email) throw new Error("Unauthorized");
+      if (!user?.id) throw new Error("Unauthorized");
 
       // Whatever is returned here is accessible in onUploadComplete as `metadata`
-      return { userId: user.email };
+      return { userId: user.id };
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      // Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
+      // Recorded as this reader's upload, so it stays on their own profile and shelf (lib/uploads.ts).
+      await recordUpload({ key: file.key, url: file.url, userId: metadata.userId });
       return { uploadedBy: metadata.userId };
     }),
 } satisfies FileRouter;

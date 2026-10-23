@@ -12,6 +12,7 @@ import { catalogIds, linkCatalog } from "@/lib/catalog";
 import { readFromBook } from "@/lib/readHistory";
 import { booksReadCount, booksReadOf } from "@/lib/readerTier";
 import { sameBook } from "@/lib/workKey";
+import { coverToShare } from "@/lib/uploads";
 import {
   BUDDY_READ_MAX_MEMBERS,
   circleProgress,
@@ -269,7 +270,8 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
       userId,
       title: buddyRead.title,
       author: buddyRead.author,
-      coverImage: buddyRead.coverImage ?? "",
+      // Never someone else's upload (a circle from before uploads stayed private): the catalogue's instead.
+      coverImage: (await coverToShare(buddyRead.coverImage, { workId: catalog?.work.id, editionId: catalog?.edition.id, workKey: buddyRead.workKey }, userId)) ?? "",
       cardColour: buddyRead.cardColour,
       pages: buddyRead.pages,
       workKey: buddyRead.workKey,

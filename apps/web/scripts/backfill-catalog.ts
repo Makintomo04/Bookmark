@@ -57,8 +57,11 @@ async function main() {
   const unlinked = await prisma.book.count({ where: UNLINKED });
   console.log(`${total} book(s), ${unlinked} not yet in the catalog${dryRun ? " (dry run, nothing is saved)" : ""}${lookup ? "" : " (no Open Library lookups)"}`);
 
+  // Readers' uploads stay out of the catalogue (lib/uploads.ts).
+  const uploadKeys = new Set((await prisma.upload.findMany({ select: { key: true } })).map((u) => u.key));
   const summary = await backfillCatalog({
     store,
+    uploadKeys,
     lookup: lookup ? openLibraryLookup : null,
     dryRun,
     limit,

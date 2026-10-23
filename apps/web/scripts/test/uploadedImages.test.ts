@@ -4,7 +4,40 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/uploadedImages.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deleteUnusedUploads, uploadThingKey } from "@/lib/uploadedImages";
+import { deleteUnusedUploads, isOpenLibraryCopyName, isShareableCover, uploadThingKey } from "@/lib/uploadedImages";
+
+const READER = "6560f1c2a1b2c3d4e5f60001";
+const OTHER = "6560f1c2a1b2c3d4e5f60002";
+const UPLOAD = "https://utfs.io/a/app1/reader-photo.jpg";
+const uploaders = new Map([["reader-photo.jpg", READER]]);
+
+test("our copies of Open Library covers are told apart from uploads by their stored name", () => {
+  assert.ok(isOpenLibraryCopyName("b-id-11481354-L.jpg"));
+  assert.ok(isOpenLibraryCopyName("b-isbn-9780316556347-M.jpg"));
+  assert.ok(isOpenLibraryCopyName("b-olid-OL7353617M-L.jpg"));
+  assert.ok(!isOpenLibraryCopyName("photo.jpg"));
+  assert.ok(!isOpenLibraryCopyName("IMG_2041.HEIC"));
+  assert.ok(!isOpenLibraryCopyName("b-id-123.jpg"));
+  assert.ok(!isOpenLibraryCopyName(null));
+});
+
+test("an upload stays on its uploader's own copy and nowhere shared", () => {
+  // Their own shelf: fine. Someone else's copy, or anywhere shared: not.
+  assert.equal(isShareableCover(UPLOAD, uploaders, READER), true);
+  assert.equal(isShareableCover(UPLOAD, uploaders, OTHER), false);
+  assert.equal(isShareableCover(UPLOAD, uploaders, null), false);
+  // Under its other URL form too.
+  assert.equal(isShareableCover("https://app1.ufs.sh/f/reader-photo.jpg", uploaders, null), false);
+});
+
+test("Open Library covers and our stored copies of them go anywhere", () => {
+  for (const url of ["https://covers.openlibrary.org/b/id/1-L.jpg", "https://utfs.io/a/app1/b-id-1-L.jpg-key"]) {
+    assert.equal(isShareableCover(url, uploaders, null), true);
+    assert.equal(isShareableCover(url, uploaders, OTHER), true);
+  }
+  assert.equal(isShareableCover(null, uploaders, null), false);
+  assert.equal(isShareableCover("", uploaders, READER), false);
+});
 
 test("only UploadThing file URLs have a key", () => {
   assert.equal(uploadThingKey("https://utfs.io/f/abc123_cover.jpg"), "abc123_cover.jpg");

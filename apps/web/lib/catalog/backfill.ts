@@ -1,5 +1,6 @@
 import { type CatalogInput, type CatalogLookup, type CatalogStore, resolveMany } from "./resolve.ts";
 import { MemoryCatalogStore } from "./memoryStore.ts";
+import { uploadThingKey } from "../uploadedImages.ts";
 
 // Links existing shelf books to the shared catalog, batch by batch. Pure over two small interfaces so
 // scripts/test/catalog.test.ts can prove it idempotent in memory; scripts/backfill-catalog.ts runs it
@@ -31,6 +32,9 @@ export interface BackfillOptions {
   batch?: number;
   limit?: number;
   log?: (line: string) => void;
+  // Readers' uploads, by UploadThing file key (the Upload model). They stay on the reader's own copy, so
+  // they never become a catalogue cover.
+  uploadKeys?: Set<string>;
 }
 
 export interface BackfillSummary {
@@ -46,15 +50,15 @@ export interface BackfillSummary {
 const OPEN_LIBRARY_COVER = "https://covers.openlibrary.org/";
 
 // The book as the catalog should know it. The reader's cover is used when it has already been copied
-// into our storage (any non-Open Library URL); a hotlinked Open Library cover is left for the lookup to
-// replace with the work's own.
-export const backfillInput = (book: BackfillBook): CatalogInput => ({
+// into our storage (any non-Open Library URL), unless it's their own upload; a hotlinked Open Library
+// cover is left for the lookup to replace with the work's own.
+export const backfillInput = (book: BackfillBook, uploadKeys: Set<string> = new Set()): CatalogInput => ({
   workKey: book.workKey,
   title: book.title,
   author: book.author,
   pages: book.pages > 0 ? book.pages : null,
   description: book.description,
-  coverUrl: book.coverImage && !book.coverImage.startsWith(OPEN_LIBRARY_COVER) ? book.coverImage : null,
+  coverUrl: book.coverImage && !book.coverImage.startsWith(OPEN_LIBRARY_COVER) && !uploadKeys.has(uploadThingKey(book.coverImage) ?? "") ? book.coverImage : null,
 });
 
 // A dry run's store: reads see the real catalog, writes stay in memory, so the run reports exactly what
@@ -110,7 +114,7 @@ export async function backfillCatalog(opts: BackfillOptions): Promise<BackfillSu
 
     let resolved;
     try {
-      resolved = await resolveMany(books.map(backfillInput), { store, lookup, lookupTitle: !!lookup });
+      resolved = await resolveMany(books.map((b) => backfillInput(b, opts.uploadKeys)), { store, lookup, lookupTitle: !!lookup });
     } catch (err) {
       // A whole batch failing (database down) is worth stopping for; a re-run picks up where this left off.
       const error = err instanceof Error ? err.message : String(err);

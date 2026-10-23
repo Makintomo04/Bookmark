@@ -5,6 +5,7 @@ import prisma from "@/lib/db";
 import { EditionFormat } from "@prisma/client";
 import { convertPosition, progressScale, readLengthsAfterEdit } from "@/lib/progress";
 import { bookFieldsProblem, parseAudioMinutes } from "@/lib/bookInput";
+import { shareableCover } from "@/lib/uploads";
 
 // A new cover is copied to UploadThing afterwards, by ./cover.
 
@@ -51,6 +52,10 @@ export async function PATCH( request: Request,
   // A cover already on the book (perhaps from before the host allowlist) can be kept as it is.
   const fieldError = bookFieldsProblem({ title, author, genre, coverImgSrc: coverImgSrc === book.coverImage ? undefined : coverImgSrc, cardColour })
   if (fieldError) return NextResponse.json({ error: fieldError }, { status: 400 })
+  // A cover can be the reader's own upload, never someone else's (lib/uploads.ts).
+  if (coverImgSrc && coverImgSrc !== book.coverImage && !(await shareableCover(coverImgSrc, currentUser.id))) {
+    return NextResponse.json({ error: "That cover can't be used. Upload it instead" }, { status: 400 })
+  }
   // Format and running time decide the unit: an audiobook with a running time runs on minutes.
   // Older clients send neither, which leaves the book's scale as it is.
   const parsedFormat = Object.values(EditionFormat).includes(format) ? (format as EditionFormat) : null

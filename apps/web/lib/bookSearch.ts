@@ -2,6 +2,8 @@ import { unstable_cache } from "next/cache"
 import prisma from "@/lib/db"
 import { searchBooks, type DiscoverBook } from "./openLibrary"
 import { normaliseQuery, queryTokens, rankShelfRows } from "./bookSearchRules"
+import { isShareableCover } from "./uploadedImages"
+import { uploadersOf } from "./uploads"
 
 // Enough readers' copies to rank by popularity without reading the whole collection.
 const SHELF_SCAN = 300
@@ -26,7 +28,10 @@ export async function searchShelves(query: string, limit: number): Promise<Disco
     select: { workKey: true, title: true, author: true, pages: true, coverImage: true },
     take: SHELF_SCAN,
   })
-  return rankShelfRows(rows, query, limit)
+  // Results are shared, so a cover readers uploaded for their own copies is left out (lib/uploads.ts).
+  const uploaders = await uploadersOf(rows.map((r) => r.coverImage))
+  const shareable = uploaders.size ? rows.map((r) => (isShareableCover(r.coverImage, uploaders, null) ? r : { ...r, coverImage: "" })) : rows
+  return rankShelfRows(shareable, query, limit)
 }
 
 // A failed search throws, so it isn't cached and the next attempt tries Open Library again.

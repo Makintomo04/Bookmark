@@ -5,6 +5,7 @@ import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { circleProgress, createBuddyReadSchema, progressPercent } from "@/lib/buddyReads";
 import { buddyReadError, canHostAnotherCircle, hostingRefusal, isBlockedEitherWay, isObjectId, newInviteCode, parseBody } from "@/lib/buddyReadsServer";
 import { progressSelect, progressScale } from "@/lib/progress";
+import { coverToShare } from "@/lib/uploads";
 
 // The reader's reading circles (newest first) with everyone's progress, and invites waiting for them.
 // ?bookId= narrows it to the reading circles that shelf book is in (the book modal's entry point).
@@ -110,7 +111,8 @@ export async function POST(req: Request) {
       workKey: book.workKey,
       title: book.title,
       author: book.author,
-      coverImage: book.coverImage || null,
+      // Every member sees this cover, so it's never the host's own upload: the catalogue's instead.
+      coverImage: await coverToShare(book.coverImage, book, null),
       cardColour: book.cardColour,
       pages: book.pages,
       audioMinutes: scale.unit === "MINUTES" ? book.audioMinutes : null,

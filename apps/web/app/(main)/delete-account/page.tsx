@@ -62,7 +62,7 @@ const Page: FC = () => {
 
         <Section title="What's deleted">
           <p>
-            Deleting is immediate and can&apos;t be undone. It removes your profile, your avatar and banner, your books, ratings, reviews, notes, lists and reading goals, your followers and the people you follow, your achievements and quest medals, your AI recaps, your imports, the phones you&apos;re signed in on and their push notification tokens, and your purchase records with RevenueCat. Images you uploaded, and the copies of book covers we stored for you, are deleted from our image host too, unless the same picture is still in use elsewhere on Bookmark, such as on a reading circle that carries on without you.
+            Deleting is immediate and can&apos;t be undone. It removes your profile, your avatar and banner, your books, ratings, reviews, notes, lists and reading goals, your followers and the people you follow, your achievements and quest medals, your AI recaps, your imports, the phones you&apos;re signed in on and their push notification tokens, and your purchase records with RevenueCat. Every image you uploaded is deleted from our image host too. Copies of Open Library covers we stored for your books are deleted as well, unless another reader&apos;s book shows the same cover.
           </p>
         </Section>
 

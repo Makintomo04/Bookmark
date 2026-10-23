@@ -1,5 +1,7 @@
 # Should uploaded covers stay private?
 
+**Status:** built on 23 October 2026 (`lib/uploads.ts`, `scripts/private-covers.ts`).
+
 **Proposal:** a cover a reader uploads stays on their own copy of the book. Everywhere other readers see a
 cover (search, the catalogue, reading circles, recommendations, lists), Bookmark uses only catalogue
 covers: Open Library's, or our stored copy of one.
@@ -19,10 +21,11 @@ UploadThing and its URL is saved on their `Book.coverImage`. From there it trave
 | Recommendations | `lib/recommendations.ts` | Accepting a recommended book copies the sender's cover. |
 | Lists | `lib/lists.ts` | A list item keeps the curator's cover; adding from the list or remixing it copies the cover on. |
 
-**Seen on the test database:** reader1's Dune has an uploaded cover (`febf277a…`). A later account found
-Dune through search, got that cover on its own copy, filled the empty catalogue edition with it, and
-carried it into its reading circle. Deleting that account (23 Oct) correctly kept the file, because reader1
-and the catalogue still use it. Nothing records that the file was reader1's upload.
+**On the test database:** a Dune cover had spread from reader1's copy to another account's copy, the
+catalogue edition and a reading circle. It looked like an upload, but the file server names it
+`b-id-11481354-L.jpg`: it's our stored copy of an Open Library cover, which is meant to be shared. A
+dry run of the clean-up found all 24 stored images on the test database to be such copies. Real
+uploads would spread the same way.
 
 Our stored copies of Open Library covers (`lib/covers.ts` `mirrorCover`) are also UploadThing URLs. They
 are meant to be shared, but nothing stored tells them apart from uploads.

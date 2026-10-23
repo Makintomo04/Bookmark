@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { LIST_ITEMS_MAX } from "@/lib/lists";
 import { sameBook } from "@/lib/workKey";
 import { BULK_MAX } from "@/lib/bulkRules";
+import { withoutUploadedCovers } from "@/lib/uploads";
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i);
 const bodySchema = z.discriminatedUnion("action", [
@@ -55,13 +56,15 @@ export async function POST(req: Request) {
       const adding = toAdd.slice(0, room);
       let position = Math.max(-1, ...list.items.map((i) => i.position));
       if (adding.length > 0) {
+        // The list is shown to others, so the reader's own uploaded covers stay off it.
+        const withCovers = await withoutUploadedCovers(adding.map((b) => ({ ...b, coverUrl: b.coverImage.startsWith("https://") ? b.coverImage : null })));
         await prisma.listItem.createMany({
-          data: adding.map((b) => ({
+          data: withCovers.map((b) => ({
             listId: list.id,
             workKey: b.workKey,
             title: b.title.slice(0, 300),
             author: b.author.slice(0, 200) || "Unknown",
-            coverUrl: b.coverImage.startsWith("https://") ? b.coverImage : null,
+            coverUrl: b.coverUrl,
             pages: b.pages > 0 ? b.pages : null,
             position: ++position,
           })),

@@ -22,6 +22,24 @@ export function uploadThingKey(url: string | null | undefined): string | null {
   }
 }
 
+// Our stored copies of Open Library covers (lib/covers.ts copyCoverToUploadThing) are named after the
+// cover's path: covers.openlibrary.org/b/id/11481354-L.jpg is stored as "b-id-11481354-L.jpg". Anything
+// else in our UploadThing storage was uploaded by a reader. Used to sort files that predate the Upload model.
+export function isOpenLibraryCopyName(fileName: string | null | undefined): boolean {
+  return !!fileName && /^b-[a-z]+-[a-z0-9]+-[sml]\.(jpe?g|png|gif)$/i.test(fileName);
+}
+
+// Whether a cover may be shown or copied here. Readers' uploads stay on the uploader's own copy:
+//   - `ownerId` set: the reader's own shelf. Their own uploads are fine; anyone else's aren't.
+//   - `ownerId` null: somewhere shared (the catalogue, search, a circle, a list). No upload is.
+// `uploaders` maps an upload's file key to who uploaded it (lib/uploads.ts uploadersOf).
+export function isShareableCover(url: string | null | undefined, uploaders: Map<string, string>, ownerId: string | null): boolean {
+  if (!url) return false;
+  const key = uploadThingKey(url);
+  const uploader = key ? uploaders.get(key) : undefined;
+  return uploader === undefined || (ownerId !== null && uploader === ownerId);
+}
+
 export interface UploadCleanupDeps {
   // Of these URLs, the ones some record still uses (checked after the account's own rows are gone).
   stillUsed: (urls: string[]) => Promise<Set<string>>;

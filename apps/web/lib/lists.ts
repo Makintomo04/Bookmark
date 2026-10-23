@@ -5,6 +5,7 @@ import { GENRES } from "./genres"
 import { normaliseWorkKey, sameBook } from "./workKey"
 import { blockedUserIds, canView, canViewUser, getRelation, privacyOf, privacySelect, visibleReview, type Relation } from "./privacy"
 import type { DiscoverBook } from "./openLibrary"
+import { withoutUploadedCovers } from "./uploads"
 import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
 
 export * from "./listRules"
@@ -303,7 +304,7 @@ export async function copyList(id: string, viewer: { id: string, isStaff?: boole
       forkedFromId: original.id,
       items: {
         createMany: {
-          data: original.items.map((item, position) => ({
+          data: (await withoutUploadedCovers(original.items)).map((item, position) => ({
             workKey: item.workKey,
             title: item.title,
             author: item.author,

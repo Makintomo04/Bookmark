@@ -9,7 +9,8 @@ import { ApiError, apiFetch } from "@/lib/api";
 
 const MAX_EDGE = 1200;
 
-export async function pickAndUploadImage(aspect: [number, number]): Promise<string | null> {
+// `kind` is kept with the upload on the server: it's the reader's own, and never shown as anyone else's cover.
+export async function pickAndUploadImage(aspect: [number, number], kind: "avatar" | "banner" | "cover"): Promise<string | null> {
   const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect, quality: 1 });
   if (picked.canceled || !picked.assets[0]) return null;
   const asset = picked.assets[0];
@@ -28,6 +29,7 @@ export async function pickAndUploadImage(aspect: [number, number]): Promise<stri
     // React Native's FormData takes a file by its uri.
     form.append("file", { uri: image.uri, name: "photo.jpg", type: "image/jpeg" } as unknown as Blob);
   }
+  form.append("kind", kind);
   const res = await apiFetch("/api/mobile/upload", { method: "POST", body: form });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, body);

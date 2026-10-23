@@ -3,6 +3,7 @@ import { catalogIds, linkCatalog } from "@/lib/catalog";
 import { isBlockedEitherWay } from "@/lib/buddyReadsServer";
 import { sameBook } from "@/lib/workKey";
 import type { RecommendFriend } from "@/lib/recommendRules";
+import { coverToShare } from "@/lib/uploads";
 
 export { RECOMMEND_MAX_FRIENDS, RECOMMEND_MESSAGE_MAX, type RecommendFriend } from "@/lib/recommendRules";
 
@@ -82,7 +83,8 @@ export async function acceptRecommendation(notificationId: string, userId: strin
       title: source.title,
       author: source.author,
       description: source.description,
-      coverImage: source.coverImage,
+      // The sender's uploaded cover stays on their copy; this one takes the catalogue's.
+      coverImage: (await coverToShare(source.coverImage, source, userId)) ?? "",
       cardColour: source.cardColour,
       genre: source.genre,
       pages: source.pages,

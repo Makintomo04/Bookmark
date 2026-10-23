@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { requireUser } from "@/lib/apiAuth";
 import { findLists, OWN_LISTS_MAX, parseListInput } from "@/lib/lists";
+import { withoutUploadedCovers } from "@/lib/uploads";
 
 // Public: browsing lists works signed out.
 export async function GET(req: Request) {
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
   }
 
   const list = await prisma.list.create({
-    data: { ...parsed.data, ownerId: currentUser.id, items: { createMany: { data: parsed.items } } },
+    data: { ...parsed.data, ownerId: currentUser.id, items: { createMany: { data: await withoutUploadedCovers(parsed.items) } } },
   });
   return NextResponse.json({ id: list.id });
 }

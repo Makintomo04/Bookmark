@@ -1,6 +1,8 @@
 import { openLibraryLookup } from "./catalog/lookup";
 import { prismaCatalogStore } from "./catalog/prismaStore";
 import { type CatalogInput, type Resolved, resolveMany, resolveOne } from "./catalog/resolve";
+import { isShareableCover } from "./uploadedImages";
+import { uploadersOf } from "./uploads";
 
 // The shared catalog: find or create the Work and Edition a book belongs to, from an Open Library search
 // hit (work key, maybe an edition key and ISBN), an ISBN, or a work key alone. Two readers adding the same
@@ -28,12 +30,21 @@ const options = (opts: CatalogOptions) => ({
   describe: opts.describe,
 });
 
-export function resolveCatalog(input: CatalogInput, opts: CatalogOptions = {}): Promise<Resolved> {
-  return resolveOne(input, options(opts));
+// The catalogue is shared, so a reader's uploaded cover never goes into it: it stays on their own copy.
+// Open Library's covers and our stored copies of them pass through.
+async function withoutUploads(inputs: CatalogInput[]): Promise<CatalogInput[]> {
+  const uploaders = await uploadersOf(inputs.map((i) => i.coverUrl));
+  if (uploaders.size === 0) return inputs;
+  return inputs.map((i) => (i.coverUrl && !isShareableCover(i.coverUrl, uploaders, null) ? { ...i, coverUrl: null } : i));
 }
 
-export function resolveCatalogMany(inputs: CatalogInput[], opts: CatalogOptions = {}): Promise<Resolved[]> {
-  return resolveMany(inputs, options(opts));
+export async function resolveCatalog(input: CatalogInput, opts: CatalogOptions = {}): Promise<Resolved> {
+  const [clean] = await withoutUploads([input]);
+  return resolveOne(clean, options(opts));
+}
+
+export async function resolveCatalogMany(inputs: CatalogInput[], opts: CatalogOptions = {}): Promise<Resolved[]> {
+  return resolveMany(await withoutUploads(inputs), options(opts));
 }
 
 // For write paths that must not fail over the catalog (saving a book, joining a buddy read): null and a

@@ -4,6 +4,7 @@ import { qualifyReferral } from "@/lib/referrals";
 import prisma from "@/lib/db";
 import { awardNewAchievements } from "@/lib/achievements";
 import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
+import { shareableCover } from "@/lib/uploads";
 import { normaliseWorkKey } from "@/lib/workKey";
 import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
 import { RATING_ERROR, ratingSchema, readFromBook } from "@/lib/readHistory";
@@ -113,13 +114,17 @@ const catalog = await linkCatalog(
   { lookup: true, describe: true },
 )
 const totalPages = givenPages || (!isAudiobook && catalog?.edition.pages) || 0
+// Adding from someone else's list or pick can bring their uploaded cover along. Uploads stay on the
+// uploader's own copy (lib/uploads.ts), so this copy takes the catalogue's cover instead.
+const ownCover = await shareableCover(str(coverImgSrc), currentUser.id)
+const coverImage = ownCover ?? (coverImgSrc ? catalog?.edition.coverUrl ?? catalog?.work.coverUrl ?? "" : "")
 const startPage = Math.max(0, Math.min(totalPages, parseInt(currentPage) || 0))
 const book = await prisma.book.create({
   data:{
     userId: currentUser.id,
     title: title.trim(),
     author: author.trim(),
-    coverImage: coverImgSrc || "",
+    coverImage,
     pages: totalPages,
     status: shelf,
     genre: genre || null,

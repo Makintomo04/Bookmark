@@ -22,7 +22,8 @@ written from what the code does, not by a lawyer. In the page source, every chan
 | Storage on the phone: Keychain or Keystore for sign-in, local preferences | `apps/mobile/src/lib/secureStorage.ts`, AsyncStorage |
 | Deleting from the app, and the new page for people who can't sign in | Settings in the app; `/delete-account` |
 | **Corrected:** deleting doesn't cancel an App Store or Google Play subscription | Only Stripe can be cancelled from the server (`lib/accountDeletion.ts`) |
-| Uploaded images, and cover copies, are deleted from UploadThing with the account, unless still in use elsewhere | `lib/uploadedImages.ts`, `lib/uploadedImagesServer.ts` |
+| Covers a reader uploads stay on their own copy: never in search, the catalogue, circles, lists or other shelves | `lib/uploads.ts` (the `Upload` model), [the proposal](../proposals/private-uploaded-covers.md) |
+| Every upload is deleted with the account; stored Open Library cover copies too, unless another reader's book shows them | `lib/uploadedImages.ts`, `lib/uploadedImagesServer.ts` |
 | Exports in the app go to the share sheet, with no copy kept | `apps/mobile/src/app/(app)/settings.tsx` |
 
 ## Questions for the reviewer
@@ -41,11 +42,10 @@ written from what the code does, not by a lawyer. In the page source, every chan
 5. **Retention periods.** Only deletion is described. Sign-in records expire, and push tokens go when
    rejected, but nothing says how long other data is kept while an account is open, or backups after
    deletion.
-6. **Images still in use after deletion.** A cover file the deleted reader stored can stay when another
-   record still shows it, such as a reading circle that passed to another member or a list someone
-   copied. It's a picture of a book cover, not of the reader, but confirm the wording covers it. The
-   clean-up is best effort: if UploadThing is down when the account is deleted, the files stay and an
-   error is logged.
+6. **Uploads before this change.** Uploads made before uploads were kept private may already have been
+   shown to other readers. `scripts/private-covers.ts` takes them out of shared places and records them
+   so they're deleted with the account. It has to be run (dry run, then `--apply`) on production before the
+   policy's wording is true there.
 7. **The 30-day reply time** on `/delete-account` for readers who can't sign in. That's a promise to staff
    as well as readers.
 8. **Children.** "Not intended for under 13" matches the stores' 12+/Teen ratings, but in the UK the age

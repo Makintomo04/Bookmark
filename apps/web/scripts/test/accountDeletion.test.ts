@@ -11,6 +11,7 @@ import { SubscriptionCancelError, deleteAccount, type AccountDeletionDeps } from
 const USER_ID = "6560f1c2a1b2c3d4e5f60718";
 const AVATAR = "https://utfs.io/f/avatar.png";
 const COVER = "https://utfs.io/f/cover.jpg";
+const UNUSED_UPLOAD = "https://utfs.io/a/app1/old-photo.jpg";
 
 // Every prisma.<model>.<method>(args) call, in order, plus "stripe.cancel" from the cancel stub.
 function recorder() {
@@ -22,6 +23,8 @@ function recorder() {
         // The profile and shelf the images are read from.
         if (model === "user" && method === "findUnique") return { image: AVATAR, banner: null };
         if (model === "book" && method === "findMany") return [{ coverImage: COVER }, { coverImage: "https://covers.openlibrary.org/b/id/1-L.jpg" }];
+        // Their recorded uploads: one is on the shelf too, one isn't anywhere any more.
+        if (model === "upload" && method === "findMany") return [{ url: COVER }, { url: UNUSED_UPLOAD }];
         return method === "findMany" ? [{ id: "6560f1c2a1b2c3d4e5f6aaaa" }] : { count: 0 };
       },
     }),
@@ -97,9 +100,10 @@ test("the account's images are handed on for deletion once the database is done"
   const order = ops(calls);
   assert.ok(order.indexOf("user.findUnique") < order.indexOf("book.deleteMany"));
   assert.ok(order.indexOf("book.findMany") < order.indexOf("book.deleteMany"));
+  assert.ok(order.indexOf("upload.findMany") < order.indexOf("upload.deleteMany"));
   assert.equal(order.indexOf("uploads"), order.indexOf("user.delete") + 1);
-  // Every image URL goes; lib/uploadedImages.ts picks out the UploadThing ones.
-  assert.deepEqual(calls.find((c) => c.op === "uploads")?.args, { userId: USER_ID, urls: [AVATAR, COVER, "https://covers.openlibrary.org/b/id/1-L.jpg"] });
+  // Every image URL goes, each once, recorded uploads included; lib/uploadedImages.ts picks out the UploadThing ones.
+  assert.deepEqual(calls.find((c) => c.op === "uploads")?.args, { userId: USER_ID, urls: [AVATAR, COVER, "https://covers.openlibrary.org/b/id/1-L.jpg", UNUSED_UPLOAD] });
 });
 
 test("no images are deleted when the account isn't", async () => {

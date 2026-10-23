@@ -4,6 +4,8 @@ import { syncAchievements } from "@/lib/achievements";
 import { isOpenLibraryCoverUrl, mirrorCover } from "@/lib/covers";
 import { catalogIds, linkCatalog, resolveCatalogMany, type CatalogInput } from "@/lib/catalog";
 import { normaliseWorkKey } from "@/lib/workKey";
+import { isShareableCover } from "@/lib/uploadedImages";
+import { uploadersOf } from "@/lib/uploads";
 import { parseImport } from "./formats";
 import { matchRows } from "./match";
 import { llmAvailable, pickWithModel } from "./llmMatch";
@@ -397,6 +399,13 @@ export async function importStep(job: ImportJob) {
       result.firstYear = result.firstYear === null ? year : Math.min(result.firstYear, year);
       result.lastYear = result.lastYear === null ? year : Math.max(result.lastYear, year);
     }
+  }
+
+  // A file can carry someone else's uploaded cover (a Bookmark export passed on). Uploads stay on the
+  // uploader's own copy (lib/uploads.ts); these books show their title card instead.
+  const uploaders = await uploadersOf(books.map((b) => b.coverImage));
+  for (const book of books) {
+    if (book.coverImage && uploaders.size && !isShareableCover(book.coverImage, uploaders, job.userId)) book.coverImage = "";
   }
 
   // No Activity rows: an import shouldn't post hundreds of "finished" updates to followers' feeds

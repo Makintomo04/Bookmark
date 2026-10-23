@@ -56,6 +56,22 @@ model MobileSession {
   @@index([previousHash])
 }
 
+// An image a reader uploaded to UploadThing (lib/uploads.ts): an avatar, a banner or a book cover. Uploads
+// stay on the uploader's own profile and shelf: nowhere shared (the catalogue, search, circles, lists)
+// takes one, and deleting the account deletes them. A plain userId, cleared by lib/accountDeletion.ts.
+model Upload {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  // UploadThing's file key, the same under any of its URL forms.
+  key       String   @unique
+  url       String
+  userId    String   @db.ObjectId
+  // "avatar", "banner", "cover", or "image" when the uploader didn't say.
+  kind      String   @default("image")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
 // An Expo push token for one install of the app. A token moves to whoever signs in on that phone.
 model PushToken {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
