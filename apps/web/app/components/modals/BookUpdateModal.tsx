@@ -500,7 +500,7 @@ const BookUpdateModal: FC = () => {
   const body = (
     <div className="w-full px-6 self-start flex flex-col md:flex-row gap-6 md:gap-10">
       <div className="flex md:flex-col gap-4 md:w-56 shrink-0">
-        <BookCover book={book} fallbackColour={user?.favColour} variant="thumb" sizes="(min-width: 768px) 224px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
+        <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 224px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
         <div className="min-w-0">
           <p className="text-lg md:text-xl font-bold leading-snug break-words">{book.title}</p>
           <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>

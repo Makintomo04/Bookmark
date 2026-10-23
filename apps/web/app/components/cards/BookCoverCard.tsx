@@ -79,7 +79,6 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
       <div className="relative">
         <BookCover
           book={book}
-          fallbackColour={accentColour}
           sizes="(min-width: 1280px) 180px, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw"
         />
         {!readOnly && <OwnerOverlay book={book} onUpdateProgress={openProgress} />}

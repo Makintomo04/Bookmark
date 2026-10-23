@@ -80,7 +80,7 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
       onKeyDown={handleKeyDown}
       className="cursor-pointer flex gap-3 items-center p-3 rounded-xl border border-border hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition relative outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <BookCover book={book} fallbackColour={user?.favColour} variant="thumb" sizes="48px" className="w-10 flex-shrink-0 rounded" />
+      <BookCover book={book} variant="thumb" sizes="48px" className="w-10 flex-shrink-0 rounded" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-sm">{title}</p>
         <p className="truncate text-xs text-muted-foreground"><AuthorLink author={author} /></p>

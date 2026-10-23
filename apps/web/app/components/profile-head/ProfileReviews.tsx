@@ -39,7 +39,7 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
       <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
         {reviewed.map((book) => (
           <li key={book.id} className="flex gap-4 py-5 first:pt-0">
-            <BookCover book={book} fallbackColour={accentColour} variant="thumb" sizes="64px" className="w-16 shrink-0 self-start shadow-sm" />
+            <BookCover book={book} variant="thumb" sizes="64px" className="w-16 shrink-0 self-start shadow-sm" />
             <div className="min-w-0 flex-1">
               <p className="font-semibold leading-snug break-words">{book.title}</p>
               <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} /></p>

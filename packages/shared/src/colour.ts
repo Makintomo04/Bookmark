@@ -1,3 +1,5 @@
+import { SWATCHES } from './profile'
+
 function parseColour(colour: string): [number, number, number] | null {
   const hex = colour.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
   if (hex) {
@@ -34,4 +36,16 @@ export function shade(colour: string, amount: number) {
   const target = amount < 0 ? 0 : 255
   const t = Math.min(1, Math.abs(amount))
   return '#' + rgb.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('')
+}
+
+// The profile swatches without the grey and near-black, which read as "no cover" rather than a book.
+export const COVER_COLOURS = SWATCHES.filter((c) => c !== '#495057' && c !== '#1A1A1A')
+
+// A coverless book's colour, from its title and author (FNV-1a), so it's the same on every page and reload.
+export function coverColour(title: string, author?: string | null) {
+  const tidy = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
+  const key = `${tidy(title)}|${tidy(author ?? '')}`
+  let hash = 0x811c9dc5
+  for (let i = 0; i < key.length; i++) hash = Math.imul(hash ^ key.charCodeAt(i), 0x01000193)
+  return COVER_COLOURS[(hash >>> 0) % COVER_COLOURS.length]
 }

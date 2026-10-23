@@ -50,7 +50,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
   return (
     <article className="flex gap-4 p-4 rounded-lg bg-neutral-100 dark:bg-neutral-900">
       {/* Stretches with the card so a long title never leaves a gap under the cover. */}
-      <BookCover book={book} fallbackColour={accentColour} variant="thumb" sizes="96px" className="w-auto h-auto min-w-20 sm:min-w-24 flex-shrink-0 self-stretch" />
+      <BookCover book={book} variant="thumb" sizes="96px" className="w-auto h-auto min-w-20 sm:min-w-24 flex-shrink-0 self-stretch" />
 
       <div className="min-w-0 flex-1 flex flex-col">
         {/* Only the title shares a row with the actions; the details below get the column's full width. */}
