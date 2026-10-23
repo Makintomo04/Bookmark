@@ -306,7 +306,7 @@ const Landing: FC = () => {
       <section className="flex flex-col items-center text-center px-6 py-16 md:py-24 border-t border-neutral-200 dark:border-neutral-800">
         <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Bring your shelf. Bring your friends.</h2>
         <p className={`text-base md:text-lg mt-4 max-w-md ${mutedClassName}`}>
-          Import your history, start a reading circle, and send the link to whoever's reading with you.
+          Import your history, start a reading circle, and send the link to whoever&apos;s reading with you.
         </p>
         <Button asChild className={`${ctaClassName} mt-8`}>
           <Link href="/register">Start reading free</Link>
