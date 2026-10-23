@@ -7,6 +7,7 @@ import { User } from "@prisma/client";
 import { BIO_MAX, isAllowedImageUrl, isHexColour, normaliseUsername, usernameProblem } from "@/lib/profile";
 import { isStorableBanner } from "@/lib/banners";
 import { SubscriptionCancelError, deleteAccount } from "@/lib/accountDeletion";
+import { deleteAccountUploads } from "@/lib/uploadedImagesServer";
 import { isStripeConfigured, stripeBillingApi } from "@/lib/stripe";
 import { deleteBuddyReadDataFor } from "@/lib/buddyReadsServer";
 import { revenueCatApi } from "@/lib/storeBilling";
@@ -118,6 +119,7 @@ export async function DELETE(req: Request) {
       cancelSubscription: isStripeConfigured() ? (id) => stripeBillingApi().cancelSubscription(id) : undefined,
       deleteCircleData: deleteBuddyReadDataFor,
       deleteStoreCustomer: (id) => revenueCatApi()?.deleteSubscriber(id) ?? Promise.resolve(),
+      deleteUploads: deleteAccountUploads,
     });
   } catch (err) {
     if (err instanceof SubscriptionCancelError) {

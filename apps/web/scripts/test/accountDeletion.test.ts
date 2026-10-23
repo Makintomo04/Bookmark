@@ -9,6 +9,8 @@ import { readFileSync } from "node:fs";
 import { SubscriptionCancelError, deleteAccount, type AccountDeletionDeps } from "@/lib/accountDeletion";
 
 const USER_ID = "6560f1c2a1b2c3d4e5f60718";
+const AVATAR = "https://utfs.io/f/avatar.png";
+const COVER = "https://utfs.io/f/cover.jpg";
 
 // Every prisma.<model>.<method>(args) call, in order, plus "stripe.cancel" from the cancel stub.
 function recorder() {
@@ -17,6 +19,9 @@ function recorder() {
     get: (_, model: string) => new Proxy({}, {
       get: (__, method: string) => async (args: unknown) => {
         calls.push({ op: `${model}.${method}`, args });
+        // The profile and shelf the images are read from.
+        if (model === "user" && method === "findUnique") return { image: AVATAR, banner: null };
+        if (model === "book" && method === "findMany") return [{ coverImage: COVER }, { coverImage: "https://covers.openlibrary.org/b/id/1-L.jpg" }];
         return method === "findMany" ? [{ id: "6560f1c2a1b2c3d4e5f6aaaa" }] : { count: 0 };
       },
     }),
@@ -81,4 +86,26 @@ test("every model that holds a reader's data is cleared", async () => {
   for (const op of ["importJob.deleteMany", "readerTags.deleteMany", "questProgress.deleteMany"]) {
     assert.ok(ops(calls).includes(op), `missing ${op}`);
   }
+});
+
+test("the account's images are handed on for deletion once the database is done", async () => {
+  const { calls, db, cancelSubscription, deleteCircleData } = recorder();
+  const deleteUploads = async (userId: string, urls: string[]) => { calls.push({ op: "uploads", args: { userId, urls } }); };
+  await deleteAccount({ id: USER_ID }, { db, cancelSubscription, deleteCircleData, deleteUploads });
+
+  // Read before the rows go, and the files only after the transaction (ending in user.delete) is done.
+  const order = ops(calls);
+  assert.ok(order.indexOf("user.findUnique") < order.indexOf("book.deleteMany"));
+  assert.ok(order.indexOf("book.findMany") < order.indexOf("book.deleteMany"));
+  assert.equal(order.indexOf("uploads"), order.indexOf("user.delete") + 1);
+  // Every image URL goes; lib/uploadedImages.ts picks out the UploadThing ones.
+  assert.deepEqual(calls.find((c) => c.op === "uploads")?.args, { userId: USER_ID, urls: [AVATAR, COVER, "https://covers.openlibrary.org/b/id/1-L.jpg"] });
+});
+
+test("no images are deleted when the account isn't", async () => {
+  const { calls, deleteCircleData } = recorder();
+  const failingDb: AccountDeletionDeps["db"] = { $transaction: async () => { throw new Error("database down"); } };
+  const deleteUploads = async () => { calls.push({ op: "uploads", args: null }); };
+  await assert.rejects(deleteAccount({ id: USER_ID }, { db: failingDb, deleteCircleData, deleteUploads }));
+  assert.ok(!ops(calls).includes("uploads"));
 });

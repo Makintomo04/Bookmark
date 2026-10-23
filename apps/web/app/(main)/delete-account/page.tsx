@@ -62,15 +62,11 @@ const Page: FC = () => {
 
         <Section title="What's deleted">
           <p>
-            Deleting is immediate and can&apos;t be undone. It removes your profile, your books, ratings, reviews, notes, lists and reading goals, your followers and the people you follow, your achievements and quest medals, your AI recaps, your imports, the phones you&apos;re signed in on and their push notification tokens, and your purchase records with RevenueCat.
+            Deleting is immediate and can&apos;t be undone. It removes your profile, your avatar and banner, your books, ratings, reviews, notes, lists and reading goals, your followers and the people you follow, your achievements and quest medals, your AI recaps, your imports, the phones you&apos;re signed in on and their push notification tokens, and your purchase records with RevenueCat. Images you uploaded, and the copies of book covers we stored for you, are deleted from our image host too, unless the same picture is still in use elsewhere on Bookmark, such as on a reading circle that carries on without you.
           </p>
         </Section>
 
         <Section title="What stays">
-          {/* LEGAL REVIEW: true today, but the files should be deleted with the account (see docs/store/privacy-changes.md). */}
-          <p>
-            Images you uploaded (your avatar, banner and any book covers) stop appearing anywhere on Bookmark straight away, but the image files themselves stay with our image host, UploadThing, for now. If you want them removed sooner, email <Contact /> and we&apos;ll delete them.
-          </p>
           <p>
             Comments you posted in reading circles stay, so the conversation still makes sense for the other members, but they&apos;re shown as a former member&apos;s, without your name or profile. Reading circles you host pass to the member who has been in them longest.
           </p>

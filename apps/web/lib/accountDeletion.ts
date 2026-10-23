@@ -22,6 +22,9 @@ export interface AccountDeletionDeps {
   // subscriptions can only be cancelled by the reader in the store, which the app tells them before they
   // delete; this only clears the purchase records. Best effort, after the database, and never blocks.
   deleteStoreCustomer?: (userId: string) => Promise<void>;
+  // Removes the account's images from UploadThing, keeping any something else still shows
+  // (lib/uploadedImagesServer.ts deleteAccountUploads). Best effort, after the database, and never blocks.
+  deleteUploads?: (userId: string, urls: string[]) => Promise<void>;
 }
 
 // The subscription couldn't be cancelled, so nothing was deleted.
@@ -41,9 +44,16 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
 
   // One transaction, so a failure part way leaves the account as it was rather than half deleted.
   // Large shelves take a while, hence the longer timeout.
+  let imageUrls: string[] = [];
   await deps.db.$transaction(async (tx) => {
     const userId = user.id;
     await deps.deleteCircleData(userId, tx);
+    // The avatar, banner and shelf covers, read before their rows go, so the files can follow.
+    const [profile, covers] = await Promise.all([
+      tx.user.findUnique({ where: { id: userId }, select: { image: true, banner: true } }),
+      tx.book.findMany({ where: { userId }, select: { coverImage: true } }),
+    ]);
+    imageUrls = [profile?.image, profile?.banner, ...(Array.isArray(covers) ? covers.map((b) => b.coverImage) : [])].filter((u): u is string => !!u);
     await tx.note.deleteMany({ where: { book: { userId } } });
     await tx.bookRead.deleteMany({ where: { userId } });
     await tx.activity.deleteMany({ where: { OR: [{ userId }, { book: { userId } }] } });
@@ -76,6 +86,9 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.pushToken.deleteMany({ where: { userId } });
     await tx.user.delete({ where: { id: userId } });
   }, { timeout: 30_000 });
+
+  // Only once the transaction has committed: a failed deletion keeps the account and its images.
+  if (deps.deleteUploads && imageUrls.length) await deps.deleteUploads(user.id, imageUrls);
 
   if (deps.deleteStoreCustomer) {
     await deps.deleteStoreCustomer(user.id).catch((err) => console.error(`[account] couldn't remove user ${user.id} from RevenueCat:`, err));
