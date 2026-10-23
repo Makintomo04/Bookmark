@@ -14,8 +14,8 @@ const font = Inter({ subsets: ["latin"], variable: "--font-sans" });
 // The display face: page titles, heroes, Wrapped, big numbers and quotes. Never for UI controls.
 const display = Literata({ subsets: ["latin"], variable: "--font-display", style: ["normal", "italic"], axes: ["opsz"] });
 
-const title = "Bookmark — Read with friends, spoiler-free";
-const description = "Start a reading circle, share one link, and talk about the book as you go. Comments stay hidden until you've read that far. Free.";
+const title = "Bookmark — Your reading and your friends, in one app";
+const description = "Track every book with free stats, goals and Wrapped, and read with friends in reading circles where nobody gets spoiled. Import from Goodreads or StoryGraph in a minute.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

@@ -6,7 +6,7 @@ import { safeCallbackPath, withCallback } from "@/lib/callbackUrl";
 
 // Logged-out visitors only see this page, so it carries the pitch, not the (main) layout's "Home".
 export const metadata: Metadata = {
-  title: { absolute: "Bookmark — Read with friends, spoiler-free" },
+  title: { absolute: "Bookmark — Your reading and your friends, in one app" },
 };
 
 export default async function Home({ searchParams }: { searchParams: { callbackUrl?: string } }) {
