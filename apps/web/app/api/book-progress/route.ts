@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
-import { awardNewAchievements } from "@/lib/achievements";
+import { syncAchievements } from "@/lib/achievements";
+import { earnMomentFor } from "@/lib/earnMomentServer";
 import { progressTriggers } from "@/lib/achievementTriggers";
 import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
 import { OPEN_READ_STATUSES, RATING_ERROR, ratingInputSchema, readFromBook } from "@/lib/readHistory";
@@ -219,7 +220,7 @@ export async function POST(req: Request) {
     await prisma.activity.create({ data: { userId: currentUser.id, bookId: book.id, type } })
   }
   await onBuddyReadProgress(currentUser.id, updated)
-  await awardNewAchievements(currentUser.id, {
+  const synced = await syncAchievements(currentUser.id, {
     trigger: progressTriggers({
       action,
       moved: updated.currentPage !== book.currentPage || updated.currentMinute !== book.currentMinute,
@@ -227,5 +228,7 @@ export async function POST(req: Request) {
       reviewed: activities.includes("REVIEWED_BOOK"),
     }),
   })
-  return NextResponse.json(updated)
+  // What this save earned, sent back with the book so the app can celebrate it there and then.
+  const earnMoment = await earnMomentFor(currentUser, synced, { finished: action === "complete" })
+  return NextResponse.json({ ...updated, earnMoment })
 }

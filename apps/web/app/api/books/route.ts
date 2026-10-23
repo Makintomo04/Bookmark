@@ -1,7 +1,8 @@
 import { bookFieldsProblem } from "@/lib/bookInput";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
-import { awardNewAchievements } from "@/lib/achievements";
+import { syncAchievements } from "@/lib/achievements";
+import { earnMomentFor } from "@/lib/earnMomentServer";
 import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
 import { shareableCover } from "@/lib/uploads";
 import { normaliseWorkKey } from "@/lib/workKey";
@@ -157,6 +158,7 @@ if (shelf !== "NOT_INTERESTED") await prisma.activity.create({
     type: shelf === "STARTED" ? "STARTED_BOOK" : isCompleted && finishedThisYear ? "COMPLETED_BOOK" : "ADDED_BOOK",
   }
 })
-if (isCompleted) await awardNewAchievements(currentUser.id)
-return NextResponse.json(book)
+// Adding a finished book can earn medals; the app celebrates what comes back.
+const earnMoment = isCompleted ? await earnMomentFor(currentUser, await syncAchievements(currentUser.id), { finished: finishedThisYear }) : null
+return NextResponse.json({ ...book, earnMoment })
 }

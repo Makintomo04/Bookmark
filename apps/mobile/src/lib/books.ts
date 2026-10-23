@@ -1,6 +1,8 @@
 import useSWR, { mutate } from "swr";
 import type { ProgressBook } from "@bookmark/shared/progress";
 import { api } from "@/lib/api";
+import type { EarnMoment } from "@bookmark/shared/earnMoment";
+import { celebrate } from "@/lib/earnMoment";
 
 // The reader's own shelf, from /api/books (the same list the web's useBooks reads), and the moves the
 // book page makes through /api/book-progress.
@@ -69,9 +71,11 @@ export function refreshAfterBookChange() {
 
 export type BookAction = "start" | "progress" | "complete" | "rate" | "pause" | "resume" | "dnf" | "restart" | "wantToRead" | "notInterested";
 
+// Celebrates whatever the save earned (lib/earnMoment.ts).
 export async function saveBook(payload: { id: string; action: BookAction } & Record<string, unknown>) {
-  await api.post("/api/book-progress", payload);
+  const saved = await api.post<{ earnMoment?: EarnMoment | null }>("/api/book-progress", payload);
   await refreshAfterBookChange();
+  celebrate(saved?.earnMoment);
 }
 
 // Saves return with the Open Library cover; copying it to our storage happens afterwards, unwaited.

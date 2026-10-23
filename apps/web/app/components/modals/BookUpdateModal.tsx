@@ -24,6 +24,7 @@ import useRecommendModal from '@/app/hooks/useRecommendModal'
 import BuddyReadEntry from '../buddy-reads/BuddyReadEntry'
 import CatchMeUp from '../books/CatchMeUp'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import { celebrate } from '@/app/hooks/useEarnMoment'
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from '@/lib/progress'
 import useWorkTags from '@/app/hooks/useWorkTags'
 import type { ReaderTagsInput } from '@/lib/workTags'
@@ -202,9 +203,9 @@ const BookUpdateModal: FC = () => {
       : undefined
 
     setIsSaving(true)
-    axios.post("/api/book-progress", payload).then(async () => {
+    axios.post("/api/book-progress", payload).then(async ({ data: saved }) => {
       await saveTags
-      if (success) notify.success(success, sendAction)
+      celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null)
       mutate()
       refreshAfterBookChange()
       readsMutate()
