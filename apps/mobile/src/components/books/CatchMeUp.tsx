@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { router } from "expo-router";
 import useSWR from "swr";
 import { BookOpen, Sparkles, ThumbsDown, ThumbsUp, X } from "lucide-react-native";
 import { formatPercent } from "@bookmark/shared/buddyReads";
@@ -165,11 +166,12 @@ export function CatchMeUp({ bookId }: { bookId: string }) {
       case "notConfident":
         return <Text variant="muted">We can't recap this one reliably, so we won't guess. That didn't count towards your recaps.</Text>;
       case "upgrade":
-        // The Plus screen comes later in the port; until then, the same words as the web's upgrade prompt.
+        // The same words as the web's upgrade prompt.
         return (
-          <View style={{ gap: 4 }}>
+          <View style={{ gap: 8 }}>
             <Text variant="label">{FEATURE_COPY.recaps.title}</Text>
             <Text variant="muted">{FEATURE_COPY.recaps.message}</Text>
+            <Button title="See Plus" variant="outline" onPress={() => router.push("/plus")} />
           </View>
         );
       case "error":

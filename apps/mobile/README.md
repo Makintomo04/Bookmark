@@ -31,6 +31,12 @@ time. Set them as EAS environment variables.
 | `EAS_PROJECT_ID` | Set by `eas init`; push tokens need it |
 | `APP_DOMAIN` | The site's host, for universal and app links |
 | `IOS_BUNDLE_ID`, `ANDROID_PACKAGE` | Default `app.bookmark.mobile` |
+| `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | RevenueCat's public SDK keys. Without them, the Plus screen has no paywall |
+
+RevenueCat's current offering needs a monthly package, an annual package, and a custom package whose
+identifier contains `founding`, all on the `plus` entitlement. On the server, `REVENUECAT_SECRET_API_KEY`
+lets `/api/plus/store-sync` switch Plus on as soon as a purchase or restore finishes; without it, Plus
+waits for the webhook.
 
 The server side of each one is listed in the Phase 1 commit message (`APPLE_BUNDLE_ID`,
 `GOOGLE_MOBILE_CLIENT_IDS`, `ANDROID_SHA256_CERTS`, and so on).

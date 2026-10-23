@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Stack, router } from "expo-router";
 import { useAuth } from "@/lib/auth";
+import { startPurchases } from "@/lib/purchases";
 import { registerForPush, usePushNavigation } from "@/lib/push";
 import { useTheme } from "@/lib/theme";
 
@@ -12,6 +13,12 @@ export default function AppLayout() {
   useEffect(() => {
     void registerForPush();
   }, []);
+
+  // RevenueCat knows the reader by their Bookmark id, so a store purchase lands on the right account.
+  const userId = useAuth((s) => s.user?.id);
+  useEffect(() => {
+    if (userId) void startPurchases(userId);
+  }, [userId]);
   usePushNavigation();
 
   // Arriving from onboarding with somewhere to go (a book to add, a circle to start).
@@ -46,6 +53,7 @@ export default function AppLayout() {
       <Stack.Screen name="discover/ask" options={{ title: "" }} />
       <Stack.Screen name="stats" options={{ title: "Stats" }} />
       <Stack.Screen name="wrapped/[year]" options={{ title: "Wrapped" }} />
+      <Stack.Screen name="plus" options={{ title: "Plus" }} />
       <Stack.Screen name="settings" options={{ title: "Settings" }} />
       <Stack.Screen name="import" options={{ title: "Import" }} />
       <Stack.Screen name="achievements" options={{ title: "Achievements" }} />

@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { mutate } from "swr";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiError, api, clearTokens, postPublic, saveTokens, setSessionEndedHandler, storedRefreshToken, type TokenResponse } from "@/lib/api";
+import { endPurchases } from "@/lib/purchases";
 import { currentPushToken } from "@/lib/push";
 
 // Who's signed in. The root layout shows the sign-in screens, onboarding or the app from `status` and
@@ -99,6 +100,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
     const pushToken = currentPushToken();
     // Best effort: the phone is signed out even if the server can't be reached.
     await postPublic("/api/mobile/auth/sign-out", { refreshToken, pushToken }).catch(() => {});
+    await endPurchases();
     await clearTokens();
     await clearCache();
     set({ status: "signedOut", user: null });
