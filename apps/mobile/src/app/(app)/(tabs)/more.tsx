@@ -29,6 +29,8 @@ export default function More() {
       <View style={styles.section}>
         <Text variant="title">Your reading</Text>
         <Button title="Stats" variant="outline" onPress={() => router.push("/stats")} />
+        <Button title="Achievements" variant="outline" onPress={() => router.push("/achievements" as never)} />
+        <Button title="Quests" variant="outline" onPress={() => router.push("/quests" as never)} />
         {/* From 1 December, as in the web's menu. Every year with a Wrapped is linked from Stats. */}
         {isWrappedSeason() && <Button title={`Your ${new Date().getFullYear()} Wrapped`} variant="outline" onPress={() => router.push(`/wrapped/${new Date().getFullYear()}`)} />}
       </View>

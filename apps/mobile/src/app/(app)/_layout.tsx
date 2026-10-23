@@ -46,6 +46,9 @@ export default function AppLayout() {
       <Stack.Screen name="discover/ask" options={{ title: "" }} />
       <Stack.Screen name="stats" options={{ title: "Stats" }} />
       <Stack.Screen name="wrapped/[year]" options={{ title: "Wrapped" }} />
+      <Stack.Screen name="achievements" options={{ title: "Achievements" }} />
+      <Stack.Screen name="quests/index" options={{ title: "Quests" }} />
+      <Stack.Screen name="quests/[slug]" options={{ title: "" }} />
       <Stack.Screen name="circles/[id]" options={{ title: "Reading circle" }} />
       <Stack.Screen name="circles/new" options={{ title: "Start a reading circle", presentation: "modal" }} />
       <Stack.Screen name="circles/join/[code]" options={{ title: "Reading circle" }} />

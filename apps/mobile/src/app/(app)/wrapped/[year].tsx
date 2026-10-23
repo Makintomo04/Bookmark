@@ -7,6 +7,7 @@ import { readableInk, shade } from "@bookmark/shared/colour";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import type { WrappedData } from "@bookmark/shared/statsTypes";
 import * as copy from "@bookmark/shared/wrappedCopy";
+import { Medal } from "@/components/achievements/Medal";
 import { BookCover } from "@/components/books/BookCover";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -173,6 +174,7 @@ export default function Wrapped() {
           <View style={styles.medals}>
             {w.medals.slice(-12).map((m) => (
               <View key={m.key} style={styles.medal}>
+                <View style={{ alignSelf: "center", marginBottom: 6 }}><Medal achievementKey={m.achievementKey} earned size={60} /></View>
                 <Ink style={{ fontWeight: "600", textAlign: "center" }}>{m.title}</Ink>
                 <Ink style={{ fontSize: 12, opacity: 0.7, textAlign: "center" }}>{m.achievement}</Ink>
               </View>

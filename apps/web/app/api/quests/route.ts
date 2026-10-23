@@ -1,17 +1,32 @@
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
+import { Prisma, type Quest } from "@prisma/client";
 import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { requireUser } from "@/lib/apiAuth";
-import { parseQuestInput } from "@/lib/questRules";
-import { earnedCounts, listQuests } from "@/lib/quests";
+import { parseQuestInput, questKey } from "@/lib/questRules";
+import { earnedCounts, goalText, listQuests, listTitles, medalOf } from "@/lib/quests";
 
-// Public: live, upcoming and ended quests (drafts only for staff), each with how many earned it.
+// Public: live, upcoming and ended quests (drafts only for staff), each with how many earned it, the
+// goal in words and the medal design (what the /quests page shows), and whether the viewer holds it.
 export async function GET() {
   const viewer = await getCurrentUser();
   const { live, upcoming, ended } = await listQuests(viewer);
-  const counts = await earnedCounts([...live, ...ended].map((q) => q.id));
-  const withCount = (q: { id: string }) => ({ ...q, earnedCount: counts.get(q.id) ?? 0 });
+  const all = [...live, ...upcoming, ...ended];
+  const [counts, titles, mine] = await Promise.all([
+    earnedCounts([...live, ...ended].map((q) => q.id)),
+    listTitles(all),
+    viewer && all.length
+      ? prisma.userAchievement.findMany({ where: { userId: viewer.id, key: { in: all.map((q) => questKey(q.id)) } }, select: { key: true } })
+      : Promise.resolve([]),
+  ]);
+  const earned = new Set(mine.map((m) => m.key));
+  const withCount = (q: Quest) => ({
+    ...q,
+    earnedCount: counts.get(q.id) ?? 0,
+    goalText: goalText(q, titles),
+    design: medalOf(q),
+    earned: earned.has(questKey(q.id)),
+  });
   return NextResponse.json({ live: live.map(withCount), upcoming: upcoming.map(withCount), ended: ended.map(withCount) });
 }
 
