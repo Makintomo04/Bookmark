@@ -40,6 +40,8 @@ const BulkBar: FC<{ selected: Book[], onDone: () => void, onCancel: () => void }
   const ids = selected.map((b) => b.id)
   const wanted = selected.filter((b) => b.status === "NOT_STARTED").length
   const declined = selected.filter((b) => b.status === "NOT_INTERESTED").length
+  // Offer whichever way most of the selection would move; a mixed selection is made private.
+  const allPrivate = selected.length > 0 && selected.every((b) => b.isPrivate)
 
   const run = (body: Record<string, unknown>, done: (data: any) => string) => {
     setBusy(true)
@@ -81,6 +83,15 @@ const BulkBar: FC<{ selected: Book[], onDone: () => void, onCancel: () => void }
       {declined > 0 && (
         <Button size="sm" variant="outline" disabled={busy} onClick={() => run({ action: "wantToRead" }, (d) => `Moved ${plural(d.updated)} to Want to read`)}>
           Want to read
+        </Button>
+      )}
+      {allPrivate ? (
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => run({ action: "makePublic" }, (d) => `Shared ${plural(d.updated)} on your profile`)}>
+          Share on profile
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" disabled={busy || selected.length === 0} onClick={() => run({ action: "makePrivate" }, (d) => `Made ${plural(d.updated)} private`)}>
+          Make private
         </Button>
       )}
       <DropdownMenu onOpenChange={setListsOpen}>

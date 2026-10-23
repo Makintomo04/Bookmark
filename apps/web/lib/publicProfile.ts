@@ -49,7 +49,7 @@ async function loadProfileRecord(username: string) {
       books: {
         where: { status: { in: ["STARTED", "COMPLETED", "NOT_STARTED"] } },
         orderBy: { createdAt: "desc" },
-        select: { ...publicBookSelect, review: true, reviewSpoiler: true, reviewPrivate: true },
+        select: { ...publicBookSelect, isPrivate: true, review: true, reviewSpoiler: true, reviewPrivate: true },
       },
       _count: { select: { followers: true, following: true } },
       achievements: { select: { key: true, earnedAt: true } },
@@ -80,15 +80,18 @@ export type RestrictedReason =
   // They blocked the viewer. Shown as "not available", so a block isn't announced.
   | "unavailable";
 
-// The central serializer: the profile as this viewer may see it. Want to read, reviews and
-// follow counts are filtered here, so callers can't forget a rule.
+// The central serializer: the profile as this viewer may see it. Private books, Want to read, reviews
+// and follow counts are filtered here, so callers can't forget a rule.
 function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings) {
   const showWantToRead = canView(relation, privacy, "wantToRead");
   const showCounts = canView(relation, privacy, "followCounts");
   const books = record.books
+    // Private books are the owner's alone: they see them on their own profile, marked, and nobody else does.
+    .filter((b) => !b.isPrivate || relation.isSelf)
     .filter((b) => b.status !== "NOT_STARTED" || showWantToRead)
-    .map(({ review, reviewSpoiler, reviewPrivate, ...book }) => ({
+    .map(({ review, reviewSpoiler, reviewPrivate, isPrivate, ...book }) => ({
       ...book,
+      isPrivate: !!isPrivate,
       ...visibleReview({ review, reviewSpoiler, reviewPrivate }, relation, privacy),
     }));
   return {

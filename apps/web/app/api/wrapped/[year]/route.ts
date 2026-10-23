@@ -23,6 +23,8 @@ export async function GET(req: Request, { params }: { params: { year: string } }
     owner = { id: viewer.id, username: viewer.username, favColour: viewer.favColour };
   }
 
-  const [wrapped, years] = await Promise.all([getWrapped(owner.id, year), getWrappedYears(owner.id)]);
+  // Private books are the owner's alone, so anyone else sees the year without them.
+  const sharedOnly = viewer?.id !== owner.id;
+  const [wrapped, years] = await Promise.all([getWrapped(owner.id, year, null, { sharedOnly }), getWrappedYears(owner.id, { sharedOnly })]);
   return NextResponse.json({ year, wrapped, years, owner: { username: owner.username, accent: owner.favColour ?? null }, own: viewer?.id === owner.id });
 }

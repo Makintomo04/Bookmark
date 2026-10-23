@@ -7,7 +7,7 @@ import { getReadingStreak } from "@/lib/achievements";
 import { getReaderTier } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, isValidTimeZone, localDay } from "@/lib/timeZone";
 import { isWrappedSeason } from "@/lib/wrappedSeason";
-import { isProfilePublic } from "@/lib/privacy";
+import { isProfilePublic, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData } from "@bookmark/shared/statsTypes";
 export type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData };
 
@@ -60,10 +60,12 @@ const bookSelect = {
 
 // Four narrow queries, in parallel: the reader's zone, their books (no descriptions or reviews),
 // the reads that ended, and their goals. Everything else is worked out from these on the server.
-async function loadReadingData(userId: string) {
+// `sharedOnly` leaves private books out, for anything someone other than the reader sees; their reads
+// only count through their book, so they drop out with it.
+async function loadReadingData(userId: string, sharedOnly = false) {
   const [user, books, reads, goals] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { timeZone: true } }),
-    prisma.book.findMany({ where: { userId }, select: bookSelect }),
+    prisma.book.findMany({ where: sharedOnly ? { userId, ...sharedBookWhere } : { userId }, select: bookSelect }),
     prisma.bookRead.findMany({
       where: { userId, status: { in: ["COMPLETED", "DNF"] } },
       select: { bookId: true, status: true, finishedAt: true, rating: true, pages: true, progressUnit: true, audioMinutes: true },
@@ -262,10 +264,10 @@ export async function getGoalProgress(userId: string, year: number): Promise<Goa
 // ---- Wrapped ----------------------------------------------------------------------------------
 
 // A year's Wrapped, or with `month` (0 to 11) one month of it: the same numbers for that month only,
-// which the monthly share card (Plus) draws.
-export async function getWrapped(userId: string, year: number, month: number | null = null): Promise<WrappedData> {
+// which the monthly share card (Plus) draws. `sharedOnly` for anyone but the reader: private books left out.
+export async function getWrapped(userId: string, year: number, month: number | null = null, { sharedOnly = false } = {}): Promise<WrappedData> {
   const [data, earned] = await Promise.all([
-    readingData(userId),
+    readingData(userId, sharedOnly),
     prisma.userAchievement.findMany({ where: { userId }, select: { key: true, earnedAt: true }, orderBy: { earnedAt: "asc" } }),
   ]);
   const { finishes, goals, currentYear, timeZone, completedBooks } = data;
@@ -350,8 +352,8 @@ export function parseWrappedMonth(rawYear: string, rawMonth: string, now = new D
 }
 
 // Years worth a Wrapped: any with a dated finish, and this one. Newest first.
-export async function getWrappedYears(userId: string): Promise<number[]> {
-  const { finishes, currentYear } = await readingData(userId);
+export async function getWrappedYears(userId: string, { sharedOnly = false } = {}): Promise<number[]> {
+  const { finishes, currentYear } = await readingData(userId, sharedOnly);
   const years = new Set<number>([currentYear]);
   for (const f of finishes) if (f.outcome === "COMPLETED" && f.year !== null) years.add(f.year);
   return Array.from(years).sort((a, b) => b - a);

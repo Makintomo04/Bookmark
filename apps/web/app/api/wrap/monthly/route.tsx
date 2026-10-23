@@ -20,7 +20,8 @@ export async function GET(req: Request) {
   const period = parseWrappedMonth(searchParams.get('year') ?? '', searchParams.get('month') ?? '')
   if (!period) return NextResponse.json({ error: 'Pick a month that has already started.' }, { status: 400 })
 
-  const wrapped = await getWrapped(user.id, period.year, period.month)
+  // A share card is made to be posted, so private books stay out of it.
+  const wrapped = await getWrapped(user.id, period.year, period.month, { sharedOnly: true })
   const stamp = `${period.year}-${String(period.month + 1).padStart(2, '0')}`
   return wrappedStoryImage(
     { wrapped, username: user.username, favColour: user.favColour },

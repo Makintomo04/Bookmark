@@ -1,5 +1,5 @@
 import prisma from "@/lib/db"
-import { ANONYMOUS, canView, privacyOf, privacySelect } from "@/lib/privacy"
+import { ANONYMOUS, canView, privacyOf, privacySelect, sharedBookWhere } from "@/lib/privacy"
 import { currentBook } from "@/lib/publicProfile"
 import { booksReadCount, booksReadOf, getReaderTier, type ReaderTier } from "@/lib/readerTier"
 import { toHex } from "@/lib/colour"
@@ -63,10 +63,11 @@ export async function getBadgeData(username: string, show: BadgeShow): Promise<B
   })
   if (!user?.username || !canView(ANONYMOUS, privacyOf(user), "profile")) return null
 
-  // Only Reading and Finished books are ever shown, so the Want to read shelf (and hideWantToRead) can't leak.
+  // Only Reading and Finished books are ever shown, so the Want to read shelf (and hideWantToRead) can't
+  // leak. Private books are skipped: the badge shows the latest one the reader shares.
   const book = show === "reading"
-    ? currentBook(await prisma.book.findMany({ where: { userId: user.id, status: "STARTED" }, select: bookSelect, take: 50 }))
-    : await prisma.book.findFirst({ where: { userId: user.id, status: "COMPLETED" }, orderBy: { completedAt: "desc" }, select: bookSelect })
+    ? currentBook(await prisma.book.findMany({ where: { userId: user.id, status: "STARTED", ...sharedBookWhere }, select: bookSelect, take: 50 }))
+    : await prisma.book.findFirst({ where: { userId: user.id, status: "COMPLETED", ...sharedBookWhere }, orderBy: { completedAt: "desc" }, select: bookSelect })
 
   return {
     username: user.username,

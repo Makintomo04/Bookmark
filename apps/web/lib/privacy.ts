@@ -51,6 +51,12 @@ export const publicProfileWhere: Prisma.UserWhereInput = visibilityIn(["PUBLIC"]
 // Profiles that turn up in user search: not private (followers-only readers need to be findable to be followed).
 export const searchableProfileWhere: Prisma.UserWhereInput = visibilityIn(["PUBLIC", "FOLLOWERS"]);
 
+// Books other readers may see: anything not marked private. Unset and null both mean shared.
+// Wrap it in AND when the query has its own OR.
+export const sharedBookWhere: Prisma.BookWhereInput = {
+  OR: [{ isPrivate: { isSet: false } }, { isPrivate: null }, { isPrivate: false }],
+};
+
 // True when a signed-out visitor can see this user's profile. For pages that show a user's
 // reading to anyone (stats, Wrapped, share images): check this before rendering.
 export async function isProfilePublic(userId: string): Promise<boolean> {

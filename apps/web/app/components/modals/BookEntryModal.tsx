@@ -1,7 +1,7 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Users } from 'lucide-react'
+import { Lock, Search, Users } from 'lucide-react'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
@@ -59,6 +59,8 @@ const BookEntryModal: FC = () => {
   const [format, setFormat] = useState<FormatChoice>("PRINT")
   // "Start a circle for this book": after adding, go straight to the new-circle form with it chosen.
   const [startCircle, setStartCircle] = useState(false)
+  // Private: on the reader's shelf as usual, but left off their profile and out of followers' feeds.
+  const [isPrivate, setIsPrivate] = useState(false)
 
   // "search" until a book is picked (or the user opts to type one in), then "shelf".
   const [stage, setStage] = useState<"search" | "shelf">("search")
@@ -88,6 +90,7 @@ const BookEntryModal: FC = () => {
     setIsEditing(false)
     setFormat("PRINT")
     setStartCircle(false)
+    setIsPrivate(false)
     setShelf("NOT_STARTED")
     setFinishedThisYear(false)
     setRating(0)
@@ -169,9 +172,10 @@ const BookEntryModal: FC = () => {
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
       finishedThisYear: shelf === "COMPLETED" ? finishedThisYear : undefined,
       rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
+      isPrivate: isPrivate || undefined,
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
-      notify.success(`Added to ${label}`)
+      notify.success(isPrivate ? `Added to ${label}, privately` : `Added to ${label}`)
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()
@@ -316,6 +320,25 @@ const BookEntryModal: FC = () => {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isPrivate}
+          onClick={() => setIsPrivate((v) => !v)}
+          disabled={isLoading}
+          className="flex items-start gap-3 text-left w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <span
+            className={cn("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", !isPrivate && "bg-neutral-300 dark:bg-neutral-700")}
+            style={isPrivate ? { background: user?.favColour || "#D92D2D" } : undefined}
+          >
+            <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", isPrivate && "translate-x-5")} />
+          </span>
+          <span>
+            <span className="flex items-center gap-1.5 text-sm font-medium"><Lock size={14} aria-hidden /> Keep it private</span>
+            <span className="block text-sm text-muted-foreground">It stays off your profile and out of your followers&apos; feeds. You can share it later.</span>
+          </span>
+        </button>
       </div>
 
       {shelf === "STARTED" && !isAudio && (

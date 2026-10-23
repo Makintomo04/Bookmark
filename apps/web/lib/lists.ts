@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client"
 import prisma from "./db"
 import { GENRES } from "./genres"
 import { normaliseWorkKey, sameBook } from "./workKey"
-import { blockedUserIds, canView, canViewUser, getRelation, privacyOf, privacySelect, visibleReview, type Relation } from "./privacy"
+import { blockedUserIds, canView, canViewUser, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, type Relation } from "./privacy"
 import type { DiscoverBook } from "./openLibrary"
 import { withoutUploadedCovers } from "./uploads"
 import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
@@ -410,7 +410,7 @@ export async function peoplePicksForBook(viewerId: string, book: { workKey: stri
         })
       : [],
     prisma.book.findMany({
-      where: { ...match, userId: { in: ids }, rating: { gte: 4 } },
+      where: { ...match, userId: { in: ids }, rating: { gte: 4 }, ...sharedBookWhere },
       take: 100,
       select: { userId: true, workKey: true, title: true, author: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true },
     }),
@@ -474,7 +474,7 @@ export async function followingPicks(viewerId: string) {
         })
       : [],
     prisma.book.findMany({
-      where: { userId: { in: ids }, status: "COMPLETED", rating: { gte: 4 } },
+      where: { userId: { in: ids }, status: "COMPLETED", rating: { gte: 4 }, ...sharedBookWhere },
       orderBy: { completedAt: "desc" },
       take: 40,
       select: { id: true, userId: true, workKey: true, title: true, author: true, coverImage: true, pages: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, completedAt: true, createdAt: true },

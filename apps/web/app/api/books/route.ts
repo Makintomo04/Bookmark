@@ -59,7 +59,7 @@ const { user: currentUser, response } = await requireUser();
 if (response) return response;
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, format, audioMinutes } = body
+  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, format, audioMinutes, isPrivate } = body
 
 if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {
   return NextResponse.json({ error: "Title and author are required" }, { status: 400 })
@@ -143,6 +143,8 @@ const book = await prisma.book.create({
     stoppedAt: isStopped ? now : null,
     timesRead: isCompleted ? 1 : 0,
     rating: (isCompleted || shelf === "DNF") && parsedRating.data ? parsedRating.data : null,
+    // Added privately: only the reader sees it (lib/privacy.ts sharedBookWhere).
+    ...(isPrivate === true && { isPrivate: true }),
   }
 })
 const firstRead = readFromBook(book)

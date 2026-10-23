@@ -4,6 +4,7 @@ import moment from 'moment'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
 import { Bookmark, Star } from 'lucide-react'
+import PrivateBadge from '../books/PrivateBadge'
 import { cn } from '@/lib/utils'
 import { formatLength, formatPosition, formatStoppedAt, progressWhole } from '@/lib/progress'
 import useFavourite from '@/app/hooks/useFavourite'
@@ -82,6 +83,7 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
           sizes="(min-width: 1280px) 180px, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw"
         />
         {!readOnly && <OwnerOverlay book={book} onUpdateProgress={openProgress} />}
+        {book.isPrivate && <PrivateBadge className="pointer-events-none absolute bottom-2 left-2" />}
       </div>
 
       <div className={cn("min-w-0 transition-[padding]", selecting && "px-2.5 pb-2.5")}>

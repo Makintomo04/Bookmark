@@ -302,6 +302,9 @@ model Book {
   reviewSpoiler Boolean?
   // Only the reader sees this review, whatever their review visibility setting.
   reviewPrivate Boolean?
+  // A private copy: only the reader sees it, whatever shelf it's on. Left off their profile, the feed, Wrapped
+  // as others see it, and every "people you follow" signal (lib/privacy.ts sharedBookWhere). Unset is shared.
+  isPrivate Boolean?
   // Completed reads. Kept in step with BookRead rows whose status is COMPLETED.
   timesRead Int @default(0)
   notes Note[]

@@ -12,6 +12,6 @@ export default async function Image({ params }: { params: { username: string; ye
   // Crawlers have no session, so only a public Wrapped gets an image.
   if (!year || !owner || !(await isWrappedPublic(owner))) return new Response('Not found', { status: 404 })
 
-  const wrapped = await getWrapped(owner.id, year)
+  const wrapped = await getWrapped(owner.id, year, null, { sharedOnly: true })
   return wrappedOgImage({ wrapped, username: owner.username, favColour: owner.favColour })
 }

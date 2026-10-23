@@ -40,7 +40,20 @@ export async function moveBook(bookId: string, action: ShelfAction, extra: Recor
   }
 }
 
-// Shelf moves for a card's "more" menu.
+// Makes a book private (only the reader sees it, on whatever shelf it's on) or shares it again.
+export async function setBookPrivacy(bookId: string, isPrivate: boolean) {
+  try {
+    await axios.put(`/api/books/${bookId}/privacy`, { isPrivate })
+    notify.success(isPrivate ? "Private: only you can see this book" : "Shared on your profile again")
+    return true
+  } catch {
+    notify.error(isPrivate ? "Couldn't make this book private" : "Couldn't share this book")
+    return false
+  }
+}
+
+// Shelf moves for a card's "more" menu, then the private toggle. Will not read is always private, so it
+// has no toggle.
 const ShelfMenuItems: FC<{ book: Book }> = ({ book }) => {
   const { mutate: booksMutate } = useBooks()
   return (
@@ -54,6 +67,14 @@ const ShelfMenuItems: FC<{ book: Book }> = ({ book }) => {
           {copy[action].label}
         </DropdownMenuItem>
       ))}
+      {book.status !== "NOT_INTERESTED" && (
+        <DropdownMenuItem
+          onClick={(e) => e.stopPropagation()}
+          onSelect={() => { setBookPrivacy(book.id, !book.isPrivate).then(() => booksMutate()) }}
+        >
+          {book.isPrivate ? "Share on profile" : "Make private"}
+        </DropdownMenuItem>
+      )}
     </>
   )
 }

@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     take: FEED_OVERFETCH,
     include: {
       user: { select: { username: true, image: true, favColour: true, ...booksReadCount, ...privacySelect } },
-      book: { select: { title: true, author: true, coverImage: true, cardColour: true, rating: true, status: true, review: true, reviewSpoiler: true, reviewPrivate: true } },
+      book: { select: { title: true, author: true, coverImage: true, cardColour: true, rating: true, status: true, review: true, reviewSpoiler: true, reviewPrivate: true, isPrivate: true } },
     },
   })
 
@@ -48,7 +48,9 @@ export async function GET(req: Request) {
     if (!canView(relation, privacy, "activity")) return []
     if (!book) return [{ ...activity, user: publicUser, book: null }]
 
-    const { status, review, reviewSpoiler, reviewPrivate, ...publicBook } = book
+    const { status, review, reviewSpoiler, reviewPrivate, isPrivate, ...publicBook } = book
+    // A private book posts nothing, including what it posted before it was made private.
+    if (isPrivate) return []
     // Adding to Want to read is a peek at that shelf.
     if (activity.type === "ADDED_BOOK" && status === "NOT_STARTED" && !canView(relation, privacy, "wantToRead")) return []
     // Will not read is the reader's own business, including books added to Want to read first.
