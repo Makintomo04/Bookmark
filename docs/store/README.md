@@ -12,19 +12,11 @@ and [google-play.md](google-play.md).
    12 testers for 14 days in a row before it can publish to production. An organisation account skips
    that. If it's personal, start the closed test as soon as the first build is in.
 3. **Legal review of the privacy policy and terms.** Both pages still say "LEGAL REVIEW NEEDED", and both
-   stores link to them. The privacy policy also has to cover the app before submission:
-   - Sign in with Apple, and that Apple can share a private relay email.
-   - Push notifications: the device's push token is stored to send them, and dropped on sign-out.
-   - Buying Plus through the App Store or Google Play, handled by RevenueCat, which receives the
-     account id and the purchase.
-   - Deleting the account doesn't cancel an App Store or Google Play subscription: it has to be cancelled
-     in the store. The policy now says deleting "cancels your subscription first", which is only true
-     for Stripe.
-   - Ask the shelf and Catch me up send book details (never anything about the reader) to Anthropic.
-     Only the import's use of Anthropic is described today.
-4. **A page for deleting your account without the app.** Google Play requires a web link where someone
-   can ask for their account to be deleted. `/settings` works for signed-in readers; a short public page
-   (say `/delete-account`) explaining the steps, with a contact address, covers everyone else.
+   stores link to them. The privacy policy has a draft covering the apps; [privacy-changes.md](privacy-changes.md)
+   lists every change and the questions for the reviewer.
+4. **The deletion page.** Google Play needs a web link where anyone can find out how to delete their
+   account. [/delete-account](../../apps/web/app/(main)/delete-account/page.tsx) is drafted; it goes in
+   the Data safety form once it's been reviewed and `SUPPORT_EMAIL` is set.
 
 ## Accounts and services
 

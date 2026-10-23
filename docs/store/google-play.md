@@ -24,15 +24,15 @@ keep them in step.
   gambling or controlled substances in the app's own content. Expect a Teen / PEGI 12 rating.
 - **News app:** no. **Government app:** no. **Financial features:** none (Plus is a subscription).
 - **Health apps:** no.
-- **Account deletion:** in the app at More → Settings → Delete account, and a web link for people who
-  no longer have the app (see the README: this page still needs making).
+- **Account deletion:** in the app at More → Settings → Delete account, and at `https://<site>/delete-account`
+  for people who no longer have the app or can't sign in.
 - **App access:** "All or some functionality is restricted": give the review account from
   [app-store.md](app-store.md#review-notes) with the same notes.
 
 ## Data safety
 
-Data is **encrypted in transit**. Readers **can ask for their data to be deleted** (in the app, and by
-the web link). No data is **shared** with third parties for their own use; the services that process data
+Data is **encrypted in transit**. Readers **can ask for their data to be deleted** (in the app, and through
+`/delete-account`). No data is **shared** with third parties for their own use; the services that process data
 for Bookmark (hosting, image storage, email, payments, RevenueCat) are service providers, which Play
 doesn't count as sharing.
 
