@@ -12,7 +12,6 @@ import axios from 'axios'
 import { PASSWORD_MAX, PASSWORD_MIN } from '@/lib/authSchemas'
 import CheckInboxNotice from '../signIn/CheckInboxNotice'
 import { safeCallbackPath, withCallback } from '@/lib/callbackUrl'
-import { REFERRAL_COOKIE } from '@/lib/plusRewards'
 
 const linkClass = 'text-brand-text font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'
 
@@ -28,12 +27,6 @@ const [callbackPath, setCallbackPath] = useState<string | null>(null);
 useEffect(() => {
   const params = new URLSearchParams(window.location.search)
   setCallbackPath(safeCallbackPath(params.get("callbackUrl"), window.location.origin))
-  // A friend's invite link (/register?ref=username): remembered until onboarding finishes, whichever
-  // way they sign up, so the friend gets credit (lib/referrals.ts).
-  const ref = params.get("ref")
-  if (ref && /^[\w.-]{2,50}$/.test(ref)) {
-    document.cookie = `${REFERRAL_COOKIE}=${encodeURIComponent(ref)}; path=/; max-age=${30 * 86400}; samesite=lax`
-  }
 }, [])
 const {
   register,

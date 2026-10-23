@@ -10,7 +10,6 @@ export const APP_LINK_PATHS = [
   "/circles/*",
   "/u/*",
   "/lists/*",
-  "/quests/*",
   "/reset-password",
   "/verify-email",
 ] as const;

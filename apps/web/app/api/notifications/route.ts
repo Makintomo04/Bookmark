@@ -1,7 +1,6 @@
 import { booksReadCount } from "@/lib/readerTier";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
-import { questIdOf } from "@/lib/questRules";
 import { sameBook } from "@/lib/workKey";
 import { NextResponse } from "next/server";
 
@@ -9,16 +8,18 @@ export async function GET(req: Request) {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
+  // Quests were cut before launch; any old quest-medal notifications are left out.
+  const shown = { userId: currentUser.id, type: { not: "QUEST_COMPLETED" as const } }
   const [notifications, unreadCount] = await Promise.all([
     prisma.notification.findMany({
-      where: { userId: currentUser.id },
+      where: shown,
       orderBy: { createdAt: "desc" },
       take: 20,
       include: {
         actor: { select: { username: true, image: true, favColour: true, ...booksReadCount } },
       },
     }),
-    prisma.notification.count({ where: { userId: currentUser.id, read: false } }),
+    prisma.notification.count({ where: { ...shown, read: false } }),
   ])
 
   // Reading circle notifications name the book. buddyReadId is a plain id, so look the titles up in one go.
@@ -28,17 +29,6 @@ export async function GET(req: Request) {
     : []
   const buddyReadById = new Map(buddyReads.map((b) => [b.id, b]))
   const withBuddyReads = notifications.map((n) => (n.buddyReadId ? { ...n, buddyRead: buddyReadById.get(n.buddyReadId) ?? null } : n))
-
-  // Quest medals name their quest: achievementKey is "QUEST:<questId>".
-  const questIds = Array.from(new Set(notifications.flatMap((n) => {
-    const id = n.type === "QUEST_COMPLETED" && n.achievementKey ? questIdOf(n.achievementKey) : null
-    return id && /^[a-f0-9]{24}$/.test(id) ? [id] : []
-  })))
-  const quests = questIds.length > 0
-    ? await prisma.quest.findMany({ where: { id: { in: questIds } }, select: { id: true, slug: true, title: true } })
-    : []
-  const questById = new Map(quests.map((q) => [q.id, { slug: q.slug, title: q.title }]))
-  const withQuests = withBuddyReads.map((n) => (n.type === "QUEST_COMPLETED" ? { ...n, quest: questById.get(questIdOf(n.achievementKey ?? "") ?? "") ?? null } : n))
 
   // Recommendations name the sender's copy of the book, and say whether it's already on the reader's shelf.
   const recommendedIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "BOOK_RECOMMENDED" && n.bookId ? [n.bookId] : []))))
@@ -52,7 +42,7 @@ export async function GET(req: Request) {
       })
     : []
   const recommendedById = new Map(recommended.map(({ workKey, ...b }) => [b.id, { ...b, onShelf: mine.some((m) => sameBook(m, { ...b, workKey })) }]))
-  const withRecommendations = withQuests.map((n) => (n.type === "BOOK_RECOMMENDED" ? { ...n, book: n.bookId ? recommendedById.get(n.bookId) ?? null : null } : n))
+  const withRecommendations = withBuddyReads.map((n) => (n.type === "BOOK_RECOMMENDED" ? { ...n, book: n.bookId ? recommendedById.get(n.bookId) ?? null : null } : n))
 
   return NextResponse.json({ notifications: withRecommendations, unreadCount })
 }

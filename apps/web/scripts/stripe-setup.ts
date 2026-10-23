@@ -9,19 +9,19 @@
 // Needs a full secret key (products and portal settings). It prints the STRIPE_PRICE_* lines to put in
 // the environment. Prices are tax-inclusive, and Managed Payments needs the product tax code.
 //
-// One product per tier, as Stripe recommends: Plus (monthly, yearly and the Founding yearly price),
-// Patron, and Lifetime. That also keeps the portal happy, which allows one price per interval per product.
+// One product, Plus, with monthly, yearly and the Founding yearly price. The portal allows one price
+// per interval per product, and the Founding price is kept out of it.
 import Stripe from "stripe";
 import { REGIONAL_PRICES, toMinor, type PricedPlan } from "../lib/regionalPricing.ts";
 
 const PRODUCT_TAX_CODE = "txcd_10103000"; // Software as a service, personal use
 const CHECK_ONLY = process.argv.includes("--check");
 
-type ProductKey = "plus" | "patron" | "lifetime";
+// Patron and Lifetime were cut before launch; their Stripe products and prices, if made, are left
+// alone here so anyone already on them is untouched.
+type ProductKey = "plus";
 const PRODUCTS: Record<ProductKey, { name: string; description: string }> = {
   plus: { name: "Bookmark Plus", description: "Recaps, hosting tools and extra goals for Bookmark. Every stat stays free." },
-  patron: { name: "Bookmark Plus Patron", description: "Bookmark Plus, paid at a higher price to support Bookmark. Same features, a Patron badge." },
-  lifetime: { name: "Bookmark Plus Lifetime", description: "Bookmark Plus for good, with one payment." },
 };
 
 type PriceSpec = { plan: PricedPlan; product: ProductKey; lookupKey: string; nickname: string; interval: "month" | "year" | null; env: string };
@@ -29,13 +29,11 @@ const PRICES: PriceSpec[] = [
   { plan: "monthly", product: "plus", lookupKey: "bookmark_plus_monthly", nickname: "Plus monthly", interval: "month", env: "STRIPE_PRICE_MONTHLY" },
   { plan: "yearly", product: "plus", lookupKey: "bookmark_plus_yearly", nickname: "Plus yearly", interval: "year", env: "STRIPE_PRICE_YEARLY" },
   { plan: "founding", product: "plus", lookupKey: "bookmark_plus_founding_yearly", nickname: "Founding Reader yearly", interval: "year", env: "STRIPE_PRICE_FOUNDING" },
-  { plan: "patron", product: "patron", lookupKey: "bookmark_plus_patron_yearly", nickname: "Patron yearly", interval: "year", env: "STRIPE_PRICE_PATRON" },
-  { plan: "lifetime", product: "lifetime", lookupKey: "bookmark_plus_lifetime", nickname: "Lifetime", interval: null, env: "STRIPE_PRICE_LIFETIME" },
 ];
 
 // Subscribers can switch between these in the portal. Never the Founding price (anyone could switch
-// onto it) or lifetime (not a subscription).
-const PORTAL_PLANS: PricedPlan[] = ["monthly", "yearly", "patron"];
+// onto it).
+const PORTAL_PLANS: PricedPlan[] = ["monthly", "yearly"];
 
 const localOptions = (plan: PricedPlan) => ({
   gbp: { unit_amount: toMinor(REGIONAL_PRICES.GBP[plan]), tax_behavior: "inclusive" as const },

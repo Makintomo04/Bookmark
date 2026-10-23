@@ -34,7 +34,7 @@ where comments wait until you've caught up.
 > Find your next book. Browse lists from readers and the Bookmark team, follow friends, and see what
 > they're loving.
 >
-> Seasonal quests and medals, if you like a challenge.
+> Medals and reading streaks, if you like a challenge.
 >
 > Bookmark Plus supports an independent, ad-free app, and lets you host as many reading circles as you
 > like and set page and monthly goals. AI features are opt-in, always labelled, and only ever do what you

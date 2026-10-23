@@ -22,31 +22,6 @@ export const FOUNDING = {
   cap: 1000,
 } as const;
 
-// Patron: the yearly plan at a higher, optional price for readers who want to give more. Same
-// features, a Patron badge. Left out of every forecast.
-export const PATRON = {
-  yearly: 49.99,
-} as const;
-
-// Lifetime Plus: one payment, sold only during the launch window (the Founding window's closing date)
-// and to at most `cap` buyers. Each buyer gets `giftCodes` one-month Plus gifts to hand out. The AI
-// allowances are the same fair-use ceiling as Plus.
-export const LIFETIME = {
-  price: 79,
-  cap: 500,
-  giftCodes: 3,
-} as const;
-
-// Referral months: an inviter earns `days` of Plus for each invited friend who joins and logs some
-// reading, up to `perYear` a calendar year. Inviter only.
-export const REFERRALS = {
-  perYear: 2,
-  days: 30,
-} as const;
-
-// A gift code from a lifetime buyer is worth this many days of Plus to a reader who has never had it.
-export const GIFT_DAYS = 30;
-
 // Monthly allowances for the AI slices that come later (mood search, recaps). Counted per calendar
 // month. Plus has a stated fair-use ceiling, never "unlimited": raising a cap later reads as a gift,
 // capping an unlimited promise reads as a betrayal. Metering goes through allowanceLeft().
@@ -81,8 +56,7 @@ type StoredPlan = { plan?: Plan | null; lifetime?: boolean | null; compPlusUntil
 const asDate = (value: Date | string | null | undefined) => (value ? new Date(value) : null);
 
 // Where an account's Plus comes from: a Stripe subscription (or trial), an App Store or Google Play
-// subscription bought in the app, a lifetime purchase, or free months earned by inviting friends or from
-// a gift code. Null on free.
+// subscription bought in the app, a lifetime purchase (no longer sold), or free months. Null on free.
 export type PlusSource = "subscription" | "store" | "lifetime" | "comp";
 
 export function plusSourceOf(user: StoredPlan, now = new Date()): PlusSource | null {
@@ -177,11 +151,6 @@ export function parseFoundingClose(raw: string | undefined | null): Date | null 
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-// The lifetime offer shares the Founding window's closing date and has its own cap.
-export function lifetimeStatus(sold: number, closesAt: Date | null, now = new Date()): FoundingStatus {
-  return foundingStatus(sold, closesAt, now, LIFETIME.cap);
-}
-
 export const UPGRADE_URL = "/plus";
 
 // Thrown by requireEntitlement(); API routes map it to a 402 JSON body (entitlementResponse()).
@@ -239,7 +208,7 @@ export interface PlanStatus {
   founding: boolean;
   patron: boolean;
   lifetime: boolean;
-  // Free months (referrals, gift codes) run until this date.
+  // Free months run until this date (set by staff; referrals and gift codes, now cut, set it before launch).
   compUntil: Date | null;
   // On Plus through a trial that hasn't ended yet.
   trialing: boolean;

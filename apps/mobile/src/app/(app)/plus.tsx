@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Platform, Pressable, Share, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, StyleSheet, View } from "react-native";
 import useSWR from "swr";
 import * as WebBrowser from "expo-web-browser";
-import { Check, Gift, Sparkles } from "lucide-react-native";
-import { FOUNDING, REFERRALS } from "@bookmark/shared/entitlements";
+import { Check, Sparkles } from "lucide-react-native";
+import { FOUNDING } from "@bookmark/shared/entitlements";
 import { FREE, FREE_SOON, PLUS, PLUS_SOON } from "@bookmark/shared/plusFeatures";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -39,7 +39,6 @@ type PlusResponse = {
   allowances: { askShelfSearches: Allowance; recaps: Allowance } | null;
   founding: { open: boolean; remaining: number; closesAt: string | null };
 };
-type Rewards = { invitePath: string | null; referrals: { joined: number; qualified: number; rewardedThisYear: number; perYear: number } };
 
 const day = (iso: string, year = true) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", ...(year ? { year: "numeric" } : {}) });
 const storeName = (s: Status["store"]) => (s === "PLAY_STORE" ? "Google Play" : "the App Store");
@@ -80,7 +79,6 @@ export default function PlusScreen() {
       <Column title="Free" features={FREE} soon={FREE_SOON} />
       <Column title="Plus" features={PLUS} soon={PLUS_SOON} highlight />
 
-      <Rewards />
     </Screen>
   );
 }
@@ -96,7 +94,7 @@ function PlanCard({ status, allowances }: { status: Status; allowances: PlusResp
       : status.source === "store"
         ? `Plus through ${storeName(status.store)}${status.until ? `, renewing or ending on ${day(status.until)}` : ""}.`
       : status.source === "comp" && status.compUntil
-        ? `Free Plus until ${day(status.compUntil)}, from inviting friends or a gift.`
+        ? `Free Plus until ${day(status.compUntil)}.`
         : "You're on the free plan. Every stat, import and circle you join stays free.";
   const label = status.source === "lifetime" ? "Lifetime" : status.patron ? "Patron" : status.founding && status.source !== "comp" ? "Founding Reader" : status.trialing ? "Trial" : status.source === "comp" ? "Free months" : status.plan === "PLUS" ? "Active" : "Free";
   const allowanceLine = (name: string, a: Allowance) => (a.left === null ? null : `${name}: ${a.left} of ${a.allowance} left this month${a.isPlus ? " (fair use)" : ""}`);
@@ -271,32 +269,6 @@ function Column({ title, features, soon, highlight }: { title: string; features:
   );
 }
 
-// Your invite link and what it has earned (GET /api/plus/rewards).
-function Rewards() {
-  const { colors } = useTheme();
-  const { data } = useSWR<Rewards>("/api/plus/rewards");
-  if (!data?.invitePath) return null;
-  const { referrals } = data;
-  const left = Math.max(0, referrals.perYear - referrals.rewardedThisYear);
-  const link = webUrl(data.invitePath);
-  return (
-    <View style={[styles.card, { borderColor: colors.border }]}>
-      <View style={[styles.row, { justifyContent: "flex-start", gap: 8 }]}>
-        <Gift size={18} color={colors.brandText} />
-        <Text variant="title">Invite friends, get Plus</Text>
-      </View>
-      <Text variant="muted">
-        A free month of Plus for each friend who joins with your link (or through a circle you host) and logs some reading. Up to {REFERRALS.perYear} a year.
-        {referrals.joined > 0 ? ` ${referrals.joined} joined so far, ${referrals.qualified} reading. ${left} free ${left === 1 ? "month" : "months"} left to earn this year.` : ""}
-      </Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Share your invite link" onPress={() => void Share.share({ message: `Read with me on Bookmark: ${link}`, url: link })} style={[styles.linkBox, { borderColor: colors.input }]}>
-        <Text variant="small" numberOfLines={1} style={{ flex: 1, color: colors.foreground }}>{link}</Text>
-        <Text variant="label" style={{ color: colors.brandText }}>Share</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   pill: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
   card: { borderWidth: 1, borderRadius: 20, padding: 18, gap: 14 },
@@ -305,5 +277,4 @@ const styles = StyleSheet.create({
   founding: { borderRadius: 10, padding: 10 },
   feature: { flexDirection: "row", gap: 10 },
   links: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  linkBox: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, height: 44 },
 });

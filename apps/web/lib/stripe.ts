@@ -80,14 +80,11 @@ export type BillingInterval = z.infer<typeof billingIntervalSchema>;
 
 // The Stripe price for a plan (scripts/stripe-setup.ts creates them). "founding" is the $24.99 yearly
 // Founding Reader price: never archive it while founders are on it, and never offer it in the portal.
-// "lifetime" is a one-time price; the others recur.
-export type CheckoutPlan = BillingInterval | "founding" | "patron" | "lifetime";
+export type CheckoutPlan = BillingInterval | "founding";
 const PRICE_ENV: Record<CheckoutPlan, string> = {
   monthly: "STRIPE_PRICE_MONTHLY",
   yearly: "STRIPE_PRICE_YEARLY",
   founding: "STRIPE_PRICE_FOUNDING",
-  patron: "STRIPE_PRICE_PATRON",
-  lifetime: "STRIPE_PRICE_LIFETIME",
 };
 export function priceIdFor(plan: CheckoutPlan): string | null {
   return process.env[PRICE_ENV[plan]] || null;

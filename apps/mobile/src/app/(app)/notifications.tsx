@@ -24,7 +24,6 @@ interface Notification {
   achievementKey: string | null;
   actor: Person & { username: string };
   buddyRead: { id: string; title: string; inviteCode: string; status?: string } | null;
-  quest: { slug: string; title: string } | null;
   book: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null;
 }
 
@@ -35,7 +34,6 @@ function copyOf(n: Notification) {
   switch (n.type) {
     case "NEW_FOLLOWER": return "started following you";
     case "ACHIEVEMENT_EARNED": return `reached the "${getAchievementTitle(n.achievementKey ?? "")}" milestone`;
-    case "QUEST_COMPLETED": return `completed the ${n.quest ? `"${n.quest.title}"` : "seasonal"} quest and earned its limited-edition medal`;
     case "BUDDY_READ_INVITE": return `invited you to read ${book} together`;
     case "BOOK_RECOMMENDED": return `thinks you'd like ${n.book?.title ?? "a book"}`;
     case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your reading circle for ${book}`;
@@ -45,9 +43,9 @@ function copyOf(n: Notification) {
   }
 }
 
-// Where tapping goes. Achievements and quests aren't in the app yet, so those stay put.
+// Where tapping goes. Achievements stay put.
 function pathOf(n: Notification): string | null {
-  if (n.type === "ACHIEVEMENT_EARNED" || n.type === "QUEST_COMPLETED") return null;
+  if (n.type === "ACHIEVEMENT_EARNED") return null;
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`;
   if (n.buddyRead) return `/circles/${n.buddyRead.id}`;
   return `/u/${encodeURIComponent(n.actor.username)}`;

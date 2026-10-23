@@ -3,7 +3,6 @@ import { FC, useState } from 'react'
 import useAchievements from '@/app/hooks/useAchievements'
 import AchievementsGrid, { GRID_COLUMNS } from '@/app/components/achievements/AchievementsGrid'
 import AchievementDetail from '@/app/components/achievements/AchievementDetail'
-import QuestDetail from '@/app/components/achievements/QuestDetail'
 import { Skeleton } from '@/app/components/ui/skeleton'
 import FetchErrorState from '@/app/components/FetchErrorState'
 import ReaderTierCard from '@/app/components/achievements/ReaderTierCard'
@@ -27,8 +26,7 @@ const AchievementsView: FC = () => {
     return <FetchErrorState error={isError} what="your achievements" onRetry={() => mutate()}/>
   }
 
-  // Quest medals are one-offs, not rungs of a ladder, so they're counted apart.
-  const milestones = achievements.filter((a) => !a.quest).flatMap((a) => a.milestones)
+  const milestones = achievements.flatMap((a) => a.milestones)
   const earnedCount = milestones.filter((m) => m.earned).length
   const selected = achievements.find((a) => a.key === selectedKey) ?? null
 
@@ -39,9 +37,7 @@ const AchievementsView: FC = () => {
       </p>
       <ReaderTierCard />
       <AchievementsGrid achievements={achievements} onSelect={setSelectedKey} />
-      {selected?.quest
-        ? <QuestDetail achievement={selected} onClose={() => setSelectedKey(null)} />
-        : <AchievementDetail achievement={selected} onClose={() => setSelectedKey(null)} />}
+      <AchievementDetail achievement={selected} onClose={() => setSelectedKey(null)} />
     </>
   )
 }

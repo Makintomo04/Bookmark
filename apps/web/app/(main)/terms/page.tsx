@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: "Terms of Service",
 }
 
-const LAST_UPDATED = "22 October 2026"
+const LAST_UPDATED = "23 October 2026"
 
 const Section: FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="flex flex-col gap-2 mb-8">
@@ -57,7 +57,6 @@ const Page: FC = () => {
           <p>Bookmark Plus is an optional paid plan. The prices and what Plus includes are shown on the <Link href="/plus" className="underline">Plus page</Link> before you buy. Payments are handled by Stripe.</p>
           <p><strong>Subscriptions</strong> (monthly or yearly) renew automatically at the end of each period until you cancel. You can cancel any time from <Link href="/settings" className="underline">Settings</Link>, which opens Stripe&apos;s billing portal. When you cancel, Plus stays on until the end of the period you&apos;ve paid for, and you won&apos;t be charged again.</p>
           <p><strong>Free trial:</strong> each account can have one {PLUS_PRICING.trialDays}-day free trial. If you haven&apos;t added a payment method by the end of it, the trial ends and you&apos;re back on the free plan.</p>
-          <p><strong>Lifetime Plus</strong>, when it&apos;s on sale, is a single one-off payment for Plus for as long as Bookmark runs. It doesn&apos;t renew.</p>
           <p><strong>Refunds:</strong> we&apos;ll give refunds where the law requires it. If something&apos;s gone wrong with a payment, contact us at <Contact /> and we&apos;ll sort it out.</p>
           <p>Features marked &quot;coming soon&quot; aren&apos;t part of what you&apos;re paying for until they arrive. If we change what Plus costs, we&apos;ll tell you before your next renewal.</p>
         </Section>

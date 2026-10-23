@@ -1,7 +1,7 @@
 // Runs a command against the bookmark-test database instead of the one in .env.local.
 //
 //   node scripts/with-test-db.mjs npx prisma db push --skip-generate
-//   node scripts/with-test-db.mjs node scripts/seed-quests.ts
+//   node scripts/with-test-db.mjs node scripts/seed-test-readers.ts
 //
 // Everything else comes from .env.local; only the database name in DATABASE_URL is swapped, so the
 // same Atlas cluster and login are used. EMAIL_SERVER_* is dropped so mail goes to a disposable

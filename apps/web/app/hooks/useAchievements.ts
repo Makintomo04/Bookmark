@@ -15,18 +15,6 @@ export interface AchievementItem {
   category: string;
   current: number;
   milestones: MilestoneItem[];
-  // Seasonal quest medals only (category "quests"): one milestone, plus the medal design and window.
-  quest?: QuestItem;
-}
-
-export interface QuestItem {
-  slug: string;
-  colour: string;
-  ribbon: string;
-  icon: string;
-  startsAt: string;
-  endsAt: string;
-  phase: "upcoming" | "live" | "ended";
 }
 
 export default function useAchievements() {

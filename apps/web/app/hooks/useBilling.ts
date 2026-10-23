@@ -1,7 +1,7 @@
 import { useState } from "react"
 import axios from "axios"
 import { notify, apiError } from "@/lib/notify"
-export type PlusChoice = "monthly" | "yearly" | "patron" | "lifetime"
+export type PlusChoice = "monthly" | "yearly"
 
 // Sends the reader to Stripe: Checkout to start Plus, the customer portal to manage it.
 // Both routes hand back a URL; the plan itself only changes when Stripe's webhook arrives.

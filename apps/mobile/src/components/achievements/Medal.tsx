@@ -1,10 +1,9 @@
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
-import { Award, BookOpen, Crown, Flame, Flower2, Leaf, Library, Moon, Mountain, Quote, ScrollText, Snowflake, Sparkles, Star, Sun, Target, Users } from "lucide-react-native";
-import type { QuestMedalDesign } from "@bookmark/shared/questRules";
+import { Award, Crown, Flame, Library, Mountain, Quote, ScrollText, Star, Target, Users } from "lucide-react-native";
 
-// The medals, drawn as on the web (components/achievements/Medal.tsx, QuestMedal.tsx and
-// achievementTheme.ts): a ladder medal in its own colour, and the limited-edition quest rosette.
+// The medals, drawn as on the web (components/achievements/Medal.tsx and achievementTheme.ts): a
+// ladder medal in its own colour.
 
 export const MEDAL_INK = "#FBF1DF";
 
@@ -30,17 +29,6 @@ const ICONS: Record<string, typeof Award> = {
   RATINGS: Star,
   BUDDY_READS_FINISHED: Users,
   BUDDY_READS_HOSTED: Crown,
-};
-
-const QUEST_ICONS: Record<string, typeof Award> = {
-  leaf: Leaf,
-  snowflake: Snowflake,
-  flower: Flower2,
-  sun: Sun,
-  mountain: Mountain,
-  book: BookOpen,
-  sparkles: Sparkles,
-  moon: Moon,
 };
 
 export const getMedalColour = (key: string) => MEDAL_COLOURS[key] ?? "#6B6B6B";
@@ -78,30 +66,6 @@ export function Medal({ achievementKey, earned, size }: { achievementKey: string
       </Svg>
       <View style={[StyleSheet.absoluteFill, styles.centre]}>
         <Icon size={size * 0.4} strokeWidth={1.75} color={MEDAL_INK} />
-      </View>
-    </View>
-  );
-}
-
-// A limited-edition medal: the round face in the quest's colourway, a dashed inner ring and a star at
-// the top for "limited", hanging from two notched ribbon tails like a rosette. `width` sets the size.
-export function QuestMedal({ design, earned, width, style }: { design: QuestMedalDesign; earned: boolean; width: number; style?: ViewStyle }) {
-  const Icon = QUEST_ICONS[design.icon] ?? BookOpen;
-  const colour = earned ? design.colour : GREY;
-  const ribbon = earned ? design.ribbon : "#9a9a9a";
-  const height = width * 1.18;
-  return (
-    <View style={[{ width, height, opacity: earned ? 1 : 0.4 }, style]}>
-      <Svg viewBox="0 0 100 118" width={width} height={height}>
-        <Path d="M30 62 L16 114 L25 107 L31 117 L46 66 Z" fill={ribbon} />
-        <Path d="M70 62 L84 114 L75 107 L69 117 L54 66 Z" fill={shade(ribbon, 0.25)} />
-        <Circle cx="50" cy="50" r="50" fill={shade(colour)} />
-        <Circle cx="50" cy="50" r="44" fill={colour} />
-        <Circle cx="50" cy="50" r="37" fill="none" stroke={MEDAL_INK} strokeOpacity={0.55} strokeWidth={1.5} strokeDasharray="3 3.2" />
-        <Path d="M50 1.5 L52.6 7 L58.5 7.6 L54 11.5 L55.4 17.3 L50 14.3 L44.6 17.3 L46 11.5 L41.5 7.6 L47.4 7 Z" fill={MEDAL_INK} />
-      </Svg>
-      <View style={{ position: "absolute", left: width * 0.3, top: height * 0.254, width: width * 0.4, height: width * 0.4 }}>
-        <Icon size={width * 0.4} strokeWidth={1.75} color={MEDAL_INK} />
       </View>
     </View>
   );

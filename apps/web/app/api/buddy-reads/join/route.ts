@@ -4,7 +4,6 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { REMOVED_MESSAGE, buddyReadError, joinBuddyRead, loadInvite, parseBody, wasRemoved } from "@/lib/buddyReadsServer";
-import { attachReferral } from "@/lib/referrals";
 import { BUDDY_READ_MAX_MEMBERS } from "@/lib/buddyReads";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 
@@ -48,7 +47,5 @@ export async function POST(req: Request) {
 
   const result = await joinBuddyRead(buddyRead, currentUser.id);
   if (!result.ok) return buddyReadError(result.error, result.status);
-  // A new reader who came in through this circle's invite was brought by its host.
-  await attachReferral(currentUser.id, buddyRead.hostId, "circle").catch((e) => console.error("[referrals]", e));
   return NextResponse.json(result);
 }

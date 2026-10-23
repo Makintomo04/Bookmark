@@ -46,7 +46,7 @@ interface ListActionsProps {
   listId: string
   editable: EditableList | null
   canCopy: boolean
-  // More actions (e.g. Embed) slot in after the built-in ones.
+  // More actions slot in after the built-in ones.
   children?: ReactNode
 }
 

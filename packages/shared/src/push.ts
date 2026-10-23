@@ -2,7 +2,7 @@
 // app's settings let a reader switch them off (User.pushOff), and the words they carry.
 //
 // What's pushed is the social side, the things that bring someone back to a reading circle or a friend.
-// Achievements and quest medals stay in the bell. No push ever carries what someone wrote (comments,
+// Achievements stay in the bell. No push ever carries what someone wrote (comments,
 // reviews, a recommendation's note): a lock screen is read over shoulders, and a comment's words are only
 // shown once the reader's progress has reached it.
 
