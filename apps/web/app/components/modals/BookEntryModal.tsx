@@ -22,6 +22,7 @@ import { readableInk } from '@/lib/colour'
 import BookBlurb from '../books/BookBlurb'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import { celebrate } from '@/app/hooks/useEarnMoment'
 import FormatPicker, { type FormatChoice, formatPayload } from '../books/FormatPicker'
 
 type Shelf = "NOT_STARTED" | "STARTED" | "COMPLETED"
@@ -175,7 +176,7 @@ const BookEntryModal: FC = () => {
       isPrivate: isPrivate || undefined,
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
-      notify.success(isPrivate ? `Added to ${label}, privately` : `Added to ${label}`)
+      celebrate(saved?.earnMoment, { message: isPrivate ? `Added to ${label}, privately` : `Added to ${label}` })
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()

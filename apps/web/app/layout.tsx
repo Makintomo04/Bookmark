@@ -9,6 +9,7 @@ import { ourFileRouter } from "@/app/api/uploadthing/core";
 import { Analytics } from '@vercel/analytics/react';
 import { siteUrl } from "@/lib/siteUrl";
 import Toaster from "./components/ui/toaster";
+import EarnCelebration from './components/achievements/EarnCelebration'
 
 const font = Inter({ subsets: ["latin"], variable: "--font-sans" });
 // The display face: page titles, heroes, Wrapped, big numbers and quotes. Never for UI controls.
@@ -51,6 +52,7 @@ export default function RootLayout({
       <body className={font.className}>
         <Providers>
         <Toaster />
+        <EarnCelebration />
         <SpeedInsights/>
         <NextSSRPlugin
           routerConfig={extractRouterConfig(ourFileRouter)}

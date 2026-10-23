@@ -17,6 +17,8 @@ import { goBack } from "@/lib/navigation";
 import { copyCoverLater, refreshAfterBookChange } from "@/lib/books";
 import { useBookSearch, type FoundBook } from "@/lib/useBookSearch";
 import { useTheme } from "@/lib/theme";
+import type { EarnMoment } from "@bookmark/shared/earnMoment";
+import { celebrate } from "@/lib/earnMoment";
 
 // Adding a book, after the web's BookEntryModal: search by title or author (or type it in), choose the
 // shelf, add. Opened with ?shelf=STARTED to start on Reading, and ?startCircle=1 to go straight on to
@@ -125,7 +127,7 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, onBack }: { dra
     setSaving(true);
     setError(null);
     try {
-      const saved = await api.post<{ id: string }>("/api/books", {
+      const saved = await api.post<{ id: string; earnMoment?: EarnMoment | null }>("/api/books", {
         title: draft.title.trim(),
         author: draft.author.trim(),
         pages: draft.pages || undefined,
@@ -143,6 +145,7 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, onBack }: { dra
         rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
       });
       await refreshAfterBookChange();
+      celebrate(saved.earnMoment);
       copyCoverLater(saved?.id);
       if (startCircle && saved?.id) router.replace(`/circles/new?bookId=${saved.id}`);
       else goBack();
