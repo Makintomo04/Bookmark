@@ -50,6 +50,7 @@ export default function AppLayout() {
         <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
         <Stack.Screen name="search" options={{ title: "Find readers" }} />
         <Stack.Screen name="u/[username]" options={{ title: "" }} />
+        <Stack.Screen name="u/[username]/achievements" options={{ title: "Achievements" }} />
         <Stack.Screen name="lists/[id]" options={{ title: "" }} />
         <Stack.Screen name="discover/genre/[slug]" options={{ title: "" }} />
         <Stack.Screen name="authors/[slug]" options={{ title: "" }} />

@@ -22,9 +22,11 @@ export const MedalMark: FC<{ achievementKey: string; earned: boolean; className?
 }
 
 // One line on where a ladder stands: the rung reached and what the next takes, or how to start it.
-export function standing(a: AchievementItem): string {
-  const { highest, next } = summarise(a)
+// readOnly (someone else's medals) leaves out what's next: their real numbers aren't shared.
+export function standing(a: AchievementItem, readOnly = false): string {
+  const { highest, next, earned, total } = summarise(a)
   if (!next) return `${highest!.title} · every milestone earned`
+  if (readOnly) return highest ? `${highest.title} · ${earned.length} of ${total} milestones` : "Not started yet"
   if (!highest) return `${toNextText(a.key, a.current, next.value)} to earn ${next.title}`
   return countsUp(a.key)
     ? `${highest.title} · ${next.title} in ${toNextText(a.key, a.current, next.value)}`
@@ -32,12 +34,13 @@ export function standing(a: AchievementItem): string {
 }
 
 // Every achievement as a row: medal, what it's for, where it stands, and a dot per rung.
-const MedalList: FC<{ achievements: AchievementItem[]; onSelect: (key: string) => void }> = ({ achievements, onSelect }) => {
+// `heading` and `readOnly` are for another reader's medals (/u/<username>/achievements).
+const MedalList: FC<{ achievements: AchievementItem[]; onSelect: (key: string) => void; heading?: string; readOnly?: boolean }> = ({ achievements, onSelect, heading = "Your medals", readOnly = false }) => {
   const earnedCount = achievements.reduce((n, a) => n + a.milestones.filter((m) => m.earned).length, 0)
   return (
     <section aria-labelledby="medals-heading">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 id="medals-heading" className="text-lg font-semibold">Your medals</h2>
+        <h2 id="medals-heading" className="text-lg font-semibold">{heading}</h2>
         <p className="text-sm text-muted-foreground tabular-nums">{earnedCount} earned</p>
       </div>
       <ul className="divide-y divide-neutral-200 overflow-hidden rounded-2xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
@@ -49,13 +52,13 @@ const MedalList: FC<{ achievements: AchievementItem[]; onSelect: (key: string) =
               <button
                 type="button"
                 onClick={() => onSelect(a.key)}
-                aria-label={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a)}. View milestones`}
+                aria-label={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a, readOnly)}. View milestones`}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:hover:bg-neutral-900"
               >
                 <MedalMark achievementKey={a.key} earned={earned.length > 0} className="w-11" />
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{a.title}</span>
-                  <span className="block text-sm text-muted-foreground">{standing(a)}</span>
+                  <span className="block text-sm text-muted-foreground">{standing(a, readOnly)}</span>
                 </span>
                 <span aria-hidden className="hidden shrink-0 gap-1 min-[420px]:flex">
                   {a.milestones.map((m) => (

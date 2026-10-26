@@ -17,7 +17,7 @@ import { useTheme } from "@/lib/theme";
 // then every medal. Select one to see its milestones.
 
 type Milestone = { value: number; title: string; description: string; earned: boolean; earnedAt: string | null };
-type Achievement = { key: string; title: string; category: string; current: number; milestones: Milestone[] };
+export type Achievement = { key: string; title: string; category: string; current: number; milestones: Milestone[] };
 
 const compact = new Intl.NumberFormat("en-GB", { notation: "compact", maximumFractionDigits: 1 });
 const full = new Intl.NumberFormat("en-GB");
@@ -36,9 +36,11 @@ function summarise(a: Achievement) {
 }
 
 // One line on where a ladder stands: the rung reached and what the next takes, or how to start it.
-function standing(a: Achievement): string {
-  const { highest, next } = summarise(a);
+// readOnly (someone else's medals) leaves out what's next: their real numbers aren't shared.
+function standing(a: Achievement, readOnly = false): string {
+  const { highest, next, earned, total } = summarise(a);
   if (!next) return `${highest!.title} · every milestone earned`;
+  if (readOnly) return highest ? `${highest.title} · ${earned.length} of ${total} milestones` : "Not started yet";
   if (!highest) return `${toNextText(a.key, a.current, next.value)} to earn ${next.title}`;
   return countsUp(a.key) ? `${highest.title} · ${next.title} in ${toNextText(a.key, a.current, next.value)}` : `${highest.title} · next, ${next.title}`;
 }
@@ -108,13 +110,14 @@ function UpNext({ achievements, onSelect }: { achievements: Achievement[]; onSel
 }
 
 // Every achievement as a row: medal, what it's for, where it stands, and a dot per rung.
-function MedalList({ achievements, onSelect }: { achievements: Achievement[]; onSelect: (key: string) => void }) {
+// `heading` and `readOnly` are for another reader's medals (u/[username]/achievements).
+export function MedalList({ achievements, onSelect, heading = "Your medals", readOnly = false }: { achievements: Achievement[]; onSelect: (key: string) => void; heading?: string; readOnly?: boolean }) {
   const { colors } = useTheme();
   const earnedCount = achievements.reduce((n, a) => n + a.milestones.filter((m) => m.earned).length, 0);
   return (
     <View style={{ gap: 12, marginTop: 8 }}>
       <View style={styles.headingRow}>
-        <Text variant="title" accessibilityRole="header">Your medals</Text>
+        <Text variant="title" accessibilityRole="header">{heading}</Text>
         <Text variant="small">{earnedCount} earned</Text>
       </View>
       <View style={[styles.list, { borderColor: colors.border }]}>
@@ -125,14 +128,14 @@ function MedalList({ achievements, onSelect }: { achievements: Achievement[]; on
             <Pressable
               key={a.key}
               accessibilityRole="button"
-              accessibilityLabel={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a)}. View milestones`}
+              accessibilityLabel={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a, readOnly)}. View milestones`}
               onPress={() => onSelect(a.key)}
               style={[styles.row, styles.listRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
             >
               <MedalMark achievementKey={a.key} earned={earned.length > 0} size={40} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="label">{a.title}</Text>
-                <Text variant="small">{standing(a)}</Text>
+                <Text variant="small">{standing(a, readOnly)}</Text>
                 <View style={styles.dots}>
                   {a.milestones.map((m) => (
                     <View key={m.value} style={[styles.rungDot, m.earned ? { backgroundColor: colour } : { borderWidth: 1, borderColor: colors.border }]} />
@@ -148,7 +151,8 @@ function MedalList({ achievements, onSelect }: { achievements: Achievement[]; on
   );
 }
 
-function AchievementDetail({ achievement: a, onClose }: { achievement: Achievement; onClose: () => void }) {
+// readOnly: someone else's medals, earned rungs only, without progress towards the next.
+export function AchievementDetail({ achievement: a, onClose, readOnly = false }: { achievement: Achievement; onClose: () => void; readOnly?: boolean }) {
   const { colors } = useTheme();
   const { earned, highest, next, percent, total } = summarise(a);
   const colour = getMedalColour(a.key);
@@ -167,7 +171,7 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="title">{highest ? highest.title : "Not started yet"}</Text>
           <Text variant="muted">{earned.length} of {total} milestones earned</Text>
-          {next ? (
+          {next ? !readOnly && (
             <View style={{ marginTop: 10, gap: 6 }}>
               <View style={styles.headingRow}>
                 <Text variant="small" numberOfLines={1} style={{ flex: 1 }}>Next: {next.title}</Text>
@@ -178,7 +182,7 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
               </View>
             </View>
           ) : (
-            <Text variant="label" style={{ marginTop: 8 }}>Every milestone earned. Wonderful.</Text>
+            <Text variant="label" style={{ marginTop: 8 }}>Every milestone earned.{readOnly ? "" : " Wonderful."}</Text>
           )}
         </View>
       </View>
@@ -205,7 +209,7 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
                 <View style={styles.headingRow}>
                   <Text variant="label" style={{ flex: 1 }}>{m.title}</Text>
                   <Text variant="small">
-                    {m.earned ? (m.earnedAt ? `Earned ${formatEarned(m.earnedAt)}` : "Earned") : isNext ? `${formatNumber(towardsNext)} / ${formatNumber(m.value)}` : ""}
+                    {m.earned ? (m.earnedAt ? `Earned ${formatEarned(m.earnedAt)}` : "Earned") : isNext && !readOnly ? `${formatNumber(towardsNext)} / ${formatNumber(m.value)}` : ""}
                   </Text>
                 </View>
                 <Text variant="muted">{m.description}</Text>
@@ -220,15 +224,16 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
 
 // Where the reader sits on the tier ladder, and what the next rung takes. Before Bronze there's no metal
 // to show, so the swatch is the next tier's outline with the books still to go.
-function ReaderTierCard() {
+// Pass `reader` to show someone else's (their achievements screen); otherwise it's the signed-in reader's.
+export function ReaderTierCard({ reader }: { reader?: { booksRead: number } }) {
   const { colors } = useTheme();
-  const { data: user } = useSWR<ProfileUser>("/api/user");
-  if (!user) return null;
-  const booksRead = user._count?.books ?? 0;
+  const { data: user } = useSWR<ProfileUser>(reader ? null : "/api/user");
+  if (!reader && !user) return null;
+  const booksRead = reader ? reader.booksRead : user?._count?.books ?? 0;
   const { tier, next, remaining } = tierProgress(booksRead);
-  const heading = tier ? `${tier.label} reader` : `On your way to ${next!.label}`;
+  const heading = tier ? `${tier.label} reader` : `On ${reader ? "their" : "your"} way to ${next!.label}`;
   const detail = !tier
-    ? `${formatNumber(booksRead)} of ${formatNumber(next!.minBooks)} books read. Your tier frames your avatar wherever your name appears.`
+    ? `${formatNumber(booksRead)} of ${formatNumber(next!.minBooks)} books read.${reader ? "" : " Your tier frames your avatar wherever your name appears."}`
     : next ? `${formatNumber(booksRead)} books read · ${formatNumber(remaining)} more to ${next.label}` : `${formatNumber(booksRead)} books read · you've reached the top tier`;
 
   return (
