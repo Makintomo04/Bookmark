@@ -12,7 +12,7 @@ import BookBlurb from '@/app/components/books/BookBlurb'
 import BookPageReaders from '@/app/components/books/BookPageReaders'
 import RatingSummary from '@/app/components/books/RatingSummary'
 import BookReviews from '@/app/components/books/BookReviews'
-import BookReportButton from '@/app/components/books/BookReportButton'
+import BookProblemReport from '@/app/components/books/BookProblemReport'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { bookPageData } from '@/lib/bookPage'
 import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
@@ -159,7 +159,7 @@ const Page = async ({ params }: PageProps) => {
                 >
                   View on Open Library<ExternalLink size={13} aria-hidden />
                 </a>
-                <BookReportButton workKey={workKey} path={bookHref({ workKey, title: book.title })!} />
+                <BookProblemReport workKey={workKey} />
               </div>
             </section>
           </div>

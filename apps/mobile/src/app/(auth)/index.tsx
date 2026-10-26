@@ -2,14 +2,19 @@ import { StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
+import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
+import { useAuth } from "@/lib/auth";
 
-// The first screen for a signed-out reader. Same promise as the web's landing page.
+// The first screen for a signed-out reader. Same promise as the web's landing page. If the app has just
+// signed itself out (a suspension), it says why above the promise.
 export default function Welcome() {
+  const notice = useAuth((s) => s.notice);
   return (
     <Screen edges={["top", "bottom", "left", "right"]}>
       <View style={styles.hero}>
+        {notice && <Notice tone="error" message={notice} />}
         <Logo size={48} />
         <Text variant="hero">Read with your friends. Nobody gets spoiled.</Text>
         <Text variant="muted" style={styles.lede}>

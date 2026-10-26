@@ -7,15 +7,15 @@ import { supportEmail } from "@/lib/support";
 // evidence. Never throws: a report is saved whether or not the alert goes out.
 
 export interface ReportAlert {
-  // "list", "comment" (a reading-circle comment) or "book" (wrong or missing details on a book page).
-  kind: "list" | "comment" | "book";
+  // "list" or "comment" (a reading-circle comment).
+  kind: "list" | "comment";
   // The reported item's id.
   id: string;
   reason: string;
   reporterId: string;
   // Who wrote or owns it.
   authorId?: string | null;
-  // The reported text as it stood (a list's title and description, a comment's body, a book's details).
+  // The reported text as it stood (a list's title and description, a comment's body).
   excerpt?: string | null;
   // Where staff can see it, relative to the site, e.g. /lists/<id>.
   path: string;
@@ -23,19 +23,13 @@ export interface ReportAlert {
 
 const EXCERPT_MAX = 2000;
 
-const KIND_LABELS: Record<ReportAlert["kind"], string> = {
-  list: "a list",
-  comment: "a reading-circle comment",
-  book: "missing or incorrect details on a book page",
-};
-
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 export function reportAlertMessage(alert: ReportAlert) {
   const url = `${siteUrl}${alert.path}`;
   const excerpt = (alert.excerpt ?? "").slice(0, EXCERPT_MAX);
   const lines = [
-    `A reader reported ${KIND_LABELS[alert.kind]}.`,
+    `A reader reported a ${alert.kind === "list" ? "list" : "reading-circle comment"}.`,
     `Reason: ${alert.reason}`,
     `Item: ${alert.kind} ${alert.id}`,
     `Reported by user ${alert.reporterId}${alert.authorId ? `; written by user ${alert.authorId}` : ""}`,

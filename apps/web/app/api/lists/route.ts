@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { can } from "@/lib/roles";
 import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { requireUser } from "@/lib/apiAuth";
@@ -24,11 +25,11 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { user: currentUser, response } = await requireUser("Sign in to make a list.");
   if (response) return response;
-  if (!currentUser.isStaff && (await prisma.list.count({ where: { ownerId: currentUser.id } })) >= OWN_LISTS_MAX) {
+  if (!can(currentUser, "lists.curate") && (await prisma.list.count({ where: { ownerId: currentUser.id } })) >= OWN_LISTS_MAX) {
     return NextResponse.json({ error: `You can have up to ${OWN_LISTS_MAX} lists. Delete one to make room.` }, { status: 400 });
   }
 
-  const parsed = parseListInput(await req.json(), currentUser.isStaff);
+  const parsed = parseListInput(await req.json(), can(currentUser, "lists.curate"));
   if ("error" in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }

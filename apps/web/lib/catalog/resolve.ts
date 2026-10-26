@@ -13,7 +13,8 @@ import { type EditionFormat, type Series, normaliseEditionKey, normaliseIsbns, t
 //   - a book nobody could match is filed by normalised title + author, the way sameBook() compares;
 //   - a book with no exact key match goes under an existing work with the same match key (first author
 //     and title, case and series suffixes aside) rather than a duplicate, preferring an Open Library work;
-//   - existing rows are only ever filled in (null fields), never overwritten.
+//   - existing rows are only ever filled in (null fields), never overwritten, and a field a librarian
+//     corrected (curatedFields, lib/catalogueFix.ts) is left alone even when it's empty.
 //
 // Kept free of "@/" imports so plain Node can load it.
 
@@ -31,6 +32,7 @@ export interface WorkRecord {
   coverUrl: string | null;
   firstPublishYear: number | null;
   matchKey: string | null;
+  curatedFields?: string[];
 }
 
 export interface EditionRecord {
@@ -46,6 +48,7 @@ export interface EditionRecord {
   publisher: string | null;
   publishedYear: number | null;
   coverUrl: string | null;
+  curatedFields?: string[];
 }
 
 // Everything a caller may know about a book. Only the title is required.
@@ -211,9 +214,11 @@ const preferred = (a: WorkRecord, b: WorkRecord) =>
   Number(!!b.openLibraryKey) - Number(!!a.openLibraryKey) || (a.id < b.id ? -1 : 1);
 
 // The fields of `have` still unset that `want` can fill.
-function fillIn<T extends object>(have: T, want: Partial<T>): Partial<T> {
+function fillIn<T extends { curatedFields?: string[] }>(have: T, want: Partial<T>): Partial<T> {
   const patch: Partial<T> = {};
+  const curated = new Set(have.curatedFields ?? []);
   for (const k of Object.keys(want) as (keyof T)[]) {
+    if (curated.has(k as string)) continue;
     const current = have[k];
     const next = want[k];
     const empty = current === null || current === undefined || (Array.isArray(current) && current.length === 0);

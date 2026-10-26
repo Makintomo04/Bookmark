@@ -6,7 +6,6 @@ import assert from "node:assert/strict";
 import { orderReviews, summariseRatings } from "@/lib/workReviewRules";
 import { bookHref, bookSlug, normaliseWorkKey } from "@/lib/workKey";
 import { genresFromSubjects } from "@/lib/import/genre";
-import { bookReportSchema } from "@/lib/bookReportRules";
 
 test("nobody's rated it: no summary", () => {
   assert.equal(summariseRatings([]), null);
@@ -66,17 +65,4 @@ test("book page addresses lead with the work key, which is all that identifies t
 test("a book page's genres come from its subjects, most specific first, in any language's noise", () => {
   assert.deepEqual(genresFromSubjects(["Fantasía", "ficciones", "Fantasy", "Romance", "Young adult fiction", "nyt:hardcover-fiction=2023-05-21"]), ["Fantasy", "Romance", "Young Adult"]);
   assert.deepEqual(genresFromSubjects([]), []);
-});
-
-test("a book report needs at least one issue, and a note when it's 'something else'", () => {
-  const ok = bookReportSchema.safeParse({ workKey: "OL1W", issues: ["cover", "pages", "cover"], note: "  " });
-  assert.ok(ok.success);
-  assert.deepEqual(ok.success && ok.data.issues, ["cover", "pages"]);
-  assert.equal(ok.success && ok.data.note, null);
-
-  assert.ok(!bookReportSchema.safeParse({ workKey: "OL1W", issues: [] }).success);
-  assert.ok(!bookReportSchema.safeParse({ workKey: "OL1W", issues: ["made-up"] }).success);
-  assert.ok(!bookReportSchema.safeParse({ workKey: "OL1W", issues: ["other"] }).success);
-  assert.ok(bookReportSchema.safeParse({ workKey: "OL1W", issues: ["other"], note: "Wrong edition's blurb" }).success);
-  assert.ok(!bookReportSchema.safeParse({ workKey: "OL1W", issues: ["title"], note: "x".repeat(501) }).success);
 });
