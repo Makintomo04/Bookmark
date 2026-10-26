@@ -199,9 +199,11 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     years.push({ year: y, books: months[y].reduce((s, m) => s + m.books, 0), pages: months[y].reduce((s, m) => s + m.pages, 0) });
   }
 
-  // Ratings are the reader's current rating for each book, in half stars.
+  // Ratings are the reader's current rating for each book. The chart has a column per half star, so a
+  // quarter counts with the half below it (4¾ under 4½), and ¼ under ½.
   const rated = books.filter((b) => b.rating && b.rating > 0);
-  const ratings = STAR_STEPS.map((rating) => ({ rating, count: rated.filter((b) => Math.round(b.rating! * 2) / 2 === rating).length }));
+  const bucket = (rating: number) => Math.max(0.5, Math.floor(rating * 2) / 2);
+  const ratings = STAR_STEPS.map((rating) => ({ rating, count: rated.filter((b) => bucket(b.rating!) === rating).length }));
 
   const finishesInYear = (year: number) => completed.filter((f) => f.year === year).length;
 

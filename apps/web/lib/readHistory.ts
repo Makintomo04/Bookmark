@@ -3,11 +3,11 @@ import type { Book, Status } from "@prisma/client";
 
 // Kept free of "@/" imports so scripts/backfill-reads.ts can load it with plain Node.
 
-// Half-star ratings: 0.5, 1, 1.5 … 5. Halves are exact in floating point, so multipleOf is safe.
-export const ratingSchema = z.number().min(0.5).max(5).multipleOf(0.5);
+// Quarter-star ratings: 0.25, 0.5, 0.75 … 5. Quarters are exact in floating point, so multipleOf is safe.
+export const ratingSchema = z.number().min(0.25).max(5).multipleOf(0.25);
 // What the API accepts: a rating, or null/0 to clear it.
 export const ratingInputSchema = z.union([ratingSchema, z.literal(0), z.null()]).transform((n) => n || null);
-export const RATING_ERROR = "Rating must be from 0.5 to 5 stars, in half-star steps";
+export const RATING_ERROR = "Rating must be from 0.25 to 5 stars, in quarter-star steps";
 
 // A read is open while it can still be picked back up.
 export const OPEN_READ_STATUSES = ["STARTED", "PAUSED"] as const satisfies readonly Status[];

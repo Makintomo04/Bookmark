@@ -33,11 +33,11 @@ function int(v: string | undefined): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-// Goodreads and StoryGraph store whole stars (or quarters); Bookmark stores halves. 0 means unrated.
+// Goodreads stores whole stars and StoryGraph quarters, as Bookmark does. 0 means unrated.
 export function roundRating(value: string | number | null | undefined): number | null {
   const n = typeof value === "number" ? value : parseFloat(text(value ?? ""));
   if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.min(5, Math.max(0.5, Math.round(n * 2) / 2));
+  return Math.min(5, Math.max(0.25, Math.round(n * 4) / 4));
 }
 
 // Goodreads wraps ISBNs as ="0441013597" so spreadsheets keep the leading zero; StoryGraph's

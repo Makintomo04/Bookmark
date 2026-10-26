@@ -18,7 +18,7 @@ where comments wait until you've caught up.
 > Your reading and your friends, in one app.
 >
 > Track what you're reading, what you've finished and what's next. Log pages or audiobook minutes, rate in
-> half stars, write reviews, and keep notes as you go. Put a book down without guilt: did not finish and
+> quarter stars, write reviews, and keep notes as you go. Put a book down without guilt: did not finish and
 > paused are shelves too.
 >
 > Read together in a reading circle. Pick a book, invite friends, and everyone reads at their own pace.
