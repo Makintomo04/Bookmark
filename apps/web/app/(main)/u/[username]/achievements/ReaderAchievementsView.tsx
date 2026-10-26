@@ -13,7 +13,7 @@ const ReaderAchievementsView: FC<{ data: PublicAchievements }> = ({ data }) => {
 
   return (
     <div className="flex flex-col gap-10">
-      <ReaderTierCard reader={{ username: data.username, booksRead: data.booksRead }} />
+      <ReaderTierCard achievements={data.ladders} reader={{ username: data.username, booksRead: data.booksRead }} />
       <MedalList achievements={data.ladders} onSelect={setSelectedKey} heading="Medals" readOnly />
       <AchievementDetail achievement={selected} onClose={() => setSelectedKey(null)} readOnly />
     </div>

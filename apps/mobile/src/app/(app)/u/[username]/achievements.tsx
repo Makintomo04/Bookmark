@@ -51,7 +51,7 @@ export default function ReaderAchievementsScreen() {
         </Text>
       ) : (
         <>
-          <ReaderTierCard reader={{ booksRead: data.booksRead }} />
+          <ReaderTierCard achievements={data.ladders} reader={{ booksRead: data.booksRead }} />
           <MedalList achievements={data.ladders} onSelect={setSelectedKey} heading="Medals" readOnly />
           {selected && <AchievementDetail achievement={selected} onClose={() => setSelectedKey(null)} readOnly />}
         </>
