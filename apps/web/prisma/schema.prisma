@@ -114,7 +114,17 @@ model User {
   notificationsSent     Notification[] @relation("NotificationActor")
   achievements  UserAchievement[]
   readingDays   ReadingDay[]
+  // Staff access: READER, LIBRARIAN or ADMIN (packages/shared/src/roles.ts says what each may do). Unset
+  // reads as READER. Set by an admin on /staff/users, or for the first admin by scripts/set-role.ts.
+  role          String?
+  // The old staff flag, before roles. Read only: scripts/set-role.ts --migrate turns it into ADMIN.
   isStaff       Boolean @default(false)
+  // Suspended by an admin (lib/suspension.ts). Signed out everywhere and unable to sign in while
+  // suspendedAt is set and suspendedUntil is unset (indefinite) or still ahead.
+  suspendedAt      DateTime?
+  suspendedUntil   DateTime?
+  suspensionReason String?
+  suspendedById    String? @db.ObjectId
   lists         List[]
   listReports   ListReport[]
   // Privacy. Optional so accounts made before these existed read as the defaults
@@ -350,12 +360,19 @@ model Work {
   seriesPosition Float?
   coverUrl String?
   firstPublishYear Int?
+  // Fields a librarian corrected (title, authors, description, coverUrl). lib/catalog never overwrites them.
+  curatedFields String[] @db.String
   // Open Library's counts for the work, for the recaps popularity gate (lib/recap.ts isWellKnown).
   // Filled on first need and refreshed when popularityCheckedAt is a month old.
   olEditionCount Int?
   olRatingsCount Int?
   olReadingLogCount Int?
   popularityCheckedAt DateTime?
+  // "<author slug>|<title key>": the first author and the title once case, series suffixes, edition tags
+  // and a leading article are set aside (lib/catalog/normalise.ts workMatchKey). A new book with no exact
+  // key match is filed under an existing work with the same match key instead of a duplicate. Filled for
+  // older rows by scripts/backfill-work-match-keys.ts.
+  matchKey String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -365,6 +382,7 @@ model Work {
 
   @@index([openLibraryKey])
   @@index([authorKeys])
+  @@index([matchKey])
 }
 
 // ---- Moods and content warnings -----------------------------------------------------------
@@ -428,6 +446,8 @@ model Edition {
   publisher String?
   publishedYear Int?
   coverUrl String?
+  // Fields a librarian corrected (pages, coverUrl). lib/catalog never overwrites them.
+  curatedFields String[] @db.String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -631,6 +651,10 @@ model List {
   featuredUntil DateTime?
   featuredLabel String?
   hidden Boolean @default(false)
+  // Editors' choice: a librarian or admin chose this reader's list to lead its genres' pages on Discover
+  // (lib/genreLists.ts), ahead of the lists picked automatically. Unset is not chosen.
+  chosenAt DateTime?
+  chosenById String? @db.ObjectId
   // Set when the list was copied ("remixed") from someone else's public list. A plain id, not a
   // relation, so deleting the original leaves its remixes alone.
   forkedFromId String? @db.ObjectId
@@ -656,6 +680,11 @@ model ListReport {
   reporterId String @db.ObjectId
   reason String
   createdAt DateTime @default(now())
+  // The staff reports queue (/staff/reports): OPEN until a librarian or admin resolves it. Unset reads as OPEN.
+  status String?
+  resolvedById String? @db.ObjectId
+  resolvedAt DateTime?
+  resolutionNote String?
 
   list List @relation(fields: [listId], references: [id], onDelete: Cascade)
   reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
@@ -837,6 +866,11 @@ model BuddyReadCommentReport {
   reporterId String @db.ObjectId
   reason String
   createdAt DateTime @default(now())
+  // The staff reports queue (/staff/reports): OPEN until a librarian or admin resolves it. Unset reads as OPEN.
+  status String?
+  resolvedById String? @db.ObjectId
+  resolvedAt DateTime?
+  resolutionNote String?
 
   comment BuddyReadComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
@@ -944,4 +978,44 @@ model Recap {
 
   // The cache key; the prefix covers a reader's recaps.
   @@unique([userId, workId, kind, bucket])
+}
+
+// A reader's report that a book's cover or details are wrong. Points at the shared catalogue (lib/catalog),
+// which is what a librarian fixes. Plain ids, so the report outlives the reader's copy.
+model BookReport {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  workId String @db.ObjectId
+  editionId String? @db.ObjectId
+  reporterId String @db.ObjectId
+  // cover, details or other (lib/staffReports.ts BOOK_REPORT_REASONS).
+  reason String
+  note String?
+  createdAt DateTime @default(now())
+  // The staff reports queue (/staff/reports): OPEN until a librarian or admin resolves it. Unset reads as OPEN.
+  status String?
+  resolvedById String? @db.ObjectId
+  resolvedAt DateTime?
+  resolutionNote String?
+
+  @@unique([workId, reporterId])
+  @@index([status, createdAt])
+}
+
+// Every change made through the staff tools, newest first on /staff/log. Written by lib/staffLog.ts in the
+// same request as the change. Plain ids, so deleting an account leaves the record.
+model StaffAction {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  actorId String @db.ObjectId
+  // e.g. user.suspend, plus.grant, role.set, work.edit, report.dismiss (lib/staffLog.ts StaffActionKind).
+  action String
+  // user, work, edition, list, comment or report.
+  targetType String
+  targetId String
+  before Json?
+  after Json?
+  reason String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
 }

@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import Container from '@/app/components/Container'
 import GenreBooks, { GenreBooksSkeleton } from '@/app/components/discover/GenreBooks'
@@ -8,6 +9,7 @@ import ListCard from '@/app/components/discover/ListCard'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { genreBySlug } from '@/lib/genres'
 import { findLists } from '@/lib/lists'
+import { genreCommunityLists } from '@/lib/genreLists'
 import { trendingSubjectBooks } from '@/lib/openLibrary'
 
 interface PageProps {
@@ -37,9 +39,9 @@ const Page = async ({ params }: PageProps) => {
   const viewer = await getCurrentUser()
   const [picks, community] = await Promise.all([
     findLists({ pick: true, genre: genre.slug, limit: 8 }, viewer),
-    findLists({ community: true, genre: genre.slug, limit: 8 }, viewer),
+    genreCommunityLists(genre.slug, viewer),
   ])
-  // Team picks lead, then readers' lists.
+  // Team picks lead, then readers' lists: editors' choices, then the best of the rest.
   const lists = [...picks, ...community]
 
   return (
@@ -47,9 +49,15 @@ const Page = async ({ params }: PageProps) => {
       <Container className="flex flex-col gap-10">
         <GenreHeader genre={genre} />
 
+        {lists.length === 0 && (
+          <Link href={`/discover/genre/${genre.slug}/lists`} className="-mt-4 self-start text-sm font-medium text-brand-text hover:underline underline-offset-2">Readers&apos; {genre.label.toLowerCase()} lists</Link>
+        )}
         {lists.length > 0 && (
           <section aria-labelledby="lists-heading">
-            <h2 id="lists-heading" className="text-xl font-bold">Lists</h2>
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 id="lists-heading" className="text-xl font-bold">Lists</h2>
+              <Link href={`/discover/genre/${genre.slug}/lists`} className="text-sm font-medium text-brand-text hover:underline underline-offset-2">All readers&apos; lists</Link>
+            </div>
             <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
               {lists.map((list) => <ListCard key={list.id} list={list} className="w-60 shrink-0 sm:w-auto snap-start" />)}
             </div>

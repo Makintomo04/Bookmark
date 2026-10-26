@@ -6,6 +6,7 @@ import { isOpenLibraryCover } from '@/utils/helpers'
 import type { ListSummary } from '@/lib/lists'
 import { Flag, Lock } from 'lucide-react'
 import PickBadge from './PickBadge'
+import ChoiceBadge from './ChoiceBadge'
 import { BookFallback } from '../cards/BookCover'
 
 const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
@@ -38,6 +39,7 @@ const ListCard: FC<{ list: ListSummary, className?: string, hideOwner?: boolean 
       <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
         {list.isPick ? <PickBadge /> : !hideOwner && <span className="truncate">by {list.owner.username}</span>}
         {(list.isPick || !hideOwner) && <span aria-hidden>·</span>}
+        {list.chosenAt && !list.isPick && <><ChoiceBadge /><span aria-hidden>·</span></>}
         <span className="whitespace-nowrap">{plural(list.itemCount, "book")}</span>
         {list.visibility === "PRIVATE" && <span className="inline-flex items-center gap-1 whitespace-nowrap"><Lock size={12} aria-hidden />Private</span>}
         {list.reportCount > 0 && <span className="inline-flex items-center gap-1 whitespace-nowrap text-danger"><Flag size={12} aria-hidden />{plural(list.reportCount, "report")}</span>}

@@ -27,6 +27,8 @@ type Status = "loading" | "signedOut" | "signedIn";
 interface AuthState {
   status: Status;
   user: SessionUser | null;
+  // Why the app signed itself out (a suspension), shown on the welcome screen until the next sign-in.
+  notice: string | null;
   // Where to go once the app (tabs) has mounted, e.g. the choice made at the end of onboarding. Navigating
   // straight away would happen before the root layout swaps onboarding for the app.
   pendingPath: string | null;
@@ -64,6 +66,7 @@ const clearCache = async () => {
 export const useAuth = create<AuthState>()((set, get) => ({
   status: "loading",
   user: null,
+  notice: null,
   pendingPath: null,
   setPendingPath: (pendingPath) => set({ pendingPath }),
 
@@ -85,7 +88,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   async completeSignIn(response) {
     await saveTokens(response);
     await rememberUser(response.user);
-    set({ status: "signedIn", user: response.user });
+    set({ status: "signedIn", user: response.user, notice: null });
   },
 
   async refreshUser() {
@@ -107,10 +110,10 @@ export const useAuth = create<AuthState>()((set, get) => ({
   },
 }));
 
-setSessionEndedHandler(() => {
+setSessionEndedHandler((message) => {
   if (useAuth.getState().status === "signedIn") {
     void clearTokens().then(clearCache);
-    useAuth.setState({ status: "signedOut", user: null });
+    useAuth.setState({ status: "signedOut", user: null, notice: message ?? null });
   }
 });
 

@@ -18,6 +18,7 @@ import { afterSignInPath, safeCallbackPath, withCallback } from '@/lib/callbackU
 const errorMessages: Record<string, string> = {
   OAuthAccountNotLinked: "An account with this email already exists. Sign in with the method you used to create it, or email yourself a sign-in link.",
   Verification: "That sign-in link has expired or was already used. Request a new one below.",
+  suspended: "This account is suspended. Email support if you think that's a mistake.",
   EmailSignin: "We couldn't send the sign-in link. If you've asked for a few, wait a few minutes and try again.",
 }
 const genericError = "Sign-in failed. Please try again."

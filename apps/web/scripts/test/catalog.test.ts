@@ -183,6 +183,45 @@ test("existing rows are filled in, never overwritten", async () => {
   assert.equal(third.work.description, "About a book.");
 });
 
+test("the same book under another key goes on the work already there, not a duplicate", async () => {
+  const store = new MemoryCatalogStore();
+  // A second Open Library record for a book the catalog has.
+  const first = await resolveOne({ workKey: "OL17533717W", title: "Lover Reborn", author: "J. R. Ward", pages: 500 }, { store });
+  const second = await resolveOne({ workKey: "OL16342673W", title: "Lover reborn", author: "J.R. Ward", pages: 500 }, { store });
+  assert.equal(second.work.id, first.work.id);
+  // A manual copy with a series suffix, and one with a leading article.
+  const manual = await resolveOne({ title: "Lover Reborn (Black Dagger Brotherhood #10)", author: "J. R. Ward", pages: 500 }, { store });
+  assert.equal(manual.work.id, first.work.id);
+  const gatsby = await resolveOne({ workKey: "OL468431W", title: "The Great Gatsby", author: "F. Scott Fitzgerald" }, { store });
+  assert.equal((await resolveOne({ workKey: "OL34381078W", title: "Great Gatsby", author: "F. Scott Fitzgerald" }, { store })).work.id, gatsby.work.id);
+  assert.equal(store.works.size, 2);
+});
+
+test("a match prefers the Open Library work over a manual entry", async () => {
+  const store = new MemoryCatalogStore();
+  const manual = await resolveOne({ title: "Poison Study", author: "Maria V. Snyder", pages: 400 }, { store });
+  const opened = await resolveOne({ workKey: "OL8032275W", title: "Poison Study", author: "Maria V. Snyder", pages: 400 }, { store });
+  // The manual entry was there first, so the Open Library copy joins it and fills in its key.
+  assert.equal(opened.work.id, manual.work.id);
+  assert.equal(opened.work.openLibraryKey, "OL8032275W");
+  // With both kinds already filed separately, a new copy goes to the Open Library one.
+  const store2 = new MemoryCatalogStore();
+  await store2.createWorks([
+    { ...manual.work, id: "000000000000000000000001", key: "title:poisonstudy|mariavsnyder", openLibraryKey: null },
+    { ...manual.work, id: "000000000000000000000002", key: "ol:OL8032287W", openLibraryKey: "OL8032287W" },
+  ]);
+  const third = await resolveOne({ workKey: "OL21435660W", title: "Poison Study", author: "Maria V. Snyder" }, { store: store2 });
+  assert.equal(third.work.id, "000000000000000000000002");
+});
+
+test("the same title by another author, or a different book by the same author, stays separate", async () => {
+  const store = new MemoryCatalogStore();
+  const a = await resolveOne({ workKey: "OL20942031W", title: "Asylum", author: "Madeleine Roux" }, { store });
+  const b = await resolveOne({ workKey: "OL1W", title: "Asylum", author: "Patrick McGrath" }, { store });
+  const c = await resolveOne({ workKey: "OL2W", title: "Sanctum", author: "Madeleine Roux" }, { store });
+  assert.equal(new Set([a.work.id, b.work.id, c.work.id]).size, 3);
+});
+
 // ---- Backfill ----------------------------------------------------------------------------
 
 function memorySource(books: BackfillBook[]) {

@@ -12,6 +12,9 @@ export function scriptCatalogStore(prisma: PrismaClient): CatalogStore {
     async findWorks(keys) {
       return keys.length ? (await prisma.work.findMany({ where: { key: { in: keys } } })).map(strip) : [];
     },
+    async findWorksByMatch(matchKeys) {
+      return matchKeys.length ? (await prisma.work.findMany({ where: { matchKey: { in: matchKeys } } })).map(strip) : [];
+    },
     async getWorks(ids) {
       return ids.length ? (await prisma.work.findMany({ where: { id: { in: ids } } })).map(strip) : [];
     },
