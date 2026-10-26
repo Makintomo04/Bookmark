@@ -9,6 +9,7 @@ import { BookCover } from "@/components/books/BookCover";
 import { StarRating } from "@/components/books/StarRating";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ReviewText } from "@/components/social/ReviewText";
+import { ProfileAuthors } from "@/components/authors/ProfileAuthors";
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
@@ -45,6 +46,7 @@ type Profile = {
   bio?: string | null;
   banner?: string;
   books?: PublicBook[];
+  followedAuthors?: { name: string; slug: string }[];
   followerCount?: number | null;
   followingCount?: number | null;
   restricted: null | "followers" | "private" | "blockedByViewer";
@@ -83,6 +85,7 @@ export default function ReaderProfile() {
       )}
       <Actions profile={profile} onChange={() => mutate()} />
       {profile.restricted ? <Restricted profile={profile} /> : <Reading profile={profile} />}
+      {!profile.restricted && <ProfileAuthors authors={profile.followedAuthors ?? []} />}
     </Screen>
   );
 }

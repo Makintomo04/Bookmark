@@ -13,6 +13,7 @@ import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from '../books/shelf'
 import ProfileLists from '../discover/ProfileLists'
+import ProfileAuthors from './ProfileAuthors'
 import { isFinishedBook } from '@/lib/readerTier'
 
 interface PublicProfileProps {
@@ -97,6 +98,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
           </>
         )}
         <ProfileLists username={profile.username} isSelf={false} />
+        <div className="mt-12"><ProfileAuthors authors={profile.followedAuthors} /></div>
       </div>
     </div>
   )

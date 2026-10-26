@@ -4,6 +4,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from "@bookmark/shared/progress";
+import { AuthorNames } from "@/components/authors/AuthorNames";
 import { BookCover } from "@/components/books/BookCover";
 import { CatchMeUp } from "@/components/books/CatchMeUp";
 import { StarRating } from "@/components/books/StarRating";
@@ -191,7 +192,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
         <BookCover book={book} width={88} fallbackColour={accent} />
         <View style={{ flex: 1, gap: 4 }}>
           <Text variant="title" style={{ fontSize: 20, lineHeight: 26 }}>{book.title}</Text>
-          <Text variant="muted">{book.author}</Text>
+          <AuthorNames author={book.author} />
           {meta ? <Text variant="small">{meta}</Text> : null}
           <View style={{ alignItems: "flex-start" }}>
             <Button title="Edit details" variant="ghost" disabled={saving} onPress={() => router.push(`/book/edit/${book.id}`)} />

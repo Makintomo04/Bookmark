@@ -53,6 +53,7 @@ async function loadProfileRecord(username: string) {
       },
       _count: { select: { followers: true, following: true } },
       achievements: { where: { NOT: { key: { startsWith: QUEST_MEDAL_PREFIX } } }, select: { key: true, earnedAt: true } },
+      authorFollows: { orderBy: { name: "asc" }, select: { name: true, slug: true } },
     },
   });
   if (!user?.username) return null;
@@ -106,6 +107,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     createdAt: record.createdAt,
     books,
     achievements: record.achievements,
+    // Authors they follow. Shown to whoever can see the profile, like their shelves.
+    followedAuthors: record.authorFollows,
     // null when hidden. The owner always gets them; ProfileHead hides the numbers itself.
     followerCount: showCounts ? record._count.followers : null,
     followingCount: showCounts ? record._count.following : null,

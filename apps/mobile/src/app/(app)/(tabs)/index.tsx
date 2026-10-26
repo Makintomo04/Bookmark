@@ -1,9 +1,10 @@
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { Plus } from "lucide-react-native";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { OwnAuthors } from "@/components/authors/ProfileAuthors";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { GoalCard } from "@/components/library/GoalCard";
 import { NotificationBell } from "@/components/social/NotificationBell";
@@ -12,6 +13,7 @@ import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHea
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
+import { FOLLOWED_AUTHORS_KEY } from "@/lib/authors";
 import { useBooks } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
 
@@ -28,7 +30,7 @@ export default function Library() {
     <SafeAreaView edges={["top", "left", "right"]} style={[styles.fill, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); }} tintColor={colors.mutedForeground} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); void globalMutate(FOLLOWED_AUTHORS_KEY); }} tintColor={colors.mutedForeground} />}
       >
         <View style={styles.topBar}>
           <NotificationBell color="#ffffff" />
@@ -54,6 +56,7 @@ export default function Library() {
           </View>
         )}
         {books && books.length > 0 && <Shelves books={books} accent={accent} />}
+        <OwnAuthors />
       </ScrollView>
     </SafeAreaView>
   );
