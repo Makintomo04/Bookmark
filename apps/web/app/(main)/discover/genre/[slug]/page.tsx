@@ -1,16 +1,14 @@
+import { Suspense } from 'react'
 import { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import Container from '@/app/components/Container'
-import GenreBooks from '@/app/components/discover/GenreBooks'
+import GenreBooks, { GenreBooksSkeleton } from '@/app/components/discover/GenreBooks'
+import GenreHeader from '@/app/components/discover/GenreHeader'
 import ListCard from '@/app/components/discover/ListCard'
-import { GenreArt } from '@/app/components/discover/GenreTile'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { genreBackground, genreBySlug } from '@/lib/genres'
+import { genreBySlug } from '@/lib/genres'
 import { findLists } from '@/lib/lists'
 import { trendingSubjectBooks } from '@/lib/openLibrary'
-import { readableInk } from '@/lib/colour'
 
 interface PageProps {
   params: { slug: string }
@@ -25,15 +23,21 @@ export function generateMetadata({ params }: PageProps): Metadata {
   }
 }
 
+// Open Library can take a few seconds when its answer isn't cached, so the trending books stream in
+// behind a skeleton rather than holding up the header and lists.
+const TrendingBooks = async ({ slug, subject }: { slug: string, subject: string }) => {
+  const books = await trendingSubjectBooks(subject).catch(() => [])
+  return <GenreBooks slug={slug} initial={books} />
+}
+
 const Page = async ({ params }: PageProps) => {
   const genre = genreBySlug(params.slug)
   if (!genre) notFound()
 
   const viewer = await getCurrentUser()
-  const [picks, community, books] = await Promise.all([
+  const [picks, community] = await Promise.all([
     findLists({ pick: true, genre: genre.slug, limit: 8 }, viewer),
     findLists({ community: true, genre: genre.slug, limit: 8 }, viewer),
-    trendingSubjectBooks(genre.subject).catch(() => []),
   ])
   // Team picks lead, then readers' lists.
   const lists = [...picks, ...community]
@@ -41,16 +45,7 @@ const Page = async ({ params }: PageProps) => {
   return (
     <div className="mt-6 sm:mt-8">
       <Container className="flex flex-col gap-10">
-        <div>
-          <Link href="/discover" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <ChevronLeft size={16} aria-hidden />Discover
-          </Link>
-          {/* Same look as the Discover tile, scaled up, using this page's own top covers. */}
-          <div className="group relative mt-3 flex h-32 sm:h-40 items-end overflow-hidden rounded-2xl p-6 sm:p-8" style={{ background: genreBackground(genre.colour), color: readableInk(genre.colour) }}>
-            <GenreArt genre={genre} size="hero" covers={books.map((b) => b.coverUrl).filter((url): url is string => !!url).slice(0, 3)} />
-            <h1 className="page-title relative z-10 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]">{genre.label}</h1>
-          </div>
-        </div>
+        <GenreHeader genre={genre} />
 
         {lists.length > 0 && (
           <section aria-labelledby="lists-heading">
@@ -65,7 +60,9 @@ const Page = async ({ params }: PageProps) => {
           <h2 id="trending-heading" className="text-xl font-bold">Trending in {genre.label}</h2>
           <p className="mt-1 text-sm text-muted-foreground">Most read this week.</p>
           <div className="mt-4">
-            <GenreBooks slug={genre.slug} initial={books} />
+            <Suspense fallback={<GenreBooksSkeleton />}>
+              <TrendingBooks slug={genre.slug} subject={genre.subject} />
+            </Suspense>
           </div>
         </section>
       </Container>
