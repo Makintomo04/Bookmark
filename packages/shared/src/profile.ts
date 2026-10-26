@@ -20,6 +20,10 @@ export function suggestUsername(user: { name?: string | null; email?: string | n
 export const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/
 // Names that would read as Bookmark itself speaking.
 const RESERVED_USERNAMES = new Set(['admin', 'administrator', 'bookmark', 'bookmarkapp', 'help', 'moderator', 'mod', 'official', 'root', 'staff', 'support', 'system', 'team'])
+// Words no username may contain anywhere, so "bookmark_support" or "staff.jane" can't pass for the team
+// next to the real staff badge (staffBadge.ts). Short words like "mod" and "team" are only refused whole,
+// above, or they'd catch "modern" and "steam".
+const RESERVED_WORDS = ['bookmark', 'admin', 'staff', 'support', 'moderator', 'official', 'librarian']
 
 export function normaliseUsername(input: string) {
   return input.trim().toLowerCase()
@@ -30,6 +34,10 @@ export function usernameProblem(username: string): string | null {
   if (username.length < USERNAME_MIN || username.length > USERNAME_MAX) return `Usernames are ${USERNAME_MIN}–${USERNAME_MAX} characters.`
   if (!USERNAME_PATTERN.test(username)) return 'Use lowercase letters, numbers, dots, dashes or underscores, starting and ending with a letter or number.'
   if (RESERVED_USERNAMES.has(username)) return 'That username is reserved. Try another.'
+  // Separators are ignored, so "book.mark" and "ad_min" are caught too.
+  const joined = username.replace(/[._-]/g, '')
+  const word = RESERVED_WORDS.find((w) => joined.includes(w))
+  if (word) return `Usernames can't include "${word}", so nobody can pass for the Bookmark team. Try another.`
   return null
 }
 

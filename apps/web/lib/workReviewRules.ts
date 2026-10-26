@@ -1,4 +1,5 @@
 import type { Curator } from "./listRules"
+import type { StaffBadgeKind } from "./staffBadge"
 
 // A book page's ratings and reviews: the summary and the order reviews are listed in, with no database
 // access, so tests and the client can import them. lib/workReviews.ts queries and re-exports these.
@@ -15,6 +16,8 @@ export interface RatingSummary {
 export interface WorkReview {
   id: string
   person: Curator
+  // Shown beside the reviewer's name (lib/staffBadge.ts).
+  staffBadge: StaffBadgeKind | null
   rating: number | null
   review: string
   reviewSpoiler: boolean

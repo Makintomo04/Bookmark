@@ -13,6 +13,8 @@ const bodySchema = z.object({
   reviewVisibility: z.enum(["EVERYONE", "FOLLOWERS", "ONLY_ME"]),
   hideWantToRead: z.boolean(),
   hideFollowCounts: z.boolean(),
+  // Only librarians see the control; for anyone else it changes nothing (lib/staffBadge.ts).
+  hideStaffBadge: z.boolean(),
   buddyReadInvites: z.enum(["EVERYONE", "FOLLOWING", "NOBODY"]),
   showSpoilers: z.boolean(),
   defaultListVisibility: z.enum(["PRIVATE", "PUBLIC"]),

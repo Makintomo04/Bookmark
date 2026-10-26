@@ -8,6 +8,7 @@ import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
 import { StarRating } from "@/components/books/StarRating";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
+import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { ReviewText } from "@/components/social/ReviewText";
 import { ProfileAuthors } from "@/components/authors/ProfileAuthors";
 import { Button } from "@/components/ui/Button";
@@ -43,6 +44,7 @@ type Profile = {
   username: string;
   image: string | null;
   favColour: string | null;
+  staffBadge?: StaffBadgeKind | null;
   bio?: string | null;
   banner?: string;
   books?: PublicBook[];
@@ -79,7 +81,7 @@ export default function ReaderProfile() {
   return (
     <Screen>
       <Stack.Screen options={{ title: profile.username }} />
-      <ProfileHeader user={{ id: profile.username, name: null, username: profile.username, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }} />
+      <ProfileHeader user={{ id: profile.username, name: null, username: profile.username, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }} staffBadge={profile.staffBadge} />
       {profile.followerCount != null && (
         <Text variant="muted">{profile.followerCount.toLocaleString("en-GB")} {profile.followerCount === 1 ? "follower" : "followers"} · {(profile.followingCount ?? 0).toLocaleString("en-GB")} following</Text>
       )}

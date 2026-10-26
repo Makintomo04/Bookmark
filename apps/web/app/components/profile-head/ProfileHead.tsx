@@ -19,6 +19,7 @@ import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
 import { resolveBanner } from '@/lib/banners'
 import { supporterOf } from '@/lib/supporter'
+import { staffBadgeOf } from '@/lib/staffBadge'
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -71,6 +72,7 @@ const ProfileHead: FC = () => {
         banner={resolveBanner(user.banner, user.id)}
         colour={user.favColour}
         {...supporterOf(user)}
+        staffBadge={staffBadgeOf(user)}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },

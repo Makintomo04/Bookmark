@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Plus } from "lucide-react-native";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { staffBadgeOf } from "@bookmark/shared/staffBadge";
 import { OwnAuthors } from "@/components/authors/ProfileAuthors";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { GoalCard } from "@/components/library/GoalCard";
@@ -21,7 +22,7 @@ import { useTheme } from "@/lib/theme";
 // Reviews, lists, medals and follow requests follow in the port.
 export default function Library() {
   const { colors } = useTheme();
-  const { data: user, mutate: refreshUser } = useSWR<ProfileUser>("/api/user");
+  const { data: user, mutate: refreshUser } = useSWR<ProfileUser & { role?: string | null; isStaff?: boolean | null; hideStaffBadge?: boolean | null }>("/api/user");
   const { data: books, error, isLoading, mutate } = useBooks();
   const accent = user?.favColour || DEFAULT_COLOUR;
   const refreshing = false;
@@ -35,7 +36,7 @@ export default function Library() {
         <View style={styles.topBar}>
           <NotificationBell color="#ffffff" />
         </View>
-        {user && <ProfileHeader user={user} />}
+        {user && <ProfileHeader user={user} staffBadge={staffBadgeOf(user)} />}
         <View style={styles.actions}>
           <View style={{ flex: 1 }}><Button title="Add a book" icon={<Plus size={18} color={colors.onBrand} />} onPress={() => router.push("/add-book")} /></View>
           <View style={{ flex: 1 }}><Button title="Edit profile" variant="outline" onPress={() => router.push("/profile/edit")} /></View>

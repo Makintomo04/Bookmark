@@ -2,6 +2,7 @@ import prisma from "./db"
 import { booksReadCount } from "./readerTier"
 import { blockedUserIds, privacyOf, privacySelect, sharedBookWhere, visibleReview } from "./privacy"
 import { copiesOfWork } from "./readerCounts"
+import { staffBadgeOf, staffBadgeSelect } from "./staffBadge"
 import { REVIEWS_PAGE, orderReviews, summariseRatings, type RatingSummary, type WorkReviewsPage } from "./workReviewRules"
 
 export * from "./workReviewRules"
@@ -44,7 +45,7 @@ export async function reviewsForWork(workKey: string, viewerId: string | null, o
     authorIds.length
       ? prisma.user.findMany({
           where: { id: { in: authorIds } },
-          select: { id: true, username: true, image: true, favColour: true, ...booksReadCount, ...privacySelect },
+          select: { id: true, username: true, image: true, favColour: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect },
         })
       : [],
   ])
@@ -68,6 +69,7 @@ export async function reviewsForWork(workKey: string, viewerId: string | null, o
       review: {
         id: book.id,
         person: { username: user.username, image: user.image, favColour: user.favColour, _count: user._count },
+        staffBadge: staffBadgeOf(user),
         rating: book.rating,
         review: visible.review,
         reviewSpoiler: visible.reviewSpoiler,

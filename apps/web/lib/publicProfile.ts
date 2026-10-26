@@ -5,6 +5,7 @@ import { canView, getRelation, privacyOf, privacySelect, visibleReview, type Pri
 import { isFinishedBook } from "@/lib/readerTier";
 import { resolveBanner } from "@/lib/banners";
 import { supporterOf, supporterSelect } from "@/lib/supporter";
+import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
@@ -46,6 +47,7 @@ async function loadProfileRecord(username: string) {
       createdAt: true,
       ...privacySelect,
       ...supporterSelect,
+      ...staffBadgeSelect,
       books: {
         where: { status: { in: ["STARTED", "COMPLETED", "NOT_STARTED"] } },
         orderBy: { createdAt: "desc" },
@@ -69,6 +71,8 @@ export interface RestrictedProfile {
   username: string;
   image: string | null;
   favColour: string | null;
+  // Shown even on a private profile, so a real staff account can be told from someone pretending.
+  staffBadge: StaffBadgeKind | null;
 }
 
 export type RestrictedReason =
@@ -104,6 +108,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     favColour: record.favColour,
     // The plan itself never leaves; the supporter badge is the public part of it.
     ...supporterOf(record),
+    // "team" or "librarian". The role itself never leaves.
+    staffBadge: staffBadgeOf(record),
     createdAt: record.createdAt,
     books,
     achievements: record.achievements,
@@ -149,6 +155,7 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
       username: record.username,
       image: reason === "unavailable" ? null : record.image,
       favColour: reason === "unavailable" ? null : record.favColour,
+      staffBadge: reason === "unavailable" ? null : staffBadgeOf(record),
     },
   };
 });

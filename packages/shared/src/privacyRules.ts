@@ -9,6 +9,8 @@ export interface PrivacySettings {
   reviewVisibility: ReviewVisibility;
   hideWantToRead: boolean;
   hideFollowCounts: boolean;
+  // A librarian hiding their badge (staffBadge.ts). Only offered to librarians.
+  hideStaffBadge: boolean;
 }
 
 // The User fields privacy needs. Spread into a Prisma `select`.
@@ -17,6 +19,7 @@ export const privacySelect = {
   reviewVisibility: true,
   hideWantToRead: true,
   hideFollowCounts: true,
+  hideStaffBadge: true,
 } as const;
 
 type StoredPrivacy = {
@@ -24,6 +27,7 @@ type StoredPrivacy = {
   reviewVisibility?: ReviewVisibility | null;
   hideWantToRead?: boolean | null;
   hideFollowCounts?: boolean | null;
+  hideStaffBadge?: boolean | null;
 };
 
 // Accounts made before privacy settings existed have the fields unset: they read as the defaults.
@@ -33,6 +37,7 @@ export function privacyOf(user: StoredPrivacy): PrivacySettings {
     reviewVisibility: user.reviewVisibility ?? "EVERYONE",
     hideWantToRead: user.hideWantToRead ?? false,
     hideFollowCounts: user.hideFollowCounts ?? false,
+    hideStaffBadge: user.hideStaffBadge ?? false,
   };
 }
 
