@@ -3,6 +3,7 @@ import type { WrappedData } from '@/lib/stats'
 import { readableInk, shade, toHex } from '@/lib/colour'
 import { MONTHS, plural } from './copy'
 import { siteUrl } from '@/lib/siteUrl'
+import { starClip } from '@bookmark/shared/rating'
 
 // Wrapped share images, in the reader card's visual language (app/(main)/u/[username]/opengraph-image.tsx):
 // the near-black ground with the reader's colour glowing from a corner, the accent rule, Inter, and the
@@ -134,8 +135,8 @@ const Stars = ({ rating, size, colour }: { rating: number; size: number; colour:
         <svg key={i} width={size} height={size} viewBox="0 0 24 24">
           <defs>
             <linearGradient id={`s${i}`} x1="0" x2="1" y1="0" y2="0">
-              <stop offset={fill} stopColor={colour} />
-              <stop offset={fill} stopColor="#3F3F46" />
+              <stop offset={starClip(fill)} stopColor={colour} />
+              <stop offset={starClip(fill)} stopColor="#3F3F46" />
             </linearGradient>
           </defs>
           <path d={STAR_PATH} fill={`url(#s${i})`} />
