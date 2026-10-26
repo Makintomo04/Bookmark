@@ -2,10 +2,10 @@ import { useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import useSWR from "swr";
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
-import { Check, ChevronRight, Lock } from "lucide-react-native";
+import { Check, Lock } from "lucide-react-native";
 import { closestMilestones, countsUp, toNextText } from "@bookmark/shared/achievements-catalog";
 import { READER_TIERS, tierProgress, type ReaderTier } from "@bookmark/shared/readerTier";
-import { Medal, MedalMark, MEDAL_INK, getMedalColour, tierPill } from "@/components/achievements/Medal";
+import { Medal, MedalRing, MEDAL_INK, getMedalColour, tierPill } from "@/components/achievements/Medal";
 import type { ProfileUser } from "@/components/profile/ProfileHeader";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -91,14 +91,13 @@ function UpNext({ achievements, onSelect }: { achievements: Achievement[]; onSel
           style={[styles.card, { borderColor: colors.border }]}
         >
           <View style={styles.row}>
-            <MedalMark achievementKey={ladder.key} earned={ladder.milestones.some((m) => m.earned)} size={36} />
+            <View accessibilityRole="progressbar" accessibilityLabel={`Progress to ${next.title}`} accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}>
+              <MedalRing achievementKey={ladder.key} earned={ladder.milestones.some((m) => m.earned)} percent={progress * 100} size={52} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text variant="label">{next.title}</Text>
               <Text variant="small">{ladder.title}</Text>
             </View>
-          </View>
-          <View style={{ flexDirection: "row" }}>
-            <ProgressBar percent={Math.max(progress * 100, progress > 0 ? 4 : 0)} colour={getMedalColour(ladder.key)} height={6} />
           </View>
           <Text variant="muted">{toNextText(ladder.key, ladder.current, next.value)}</Text>
         </Pressable>
@@ -107,7 +106,14 @@ function UpNext({ achievements, onSelect }: { achievements: Achievement[]; onSel
   );
 }
 
-// Every achievement as a row: medal, what it's for, where it stands, and a dot per rung.
+const CATEGORIES = [
+  { key: "reading", title: "Reading" },
+  { key: "consistency", title: "Consistency" },
+  { key: "engagement", title: "Engagement" },
+];
+
+// Every achievement as a tile in a grid, grouped by category: the ring medal, the rung reached and how
+// many of the ladder's rungs are earned.
 function MedalList({ achievements, onSelect }: { achievements: Achievement[]; onSelect: (key: string) => void }) {
   const { colors } = useTheme();
   const earnedCount = achievements.reduce((n, a) => n + a.milestones.filter((m) => m.earned).length, 0);
@@ -117,33 +123,34 @@ function MedalList({ achievements, onSelect }: { achievements: Achievement[]; on
         <Text variant="title" accessibilityRole="header">Your medals</Text>
         <Text variant="small">{earnedCount} earned</Text>
       </View>
-      <View style={[styles.list, { borderColor: colors.border }]}>
-        {achievements.map((a, i) => {
-          const { earned, total } = summarise(a);
-          const colour = getMedalColour(a.key);
-          return (
-            <Pressable
-              key={a.key}
-              accessibilityRole="button"
-              accessibilityLabel={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a)}. View milestones`}
-              onPress={() => onSelect(a.key)}
-              style={[styles.row, styles.listRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
-            >
-              <MedalMark achievementKey={a.key} earned={earned.length > 0} size={40} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="label">{a.title}</Text>
-                <Text variant="small">{standing(a)}</Text>
-                <View style={styles.dots}>
-                  {a.milestones.map((m) => (
-                    <View key={m.value} style={[styles.rungDot, m.earned ? { backgroundColor: colour } : { borderWidth: 1, borderColor: colors.border }]} />
-                  ))}
-                </View>
-              </View>
-              <ChevronRight size={16} color={colors.mutedForeground} />
-            </Pressable>
-          );
-        })}
-      </View>
+      {CATEGORIES.map((category) => {
+        const ladders = achievements.filter((a) => a.category === category.key);
+        if (ladders.length === 0) return null;
+        return (
+          <View key={category.key} style={{ gap: 8 }}>
+            <Text variant="small" accessibilityRole="header">{category.title}</Text>
+            <View style={styles.grid}>
+              {ladders.map((a) => {
+                const { earned, highest, percent, total } = summarise(a);
+                return (
+                  <Pressable
+                    key={a.key}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a)}. View milestones`}
+                    onPress={() => onSelect(a.key)}
+                    style={[styles.tile, { borderColor: colors.border }]}
+                  >
+                    <MedalRing achievementKey={a.key} earned={earned.length > 0} percent={percent} size={72} />
+                    <Text variant="label" style={{ textAlign: "center", marginTop: 6 }}>{highest ? highest.title : "Not started"}</Text>
+                    <Text variant="small" style={{ textAlign: "center" }}>{a.title}</Text>
+                    <Text variant="small" style={{ marginTop: "auto", paddingTop: 4, fontVariant: ["tabular-nums"] }}>{earned.length}/{total}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -290,10 +297,8 @@ const styles = StyleSheet.create({
   headingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 12 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   card: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10 },
-  list: { borderWidth: 1, borderRadius: 16, overflow: "hidden" },
-  listRow: { paddingHorizontal: 14, paddingVertical: 12 },
-  dots: { flexDirection: "row", gap: 4, marginTop: 4 },
-  rungDot: { width: 8, height: 8, borderRadius: 4 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tile: { width: "48%", borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingTop: 14, paddingBottom: 10, alignItems: "center" },
   pill: { position: "absolute", bottom: -10, alignSelf: "center", borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 1 },
   detailTop: { flexDirection: "row", alignItems: "center", gap: 18 },
   rung: { flexDirection: "row", gap: 14, paddingBottom: 18 },

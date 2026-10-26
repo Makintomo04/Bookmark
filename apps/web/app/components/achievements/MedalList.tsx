@@ -1,25 +1,11 @@
 "use client"
 import { FC } from 'react'
-import { ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { countsUp, toNextText } from '@/lib/achievements-catalog'
 import { AchievementItem } from '@/app/hooks/useAchievements'
-import Medal from './Medal'
-import { getAchievementIcon } from './achievementIcons'
-import { getMedalColour } from './achievementTheme'
+import MedalRing from './MedalRing'
 import { summarise } from './achievementProgress'
 
-// A medal at list size: the real medal once a rung is earned, otherwise a dashed outline of it, so
-// what's still to earn reads as a goal rather than a greyed-out mistake.
-export const MedalMark: FC<{ achievementKey: string; earned: boolean; className?: string }> = ({ achievementKey, earned, className }) => {
-  if (earned) return <Medal achievementKey={achievementKey} earned className={cn("shrink-0", className)} />
-  const Icon = getAchievementIcon(achievementKey)
-  return (
-    <span aria-hidden className={cn("grid aspect-square shrink-0 place-items-center rounded-full border-2 border-dashed border-neutral-300 text-neutral-400 dark:border-neutral-700 dark:text-neutral-500", className)}>
-      <Icon className="size-[45%]" strokeWidth={1.75} />
-    </span>
-  )
-}
+export { MedalMark } from './MedalRing'
 
 // One line on where a ladder stands: the rung reached and what the next takes, or how to start it.
 export function standing(a: AchievementItem): string {
@@ -31,7 +17,14 @@ export function standing(a: AchievementItem): string {
     : `${highest.title} · next, ${next.title}`
 }
 
-// Every achievement as a row: medal, what it's for, where it stands, and a dot per rung.
+const CATEGORIES = [
+  { key: "reading", title: "Reading" },
+  { key: "consistency", title: "Consistency" },
+  { key: "engagement", title: "Engagement" },
+]
+
+// Every achievement as a tile in a grid, grouped by category: the ring medal, the rung reached and
+// how many of the ladder's rungs are earned.
 const MedalList: FC<{ achievements: AchievementItem[]; onSelect: (key: string) => void }> = ({ achievements, onSelect }) => {
   const earnedCount = achievements.reduce((n, a) => n + a.milestones.filter((m) => m.earned).length, 0)
   return (
@@ -40,35 +33,37 @@ const MedalList: FC<{ achievements: AchievementItem[]; onSelect: (key: string) =
         <h2 id="medals-heading" className="text-lg font-semibold">Your medals</h2>
         <p className="text-sm text-muted-foreground tabular-nums">{earnedCount} earned</p>
       </div>
-      <ul className="divide-y divide-neutral-200 overflow-hidden rounded-2xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
-        {achievements.map((a) => {
-          const { earned, total } = summarise(a)
-          const colour = getMedalColour(a.key)
+      <div className="flex flex-col gap-6">
+        {CATEGORIES.map((category) => {
+          const ladders = achievements.filter((a) => a.category === category.key)
+          if (ladders.length === 0) return null
           return (
-            <li key={a.key}>
-              <button
-                type="button"
-                onClick={() => onSelect(a.key)}
-                aria-label={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a)}. View milestones`}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:hover:bg-neutral-900"
-              >
-                <MedalMark achievementKey={a.key} earned={earned.length > 0} className="w-11" />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{a.title}</span>
-                  <span className="block text-sm text-muted-foreground">{standing(a)}</span>
-                </span>
-                <span aria-hidden className="hidden shrink-0 gap-1 min-[420px]:flex">
-                  {a.milestones.map((m) => (
-                    <span key={m.value} className={cn("size-2 rounded-full", !m.earned && "border border-neutral-300 dark:border-neutral-700")}
-                      style={m.earned ? { background: colour } : undefined} />
-                  ))}
-                </span>
-                <ChevronRight size={16} aria-hidden className="shrink-0 text-muted-foreground" />
-              </button>
-            </li>
+            <div key={category.key} role="group" aria-labelledby={`medals-${category.key}`}>
+              <h3 id={`medals-${category.key}`} className="mb-2 text-sm font-medium text-muted-foreground">{category.title}</h3>
+              <ul className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 md:grid-cols-4">
+                {ladders.map((a) => {
+                  const { earned, highest, percent, total } = summarise(a)
+                  return (
+                    <li key={a.key}>
+                      <button
+                        type="button"
+                        onClick={() => onSelect(a.key)}
+                        aria-label={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a)}. View milestones`}
+                        className="flex h-full w-full flex-col items-center rounded-2xl border border-neutral-200 px-3 pb-3 pt-4 text-center transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-neutral-800 dark:hover:bg-neutral-900"
+                      >
+                        <MedalRing achievementKey={a.key} earned={earned.length > 0} percent={percent} className="w-20" />
+                        <span className="mt-3 block font-medium leading-tight">{highest ? highest.title : "Not started"}</span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">{a.title}</span>
+                        <span className="mt-auto block pt-2 text-xs font-medium tabular-nums text-muted-foreground">{earned.length}/{total}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
           )
         })}
-      </ul>
+      </div>
     </section>
   )
 }
