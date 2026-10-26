@@ -50,15 +50,22 @@ const EarnCelebration: FC = () => {
         {moment.tier ? `Your avatar now wears a ${moment.tier.label} frame, and you earned ${lead.title}.` : `${lead.achievementTitle}: ${lead.description.charAt(0).toLowerCase()}${lead.description.slice(1)}.`}
       </p>
 
+      {/* Every other medal earned at once, named and described so none reads as a tag on the first. */}
       {others.length > 0 && (
-        <ul className="mt-5 flex flex-wrap justify-center gap-3" aria-label="Also earned">
-          {others.map((m) => (
-            <li key={m.key} className="flex items-center gap-2 rounded-full border border-neutral-200 py-1 pl-1 pr-3 text-sm dark:border-neutral-800">
-              <Medal achievementKey={m.achievementKey} earned className="w-7" />
-              {m.title}
-            </li>
-          ))}
-        </ul>
+        <div className="mt-6 w-full text-left">
+          <p id="also-earned" className="text-xs font-medium text-muted-foreground">Also earned</p>
+          <ul className="mt-2 flex flex-col gap-2" aria-labelledby="also-earned">
+            {others.map((m) => (
+              <li key={m.key} className="flex items-center gap-3 rounded-xl border border-neutral-200 p-2 pr-3 dark:border-neutral-800">
+                <Medal achievementKey={m.achievementKey} earned pill={String(m.value)} pillClassName="bg-neutral-900 text-white dark:bg-black" className="mb-2 w-11 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">{m.title}</span>
+                  <span className="block text-xs text-muted-foreground">{m.achievementTitle}: {m.description.charAt(0).toLowerCase()}{m.description.slice(1)}.</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {line && <p className="mt-5 rounded-xl bg-neutral-100 px-3 py-2 text-sm dark:bg-neutral-900">{line}</p>}

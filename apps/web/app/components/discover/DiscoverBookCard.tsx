@@ -48,7 +48,8 @@ const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, reason, context, ra
       </div>
       {reason && <CuratorNote reason={reason} className="-mt-0.5" />}
       {context}
-      <div className="mt-auto flex items-center gap-1.5">
+      {/* Wraps on the narrowest cards rather than breaking "Want to read" over two lines. */}
+      <div className="mt-auto flex flex-wrap items-center gap-1.5">
         <AddToShelfButton book={book} />
         <AddToListButton book={book} />
       </div>

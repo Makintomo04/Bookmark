@@ -1,7 +1,7 @@
 "use client"
 import { FC } from 'react'
 import axios from 'axios'
-import { notify } from '@/lib/notify'
+import { notify, apiError } from '@/lib/notify'
 import type { Book, Status } from '@prisma/client'
 import useBooks from '@/app/hooks/useBooks'
 import { DropdownMenuItem } from '../ui/dropdown-menu'
@@ -37,6 +37,20 @@ export async function moveBook(bookId: string, action: ShelfAction, extra: Recor
     const message = axios.isAxiosError(err) ? err.response?.data?.error : undefined
     notify.error(message || copy[action].failed)
     return false
+  }
+}
+
+const SHELF_NAMES = { NOT_STARTED: "Want to read", STARTED: "Reading", COMPLETED: "Finished", DNF: "Did not finish" } as const
+
+// Re-files a book the reader put on the wrong shelf, as if it had been added to the right one.
+// Resolves to the saved book (with anything it earned), or null if the move failed.
+export async function reshelveBook(bookId: string, to: keyof typeof SHELF_NAMES, extra: { finishedThisYear?: boolean, rating?: number } = {}) {
+  try {
+    const { data } = await axios.post("/api/book-progress", { id: bookId, action: "reshelve", to, ...extra })
+    return data
+  } catch (err) {
+    notify.error(apiError(err, `Couldn't move this book to ${SHELF_NAMES[to]}`))
+    return null
   }
 }
 

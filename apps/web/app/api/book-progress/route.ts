@@ -4,13 +4,13 @@ import { syncAchievements } from "@/lib/achievements";
 import { earnMomentFor } from "@/lib/earnMomentServer";
 import { progressTriggers } from "@/lib/achievementTriggers";
 import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
-import { OPEN_READ_STATUSES, RATING_ERROR, ratingInputSchema, readFromBook } from "@/lib/readHistory";
+import { OPEN_READ_STATUSES, RATING_ERROR, RESHELVE_TARGETS, ratingInputSchema, readFromBook, reshelvedFields } from "@/lib/readHistory";
 import { lengthSnapshot, progressScale } from "@/lib/progress";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-const ACTIONS = ["start", "progress", "complete", "rate", "pause", "resume", "dnf", "restart", "wantToRead", "notInterested"] as const
+const ACTIONS = ["start", "progress", "complete", "rate", "pause", "resume", "dnf", "restart", "wantToRead", "notInterested", "reshelve"] as const
 type Action = typeof ACTIONS[number]
 
 // Which shelf each action can be taken from.
@@ -25,6 +25,8 @@ const ALLOWED_FROM: Record<Action, Status[]> = {
   restart: ["COMPLETED", "DNF"],
   wantToRead: ["STARTED", "PAUSED", "DNF", "NOT_INTERESTED"],
   notInterested: ["NOT_STARTED"],
+  // A correction, not a step in the read: any shelf to any other.
+  reshelve: ["NOT_STARTED", "STARTED", "PAUSED", "COMPLETED", "DNF", "NOT_INTERESTED"],
 }
 
 const NOT_ALLOWED: Record<Action, string> = {
@@ -38,6 +40,21 @@ const NOT_ALLOWED: Record<Action, string> = {
   restart: "Only a finished or unfinished book can be read again",
   wantToRead: "This book can't be moved back to Want to read",
   notInterested: "Only a book on Want to read can be marked as will not read",
+  reshelve: "This book can't be moved",
+}
+
+// The read each shelf made, and what it posted to followers' feeds: what re-filing a book undoes.
+const WRONG_READ: Partial<Record<Status, Prisma.BookReadWhereInput["status"]>> = {
+  STARTED: { in: [...OPEN_READ_STATUSES] },
+  PAUSED: { in: [...OPEN_READ_STATUSES] },
+  COMPLETED: "COMPLETED",
+  DNF: "DNF",
+}
+const WRONG_POST: Partial<Record<Status, ActivityType>> = {
+  STARTED: "STARTED_BOOK",
+  PAUSED: "STARTED_BOOK",
+  COMPLETED: "COMPLETED_BOOK",
+  DNF: "DNF_BOOK",
 }
 
 const bodySchema = z.object({
@@ -54,6 +71,9 @@ const bodySchema = z.object({
   // Spoiler reviews show collapsed behind a click-to-reveal; private ones only to the reader (lib/privacy.ts).
   reviewSpoiler: z.boolean().optional(),
   reviewPrivate: z.boolean().optional(),
+  // reshelve: the shelf the book should have gone on, and for Finished, whether it counts this year.
+  to: z.enum(RESHELVE_TARGETS).optional(),
+  finishedThisYear: z.boolean().optional(),
   // Older clients sent flags instead of an action.
   isStarted: z.boolean().optional(),
   isComplete: z.boolean().optional(),
@@ -110,6 +130,10 @@ export async function POST(req: Request) {
   }
   if (!ALLOWED_FROM[action].includes(book.status)) {
     return NextResponse.json({ error: NOT_ALLOWED[action] }, { status: 400 })
+  }
+  const to = body.to
+  if (action === "reshelve" && (!to || to === book.status)) {
+    return NextResponse.json({ error: "Choose a different shelf" }, { status: 400 })
   }
 
   // The book's own scale: pages, or minutes for an audiobook. The position sent in the other unit is
@@ -192,10 +216,29 @@ export async function POST(req: Request) {
           // Only from Want to read, so there's no open read to close.
           data = { status: "NOT_INTERESTED" }
           break
+        case "reshelve": {
+          // Put on the wrong shelf: drop the read that shelf made (the latest; earlier reads stay) and
+          // file the book as if it had been added to the right one.
+          const wrongRead = WRONG_READ[book.status]
+          if (wrongRead) {
+            const latest = await tx.bookRead.findFirst({ where: { bookId: book.id, status: wrongRead }, orderBy: { createdAt: "desc" }, select: { id: true } })
+            if (latest) await tx.bookRead.delete({ where: { id: latest.id } })
+          }
+          const earlier = await tx.bookRead.findFirst({
+            where: { bookId: book.id, status: { in: ["COMPLETED", "DNF"] }, rating: { not: null } },
+            orderBy: { createdAt: "desc" },
+            select: { rating: true },
+          })
+          const fields = reshelvedFields(book, to!, { now, finishedThisYear: !!body.finishedThisYear, rating, earlierRating: earlier?.rating ?? null })
+          const read = readFromBook({ ...book, ...fields })
+          if (read) await tx.bookRead.create({ data: read })
+          data = { ...fields, ...(to === "STARTED" && { progressAt: now }) }
+          break
+        }
       }
       // When the reader last moved their place in the book (lib/recap.ts tells a book left untouched by it).
       if (action === "start" || action === "restart" || action === "progress" || action === "resume") data.progressAt = now
-      if (rating !== undefined) data.rating = rating
+      if (rating !== undefined && action !== "reshelve") data.rating = rating
       if (review !== undefined) data.review = review
       if (reviewSpoiler !== undefined) data.reviewSpoiler = reviewSpoiler
       if (reviewPrivate !== undefined) data.reviewPrivate = reviewPrivate
@@ -211,10 +254,18 @@ export async function POST(req: Request) {
   }
 
   const activities: ActivityType[] = []
+  if (action === "reshelve") {
+    // Take the wrong shelf's post out of followers' feeds, and post the right one as adding a book would.
+    const wrongPost = WRONG_POST[book.status]
+    const post = wrongPost && await prisma.activity.findFirst({ where: { bookId: book.id, type: wrongPost }, orderBy: { createdAt: "desc" }, select: { id: true } })
+    if (post) await prisma.activity.delete({ where: { id: post.id } })
+    if (to === "STARTED") activities.push("STARTED_BOOK")
+    if (to === "COMPLETED" && body.finishedThisYear) activities.push("COMPLETED_BOOK")
+  }
   if (action === "start" || action === "restart") activities.push("STARTED_BOOK")
   if (action === "complete") activities.push("COMPLETED_BOOK")
   if (action === "dnf") activities.push("DNF_BOOK")
-  if (rating && rating !== book.rating) activities.push("RATED_BOOK")
+  if (rating && rating !== book.rating && updated.rating === rating) activities.push("RATED_BOOK")
   if (review !== undefined && review.trim().length > 0 && review !== book.review) activities.push("REVIEWED_BOOK")
   for (const type of activities) {
     await prisma.activity.create({ data: { userId: currentUser.id, bookId: book.id, type } })
@@ -222,13 +273,13 @@ export async function POST(req: Request) {
   await onBuddyReadProgress(currentUser.id, updated)
   const synced = await syncAchievements(currentUser.id, {
     trigger: progressTriggers({
-      action,
+      action: action === "reshelve" && to === "COMPLETED" ? "complete" : action,
       moved: updated.currentPage !== book.currentPage || updated.currentMinute !== book.currentMinute,
       rated: activities.includes("RATED_BOOK"),
       reviewed: activities.includes("REVIEWED_BOOK"),
     }),
   })
   // What this save earned, sent back with the book so the app can celebrate it there and then.
-  const earnMoment = await earnMomentFor(currentUser, synced, { finished: action === "complete" })
+  const earnMoment = await earnMomentFor(currentUser, synced, { finished: action === "complete" || (action === "reshelve" && to === "COMPLETED" && !!body.finishedThisYear) })
   return NextResponse.json({ ...updated, earnMoment })
 }

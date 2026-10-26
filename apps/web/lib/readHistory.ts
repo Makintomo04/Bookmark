@@ -39,3 +39,33 @@ export function readFromBook(book: BookForRead) {
     pages: book.status === "COMPLETED" || book.status === "DNF" ? book.pages : null,
   };
 }
+
+// The shelves a book can be re-filed onto when the reader put it on the wrong one.
+export const RESHELVE_TARGETS = ["NOT_STARTED", "STARTED", "COMPLETED", "DNF"] as const satisfies readonly Status[];
+export type ReshelveTarget = typeof RESHELVE_TARGETS[number];
+
+type BookForReshelve = Pick<Book, "status" | "pages" | "completedAt" | "timesRead" | "progressUnit" | "audioMinutes" | "currentMinute">;
+
+// A book on the wrong shelf, filed as if it had been added to the right one (as POST /api/books files
+// it). The caller removes the read the wrong shelf made; `earlierRating` is the rating of the latest
+// read left after that, so a past read's rating survives a mistaken re-read being undone.
+export function reshelvedFields(
+  book: BookForReshelve,
+  to: ReshelveTarget,
+  { now, finishedThisYear, rating, earlierRating }: { now: Date; finishedThisYear: boolean; rating: number | null | undefined; earlierRating: number | null },
+) {
+  const finished = to === "COMPLETED";
+  const ended = finished || to === "DNF";
+  const runningTime = book.progressUnit === "MINUTES" ? book.audioMinutes : null;
+  return {
+    status: to,
+    // As when adding: Reading starts today, and a past read stays undated unless finished this year.
+    startedAt: to === "STARTED" ? now : null,
+    stoppedAt: to === "DNF" ? now : null,
+    completedAt: finished ? (finishedThisYear ? now : null) : book.completedAt,
+    currentPage: finished ? book.pages : 0,
+    currentMinute: runningTime ? (finished ? runningTime : 0) : book.currentMinute,
+    timesRead: Math.max(0, book.timesRead + (finished ? 1 : 0) - (book.status === "COMPLETED" ? 1 : 0)),
+    rating: ended && rating !== undefined ? rating : earlierRating,
+  };
+}
