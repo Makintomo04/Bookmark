@@ -356,6 +356,11 @@ model Work {
   olRatingsCount Int?
   olReadingLogCount Int?
   popularityCheckedAt DateTime?
+  // "<author slug>|<title key>": the first author and the title once case, series suffixes, edition tags
+  // and a leading article are set aside (lib/catalog/normalise.ts workMatchKey). A new book with no exact
+  // key match is filed under an existing work with the same match key instead of a duplicate. Filled for
+  // older rows by scripts/backfill-work-match-keys.ts.
+  matchKey String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -365,6 +370,7 @@ model Work {
 
   @@index([openLibraryKey])
   @@index([authorKeys])
+  @@index([matchKey])
 }
 
 // ---- Moods and content warnings -----------------------------------------------------------

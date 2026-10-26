@@ -1,7 +1,7 @@
 import { DESCRIPTION_MAX } from "../openLibrary.ts";
 import { normaliseWorkKey } from "../workKey.ts";
 import { newObjectId } from "../objectId.ts";
-import { type EditionFormat, type Series, normaliseEditionKey, normaliseIsbns, titleAuthorKey } from "./normalise.ts";
+import { type EditionFormat, type Series, normaliseEditionKey, normaliseIsbns, titleAuthorKey, workMatchKey } from "./normalise.ts";
 
 // Find-or-create for the shared catalog (prisma/schema.prisma, Work and Edition), written against a
 // small store interface so scripts/test/catalog.test.ts runs it in memory and lib/catalog.ts runs it on
@@ -11,6 +11,8 @@ import { type EditionFormat, type Series, normaliseEditionKey, normaliseIsbns, t
 //   - the same ISBN (in either form) or Open Library edition key always lands on one Edition;
 //   - the same Open Library work key always lands on one Work, so two editions of a book share it;
 //   - a book nobody could match is filed by normalised title + author, the way sameBook() compares;
+//   - a book with no exact key match goes under an existing work with the same match key (first author
+//     and title, case and series suffixes aside) rather than a duplicate, preferring an Open Library work;
 //   - existing rows are only ever filled in (null fields), never overwritten.
 //
 // Kept free of "@/" imports so plain Node can load it.
@@ -28,6 +30,7 @@ export interface WorkRecord {
   seriesPosition: number | null;
   coverUrl: string | null;
   firstPublishYear: number | null;
+  matchKey: string | null;
 }
 
 export interface EditionRecord {
@@ -107,6 +110,8 @@ export interface CatalogLookup {
 
 export interface CatalogStore {
   findWorks(keys: string[]): Promise<WorkRecord[]>;
+  // Works filed under any of these match keys (WorkRecord.matchKey).
+  findWorksByMatch(matchKeys: string[]): Promise<WorkRecord[]>;
   getWorks(ids: string[]): Promise<WorkRecord[]>;
   findEditions(by: { keys: string[]; isbn13: string[]; isbn10: string[] }): Promise<EditionRecord[]>;
   // Insert rows (ids chosen by the caller). When another writer created the same key first, the
@@ -193,8 +198,17 @@ function workRow(item: Item): WorkRecord {
     seriesPosition: series?.position ?? null,
     coverUrl: clean(facts?.coverUrl ?? input.coverUrl ?? item.editionFacts?.coverUrl),
     firstPublishYear: positive(facts?.year ?? input.year),
+    matchKey: matchKeyFor(item),
   };
 }
+
+const matchKeyFor = (item: Pick<Item, "input" | "workFacts">) =>
+  workMatchKey(clean(item.workFacts?.title) ?? item.input.title, item.workFacts?.authors?.[0] ?? item.input.author ?? item.input.authors?.[0]);
+
+// Of several works filed under one match key, the one to reuse: an Open Library work over a manual entry,
+// then the oldest (lowest id), so every reader's copy of the book lands on the same one.
+const preferred = (a: WorkRecord, b: WorkRecord) =>
+  Number(!!b.openLibraryKey) - Number(!!a.openLibraryKey) || (a.id < b.id ? -1 : 1);
 
 // The fields of `have` still unset that `want` can fill.
 function fillIn<T extends object>(have: T, want: Partial<T>): Partial<T> {
@@ -318,6 +332,18 @@ export async function resolveMany(inputs: CatalogInput[], opts: ResolveOptions):
   const needWork = items.filter((i) => !i.edition);
   const workKeys = Array.from(new Set(needWork.map(workKeyFor)));
   const works = new Map((await store.findWorks(workKeys)).map((w) => [w.key, w]));
+  // No exact key: the same book may already be in the catalog under another key ("Lover reborn" filed
+  // by another reader, or a second Open Library record for it). File it there instead of a duplicate.
+  const unkeyed = needWork.filter((i) => !works.has(workKeyFor(i)));
+  const matchKeys = Array.from(new Set(unkeyed.flatMap((i) => matchKeyFor(i) ?? [])));
+  if (matchKeys.length) {
+    const byMatch = new Map<string, WorkRecord>();
+    for (const w of (await store.findWorksByMatch(matchKeys)).sort(preferred)) if (w.matchKey && !byMatch.has(w.matchKey)) byMatch.set(w.matchKey, w);
+    for (const i of unkeyed) {
+      const found = byMatch.get(matchKeyFor(i) ?? "");
+      if (found) works.set(workKeyFor(i), found);
+    }
+  }
   const missing = Array.from(new Set(needWork.filter((i) => !works.has(workKeyFor(i)) && i.workKey && !i.workFacts).map((i) => i.workKey!)));
   if (lookup && missing.length) {
     const facts = new Map<string, WorkFacts>();

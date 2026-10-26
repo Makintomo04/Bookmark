@@ -8,6 +8,10 @@ export class MemoryCatalogStore implements CatalogStore {
   async findWorks(keys: string[]) {
     return keys.flatMap((k) => (this.works.has(k) ? [{ ...this.works.get(k)! }] : []));
   }
+  async findWorksByMatch(matchKeys: string[]) {
+    const wanted = new Set(matchKeys);
+    return Array.from(this.works.values()).filter((w) => w.matchKey && wanted.has(w.matchKey)).map((w) => ({ ...w }));
+  }
   async getWorks(ids: string[]) {
     const wanted = new Set(ids);
     return Array.from(this.works.values()).filter((w) => wanted.has(w.id)).map((w) => ({ ...w }));
