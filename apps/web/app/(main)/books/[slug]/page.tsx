@@ -14,8 +14,11 @@ import RatingSummary from '@/app/components/books/RatingSummary'
 import BookReviews from '@/app/components/books/BookReviews'
 import BookProblemReport from '@/app/components/books/BookProblemReport'
 import FollowSeriesButton from '@/app/components/series/FollowSeriesButton'
+import ListCard from '@/app/components/discover/ListCard'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { bookPageData } from '@/lib/bookPage'
+import { listsWithBook } from '@/lib/bookLists'
+import { BOOK_LISTS_SHOWN } from '@/lib/bookListRules'
 import { isFollowingSeries } from '@/lib/seriesFollows'
 import { seriesKey } from '@/lib/series'
 import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
@@ -83,11 +86,15 @@ const Page = async ({ params }: PageProps) => {
 
   const viewer = await getCurrentUser()
   const { book, series, genres } = data
-  const [rating, reviews, followingSeries] = await Promise.all([
+  const [rating, reviews, followingSeries, onLists] = await Promise.all([
     ratingSummaryForWork(workKey),
     reviewsForWork(workKey, viewer?.id ?? null),
     viewer && series ? isFollowingSeries(viewer.id, seriesKey(series.name, series.author)) : false,
+    // One more than shown, so "See all" only appears when there's more to see.
+    listsWithBook(workKey, viewer, BOOK_LISTS_SHOWN + 1),
   ])
+  const lists = onLists.slice(0, BOOK_LISTS_SHOWN)
+  const href = bookHref({ workKey, title: book.title })!
   const meta = [book.year && `First published ${book.year}`, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")
 
   return (
@@ -119,7 +126,7 @@ const Page = async ({ params }: PageProps) => {
                     author={series.author}
                     initialFollowing={followingSeries}
                     signedIn={!!viewer}
-                    returnTo={bookHref({ workKey, title: book.title })!}
+                    returnTo={href}
                   />
                 </div>
               )}
@@ -157,6 +164,21 @@ const Page = async ({ params }: PageProps) => {
             </section>
 
             <BookReviews workKey={workKey} initial={reviews} headingClassName={sectionHeading} />
+
+            {lists.length > 0 && (
+              <section aria-labelledby="lists-heading" className="flex flex-col gap-4">
+                <div className="flex items-baseline justify-between gap-4">
+                  <h2 id="lists-heading" className={sectionHeading}>On readers&apos; lists</h2>
+                  {onLists.length > BOOK_LISTS_SHOWN && (
+                    <Link href={`${href}/lists`} className="text-sm font-medium text-brand-text hover:underline underline-offset-2">See all</Link>
+                  )}
+                </div>
+                {/* A row to swipe through on a phone; a grid once there's room. */}
+                <div className="-mx-4 px-4 flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
+                  {lists.map((list) => <ListCard key={list.id} list={list} className="w-56 shrink-0 sm:w-auto snap-start" />)}
+                </div>
+              </section>
+            )}
 
             <section aria-labelledby="details-heading" className="flex flex-col gap-4">
               <h2 id="details-heading" className={sectionHeading}>Details</h2>
