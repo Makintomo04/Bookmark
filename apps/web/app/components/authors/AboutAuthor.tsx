@@ -6,14 +6,14 @@ import type { AuthorAbout } from '@/lib/authors'
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
-// About the author, under the name on an author page: their photo, name, how many of their books are on
-// Bookmark, and a short bio. A long bio opens with "Read more". Parts we don't have are left out.
-const AboutAuthor: FC<{ name: string; about: AuthorAbout }> = ({ name, about }) => {
+// About the author, under the name on an author page: their photo, name, how many books the list below
+// holds, and a short bio. A long bio opens with "Read more". Parts we don't have are left out.
+const AboutAuthor: FC<{ name: string; about: AuthorAbout; bookCount: number | null }> = ({ name, about, bookCount }) => {
   const [open, setOpen] = useState(false)
-  const { photoUrl, bio, bookCount } = about
+  const { photoUrl, bio } = about
   const long = bio.length > 1 || (bio[0]?.length ?? 0) > 320
   // Nothing to say beyond the name already in the heading: leave the section out rather than show an empty box.
-  if (!photoUrl && bio.length === 0 && bookCount === 0) return null
+  if (!photoUrl && bio.length === 0 && !bookCount) return null
 
   return (
     <section aria-labelledby="about-author-heading" className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-800 sm:p-6">
@@ -26,7 +26,7 @@ const AboutAuthor: FC<{ name: string; about: AuthorAbout }> = ({ name, about }) 
         )}
         <div className="min-w-0">
           <p className="text-lg font-semibold leading-tight">{name}</p>
-          {bookCount > 0 && <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{bookCount} {bookCount === 1 ? 'book' : 'books'} on Bookmark</p>}
+          {!!bookCount && <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{bookCount.toLocaleString('en-GB')} {bookCount === 1 ? 'book' : 'books'}</p>}
         </div>
       </div>
       {bio.length > 0 && (

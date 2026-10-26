@@ -147,14 +147,15 @@ export async function authorRecord(key: string): Promise<{ bio: string | null, p
 }
 
 // An author's books, most shelved first, like subjectBooks. By key when we have one; otherwise by name,
-// which can also catch namesakes. Throws on failure so the author page can tell it from "no books".
-// Cached for a day.
-export async function authorBooks(by: { key?: string | null, name: string }, offset = 0, limit = 24): Promise<DiscoverBook[]> {
+// which can also catch namesakes. `total` is how many the search has in all, every page together. Throws
+// on failure so the author page can tell it from "no books". Cached for a day.
+export async function authorBooks(by: { key?: string | null, name: string }, offset = 0, limit = 24): Promise<{ books: DiscoverBook[], total: number }> {
   const q = by.key ? `author_key:${by.key}` : `author:"${by.name.replace(/"/g, "")}"`
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${FIELDS}&limit=${limit}&offset=${offset}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } })
   if (!res.ok) throw new Error(`Open Library author books failed: ${res.status}`)
-  return toDiscoverBooks(await res.json())
+  const data = await res.json()
+  return { books: toDiscoverBooks(data), total: typeof data?.numFound === "number" ? data.numFound : 0 }
 }
 
 // Open Library's index keeps a reading-log activity count for each of the last seven days.

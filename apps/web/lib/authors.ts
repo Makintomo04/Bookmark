@@ -34,6 +34,10 @@ export interface AuthorBooksPage {
   nextOffset: number | null
   // Open Library failed, as opposed to having nothing.
   failed: boolean
+  // How many books the list holds once every page is loaded, so "About the author" can say the same
+  // number the reader can scroll through. Only on the first page; null when it can't be known up front
+  // (a search by name, which filters out namesakes page by page, or Open Library failing).
+  total: number | null
 }
 
 // Our own catalog's works by this author, as add-ready books. Fills in what Open Library's top results
@@ -56,13 +60,18 @@ async function catalogBooks(author: Author): Promise<DiscoverBook[]> {
 
 export async function authorBooksPage(author: Author, offset = 0): Promise<AuthorBooksPage> {
   const [found, catalog] = await Promise.all([
-    authorBooks(author, offset, AUTHOR_PAGE_SIZE).then((books) => ({ books, failed: false }), () => ({ books: [] as DiscoverBook[], failed: true })),
+    authorBooks(author, offset, AUTHOR_PAGE_SIZE).then(({ books, total }) => ({ books, total, failed: false }), () => ({ books: [] as DiscoverBook[], total: 0, failed: true })),
     offset === 0 ? catalogBooks(author).catch(() => []) : Promise.resolve([]),
   ])
   // A search by name can turn up namesakes and books they only edited; by key it's already exact.
   const fromOpenLibrary = author.key ? found.books : found.books.filter((b) => creditIncludes(b.author, author.slug))
   const extra = catalog.filter((c) => !fromOpenLibrary.some((b) => sameBook(b, c)))
-  return { books: [...fromOpenLibrary, ...extra], nextOffset: found.books.length === AUTHOR_PAGE_SIZE ? offset + AUTHOR_PAGE_SIZE : null, failed: found.failed }
+  const nextOffset = found.books.length === AUTHOR_PAGE_SIZE ? offset + AUTHOR_PAGE_SIZE : null
+  const books = [...fromOpenLibrary, ...extra]
+  // By key the search's own count is exact; our catalog's extras are added on top. By name, only a
+  // single page is a known total.
+  const total = offset > 0 || found.failed ? null : author.key ? found.total + extra.length : nextOffset === null ? books.length : null
+  return { books, nextOffset, failed: found.failed, total }
 }
 
 // ---- About the author -------------------------------------------------------------------------
@@ -71,8 +80,6 @@ export interface AuthorAbout {
   photoUrl: string | null
   // The bio as plain paragraphs, empty when there isn't one.
   bio: string[]
-  // Their works in Bookmark's catalog: the books readers here have added.
-  bookCount: number
 }
 
 // Open Library bios are volunteer-edited text: Markdown emphasis and links, reference footnotes, Windows
@@ -91,21 +98,13 @@ export function cleanBio(raw: string | null | undefined): string[] {
     .filter((p) => p && !/^(source|sources|from wikipedia)\b[:.]?\s*$/i.test(p))
 }
 
-async function catalogCount(author: Author): Promise<number> {
-  return prisma.work.count({ where: { OR: [...(author.key ? [{ authorKeys: { has: author.key } }] : []), { authors: { has: author.name } }] } })
-}
-
-// Photo, bio and how many of their books are on Bookmark. Without an Open Library key (or with Open Library
-// down) there's no photo or bio, only the count.
+// Photo and bio. Without an Open Library key (or with Open Library down) there's neither. The book count
+// comes from the book list itself (AuthorBooksPage.total), so the two always agree.
 export async function authorAbout(author: Author): Promise<AuthorAbout> {
-  const [record, bookCount] = await Promise.all([
-    author.key ? authorRecord(author.key).catch(() => null) : Promise.resolve(null),
-    catalogCount(author).catch(() => 0),
-  ])
+  const record = author.key ? await authorRecord(author.key).catch(() => null) : null
   const photoId = record?.photoIds[0]
   return {
     photoUrl: photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg` : null,
     bio: cleanBio(record?.bio),
-    bookCount,
   }
 }
