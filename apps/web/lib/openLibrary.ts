@@ -109,6 +109,18 @@ export async function workDescription(workKey: string): Promise<string | null> {
   return cleanDescription(raw)?.slice(0, DESCRIPTION_MAX) ?? null
 }
 
+// A work's own cover, from the same cached /works record as workDescription, so asking for both costs one fetch.
+export async function workCover(workKey: string): Promise<string | null> {
+  const res = await fetch(`https://openlibrary.org/works/${workKey}.json`, {
+    signal: AbortSignal.timeout(6000),
+    next: { revalidate: 604800 },
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  const coverId = Array.isArray(data?.covers) ? data.covers.find((id: unknown) => typeof id === "number" && id > 0) : null
+  return coverUrlFor(coverId)
+}
+
 // Ranked by how many Open Library readers have shelved each book, which surfaces far more familiar
 // titles than the subjects feed (ordered by edition count), and comes with page counts.
 // Cached for a day: rankings change slowly and Open Library is slow.

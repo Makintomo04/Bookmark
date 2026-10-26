@@ -30,6 +30,8 @@ import useWorkTags from '@/app/hooks/useWorkTags'
 import type { ReaderTagsInput } from '@/lib/workTags'
 import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../books/WorkTags'
 import AuthorLink from '@/app/components/AuthorLink'
+import Link from 'next/link'
+import { bookHref } from '@/lib/workKey'
 
 const PACE_MIN_DAYS = 7
 
@@ -127,6 +129,8 @@ const BookUpdateModal: FC = () => {
   const canSave = !isSaving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges)
 
   const close = () => onClose(book.id)
+  // Its book page, when it's matched to an Open Library work.
+  const pageHref = bookHref(book)
 
   const setPage = (n: number) => setPageInput(String(clamp(n, pages)))
 
@@ -517,7 +521,9 @@ const BookUpdateModal: FC = () => {
       <div className="flex md:flex-col gap-4 md:w-56 shrink-0">
         <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 224px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
         <div className="min-w-0">
-          <p className="text-lg md:text-xl font-bold leading-snug break-words">{book.title}</p>
+          <p className="text-lg md:text-xl font-bold leading-snug break-words">
+            {pageHref ? <Link href={pageHref} onClick={close} className="hover:underline underline-offset-4">{book.title}</Link> : book.title}
+          </p>
           <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>
           {meta && <p className="mt-2 text-xs text-muted-foreground">{meta}</p>}
           {/* An action on the book, so it sits with the book rather than among the progress controls. */}
