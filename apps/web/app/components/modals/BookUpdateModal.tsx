@@ -42,6 +42,10 @@ const formatDay = (date: Date | string) =>
 
 const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
 
+// Quiet text actions under the cover. The padding gives each a full-height target and room for the focus
+// ring; the negative margin keeps the text lined up with the title above.
+const bookActionClass = "-mx-1.5 inline-flex h-9 sm:h-8 items-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+
 const BookUpdateModal: FC = () => {
   const { user, mutate } = useUser()
   const { books, mutate: booksMutate } = useBooks()
@@ -397,7 +401,7 @@ const BookUpdateModal: FC = () => {
     <div className="flex flex-col gap-2 items-start">
       <p className="text-sm text-muted-foreground">{onMinutes ? "Starts from the beginning." : "Starts from the first page."}</p>
       {hasPageCount && (
-        <button type="button" onClick={() => setShowStartPage(true)} className="text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={() => setShowStartPage(true)} className="rounded-sm text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           {onMinutes ? "Already partway through? Set how far you are" : "Already partway through? Set your page"}
         </button>
       )}
@@ -518,27 +522,32 @@ const BookUpdateModal: FC = () => {
 
   const body = (
     <div className="w-full px-6 self-start flex flex-col md:flex-row gap-6 md:gap-10">
-      <div className="flex md:flex-col gap-4 md:w-56 shrink-0">
-        <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 224px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
+      <div className="flex md:flex-col gap-4 md:gap-5 md:w-44 shrink-0">
+        <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 176px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
         <div className="min-w-0">
           <p className="text-lg md:text-xl font-bold leading-snug break-words">
-            {pageHref ? <Link href={pageHref} onClick={close} className="hover:underline underline-offset-4">{book.title}</Link> : book.title}
+            {pageHref ? <Link href={pageHref} onClick={close} className="rounded-sm hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">{book.title}</Link> : book.title}
           </p>
-          <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>
-          {meta && <p className="mt-2 text-xs text-muted-foreground">{meta}</p>}
-          {/* An action on the book, so it sits with the book rather than among the progress controls. */}
-          <button type="button" onClick={sendToFriend} disabled={isSaving} className="mt-3 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-            <Send size={14} aria-hidden />Send to a friend
-          </button>
-          {/* Will not read is private already. */}
-          {status !== "NOT_INTERESTED" && (
-            <div className="mt-2">
-              {isPrivate && <PrivateBadge className="mb-1" />}
-              <button type="button" onClick={togglePrivate} disabled={isSaving} className="mt-1 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                {isPrivate ? <><Unlock size={14} aria-hidden />Share on profile</> : <><Lock size={14} aria-hidden />Make private</>}
-              </button>
+          <p className="mt-0.5 text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>
+          {/* Where the book is and who can see it, then what you can do with it. */}
+          {(meta || isPrivate) && (
+            <div className="mt-2 flex flex-col items-start gap-2">
+              {meta && <p className="text-xs text-muted-foreground">{meta}</p>}
+              {isPrivate && status !== "NOT_INTERESTED" && <PrivateBadge />}
             </div>
           )}
+          {/* Actions on the book, so they sit with the book rather than among the progress controls. */}
+          <div className="mt-3 flex flex-col items-start">
+            <button type="button" onClick={sendToFriend} disabled={isSaving} className={bookActionClass}>
+              <Send size={14} aria-hidden />Send to a friend
+            </button>
+            {/* Will not read is private already. */}
+            {status !== "NOT_INTERESTED" && (
+              <button type="button" onClick={togglePrivate} disabled={isSaving} className={bookActionClass}>
+                {isPrivate ? <><Unlock size={14} aria-hidden />Share on profile</> : <><Lock size={14} aria-hidden />Make private</>}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
