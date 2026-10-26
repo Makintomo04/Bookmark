@@ -73,6 +73,9 @@ function overlay(base: CatalogStore): CatalogStore {
     async findWorks(keys) {
       return merge(await base.findWorks(keys), await mem.findWorks(keys));
     },
+    async findWorksByMatch(matchKeys) {
+      return merge(await base.findWorksByMatch(matchKeys), await mem.findWorksByMatch(matchKeys));
+    },
     async getWorks(ids) {
       return merge(await base.getWorks(ids), await mem.getWorks(ids));
     },

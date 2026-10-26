@@ -47,7 +47,7 @@ const Page = async ({ params }: PageProps) => {
           <p className="mt-4 text-sm text-muted-foreground">Author</p>
           <h1 className="page-title">{author.name}</h1>
         </div>
-        <AboutAuthor name={author.name} about={about} />
+        <AboutAuthor name={author.name} about={about} bookCount={first.total} />
         <AuthorBooks author={author} initial={first} />
       </Container>
     </div>
