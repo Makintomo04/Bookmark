@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import getCurrentUser from "@/app/actions/getCurrentUser";
-import { GENRES } from "@/lib/genres";
+import { GENRES, favouritesFirst } from "@/lib/genres";
 import { findLists, followingPicks } from "@/lib/lists";
 
 // The Discover home, as the /discover page builds it, for the mobile app: the spotlight list, the
-// genres, what people you follow recently listed or loved, team picks, readers' lists and lists people
+// genres (the reader's favourites first), what people you follow recently listed or loved, team picks, readers' lists and lists people
 // reported reading from.
 export async function GET() {
   const viewer = await getCurrentUser();
@@ -17,7 +17,7 @@ export async function GET() {
   ]);
   return NextResponse.json({
     featured: featured[0] ?? null,
-    genres: GENRES.map(({ slug, label }) => ({ slug, label })),
+    genres: favouritesFirst(GENRES, viewer?.favGenres).map(({ slug, label }) => ({ slug, label })),
     following,
     picks,
     community,

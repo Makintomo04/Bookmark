@@ -2,13 +2,10 @@
 import { FC, useState } from 'react'
 import axios from 'axios'
 import { notify } from '@/lib/notify'
-import { Check } from 'lucide-react'
 import { Button } from '@/app/components/ui/button'
 import useUser from '@/app/hooks/useUser'
 import useSettings, { type Settings } from '@/app/hooks/useSettings'
-import { GENRES } from '@/lib/genres'
-import { cn } from '@/lib/utils'
-import { PROFILE_HINT, PROFILE_OPTIONS, Segmented } from '@/app/components/settings/controls'
+import { GenreChips, PROFILE_HINT, PROFILE_OPTIONS, Segmented } from '@/app/components/settings/controls'
 
 // Onboarding's middle step: favourite genres and who can see the profile. The other privacy and invite
 // settings wait for Edit profile, when the reader has seen what they're about. Unlike the settings panel
@@ -21,8 +18,6 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
   if (!draft) return null
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => setDraft({ ...draft, [key]: value })
-  const toggleGenre = (slug: string) =>
-    set("favGenres", draft.favGenres.includes(slug) ? draft.favGenres.filter((g) => g !== slug) : [...draft.favGenres, slug])
 
   const submit = async () => {
     setSaving(true)
@@ -40,32 +35,14 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
     <div className="flex flex-col gap-6">
       <div className="text-center">
         <h1 className="page-title">What do you like to read?</h1>
-        <p className="mt-2 text-sm text-muted-foreground">We&apos;ll use this to suggest books and readers. Everything else starts on sensible defaults you can change in Settings.</p>
+        <p className="mt-2 text-sm text-muted-foreground">We&apos;ll use this to suggest books to start your shelf. Everything else starts on sensible defaults you can change in Settings.</p>
       </div>
 
       <section aria-labelledby="genres-label" className="flex flex-col gap-2">
         <h2 id="genres-label" className="text-sm font-medium">Genres you love</h2>
         <p className="-mt-1 text-xs text-muted-foreground">Pick as many as you like.</p>
-        <div className="mt-1 flex flex-wrap gap-2">
-          {GENRES.map((genre) => {
-            const on = draft.favGenres.includes(genre.slug)
-            return (
-              <button
-                key={genre.slug}
-                type="button"
-                aria-pressed={on}
-                disabled={saving}
-                onClick={() => toggleGenre(genre.slug)}
-                className={cn(
-                  "inline-flex h-8 items-center gap-1 rounded-full border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
-                  on ? "border-brand-fill bg-brand-fill text-white" : "border-neutral-300 bg-background hover:border-brand dark:border-neutral-700"
-                )}
-              >
-                {on && <Check size={14} aria-hidden />}
-                {genre.label}
-              </button>
-            )
-          })}
+        <div className="mt-1">
+          <GenreChips labelledBy="genres-label" value={draft.favGenres} onChange={(v) => set("favGenres", v)} disabled={saving} />
         </div>
       </section>
 

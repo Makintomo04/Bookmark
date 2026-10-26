@@ -12,6 +12,9 @@ export const GENRES: Genre[] = [
   { slug: "fantasy", label: "Fantasy", subject: "fantasy", colour: "#5F3DC4" },
   { slug: "sci-fi", label: "Sci-Fi", subject: "science_fiction", colour: "#1864AB" },
   { slug: "romance", label: "Romance", subject: "romance", colour: "#C2255C" },
+  // Its own genre so readers who want it can say so: the genre picks keep it (and other explicit books)
+  // out of everyone else's suggestions (lib/genrePicks.ts MATURE_SUBJECTS).
+  { slug: "dark-romance", label: "Dark Romance", subject: "dark_romance", colour: "#5C1A33" },
   { slug: "mystery-thriller", label: "Mystery & Thriller", subject: "mystery_and_detective_stories", colour: "#343A40" },
   { slug: "horror", label: "Horror", subject: "horror", colour: "#8A1C1C" },
   { slug: "historical-fiction", label: "Historical Fiction", subject: "historical_fiction", colour: "#9C4221" },
@@ -26,6 +29,20 @@ export const GENRES: Genre[] = [
 ]
 
 export const genreBySlug = (slug: string) => GENRES.find((g) => g.slug === slug)
+
+// The reader's favourite genres (picked in onboarding or Settings) first, each group in the usual order.
+export const favouritesFirst = <T extends { slug: string }>(genres: T[], favourites: string[] = []): T[] => [
+  ...genres.filter((g) => favourites.includes(g.slug)),
+  ...genres.filter((g) => !favourites.includes(g.slug)),
+]
+
+// The genre picks ("Somewhere to start") show on your own shelf until it holds this many books; after that your
+// shelf speaks for itself and the picks live on Discover.
+export const GENRE_PICKS_SHELF_LIMIT = 5
+
+// "Fantasy, Horror and Romance". Written out rather than Intl.ListFormat, which Hermes doesn't promise.
+export const joinLabels = (labels: string[]) =>
+  labels.length <= 1 ? labels.join("") : `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`
 
 // The covers fanned on each Discover tile live in public/genres, so the tiles don't wait on Open Library.
 // Refresh them with scripts/refresh-genre-covers.ts.

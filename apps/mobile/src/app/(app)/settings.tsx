@@ -5,12 +5,14 @@ import useSWR, { useSWRConfig } from "swr";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Download, FileUp } from "lucide-react-native";
+import { GENRES } from "@bookmark/shared/genres";
 import { preferencesOf, type CommunityPreferences } from "@bookmark/shared/preferences";
 import { privacyOf, type PrivacySettings } from "@bookmark/shared/privacyRules";
 import { PUSH_GROUP_LABELS, type PushGroup } from "@bookmark/shared/push";
 import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS } from "@bookmark/shared/settingsCopy";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { Button } from "@/components/ui/Button";
+import { Chip } from "@/components/ui/Chip";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Segmented } from "@/components/ui/Segmented";
@@ -19,10 +21,10 @@ import { ApiError, api, apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTheme, useThemePreference, type ThemePreference } from "@/lib/theme";
 
-// Settings (the web's /settings): appearance, privacy, community, AI, push notifications, your data and
+// Settings (the web's /settings): appearance, favourite genres, privacy, community, AI, push notifications, your data and
 // deleting the account. Every control saves as soon as it changes.
 
-type Settings = PrivacySettings & CommunityPreferences;
+type Settings = PrivacySettings & CommunityPreferences & { favGenres: string[]; hideShelfPicks: boolean };
 type SettingsUser = Partial<Settings> & { id: string; username: string | null };
 type PlanResponse = { status: { plan: "FREE" | "PLUS"; store: "APP_STORE" | "PLAY_STORE" | null; source: string | null } | null };
 
@@ -41,7 +43,7 @@ export default function SettingsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   if (!user) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
-  const settings: Settings = { ...privacyOf(user), ...preferencesOf(user) };
+  const settings: Settings = { ...privacyOf(user), ...preferencesOf(user), favGenres: user.favGenres ?? [], hideShelfPicks: user.hideShelfPicks ?? false };
   const busy = pending !== null;
 
   // Optimistic: the control moves straight away and rolls back if the save fails.
@@ -54,6 +56,8 @@ export default function SettingsScreen() {
       void mutate({ ...user, ...saved }, { revalidate: false });
       // Your own profile payload (counts, reviews) depends on these.
       void mutateAll((k) => typeof k === "string" && k.startsWith("/api/users/") && !k.includes("/search"));
+      // Discover's genre order and the genre picks follow these.
+      if (key === "favGenres") { void mutateAll("/api/discover"); void mutateAll("/api/discover/for-you"); }
     } catch {
       void mutate(user, { revalidate: false });
       setError("Couldn't save that setting. Try again.");
@@ -77,6 +81,24 @@ export default function SettingsScreen() {
 
       <Card title="Appearance">
         <Segmented options={APPEARANCE} value={preference} onChange={setPreference} />
+      </Card>
+
+      <Card title="Your genres" hint="They come first on Discover, and decide which books we suggest to you.">
+        <View style={styles.chips}>
+          {GENRES.map((genre) => {
+            const on = settings.favGenres.includes(genre.slug);
+            return (
+              <Chip
+                key={genre.slug}
+                label={genre.label}
+                selected={on}
+                disabled={busy}
+                onPress={() => void save("favGenres", on ? settings.favGenres.filter((g) => g !== genre.slug) : [...settings.favGenres, genre.slug])}
+              />
+            );
+          })}
+        </View>
+        <Toggle label="Suggest books on my shelf" hint="Popular books from your genres, at the top of your shelf until it holds a few books." value={!settings.hideShelfPicks} onChange={(v) => void save("hideShelfPicks", !v)} disabled={busy} />
       </Card>
 
       <Card title="Plus">
@@ -317,6 +339,7 @@ function DeleteAccount({ username }: { username: string | null }) {
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 16 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   toggle: { flexDirection: "row", alignItems: "center", gap: 16 },
   storeNote: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },
   input: { borderWidth: 1, height: 44, paddingHorizontal: 12, fontSize: 16 },

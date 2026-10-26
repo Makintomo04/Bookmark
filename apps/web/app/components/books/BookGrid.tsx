@@ -118,8 +118,10 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
         ) : (
           <p className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-3 text-sm text-muted-foreground">
             You&apos;re not reading anything right now. {paused.length > 0
-              ? "Resume a paused book, or pick something from Want to read."
-              : "Pick something from Want to read and mark it as started."}
+              ? `Resume a paused book${wantToRead.length > 0 ? ", or pick something from Want to read" : ""}.`
+              : wantToRead.length > 0
+                ? "Pick something from Want to read and mark it as started."
+                : "Add the book you're reading now, or find your next one on Discover."}
           </p>
         )}
       </ShelfSection>

@@ -153,7 +153,7 @@ function CommunityStep({ onDone }: { onDone: () => void }) {
     <View style={styles.step}>
       <View style={styles.intro}>
         <Text variant="display" style={styles.center}>What do you like to read?</Text>
-        <Text variant="muted" style={styles.center}>We{"’"}ll use this to suggest books and readers. Everything else starts on sensible defaults you can change in Settings.</Text>
+        <Text variant="muted" style={styles.center}>We{"’"}ll use this to suggest books to start your shelf. Everything else starts on sensible defaults you can change in Settings.</Text>
       </View>
       {error && <Notice tone="error" message={error} />}
       <View style={{ gap: 8 }}>

@@ -106,9 +106,10 @@ export async function workDescription(workKey: string): Promise<string | null> {
 
 // Ranked by how many Open Library readers have shelved each book, which surfaces far more familiar
 // titles than the subjects feed (ordered by edition count), and comes with page counts.
-// Cached for a day: rankings change slowly and Open Library is slow.
-export async function subjectBooks(subject: string, offset = 0, limit = 24): Promise<DiscoverBook[]> {
-  const q = `subject_key:"${subject}" language:eng`
+// Cached for a day: rankings change slowly and Open Library is slow. `exclude` drops works tagged with
+// any of those subject keys (the genre picks use it to keep explicit books out of unasked-for suggestions).
+export async function subjectBooks(subject: string, offset = 0, limit = 24, exclude: string[] = []): Promise<DiscoverBook[]> {
+  const q = [`subject_key:"${subject}" language:eng`, ...exclude.map((s) => `-subject_key:"${s}"`)].join(" ")
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${FIELDS}&limit=${limit}&offset=${offset}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } })
   if (!res.ok) return []
