@@ -64,7 +64,7 @@ const BookUpdateModal: FC = () => {
     useBookDescription(wantsBlurb && !book?.description ? book?.workKey : null)
 
   const [pageInput, setPageInput] = useState("0")
-  // Moods and content warnings, tagged along with the review.
+  // Moods, spice and content warnings, tagged along with the review.
   const [tags, setTags] = useState<ReaderTagsInput>(EMPTY_TAGS)
   const [finished, setFinished] = useState(false)
   // Marking a book you're reading as did not finish. Like `finished`, it swaps in rating and review.
@@ -205,10 +205,11 @@ const BookUpdateModal: FC = () => {
       success = null
     }
 
-    // Tags go to the shared Work in their own request; the rating and shelf change don't wait on it.
-    const saveTags = (isClosed || finished || stopping) && tagsChanged
+    // Tags go to the shared Work in their own request, once the shelf change has landed: spice only
+    // counts from a reader the server already sees as finished. The rating and shelf change don't wait on it.
+    const saveTags = () => (isClosed || finished || stopping) && tagsChanged
       ? axios.put("/api/works/tags", { bookId: book.id, ...tags }).then(() => tagsMutate())
-        .catch((err) => notify.error(apiError(err, "Couldn't save your moods and warnings.")))
+        .catch((err) => notify.error(apiError(err, "Couldn't save your moods, spice and warnings.")))
       : Promise.resolve()
 
     // Read now: by the time the toast's action is pressed, this modal has closed and moved on.
@@ -219,7 +220,7 @@ const BookUpdateModal: FC = () => {
 
     setIsSaving(true)
     axios.post("/api/book-progress", payload).then(async ({ data: saved }) => {
-      await saveTags
+      await saveTags()
       celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null)
       mutate()
       refreshAfterBookChange()
@@ -520,7 +521,7 @@ const BookUpdateModal: FC = () => {
           </label>
         </div>
       </div>
-      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} />
+      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} canReportSpice={status === "COMPLETED" || finished} />
     </div>
   )
 

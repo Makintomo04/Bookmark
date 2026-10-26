@@ -1,11 +1,11 @@
-import { MOODS, MOOD_LABEL, WARNING_TOPICS, shownMoods, type Mood, type MoodCount, type WarningSummary, type WarningTopic } from "@/lib/workTags";
+import { MOODS, MOOD_LABEL, SPICE_LABEL, SPICE_MAX, WARNING_TOPICS, shownMoods, type Mood, type MoodCount, type SpiceLevel, type SpiceSummary, type WarningSummary, type WarningTopic } from "@/lib/workTags";
 import { AiError, type AskJson } from "@/lib/ai/client";
 
 // Ask the shelf: a reader describes what they're in the mood for, and gets books from Bookmark's own
 // catalog. The model never names a title. It does two jobs the reader asked for, both labelled:
 //
 //   1. Turn the reader's words into a structured intent (moods from the fixed set, pace, genres and
-//      themes, must-haves, content warnings to avoid, length, format, re-reads). One call.
+//      themes, must-haves, content warnings to avoid, a spice range, length, format, re-reads). One call.
 //   2. Write one short, book-only reason for each result it's handed. One call. Never about the reader.
 //
 // Between them, plain code does the finding: works in the catalog are filtered and scored against the
@@ -41,6 +41,9 @@ export interface ShelfIntent {
   mustNotHaves: WarningTopic[];
   // Themes the reader ruled out that aren't content warnings: "love triangle".
   avoidSubjects: string[];
+  // How explicit, 0 to 5, against readers' spice reports (lib/workTags.ts). Null: no limit that way.
+  minSpice: SpiceLevel | null;
+  maxSpice: SpiceLevel | null;
   minPages: number | null;
   maxPages: number | null;
   format: AskFormat | null;
@@ -49,7 +52,7 @@ export interface ShelfIntent {
 
 export const emptyIntent = (): ShelfIntent => ({
   moods: [], avoidMoods: [], pace: null, genres: [], subjects: [], mustHaves: [], mustNotHaves: [], avoidSubjects: [],
-  minPages: null, maxPages: null, format: null, rereads: false,
+  minSpice: null, maxSpice: null, minPages: null, maxPages: null, format: null, rereads: false,
 });
 
 // ---- Step 1: the reader's words → intent -------------------------------------------------------------
@@ -64,7 +67,8 @@ Rules:
 - genres: lower-case genre names the reader asked for (romantasy, fantasy, romance, science fiction, mystery, thriller, horror, historical fiction, literary fiction, young adult, contemporary). Empty when they didn't name or clearly imply one.
 - subjects: up to 10 lower-case words or short phrases as a library subject heading or a back-cover blurb would put the themes and tropes they want, including near synonyms ("strong female lead" → "women heroes", "heroines", "female protagonist"; "enemies to lovers" → "enemies to lovers", "rivals").
 - mustHaves: the things they insisted on, in short plain words, at most 6.
-- mustNotHaves: content warnings they ruled out, only from the given list. Map their words onto it: "no sexual violence" → Sexual assault; "nothing spicy" or "closed door" → Sexual content; "no animal deaths" → Animal death; "no cheating" → Infidelity.
+- mustNotHaves: content warnings they ruled out, only from the given list. Map their words onto it: "no sexual violence" → Sexual assault; "nothing spicy" or "no sex" → Sexual content; "no animal deaths" → Animal death; "no cheating" → Infidelity.
+- minSpice / maxSpice: 0 to 5, how explicit the sex should be, only when they said: 0 none, 1 kissing, 2 closed door, 3 open door, 4 explicit, 5 very explicit. "spicy" or "steamy" → min 3; "very spicy", "smut" or "the spicier the better" → min 4; "a bit of spice" → min 2, max 3; "low spice", "closed door" or "fade to black" → max 2; "clean", "no spice" or "nothing spicy" → max 1. Otherwise null.
 - avoidSubjects: themes they ruled out that aren't on the warnings list ("no love triangles" → "love triangle").
 - minPages / maxPages: numbers only when they gave a length ("under 400 pages" → max 400; "a short read" → max 300; "a chunky epic" → min 500). Otherwise null.
 - format: print, ebook or audiobook if they asked for one, else "any".
@@ -83,12 +87,14 @@ export const INTENT_SCHEMA = {
     mustNotHaves: { type: "array", items: { type: "string", enum: [...WARNING_TOPICS] } },
     avoidSubjects: { type: "array", items: { type: "string" } },
     // No minimum/maximum: structured outputs reject them. readIntent clamps.
+    minSpice: { type: ["integer", "null"] },
+    maxSpice: { type: ["integer", "null"] },
     minPages: { type: ["integer", "null"] },
     maxPages: { type: ["integer", "null"] },
     format: { type: "string", enum: [...FORMATS, "any"] },
     rereads: { type: "boolean" },
   },
-  required: ["moods", "avoidMoods", "pace", "genres", "subjects", "mustHaves", "mustNotHaves", "avoidSubjects", "minPages", "maxPages", "format", "rereads"],
+  required: ["moods", "avoidMoods", "pace", "genres", "subjects", "mustHaves", "mustNotHaves", "avoidSubjects", "minSpice", "maxSpice", "minPages", "maxPages", "format", "rereads"],
   additionalProperties: false,
 } as const;
 
@@ -114,12 +120,21 @@ function fromSet<T extends string>(raw: unknown, set: readonly T[], max: number)
 const pages = (raw: unknown) =>
   typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? Math.min(5000, Math.round(raw)) : null;
 
+const spiceLevel = (raw: unknown) =>
+  typeof raw === "number" && Number.isFinite(raw) ? (Math.max(0, Math.min(SPICE_MAX, Math.round(raw))) as SpiceLevel) : null;
+
 // Whatever came back, as a well-formed intent. Anything off the fixed sets is dropped.
 export function readIntent(raw: unknown): ShelfIntent {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   let minPages = pages(r.minPages);
   let maxPages = pages(r.maxPages);
   if (minPages !== null && maxPages !== null && minPages > maxPages) [minPages, maxPages] = [maxPages, minPages];
+  let minSpice = spiceLevel(r.minSpice);
+  let maxSpice = spiceLevel(r.maxSpice);
+  if (minSpice !== null && maxSpice !== null && minSpice > maxSpice) [minSpice, maxSpice] = [maxSpice, minSpice];
+  // "At least none" and "at most scorching" limit nothing.
+  if (minSpice === 0) minSpice = null;
+  if (maxSpice === SPICE_MAX) maxSpice = null;
   const moods = fromSet(r.moods, MOODS, 4);
   return {
     moods,
@@ -130,6 +145,8 @@ export function readIntent(raw: unknown): ShelfIntent {
     mustHaves: strings(r.mustHaves, 6, 60),
     mustNotHaves: fromSet(r.mustNotHaves, WARNING_TOPICS, 10),
     avoidSubjects: strings(r.avoidSubjects, 6),
+    minSpice,
+    maxSpice,
     minPages,
     maxPages,
     format: (FORMATS as readonly unknown[]).includes(r.format) ? (r.format as AskFormat) : null,
@@ -150,12 +167,15 @@ export async function parseIntent(query: string, ask: AskJson): Promise<ShelfInt
   return readIntent(data);
 }
 
+export const hasSpiceRange = (intent: ShelfIntent) => intent.minSpice !== null || intent.maxSpice !== null;
+
 // True when the intent gives retrieval something to go on.
 export const hasSearchableIntent = (intent: ShelfIntent) =>
   intent.moods.length + intent.genres.length + intent.subjects.length + intent.mustHaves.length > 0
-  || intent.minPages !== null || intent.maxPages !== null || intent.format !== null;
+  || intent.minPages !== null || intent.maxPages !== null || intent.format !== null || hasSpiceRange(intent);
 
-// Only a length or a format ("a short read", "an audiobook"): retrieval goes by editions instead of words.
+// Only a length, a format or a spice range ("a short read", "an audiobook", "something spicy"): retrieval
+// goes by editions and spice reports instead of words.
 export const isShapeOnly = (intent: ShelfIntent) =>
   intent.moods.length + intent.genres.length + intent.subjects.length + intent.mustHaves.length === 0;
 
@@ -181,6 +201,7 @@ export interface CatalogCandidate {
   tagReaders: number;
   moods: MoodCount[];
   warnings: WarningSummary[];
+  spice: SpiceSummary;
 }
 
 // A book on the asking reader's shelf.
@@ -284,7 +305,13 @@ export interface Scored {
   themeHits: number;
 }
 
-export type Exclusion = "shelf" | "warning" | "avoided" | "length" | "genre" | "irrelevant";
+export type Exclusion = "shelf" | "warning" | "avoided" | "length" | "spice" | "genre" | "irrelevant";
+
+// With no spice reported yet, a book readers or its subjects call explicit is too much for a reader
+// asking for this little.
+const MILD_SPICE = 2;
+const looksExplicit = (c: CatalogCandidate, hay: Haystack) =>
+  c.warnings.some((w) => w.topic === "Sexual content" && w.level === "GRAPHIC") || wordRegex("erotica").test(hay.subjects) || wordRegex("erotic").test(hay.subjects);
 
 // One candidate against the intent: a score, or why it's out. Pure.
 export function scoreCandidate(intent: ShelfIntent, candidate: CatalogCandidate): Scored | { excluded: Exclusion } {
@@ -302,6 +329,13 @@ export function scoreCandidate(intent: ShelfIntent, candidate: CatalogCandidate)
   if (candidate.pages !== null) {
     if (intent.maxPages !== null && candidate.pages > intent.maxPages) return { excluded: "length" };
     if (intent.minPages !== null && candidate.pages < intent.minPages) return { excluded: "length" };
+  }
+  const spice = candidate.spice.level;
+  if (spice !== null) {
+    if (intent.minSpice !== null && spice < intent.minSpice) return { excluded: "spice" };
+    if (intent.maxSpice !== null && spice > intent.maxSpice) return { excluded: "spice" };
+  } else if (intent.maxSpice !== null && intent.maxSpice <= MILD_SPICE && looksExplicit(candidate, hay)) {
+    return { excluded: "spice" };
   }
   const genresHit = intent.genres.filter((g) => genreGroups(g).some((group) => group.every((t) => inSubjectsOrBlurb(hay, t))));
   if (intent.genres.length > 0 && genresHit.length === 0) return { excluded: "genre" };
@@ -352,6 +386,15 @@ export function scoreCandidate(intent: ShelfIntent, candidate: CatalogCandidate)
   }
   if (intent.pace) for (const mood of PACE_MOODS[intent.pace]) score += 1.5 * moodShare(candidate, mood);
   for (const mood of intent.avoidMoods) score -= 4 * moodShare(candidate, mood);
+  // A spice range was asked for: readers putting it in range is a real match. Unknown counts against a
+  // little but is still shown, since most books have no spice reports yet.
+  if (hasSpiceRange(intent)) {
+    if (spice !== null) {
+      score += 2;
+      beyondGenre++;
+      matched.push(`${SPICE_LABEL[spice]} spice`);
+    } else score -= 0.5;
+  }
   if (intent.format && candidate.formats.includes(intent.format)) score += 1;
   // A length was asked for: in range counts for a little, unknown counts against a little (still shown).
   if (intent.minPages !== null || intent.maxPages !== null) score += candidate.pages === null ? -0.5 : 1;
@@ -402,7 +445,7 @@ export function rankCandidates(
   limit = ASK_RESULTS_MAX,
 ): Ranked[] {
   const shelfEntry = shelfLookup(shelf);
-  const askedBeyondGenre = intent.moods.length + intent.subjects.length + intent.mustHaves.length > 0;
+  const askedBeyondGenre = intent.moods.length + intent.subjects.length + intent.mustHaves.length > 0 || hasSpiceRange(intent);
   const seen = new Set<string>();
   const scored: (Scored & { entry: ShelfEntry | null })[] = [];
   for (const candidate of candidates) {
@@ -451,7 +494,7 @@ const REASONS_SYSTEM = `You write one short line about each book you're given, f
 
 Rules:
 - Write about the book only. Never address or mention the reader: no "you", "your", "readers", "fans", "perfect for", "if you like".
-- Use only the given description, subjects and moods. Don't invent plot, characters or details that aren't there. If little is given, write a shorter line.
+- Use only the given description, subjects, moods and spice. Don't invent plot, characters or details that aren't there. If little is given, write a shorter line.
 - Never comment on the information itself ("few details given", "described as", "according to its tags"): just say what the book is like.
 - Never mention any other book, series or author.
 - No spoilers beyond what the description gives away.
@@ -488,6 +531,7 @@ export function reasonsPromptFor(intent: ShelfIntent, results: Ranked[]) {
       themes: intent.subjects,
       mustHaves: intent.mustHaves,
       avoiding: [...intent.mustNotHaves, ...intent.avoidSubjects],
+      spice: hasSpiceRange(intent) ? { min: intent.minSpice, max: intent.maxSpice } : null,
     },
     books: results.map(({ candidate: c }, i) => ({
       i,
@@ -498,6 +542,8 @@ export function reasonsPromptFor(intent: ShelfIntent, results: Ranked[]) {
       description: c.description ? c.description.slice(0, 700) : null,
       subjects: c.subjects.filter((s) => !/^nyt:|^form:|new york times|bestseller|reviewed|accessible book|protected daisy|in library/i.test(s)).slice(0, 15),
       moods: shownMoods(c.moods, c.tagReaders, 4).map((m) => MOOD_LABEL[m.mood]),
+      // Readers' median, 0 to 5, once enough have reported it.
+      spice: c.spice.level,
     })),
   });
 }
@@ -570,6 +616,7 @@ export interface AskResult {
   seriesPosition: number | null;
   moods: MoodCount[];
   warnings: WarningSummary[];
+  spice: SpiceSummary;
   tagReaders: number;
   signal: FriendSignal | null;
   // Written by the model, labelled as such in the UI. Null when it wasn't written or broke the rules.
@@ -600,6 +647,7 @@ const toResult = (r: Ranked, reason: string | null): AskResult => ({
   seriesPosition: r.candidate.seriesPosition,
   moods: shownMoods(r.candidate.moods, r.candidate.tagReaders, 3),
   warnings: r.candidate.warnings,
+  spice: r.candidate.spice,
   tagReaders: r.candidate.tagReaders,
   signal: r.signal,
   reason,

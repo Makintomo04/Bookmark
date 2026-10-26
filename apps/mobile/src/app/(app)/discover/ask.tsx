@@ -3,8 +3,9 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import useSWR, { mutate as globalMutate } from "swr";
 import { AlertTriangle, BookCheck, Star, UsersRound } from "lucide-react-native";
 import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
-import { MOOD_LABEL, WARNING_LEVEL_LABEL, type Mood, type MoodCount, type WarningSummary } from "@bookmark/shared/workTags";
+import { MOOD_LABEL, SPICE_LABEL, SPICE_MAX, WARNING_LEVEL_LABEL, spiceRangeText, type Mood, type MoodCount, type SpiceLevel, type SpiceSummary, type WarningSummary } from "@bookmark/shared/workTags";
 import { BookCover } from "@/components/books/BookCover";
+import { SpiceFlames } from "@/components/books/Spice";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -40,6 +41,8 @@ type Intent = {
   mustHaves: string[];
   mustNotHaves: string[];
   avoidSubjects: string[];
+  minSpice: SpiceLevel | null;
+  maxSpice: SpiceLevel | null;
   minPages: number | null;
   maxPages: number | null;
   format: string | null;
@@ -54,6 +57,7 @@ type Result = {
   pages: number | null;
   moods: MoodCount[];
   warnings: WarningSummary[];
+  spice: SpiceSummary;
   tagReaders: number;
   signal: Signal | null;
   reason: string | null;
@@ -76,6 +80,9 @@ function intentChips(intent: Intent): string[] {
   else if (intent.maxPages) chips.push(`under ${intent.maxPages} pages`);
   else if (intent.minPages) chips.push(`over ${intent.minPages} pages`);
   if (intent.format) chips.push(intent.format);
+  // Searches kept from before spice existed have no range.
+  const spice = spiceRangeText(intent.minSpice ?? null, intent.maxSpice ?? null);
+  if (spice) chips.push(spice);
   for (const w of intent.mustNotHaves) chips.push(`no ${w.toLowerCase()}`);
   for (const s of intent.avoidSubjects) chips.push(`no ${s}`);
   for (const m of intent.avoidMoods) chips.push(`not ${MOOD_LABEL[m]}`);
@@ -281,6 +288,12 @@ function ResultCard({ result }: { result: Result }) {
       )}
       {result.moods.length > 0 && (
         <View style={styles.examples}>{result.moods.map((m) => <Chip key={m.mood} label={MOOD_LABEL[m.mood]} selected={false} disabled />)}</View>
+      )}
+      {result.spice?.level != null && (
+        <View style={styles.row} accessible accessibilityLabel={`Spice ${result.spice.level} of ${SPICE_MAX}, ${SPICE_LABEL[result.spice.level]}`}>
+          <SpiceFlames level={result.spice.level} size={12} />
+          <Text variant="small">{SPICE_LABEL[result.spice.level]}</Text>
+        </View>
       )}
       {result.warnings.length === 0 ? (
         <Text variant="small">{result.tagReaders > 0 ? "No content warnings reported" : "No reader tags yet"}</Text>

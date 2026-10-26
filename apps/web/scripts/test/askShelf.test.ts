@@ -1,5 +1,5 @@
 // Ask the shelf and the shared AI groundwork: intent parsing against a fake model, the catalog filters
-// (content warnings, the reader's shelf, length, genre), friends-first ordering, book-only reasons,
+// (content warnings, the reader's shelf, length, spice, genre), friends-first ordering, book-only reasons,
 // allowance metering under concurrency, the daily cost guard, and a clean skip with no API key.
 // No network and no database.
 //
@@ -16,15 +16,15 @@ import { aggregateTags } from "@/lib/workTags";
 
 // ---- Fixtures ------------------------------------------------------------------------------------
 
-type Tags = { moods?: string[]; warnings?: { topic: string; level: string }[] }[];
+type Tags = { moods?: string[]; warnings?: { topic: string; level: string }[]; spice?: number }[];
 
 function work(id: string, fields: Partial<CatalogCandidate> & { tags?: Tags } = {}): CatalogCandidate {
   const { tags = [], ...rest } = fields;
-  const agg = aggregateTags(tags.map((t, i) => ({ userId: `tagger${i}`, moods: t.moods ?? [], warnings: t.warnings ?? [] })));
+  const agg = aggregateTags(tags.map((t, i) => ({ userId: `tagger${i}`, moods: t.moods ?? [], warnings: t.warnings ?? [], spice: t.spice ?? null })));
   return {
     workId: id, workKey: `OL${id}W`, title: `Book ${id}`, authors: ["An Author"], description: null, subjects: [],
     coverUrl: null, pages: 350, formats: ["print"], year: 2020, seriesName: null, seriesPosition: null,
-    tagReaders: agg.readers, moods: agg.moods, warnings: agg.warnings,
+    tagReaders: agg.readers, moods: agg.moods, warnings: agg.warnings, spice: agg.spice,
     ...rest,
   };
 }
@@ -127,6 +127,41 @@ test("length, genre and avoided themes are hard filters; unknown length stays in
   assert.ok(!("excluded" in unknown));
   // "war" is a whole word: "warm" and "award" don't match it.
   assert.deepEqual(scoreCandidate(intent({ subjects: ["war"] }), work("warm", { description: "A warm, award-winning story." })), { excluded: "irrelevant" });
+});
+
+test("spice filters by readers' median, and unknown spice stays in below the ones that fit", () => {
+  const spiced = (id: string, level: number, reports = 5) =>
+    work(id, { subjects: ["Fantasy", "Romance"], tags: Array.from({ length: reports }, () => ({ spice: level })) });
+  const spicy = intent({ genres: ["romantasy"], minSpice: 3 });
+  const hot = scoreCandidate(spicy, spiced("hot", 4));
+  assert.ok(!("excluded" in hot) && hot.matched.includes("spicy spice"));
+  assert.deepEqual(scoreCandidate(spicy, spiced("sweet", 1)), { excluded: "spice" });
+  // Four reports isn't a median yet: the book is unknown, not excluded.
+  const unknown = scoreCandidate(spicy, spiced("few", 1, 4));
+  assert.ok(!("excluded" in unknown) && !("excluded" in hot) && unknown.score < hot.score);
+
+  const clean = intent({ genres: ["romantasy"], maxSpice: 1 });
+  assert.deepEqual(scoreCandidate(clean, spiced("hot", 4)), { excluded: "spice" });
+  assert.ok(!("excluded" in scoreCandidate(clean, spiced("sweet", 1))));
+  // No spice reported, but readers flagged graphic sexual content.
+  assert.deepEqual(scoreCandidate(clean, work("flagged", { subjects: ["Fantasy", "Romance"], tags: [{ warnings: [{ topic: "Sexual content", level: "GRAPHIC" }] }] })), { excluded: "spice" });
+
+  // The model's range is clamped, put in order, and dropped when it limits nothing.
+  const read = readIntent({ pace: "any", format: "any", minSpice: 9, maxSpice: 2 });
+  assert.deepEqual([read.minSpice, read.maxSpice], [2, null]);
+  assert.deepEqual([readIntent({ minSpice: 0, maxSpice: 5 }).minSpice, readIntent({ minSpice: 0, maxSpice: 5 }).maxSpice], [null, null]);
+  assert.ok((INTENT_SCHEMA.required as readonly string[]).includes("minSpice"));
+});
+
+test("a spice-only request still searches", async () => {
+  const works = [
+    work("hot", { tags: Array.from({ length: 5 }, () => ({ spice: 4 })) }),
+    work("sweet", { tags: Array.from({ length: 5 }, () => ({ spice: 0 })) }),
+  ];
+  const { ask } = fakeModel({ ...emptyIntent(), minSpice: 4, pace: "any", format: "any" });
+  const { results } = await askShelf("reader", "something really spicy", { ask, catalog: memoryCatalog(works) });
+  assert.deepEqual(ids(results), ["hot"]);
+  assert.equal(results[0].spice.level, 4);
 });
 
 test("romantasy needs both fantasy and romance", () => {
