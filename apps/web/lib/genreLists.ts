@@ -5,7 +5,7 @@ import { GENRE_LISTS_SHOWN, allGenreListsOrder, rankGenreLists } from "@/lib/gen
 type Viewer = Parameters<typeof findLists>[1]
 
 // How many times each list has been remixed (copied into someone else's lists).
-async function remixCounts(ids: string[]): Promise<Map<string, number>> {
+export async function remixCounts(ids: string[]): Promise<Map<string, number>> {
   if (!ids.length) return new Map()
   const rows = await prisma.list.groupBy({ by: ["forkedFromId"], where: { forkedFromId: { in: ids } }, _count: { _all: true } })
   return new Map(rows.map((r) => [r.forkedFromId!, r._count._all]))

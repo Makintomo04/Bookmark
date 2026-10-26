@@ -34,6 +34,8 @@ export interface ListFilters {
   // Lists made by readers rather than the team. Empty ones are left out so browsing never hits a blank list.
   community?: boolean
   genre?: string
+  // Lists with this book on them (an Open Library work key), for the book's page.
+  workKey?: string
   featured?: boolean
   owner?: string
   // Staff only: lists with at least one report, of any visibility, for review.
@@ -59,6 +61,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
       ...(filters.pick ? [{ isPick: true }] : []),
       ...(filters.community ? [{ isPick: false, items: { some: {} } }] : []),
       ...(filters.genre ? [{ genres: { has: filters.genre } }] : []),
+      ...(filters.workKey ? [{ items: { some: { workKey: filters.workKey } } }] : []),
       ...(filters.featured ? [{ featuredFrom: { lte: now }, featuredUntil: { gte: now } }] : []),
       ...(filters.owner ? [{ owner: { username: filters.owner } }] : []),
       ...(filters.reported ? [{ reports: { some: {} } }] : []),
