@@ -3,6 +3,7 @@ import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { brand } from "@bookmark/shared/tokens";
 import { RATING_STEP, snapRating, starClip } from "@bookmark/shared/rating";
 import { useTheme } from "@/lib/theme";
+import { Text } from "@/components/ui/Text";
 
 // Quarter-star ratings from 0.25 to 5, as on the web. Where you tap a star sets how much of it fills, by
 // quarters; tapping the current rating again clears it. Stars are the brand mark colour.
@@ -59,10 +60,13 @@ export function StarRating({ value, onChange, size = 32, disabled, label = "Rati
           <Star key={n} fill={fill} size={size} empty={colors.muted} />
         );
       })}
+      {/* The exact value, since at this size 3.75 and 4 look alike. The row's label already reads it out. */}
+      {onChange ? <Text variant="muted" style={styles.value} importantForAccessibility="no" aria-hidden>{value ? value : "Not rated"}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 4 },
+  row: { flexDirection: "row", alignItems: "center", gap: 4 },
+  value: { marginLeft: 8, fontVariant: ["tabular-nums"] },
 });

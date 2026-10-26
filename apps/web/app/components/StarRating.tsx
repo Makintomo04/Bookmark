@@ -112,6 +112,10 @@ const StarRating: FC<StarRatingProps> = ({ value, onChange, disabled, readOnly, 
       )}
     >
       {stars}
+      {/* The exact value, following the pointer: at this size 3.75 and 4 look alike. Screen readers get aria-valuetext. */}
+      <span aria-hidden onMouseEnter={() => setHovered(null)} className="ml-2 self-center text-sm tabular-nums text-muted-foreground">
+        {display ? display : "Not rated"}
+      </span>
     </div>
   )
 }
