@@ -6,12 +6,14 @@ import { Skeleton } from '../ui/skeleton'
 interface BookBlurbProps {
   description: string | null
   isLoading: boolean
+  // The book page gives the section its own heading.
+  hideHeading?: boolean
   className?: string
 }
 
 // "About this book", clamped to a few lines with a toggle when it runs long.
 // Renders nothing when there's no blurb, so books Open Library knows little about aren't cluttered.
-const BookBlurb: FC<BookBlurbProps> = ({ description, isLoading, className }) => {
+const BookBlurb: FC<BookBlurbProps> = ({ description, isLoading, hideHeading = false, className }) => {
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
   const textRef = useRef<HTMLParagraphElement>(null)
@@ -25,8 +27,8 @@ const BookBlurb: FC<BookBlurbProps> = ({ description, isLoading, className }) =>
   if (!isLoading && !description) return null
 
   return (
-    <section aria-labelledby="book-blurb-heading" className={className}>
-      <h3 id="book-blurb-heading" className="text-sm font-medium">About this book</h3>
+    <section aria-labelledby={hideHeading ? undefined : "book-blurb-heading"} className={className}>
+      {!hideHeading && <h3 id="book-blurb-heading" className="text-sm font-medium">About this book</h3>}
       {isLoading ? (
         <div className="mt-2 flex flex-col gap-2" aria-label="Loading description">
           <Skeleton className="h-3.5 w-full" />
@@ -38,7 +40,7 @@ const BookBlurb: FC<BookBlurbProps> = ({ description, isLoading, className }) =>
           <p
             id="book-blurb-text"
             ref={textRef}
-            className={cn("mt-1.5 text-sm leading-relaxed text-muted-foreground whitespace-pre-line", !expanded && "line-clamp-4")}
+            className={cn(!hideHeading && "mt-1.5", "text-sm leading-relaxed text-muted-foreground whitespace-pre-line", !expanded && "line-clamp-4")}
           >
             {description}
           </p>

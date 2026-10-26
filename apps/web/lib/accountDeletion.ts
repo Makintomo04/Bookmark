@@ -76,6 +76,7 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.readingGoal.deleteMany({ where: { userId } });
     await tx.readingDay.deleteMany({ where: { userId } });
     await tx.userAchievement.deleteMany({ where: { userId } });
+    await tx.bookReport.deleteMany({ where: { reporterId: userId } });
     await tx.listReport.deleteMany({ where: { OR: [{ reporterId: userId }, { list: { ownerId: userId } }] } });
     await tx.listItem.deleteMany({ where: { list: { ownerId: userId } } });
     await tx.list.deleteMany({ where: { ownerId: userId } });

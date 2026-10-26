@@ -669,6 +669,24 @@ model ListReport {
   @@unique([listId, reporterId])
 }
 
+// A reader telling us a book page's details are wrong or missing (cover, author, pages…). Keyed by the
+// Open Library work key, since book pages are, so a book nobody has shelved can be reported too.
+// reporterId is a scalar, not a relation, so User stays untouched; account deletion clears it.
+// Staff get an email at filing time (lib/reportAlerts.ts); resolvedAt is for when they've fixed it.
+model BookReport {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  workKey String
+  reporterId String @db.ObjectId
+  // Values from BOOK_ISSUES in lib/bookReportRules.ts.
+  issues String[]
+  note String?
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+
+  @@index([workKey])
+  @@index([reporterId])
+}
+
 // Items snapshot the book's details: books are per-user rows, so there's no shared record to point at.
 model ListItem {
   id String @id @default(auto()) @map("_id") @db.ObjectId
