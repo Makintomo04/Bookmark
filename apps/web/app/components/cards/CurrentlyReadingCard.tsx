@@ -1,11 +1,14 @@
 "use client"
-import { FC } from 'react'
+import { FC, KeyboardEvent } from 'react'
 import moment from 'moment'
 import type { Book } from '@prisma/client'
 import { Pencil, Repeat2 } from 'lucide-react'
 import { formatPosition, progressWhole } from '@/lib/progress'
 import { readableInk } from '@/lib/colour'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
+import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
+import { discoverBookOf } from '@/lib/openLibrary'
+import { cn } from '@/lib/utils'
 import BookCover from './BookCover'
 import BookActions from './BookActions'
 import PrivateBadge from '../books/PrivateBadge'
@@ -14,6 +17,7 @@ import AuthorLink from '@/app/components/AuthorLink'
 interface CurrentlyReadingCardProps {
   book: Book
   accentColour?: string | null
+  // Someone else's book: the whole card opens its details, and there's no progress to update.
   readOnly?: boolean
   isReread?: boolean
 }
@@ -21,6 +25,7 @@ interface CurrentlyReadingCardProps {
 const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColour, readOnly = false, isReread = false }) => {
   const { title, author, startedAt } = book
   const bookUpdateModal = useBookUpdateModal()
+  const openDetails = useBookDetailsModal((s) => s.onOpen)
   const progress = progressWhole(book)
   const position = formatPosition(book)
   const accent = accentColour || '#F13C3C'
@@ -30,6 +35,18 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
     bookUpdateModal.setBook(book, false)
     bookUpdateModal.onOpen(book.id)
   }
+
+  const detailsProps = readOnly ? {
+    role: "button",
+    tabIndex: 0,
+    "aria-label": `About ${title} by ${author}`,
+    onClick: () => openDetails(discoverBookOf(book)),
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+      if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+      e.preventDefault()
+      openDetails(discoverBookOf(book))
+    },
+  } : {}
 
   const started = startedAt
     ? `${isReread ? "Rereading since" : "Started"} ${moment(startedAt).format(moment(startedAt).isSame(moment(), 'year') ? 'D MMM' : 'MMM YYYY')}`
@@ -49,7 +66,13 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
   )
 
   return (
-    <article className="flex gap-4 p-4 rounded-lg bg-neutral-100 dark:bg-neutral-900">
+    <article
+      {...detailsProps}
+      className={cn(
+        "flex gap-4 p-4 rounded-lg bg-neutral-100 dark:bg-neutral-900",
+        readOnly && "cursor-pointer transition hover:bg-neutral-200/70 dark:hover:bg-neutral-800/70 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      )}
+    >
       {/* Stretches with the card so a long title never leaves a gap under the cover. */}
       <BookCover book={book} variant="thumb" sizes="96px" className="w-auto h-auto min-w-20 sm:min-w-24 flex-shrink-0 self-stretch" />
 

@@ -20,6 +20,16 @@ export interface DiscoverBook {
   languages?: string[]
 }
 
+// A reader's copy of a book, as the book details modal and the add buttons take it. Pages of 0 mean unknown.
+// An uploaded cover shows here as it does on their shelf; adding it swaps in the catalogue's (api/books).
+export const discoverBookOf = (book: { workKey?: string | null, title: string, author: string, pages?: number | null, coverImage?: string | null }): DiscoverBook => ({
+  workKey: book.workKey ?? null,
+  title: book.title,
+  author: book.author,
+  pages: book.pages || null,
+  coverUrl: book.coverImage || null,
+})
+
 export const coverUrlFor = (coverId?: number | null, size: "S" | "M" | "L" = "L") =>
   coverId ? `https://covers.openlibrary.org/b/id/${coverId}-${size}.jpg` : null
 
