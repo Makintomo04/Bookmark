@@ -17,7 +17,6 @@ import { Segmented } from "@/components/ui/Segmented";
 import { Text } from "@/components/ui/Text";
 import { ApiError, api, apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { FOLLOWED_AUTHORS_KEY, setFollowingAuthor, type FollowedAuthor } from "@/lib/authors";
 import { useTheme, useThemePreference, type ThemePreference } from "@/lib/theme";
 
 // Settings (the web's /settings): appearance, privacy, community, AI, push notifications, your data and
@@ -86,7 +85,6 @@ export default function SettingsScreen() {
       </Card>
 
       <FollowRequests />
-      <FollowedAuthors />
 
       <Card title="Privacy" hint="Blocked readers never see your profile, whatever you choose here.">
         <View style={{ gap: 6 }}>
@@ -121,44 +119,6 @@ export default function SettingsScreen() {
       <DataExport />
       <DeleteAccount username={user.username} />
     </Screen>
-  );
-}
-
-// The authors the reader follows, each with a way to stop. Following happens on the author's page.
-function FollowedAuthors() {
-  const { colors } = useTheme();
-  const { data } = useSWR<{ authors: FollowedAuthor[] }>(FOLLOWED_AUTHORS_KEY);
-  const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  if (!data) return null;
-
-  const unfollow = async (author: FollowedAuthor) => {
-    setPending(author.key);
-    setError(null);
-    try {
-      await setFollowingAuthor(author.slug, false);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : `Couldn't unfollow ${author.name}. Try again.`);
-    } finally {
-      setPending(null);
-    }
-  };
-
-  return (
-    <Card
-      title="Authors you follow"
-      hint={data.authors.length ? "Follow more from any author's page." : "You're not following any authors yet. Tap Follow on an author's page to add them here."}
-    >
-      {error && <Notice tone="error" message={error} />}
-      {data.authors.map((author) => (
-        <View key={author.key} style={[styles.authorRow, { borderTopColor: colors.border }]}>
-          <Pressable accessibilityRole="link" onPress={() => router.push(`/authors/${encodeURIComponent(author.slug)}` as never)} style={{ flex: 1 }}>
-            <Text numberOfLines={1}>{author.name}</Text>
-          </Pressable>
-          <Button title="Unfollow" variant="outline" loading={pending === author.key} disabled={pending !== null} onPress={() => void unfollow(author)} accessibilityLabel={`Unfollow ${author.name}`} />
-        </View>
-      ))}
-    </Card>
   );
 }
 
@@ -356,7 +316,6 @@ function DeleteAccount({ username }: { username: string | null }) {
 }
 
 const styles = StyleSheet.create({
-  authorRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 16 },
   toggle: { flexDirection: "row", alignItems: "center", gap: 16 },
   storeNote: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },

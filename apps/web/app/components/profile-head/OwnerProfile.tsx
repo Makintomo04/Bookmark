@@ -1,6 +1,6 @@
 "use client"
 import { FC } from 'react'
-import { SWRConfig } from 'swr'
+import useSWR, { SWRConfig } from 'swr'
 import { Book } from '@prisma/client'
 import { privacyOf, visibleReview, type Relation } from '@/lib/privacyRules'
 import useBooks from '@/app/hooks/useBooks'
@@ -10,6 +10,9 @@ import ProfileReviews from './ProfileReviews'
 import BookList from '../books/BookList'
 import ProfileLists from '../discover/ProfileLists'
 import FollowRequests from './FollowRequests'
+import ProfileAuthors from './ProfileAuthors'
+import type { FollowedAuthor } from '@/lib/authorFollows'
+import { fetcher, swrOptions } from '@/lib/fetcher'
 
 interface OwnerProfileProps {
   username: string
@@ -33,6 +36,13 @@ const OwnReviews: FC = () => {
   return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" />
 }
 
+// The authors you follow, from your own list so an unfollow elsewhere shows on the next visit.
+const OwnAuthors: FC = () => {
+  const { data } = useSWR<{ authors: FollowedAuthor[] }>('/api/user/authors', fetcher, swrOptions)
+  if (!data) return null
+  return <div className="mt-12"><ProfileAuthors authors={data.authors} isSelf /></div>
+}
+
 // Your own profile: editable, so it stays client-side, but starts from server data.
 const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
   <SWRConfig value={{ fallback }}>
@@ -42,6 +52,7 @@ const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
       <BookList />
       <OwnReviews />
       <ProfileLists username={username} isSelf />
+      <OwnAuthors />
     </div>
   </SWRConfig>
 )
