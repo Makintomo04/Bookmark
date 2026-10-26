@@ -134,6 +134,8 @@ model User {
   reviewVisibility  ReviewVisibility?
   hideWantToRead    Boolean?
   hideFollowCounts  Boolean?
+  // A librarian hiding their Librarian badge (packages/shared/src/staffBadge.ts). The team's badge always shows.
+  hideStaffBadge    Boolean?
   // Community preferences, optional for the same reason (EVERYONE, false, PRIVATE). See lib/preferences.ts.
   buddyReadInvites      BuddyReadInviteAudience?
   // Reveal reviews marked as spoilers instead of covering them.

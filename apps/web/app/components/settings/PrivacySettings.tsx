@@ -1,12 +1,15 @@
 "use client"
 import { FC } from 'react'
 import useSettings from '@/app/hooks/useSettings'
+import useUser from '@/app/hooks/useUser'
+import { roleOf } from '@/lib/roles'
 import FollowRequests from '../profile-head/FollowRequests'
 import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS, Segmented, Toggle } from './controls'
 
 // Each setting saves as soon as it changes, separately from the profile form. The server enforces them (lib/privacy.ts).
 const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
   const { settings, save, pending } = useSettings()
+  const { user } = useUser()
   if (!settings) return null
   const busy = disabled || pending !== null
 
@@ -37,6 +40,16 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           onChange={(v) => save("hideFollowCounts", v)}
           disabled={busy}
         />
+        {/* The team's badge always shows, so only librarians get the choice. */}
+        {roleOf(user) === "LIBRARIAN" && (
+          <Toggle
+            label="Hide my Librarian badge"
+            hint="Your profile and reviews won't show that you're a librarian. Your librarian tools stay the same."
+            checked={settings.hideStaffBadge}
+            onChange={(v) => save("hideStaffBadge", v)}
+            disabled={busy}
+          />
+        )}
       </div>
       <div className="rounded-lg border p-4 flex flex-col gap-5">
         <p className="text-sm font-medium">Community</p>

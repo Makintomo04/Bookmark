@@ -14,6 +14,11 @@ test("usernames are plain, lowercase and can't pass for Bookmark", () => {
   }
   assert.ok(usernameProblem("support"));
   assert.ok(usernameProblem("bookmark"));
+  for (const bad of ["bookmark_support", "staff.jane", "the.admin", "book.mark.team", "ad_min99", "official-reads", "librarianjo"]) {
+    assert.ok(usernameProblem(bad), `should refuse ${JSON.stringify(bad)}`);
+  }
+  // Only whole names for the short words, so ordinary ones get through.
+  for (const ok of ["modern.reader", "steam_reads", "teamwork"]) assert.equal(usernameProblem(ok), null, ok);
 });
 
 test("usernames are compared and stored lowercase", () => {

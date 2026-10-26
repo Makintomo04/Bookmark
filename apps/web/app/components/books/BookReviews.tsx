@@ -8,7 +8,7 @@ import type { WorkReview, WorkReviewsPage } from '@/lib/workReviewRules'
 import StarRating from '../StarRating'
 import ReviewText from '../feed/ReviewText'
 import { CuratorAvatar } from '../lists/CuratorNote'
-import { secondaryButtonClass } from '../profile-head/ProfileHeader'
+import { StaffBadge, secondaryButtonClass } from '../profile-head/ProfileHeader'
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -26,6 +26,7 @@ const ReviewItem: FC<{ review: WorkReview }> = ({ review }) => {
       <div className="min-w-0 flex-1">
         <p className="text-sm">
           {name ? <Link href={`/u/${name}`} className="font-semibold hover:underline underline-offset-2">{name}</Link> : <span className="font-semibold">A reader</span>}
+          {review.staffBadge && <StaffBadge kind={review.staffBadge} className="ml-2" />}
           {review.isMine && <span className="text-muted-foreground"> · You</span>}
           <span className="text-muted-foreground"> · {dateOf(review.at)}</span>
         </p>
