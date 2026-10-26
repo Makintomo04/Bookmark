@@ -1,16 +1,19 @@
 "use client"
 import { FC } from 'react'
+import { achievementCounts, achievementCountsLine } from '@bookmark/shared/achievementCounts'
 import { cn } from '@/lib/utils'
 import { READER_TIERS, booksReadOf, tierProgress, type ReaderTier } from '@/lib/readerTier'
 import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
+import type { AchievementItem } from '@/app/hooks/useAchievements'
 
 const metal = (t: ReaderTier) => `linear-gradient(135deg, ${t.light}, ${t.colour} 45%, ${t.shade})`
 const fmt = (n: number) => n.toLocaleString('en-GB')
 
 // Where the reader sits on the tier ladder, and what the next rung takes. The user menu's tier card links here.
 // Before Bronze there's no metal to show, so the swatch is the next tier's outline with the books still to go.
-const ReaderTierCard: FC = () => {
+// Under the ladder, one quiet line of medal counts from the achievements the page already has.
+const ReaderTierCard: FC<{ achievements: AchievementItem[] }> = ({ achievements }) => {
   const { user } = useUser()
   const booksReadFor = useBooksReadFor()
   if (!user) return null
@@ -64,6 +67,8 @@ const ReaderTierCard: FC = () => {
           )
         })}
       </ol>
+
+      <p className="mt-4 text-sm text-muted-foreground tabular-nums">{achievementCountsLine(achievementCounts(achievements))}</p>
     </section>
   )
 }

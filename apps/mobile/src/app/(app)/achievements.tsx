@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import useSWR from "swr";
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { Check, Lock } from "lucide-react-native";
+import { achievementCounts, achievementCountsLine } from "@bookmark/shared/achievementCounts";
 import { closestMilestones, countsUp, toNextText } from "@bookmark/shared/achievements-catalog";
 import { READER_TIERS, tierProgress, type ReaderTier } from "@bookmark/shared/readerTier";
 import { Medal, MedalRing, MEDAL_INK, getMedalColour, tierPill } from "@/components/achievements/Medal";
@@ -57,7 +58,7 @@ export default function Achievements() {
   return (
     <Screen edges={["left", "right"]}>
       <Text variant="display">Achievements</Text>
-      <ReaderTierCard />
+      <ReaderTierCard achievements={data} />
       <UpNext achievements={data} onSelect={setSelectedKey} />
       <MedalList achievements={data} onSelect={setSelectedKey} />
       {selected && <AchievementDetail achievement={selected} onClose={close} />}
@@ -226,8 +227,9 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
 }
 
 // Where the reader sits on the tier ladder, and what the next rung takes. Before Bronze there's no metal
-// to show, so the swatch is the next tier's outline with the books still to go.
-function ReaderTierCard() {
+// to show, so the swatch is the next tier's outline with the books still to go. Under the ladder, one quiet
+// line of medal counts.
+function ReaderTierCard({ achievements }: { achievements: Achievement[] }) {
   const { colors } = useTheme();
   const { data: user } = useSWR<ProfileUser>("/api/user");
   if (!user) return null;
@@ -270,6 +272,8 @@ function ReaderTierCard() {
           );
         })}
       </View>
+
+      <Text variant="muted">{achievementCountsLine(achievementCounts(achievements))}</Text>
     </View>
   );
 }
