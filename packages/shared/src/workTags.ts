@@ -1,4 +1,4 @@
-// Moods and content warnings on a Work: the fixed sets, what a reader may submit, and how a book page
+// Moods, content warnings and spice on a Work: the fixed sets, what a reader may submit, and how a book page
 // sums everyone's tags up. No database or "@/" imports, so scripts/test/workTags.test.ts runs under
 // plain Node and scripts/seed-moods-from-storygraph.ts can reuse the StoryGraph mapping.
 import { z } from "zod";
@@ -46,17 +46,52 @@ export const WARNING_TOPICS = [
 export type WarningTopic = typeof WARNING_TOPICS[number]
 export const WARNINGS_MAX = 20
 
+// Spice: how explicit the sex is, 0 to 5, from readers who finished the book. Romance and romantasy
+// readers check this before anything else. A book shows the median once SPICE_MIN_REPORTS readers have
+// given one, so no single reader sets the number, and a median rather than a mean so one outlier
+// can't drag it.
+export const SPICE_LEVELS = [0, 1, 2, 3, 4, 5] as const
+export type SpiceLevel = typeof SPICE_LEVELS[number]
+export const SPICE_MAX = 5
+export const SPICE_MIN_REPORTS = 5
+export const SPICE_LABEL: Record<SpiceLevel, string> = {
+  0: "none", 1: "mild", 2: "warm", 3: "steamy", 4: "spicy", 5: "scorching",
+}
+export const SPICE_HINT: Record<SpiceLevel, string> = {
+  0: "Nothing beyond a kiss",
+  1: "Kissing and some tension",
+  2: "Sex happens off the page",
+  3: "Open door, a few scenes",
+  4: "Explicit and frequent",
+  5: "Very explicit, close to erotica",
+}
+
+export const spiceSchema = z.number().int().min(0).max(SPICE_MAX).nullable()
+
 export const readerTagsSchema = z.object({
   moods: z.array(z.enum(MOODS)).max(MOODS_MAX, `Pick up to ${MOODS_MAX} moods`).transform((m) => Array.from(new Set(m))),
   warnings: z.array(z.object({ topic: z.enum(WARNING_TOPICS), level: z.enum(WARNING_LEVELS) })).max(WARNINGS_MAX)
     // One level per topic: the last one typed wins.
     .transform((ws) => Array.from(new Map(ws.map((w) => [w.topic, w])).values())),
+  // Left out by a client that doesn't edit spice, which keeps the stored value; null clears it.
+  spice: spiceSchema.optional(),
 })
 export type ReaderTagsInput = z.infer<typeof readerTagsSchema>
 export type ContentWarning = ReaderTagsInput["warnings"][number]
 
 // Rows as stored: warnings is JSON, so it's validated on the way out as well as in.
-export type ReaderTagsRow = { userId: string, moods: string[], warnings: unknown }
+export type ReaderTagsRow = { userId: string, moods: string[], warnings: unknown, spice?: number | null }
+
+const asSpice = (raw: unknown): SpiceLevel | null =>
+  typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && raw <= SPICE_MAX ? (raw as SpiceLevel) : null
+
+// The middle report, a tie between two middles rounding up: a reader avoiding spice is better warned.
+export function spiceMedian(reports: number[]): SpiceLevel | null {
+  if (reports.length === 0) return null
+  const sorted = [...reports].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return asSpice(sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2))
+}
 
 export function parseWarnings(raw: unknown): ContentWarning[] {
   const parsed = readerTagsSchema.shape.warnings.safeParse(raw ?? [])
@@ -71,11 +106,18 @@ export type WarningSummary = {
   count: number
   byLevel: Record<WarningLevel, number>
 }
+export type SpiceSummary = {
+  // The median, or null until SPICE_MIN_REPORTS readers have reported one.
+  level: SpiceLevel | null
+  reports: number
+}
+export type SavedTags = { moods: Mood[], warnings: ContentWarning[], spice: SpiceLevel | null }
 export type TagAggregate = {
   readers: number
   moods: MoodCount[]
   warnings: WarningSummary[]
-  mine: ReaderTagsInput | null
+  spice: SpiceSummary
+  mine: SavedTags | null
 }
 
 const LEVEL_RANK: Record<WarningLevel, number> = { MINOR: 0, MODERATE: 1, GRAPHIC: 2 }
@@ -85,21 +127,24 @@ const LEVEL_RANK: Record<WarningLevel, number> = { MINOR: 0, MODERATE: 1, GRAPHI
 export function aggregateTags(rows: ReaderTagsRow[], viewerId?: string | null): TagAggregate {
   const moodCounts = new Map<Mood, number>()
   const warningCounts = new Map<WarningTopic, Record<WarningLevel, number>>()
-  let mine: ReaderTagsInput | null = null
+  const spiceReports: number[] = []
+  let mine: SavedTags | null = null
   let readers = 0
 
   for (const row of rows) {
     const moods = Array.from(new Set(row.moods.filter((m): m is Mood => (MOODS as readonly string[]).includes(m))))
     const warnings = parseWarnings(row.warnings)
-    if (moods.length === 0 && warnings.length === 0) continue
+    const spice = asSpice(row.spice)
+    if (moods.length === 0 && warnings.length === 0 && spice === null) continue
     readers++
+    if (spice !== null) spiceReports.push(spice)
     for (const m of moods) moodCounts.set(m, (moodCounts.get(m) ?? 0) + 1)
     for (const w of warnings) {
       const byLevel = warningCounts.get(w.topic) ?? { MINOR: 0, MODERATE: 0, GRAPHIC: 0 }
       byLevel[w.level]++
       warningCounts.set(w.topic, byLevel)
     }
-    if (viewerId && row.userId === viewerId) mine = { moods, warnings }
+    if (viewerId && row.userId === viewerId) mine = { moods, warnings, spice }
   }
 
   const moods: MoodCount[] = Array.from(moodCounts, ([mood, count]) => ({ mood, count, share: readers ? count / readers : 0 }))
@@ -112,7 +157,12 @@ export function aggregateTags(rows: ReaderTagsRow[], viewerId?: string | null): 
     return { topic, level, count, byLevel }
   }).sort((a, b) => LEVEL_RANK[b.level] - LEVEL_RANK[a.level] || b.count - a.count || a.topic.localeCompare(b.topic))
 
-  return { readers, moods, warnings, mine }
+  const spice: SpiceSummary = {
+    level: spiceReports.length >= SPICE_MIN_REPORTS ? spiceMedian(spiceReports) : null,
+    reports: spiceReports.length,
+  }
+
+  return { readers, moods, warnings, spice, mine }
 }
 
 // Once a book has this many taggers, a mood needs MOOD_FLOOR of them to be shown: with only twelve moods,
@@ -136,4 +186,12 @@ export function moodsFromStoryGraph(raw: string | null | undefined): Mood[] {
     if ((MOODS as readonly string[]).includes(word) && !out.includes(word as Mood)) out.push(word as Mood)
   }
   return out.slice(0, MOODS_MAX)
+}
+
+// A spice range as a search shows it: "spice 2–3", "spice 3+", "spice up to 1".
+export function spiceRangeText(min: number | null, max: number | null): string | null {
+  if (min !== null && max !== null) return min === max ? `spice ${min}` : `spice ${min}–${max}`
+  if (min !== null) return `spice ${min}+`
+  if (max !== null) return max === 0 ? "no spice" : `spice up to ${max}`
+  return null
 }

@@ -459,6 +459,8 @@ model ReaderTags {
   moods Mood[]
   // [{ "topic": "Sexual assault", "level": "GRAPHIC" }], topics from WARNING_TOPICS in lib/workTags.ts.
   warnings Json?
+  // 0 to 5 (SPICE_MAX in lib/workTags.ts), only from a reader who finished the book. Unset: not reported.
+  spice Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

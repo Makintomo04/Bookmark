@@ -4,10 +4,12 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from "@bookmark/shared/progress";
+import type { SpiceLevel, TagAggregate } from "@bookmark/shared/workTags";
 import { positionLabel } from "@bookmark/shared/series";
 import { AuthorNames } from "@/components/authors/AuthorNames";
 import { BookCover } from "@/components/books/BookCover";
 import { CatchMeUp } from "@/components/books/CatchMeUp";
+import { SpiceLine, SpicePicker } from "@/components/books/Spice";
 import { StarRating } from "@/components/books/StarRating";
 import { FollowSeries } from "@/components/series/FollowSeries";
 import { Button } from "@/components/ui/Button";
@@ -15,15 +17,15 @@ import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
-import { ApiError } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { goBack } from "@/lib/navigation";
 import { bookSeriesKey, type BookSeries } from "@/lib/series";
 import { formatDay, groupShelf, isRereading, saveBook, useBooks, type Book, type BookAction, type BookRead } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
 
 // The book page: what the web's BookUpdateModal does, as a screen. Start a book, log progress, finish,
-// pause or stop it, rate and review it, and see earlier reads. Recaps, moods and warnings, sending it to
-// a friend and its reading circles follow in the port.
+// pause or stop it, rate and review it, report its spice, and see earlier reads. Moods and warnings,
+// sending it to a friend and its reading circles follow in the port.
 
 const REVIEW_MAX = 2000;
 // Pauses skew the rate early on, so wait for a week of reading before guessing (the web's PACE_MIN_DAYS).
@@ -63,6 +65,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const { colors, radii, fonts } = useTheme();
   const { data: user } = useSWR<{ favColour: string | null }>("/api/user");
   const { data: reads } = useSWR<BookRead[]>(`/api/books/${book.id}/reads`);
+  const { data: tags, mutate: tagsMutate } = useSWR<TagAggregate>(`/api/works/tags?bookId=${book.id}`);
   const accent = user?.favColour || DEFAULT_COLOUR;
 
   const { unit, total: pages, current: startPage } = progressScale(book);
@@ -79,10 +82,13 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const [review, setReview] = useState(book.review ?? "");
   const [reviewSpoiler, setReviewSpoiler] = useState(!!book.reviewSpoiler);
   const [reviewPrivate, setReviewPrivate] = useState(!!book.reviewPrivate);
+  // Spice: reported here; moods and warnings are kept as they are, since this screen doesn't edit them yet.
+  const [spice, setSpice] = useState<SpiceLevel | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => setPageInput(String(startPage)), [startPage]);
+  useEffect(() => setSpice(tags?.mine?.spice ?? null), [tags]);
 
   const status = book.status;
   const typed = parseInt(pageInput, 10);
@@ -94,7 +100,10 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const isClosed = status === "COMPLETED" || status === "DNF";
   const ratingChanged = rating !== (book.rating ?? 0);
   const reviewChanged = review !== (book.review ?? "") || reviewSpoiler !== !!book.reviewSpoiler || reviewPrivate !== !!book.reviewPrivate;
-  const hasChanges = isActive ? delta !== 0 || finished || stopping : isClosed ? ratingChanged || reviewChanged : false;
+  // Spice is only asked of a reader who finished the book (the server holds the same line).
+  const canReportSpice = status === "COMPLETED" || finished;
+  const spiceChanged = canReportSpice && spice !== (tags?.mine?.spice ?? null);
+  const hasChanges = isActive ? delta !== 0 || finished || stopping : isClosed ? ratingChanged || reviewChanged || spiceChanged : false;
   const canSave = !saving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges);
   const at = (n: number) => (onMinutes ? { currentMinute: n } : { currentPage: n });
   const setPage = (n: number) => setPageInput(String(clamp(n, pages)));
@@ -125,6 +134,17 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
     setError(null);
     try {
       await saveBook({ id: book.id, ...payload });
+      // After the shelf change, so a book just finished counts as finished for its spice.
+      if (spiceChanged) {
+        try {
+          await api.put("/api/works/tags", { bookId: book.id, moods: tags?.mine?.moods ?? [], warnings: tags?.mine?.warnings ?? [], spice });
+          void tagsMutate();
+        } catch (e) {
+          setError(e instanceof ApiError ? e.message : "Saved, but your spice level didn't save. Try again.");
+          setSaving(false);
+          return;
+        }
+      }
       goBack();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't save. Check your connection and try again.");
@@ -208,6 +228,9 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
 
       {/* Coming back to a book (or starting the next in a series): the recap offer comes first. */}
       {(isActive || status === "NOT_STARTED") && !finished && !stopping && <CatchMeUp bookId={book.id} />}
+
+      {/* What other readers say, for anyone who hasn't given their own answer yet. */}
+      {!isClosed && !finished && !stopping && <SpiceLine spice={tags?.spice} />}
 
       {status === "NOT_STARTED" && (
         showStartPage ? (
@@ -310,6 +333,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
               <Switch value={reviewPrivate} onValueChange={setReviewPrivate} disabled={saving} trackColor={{ true: accent }} accessibilityLabel="Only me" />
             </View>
           </View>
+          {canReportSpice && <SpicePicker value={spice} onChange={setSpice} disabled={saving} />}
         </View>
       )}
 
