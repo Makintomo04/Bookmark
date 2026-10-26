@@ -18,6 +18,8 @@ interface ModalProps {
   closeOnBackdrop?: boolean;
   compact?: boolean;
   size?: "default" | "sm";
+  // No header: the body runs to the top edge (the medal celebration's colour band). The title stays, for screen readers.
+  bare?: boolean;
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
@@ -35,7 +37,7 @@ function lockPageScroll() {
   }
 }
 
-const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default"}) => {
+const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default",bare = false}) => {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -127,7 +129,15 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         onClick={(e) => e.stopPropagation()}
         className={cn("flex flex-col mb-auto sm:my-auto w-full h-full max-h-dvh sm:max-h-[85dvh] overflow-hidden sm:rounded-lg sm:h-auto", size === "sm" ? "sm:w-[520px]" : "sm:w-[650px] md:w-[800px] lg:w-[900px]", " bg-background shadow-md relative outline-none", !compact && "sm:min-h-[min(580px,85dvh)]")}
       >
-        {/* The header never shrinks: on short windows the body scrolls instead of sliding up over the title. */}
+        {bare ? (
+          <>
+            {title && <h2 id={titleId} className="sr-only">{title}</h2>}
+            <button type="button" aria-label="Close" className="absolute right-4 top-4 z-10 p-2 bg-background/80 hover:bg-background cursor-pointer transition rounded-full" onClick={handleClose}>
+              <X size={20} aria-hidden />
+            </button>
+          </>
+        ) : (
+        /* The header never shrinks: on short windows the body scrolls instead of sliding up over the title. */
         <div className="p-6 pb-0 shrink-0">
           <div className="flex justify-between items-center">
           <h2 id={titleId} className='text-3xl font-bold'>{title}</h2>
@@ -137,9 +147,10 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
           </div>
           <hr className='my-6 border-1 border-neutral-400/40'/>
         </div>
+        )}
           <div className="flex flex-col justify-between w-full min-h-0 flex-1 relative">
         {/* grid-cols-1 caps the column at the modal's width; an auto column grows to the widest child and spills off narrow screens. */}
-        <div className="h-auto grid grid-cols-1 place-items-baseline sm:place-items-center overflow-y-auto overflow-x-hidden overscroll-contain flex-grow min-h-0 max-h-max py-2 -mt-2">
+        <div className={cn("h-auto grid grid-cols-1 place-items-baseline sm:place-items-center overflow-y-auto overflow-x-hidden overscroll-contain flex-grow min-h-0 max-h-max", !bare && "py-2 -mt-2")}>
 
         {body}
         </div>
