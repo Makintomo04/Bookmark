@@ -3,7 +3,7 @@ import { ActivityIndicator, Linking, Platform, StyleSheet, View } from "react-na
 import useSWR from "swr";
 import * as WebBrowser from "expo-web-browser";
 import { Check, Sparkles } from "lucide-react-native";
-import { FOUNDING } from "@bookmark/shared/entitlements";
+import { FOUNDING, isIndefiniteComp } from "@bookmark/shared/entitlements";
 import { FREE, FREE_SOON, PLUS, PLUS_SOON } from "@bookmark/shared/plusFeatures";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -94,9 +94,9 @@ function PlanCard({ status, allowances }: { status: Status; allowances: PlusResp
       : status.source === "store"
         ? `Plus through ${storeName(status.store)}${status.until ? `, renewing or ending on ${day(status.until)}` : ""}.`
       : status.source === "comp" && status.compUntil
-        ? `Free Plus until ${day(status.compUntil)}.`
+        ? isIndefiniteComp(status.compUntil) ? "Complimentary Plus from the Bookmark team, with no end date." : `Free Plus until ${day(status.compUntil)}.`
         : "You're on the free plan. Every stat, import and circle you join stays free.";
-  const label = status.source === "lifetime" ? "Lifetime" : status.patron ? "Patron" : status.founding && status.source !== "comp" ? "Founding Reader" : status.trialing ? "Trial" : status.source === "comp" ? "Free months" : status.plan === "PLUS" ? "Active" : "Free";
+  const label = status.source === "lifetime" ? "Lifetime" : status.patron ? "Patron" : status.founding && status.source !== "comp" ? "Founding Reader" : status.trialing ? "Trial" : status.source === "comp" ? (isIndefiniteComp(status.compUntil) ? "Complimentary" : "Free months") : status.plan === "PLUS" ? "Active" : "Free";
   const allowanceLine = (name: string, a: Allowance) => (a.left === null ? null : `${name}: ${a.left} of ${a.allowance} left this month${a.isPlus ? " (fair use)" : ""}`);
   const lines = allowances ? [allowanceLine("Ask the shelf", allowances.askShelfSearches), allowanceLine("Catch me up", allowances.recaps)].filter(Boolean) : [];
 

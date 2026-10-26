@@ -15,6 +15,7 @@ import { primaryButtonClass, secondaryButtonClass } from '../profile-head/Profil
 import { CuratorAvatar } from '../lists/CuratorNote'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import DiscoverBookCard from './DiscoverBookCard'
+import { can } from '@/lib/roles'
 
 const EXAMPLES = [
   "Cosy and low-stakes, after a heavy week",
@@ -281,7 +282,7 @@ const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, ini
 
   const saveAsList = () => {
     if (!outcome) return
-    const base = emptyList(!!user?.isStaff, user ? preferencesOf(user).defaultListVisibility : undefined)
+    const base = emptyList(can(user, "lists.curate"), user ? preferencesOf(user).defaultListVisibility : undefined)
     onOpen({
       ...base,
       title: outcome.query.slice(0, 80),
