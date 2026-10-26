@@ -36,6 +36,9 @@ const statusWhere = (view: "queue" | "closed") =>
     ? { OR: [{ status: { isSet: false } }, { status: null }, { status: { in: ["OPEN", "ESCALATED"] } }] }
     : { status: { in: ["ACTIONED", "DISMISSED"] } };
 
+// Reports still waiting on someone. lib/genreLists.ts keeps a list with one out of the automatic picks.
+export const openReportWhere = statusWhere("queue");
+
 export interface QueueEntry {
   kind: ReportKind;
   // What was reported: the list, comment or work id.

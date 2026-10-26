@@ -7,6 +7,8 @@ import { EyeOff, Flag, Lock } from 'lucide-react'
 import Container from '@/app/components/Container'
 import DiscoverBookCard from '@/app/components/discover/DiscoverBookCard'
 import PickBadge from '@/app/components/discover/PickBadge'
+import ChoiceBadge from '@/app/components/discover/ChoiceBadge'
+import ChoiceButton from '@/app/components/lists/ChoiceButton'
 import { FollowButton, ReportListButton } from '@/app/components/discover/ListButtons'
 import ListActions from '@/app/components/lists/ListActions'
 import RemixInfo from '@/app/components/lists/RemixInfo'
@@ -42,6 +44,7 @@ const Page = async ({ params }: PageProps) => {
         <header className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {list.isPick && <PickBadge />}
+            {list.chosenAt && !list.isPick && <ChoiceBadge />}
             {list.visibility === "PRIVATE" && <span className="inline-flex items-center gap-1"><Lock size={14} aria-hidden />Only you can see this</span>}
             {list.hidden && <span className="inline-flex items-center gap-1 text-danger"><EyeOff size={14} aria-hidden />Hidden</span>}
             {list.reportCount > 0 && <span className="inline-flex items-center gap-1 text-danger"><Flag size={14} aria-hidden />{list.reportCount} {list.reportCount === 1 ? "report" : "reports"}</span>}
@@ -52,7 +55,9 @@ const Page = async ({ params }: PageProps) => {
               {list.description && <p className="mt-3 text-muted-foreground whitespace-pre-line">{list.description}</p>}
               <div className="mt-3 empty:hidden"><RemixInfo forkedFrom={list.forkedFrom} remixCount={list.remixCount} /></div>
             </div>
-            <ListActions listId={list.id} editable={list.canEdit ? toEditableList(list) : null} canCopy={list.canCopy} />
+            <ListActions listId={list.id} editable={list.canEdit ? toEditableList(list) : null} canCopy={list.canCopy}>
+              {!list.isPick && list.visibility === "PUBLIC" && !list.hidden && <ChoiceButton listId={list.id} initialChosen={!!list.chosenAt} />}
+            </ListActions>
           </div>
 
           {(genres.length > 0 || list.tags.length > 0) && (

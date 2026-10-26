@@ -5,6 +5,8 @@ import { GENRES } from "./genres"
 import { normaliseWorkKey, sameBook } from "./workKey"
 import { blockedUserIds, canView, canViewUser, getRelation, notSuspendedWhere, privacyOf, privacySelect, sharedBookWhere, visibleReview, type Relation } from "./privacy"
 import { can } from "./roles"
+import { QUALITY_MIN_ACCOUNT_DAYS } from "./genreListRules"
+import { openReportWhere } from "./staffReports"
 import type { DiscoverBook } from "./openLibrary"
 import { withoutUploadedCovers } from "./uploads"
 import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
@@ -36,6 +38,11 @@ export interface ListFilters {
   owner?: string
   // Staff only: lists with at least one report, of any visibility, for review.
   reported?: boolean
+  // Editors' choices only (List.chosenAt), most recently chosen first.
+  chosen?: boolean
+  // Candidates for a genre page's automatic picks (lib/genreListRules.ts): a description, an owner
+  // account at least a week old, and no open reports. The book count is checked after the query.
+  quality?: boolean
   limit?: number
 }
 
@@ -55,12 +62,19 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
       ...(filters.featured ? [{ featuredFrom: { lte: now }, featuredUntil: { gte: now } }] : []),
       ...(filters.owner ? [{ owner: { username: filters.owner } }] : []),
       ...(filters.reported ? [{ reports: { some: {} } }] : []),
+      ...(filters.chosen ? [{ chosenAt: { not: null } }] : []),
+      ...(filters.quality ? [{
+        description: { not: null },
+        NOT: { description: "" },
+        owner: { createdAt: { lte: new Date(now.getTime() - QUALITY_MIN_ACCOUNT_DAYS * 86_400_000) } },
+        reports: { none: openReportWhere },
+      }] : []),
     ],
   }
   const limit = Math.min(filters.limit ?? 24, 50)
   const found = await prisma.list.findMany({
     where,
-    orderBy: filters.featured ? { featuredFrom: "desc" } : { updatedAt: "desc" },
+    orderBy: filters.featured ? { featuredFrom: "desc" } : filters.chosen ? { chosenAt: "desc" } : { updatedAt: "desc" },
     // Some may belong to profiles the viewer can't see, so ask for more than will be shown.
     take: curates(viewer) ? limit : limit * 2,
     include: {

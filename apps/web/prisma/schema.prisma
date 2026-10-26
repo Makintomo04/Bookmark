@@ -645,6 +645,10 @@ model List {
   featuredUntil DateTime?
   featuredLabel String?
   hidden Boolean @default(false)
+  // Editors' choice: a librarian or admin chose this reader's list to lead its genres' pages on Discover
+  // (lib/genreLists.ts), ahead of the lists picked automatically. Unset is not chosen.
+  chosenAt DateTime?
+  chosenById String? @db.ObjectId
   // Set when the list was copied ("remixed") from someone else's public list. A plain id, not a
   // relation, so deleting the original leaves its remixes alone.
   forkedFromId String? @db.ObjectId

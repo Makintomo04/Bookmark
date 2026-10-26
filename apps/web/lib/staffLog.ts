@@ -14,6 +14,8 @@ export type StaffActionKind =
   | "report.dismiss"
   | "report.hide"
   | "report.resolve"
+  | "list.choose"
+  | "list.unchoose"
   | "report.escalate"
 
 export type StaffTarget = "user" | "work" | "edition" | "list" | "comment" | "report"
@@ -45,6 +47,8 @@ export const STAFF_ACTION_LABELS: Record<StaffActionKind, string> = {
   "report.dismiss": "Dismissed report",
   "report.hide": "Took content down",
   "report.resolve": "Marked book report fixed",
+  "list.choose": "Made a list an editors' choice",
+  "list.unchoose": "Removed a list from editors' choice",
   "report.escalate": "Escalated report",
 }
 
