@@ -5,7 +5,7 @@ import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
-import { Lock, Send, Unlock } from 'lucide-react'
+import { Check, Lock, Send, Unlock } from 'lucide-react'
 import Modal from './Modal'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
@@ -48,6 +48,26 @@ const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}
 // Quiet text actions under the cover. The padding gives each a full-height target and room for the focus
 // ring; the negative margin keeps the text lined up with the title above.
 const bookActionClass = "-mx-1.5 inline-flex h-9 sm:h-8 items-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+
+// Drawn rather than left to the browser: a native box takes its fill from the browser and OS theme, so it
+// came out grey-filled on the light theme. A real input underneath keeps the keyboard and screen readers.
+const AccentCheckbox: FC<{ checked: boolean, onChange: (checked: boolean) => void, disabled?: boolean, accent: string, label: string }> =
+  ({ checked, onChange, disabled, accent, label }) => (
+    <label className={cn("inline-flex items-center gap-2", disabled ? "opacity-60" : "cursor-pointer")}>
+      <span className="relative inline-flex size-4 shrink-0">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={disabled}
+          style={checked ? { background: accent, borderColor: accent } : undefined}
+          className="peer size-4 appearance-none rounded-[4px] border border-neutral-400 dark:border-neutral-600 bg-background transition-colors cursor-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        />
+        <Check size={12} strokeWidth={3} aria-hidden style={{ color: readableInk(accent) }} className="pointer-events-none absolute inset-0 m-auto hidden peer-checked:block" />
+      </span>
+      {label}
+    </label>
+  )
 
 const BookUpdateModal: FC = () => {
   const { user, mutate } = useUser()
@@ -510,14 +530,8 @@ const BookUpdateModal: FC = () => {
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
         />
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-          <label className="inline-flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={reviewSpoiler} onChange={(e) => setReviewSpoiler(e.target.checked)} disabled={isSaving} style={{ accentColor: accent }} className="size-4" />
-            Contains spoilers
-          </label>
-          <label className="inline-flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={reviewPrivate} onChange={(e) => setReviewPrivate(e.target.checked)} disabled={isSaving} style={{ accentColor: accent }} className="size-4" />
-            Only me
-          </label>
+          <AccentCheckbox checked={reviewSpoiler} onChange={setReviewSpoiler} disabled={isSaving} accent={accent} label="Contains spoilers" />
+          <AccentCheckbox checked={reviewPrivate} onChange={setReviewPrivate} disabled={isSaving} accent={accent} label="Only me" />
         </div>
       </div>
       <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} />
