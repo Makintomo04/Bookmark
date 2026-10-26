@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View, type GestureResponderEvent } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { brand } from "@bookmark/shared/tokens";
-import { RATING_STEP, snapRating } from "@bookmark/shared/rating";
+import { RATING_STEP, snapRating, starClip } from "@bookmark/shared/rating";
 import { useTheme } from "@/lib/theme";
 
 // Quarter-star ratings from 0.25 to 5, as on the web. Where you tap a star sets how much of it fills, by
@@ -10,13 +10,15 @@ const STAR = "M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7.1L12 17.3 5.8 21l1.6-7.1L2 9.2l7
 
 function Star({ fill, size, empty }: { fill: number; size: number; empty: string }) {
   const id = `star${size}-q${Math.round(fill * 4)}`;
+  // The gradient runs across the path's own box, and goes by area so ¼ looks like a quarter.
+  const at = starClip(fill);
   return (
     // No touches on the drawing, so a tap's locationX is measured from the star's Pressable, not the path.
     <Svg width={size} height={size} viewBox="0 0 24 24" pointerEvents="none">
       <Defs>
         <LinearGradient id={id} x1="0" x2="1" y1="0" y2="0">
-          <Stop offset={fill} stopColor={brand.DEFAULT} />
-          <Stop offset={fill} stopColor={empty} />
+          <Stop offset={at} stopColor={brand.DEFAULT} />
+          <Stop offset={at} stopColor={empty} />
         </LinearGradient>
       </Defs>
       <Path d={STAR} fill={fill === 1 ? brand.DEFAULT : fill > 0 ? `url(#${id})` : empty} />

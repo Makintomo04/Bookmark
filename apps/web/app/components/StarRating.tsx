@@ -2,7 +2,7 @@
 import { FC, KeyboardEvent, MouseEvent, useState } from 'react'
 import { Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { MAX_RATING, RATING_STEP as STEP, snapRating } from '@bookmark/shared/rating'
+import { MAX_RATING, RATING_STEP as STEP, snapRating, starClip } from '@bookmark/shared/rating'
 
 interface StarRatingProps {
   value?: number | null
@@ -17,11 +17,12 @@ interface StarRatingProps {
 }
 
 // An empty outline in the control-border colour (3:1 in both themes), with the brand fill clipped over it.
+// The star spans 2 to 22 of the icon's 24, and the clip goes by area (starClip), so ¼ looks like a quarter.
 const StarIcon: FC<{ fill: number; size: number }> = ({ fill, size }) => (
   <span className="relative block" style={{ width: size, height: size }}>
     <Star size={size} className="absolute inset-0 text-input" />
     {fill > 0 && (
-      <span className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: size * fill }}>
+      <span className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: fill >= 1 ? size : (size * (2 + 20 * starClip(fill))) / 24 }}>
         <Star size={size} className="text-brand" fill="currentColor" />
       </span>
     )}
