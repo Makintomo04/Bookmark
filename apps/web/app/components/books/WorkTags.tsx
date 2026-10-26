@@ -81,15 +81,15 @@ export const SpiceFlames: FC<{ level: SpiceLevel, size?: number, className?: str
   </span>
 )
 
-// "Spice 3 of 5 · steamy": readers' median, once enough have reported it. Before that, how many have,
-// so nobody mistakes one reader's number for the book's.
+// "Spice 3 of 5 · steamy": readers' median, once enough have reported it; before that, when it will
+// show. Deliberately no reader count: the level is what a reader is after.
 export const SpiceLine: FC<{ spice: TagAggregate["spice"] | undefined, className?: string }> = ({ spice, className }) => {
   if (!spice || spice.reports === 0) return null
   if (spice.level === null) {
     return (
       <p className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)}>
         <Flame size={16} aria-hidden className="shrink-0" />
-        Spice shows once {SPICE_MIN_REPORTS} readers have reported it ({spice.reports} so far)
+        Spice shows once {SPICE_MIN_REPORTS} readers have reported it
       </p>
     )
   }
@@ -98,7 +98,7 @@ export const SpiceLine: FC<{ spice: TagAggregate["spice"] | undefined, className
       <SpiceFlames level={spice.level} size={16} />
       <span>
         <span className="font-medium">Spice {spice.level} of {SPICE_MAX}</span>
-        <span className="text-muted-foreground"> · {SPICE_LABEL[spice.level]} · from {plural(spice.reports, "reader")}</span>
+        <span className="text-muted-foreground"> · {SPICE_LABEL[spice.level]}</span>
       </span>
     </p>
   )

@@ -8,8 +8,6 @@ import { useTheme } from "@/lib/theme";
 // Spice, as the web's components/books/WorkTags.tsx shows and asks for it: readers' median once
 // SPICE_MIN_REPORTS have reported one, and a 0 to 5 picker for a reader who finished the book.
 
-const plural = (n: number, word: string) => `${n.toLocaleString("en-GB")} ${n === 1 ? word : `${word}s`}`;
-
 // Five flames, `level` of them lit. Decorative: the words beside it say the level.
 export function SpiceFlames({ level, size = 14 }: { level: SpiceLevel; size?: number }) {
   const { colors } = useTheme();
@@ -29,15 +27,15 @@ export function SpiceLine({ spice }: { spice: SpiceSummary | undefined }) {
     return (
       <View style={styles.row}>
         <Flame size={16} color={colors.mutedForeground} />
-        <Text variant="muted" style={{ flex: 1 }}>Spice shows once {SPICE_MIN_REPORTS} readers have reported it ({spice.reports} so far)</Text>
+        <Text variant="muted" style={{ flex: 1 }}>Spice shows once {SPICE_MIN_REPORTS} readers have reported it</Text>
       </View>
     );
   }
   return (
-    <View style={styles.row} accessible accessibilityLabel={`Spice ${spice.level} of ${SPICE_MAX}, ${SPICE_LABEL[spice.level]}, from ${plural(spice.reports, "reader")}`}>
+    <View style={styles.row} accessible accessibilityLabel={`Spice ${spice.level} of ${SPICE_MAX}, ${SPICE_LABEL[spice.level]}`}>
       <SpiceFlames level={spice.level} size={16} />
       <Text variant="muted" style={{ flex: 1 }}>
-        <Text variant="label">Spice {spice.level} of {SPICE_MAX}</Text> · {SPICE_LABEL[spice.level]} · from {plural(spice.reports, "reader")}
+        <Text variant="label">Spice {spice.level} of {SPICE_MAX}</Text> · {SPICE_LABEL[spice.level]}
       </Text>
     </View>
   );
