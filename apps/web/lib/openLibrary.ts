@@ -136,6 +136,16 @@ export async function searchAuthors(query: string, limit = 10): Promise<OpenLibr
     .sort((a, b) => b.workCount - a.workCount)
 }
 
+// One author's own record: their bio (plain text, or { value } on older records) and photo ids. A photo id
+// of -1 is a removed photo. Cached for a week; author records rarely change.
+export async function authorRecord(key: string): Promise<{ bio: string | null, photoIds: number[] }> {
+  const res = await fetch(`https://openlibrary.org/authors/${key}.json`, { signal: AbortSignal.timeout(8000), next: { revalidate: 604800 } })
+  if (!res.ok) throw new Error(`Open Library author record failed: ${res.status}`)
+  const data = await res.json() as { bio?: string | { value?: string }, photos?: number[] }
+  const bio = typeof data.bio === "string" ? data.bio : data.bio?.value ?? null
+  return { bio, photoIds: (data.photos ?? []).filter((id) => Number.isInteger(id) && id > 0) }
+}
+
 // An author's books, most shelved first, like subjectBooks. By key when we have one; otherwise by name,
 // which can also catch namesakes. Throws on failure so the author page can tell it from "no books".
 // Cached for a day.
