@@ -25,7 +25,7 @@ async function main() {
   if (!user) throw new Error(`No account with username or email "${who}".`);
   const before = user.role ?? (user.isStaff ? "ADMIN (from isStaff)" : "READER");
   // isStaff is cleared so the old flag can't bring a role back.
-  await prisma.user.update({ where: { id: user.id }, data: { role, isStaff: false } });
+  await prisma.user.update({ where: { id: user.id }, data: { role, isStaff: false, roleWelcomedAs: null } });
   await prisma.staffAction.create({
     data: { actorId: user.id, action: "role.set", targetType: "user", targetId: user.id, before: { role: before }, after: { role }, reason: "set-role script" },
   });

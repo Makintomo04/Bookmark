@@ -119,6 +119,9 @@ model User {
   // Staff access: READER, LIBRARIAN or ADMIN (packages/shared/src/roles.ts says what each may do). Unset
   // reads as READER. Set by an admin on /staff/users, or for the first admin by scripts/set-role.ts.
   role          String?
+  // The role whose welcome this account has seen (packages/shared/src/roleWelcome.ts). Cleared when an admin
+  // changes the role, so a new role is welcomed the next time the app loads.
+  roleWelcomedAs String?
   // The old staff flag, before roles. Read only: scripts/set-role.ts --migrate turns it into ADMIN.
   isStaff       Boolean @default(false)
   // Suspended by an admin (lib/suspension.ts). Signed out everywhere and unable to sign in while

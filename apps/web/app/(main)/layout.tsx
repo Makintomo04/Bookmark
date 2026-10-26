@@ -15,6 +15,7 @@ import RecommendModal from "../components/modals/RecommendModal";
 import MoveToFinishedModal from "../components/modals/MoveToFinishedModal";
 import TierPreviewBadge from "../components/dev/TierPreviewBadge";
 import Footer from "../components/footer/Footer";
+import RoleWelcome from "../components/staff/RoleWelcome";
 import { useRouter } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <RecommendModal/>
         <MoveToFinishedModal/>
         <TierPreviewBadge/>
+        <RoleWelcome/>
         <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow pb-16">{children}</main>

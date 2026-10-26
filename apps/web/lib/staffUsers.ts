@@ -179,8 +179,9 @@ export async function setRole(actor: Actor, id: string, body: { role?: unknown }
   if (error) return error;
   const before = roleOf(target);
   if (before === role) return { ok: true, value: staffUserView(target, now) };
-  // isStaff is cleared so the old flag can't bring a role back (roles.ts roleOf).
-  const updated = await prisma.user.update({ where: { id: target.id }, data: { role, isStaff: false }, select: staffUserSelect });
+  // isStaff is cleared so the old flag can't bring a role back (roles.ts roleOf), and roleWelcomedAs so
+  // the new role gets its welcome (roleWelcome.ts), even one they held before.
+  const updated = await prisma.user.update({ where: { id: target.id }, data: { role, isStaff: false, roleWelcomedAs: null }, select: staffUserSelect });
   await logStaffAction({ actorId: actor.id, action: "role.set", targetType: "user", targetId: target.id, before: { role: before }, after: { role } });
   return { ok: true, value: staffUserView(updated, now) };
 }

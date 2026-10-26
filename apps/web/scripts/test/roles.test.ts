@@ -6,6 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PERMISSIONS, can, canActOn, isStaffRole, isSuspended, roleOf, suspensionEnd } from "@/lib/roles";
 import { STAFF_BADGE, staffBadgeOf } from "@/lib/staffBadge";
+import { ROLE_WELCOME, roleToWelcome } from "@/lib/roleWelcome";
 
 const reader = { id: "r", role: "READER" };
 const librarian = { id: "l", role: "LIBRARIAN" };
@@ -58,4 +59,14 @@ test("the staff badge: the team always shows as Bookmark team, librarians can hi
   assert.equal(staffBadgeOf({ ...admin, hideStaffBadge: true }), "team", "the team can't hide it");
   assert.equal(staffBadgeOf({ isStaff: true }), "team", "the old staff flag");
   assert.equal(STAFF_BADGE.team.label, "Bookmark team");
+});
+
+test("the role welcome: once per staff role, again after a new role, never for readers", () => {
+  assert.equal(roleToWelcome(reader), null);
+  assert.equal(roleToWelcome(null), null);
+  assert.equal(roleToWelcome(librarian), "LIBRARIAN");
+  assert.equal(roleToWelcome({ ...librarian, roleWelcomedAs: "LIBRARIAN" }), null);
+  assert.equal(roleToWelcome({ ...admin, roleWelcomedAs: "LIBRARIAN" }), "ADMIN");
+  assert.equal(roleToWelcome({ isStaff: true }), "ADMIN");
+  for (const role of ["LIBRARIAN", "ADMIN"] as const) assert.ok(ROLE_WELCOME[role].duties.length > 0);
 });
