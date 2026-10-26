@@ -51,7 +51,8 @@ test("shop displays and fan summaries aren't books", () => {
 });
 
 test("real books that look odd are kept", () => {
-  const books = [b("Catch-22"), b("1984"), b("Fahrenheit 451"), b("The Hitchhiker's Guide to the Galaxy"), b("A Court of Thorns and Roses")];
+  const books = [b("Catch-22"), b("1984"), b("Fahrenheit 451"), b("The Hitchhiker's Guide to the Galaxy"), b("A Court of Thorns and Roses"),
+    b("The Notebook"), b("Calendar Girl"), b("The Journal of Mrs. Pepperpot"), b("The Planner")];
   assert.equal(cleanBookList(books).length, books.length);
 });
 

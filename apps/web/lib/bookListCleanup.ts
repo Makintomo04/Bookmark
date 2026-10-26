@@ -39,9 +39,10 @@ function beforeDash(title: string): string | null {
 }
 
 const BOX_SET = /\b(box(ed)?[\s-]?set|collection set|books? \d+\s*(-|–|to|through)\s*\d+|omnibus|bundle|complete (series|collection|trilogy)|series collection|\d+[- ]books? (collection|set|bundle)|trilogy set)\b/i
-// Not a book a reader reads: decks, journals, fan summaries, placeholders, and shop displays ("Emily Henry
-// 24-Copy Mixed Floor Display W/Riser").
-const NOT_A_NOVEL = /\b(tarot|colou?ring book|journal|calendar|planner|notebook|sampler|study guide|workbook|summary of|summary and analysis|untitled|\d+-copy|floor display|counter display|prepack|dump bin)\b/i
+// Not a book a reader reads: decks, fan summaries, placeholders, and shop displays ("Emily Henry 24-Copy
+// Mixed Floor Display W/Riser"). Words that are also real titles ("The Notebook", "The Journal of Mrs…",
+// "Calendar Girl") are deliberately not on it.
+const NOT_A_NOVEL = /\b(tarot|colou?ring book|sampler|study guide|workbook|summary of|summary and analysis|untitled|\d+-copy|floor display|counter display|prepack|dump bin)\b/i
 
 export type DropReason = "duplicate" | "translation" | "box set" | "not a novel"
 
