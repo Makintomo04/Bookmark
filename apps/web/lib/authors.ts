@@ -2,6 +2,7 @@ import prisma from "@/lib/db"
 import { authorBooks, authorRecord, searchAuthors, type DiscoverBook } from "@/lib/openLibrary"
 import { authorSlug, creditIncludes, isLinkableAuthor, slugWords } from "@/lib/authorNames"
 import { sameBook } from "@/lib/workKey"
+import { cleanBookList } from "@/lib/bookListCleanup"
 
 // Author pages (/authors/<slug>). The slug comes from the name on a reader's copy; Open Library's author
 // key, when a record matches the slug exactly, is what the book list (and, later, following) hangs off.
@@ -29,14 +30,12 @@ export async function findAuthor(slug: string): Promise<Author | null> {
 
 export interface AuthorBooksPage {
   books: DiscoverBook[]
-  // Where Open Library's next page starts, or null when this was the last. Counts only Open Library's
-  // books, not the catalog ones added to the first page.
+  // Where the next page starts in the tidied list, or null when this was the last.
   nextOffset: number | null
   // Open Library failed, as opposed to having nothing.
   failed: boolean
-  // How many books the list holds once every page is loaded, so "About the author" can say the same
-  // number the reader can scroll through. Only on the first page; null when it can't be known up front
-  // (a search by name, which filters out namesakes page by page, or Open Library failing).
+  // How many books the list holds once every page is loaded, so "About the author" says the number the
+  // reader can scroll through. Null when Open Library failed.
   total: number | null
 }
 
@@ -58,20 +57,21 @@ async function catalogBooks(author: Author): Promise<DiscoverBook[]> {
   }))
 }
 
+// One page of the author's books. The whole list is fetched (cached for a day) and tidied first, with
+// our catalog's books added and duplicates, translations, box sets and non-novels left out
+// (lib/bookListCleanup.ts), so pages and the total all describe the same list.
 export async function authorBooksPage(author: Author, offset = 0): Promise<AuthorBooksPage> {
   const [found, catalog] = await Promise.all([
-    authorBooks(author, offset, AUTHOR_PAGE_SIZE).then(({ books, total }) => ({ books, total, failed: false }), () => ({ books: [] as DiscoverBook[], total: 0, failed: true })),
-    offset === 0 ? catalogBooks(author).catch(() => []) : Promise.resolve([]),
+    authorBooks(author).then((books) => ({ books, failed: false }), () => ({ books: [] as DiscoverBook[], failed: true })),
+    catalogBooks(author).catch(() => []),
   ])
   // A search by name can turn up namesakes and books they only edited; by key it's already exact.
   const fromOpenLibrary = author.key ? found.books : found.books.filter((b) => creditIncludes(b.author, author.slug))
   const extra = catalog.filter((c) => !fromOpenLibrary.some((b) => sameBook(b, c)))
-  const nextOffset = found.books.length === AUTHOR_PAGE_SIZE ? offset + AUTHOR_PAGE_SIZE : null
-  const books = [...fromOpenLibrary, ...extra]
-  // By key the search's own count is exact; our catalog's extras are added on top. By name, only a
-  // single page is a known total.
-  const total = offset > 0 || found.failed ? null : author.key ? found.total + extra.length : nextOffset === null ? books.length : null
-  return { books, nextOffset, failed: found.failed, total }
+  const all = cleanBookList([...fromOpenLibrary, ...extra])
+  const books = all.slice(offset, offset + AUTHOR_PAGE_SIZE)
+  const nextOffset = offset + AUTHOR_PAGE_SIZE < all.length ? offset + AUTHOR_PAGE_SIZE : null
+  return { books, nextOffset, failed: found.failed, total: found.failed ? null : all.length }
 }
 
 // ---- About the author -------------------------------------------------------------------------

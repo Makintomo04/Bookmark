@@ -15,6 +15,9 @@ export interface DiscoverBook {
   isbn10?: string | null
   // Optional, from fresh results only: the first author's Open Library key (OL7315784A).
   authorKey?: string | null
+  // Optional, from fresh results only: the languages of the work's editions ("eng", "spa"), for leaving
+  // translations out of an author's list (lib/bookListCleanup.ts).
+  languages?: string[]
 }
 
 export const coverUrlFor = (coverId?: number | null, size: "S" | "M" | "L" = "L") =>
@@ -29,11 +32,12 @@ interface SearchDoc {
   number_of_pages_median?: number
   first_publish_year?: number
   subject?: string[]
+  language?: string[]
   // The "editions" sub-query: the edition that best matches the search, with its ISBNs.
   editions?: { docs?: { key?: string, isbn?: string[] }[] }
 }
 
-const FIELDS = "key,title,author_name,author_key,cover_i,number_of_pages_median,first_publish_year,editions,editions.key,editions.isbn"
+const FIELDS = "key,title,author_name,author_key,cover_i,number_of_pages_median,first_publish_year,language,editions,editions.key,editions.isbn"
 
 const pickIsbns = (isbns?: string[]) => ({
   isbn13: isbns?.find((i) => /^\d{13}$/.test(i)) ?? null,
@@ -55,6 +59,7 @@ const toDiscoverBooks = (data: any): DiscoverBook[] =>
         editionKey: edition?.key?.match(/OL\d+M/)?.[0] ?? null,
         ...pickIsbns(edition?.isbn),
         authorKey: normaliseAuthorKey(doc.author_key?.[0]),
+        languages: Array.isArray(doc.language) ? doc.language : [],
       }
     })
 
@@ -146,16 +151,17 @@ export async function authorRecord(key: string): Promise<{ bio: string | null, p
   return { bio, photoIds: (data.photos ?? []).filter((id) => Number.isInteger(id) && id > 0) }
 }
 
-// An author's books, most shelved first, like subjectBooks. By key when we have one; otherwise by name,
-// which can also catch namesakes. `total` is how many the search has in all, every page together. Throws
-// on failure so the author page can tell it from "no books". Cached for a day.
-export async function authorBooks(by: { key?: string | null, name: string }, offset = 0, limit = 24): Promise<{ books: DiscoverBook[], total: number }> {
+// An author's books, most shelved first, like subjectBooks: all of them in one request (up to `limit`),
+// so the author page can tidy the whole list and page through it itself. By key when we have one;
+// otherwise by name, which can also catch namesakes. Throws on failure so the author page can tell it
+// from "no books". Cached for a day.
+export const AUTHOR_BOOKS_MAX = 300
+export async function authorBooks(by: { key?: string | null, name: string }, limit = AUTHOR_BOOKS_MAX): Promise<DiscoverBook[]> {
   const q = by.key ? `author_key:${by.key}` : `author:"${by.name.replace(/"/g, "")}"`
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${FIELDS}&limit=${limit}&offset=${offset}`
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } })
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${FIELDS}&limit=${limit}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000), next: { revalidate: 86400 } })
   if (!res.ok) throw new Error(`Open Library author books failed: ${res.status}`)
-  const data = await res.json()
-  return { books: toDiscoverBooks(data), total: typeof data?.numFound === "number" ? data.numFound : 0 }
+  return toDiscoverBooks(await res.json())
 }
 
 // Open Library's index keeps a reading-log activity count for each of the last seven days.
