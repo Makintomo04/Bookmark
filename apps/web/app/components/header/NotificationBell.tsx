@@ -1,5 +1,5 @@
 "use client"
-import { FC } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import { Bell } from "lucide-react"
@@ -47,9 +47,22 @@ const notificationHref = (n: NotificationLike) => {
   return `/u/${encodeURIComponent(n.actor.username)}`
 }
 
+// The kinds that also get a toast when they arrive: other people's doing, at a moment the reader can't
+// predict. Achievements have their own celebration and unlocked comments follow the reader's own save.
+const TOASTED = new Set(["NEW_FOLLOWER", "FOLLOW_REQUEST", "BUDDY_READ_INVITE", "BOOK_RECOMMENDED", "BUDDY_READ_HOSTED", "BUDDY_READ_HOST_INHERITED"])
+
+const toastCopy = (n: NotificationLike) =>
+  n.type === "BUDDY_READ_HOST_INHERITED"
+    ? `You're now hosting ${n.buddyRead?.title ?? "a reading circle"}`
+    : `${n.actor.username} ${notificationCopy(n)}`
+
 const NotificationBell: FC<NotificationBellProps> = ({}) => {
-  const { notifications, unreadCount, mutate } = useNotifications()
+  const { notifications, unreadCount, isLoading, isError, mutate } = useNotifications()
   const booksReadFor = useBooksReadFor()
+  const [open, setOpen] = useState(false)
+  // Ids already accounted for. Null until the first load, which only records what's there, so a page
+  // load never replays old notifications as toasts.
+  const seen = useRef<Set<string> | null>(null)
 
   // Adds a recommended book to Want to read. Its own menu item, beside the row's link rather than inside it.
   const addRecommended = (id: string) => {
@@ -74,16 +87,35 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
     })
   }
 
-  const handleOpenChange = (open: boolean) => {
-    if (open && unreadCount > 0) {
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (next && unreadCount > 0) {
       axios.patch("/api/notifications", { all: true }).then(() => mutate())
     }
   }
 
+  // The badge alone is easy to miss, so new social notifications also get a toast: one per poll, and none
+  // while the dropdown is open, where they're already on screen. View opens the bell, where their actions are.
+  useEffect(() => {
+    if (isLoading || isError) return
+    if (seen.current === null) {
+      seen.current = new Set(notifications.map((n: any) => n.id))
+      return
+    }
+    const known = seen.current
+    const arrived = notifications.filter((n: any) => !known.has(n.id) && !n.read && TOASTED.has(n.type))
+    notifications.forEach((n: any) => known.add(n.id))
+    if (open || arrived.length === 0) return
+    notify.info(arrived.length === 1 ? toastCopy(arrived[0]) : `${arrived.length} new notifications`, {
+      action: { label: "View", onClick: () => handleOpenChange(true) },
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications, isLoading, isError])
+
   const actionClass = "h-8 px-3 rounded-full text-xs font-medium cursor-pointer focus:bg-accent"
 
   return (
-    <DropdownMenu onOpenChange={handleOpenChange}>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
