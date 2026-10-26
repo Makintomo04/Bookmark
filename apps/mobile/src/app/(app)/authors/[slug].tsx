@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, View } from "react-nat
 import { Stack, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { BookCover } from "@/components/books/BookCover";
+import { FollowSeries } from "@/components/series/FollowSeries";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -12,7 +13,7 @@ import { authorPageKey, setFollowingAuthor, type AuthorPage } from "@/lib/author
 import { addBook } from "@/lib/discover";
 import { useTheme } from "@/lib/theme";
 
-// One author (the web's /authors/<slug>): Follow, about them, and their books, most read first. Tap a
+// One author (the web's /authors/<slug>): Follow, about them, their series, and their books, most read first. Tap a
 // book to add it. The first page of books only; the web has the rest.
 export default function Author() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -43,6 +44,20 @@ export default function Author() {
           <View style={{ alignItems: "flex-start" }}>
             <Button title={showBio ? "Show less" : "Read more"} variant="ghost" onPress={() => setShowBio(!showBio)} />
           </View>
+        </View>
+      )}
+      {data.series && data.series.length > 0 && (
+        <View style={{ gap: 12 }}>
+          <Text variant="title">Series</Text>
+          {data.series.map((s) => (
+            <View key={s.key} style={styles.seriesRow}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text numberOfLines={2}>{s.name}</Text>
+                <Text variant="small">{s.count === 1 ? "1 book on Bookmark" : `${s.count} books on Bookmark`}</Text>
+              </View>
+              <FollowSeries name={s.name} author={s.author} following={s.isFollowing} refreshKey={authorPageKey(author.slug)} />
+            </View>
+          ))}
         </View>
       )}
       {data.failed && <Notice message="Couldn't load this author's books right now. Try again later." />}
@@ -98,4 +113,5 @@ const styles = StyleSheet.create({
   photo: { width: 88, height: 120 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   book: { width: 100, gap: 4 },
+  seriesRow: { flexDirection: "row", alignItems: "center", gap: 12 },
 });

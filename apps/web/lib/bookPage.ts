@@ -14,7 +14,8 @@ export interface BookPageData {
   book: DiscoverBook
   description: string | null
   genres: Genre[]
-  series: { name: string, position: number | null } | null
+  // Credited to the work's first author, the half of the series' identity a name alone doesn't give.
+  series: { name: string, author: string, position: number | null } | null
   editionCount: number | null
 }
 
@@ -51,7 +52,7 @@ export const bookPageData = cache(async (workKey: string): Promise<BookPageData 
       },
       description: work.description ?? await workDescription(workKey).catch(() => null),
       genres: genresOf(work.subjects),
-      series: work.seriesName ? { name: work.seriesName, position: work.seriesPosition } : null,
+      series: work.seriesName && work.authors[0] ? { name: work.seriesName, author: work.authors[0], position: work.seriesPosition } : null,
       editionCount: work.olEditionCount,
     }
   }

@@ -13,8 +13,11 @@ import BookPageReaders from '@/app/components/books/BookPageReaders'
 import RatingSummary from '@/app/components/books/RatingSummary'
 import BookReviews from '@/app/components/books/BookReviews'
 import BookProblemReport from '@/app/components/books/BookProblemReport'
+import FollowSeriesButton from '@/app/components/series/FollowSeriesButton'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { bookPageData } from '@/lib/bookPage'
+import { isFollowingSeries } from '@/lib/seriesFollows'
+import { seriesKey } from '@/lib/series'
 import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
 import { bookHref, bookSlug, normaliseWorkKey } from '@/lib/workKey'
 
@@ -79,11 +82,12 @@ const Page = async ({ params }: PageProps) => {
   if (slug !== bookSlug(workKey, data.book.title)) redirect(bookHref({ workKey, title: data.book.title })!)
 
   const viewer = await getCurrentUser()
-  const [rating, reviews] = await Promise.all([
+  const { book, series, genres } = data
+  const [rating, reviews, followingSeries] = await Promise.all([
     ratingSummaryForWork(workKey),
     reviewsForWork(workKey, viewer?.id ?? null),
+    viewer && series ? isFollowingSeries(viewer.id, seriesKey(series.name, series.author)) : false,
   ])
-  const { book, series, genres } = data
   const meta = [book.year && `First published ${book.year}`, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")
 
   return (
@@ -107,7 +111,18 @@ const Page = async ({ params }: PageProps) => {
               the reviews and details. Inside a group things sit close; between groups, a clear break. */}
           <div className="min-w-0 max-w-3xl flex flex-col gap-12 md:gap-14">
             <header>
-              {series && <p className="mb-1 text-sm text-muted-foreground">{seriesLabel(series)}</p>}
+              {series && (
+                <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <p className="text-sm text-muted-foreground">{seriesLabel(series)}</p>
+                  <FollowSeriesButton
+                    name={series.name}
+                    author={series.author}
+                    initialFollowing={followingSeries}
+                    signedIn={!!viewer}
+                    returnTo={bookHref({ workKey, title: book.title })!}
+                  />
+                </div>
+              )}
               <h1 className="page-title break-words">{book.title}</h1>
               <p className="mt-2 text-base"><AuthorLink author={book.author} /></p>
               {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}

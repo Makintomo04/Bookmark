@@ -6,10 +6,12 @@ import Container from '@/app/components/Container'
 import AuthorBooks from '@/app/components/authors/AuthorBooks'
 import AboutAuthor from '@/app/components/authors/AboutAuthor'
 import FollowAuthorButton from '@/app/components/authors/FollowAuthorButton'
+import AuthorSeriesList from '@/app/components/series/AuthorSeriesList'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { authorAbout, authorBooksPage, findAuthor } from '@/lib/authors'
 import { authorHref, authorSlug } from '@/lib/authorNames'
 import { canFollow, isFollowingAuthor } from '@/lib/authorFollows'
+import { authorSeries } from '@/lib/seriesFollows'
 
 interface PageProps {
   params: { slug: string }
@@ -39,7 +41,10 @@ const Page = async ({ params }: PageProps) => {
   const author = await findAuthor(slug)
   if (!author) notFound()
   const [first, about, user] = await Promise.all([authorBooksPage(author), authorAbout(author), getCurrentUser()])
-  const following = user ? await isFollowingAuthor(user.id, author.key) : false
+  const [following, series] = await Promise.all([
+    user ? isFollowingAuthor(user.id, author.key) : false,
+    authorSeries(author, user?.id ?? null),
+  ])
 
   return (
     <div className="mt-6 sm:mt-8">
@@ -57,6 +62,7 @@ const Page = async ({ params }: PageProps) => {
           </div>
         </div>
         <AboutAuthor name={author.name} about={about} bookCount={first.total} />
+        <AuthorSeriesList series={series} signedIn={!!user} returnTo={authorHref(author.slug)} />
         <AuthorBooks author={author} initial={first} />
       </Container>
     </div>

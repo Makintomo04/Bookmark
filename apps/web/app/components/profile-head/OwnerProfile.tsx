@@ -11,6 +11,7 @@ import BookList from '../books/BookList'
 import ProfileLists from '../discover/ProfileLists'
 import FollowRequests from './FollowRequests'
 import ProfileAuthors from './ProfileAuthors'
+import SeriesTracker from '../series/SeriesTracker'
 import type { FollowedAuthor } from '@/lib/authorFollows'
 import { fetcher, swrOptions } from '@/lib/fetcher'
 
@@ -50,6 +51,7 @@ const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
     <div className="mt-12 px-4 sm:px-8">
       <FollowRequests className="mb-10" />
       <BookList />
+      <div className="mt-12"><SeriesTracker /></div>
       <OwnReviews />
       <ProfileLists username={username} isSelf />
       <OwnAuthors />

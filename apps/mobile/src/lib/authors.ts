@@ -2,6 +2,7 @@ import { mutate } from "swr";
 import { authorSlug } from "@bookmark/shared/authors";
 import { api } from "@/lib/api";
 import type { FoundBook } from "@/lib/useBookSearch";
+import type { AuthorSeries } from "@/lib/series";
 
 // Author pages and following authors (the web's /authors/<slug> and lib/authorFollows.ts).
 
@@ -10,6 +11,8 @@ export interface AuthorPage {
   about?: { photoUrl: string | null; bio: string[] };
   canFollow?: boolean;
   isFollowing?: boolean;
+  // Their series in our catalog, on the first page.
+  series?: AuthorSeries[];
   books: FoundBook[];
   nextOffset: number | null;
   failed: boolean;

@@ -4,10 +4,12 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from "@bookmark/shared/progress";
+import { positionLabel } from "@bookmark/shared/series";
 import { AuthorNames } from "@/components/authors/AuthorNames";
 import { BookCover } from "@/components/books/BookCover";
 import { CatchMeUp } from "@/components/books/CatchMeUp";
 import { StarRating } from "@/components/books/StarRating";
+import { FollowSeries } from "@/components/series/FollowSeries";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -15,6 +17,7 @@ import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError } from "@/lib/api";
 import { goBack } from "@/lib/navigation";
+import { bookSeriesKey, type BookSeries } from "@/lib/series";
 import { formatDay, groupShelf, isRereading, saveBook, useBooks, type Book, type BookAction, type BookRead } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
 
@@ -194,6 +197,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
           <Text variant="title" style={{ fontSize: 20, lineHeight: 26 }}>{book.title}</Text>
           <AuthorNames author={book.author} />
           {meta ? <Text variant="small">{meta}</Text> : null}
+          <BookSeriesFollow bookId={book.id} />
           <View style={{ alignItems: "flex-start" }}>
             <Button title="Edit details" variant="ghost" disabled={saving} onPress={() => router.push(`/book/edit/${book.id}`)} />
           </View>
@@ -353,3 +357,17 @@ const styles = StyleSheet.create({
   links: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   historyRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
 });
+
+// The book's series, where it sits, and Follow series. Nothing when it isn't in one.
+function BookSeriesFollow({ bookId }: { bookId: string }) {
+  const { data } = useSWR<BookSeries>(bookSeriesKey(bookId));
+  const series = data?.series;
+  if (!series) return null;
+  const where = [series.name, positionLabel(series.position)].filter(Boolean).join(" · ");
+  return (
+    <View style={{ gap: 6, marginTop: 4 }}>
+      <Text variant="small">{where}</Text>
+      <FollowSeries name={series.name} author={series.author} following={series.isFollowing} refreshKey={bookSeriesKey(bookId)} />
+    </View>
+  );
+}
