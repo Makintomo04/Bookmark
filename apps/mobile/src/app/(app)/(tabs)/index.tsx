@@ -9,6 +9,7 @@ import { OwnAuthors } from "@/components/authors/ProfileAuthors";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { GoalCard } from "@/components/library/GoalCard";
 import { NotificationBell } from "@/components/social/NotificationBell";
+import { SeriesTracker } from "@/components/library/SeriesTracker";
 import { Shelves } from "@/components/library/Shelves";
 import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHeader";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +17,7 @@ import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
 import { FOLLOWED_AUTHORS_KEY } from "@/lib/authors";
 import { useBooks } from "@/lib/books";
+import { SERIES_TRACKER_KEY } from "@/lib/series";
 import { useTheme } from "@/lib/theme";
 
 // Your library: your own profile, as on the web (/u/<you>). Header, this year's goal, then the shelves.
@@ -31,7 +33,7 @@ export default function Library() {
     <SafeAreaView edges={["top", "left", "right"]} style={[styles.fill, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); void globalMutate(FOLLOWED_AUTHORS_KEY); }} tintColor={colors.mutedForeground} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); void globalMutate(FOLLOWED_AUTHORS_KEY); void globalMutate(SERIES_TRACKER_KEY); }} tintColor={colors.mutedForeground} />}
       >
         <View style={styles.topBar}>
           <NotificationBell color="#ffffff" />
@@ -57,6 +59,7 @@ export default function Library() {
           </View>
         )}
         {books && books.length > 0 && <Shelves books={books} accent={accent} />}
+        {books && books.length > 0 && <SeriesTracker accent={accent} />}
         <OwnAuthors />
       </ScrollView>
     </SafeAreaView>
