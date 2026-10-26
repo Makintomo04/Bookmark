@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { Prisma, ProfileVisibility } from "@prisma/client";
 import prisma from "@/lib/db";
 import { ANONYMOUS, canView, privacyOf, privacySelect, type Relation, type Viewable } from "@/lib/privacyRules";
+import { isSuspended } from "@/lib/suspension";
 
 // Every privacy and blocking rule lives here and in lib/privacyRules.ts. The profile page, the
 // profile API, the feed, search, the sitemap and the share image all ask these instead of
@@ -11,8 +12,11 @@ export * from "@/lib/privacyRules";
 
 // One lookup per viewer/owner pair per request.
 export const getRelation = cache(async (viewerId: string | null | undefined, ownerId: string): Promise<Relation> => {
-  if (!viewerId) return ANONYMOUS;
   if (viewerId === ownerId) return { isSelf: true, isFollower: false, blocked: null };
+  // A suspended reader's profile is hidden from everyone else, as if they'd blocked the viewer.
+  const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { suspendedAt: true, suspendedUntil: true } });
+  if (isSuspended(owner)) return { isSelf: false, isFollower: false, blocked: "byOwner" };
+  if (!viewerId) return ANONYMOUS;
   const [follow, blocks] = await Promise.all([
     prisma.follow.findUnique({
       where: { followerId_followingId: { followerId: viewerId, followingId: ownerId } },
@@ -37,12 +41,23 @@ export async function blockedUserIds(userId: string): Promise<string[]> {
   return Array.from(new Set(rows.map((r) => (r.blockerId === userId ? r.blockedId : r.blockerId))));
 }
 
+// Not suspended (lib/suspension.ts). A suspension with an end date that has passed still matches here
+// until an admin lifts it; erring towards hidden is the safe side.
+export const notSuspendedWhere: Prisma.UserWhereInput = {
+  OR: [{ suspendedAt: { isSet: false } }, { suspendedAt: null }],
+};
+
 // Unset reads as PUBLIC, so match it explicitly (MongoDB: unset and null are different things).
 const visibilityIn = (values: ProfileVisibility[]): Prisma.UserWhereInput => ({
-  OR: [
-    { profileVisibility: { isSet: false } },
-    { profileVisibility: null },
-    { profileVisibility: { in: values } },
+  AND: [
+    notSuspendedWhere,
+    {
+      OR: [
+        { profileVisibility: { isSet: false } },
+        { profileVisibility: null },
+        { profileVisibility: { in: values } },
+      ],
+    },
   ],
 });
 

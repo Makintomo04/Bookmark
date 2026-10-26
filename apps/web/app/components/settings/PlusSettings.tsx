@@ -4,7 +4,7 @@ import Link from 'next/link'
 import moment from 'moment'
 import { Loader2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { planStatusOf } from '@/lib/entitlements'
+import { isIndefiniteComp, planStatusOf } from '@/lib/entitlements'
 import useUser from '@/app/hooks/useUser'
 import useBilling from '@/app/hooks/useBilling'
 import { Button } from '../ui/button'
@@ -27,9 +27,9 @@ const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
       : status.source === "store"
         ? `Plus through ${status.store === "PLAY_STORE" ? "Google Play" : "the App Store"}${status.until ? `, renewing or ending on ${moment(status.until).format("D MMMM YYYY")}` : ""}. Manage or cancel it in ${status.store === "PLAY_STORE" ? "the Play Store app" : "your iPhone's Settings"}.`
       : status.source === "comp" && status.compUntil
-        ? `Free Plus until ${moment(status.compUntil).format("D MMMM YYYY")}.`
+        ? isIndefiniteComp(status.compUntil) ? "Complimentary Plus from the Bookmark team, with no end date." : `Free Plus until ${moment(status.compUntil).format("D MMMM YYYY")}.`
         : "You're on the free plan. Every stat, import and circle you join stays free."
-  const label = status.source === "lifetime" ? "Lifetime" : status.patron ? "Patron" : status.trialing ? "Trial" : status.source === "comp" ? "Free months" : status.plan === "PLUS" ? "Active" : "Free"
+  const label = status.source === "lifetime" ? "Lifetime" : status.patron ? "Patron" : status.trialing ? "Trial" : status.source === "comp" ? (isIndefiniteComp(status.compUntil) ? "Complimentary" : "Free months") : status.plan === "PLUS" ? "Active" : "Free"
 
   return (
     <div className="rounded-lg border p-4 flex flex-col gap-5">

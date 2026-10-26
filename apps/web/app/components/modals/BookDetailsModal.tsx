@@ -15,6 +15,7 @@ import useBookDescription from '@/app/hooks/useBookDescription'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useListEditorModal from '@/app/hooks/useListEditorModal'
 import AuthorLink from '@/app/components/AuthorLink'
+import BookProblemReport from '../books/BookProblemReport'
 
 // A closer look at an Open Library book from Discover or a list, before deciding to shelve it.
 const BookDetailsModal: FC = () => {
@@ -59,6 +60,7 @@ const BookDetailsModal: FC = () => {
         ) : (
           <BookBlurb description={description} isLoading={isLoading} />
         )}
+        {book.workKey && <BookProblemReport key={book.workKey} workKey={book.workKey} />}
       </div>
     </div>
   ) : undefined
