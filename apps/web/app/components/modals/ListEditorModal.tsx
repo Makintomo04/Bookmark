@@ -20,6 +20,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useBookSearch from '@/app/hooks/useBookSearch'
 import useListEditorModal, { EditableList, EditableListItem } from '@/app/hooks/useListEditorModal'
 import { isListsKey } from '@/app/hooks/useLists'
+import { can } from '@/lib/roles'
 
 const fieldClass = "w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
 const chipClass = "h-8 px-3 rounded-full text-xs font-medium border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -43,7 +44,7 @@ const ListEditorModal: FC = () => {
   const { user } = useUser()
   const { books } = useBooks()
   const { isOpen, list: initial, onClose } = useListEditorModal()
-  const isStaff = !!user?.isStaff
+  const isStaff = can(user, "lists.curate")
   const accent = user?.favColour || '#D92D2D'
 
   const [draft, setDraft] = useState<EditableList | null>(null)

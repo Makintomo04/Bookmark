@@ -1,0 +1,155 @@
+import type { Prisma } from "@prisma/client";
+import prisma from "@/lib/db";
+import { DESCRIPTION_MAX } from "@/lib/openLibrary";
+import { mirrorCover } from "@/lib/covers";
+import { uploadersOf } from "@/lib/uploads";
+import { uploadThingKey } from "@/lib/uploadedImages";
+import { logStaffAction } from "@/lib/staffLog";
+import { staffFail, type StaffOutcome } from "@/lib/staffRoute";
+import { isObjectId } from "@/lib/staffUsers";
+import {
+  changedFields,
+  editionCopyUpdates,
+  mergeCurated,
+  parseEditionFix,
+  parseWorkFix,
+  workCopyUpdates,
+  type CopyUpdate,
+} from "@/lib/catalogueFixRules";
+
+// A librarian's correction to the shared catalogue, from /staff/catalogue or "Fix this book" on a book
+// page. The rules (what may change, which readers' copies follow) are in lib/catalogueFixRules.ts.
+
+const editionSelect = { id: true, key: true, format: true, pages: true, isbn13: true, isbn10: true, publisher: true, publishedYear: true, coverUrl: true, curatedFields: true } as const;
+const workSelect = {
+  id: true, key: true, openLibraryKey: true, title: true, authors: true, description: true, coverUrl: true, firstPublishYear: true, curatedFields: true,
+  editions: { select: editionSelect, take: 20 },
+  _count: { select: { books: true } },
+} as const;
+
+export type StaffWork = NonNullable<Awaited<ReturnType<typeof findStaffWork>>>;
+
+export const findStaffWork = (id: string) => prisma.work.findUnique({ where: { id }, select: workSelect });
+
+const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Search by id, Open Library key (OL45883W), ISBN or title.
+export async function searchWorks(query: string, limit = 20): Promise<StaffWork[]> {
+  const q = query.trim();
+  if (!q) return [];
+  if (isObjectId(q)) {
+    const one = await findStaffWork(q);
+    return one ? [one] : [];
+  }
+  const digits = q.replace(/[^0-9Xx]/g, "");
+  if (digits.length === 10 || digits.length === 13) {
+    const editions = await prisma.edition.findMany({ where: { OR: [{ isbn13: digits }, { isbn10: digits.toUpperCase() }] }, select: { workId: true }, take: limit });
+    if (editions.length) {
+      return prisma.work.findMany({ where: { id: { in: Array.from(new Set(editions.map((e) => e.workId))) } }, select: workSelect });
+    }
+  }
+  if (/^OL\d+W$/i.test(q)) return prisma.work.findMany({ where: { openLibraryKey: q.toUpperCase() }, select: workSelect, take: limit });
+  return prisma.work.findMany({ where: { title: { contains: escapeRegex(q), mode: "insensitive" } }, select: workSelect, take: limit });
+}
+
+// A cover for the catalogue: never a reader's upload (lib/uploads.ts), and Open Library covers are copied
+// to our own storage the way every other catalogue cover is.
+async function catalogueCoverFrom(url: string | null | undefined) {
+  if (!url) return { ok: true as const, url: url ?? null };
+  if ((await uploadersOf([url])).size) return { ok: false as const, error: "That cover is a reader's own upload, so it can't go in the shared catalogue." };
+  return { ok: true as const, url: await mirrorCover(url) };
+}
+
+// Book rows on the work (or edition), list items on the Open Library work key. A work-wide fix skips
+// copies on an edition a librarian gave its own cover, which that edition's fix decides instead.
+// Counts each copy once, however many of its fields changed.
+async function applyCopyUpdates(updates: CopyUpdate[], scope: { workId?: string; editionId?: string; workKey?: string | null; skipEditionIds?: string[] }) {
+  const books = new Set<string>();
+  const listItems = new Set<string>();
+  const bookScope: Prisma.BookWhereInput = scope.editionId
+    ? { editionId: scope.editionId }
+    : { workId: scope.workId, ...(scope.skipEditionIds?.length && { NOT: { editionId: { in: scope.skipEditionIds } } }) };
+  for (const u of updates) {
+    if (u.model === "book") {
+      let ids: string[];
+      if (u.from === "catalogue") {
+        const rows = await prisma.book.findMany({ where: { AND: [bookScope, { NOT: { coverImage: String(u.to) } }] }, select: { id: true, coverImage: true } });
+        const uploads = await uploadersOf(rows.map((r) => r.coverImage));
+        ids = rows.filter((r) => !uploads.has(uploadThingKey(r.coverImage) ?? "")).map((r) => r.id);
+      } else {
+        ids = (await prisma.book.findMany({ where: { AND: [bookScope, { [u.field]: { in: u.from } }] }, select: { id: true } })).map((r) => r.id);
+      }
+      if (ids.length) await prisma.book.updateMany({ where: { id: { in: ids } }, data: { [u.field]: u.to } });
+      ids.forEach((id) => books.add(id));
+    } else if (scope.workKey) {
+      // List items never hold an upload (lib/uploads.ts withoutUploadedCovers), so "catalogue" is all of them.
+      const match = u.from === "catalogue" ? { NOT: { [u.field]: u.to } } : { [u.field]: { in: u.from } };
+      const ids = (await prisma.listItem.findMany({ where: { workKey: scope.workKey, ...match }, select: { id: true } })).map((r) => r.id);
+      if (ids.length) await prisma.listItem.updateMany({ where: { id: { in: ids } }, data: { [u.field]: u.to } });
+      ids.forEach((id) => listItems.add(id));
+    }
+  }
+  return { books: books.size, listItems: listItems.size };
+}
+
+export type FixResult = StaffOutcome<{ work: StaffWork; copies: { books: number; listItems: number } }>;
+
+type Actor = { id: string };
+
+export async function fixWork(actor: Actor, id: string, body: Record<string, unknown>, reason?: string): Promise<FixResult> {
+  if (!isObjectId(id)) return staffFail(404, "No book with that id.");
+  const work = await findStaffWork(id);
+  if (!work) return staffFail(404, "No book with that id.");
+  const parsed = parseWorkFix(body, DESCRIPTION_MAX);
+  if (!parsed.ok) return staffFail(400, parsed.error);
+  const patch = parsed.patch;
+  if ("coverUrl" in patch) {
+    const cover = await catalogueCoverFrom(patch.coverUrl);
+    if (!cover.ok) return staffFail(400, cover.error);
+    patch.coverUrl = cover.url;
+  }
+  const changed = changedFields(work, patch) as string[];
+  if (!changed.length) return { ok: true, value: { work, copies: { books: 0, listItems: 0 } } };
+
+  const before = Object.fromEntries(changed.map((k) => [k, work[k as keyof typeof work]]));
+  await prisma.work.update({ where: { id }, data: { ...patch, curatedFields: mergeCurated(work.curatedFields, changed) } });
+  // One cover for the book: every edition takes it, like every reader's copy, except an edition a
+  // librarian gave a cover of its own (an audiobook's square art, say).
+  const curatedEditions = work.editions.filter((e) => e.curatedFields.includes("coverUrl")).map((e) => e.id);
+  if (changed.includes("coverUrl") && patch.coverUrl) {
+    await prisma.edition.updateMany({ where: { workId: id, NOT: { id: { in: curatedEditions } } }, data: { coverUrl: patch.coverUrl } });
+  }
+  const copies = await applyCopyUpdates(workCopyUpdates(work, patch), { workId: id, workKey: work.openLibraryKey, skipEditionIds: curatedEditions });
+  await logStaffAction({
+    actorId: actor.id, action: "work.edit", targetType: "work", targetId: id,
+    before, after: { ...Object.fromEntries(changed.map((k) => [k, patch[k as keyof typeof patch] ?? null])), copies }, reason,
+  });
+  return { ok: true, value: { work: (await findStaffWork(id))!, copies } };
+}
+
+export async function fixEdition(actor: Actor, id: string, body: Record<string, unknown>, reason?: string): Promise<FixResult> {
+  if (!isObjectId(id)) return staffFail(404, "No edition with that id.");
+  const edition = await prisma.edition.findUnique({ where: { id }, select: { ...editionSelect, workId: true } });
+  if (!edition) return staffFail(404, "No edition with that id.");
+  const parsed = parseEditionFix(body);
+  if (!parsed.ok) return staffFail(400, parsed.error);
+  const patch = parsed.patch;
+  if ("coverUrl" in patch) {
+    const cover = await catalogueCoverFrom(patch.coverUrl);
+    if (!cover.ok) return staffFail(400, cover.error);
+    patch.coverUrl = cover.url;
+  }
+  const changed = changedFields(edition, patch) as string[];
+  const work = await findStaffWork(edition.workId);
+  if (!work) return staffFail(404, "That edition has no book.");
+  if (!changed.length) return { ok: true, value: { work, copies: { books: 0, listItems: 0 } } };
+
+  const before = Object.fromEntries(changed.map((k) => [k, edition[k as keyof typeof edition]]));
+  await prisma.edition.update({ where: { id }, data: { ...patch, curatedFields: mergeCurated(edition.curatedFields, changed) } });
+  const copies = await applyCopyUpdates(editionCopyUpdates(edition, patch), { editionId: id });
+  await logStaffAction({
+    actorId: actor.id, action: "edition.edit", targetType: "edition", targetId: id,
+    before, after: { ...Object.fromEntries(changed.map((k) => [k, patch[k as keyof typeof patch] ?? null])), copies }, reason,
+  });
+  return { ok: true, value: { work: (await findStaffWork(edition.workId))!, copies } };
+}

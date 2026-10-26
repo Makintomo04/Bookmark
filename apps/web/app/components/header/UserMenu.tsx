@@ -9,10 +9,11 @@ import { usePathname } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
-import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, ShieldCheck, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isWrappedSeason } from '@/lib/wrappedSeason'
 import { tierPreviewEnabled } from '@/app/hooks/useTierPreview'
+import { isStaffRole } from '@/lib/roles'
 interface UserMenuProps {
 
 }
@@ -133,6 +134,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <div className="flex flex-col px-2 py-2">{secondary.map(navLink)}</div>
             <div className="mx-2 mt-auto md:mt-0 border-t border-neutral-200 dark:border-neutral-800 py-2">
               {navLink({ href: "/settings", label: "Settings", icon: Settings })}
+              {isStaffRole(user) && navLink({ href: "/staff", label: "Staff", icon: ShieldCheck })}
               {tierPreviewEnabled && navLink({ href: "/dev/tiers", label: "Dev tools", icon: Wrench })}
               {/* Straight to the landing page: no confirmation screen. */}
               <button type="button" onClick={() => { close(); void signOut({ callbackUrl: '/' }) }}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { can } from "@/lib/roles";
 import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { requireUser } from "@/lib/apiAuth";
@@ -24,7 +25,7 @@ export async function PATCH(req: Request, { params }: Params) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
   }
 
-  const parsed = parseListInput(await req.json(), currentUser.isStaff);
+  const parsed = parseListInput(await req.json(), can(currentUser, "lists.curate"));
   if ("error" in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }

@@ -1,0 +1,194 @@
+"use client"
+import { useEffect, useState } from 'react'
+import useSWR from 'swr'
+import { Loader2, Search } from 'lucide-react'
+import { fetcher } from '@/lib/fetcher'
+import type { StaffWork } from '@/lib/catalogueFix'
+import { Button } from '../ui/button'
+import { cardClass, fieldClass, staffSend } from './staffApi'
+
+type Saved = { work: StaffWork, copies: { books: number, listItems: number } }
+
+const copiesLine = ({ books, listItems }: Saved['copies']) =>
+  books || listItems
+    ? `Saved. Updated ${books} ${books === 1 ? "reader's copy" : "readers' copies"}${listItems ? ` and ${listItems} list ${listItems === 1 ? 'entry' : 'entries'}` : ''} that still showed the old version.`
+    : 'Saved. No readers had the old version on their shelves.'
+
+// Correct a book in the shared catalogue: its title, authors, description and cover, and each edition's
+// pages and cover. Readers who set their own keep theirs (lib/catalogueFixRules.ts).
+const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string | null, initialQuery: string }) => {
+  const [query, setQuery] = useState(initialQuery)
+  const [debounced, setDebounced] = useState(initialQuery)
+  const [selected, setSelected] = useState<string | null>(initialWorkId)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query), 300)
+    return () => clearTimeout(t)
+  }, [query])
+  const { data: results, isLoading } = useSWR<StaffWork[]>(debounced.trim() ? `/api/staff/works?q=${encodeURIComponent(debounced)}` : null, fetcher, { keepPreviousData: true })
+
+  return (
+    <div className="flex flex-col gap-4">
+      <label className="relative block">
+        <span className="sr-only">Search the catalogue</span>
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <input className={`${fieldClass} pl-9 h-10`} placeholder="Title, ISBN or Open Library id (OL45883W)" value={query}
+          onChange={(e) => { setQuery(e.target.value); setSelected(null) }} />
+      </label>
+
+      {selected ? (
+        <WorkEditor id={selected} onBack={() => setSelected(null)} />
+      ) : (
+        <>
+          {isLoading && <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />}
+          {results && results.length === 0 && <p className="text-muted-foreground">Nothing in the catalogue matches that.</p>}
+          <ul className="flex flex-col gap-2">
+            {results?.map((w) => (
+              <li key={w.id}>
+                <button type="button" onClick={() => setSelected(w.id)}
+                  className={`${cardClass} w-full flex items-center gap-3 text-left transition hover:bg-neutral-50 dark:hover:bg-neutral-900`}>
+                  <Cover url={w.coverUrl} className="h-16 w-11" />
+                  <span className="min-w-0">
+                    <span className="block font-medium truncate">{w.title}</span>
+                    <span className="block text-sm text-muted-foreground truncate">{w.authors.join(', ') || 'No author'}{w.firstPublishYear ? ` · ${w.firstPublishYear}` : ''}</span>
+                    <span className="block text-xs text-muted-foreground">{w._count.books} on shelves · {w.editions.length} {w.editions.length === 1 ? 'edition' : 'editions'}{w.curatedFields.length ? ' · corrected before' : ''}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  )
+}
+
+const Cover = ({ url, className }: { url: string | null, className: string }) => (
+  // eslint-disable-next-line @next/next/no-img-element
+  url ? <img src={url} alt="" className={`${className} shrink-0 rounded object-cover bg-neutral-100 dark:bg-neutral-800`} />
+    : <span className={`${className} shrink-0 rounded bg-neutral-100 dark:bg-neutral-800`} aria-hidden />
+)
+
+const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
+  const { data: work, error, mutate } = useSWR<StaffWork>(`/api/staff/works/${id}`, fetcher)
+  const [form, setForm] = useState<{ title: string, authors: string, description: string, coverUrl: string } | null>(null)
+  const [reason, setReason] = useState('')
+  const [pending, setPending] = useState(false)
+  const [message, setMessage] = useState<{ ok: boolean, text: string } | null>(null)
+
+  useEffect(() => {
+    if (work) setForm({ title: work.title, authors: work.authors.join(', '), description: work.description ?? '', coverUrl: work.coverUrl ?? '' })
+  }, [work])
+
+  if (error) return <p className="text-sm text-destructive">{error.message}</p>
+  if (!work || !form) return <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />
+
+  const save = async () => {
+    setPending(true)
+    setMessage(null)
+    // Only what changed, so an untouched field isn't marked as corrected.
+    const body: Record<string, unknown> = { reason }
+    if (form.title !== work.title) body.title = form.title
+    if (form.authors !== work.authors.join(', ')) body.authors = form.authors
+    if (form.description !== (work.description ?? '')) body.description = form.description
+    if (form.coverUrl !== (work.coverUrl ?? '')) body.coverUrl = form.coverUrl
+    try {
+      const saved = await staffSend<Saved>(`/api/staff/works/${id}`, 'PATCH', body)
+      await mutate(saved.work, { revalidate: false })
+      setMessage({ ok: true, text: copiesLine(saved.copies) })
+      setReason('')
+    } catch (e) {
+      setMessage({ ok: false, text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const field = (key: keyof typeof form, label: string, multiline = false) => (
+    <label className="flex flex-col gap-1.5 text-sm font-medium">
+      {label}
+      {multiline
+        ? <textarea className={fieldClass} rows={5} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+        : <input className={fieldClass} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
+    </label>
+  )
+
+  return (
+    <div className="flex flex-col gap-4">
+      <button type="button" onClick={onBack} className="self-start text-sm text-brand-text hover:underline">← Back to results</button>
+      <section className={`${cardClass} flex flex-col gap-4`}>
+        <div className="flex gap-4">
+          <Cover url={form.coverUrl || null} className="h-36 w-24" />
+          <div className="min-w-0 text-sm text-muted-foreground">
+            <p>{work._count.books} readers have this on their shelves.</p>
+            {work.openLibraryKey && <p>Open Library: <a className="text-brand-text hover:underline" href={`https://openlibrary.org/works/${work.openLibraryKey}`} target="_blank" rel="noreferrer">{work.openLibraryKey}</a></p>}
+            {work.curatedFields.length > 0 && <p>Corrected before: {work.curatedFields.join(', ')}</p>}
+          </div>
+        </div>
+        {field('title', 'Title')}
+        {field('authors', 'Authors, separated by commas')}
+        {field('coverUrl', 'Cover image link (https)')}
+        <p className="-mt-2 text-xs text-muted-foreground">A new cover goes on every edition and every reader&apos;s copy, except readers&apos; own photos and editions given their own cover below.</p>
+        {field('description', 'Description', true)}
+        <input className={fieldClass} placeholder="What was wrong (optional, for the log)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={save} disabled={pending}>{pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Save book</Button>
+        </div>
+        {message && <p role="status" className={`text-sm ${message.ok ? 'text-muted-foreground' : 'text-destructive'}`}>{message.text}</p>}
+      </section>
+
+      {work.editions.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-semibold">Editions</h2>
+          {work.editions.map((e) => <EditionEditor key={e.id} edition={e} onSaved={(w) => mutate(w, { revalidate: false })} />)}
+        </section>
+      )}
+    </div>
+  )
+}
+
+const EditionEditor = ({ edition, onSaved }: { edition: StaffWork['editions'][number], onSaved: (w: StaffWork) => void }) => {
+  const [pages, setPages] = useState(edition.pages?.toString() ?? '')
+  const [coverUrl, setCoverUrl] = useState(edition.coverUrl ?? '')
+  const [pending, setPending] = useState(false)
+  const [message, setMessage] = useState<{ ok: boolean, text: string } | null>(null)
+  const dirty = pages !== (edition.pages?.toString() ?? '') || coverUrl !== (edition.coverUrl ?? '')
+
+  const save = async () => {
+    setPending(true)
+    setMessage(null)
+    const body: Record<string, unknown> = {}
+    if (pages !== (edition.pages?.toString() ?? '')) body.pages = pages
+    if (coverUrl !== (edition.coverUrl ?? '')) body.coverUrl = coverUrl
+    try {
+      const saved = await staffSend<Saved>(`/api/staff/editions/${edition.id}`, 'PATCH', body)
+      onSaved(saved.work)
+      setMessage({ ok: true, text: copiesLine(saved.copies) })
+    } catch (e) {
+      setMessage({ ok: false, text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const facts = [edition.format?.toLowerCase(), edition.publisher, edition.publishedYear, edition.isbn13 ?? edition.isbn10].filter(Boolean).join(' · ')
+  return (
+    <div className={`${cardClass} flex flex-col sm:flex-row gap-3`}>
+      <Cover url={coverUrl || null} className="h-20 w-14" />
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        <p className="text-sm text-muted-foreground truncate">{facts || 'No details'}</p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <label className="text-sm sm:w-28"><span className="sr-only">Pages</span>
+            <input className={fieldClass} inputMode="numeric" placeholder="Pages" value={pages} onChange={(e) => setPages(e.target.value)} />
+          </label>
+          <label className="text-sm flex-1"><span className="sr-only">Cover image link</span>
+            <input className={fieldClass} placeholder="Cover image link (https)" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} />
+          </label>
+          <Button size="sm" variant="outline" onClick={save} disabled={pending || !dirty}>{pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Save</Button>
+        </div>
+        {message && <p role="status" className={`text-sm ${message.ok ? 'text-muted-foreground' : 'text-destructive'}`}>{message.text}</p>}
+      </div>
+    </div>
+  )
+}
+
+export default StaffCatalogue

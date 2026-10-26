@@ -69,6 +69,29 @@ export function plusSourceOf(user: StoredPlan, now = new Date()): PlusSource | n
   return null;
 }
 
+// Free Plus granted by an admin with no end date. Stored as a far-off compPlusUntil, so plusSourceOf()
+// needs no special case; isIndefiniteComp() tells the settings page to say "no end date".
+export const COMP_INDEFINITE = new Date("9999-12-31T00:00:00.000Z");
+
+export function isIndefiniteComp(compPlusUntil: Date | string | null | undefined): boolean {
+  const comp = asDate(compPlusUntil);
+  return !!comp && comp.getTime() >= COMP_INDEFINITE.getTime();
+}
+
+export const COMP_GRANTS = { "1m": 1, "1y": 12, indefinite: null } as const satisfies Record<string, number | null>;
+export type CompGrant = keyof typeof COMP_GRANTS;
+
+// The new compPlusUntil for a staff grant: months are added to whatever free Plus is still left, so a
+// grant never cuts one short.
+export function grantedCompUntil(current: Date | string | null | undefined, grant: CompGrant, now = new Date()): Date {
+  const months = COMP_GRANTS[grant];
+  if (months === null || isIndefiniteComp(current)) return COMP_INDEFINITE;
+  const existing = asDate(current);
+  const from = new Date(Math.max(now.getTime(), existing?.getTime() ?? 0));
+  from.setUTCMonth(from.getUTCMonth() + months);
+  return from;
+}
+
 // Accounts made before billing have no plan stored; they're free.
 export function planOf(user: StoredPlan, now = new Date()): Plan {
   return plusSourceOf(user, now) ? "PLUS" : "FREE";

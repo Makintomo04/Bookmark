@@ -96,6 +96,15 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     if (await refresh()) res = await send(path, init);
   }
   if (res.status === 401 && accessToken === null) onSessionEnded();
+  // A suspended account (apps/web/lib/suspension.ts): its sessions are already gone on the server, so
+  // drop the tokens and sign out rather than waiting for the access token to run out.
+  if (res.status === 403) {
+    const body = await res.clone().json().catch(() => null);
+    if (body?.code === "suspended") {
+      await clearTokens();
+      onSessionEnded();
+    }
+  }
   return res;
 }
 

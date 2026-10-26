@@ -3,22 +3,26 @@ import { Prisma } from "@prisma/client"
 import prisma from "./db"
 import { GENRES } from "./genres"
 import { normaliseWorkKey, sameBook } from "./workKey"
-import { blockedUserIds, canView, canViewUser, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, type Relation } from "./privacy"
+import { blockedUserIds, canView, canViewUser, getRelation, notSuspendedWhere, privacyOf, privacySelect, sharedBookWhere, visibleReview, type Relation } from "./privacy"
+import { can } from "./roles"
 import type { DiscoverBook } from "./openLibrary"
 import { withoutUploadedCovers } from "./uploads"
 import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
 
 export * from "./listRules"
 
-type Viewer = { id: string, isStaff?: boolean, username?: string | null } | null
+type Viewer = { id: string, role?: string | null, isStaff?: boolean, username?: string | null } | null
+
+// Picks, featuring, hiding and editing anyone's list (packages/shared/src/roles.ts).
+const curates = (viewer: Viewer | undefined) => can(viewer, "lists.curate")
 
 const ownerSelect = { username: true, image: true, favColour: true, ...booksReadCount } as const
 
 // What a viewer may see: public, unhidden lists, plus their own. Staff see everything.
 const visibleTo = (viewer: Viewer): Prisma.ListWhereInput =>
-  viewer?.isStaff ? {} : {
+  curates(viewer) ? {} : {
     OR: [
-      { visibility: "PUBLIC", hidden: false },
+      { visibility: "PUBLIC", hidden: false, owner: notSuspendedWhere },
       ...(viewer ? [{ ownerId: viewer.id }] : []),
     ],
   }
@@ -38,7 +42,7 @@ export interface ListFilters {
 const publicOnly: Prisma.ListWhereInput = { visibility: "PUBLIC", hidden: false }
 
 export async function findLists(filters: ListFilters, viewer: Viewer) {
-  if (filters.reported && !viewer?.isStaff) return []
+  if (filters.reported && !curates(viewer)) return []
   const now = new Date()
   const isOwnProfile = !!filters.owner && viewer?.username === filters.owner
   const where: Prisma.ListWhereInput = {
@@ -58,7 +62,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
     where,
     orderBy: filters.featured ? { featuredFrom: "desc" } : { updatedAt: "desc" },
     // Some may belong to profiles the viewer can't see, so ask for more than will be shown.
-    take: viewer?.isStaff ? limit : limit * 2,
+    take: curates(viewer) ? limit : limit * 2,
     include: {
       owner: { select: { ...ownerSelect, ...privacySelect } },
       items: { orderBy: { position: "asc" }, take: 4, select: { title: true, author: true, coverUrl: true } },
@@ -70,14 +74,14 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
     owner,
     ...list,
     itemCount: _count.items,
-    reportCount: viewer?.isStaff ? _count.reports : 0,
+    reportCount: curates(viewer) ? _count.reports : 0,
   }))
 }
 
 // The lists whose owners' profiles the viewer can see (canSeeListOf). One query for the viewer's
 // blocks and one for which of the owners they follow, however many lists there are.
 async function visibleLists<L extends { ownerId: string, isPick: boolean, owner: Parameters<typeof privacyOf>[0] }>(lists: L[], viewer: Viewer): Promise<L[]> {
-  if (viewer?.isStaff) return lists
+  if (curates(viewer)) return lists
   const ownerIds = Array.from(new Set(lists.map((l) => l.ownerId).filter((id) => id !== viewer?.id)))
   const [blocked, follows] = viewer && ownerIds.length
     ? await Promise.all([
@@ -125,7 +129,7 @@ export async function findList(id: string, viewer: Viewer) {
   })
   if (!list) return null
   const relation = await getRelation(viewer?.id, list.ownerId)
-  if (!canSeeListOf(list, relation, privacyOf(list.owner), !!viewer?.isStaff)) return null
+  if (!canSeeListOf(list, relation, privacyOf(list.owner), curates(viewer))) return null
 
   const isFollowing = relation.isFollower
   const isOwner = viewer?.id === list.ownerId
@@ -133,7 +137,7 @@ export async function findList(id: string, viewer: Viewer) {
   // Remixes keep the original curator's notes; everyone else's notes are the owner's.
   const noteAuthorIds = Array.from(new Set(list.items.flatMap((i) => (i.note && i.noteAuthorId && i.noteAuthorId !== list.ownerId ? [i.noteAuthorId] : []))))
   const [reportCount, hasReported, remixCount, forkedFrom, noteAuthors, canCopy] = await Promise.all([
-    viewer?.isStaff ? prisma.listReport.count({ where: { listId: list.id } }) : 0,
+    curates(viewer) ? prisma.listReport.count({ where: { listId: list.id } }) : 0,
     viewer && !isOwner
       ? prisma.listReport.findUnique({ where: { listId_reporterId: { listId: list.id, reporterId: viewer.id } } }).then(Boolean)
       : false,
@@ -157,7 +161,7 @@ export async function findList(id: string, viewer: Viewer) {
     owner,
     ownerId: undefined,
     isOwner,
-    canEdit: isOwner || !!viewer?.isStaff,
+    canEdit: isOwner || curates(viewer),
     canCopy,
     isFollowing,
     reportCount,
@@ -278,7 +282,7 @@ type CopyResult = { id: string } | { error: string, status: number }
 
 // "Copy to my lists": a private copy of someone else's public list. Notes come along, still
 // credited to whoever wrote them, and the copy remembers where it came from.
-export async function copyList(id: string, viewer: { id: string, isStaff?: boolean }): Promise<CopyResult> {
+export async function copyList(id: string, viewer: { id: string, role?: string | null, isStaff?: boolean }): Promise<CopyResult> {
   const notFound = { error: "List not found", status: 404 }
   if (!/^[0-9a-f]{24}$/i.test(id)) return notFound
   // Private and hidden lists can't be copied; neither can anything from a reader the viewer can't
@@ -289,7 +293,7 @@ export async function copyList(id: string, viewer: { id: string, isStaff?: boole
   })
   if (!original || !(await canViewUser(viewer.id, original.ownerId))) return notFound
   if (original.ownerId === viewer.id) return { error: "This list is already yours.", status: 400 }
-  if (!viewer.isStaff && (await prisma.list.count({ where: { ownerId: viewer.id } })) >= OWN_LISTS_MAX) {
+  if (!curates(viewer) && (await prisma.list.count({ where: { ownerId: viewer.id } })) >= OWN_LISTS_MAX) {
     return { error: `You can have up to ${OWN_LISTS_MAX} lists. Delete one to make room.`, status: 400 }
   }
 
