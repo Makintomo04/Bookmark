@@ -4,13 +4,13 @@ import { BookOpen, Flame, Headphones, Repeat, Ruler, Sparkles, Undo2 } from 'luc
 import type { ReadingStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 import { formatPace } from '@/lib/goals'
+import { ratingGlyphs } from '@bookmark/shared/rating'
 import { ColumnChart, Datum, RankedBars } from './Charts'
 import { authorHref, authorNames, isLinkableAuthor } from '@/lib/authorNames'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const fmt = (n: number) => n.toLocaleString('en-GB')
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`
-const stars = (r: number) => `${Math.floor(r) || ''}${r % 1 ? '½' : ''}`
 
 interface StatsViewProps {
   stats: ReadingStats
@@ -85,7 +85,7 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
   const recentYears = stats.years.slice(-10)
   const yearBooks: Datum[] = recentYears.map((y) => ({ label: String(y.year), short: `’${String(y.year).slice(2)}`, value: y.books, detail: `${plural(y.books, 'book')} · ${plural(y.pages, 'page')}` }))
   const yearPages: Datum[] = recentYears.map((y) => ({ label: String(y.year), short: `’${String(y.year).slice(2)}`, value: y.pages, detail: plural(y.pages, 'page') }))
-  const ratingData: Datum[] = stats.ratings.map((r) => ({ label: stars(r.rating), name: `${stars(r.rating)} ${r.rating === 1 ? 'star' : 'stars'}`, value: r.count, detail: plural(r.count, 'book') }))
+  const ratingData: Datum[] = stats.ratings.map((r) => ({ label: ratingGlyphs(r.rating), name: `${ratingGlyphs(r.rating)} ${r.rating === 1 ? 'star' : 'stars'}`, value: r.count, detail: plural(r.count, 'book') }))
 
   const yearPicker = stats.years.length > 1 && (
     <nav aria-label="Year" className="flex flex-wrap gap-1">
@@ -179,7 +179,7 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Section title="How you rate" className="lg:col-span-1">
-          {stats.ratedBooks ? <ColumnChart data={ratingData} label="Books per star rating" unit="books" /> : <Quiet>Rate a book (half stars welcome) and your spread shows up here.</Quiet>}
+          {stats.ratedBooks ? <ColumnChart data={ratingData} label="Books per star rating" unit="books" /> : <Quiet>Rate a book (quarter stars welcome) and your spread shows up here.</Quiet>}
         </Section>
         <Section title="Top genres">
           {stats.genres.length ? <RankedBars data={stats.genres.map((g) => ({ label: g.name, value: g.count, detail: plural(g.count, 'book') }))} label="Genres you read most" unit="books" /> : <Quiet>Books you finish with a genre will be counted here.</Quiet>}

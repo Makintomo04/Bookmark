@@ -4,7 +4,8 @@ import { notFound, redirect } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import Container from '@/app/components/Container'
 import AuthorBooks from '@/app/components/authors/AuthorBooks'
-import { authorBooksPage, findAuthor } from '@/lib/authors'
+import AboutAuthor from '@/app/components/authors/AboutAuthor'
+import { authorAbout, authorBooksPage, findAuthor } from '@/lib/authors'
 import { authorHref, authorSlug } from '@/lib/authorNames'
 
 interface PageProps {
@@ -34,7 +35,7 @@ const Page = async ({ params }: PageProps) => {
   if (authorSlug(slug) !== slug) redirect(authorHref(slug))
   const author = await findAuthor(slug)
   if (!author) notFound()
-  const first = await authorBooksPage(author)
+  const [first, about] = await Promise.all([authorBooksPage(author), authorAbout(author)])
 
   return (
     <div className="mt-6 sm:mt-8">
@@ -46,6 +47,7 @@ const Page = async ({ params }: PageProps) => {
           <p className="mt-4 text-sm text-muted-foreground">Author</p>
           <h1 className="page-title">{author.name}</h1>
         </div>
+        <AboutAuthor name={author.name} about={about} bookCount={first.total} />
         <AuthorBooks author={author} initial={first} />
       </Container>
     </div>

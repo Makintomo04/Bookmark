@@ -32,7 +32,7 @@ export interface ImportRow {
   // From a Goodreads title: "(The Stormlight Archive, #2)".
   series: Series | null;
   status: Status;
-  // 0.5 to 5 in half-star steps, or null for unrated.
+  // 0.25 to 5 in quarter-star steps, or null for unrated.
   rating: number | null;
   pages: number | null;
   // Only Bookmark's own export carries progress.

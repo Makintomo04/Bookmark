@@ -6,7 +6,6 @@ import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import { CuratorAvatar } from '../lists/CuratorNote'
 import DiscoverBookCard from './DiscoverBookCard'
 
-const formatRating = (rating: number) => (Number.isInteger(rating) ? String(rating) : rating.toFixed(1))
 
 // Who picked it and where, under the card. The reason itself is the card's CuratorNote.
 const PickContext: FC<{ pick: FollowingPick }> = ({ pick }) => (
@@ -23,7 +22,7 @@ const PickContext: FC<{ pick: FollowingPick }> = ({ pick }) => (
     ) : (
       <>
         <Star size={12} aria-hidden className="shrink-0 fill-current" />
-        <span className="truncate">{!pick.reason && <>{pick.person.username} · </>}Rated {formatRating(pick.rating ?? 0)}</span>
+        <span className="truncate">{!pick.reason && <>{pick.person.username} · </>}Rated {String(pick.rating ?? 0)}</span>
       </>
     )}
   </p>

@@ -7,6 +7,7 @@ import { uploadThingKey } from "@/lib/uploadedImages";
 import { logStaffAction } from "@/lib/staffLog";
 import { staffFail, type StaffOutcome } from "@/lib/staffRoute";
 import { isObjectId } from "@/lib/staffUsers";
+import { workMatchKey } from "@/lib/catalog/normalise";
 import {
   changedFields,
   editionCopyUpdates,
@@ -112,7 +113,12 @@ export async function fixWork(actor: Actor, id: string, body: Record<string, unk
   if (!changed.length) return { ok: true, value: { work, copies: { books: 0, listItems: 0 } } };
 
   const before = Object.fromEntries(changed.map((k) => [k, work[k as keyof typeof work]]));
-  await prisma.work.update({ where: { id }, data: { ...patch, curatedFields: mergeCurated(work.curatedFields, changed) } });
+  // A new title or first author files the work under a new match key (lib/catalog/resolve.ts), so later
+  // readers' copies of the corrected book find it.
+  const matchKey = changed.includes("title") || changed.includes("authors")
+    ? { matchKey: workMatchKey(patch.title ?? work.title, (patch.authors ?? work.authors)[0]) }
+    : {};
+  await prisma.work.update({ where: { id }, data: { ...patch, ...matchKey, curatedFields: mergeCurated(work.curatedFields, changed) } });
   // One cover for the book: every edition takes it, like every reader's copy, except an edition a
   // librarian gave a cover of its own (an audiobook's square art, say).
   const curatedEditions = work.editions.filter((e) => e.curatedFields.includes("coverUrl")).map((e) => e.id);

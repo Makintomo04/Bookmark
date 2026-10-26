@@ -1,3 +1,6 @@
+import { authorSlug } from "@bookmark/shared/authors";
+import { titleKey } from "../bookListCleanup.ts";
+
 // Identifier clean-up for the shared catalog: ISBNs, formats, series, and the key a manual entry
 // (no Open Library match) is filed under. Pure, free of "@/" imports, so tests load it with plain Node.
 
@@ -108,6 +111,16 @@ const squash = (s?: string | null) => (s ?? "").toLowerCase().normalize("NFKD").
 
 export function titleAuthorKey(title: string, author?: string | null) {
   return `${squash(title)}|${squash(author)}`;
+}
+
+// The looser key that says two works are the same book: first author and title, with case, series
+// suffixes ("- Flight & Glory #4"), edition tags and a leading article set aside, the rule author pages
+// tidy their lists by (lib/bookListCleanup.ts). "Lover reborn" and "Lover Reborn" by J. R. Ward match;
+// the same title by another author doesn't. Null when either part is empty.
+export function workMatchKey(title: string, author?: string | null): string | null {
+  const who = authorSlug(author ?? "");
+  const what = titleKey(title);
+  return who && what ? `${who}|${what}` : null;
 }
 
 // "1965", "Jun 2, 1990", "2019-08" -> the year.

@@ -30,7 +30,7 @@ function assertInvariants({ book, reads }: ReturnType<typeof build>) {
     assert.ok(reads[i].createdAt > reads[i - 1].createdAt, `${book.title}: reads in createdAt order`);
   }
   assert.ok(reads.every((r) => r.status !== "NOT_STARTED"));
-  if (book.rating !== null) assert.equal(book.rating * 2, Math.round(book.rating * 2), "half-star rating");
+  if (book.rating !== null) assert.equal(book.rating * 4, Math.round(book.rating * 4), "quarter-star rating");
 }
 
 // ---- CSV ---------------------------------------------------------------------------------
@@ -49,10 +49,12 @@ test("CSV: quotes, doubled quotes, multiline fields, CRLF/LF/CR, BOM, blank line
 test("helpers: ratings, ISBNs, series, date ranges", () => {
   assert.equal(roundRating("0"), null);
   assert.equal(roundRating(""), null);
-  assert.equal(roundRating("3.25"), 3.5);
-  assert.equal(roundRating("3.2"), 3);
-  assert.equal(roundRating("4.75"), 5);
-  assert.equal(roundRating("0.25"), 0.5);
+  assert.equal(roundRating("3.25"), 3.25);
+  assert.equal(roundRating("3.2"), 3.25);
+  assert.equal(roundRating("3.1"), 3);
+  assert.equal(roundRating("4.75"), 4.75);
+  assert.equal(roundRating("0.25"), 0.25);
+  assert.equal(roundRating("0.1"), 0.25);
   assert.equal(roundRating(7), 5);
   assert.deepEqual(cleanIsbn('="0441013597"'), { isbn13: null, isbn10: "0441013597" });
   assert.deepEqual(cleanIsbn('="978-0-441-01359-3"'), { isbn13: "9780441013593", isbn10: null });
@@ -178,7 +180,7 @@ test("StoryGraph: detection, quarter stars, multiple reads, DNF and paused", () 
   assert.equal(source, "storygraph");
   const [piranesi, babel, tomorrow, zine, klara] = rows;
 
-  assert.equal(piranesi.rating, 5, "4.75 rounds to 5");
+  assert.equal(piranesi.rating, 4.75, "quarter stars are kept");
   assert.equal(piranesi.isbn13, "9781635575996");
   assert.equal(piranesi.genre, "Fantasy");
   assert.equal(piranesi.favourite, true);
@@ -192,7 +194,7 @@ test("StoryGraph: detection, quarter stars, multiple reads, DNF and paused", () 
 
   assert.equal(babel.status, "DNF");
   assert.equal(babel.author, "R.F. Kuang");
-  assert.equal(babel.rating, 2.5);
+  assert.equal(babel.rating, 2.25);
   assert.equal(babel.genre, "Historical Fiction");
   assert.equal(day(babel.startedAt), "2023-04-20");
   assert.equal(day(babel.stoppedAt), "2023-05-01");

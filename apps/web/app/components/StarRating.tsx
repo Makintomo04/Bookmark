@@ -2,20 +2,19 @@
 import { FC, KeyboardEvent, MouseEvent, useState } from 'react'
 import { Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MAX_RATING, RATING_STEP as STEP, snapRating } from '@bookmark/shared/rating'
 
 interface StarRatingProps {
   value?: number | null
   // Receives the new rating, or 0 when it's cleared (clicking the current rating, or Delete).
   onChange?: (value: number) => void
   disabled?: boolean
-  // Display only: no focus, no hover, read out as "3.5 out of 5 stars".
+  // Display only: no focus, no hover, read out as "3.75 out of 5 stars".
   readOnly?: boolean
   label?: string
   size?: number
   className?: string
 }
-
-const STEP = 0.5
 
 // An empty outline in the control-border colour (3:1 in both themes), with the brand fill clipped over it.
 const StarIcon: FC<{ fill: number; size: number }> = ({ fill, size }) => (
@@ -29,13 +28,13 @@ const StarIcon: FC<{ fill: number; size: number }> = ({ fill, size }) => (
   </span>
 )
 
-const clampRating = (n: number) => Math.max(STEP, Math.min(5, Math.round(n / STEP) * STEP))
 export const formatRating = (n: number) => `${n} ${n === 1 ? "star" : "stars"}`
 
-// Which value a pointer over star n means: its left half is n - 0.5.
+// Which value a pointer over star n means, by which quarter of the star it's over: the leftmost is n - 0.75.
 const pointerValue = (e: MouseEvent<HTMLElement>, n: number) => {
   const { left, width } = e.currentTarget.getBoundingClientRect()
-  return e.clientX - left < width / 2 ? n - STEP : n
+  const quarter = Math.min(4, Math.max(1, Math.ceil(((e.clientX - left) / width) * 4)))
+  return n - 1 + quarter * STEP
 }
 
 const StarRating: FC<StarRatingProps> = ({ value, onChange, disabled, readOnly, label = "Rating", size = 28, className }) => {
@@ -56,7 +55,7 @@ const StarRating: FC<StarRatingProps> = ({ value, onChange, disabled, readOnly, 
       ArrowRight: current + STEP, ArrowUp: current + STEP,
       ArrowLeft: current - STEP, ArrowDown: current - STEP,
       PageUp: current + 1, PageDown: current - 1,
-      Home: STEP, End: 5,
+      Home: STEP, End: MAX_RATING,
     }
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault()
@@ -65,13 +64,13 @@ const StarRating: FC<StarRatingProps> = ({ value, onChange, disabled, readOnly, 
     }
     if (!(e.key in moves)) return
     e.preventDefault()
-    const next = clampRating(moves[e.key])
+    const next = snapRating(moves[e.key])
     // Only report real moves, so holding an arrow at either end doesn't clear the rating.
     if (next !== current) onChange!(next)
   }
 
   const stars = [1, 2, 3, 4, 5].map((n) => {
-    const fill = display >= n ? 1 : display >= n - STEP ? 0.5 : 0
+    const fill = Math.max(0, Math.min(1, display - (n - 1)))
     return (
       <span
         key={n}
@@ -99,7 +98,7 @@ const StarRating: FC<StarRatingProps> = ({ value, onChange, disabled, readOnly, 
       tabIndex={disabled ? -1 : 0}
       aria-label={label}
       aria-valuemin={STEP}
-      aria-valuemax={5}
+      aria-valuemax={MAX_RATING}
       aria-valuenow={current || undefined}
       aria-valuetext={current ? formatRating(current) : "Not rated"}
       aria-disabled={disabled || undefined}

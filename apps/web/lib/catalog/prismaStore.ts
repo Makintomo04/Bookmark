@@ -15,6 +15,10 @@ export const prismaCatalogStore: CatalogStore = {
     if (!keys.length) return [];
     return (await prisma.work.findMany({ where: { key: { in: keys } } })).map(workRecord);
   },
+  async findWorksByMatch(matchKeys) {
+    if (!matchKeys.length) return [];
+    return (await prisma.work.findMany({ where: { matchKey: { in: matchKeys } } })).map(workRecord);
+  },
   async getWorks(ids) {
     if (!ids.length) return [];
     return (await prisma.work.findMany({ where: { id: { in: ids } } })).map(workRecord);
