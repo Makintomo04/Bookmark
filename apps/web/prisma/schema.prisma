@@ -110,6 +110,7 @@ model User {
   following     Follow[] @relation("UserFollows")
   followers     Follow[] @relation("UserFollowedBy")
   authorFollows AuthorFollow[]
+  seriesFollows SeriesFollow[]
   activities    Activity[]
   notificationsReceived Notification[] @relation("NotificationRecipient")
   notificationsSent     Notification[] @relation("NotificationActor")
@@ -256,6 +257,24 @@ model AuthorFollow {
   @@unique([userId, authorKey])
   // Everyone following an author, for telling them about a new book later.
   @@index([authorKey])
+}
+
+// A reader following a series (lib/seriesFollows.ts), keyed by its name and first author
+// (packages/shared/src/series.ts seriesKey). Name and author are kept as the catalog spelt them when
+// followed, for the tracker. Free for everyone.
+model SeriesFollow {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  seriesKey String
+  name String
+  author String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seriesKey])
+  // Everyone following a series, for telling them about a new book later.
+  @@index([seriesKey])
 }
 
 model ReadingGoal {

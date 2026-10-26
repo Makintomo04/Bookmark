@@ -83,6 +83,7 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.listItem.deleteMany({ where: { list: { ownerId: userId } } });
     await tx.list.deleteMany({ where: { ownerId: userId } });
     await tx.authorFollow.deleteMany({ where: { userId } });
+    await tx.seriesFollow.deleteMany({ where: { userId } });
     await tx.follow.deleteMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } });
     await tx.block.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } });
     await tx.followRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } });
