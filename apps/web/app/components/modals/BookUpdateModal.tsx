@@ -27,6 +27,9 @@ import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfter
 import { celebrate } from '@/app/hooks/useEarnMoment'
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from '@/lib/progress'
 import useWorkTags from '@/app/hooks/useWorkTags'
+import useBookDescription from '@/app/hooks/useBookDescription'
+import BookBlurb from '../books/BookBlurb'
+import { recommendedByOf } from '@/lib/recommendRules'
 import type { ReaderTagsInput } from '@/lib/workTags'
 import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../books/WorkTags'
 import AuthorLink from '@/app/components/AuthorLink'
@@ -42,6 +45,10 @@ const formatDay = (date: Date | string) =>
 
 const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
 
+// Quiet text actions under the cover. The padding gives each a full-height target and room for the focus
+// ring; the negative margin keeps the text lined up with the title above.
+const bookActionClass = "-mx-1.5 inline-flex h-9 sm:h-8 items-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+
 const BookUpdateModal: FC = () => {
   const { user, mutate } = useUser()
   const { books, mutate: booksMutate } = useBooks()
@@ -51,6 +58,10 @@ const BookUpdateModal: FC = () => {
   const isOpen = getBookIsOpen(book?.id, useBookUpdateModal.getState())
   const { reads, mutate: readsMutate } = useBookReads(isOpen ? book?.id : null)
   const { tags: workTags, mutate: tagsMutate } = useWorkTags({ bookId: isOpen ? book?.id : null })
+  // The blurb is for a book you haven't read yet. The reader's own copy may carry one; otherwise ask the catalog.
+  const wantsBlurb = isOpen && (book?.status === "NOT_STARTED" || book?.status === "NOT_INTERESTED")
+  const { description: catalogDescription, isLoading: blurbLoading } =
+    useBookDescription(wantsBlurb && !book?.description ? book?.workKey : null)
 
   const [pageInput, setPageInput] = useState("0")
   // Moods and content warnings, tagged along with the review.
@@ -394,14 +405,19 @@ const BookUpdateModal: FC = () => {
       {isOverTotal && <p className="text-sm text-muted-foreground">{onMinutes ? `This audiobook runs ${formatMinutes(pages)}.` : `This book has ${pages} pages.`}</p>}
     </div>
   ) : (
-    <div className="flex flex-col gap-2 items-start">
-      <p className="text-sm text-muted-foreground">{onMinutes ? "Starts from the beginning." : "Starts from the first page."}</p>
+    // Headed like Reading circle below, and swapped for the page field's own label when that opens.
+    <section aria-labelledby="start-point" className="flex flex-col gap-2 items-start">
+      <h3 id="start-point" className="text-sm font-medium">Starting point</h3>
+      <p className="text-sm text-muted-foreground">
+        {onMinutes ? "From the beginning." : "From the first page."}
+        {hasPageCount && (onMinutes ? ` Runs ${formatMinutes(pages)} in all.` : ` ${plural(pages, "page")} in all.`)}
+      </p>
       {hasPageCount && (
-        <button type="button" onClick={() => setShowStartPage(true)} className="text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={() => setShowStartPage(true)} className="rounded-sm text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           {onMinutes ? "Already partway through? Set how far you are" : "Already partway through? Set your page"}
         </button>
       )}
-    </div>
+    </section>
   )
 
   const finishedSwitch = (
@@ -516,29 +532,48 @@ const BookUpdateModal: FC = () => {
     </section>
   )
 
+  const recommendedBy = status === "NOT_STARTED" ? recommendedByOf(book) : null
+  const description = book.description || catalogDescription
+  // Will not read has nothing else on this side, so say so rather than leave it blank.
+  const blurb = wantsBlurb && (
+    status === "NOT_INTERESTED" && book.workKey && !blurbLoading && !description
+      ? <p className="text-sm text-muted-foreground">We don&apos;t have a description for this book yet.</p>
+      : <BookBlurb description={description} isLoading={!book.description && blurbLoading} />
+  )
+
   const body = (
     <div className="w-full px-6 self-start flex flex-col md:flex-row gap-6 md:gap-10">
-      <div className="flex md:flex-col gap-4 md:w-56 shrink-0">
-        <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 224px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
+      <div className="flex md:flex-col gap-4 md:gap-5 md:w-44 shrink-0">
+        <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 176px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
         <div className="min-w-0">
           <p className="text-lg md:text-xl font-bold leading-snug break-words">
-            {pageHref ? <Link href={pageHref} onClick={close} className="hover:underline underline-offset-4">{book.title}</Link> : book.title}
+            {pageHref ? <Link href={pageHref} onClick={close} className="rounded-sm hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">{book.title}</Link> : book.title}
           </p>
-          <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>
-          {meta && <p className="mt-2 text-xs text-muted-foreground">{meta}</p>}
-          {/* An action on the book, so it sits with the book rather than among the progress controls. */}
-          <button type="button" onClick={sendToFriend} disabled={isSaving} className="mt-3 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-            <Send size={14} aria-hidden />Send to a friend
-          </button>
-          {/* Will not read is private already. */}
-          {status !== "NOT_INTERESTED" && (
-            <div className="mt-2">
-              {isPrivate && <PrivateBadge className="mb-1" />}
-              <button type="button" onClick={togglePrivate} disabled={isSaving} className="mt-1 inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                {isPrivate ? <><Unlock size={14} aria-hidden />Share on profile</> : <><Lock size={14} aria-hidden />Make private</>}
-              </button>
+          <p className="mt-0.5 text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>
+          {/* Where the book is and who can see it, then what you can do with it. */}
+          {(meta || isPrivate || recommendedBy) && (
+            <div className="mt-2 flex flex-col items-start gap-2">
+              {(meta || recommendedBy) && (
+                <p className="text-xs text-muted-foreground">
+                  {meta}
+                  {recommendedBy && <span className="block">Recommended by {recommendedBy}</span>}
+                </p>
+              )}
+              {isPrivate && status !== "NOT_INTERESTED" && <PrivateBadge />}
             </div>
           )}
+          {/* Actions on the book, so they sit with the book rather than among the progress controls. */}
+          <div className="mt-3 flex flex-col items-start">
+            <button type="button" onClick={sendToFriend} disabled={isSaving} className={bookActionClass}>
+              <Send size={14} aria-hidden />Send to a friend
+            </button>
+            {/* Will not read is private already. */}
+            {status !== "NOT_INTERESTED" && (
+              <button type="button" onClick={togglePrivate} disabled={isSaving} className={bookActionClass}>
+                {isPrivate ? <><Unlock size={14} aria-hidden />Share on profile</> : <><Lock size={14} aria-hidden />Make private</>}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -547,6 +582,7 @@ const BookUpdateModal: FC = () => {
         {(isActive || status === "NOT_STARTED") && !finished && !stopping && (
           <CatchMeUp bookId={book.id} accent={accent} accentInk={accentInk} />
         )}
+        {blurb}
         {status === "NOT_STARTED" && startControl}
         {isActive && progressControl}
         {isActive && !stopping && finishedSwitch}
@@ -569,24 +605,27 @@ const BookUpdateModal: FC = () => {
   // A finished or abandoned book is mostly opened to look; only offer Save once there's something to save.
   const showPrimary = status !== "NOT_INTERESTED" && (!isClosed || hasChanges)
 
+  // On phones every button stretches, so a row that wraps reads as a second row rather than a stray button,
+  // and the shelf moves' group dissolves so they wrap alongside Close instead of stacking on their own.
+  const footerButton = "rounded-md flex-1 sm:flex-none"
   const footer = (
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
       {isClosed && (
-        <div className="flex flex-wrap gap-3 mr-auto">
-          <Button onClick={() => move("restart")} variant="outline" className="rounded-md" disabled={isSaving}>Read again</Button>
+        <div className="contents sm:flex flex-wrap gap-3 sm:mr-auto">
+          <Button onClick={() => move("restart")} variant="outline" className={footerButton} disabled={isSaving}>Read again</Button>
           {status === "DNF" && (
-            <Button onClick={() => move("wantToRead")} variant="outline" className="rounded-md" disabled={isSaving}>Move to Want to read</Button>
+            <Button onClick={() => move("wantToRead")} variant="outline" className={footerButton} disabled={isSaving}>Move to Want to read</Button>
           )}
         </div>
       )}
       {status === "NOT_INTERESTED" && (
-        <Button onClick={() => move("wantToRead")} variant="outline" className="rounded-md mr-auto" disabled={isSaving}>Move to Want to read</Button>
+        <Button onClick={() => move("wantToRead")} variant="outline" className={cn(footerButton, "sm:mr-auto")} disabled={isSaving}>Move to Want to read</Button>
       )}
-      <Button onClick={close} variant="outline" className="rounded-md hidden sm:inline-flex" disabled={isSaving}>
+      <Button onClick={close} variant="outline" className={footerButton} disabled={isSaving}>
         {showPrimary ? "Cancel" : "Close"}
       </Button>
       {showPrimary && (
-        <Button style={{ background: accent, color: accentInk }} onClick={save} disabled={!canSave}>
+        <Button style={{ background: accent, color: accentInk }} onClick={save} disabled={!canSave} className={footerButton}>
           {primaryLabel}
         </Button>
       )}
