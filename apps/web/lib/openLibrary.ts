@@ -181,13 +181,15 @@ export async function authorBooks(by: { key?: string | null, name: string }, lim
 
 // Open Library's index keeps a reading-log activity count for each of the last seven days.
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
-const TRENDING_FIELDS = `${FIELDS},${DAYS.map((d) => `trending_score_daily_${d}`).join(",")}`
+const TRENDING_FIELDS = `key,${DAYS.map((d) => `trending_score_daily_${d}`).join(",")}`
 const TRENDING_POOL = 200
 const weekScore = (doc: any) => DAYS.reduce((sum, d) => sum + (doc[`trending_score_daily_${d}`] || 0), 0)
 
 // Ranked by reader activity over the past week. Search can't sort by that directly (its "trending"
 // sort is a spike score that favours obscure titles), so this takes the books most active in the last
 // day and re-ranks them by their seven-day total. Pages beyond the pool come back empty.
+// The pool is fetched with just keys and scores, then only the page shown is looked up in full:
+// asking for edition details across all 200 takes Open Library 7–11s, often past the timeout.
 // Cached for six hours: the daily counts only move once a day.
 export async function trendingSubjectBooks(subject: string, offset = 0, limit = 24): Promise<DiscoverBook[]> {
   const q = `subject_key:"${subject}" language:eng`
@@ -195,8 +197,20 @@ export async function trendingSubjectBooks(subject: string, offset = 0, limit = 
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } })
   if (!res.ok) return []
   const data = await res.json()
-  const docs = [...(data?.docs || [])].sort((a, b) => weekScore(b) - weekScore(a))
-  return toDiscoverBooks({ docs: docs.slice(offset, offset + limit) })
+  const keys: string[] = [...(data?.docs || [])]
+    .sort((a, b) => weekScore(b) - weekScore(a))
+    .slice(offset, offset + limit)
+    .map((doc) => doc.key)
+    .filter(Boolean)
+  if (!keys.length) return []
+
+  const pageQ = `key:(${keys.map((k) => JSON.stringify(k)).join(" OR ")}) language:eng`
+  const pageUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(pageQ)}&fields=${FIELDS}&limit=${keys.length}`
+  const pageRes = await fetch(pageUrl, { signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } })
+  if (!pageRes.ok) return []
+  const order = new Map(keys.map((k, i) => [k, i]))
+  const docs = [...((await pageRes.json())?.docs || [])].sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
+  return toDiscoverBooks({ docs })
 }
 
 // ---- Catalog lookups (lib/catalog) -----------------------------------------------------------

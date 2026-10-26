@@ -37,7 +37,7 @@ const Page = async ({ params }: PageProps) => {
             <ChevronLeft size={16} aria-hidden />{genre.label}
           </Link>
           <h1 className="page-title mt-3">Readers&apos; {genre.label.toLowerCase()} lists</h1>
-          <p className="mt-2 text-muted-foreground">Made by people on Bookmark. Editors&apos; choices first, then the newest.</p>
+          <p className="mt-2 text-muted-foreground">Made by members of the Bookmark community.</p>
         </div>
         {lists.length === 0 ? (
           <p className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-10 text-center text-muted-foreground">
