@@ -7,6 +7,8 @@ import AppearanceSettings from '@/app/components/settings/AppearanceSettings'
 import PlusSettings from '@/app/components/settings/PlusSettings'
 import PrivacySettings from '@/app/components/settings/PrivacySettings'
 import DataExport from '@/app/components/settings/DataExport'
+import FollowedAuthors from '@/app/components/settings/FollowedAuthors'
+import { followedAuthors } from '@/lib/authorFollows'
 import DeleteAccount from '@/app/components/settings/DeleteAccount'
 
 export const metadata: Metadata = {
@@ -19,6 +21,7 @@ export const metadata: Metadata = {
 const Page = async () => {
   const user = await getCurrentUser()
   if (!user) redirect('/signin?callbackUrl=/settings')
+  const authors = await followedAuthors(user.id)
 
   return (
     <div className="mt-8 sm:mt-12">
@@ -30,6 +33,7 @@ const Page = async () => {
             <ProfileShortcut />
             <section id="appearance" className="scroll-mt-6"><AppearanceSettings /></section>
             <section id="plus" className="scroll-mt-6"><PlusSettings /></section>
+            <section id="authors" className="scroll-mt-6"><FollowedAuthors initial={authors} /></section>
             <section id="privacy" className="scroll-mt-6 flex flex-col gap-6"><PrivacySettings /></section>
             <section id="data" className="scroll-mt-6"><DataExport /></section>
             <section id="delete-account" className="scroll-mt-6 mt-6"><DeleteAccount /></section>

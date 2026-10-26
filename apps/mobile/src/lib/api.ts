@@ -122,6 +122,7 @@ async function parse<T>(res: Response): Promise<T> {
 export const api = {
   get: <T>(path: string) => apiFetch(path).then((r) => parse<T>(r)),
   post: <T>(path: string, body?: unknown) => apiFetch(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
+  put: <T>(path: string, body?: unknown) => apiFetch(path, { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
   patch: <T>(path: string, body: unknown) => apiFetch(path, { method: "PATCH", body: JSON.stringify(body) }).then((r) => parse<T>(r)),
   delete: <T>(path: string, body?: unknown) => apiFetch(path, { method: "DELETE", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
 };

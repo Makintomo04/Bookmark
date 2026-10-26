@@ -109,6 +109,7 @@ model User {
   readingGoals  ReadingGoal[]
   following     Follow[] @relation("UserFollows")
   followers     Follow[] @relation("UserFollowedBy")
+  authorFollows AuthorFollow[]
   activities    Activity[]
   notificationsReceived Notification[] @relation("NotificationRecipient")
   notificationsSent     Notification[] @relation("NotificationActor")
@@ -235,6 +236,24 @@ model Follow {
   @@unique([followerId, followingId])
   // Followers list: followingId match, newest first. (followerId lookups use the unique index.)
   @@index([followingId, createdAt])
+}
+
+// A reader following an author (lib/authorFollows.ts). Keyed by the Open Library author key, which stays
+// put when the name on a copy is spelled differently. Name and slug are as they were when followed, for
+// the "Authors you follow" list. Authors don't have accounts: the page and the follow are ours.
+model AuthorFollow {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  authorKey String
+  name String
+  slug String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, authorKey])
+  // Everyone following an author, for telling them about a new book later.
+  @@index([authorKey])
 }
 
 model ReadingGoal {

@@ -5,8 +5,11 @@ import { ChevronLeft } from 'lucide-react'
 import Container from '@/app/components/Container'
 import AuthorBooks from '@/app/components/authors/AuthorBooks'
 import AboutAuthor from '@/app/components/authors/AboutAuthor'
+import FollowAuthorButton from '@/app/components/authors/FollowAuthorButton'
+import getCurrentUser from '@/app/actions/getCurrentUser'
 import { authorAbout, authorBooksPage, findAuthor } from '@/lib/authors'
 import { authorHref, authorSlug } from '@/lib/authorNames'
+import { canFollow, isFollowingAuthor } from '@/lib/authorFollows'
 
 interface PageProps {
   params: { slug: string }
@@ -35,7 +38,8 @@ const Page = async ({ params }: PageProps) => {
   if (authorSlug(slug) !== slug) redirect(authorHref(slug))
   const author = await findAuthor(slug)
   if (!author) notFound()
-  const [first, about] = await Promise.all([authorBooksPage(author), authorAbout(author)])
+  const [first, about, user] = await Promise.all([authorBooksPage(author), authorAbout(author), getCurrentUser()])
+  const following = user ? await isFollowingAuthor(user.id, author.key) : false
 
   return (
     <div className="mt-6 sm:mt-8">
@@ -45,7 +49,12 @@ const Page = async ({ params }: PageProps) => {
             <ChevronLeft size={16} aria-hidden />Discover
           </Link>
           <p className="mt-4 text-sm text-muted-foreground">Author</p>
-          <h1 className="page-title">{author.name}</h1>
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <h1 className="page-title">{author.name}</h1>
+            {canFollow(author) && (
+              <FollowAuthorButton slug={author.slug} name={author.name} initialFollowing={following} signedIn={!!user} />
+            )}
+          </div>
         </div>
         <AboutAuthor name={author.name} about={about} bookCount={first.total} />
         <AuthorBooks author={author} initial={first} />

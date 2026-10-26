@@ -106,7 +106,7 @@ export async function loadBooks(userId: string) {
 }
 
 export async function buildJsonExport(userId: string) {
-  const [user, books, readingGoals, lists, follows, achievements] = await Promise.all([
+  const [user, books, readingGoals, lists, follows, authorFollows, achievements] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
@@ -130,6 +130,7 @@ export async function buildJsonExport(userId: string) {
       },
     }),
     prisma.follow.findMany({ where: { followerId: userId }, orderBy: { createdAt: "asc" }, select: { createdAt: true, following: { select: { username: true } } } }),
+    prisma.authorFollow.findMany({ where: { userId }, orderBy: { createdAt: "asc" }, select: { authorKey: true, name: true, createdAt: true } }),
     prisma.userAchievement.findMany({ where: { userId }, orderBy: { earnedAt: "asc" }, select: { key: true, earnedAt: true } }),
   ]);
 
@@ -158,6 +159,7 @@ export async function buildJsonExport(userId: string) {
     follows: follows
       .filter((f) => f.following.username)
       .map((f) => ({ username: f.following.username as string, followedAt: f.createdAt })),
+    followedAuthors: authorFollows.map((a) => ({ name: a.name, openLibraryKey: a.authorKey, followedAt: a.createdAt })),
     achievements: achievements.map((a) => ({ ...a, title: getAchievementTitle(a.key) })),
   };
 }
