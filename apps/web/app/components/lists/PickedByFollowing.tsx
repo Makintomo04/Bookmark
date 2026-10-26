@@ -27,10 +27,9 @@ const AVATARS_SHOWN = 5
 const REASONS_SHOWN = 2
 const NAMES_SHOWN = 2
 
-const formatRating = (rating: number) => (Number.isInteger(rating) ? String(rating) : rating.toFixed(1))
 
 const labelFor = (pick: Pick) =>
-  pick.list ? `on their list “${pick.list.title}”` : pick.rating ? `rated it ${formatRating(pick.rating)}★` : "picked it"
+  pick.list ? `on their list “${pick.list.title}”` : pick.rating ? `rated it ${String(pick.rating)}★` : "picked it"
 
 // Book details: the people this reader follows who put the book on a public list or rated it 4+,
 // in their own words. A person, never a score, is the reason to read it.

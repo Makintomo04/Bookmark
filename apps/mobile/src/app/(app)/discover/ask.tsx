@@ -62,7 +62,6 @@ type Result = {
 };
 type Outcome = { intent: Intent; results: Result[]; reasons: "done" | "failed" | "none"; left: number | null; refunded?: boolean; query: string };
 
-const formatRating = (rating: number) => (Number.isInteger(rating) ? String(rating) : rating.toFixed(1));
 const names = (people: Person[]) => people.map((p) => p.username ?? "a reader").join(", ");
 
 const allowanceText = (s: Allowance) =>
@@ -258,7 +257,7 @@ function ResultCard({ result }: { result: Result }) {
           <Text style={{ fontSize: 16 }} numberOfLines={2}>{result.title}</Text>
           <Text variant="muted" numberOfLines={1}>{result.author}{result.pages ? ` · ${result.pages} pages` : ""}</Text>
           {result.shelf && (
-            <View style={styles.row}><BookCheck size={12} color={colors.mutedForeground} /><Text variant="small">{result.shelf.status === "COMPLETED" && result.shelf.rating ? `You rated it ${formatRating(result.shelf.rating)}` : "On your shelf"}</Text></View>
+            <View style={styles.row}><BookCheck size={12} color={colors.mutedForeground} /><Text variant="small">{result.shelf.status === "COMPLETED" && result.shelf.rating ? `You rated it ${String(result.shelf.rating)}` : "On your shelf"}</Text></View>
           )}
           {result.signal && (
             <View style={styles.row}>
@@ -266,7 +265,7 @@ function ResultCard({ result }: { result: Result }) {
               {result.signal.people.slice(0, 3).map((p, i) => <Avatar key={i} image={p.image} name={p.username} colour={p.favColour} size={16} />)}
               <Text variant="small" style={{ flex: 1 }} numberOfLines={2}>
                 {result.signal.kind === "followed"
-                  ? `Rated ${formatRating(result.signal.rating)} by ${names(result.signal.people)}`
+                  ? `Rated ${String(result.signal.rating)} by ${names(result.signal.people)}`
                   : result.signal.together && result.signal.count === 0 ? "Read in one of your circles"
                   : `Finished by ${names(result.signal.people)}${result.signal.count > result.signal.people.length ? ` and ${result.signal.count - result.signal.people.length} more` : ""} in your circles`}
               </Text>
