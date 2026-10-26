@@ -11,7 +11,8 @@ const STAR = "M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7.1L12 17.3 5.8 21l1.6-7.1L2 9.2l7
 function Star({ fill, size, empty }: { fill: number; size: number; empty: string }) {
   const id = `star${size}-q${Math.round(fill * 4)}`;
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
+    // No touches on the drawing, so a tap's locationX is measured from the star's Pressable, not the path.
+    <Svg width={size} height={size} viewBox="0 0 24 24" pointerEvents="none">
       <Defs>
         <LinearGradient id={id} x1="0" x2="1" y1="0" y2="0">
           <Stop offset={fill} stopColor={brand.DEFAULT} />
@@ -28,8 +29,11 @@ export function StarRating({ value, onChange, size = 32, disabled, label = "Rati
   const stars = [1, 2, 3, 4, 5];
   const press = (n: number, e: GestureResponderEvent) => {
     if (!onChange) return;
-    // Which quarter of star n was tapped: the leftmost is n - 0.75.
-    const quarter = Math.min(4, Math.max(1, Math.ceil((e.nativeEvent.locationX / size) * 4)));
+    // Which quarter of star n was tapped: the leftmost is n - 0.75. On the web build a press is a click,
+    // which has offsetX instead of locationX.
+    const x = e.nativeEvent.locationX ?? (e.nativeEvent as unknown as MouseEvent).offsetX;
+    if (!Number.isFinite(x)) return;
+    const quarter = Math.min(4, Math.max(1, Math.ceil((x / size) * 4)));
     const next = n - 1 + quarter * RATING_STEP;
     onChange(next === value ? 0 : next);
   };
