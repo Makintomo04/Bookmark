@@ -37,11 +37,20 @@ const BookDetailsModal: FC = () => {
 
   const body = book ? (
     <div className="w-full self-start px-6 pb-2 grid gap-6 sm:grid-cols-[160px_1fr]">
-      <BookCover
-        book={{ title: book.title, author: book.author, coverImage: book.coverUrl || "", cardColour: null }}
-        sizes="160px"
-        className="w-[120px] sm:w-[160px] shadow-sm"
-      />
+      {/* The way through to the book's page sits under its cover. */}
+      <div className="flex flex-col items-start gap-3">
+        <BookCover
+          book={{ title: book.title, author: book.author, coverImage: book.coverUrl || "", cardColour: null }}
+          sizes="160px"
+          className="w-[120px] sm:w-[160px] shadow-sm"
+        />
+        {pageHref && (
+          <Link href={pageHref} onClick={onClose} className="w-[120px] sm:w-[160px] text-sm font-medium underline-offset-4 hover:underline">
+            {/* Wraps at the cover's width, so the arrow runs with the text rather than sitting apart. */}
+            See full page and reviews<ArrowRight size={14} aria-hidden className="ml-1 inline align-[-2px]" />
+          </Link>
+        )}
+      </div>
       <div className="min-w-0 flex flex-col gap-5">
         <div>
           <p className="text-2xl font-bold leading-tight break-words">
@@ -56,11 +65,6 @@ const BookDetailsModal: FC = () => {
             <StartCircleButton book={book} />
             <AddToListButton book={book} />
           </div>
-          {pageHref && (
-            <Link href={pageHref} onClick={onClose} className="mt-3 inline-flex items-center gap-1 text-sm font-medium underline-offset-4 hover:underline">
-              See full page and reviews<ArrowRight size={14} aria-hidden />
-            </Link>
-          )}
         </div>
         <ReaderCounts workKey={book.workKey} />
         {/* What it feels like and what's in it, from readers who finished it. Warnings stay folded until tapped. */}
