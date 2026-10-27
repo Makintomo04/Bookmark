@@ -1,5 +1,5 @@
 "use client"
-import { FC, ReactNode, useMemo, useState } from 'react'
+import { FC, ReactNode, useEffect, useMemo, useState } from 'react'
 import { ArrowUpDown, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -43,7 +43,7 @@ const PillSelect: FC<PillSelectProps> = ({ label, value, options, onChange, icon
         aria-label={`${label}: ${current?.label}`}
         className={cn(
           "inline-flex max-w-[14rem] items-center gap-2 rounded-full text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:ring-2 data-[state=open]:ring-ring",
-          size === "md" ? "h-10 pl-4 pr-3" : "h-9 pl-3.5 pr-2.5",
+          size === "md" ? (icon ? "h-10 w-10 justify-center sm:w-auto sm:justify-start sm:pl-4 sm:pr-3" : "h-10 pl-4 pr-3") : "h-9 pl-3.5 pr-2.5",
           active
             ? "bg-foreground text-background hover:opacity-90"
             : size === "md"
@@ -52,8 +52,9 @@ const PillSelect: FC<PillSelectProps> = ({ label, value, options, onChange, icon
         )}
       >
         {icon}
-        <span className="truncate">{current?.label}</span>
-        <ChevronDown size={16} aria-hidden className="shrink-0 opacity-70" />
+        {/* With an icon, a phone shows just the icon, so the toolbar keeps to two rows. */}
+        <span className={cn("truncate", icon && "hidden sm:inline")}>{current?.label}</span>
+        <ChevronDown size={16} aria-hidden className={cn("shrink-0 opacity-70", icon && "hidden sm:block")} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[11rem] max-h-80 overflow-y-auto">
         <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
@@ -81,19 +82,29 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
   const [open, setOpen] = useState(activeFilters > 0)
   const showFilters = open || activeFilters > 0
   const any = (label: string): Option => ({ value: "", label })
+  // A phone's search box is narrow beside the buttons: just "Search" there.
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 639px)")
+    const update = () => setNarrow(query.matches)
+    update()
+    query.addEventListener("change", update)
+    return () => query.removeEventListener("change", update)
+  }, [])
+  const placeholder = narrow ? "Search" : filter.shelf ? `Search ${SHELF_TITLE[filter.shelf]} by title, author or tag` : "Search your shelf by title, author or tag"
 
   return (
-    <div className="mb-8 flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="relative flex-1 min-w-[12rem]">
+    <div className="mb-6 flex flex-col gap-3">
+      <div className="flex sm:flex-wrap items-center gap-1.5 sm:gap-2">
+        <label className="relative flex-1 min-w-0 sm:min-w-[12rem]">
           <span className="sr-only">Search your shelf</span>
-          <Search size={16} aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search size={16} aria-hidden className="pointer-events-none absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
             value={filter.q}
             onChange={(e) => set({ q: e.target.value })}
-            placeholder={filter.shelf ? `Search ${SHELF_TITLE[filter.shelf]} by title, author or tag` : "Search your shelf by title, author or tag"}
-            className="h-10 w-full rounded-full border border-neutral-300 dark:border-neutral-700 bg-background pl-10 pr-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            placeholder={placeholder}
+            className="h-10 w-full rounded-full border border-neutral-300 dark:border-neutral-700 bg-background pl-9 sm:pl-10 pr-3 sm:pr-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </label>
         <PillSelect
@@ -104,9 +115,9 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
           options={SHELF_SORTS.map((s) => ({ value: s, label: SORT_LABEL[s] }))}
           onChange={(v) => set({ sort: v as ShelfSort })}
         />
-        <button type="button" aria-expanded={showFilters} onClick={() => setOpen((v) => !v)} className={cn(pillClass, "inline-flex items-center gap-2")}>
+        <button type="button" aria-expanded={showFilters} aria-label={activeFilters ? `Filter, ${activeFilters} on` : "Filter"} onClick={() => setOpen((v) => !v)} className={cn(pillClass, "inline-flex items-center justify-center gap-2 max-sm:min-w-10 max-sm:px-2.5 sm:px-4")}>
           <SlidersHorizontal size={15} aria-hidden />
-          Filter{activeFilters > 0 && <span className="tabular-nums">· {activeFilters}</span>}
+          <span className="hidden sm:inline">Filter</span>{activeFilters > 0 && <span className="tabular-nums"><span className="hidden sm:inline">· </span>{activeFilters}</span>}
         </button>
         {actions}
       </div>

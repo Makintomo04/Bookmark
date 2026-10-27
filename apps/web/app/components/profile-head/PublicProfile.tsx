@@ -15,7 +15,6 @@ import CappedShelf from './CappedShelf'
 import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileLists from '../discover/ProfileLists'
 import ProfileAuthors from './ProfileAuthors'
-import MedalShowcase from '../achievements/MedalShowcase'
 import { isFinishedBook } from '@/lib/readerTier'
 
 interface PublicProfileProps {
@@ -70,10 +69,8 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
           ...followStats,
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
-      >
-        <MedalShowcase earned={profile.achievements} href={achievementsHref} />
-      </ProfileHeader>
-      <div className="mt-12 px-4 sm:px-8">
+      />
+      <div className="mt-8 px-4 sm:px-8">
         {viewer && <BooksInCommon username={profile.username} accentColour={profile.favColour} />}
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>

@@ -3,7 +3,7 @@ import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Book } from '@prisma/client'
-import { LayoutGrid, Grid3x3 } from 'lucide-react'
+import { LayoutGrid, Grid3x3, ListChecks, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
 import useViewMode from '@/app/hooks/useViewMode'
@@ -146,11 +146,19 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) 
   }
 
   const viewToggle = (
-    <div className="flex items-center gap-2">
-    <button type="button" aria-pressed={selecting} onClick={() => (selecting ? stopSelecting() : setSelecting(true))} className={pillClass}>
-      {selecting ? "Done" : "Select"}
+    <div className="flex items-center gap-1.5 sm:gap-2">
+    {/* On a phone these are icons, so the toolbar fits on one row beside the search. */}
+    <button type="button" aria-pressed={selecting} aria-label={selecting ? "Done selecting" : "Select books"} onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+      className={cn(pillClass, "inline-flex items-center justify-center max-sm:w-10 max-sm:px-0")}>
+      <span className="sm:hidden">{selecting ? <X size={17} aria-hidden /> : <ListChecks size={17} aria-hidden />}</span>
+      <span className="hidden sm:inline">{selecting ? "Done" : "Select"}</span>
     </button>
-    <div className="flex gap-1 bg-neutral-200 dark:bg-neutral-700/60 rounded-full p-1">
+    <button type="button" onClick={() => setViewMode(activeMode === 'comfortable' ? 'compact' : 'comfortable')}
+      aria-label={activeMode === 'comfortable' ? "Switch to compact view" : "Switch to comfortable view"}
+      className={cn(pillClass, "sm:hidden inline-flex w-10 items-center justify-center px-0")}>
+      {activeMode === 'comfortable' ? <Grid3x3 size={17} aria-hidden /> : <LayoutGrid size={17} aria-hidden />}
+    </button>
+    <div className="hidden sm:flex gap-1 bg-neutral-200 dark:bg-neutral-700/60 rounded-full p-1">
       <button type="button" aria-label="Comfortable view" aria-pressed={activeMode === 'comfortable'} onClick={() => setViewMode('comfortable')}
         className={cn("h-8 w-8 rounded-full flex items-center justify-center transition",
           activeMode === 'comfortable' && "bg-white dark:bg-neutral-900 shadow-sm")}>
@@ -211,7 +219,11 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) 
   return (
     <div ref={top} className="w-full scroll-mt-24">
       {toolbar}
-      <ShelfSection id="shelf-reading" title="Currently reading" count={reading.length}>
+      {/* Wrapped so the first shelf is a first child and skips ShelfSection's top margin. */}
+      <div>
+      {/* With nothing on the go, the section only shows while the shelf is new: for a reader with a full
+          shelf it would push the first cover below the fold. */}
+      {(reading.length > 0 || coverShelves.length === 0) && <ShelfSection id="shelf-reading" title="Currently reading" count={reading.length}>
         {reading.length > 0 ? (
           <div className={cn("grid grid-cols-1 gap-4", readingGridCols(reading.length))}>
             {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={accent} isReread={isRereading(book, finished)} />)}
@@ -225,7 +237,7 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) 
                 : "Add the book you're reading now, or find your next one on Discover."}
           </p>
         )}
-      </ShelfSection>
+      </ShelfSection>}
 
       {/* Empty shelves are hidden. Long ones show a preview; "See all" opens the shelf's own page. */}
       {coverShelves.map(({ key, items }) => (
@@ -242,6 +254,7 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) 
           )}
         </ShelfSection>
       ))}
+      </div>
       {bulkBar}
     </div>
   )

@@ -98,28 +98,29 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
   const preset = bannerPresetOf(shownBanner)
   const plus = !!(badge || supporter)
   const avatar = (
-    <TierAvatar image={image} username={username} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} square={plus} className="w-24 sm:w-28" />
+    <TierAvatar image={image} username={username} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} square={plus} className="w-20 sm:w-28" />
   )
 
   return (
     <header>
-      <div className="relative h-32 sm:h-44 overflow-hidden rounded-2xl" style={{ background: accent }}>
+      {/* Shorter on a phone, with the buttons beside the avatar, so the shelf's first cover is in view. */}
+      <div className="relative h-24 sm:h-44 overflow-hidden rounded-2xl" style={{ background: accent }}>
         {preset
           ? <BannerPattern preset={preset} colour={accent} />
           : <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
       </div>
 
       <div className="px-4 sm:px-8">
-        <div className="-mt-12 sm:-mt-14 flex items-end justify-between gap-4">
+        <div className="-mt-10 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4">
           {onAvatarClick ? (
             <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
               {avatar}
             </button>
           ) : avatar}
-          {actions && <div className="hidden sm:flex items-center gap-2 pb-1">{actions}</div>}
+          {actions && <div className="flex min-w-0 items-center gap-2 pb-1">{actions}</div>}
         </div>
 
-        <div className="mt-4">
+        <div className="mt-3 sm:mt-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="page-title break-words">{username}</h1>
             {(staffBadge || badge || supporter) && (
@@ -137,7 +138,6 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
           </div>
         </div>
 
-        {actions && <div className="mt-5 flex sm:hidden items-center gap-2">{actions}</div>}
         {children}
       </div>
     </header>

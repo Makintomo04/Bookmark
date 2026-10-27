@@ -71,7 +71,7 @@ const NewShelfPicks: FC = () => {
 const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
   <SWRConfig value={{ fallback }}>
     <ProfileHead />
-    <div className="mt-12 px-4 sm:px-8">
+    <div className="mt-6 sm:mt-8 px-4 sm:px-8">
       <FollowRequests className="mb-10" />
       <NewShelfPicks />
       <BookList />
