@@ -104,11 +104,50 @@ export function needsFallback(results: DiscoverBook[], query: string) {
   if (results.length === 0) return true
   const tokens = queryTokens(query).map(fold).filter(Boolean)
   if (tokens.length === 0 || tokens.every((t) => /^[\dx]+$/.test(t))) return false
-  return !results.some((b) => {
-    const text = ` ${fold(`${b.title} ${b.author}`)} `
-    return tokens.every((t) => text.includes(t))
-  })
+  return !results.some((b) => matchesEvery(b, tokens))
 }
+
+const matchesEvery = (b: DiscoverBook, tokens: string[]) => {
+  const text = ` ${fold(`${b.title} ${b.author}`)} `
+  return tokens.every((t) => text.includes(t))
+}
+
+// Open Library has a record but not much in it: no cover or no page count (Kate Posey's Serial Killer
+// Games, for one). Hardcover usually has both, and a blurb.
+export const isThin = (b: DiscoverBook) => !b.coverUrl || !b.pages
+
+// Whether Open Library found the book searched for but left it thin, so Hardcover is worth asking to
+// fill it in. Only the results matching every word count: a thin near miss isn't worth a request.
+export function needsTopUp(results: DiscoverBook[], query: string) {
+  const tokens = queryTokens(query).map(fold).filter(Boolean)
+  if (tokens.length === 0) return false
+  return results.some((b) => isThin(b) && matchesEvery(b, tokens))
+}
+
+// The Hardcover hit for the same book as this one: same ISBN, or same title and first author.
+export function sameBook(book: Pick<DiscoverBook, "title" | "author" | "isbn13" | "isbn10">, candidates: DiscoverBook[]) {
+  const key = workMatchKey(book.title, book.author)
+  return candidates.find((c) =>
+    (book.isbn13 && c.isbn13 === book.isbn13) || (book.isbn10 && c.isbn10 === book.isbn10) || (key && matchKeyOf(c) === key),
+  )
+}
+
+// Fills only what Open Library left empty; its work key, title and author stay, so book pages and shelf
+// search still go by them.
+export function topUp(book: DiscoverBook, from: DiscoverBook | null | undefined): DiscoverBook {
+  if (!from) return book
+  return {
+    ...book,
+    coverUrl: book.coverUrl || from.coverUrl,
+    pages: book.pages || from.pages,
+    year: book.year || from.year || null,
+    description: book.description || from.description || null,
+  }
+}
+
+// Each thin Open Library result filled from the matching Hardcover hit, when there is one.
+export const toppedUp = (openLibrary: DiscoverBook[], hardcover: DiscoverBook[]) =>
+  openLibrary.map((b) => (isThin(b) ? topUp(b, sameBook(b, hardcover)) : b))
 
 // Open Library's results with Hardcover's added. Open Library fell short to get here, so Hardcover's lead;
 // one already in Open Library's list (same ISBN, or same title and first author) is dropped, keeping

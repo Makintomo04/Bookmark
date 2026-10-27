@@ -81,7 +81,7 @@ const BookUpdateModal: FC = () => {
   // The blurb is for a book you haven't read yet. The reader's own copy may carry one; otherwise ask the catalog.
   const wantsBlurb = isOpen && (book?.status === "NOT_STARTED" || book?.status === "NOT_INTERESTED")
   const { description: catalogDescription, isLoading: blurbLoading } =
-    useBookDescription(wantsBlurb && !book?.description && book ? bookKeyOf(book) : null)
+    useBookDescription(wantsBlurb && !book?.description && book ? bookKeyOf(book) : null, null, book)
 
   const [pageInput, setPageInput] = useState("0")
   // Moods, spice and content warnings, tagged along with the review.

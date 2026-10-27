@@ -27,7 +27,7 @@ import BookProblemReport from '../books/BookProblemReport'
 const BookDetailsModal: FC = () => {
   const { isOpen, book, reason, onClose } = useBookDetailsModal()
   const bookKey = book ? bookKeyOf(book) : null
-  const { description, isLoading } = useBookDescription(isOpen ? bookKey : null, isOpen ? book?.description : null)
+  const { description, isLoading } = useBookDescription(isOpen ? bookKey : null, isOpen ? book?.description : null, book)
   const { tags } = useWorkTags({ bookKey: isOpen ? bookKey : null })
   const pageHref = book ? bookHref(book) : null
 

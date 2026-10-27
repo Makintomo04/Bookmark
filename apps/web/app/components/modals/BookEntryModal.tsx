@@ -87,7 +87,7 @@ const BookEntryModal: FC = () => {
   const [givenBlurb, setGivenBlurb] = useState<string | null>(null)
   // And its Hardcover id, which files it in the catalogue so it gets a book page.
   const [hardcoverId, setHardcoverId] = useState<string | null>(null)
-  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null)
+  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null, { title, author })
 
   const resetAll = () => {
     reset(defaultValues)

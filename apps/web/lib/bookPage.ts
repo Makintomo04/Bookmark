@@ -5,10 +5,13 @@ import { GENRES, type Genre } from "./genres"
 import { genresFromSubjects } from "./import/genre"
 import { normaliseWorkKey } from "./workKey"
 import { hasPageWhere } from "./workPages"
+import { hardcoverRecord } from "./bookSearch"
+import { topUp } from "./bookSearchRules"
 
 // What a book page (app/(main)/books/[slug]) shows about the book itself. The shared catalog's Work
 // comes first, since it's already cached and holds series; a book nobody on Bookmark has shelved yet
-// falls back to Open Library. Cached per request, so the metadata and the page share one lookup.
+// falls back to Open Library. A cover, blurb or page count neither has comes from Hardcover. Cached per
+// request, so the metadata and the page share one lookup.
 //
 // A book Open Library doesn't have is addressed by its catalogue Work's id instead (bookHref), and only
 // when the Work came from Hardcover (lib/workPages.ts).
@@ -36,6 +39,14 @@ const genresOf = (subjects: string[]) =>
 // `bookKey` is an Open Library work key or a catalogue Work id (normaliseBookKey). A Work that has since
 // been matched to Open Library comes back keyed by its work key, so its page redirects there.
 export const bookPageData = cache(async (bookKey: string): Promise<BookPageData | null> => {
+  const data = await catalogOrOpenLibrary(bookKey)
+  if (!data || (data.book.coverUrl && data.description && data.book.pages)) return data
+  const found = await hardcoverRecord(data.book.title, data.book.author)
+  if (!found) return data
+  return { ...data, book: topUp(data.book, found), description: data.description || found.description || null }
+})
+
+async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | null> {
   const olKey = normaliseWorkKey(bookKey)
   const work = await prisma.work.findFirst({
     where: olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere },
@@ -98,4 +109,4 @@ export const bookPageData = cache(async (bookKey: string): Promise<BookPageData 
     series: null,
     editionCount: null,
   }
-})
+}
