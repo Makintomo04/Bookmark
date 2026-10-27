@@ -1,4 +1,6 @@
 import { normaliseWorkKey } from "./workKey.ts"
+import { workMatchKey } from "./catalog/normalise.ts"
+import { collapseDuplicates, duplicateGroups } from "./workDuplicates.ts"
 
 export interface DiscoverBook {
   workKey: string | null
@@ -26,6 +28,9 @@ export interface DiscoverBook {
   // Optional: the catalogue Work a book without a work key has its page under (bookHref), set only when
   // it has one. Shelf search and Hardcover hits already in the catalogue carry it.
   pageWorkId?: string | null
+  // Optional, from fresh results only: how many editions Open Library has of the work, for picking
+  // between copies of one book (lib/workDuplicates.ts).
+  editionCount?: number | null
 }
 
 // A reader's copy of a book, as the book details modal and the add buttons take it. Pages of 0 mean unknown.
@@ -51,11 +56,12 @@ interface SearchDoc {
   first_publish_year?: number
   subject?: string[]
   language?: string[]
+  edition_count?: number
   // The "editions" sub-query: the edition that best matches the search, with its ISBNs.
   editions?: { docs?: { key?: string, isbn?: string[] }[] }
 }
 
-const FIELDS = "key,title,author_name,author_key,cover_i,number_of_pages_median,first_publish_year,language,editions,editions.key,editions.isbn"
+const FIELDS = "key,title,author_name,author_key,cover_i,number_of_pages_median,first_publish_year,language,edition_count,editions,editions.key,editions.isbn"
 
 const pickIsbns = (isbns?: string[]) => ({
   isbn13: isbns?.find((i) => /^\d{13}$/.test(i)) ?? null,
@@ -78,6 +84,7 @@ const toDiscoverBooks = (data: any): DiscoverBook[] =>
         ...pickIsbns(edition?.isbn),
         authorKey: normaliseAuthorKey(doc.author_key?.[0]),
         languages: Array.isArray(doc.language) ? doc.language : [],
+        editionCount: doc.edition_count ?? null,
       }
     })
 
@@ -87,12 +94,41 @@ export function normaliseAuthorKey(key?: string | null) {
   return match ? match[0] : null
 }
 
+// Which of these works have a description, in one request (the query API takes a list of keys, where
+// search can't return descriptions at all). Only asked when a list holds copies of one book, to pick the
+// copy whose book page will have a blurb. Not knowing just means picking on the other data.
+async function describedWorks(workKeys: string[]): Promise<Set<string>> {
+  if (!workKeys.length) return new Set()
+  const query = { type: "/type/work", key: workKeys.map((k) => `/works/${k}`), description: null, limit: workKeys.length }
+  try {
+    const res = await fetch(`https://openlibrary.org/query.json?query=${encodeURIComponent(JSON.stringify(query))}`, {
+      signal: AbortSignal.timeout(4000),
+      next: { revalidate: 86400 },
+    })
+    if (!res.ok) return new Set()
+    const rows = (await res.json()) as { key?: string, description?: unknown }[]
+    return new Set(rows.filter((r) => r.description).map((r) => normaliseWorkKey(r.key)).filter((k): k is string => !!k))
+  } catch {
+    return new Set()
+  }
+}
+
+// One card per book (lib/workDuplicates.ts), checking descriptions only when there are copies.
+async function withoutDuplicates(books: DiscoverBook[]): Promise<DiscoverBook[]> {
+  const groups = duplicateGroups(books)
+  if (!groups.length) return books
+  return collapseDuplicates(books, await describedWorks(groups.flat()))
+}
+
+// A few more than asked for, so collapsing copies of one book still leaves a full list.
+const searchPool = (limit: number) => limit + Math.ceil(limit / 2)
+
 export async function searchBooks(query: string, limit = 6): Promise<DiscoverBook[]> {
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${FIELDS}&limit=${limit}`
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${FIELDS}&limit=${searchPool(limit)}`
   // Open Library's search often takes 3–6s. A failure throws, so callers can tell it from no matches.
   const res = await fetch(url, { signal: AbortSignal.timeout(9000) })
   if (!res.ok) throw new Error(`Open Library search failed: ${res.status}`)
-  return toDiscoverBooks(await res.json())
+  return (await withoutDuplicates(toDiscoverBooks(await res.json()))).slice(0, limit)
 }
 
 // Work descriptions are user-edited Markdown. Many trail a "----------" block of edition notes or
@@ -147,7 +183,7 @@ export async function subjectBooks(subject: string, offset = 0, limit = 24): Pro
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${FIELDS}&limit=${limit}&offset=${offset}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } })
   if (!res.ok) return []
-  return toDiscoverBooks(await res.json())
+  return withoutDuplicates(toDiscoverBooks(await res.json()))
 }
 
 export interface OpenLibraryAuthor {
@@ -199,7 +235,7 @@ export async function authorBooks(by: { key?: string | null, name: string }, lim
 
 // Open Library's index keeps a reading-log activity count for each of the last seven days.
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
-const TRENDING_FIELDS = `key,${DAYS.map((d) => `trending_score_daily_${d}`).join(",")}`
+const TRENDING_FIELDS = `key,title,author_name,${DAYS.map((d) => `trending_score_daily_${d}`).join(",")}`
 const TRENDING_POOL = 200
 const weekScore = (doc: any) => DAYS.reduce((sum, d) => sum + (doc[`trending_score_daily_${d}`] || 0), 0)
 
@@ -215,11 +251,15 @@ export async function trendingSubjectBooks(subject: string, offset = 0, limit = 
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } })
   if (!res.ok) return []
   const data = await res.json()
-  const keys: string[] = [...(data?.docs || [])]
-    .sort((a, b) => weekScore(b) - weekScore(a))
-    .slice(offset, offset + limit)
-    .map((doc) => doc.key)
-    .filter(Boolean)
+  // Copies of one book (lib/workDuplicates.ts) count as one place in the ranking, at the first copy's,
+  // so a page is `limit` books and a later page never repeats one shown earlier.
+  const books = new Map<string, string[]>()
+  for (const doc of [...(data?.docs || [])].sort((a, b) => weekScore(b) - weekScore(a))) {
+    if (!doc.key) continue
+    const book = workMatchKey(doc.title ?? "", doc.author_name?.[0]) ?? doc.key
+    books.set(book, [...(books.get(book) ?? []), doc.key])
+  }
+  const keys: string[] = Array.from(books.values()).slice(offset, offset + limit).flat()
   if (!keys.length) return []
 
   const pageQ = `key:(${keys.map((k) => JSON.stringify(k)).join(" OR ")}) language:eng`
@@ -228,7 +268,7 @@ export async function trendingSubjectBooks(subject: string, offset = 0, limit = 
   if (!pageRes.ok) return []
   const order = new Map(keys.map((k, i) => [k, i]))
   const docs = [...((await pageRes.json())?.docs || [])].sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
-  return toDiscoverBooks({ docs })
+  return withoutDuplicates(toDiscoverBooks({ docs }))
 }
 
 // ---- Catalog lookups (lib/catalog) -----------------------------------------------------------

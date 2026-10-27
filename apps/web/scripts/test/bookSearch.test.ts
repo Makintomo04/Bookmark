@@ -87,6 +87,14 @@ test("mergeResults drops a Hardcover result for a book a shelf already shows", (
   assert.equal(merged[0].workKey, "OL1W");
 });
 
+test("mergeResults shows one card when a shelf and Open Library hold a book as different works", () => {
+  const local = [book("OL1W", "United States history"), book("OL2W", "United States History")].map((b) => ({ ...b, pages: 400 }));
+  const remote = [{ ...book("OL3W", "United States History"), pages: 1264 }, { ...book("OL4W", "United States History"), author: "Someone Else" }];
+  const merged = mergeResults(local, remote, 6);
+  assert.deepEqual(merged.map((b) => b.workKey), ["OL1W", "OL4W"]);
+  assert.equal(merged[0].year, 2020);
+});
+
 test("hardcoverBook maps a search hit and skips ones without a title or author", () => {
   const mapped = hardcoverBook({
     id: 1, title: " Caged ", author_names: ["", "Bernadette Blackthorn"], image: { url: "https://assets.hardcover.app/c.jpg" },

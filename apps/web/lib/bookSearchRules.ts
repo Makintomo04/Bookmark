@@ -1,5 +1,6 @@
 import type { DiscoverBook } from "./openLibrary"
 import { workMatchKey } from "./catalog/normalise.ts"
+import { collapseDuplicates } from "./workDuplicates.ts"
 
 // How book search turns Bookmark's own shelves into results and blends them with Open Library's, and with
 // Hardcover's when Open Library falls short. No database.
@@ -79,16 +80,18 @@ function mostCommon<T>(values: T[]): T | null {
 // Bookmark's own matches lead, but take at most half the slots so a reader's niche pick can't push the
 // catalogue's best match off the list. An Open Library result already shown from a shelf is dropped; the
 // shelf copy keeps its mirrored cover, and Open Library fills in the publication year.
-// A Hardcover result has no work key, so it's matched to a shown book by title and author instead.
+// Copies of one book are matched by title and first author as well as by work key: Open Library often
+// holds a book as several works (lib/workDuplicates.ts), and a Hardcover result has no work key at all.
 export function mergeResults(local: DiscoverBook[], remote: DiscoverBook[], limit: number): DiscoverBook[] {
   const remoteByKey = new Map(remote.filter((b) => b.workKey).map((b) => [b.workKey, b]))
-  const lead = local.slice(0, Math.ceil(limit / 2)).map((b) => {
-    const match = b.workKey ? remoteByKey.get(b.workKey) : undefined
+  const remoteByBook = new Map(remote.map((b) => [matchKeyOf(b), b] as const).filter(([key]) => key))
+  const lead = collapseDuplicates(local).slice(0, Math.ceil(limit / 2)).map((b) => {
+    const match = (b.workKey ? remoteByKey.get(b.workKey) : undefined) ?? remoteByBook.get(matchKeyOf(b))
     return match ? { ...b, year: b.year ?? match.year ?? null, pages: b.pages ?? match.pages } : b
   })
   const shown = new Set(lead.map((b) => b.workKey))
   const shownBooks = new Set(lead.map(matchKeyOf).filter(Boolean))
-  const rest = remote.filter((b) => (b.workKey ? !shown.has(b.workKey) : !shownBooks.has(matchKeyOf(b))))
+  const rest = remote.filter((b) => !(b.workKey && shown.has(b.workKey)) && !shownBooks.has(matchKeyOf(b)))
   return [...lead, ...rest].slice(0, limit)
 }
 
