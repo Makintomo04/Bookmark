@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import Link from 'next/link'
 import moment from 'moment'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Loader2, Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isIndefiniteComp, planStatusOf } from '@/lib/entitlements'
 import useUser from '@/app/hooks/useUser'
@@ -36,7 +36,7 @@ const PlusSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="flex items-center gap-2 text-sm font-medium">
-            <Sparkles size={14} aria-hidden className="text-brand" /> Bookmark Plus
+            <Crown size={14} aria-hidden className="text-brand" /> Bookmark Plus
             <span className={cn(
               "rounded-full px-2 py-0.5 text-[11px] font-semibold",
               status.plan === "PLUS" ? "bg-brand/10 text-brand-fill dark:text-brand" : "bg-neutral-100 dark:bg-neutral-900 text-muted-foreground"

@@ -1,7 +1,7 @@
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
-import { ChevronRight, ListOrdered, Search, Sparkles, Star, UserRound } from "lucide-react-native";
+import { ChevronRight, ListOrdered, Search, Feather, Star, UserRound } from "lucide-react-native";
 import { genreBySlug } from "@bookmark/shared/genres";
 import { BookCover } from "@/components/books/BookCover";
 import { GenrePicks } from "@/components/discover/GenrePicks";
@@ -34,7 +34,7 @@ export default function Discover() {
         onPress={() => router.push("/discover/ask")}
         style={({ pressed }) => [styles.ask, { borderRadius: radii.lg, borderColor: colors.border, backgroundColor: pressed ? colors.muted : colors.card }]}
       >
-        <Sparkles size={20} color={colors.brand} />
+        <Feather size={20} color={colors.brand} />
         <View style={{ flex: 1 }}>
           <Text variant="title">Ask the shelf</Text>
           <Text variant="muted">Describe the read you{"’"}re in the mood for, in your own words.</Text>

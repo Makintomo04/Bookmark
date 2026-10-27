@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import moment from 'moment'
-import { Check, Gift, Infinity as InfinityIcon, Loader2, Sparkles } from 'lucide-react'
+import { Check, Crown, Gift, Infinity as InfinityIcon, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FOUNDING, PLUS_PRICING, type PlanStatus } from '@/lib/entitlements'
 import { FREE, FREE_SOON, PLUS, PLUS_SOON } from '@bookmark/shared/plusFeatures'
@@ -93,7 +93,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
     <div className="flex flex-col gap-10 pb-8">
       <header className="mx-auto max-w-2xl text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-sm font-semibold text-brand-fill dark:text-brand">
-          <Sparkles size={14} aria-hidden /> Bookmark Plus
+          <Crown size={14} aria-hidden /> Bookmark Plus
         </span>
         <h1 className="display-hero mt-4">All your stats are free.</h1>
         <p className={cn('mt-4 text-base md:text-lg', mutedClassName)}>
@@ -151,7 +151,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
 
         <section aria-labelledby="plus-heading" className="relative flex flex-col rounded-[20px] border-2 border-brand/60 p-6 shadow-sm sm:p-8">
           <div className="flex items-center justify-between gap-3">
-            <h2 id="plus-heading" className="flex items-center gap-2 text-lg font-bold"><Sparkles size={18} aria-hidden className="text-brand" /> Plus</h2>
+            <h2 id="plus-heading" className="flex items-center gap-2 text-lg font-bold"><Crown size={18} aria-hidden className="text-brand" /> Plus</h2>
             {badge && <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand-fill dark:text-brand">{badge}</span>}
           </div>
           <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">

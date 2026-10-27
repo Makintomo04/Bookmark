@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
-import { BookOpen, Sparkles, ThumbsDown, ThumbsUp, X } from "lucide-react-native";
+import { BookOpen, Feather, ThumbsDown, ThumbsUp, X } from "lucide-react-native";
 import { formatPercent } from "@bookmark/shared/buddyReads";
 import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { AiLabel } from "@/components/ui/AiLabel";
@@ -144,7 +144,7 @@ export function CatchMeUp({ bookId }: { bookId: string }) {
           title={a.label}
           variant={i === 0 && prompting ? "primary" : "outline"}
           disabled={busy}
-          icon={i === 0 ? (prompting ? <Sparkles size={16} color={colors.onBrand} /> : <BookOpen size={16} color={colors.foreground} />) : undefined}
+          icon={i === 0 ? (prompting ? <Feather size={16} color={colors.onBrand} /> : <BookOpen size={16} color={colors.foreground} />) : undefined}
           onPress={() => void ask(a.kind)}
         />
       ))}
@@ -207,7 +207,7 @@ export function CatchMeUp({ bookId }: { bookId: string }) {
           <X size={18} color={colors.mutedForeground} />
         </Pressable>
         <View style={[styles.row, { alignItems: "flex-start", paddingRight: 28 }]}>
-          <View style={[styles.badge, { backgroundColor: colors.muted }]}><Sparkles size={16} color={colors.brandText} /></View>
+          <View style={[styles.badge, { backgroundColor: colors.muted }]}><Feather size={16} color={colors.brandText} /></View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text variant="label">Catch me up</Text>
             <Text variant="muted">{promptText(openResume, openSeries)}</Text>
