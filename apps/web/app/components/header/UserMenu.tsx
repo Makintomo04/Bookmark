@@ -90,7 +90,8 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
 
     return (
       <>
-        <div className="flex gap-2 relative items-center">
+        {/* gap-3: room between the bell's badge and the avatar's ring. */}
+        <div className="flex gap-3 relative items-center">
             {wrappedYear && (
               <Link href={`/wrapped/${wrappedYear}`} className="hidden sm:inline-flex h-9 items-center px-3 rounded-full text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 Your {wrappedYear} Wrapped
