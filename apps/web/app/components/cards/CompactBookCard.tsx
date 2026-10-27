@@ -20,6 +20,7 @@ import axios from 'axios';
 import { notify } from '@/lib/notify';
 import { removeBookWithUndo } from '../books/removeBookWithUndo';
 import { cn } from '@/lib/utils';
+import { readableInk } from '@/lib/colour';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,9 +31,15 @@ import AuthorLink from '@/app/components/AuthorLink'
 
 interface CompactBookCardProps {
   book: Book
+  // The shelf's select mode: a check in place of the row's buttons, and a ring once picked. BookGrid lays
+  // a button over the row that takes the click.
+  selected?: boolean | null
+  accentColour?: string | null
+  // Which shelf the book is on, for search results that mix shelves.
+  shelfLabel?: string
 }
 
-const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
+const CompactBookCard: FC<CompactBookCardProps> = ({ book, selected = null, accentColour, shelfLabel }) => {
   const { title, author, status, rating } = book
   const { user, mutate } = useUser()
   const { mutate: booksMutate } = useBooks()
@@ -79,7 +86,9 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
       aria-label={`${title} by ${author}. Update progress`}
       onClick={handleOpenBookModal}
       onKeyDown={handleKeyDown}
-      className="cursor-pointer flex gap-3 items-center p-3 rounded-xl border border-border hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition relative outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      style={selected ? { borderColor: accentColour || undefined, boxShadow: `0 0 0 1px ${accentColour || 'hsl(var(--foreground))'}` } : undefined}
+      className={cn("cursor-pointer flex gap-3 items-center p-3 rounded-xl border border-border hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition relative outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        selected && "border-foreground bg-neutral-100 dark:bg-neutral-800/50")}
     >
       <BookCover book={book} variant="thumb" sizes="48px" className="w-10 flex-shrink-0 rounded" />
       <div className="min-w-0 flex-1">
@@ -107,6 +116,9 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
           {status === Status.NOT_STARTED && recommendedByOf(book) && (
             <p className="text-xs text-muted-foreground truncate">Recommended by {recommendedByOf(book)}</p>
           )}
+          {shelfLabel && (
+            <span className="shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{shelfLabel}</span>
+          )}
           {(status === Status.STARTED || status === Status.PAUSED) && (
             <div
               role="progressbar"
@@ -125,6 +137,15 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
           )}
         </div>
       </div>
+      {selected !== null ? (
+        <span aria-hidden
+          style={selected && accentColour ? { background: accentColour, borderColor: accentColour, color: readableInk(accentColour) } : undefined}
+          className={cn("mx-1.5 size-6 flex-shrink-0 flex items-center justify-center rounded-full border-2 transition",
+            selected ? "border-foreground bg-foreground text-background" : "border-neutral-400 dark:border-neutral-500")}>
+          {selected && <Check size={14} strokeWidth={3} />}
+        </span>
+      ) : (
+      <>
       <button
         type="button"
         aria-label={isFavourite ? "Remove from favourites" : "Add to favourites"}
@@ -158,6 +179,8 @@ const CompactBookCard: FC<CompactBookCardProps> = ({ book }) => {
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRemove() }}>Remove</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </>
+      )}
     </div>
   )
 }

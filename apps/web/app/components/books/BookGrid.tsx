@@ -1,8 +1,8 @@
 "use client"
-import { CSSProperties, FC, useEffect, useMemo, useRef, useState } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Book } from '@prisma/client'
-import { LayoutGrid, Grid3x3, Check, ArrowLeft } from 'lucide-react'
+import { LayoutGrid, Grid3x3, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
 import useViewMode from '@/app/hooks/useViewMode'
@@ -105,21 +105,12 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
     .map((s) => ({ ...s, items: filter.sort === "recent" ? s.items : sortBooks(s.items, filter.sort) }))
 
   // In select mode a button over each card takes the click, so the card's own modal and menu stay shut.
-  // The cover card draws its own check and ring; the compact row gets a ring round the row.
-  const pickable = (book: Book, card: JSX.Element, drawsOwnCheck: boolean) => !selecting ? card : (
+  // The cards draw their own check and ring (selected).
+  const pickable = (book: Book, card: JSX.Element) => !selecting ? card : (
     <div key={book.id} className="relative">
       {card}
       <button type="button" aria-pressed={picked.has(book.id)} aria-label={`Select ${book.title}`} onClick={() => togglePick(book.id)}
-        style={accent && picked.has(book.id) && !drawsOwnCheck ? { '--tw-ring-color': accent } as CSSProperties : undefined}
-        className={cn("absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background",
-          !drawsOwnCheck && (picked.has(book.id) ? "ring-2 ring-foreground" : "hover:bg-foreground/5"))}>
-        {!drawsOwnCheck && (
-          <span aria-hidden className={cn("absolute top-1/2 right-3 -translate-y-1/2 h-5 w-5 rounded-full border-2 flex items-center justify-center",
-            picked.has(book.id) ? "border-foreground bg-foreground text-background" : "border-neutral-400")}>
-            {picked.has(book.id) && <Check size={12} strokeWidth={3} />}
-          </span>
-        )}
-      </button>
+        className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background" />
     </div>
   )
 
@@ -127,15 +118,9 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
   const card = (book: Book, showShelf = false) => {
     const label = showShelf ? SHELF_TITLE[shelfOf(book.status)] : undefined
     if (activeMode === 'comfortable') {
-      return pickable(book, <BookCoverCard key={book.id} book={book} accentColour={accent} selected={selecting ? picked.has(book.id) : null} shelfLabel={label} />, true)
+      return pickable(book, <BookCoverCard key={book.id} book={book} accentColour={accent} selected={selecting ? picked.has(book.id) : null} shelfLabel={label} />)
     }
-    const row = <CompactBookCard key={book.id} book={book} />
-    return pickable(book, label ? (
-      <div key={book.id} className="flex flex-col">
-        {row}
-        <p className="mt-1 ml-1 text-xs text-muted-foreground">{label}</p>
-      </div>
-    ) : row, false)
+    return pickable(book, <CompactBookCard key={book.id} book={book} accentColour={accent} selected={selecting ? picked.has(book.id) : null} shelfLabel={label} />)
   }
   const gridClass = activeMode === 'comfortable' ? coverGridClass : "grid grid-cols-1 lg:grid-cols-2 gap-3"
   const shelf = (items: Book[], showShelf = false) => (
