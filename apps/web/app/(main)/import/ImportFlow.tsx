@@ -98,6 +98,12 @@ const ImportFlow: FC<{ aiAvailable: boolean; aiDefault: boolean }> = ({ aiAvaila
     return () => { runId.current++ }
   }, [drive])
 
+  // Once the books are on the shelves the pasted list has done its job, so the next import starts blank.
+  // Any it couldn't find stay on the summary to copy.
+  useEffect(() => {
+    if (job?.status === "done") setDraft({ text: "", fileName: null })
+  }, [job?.status])
+
   const upload = async (file: File) => {
     if (file.size > MAX_BYTES) {
       setError("That file is over 5 MB. Export just your books as a CSV, not a full data archive.")
