@@ -8,6 +8,7 @@ import moment from 'moment'
 import { Check, BookOpen, BookPlus, BookUp, CircleSlash, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReviewText from './ReviewText'
+import ReportReviewButton from '../books/ReportReviewButton'
 import AuthorLink from '@/app/components/AuthorLink'
 
 export interface ActivityFeedItemData {
@@ -16,7 +17,8 @@ export interface ActivityFeedItemData {
   createdAt: string
   user: { username: string, image: string | null, favColour: string | null, _count?: { books?: number } }
   // review and reviewSpoiler come only on REVIEWED_BOOK, and only when the viewer may read it.
-  book: { title: string, author: string, coverImage: string | null, cardColour: string | null, rating: number | null, review?: string | null, reviewSpoiler?: boolean } | null
+  // `id` is the reader's copy (Activity.bookId), for reporting a review.
+  book: { id?: string | null, title: string, author: string, coverImage: string | null, cardColour: string | null, rating: number | null, review?: string | null, reviewSpoiler?: boolean } | null
 }
 
 interface ActivityFeedItemProps {
@@ -62,6 +64,7 @@ const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
         </p>
         <p className="truncate text-xs text-muted-foreground">by <AuthorLink author={activity.book.author} /> &middot; {moment(activity.createdAt).fromNow()}</p>
         {review && <ReviewText review={review} spoiler={activity.book.reviewSpoiler} maxChars={220} className="mt-2" />}
+        {review && activity.book.id && <ReportReviewButton bookId={activity.book.id} className="mt-2" />}
       </div>
       {renderTypeIcon(activity.type)}
     </div>

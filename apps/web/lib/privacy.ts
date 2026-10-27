@@ -72,6 +72,12 @@ export const sharedBookWhere: Prisma.BookWhereInput = {
   OR: [{ isPrivate: { isSet: false } }, { isPrivate: null }, { isPrivate: false }],
 };
 
+// Ratings that count towards anything others see (a book's average, "people you follow rated it"): not
+// taken out by staff after a report (lib/staffReports.ts). Wrap it in AND like sharedBookWhere.
+export const countedRatingWhere: Prisma.BookWhereInput = {
+  OR: [{ ratingHiddenAt: { isSet: false } }, { ratingHiddenAt: null }],
+};
+
 // True when a signed-out visitor can see this user's profile. For pages that show a user's
 // reading to anyone (stats, Wrapped, share images): check this before rendering.
 export async function isProfilePublic(userId: string): Promise<boolean> {

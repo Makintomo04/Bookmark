@@ -9,7 +9,7 @@ import type { QueueEntry, ReportAction } from '@/lib/staffReports'
 import { Button } from '../ui/button'
 import { cardClass, fieldClass, formatDate, staffSend } from './staffApi'
 
-const KIND_LABELS: Record<QueueEntry['kind'], string> = { list: 'List', comment: 'Comment', book: 'Book details' }
+const KIND_LABELS: Record<QueueEntry['kind'], string> = { list: 'List', comment: 'Comment', review: 'Review', book: 'Book details' }
 
 // The reports queue: one card per reported thing, escalated first, then the most reported.
 const StaffReports = ({ canSuspend }: { canSuspend: boolean }) => {
@@ -108,6 +108,13 @@ const ReportCard = ({ entry, canSuspend, closed, onDone }: { entry: QueueEntry, 
                 <Button size="sm" asChild><Link href={`/staff/catalogue?work=${entry.itemId}`}>Fix the book</Link></Button>
                 {button('resolve', 'Mark fixed')}
               </>
+            ) : entry.kind === 'review' ? (
+              !entry.removed && (
+                <>
+                  {button('hide', 'Hide review', 'destructive')}
+                  {button('hide_rating', 'Hide review and rating', 'destructive')}
+                </>
+              )
             ) : !entry.removed && button('hide', entry.kind === 'list' ? 'Hide list' : 'Remove comment', 'destructive')}
             {button('dismiss', 'Dismiss')}
             {entry.status !== 'ESCALATED' && !canSuspend && entry.authorId && button('escalate', 'Escalate to an admin')}

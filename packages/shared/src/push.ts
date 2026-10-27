@@ -10,6 +10,7 @@ export const PUSH_GROUPS = {
   circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED"],
   follows: ["NEW_FOLLOWER", "FOLLOW_REQUEST"],
   recommendations: ["BOOK_RECOMMENDED"],
+  account: ["REVIEW_HIDDEN"],
 } as const;
 
 export type PushGroup = keyof typeof PUSH_GROUPS;
@@ -19,6 +20,7 @@ export const PUSH_GROUP_LABELS: Record<PushGroup, { title: string; description: 
   circles: { title: "Reading circles", description: "Invites, people joining, comments your progress has unlocked, and hosting handed to you." },
   follows: { title: "Followers", description: "New followers and follow requests." },
   recommendations: { title: "Books from friends", description: "When a friend sends you a book." },
+  account: { title: "Your account", description: "When the Bookmark team hides something you posted." },
 };
 
 export const isPushGroup = (value: unknown): value is PushGroup => typeof value === "string" && value in PUSH_GROUPS;
@@ -74,6 +76,8 @@ export function pushContentFor(n: PushContext): PushContent | null {
     }
     case "BUDDY_READ_HOSTED":
       return { title: "You're the host now", body: `${who} handed you the reading circle for ${book(n.bookTitle)}.`, path: circlePath };
+    case "REVIEW_HIDDEN":
+      return { title: "Your review was hidden", body: `We've hidden your review of ${book(n.bookTitle)}. Only you can still see it.`, path: "/notifications" };
     default:
       return null;
   }

@@ -53,7 +53,7 @@ async function loadProfileRecord(username: string) {
       books: {
         where: { status: { in: ["STARTED", "COMPLETED", "NOT_STARTED"] } },
         orderBy: { createdAt: "desc" },
-        select: { ...publicBookSelect, isPrivate: true, review: true, reviewSpoiler: true, reviewPrivate: true },
+        select: { ...publicBookSelect, isPrivate: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true },
       },
       _count: { select: { followers: true, following: true } },
       achievements: { where: { NOT: { key: { startsWith: QUEST_MEDAL_PREFIX } } }, select: { key: true, earnedAt: true } },
@@ -96,10 +96,10 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     // Private books are the owner's alone: they see them on their own profile, marked, and nobody else does.
     .filter((b) => !b.isPrivate || relation.isSelf)
     .filter((b) => b.status !== "NOT_STARTED" || showWantToRead)
-    .map(({ review, reviewSpoiler, reviewPrivate, isPrivate, ...book }) => ({
+    .map(({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt, isPrivate, ...book }) => ({
       ...book,
       isPrivate: !!isPrivate,
-      ...visibleReview({ review, reviewSpoiler, reviewPrivate }, relation, privacy),
+      ...visibleReview({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt }, relation, privacy),
     }));
   return {
     username: record.username,

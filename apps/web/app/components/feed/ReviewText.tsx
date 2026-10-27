@@ -10,6 +10,8 @@ interface ReviewTextProps {
   spoiler?: boolean
   // Owner only: this review is hidden from everyone else.
   hidden?: boolean
+  // Owner only: the Bookmark team took this review down after a report.
+  removed?: boolean
   // Longer reviews are cut here with a "Read more".
   maxChars?: number
   className?: string
@@ -25,7 +27,7 @@ function preview(text: string, max: number) {
 
 // A review as others see it: spoilers stay covered until the reader asks (or has asked for them
 // always shown, via showSpoilers), long ones are truncated.
-const ReviewText: FC<ReviewTextProps> = ({ review, spoiler = false, hidden = false, maxChars = 280, className }) => {
+const ReviewText: FC<ReviewTextProps> = ({ review, spoiler = false, hidden = false, removed = false, maxChars = 280, className }) => {
   const { user } = useUser()
   const [clicked, setClicked] = useState(false)
   const revealed = !spoiler || clicked || (!!user && preferencesOf(user).showSpoilers)
@@ -36,7 +38,11 @@ const ReviewText: FC<ReviewTextProps> = ({ review, spoiler = false, hidden = fal
     <div className={cn("text-sm", className)}>
       {(hidden || spoiler) && (
         <p className="mb-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-          {hidden && <span className="inline-flex items-center gap-1"><Lock size={12} aria-hidden />Only you can see this review</span>}
+          {hidden && (
+            <span className="inline-flex items-center gap-1">
+              <Lock size={12} aria-hidden />{removed ? "Hidden by the Bookmark team. Only you can see it." : "Only you can see this review"}
+            </span>
+          )}
           {spoiler && revealed && <span className="inline-flex items-center gap-1"><EyeOff size={12} aria-hidden />Contains spoilers</span>}
         </p>
       )}

@@ -13,12 +13,13 @@ export type StaffActionKind =
   | "edition.edit"
   | "report.dismiss"
   | "report.hide"
+  | "report.hide_rating"
   | "report.resolve"
   | "list.choose"
   | "list.unchoose"
   | "report.escalate"
 
-export type StaffTarget = "user" | "work" | "edition" | "list" | "comment" | "report"
+export type StaffTarget = "user" | "work" | "edition" | "list" | "comment" | "review" | "report"
 
 export interface StaffActionInput {
   actorId: string
@@ -46,6 +47,7 @@ export const STAFF_ACTION_LABELS: Record<StaffActionKind, string> = {
   "edition.edit": "Edited edition",
   "report.dismiss": "Dismissed report",
   "report.hide": "Took content down",
+  "report.hide_rating": "Hid a review and its rating",
   "report.resolve": "Marked book report fixed",
   "list.choose": "Made a list an editors' choice",
   "list.unchoose": "Removed a list from editors' choice",

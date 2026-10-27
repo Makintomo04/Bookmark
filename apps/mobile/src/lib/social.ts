@@ -12,7 +12,8 @@ export interface Activity {
   type: ActivityType;
   createdAt: string;
   user: Person & { username: string };
-  book: { title: string; author: string; coverImage: string; cardColour: string | null; rating: number | null; review: string | null; reviewSpoiler: boolean | null } | null;
+  // `id` is the reader's copy, for reporting a review. Missing from older servers.
+  book: { id?: string | null; title: string; author: string; coverImage: string; cardColour: string | null; rating: number | null; review: string | null; reviewSpoiler: boolean | null } | null;
 }
 
 // The web's ActivityFeedItem wording. "Shelf", not "list": lists are the curated recommendation lists.
