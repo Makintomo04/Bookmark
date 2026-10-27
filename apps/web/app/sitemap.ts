@@ -3,6 +3,8 @@ import prisma from '@/lib/db'
 import { GENRES } from '@/lib/genres'
 import { publicProfileWhere, sharedBookWhere } from '@/lib/privacy'
 import { siteUrl } from '@/lib/siteUrl'
+import { bookHref } from '@/lib/workKey'
+import { hasPageWhere } from '@/lib/workPages'
 
 // Lists users and lists from the database: refresh hourly instead of freezing it at build time.
 export const revalidate = 3600
@@ -20,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // the sitemap a reasonable size.
   // A database hiccup at build time shouldn't fail the deploy: fall back to the
   // static routes and let the hourly revalidation fill the rest in.
-  const [usersWithBooks, publicLists] = await Promise.all([
+  const [usersWithBooks, publicLists, reviewedWorks] = await Promise.all([
     prisma.user.findMany({
       where: {
         AND: [
@@ -40,9 +42,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       orderBy: { updatedAt: 'desc' },
       take: 1000,
     }),
+    // Book pages worth a crawl: books with a page (lib/workPages.ts) that at least one reader has reviewed.
+    prisma.work.findMany({
+      where: { ...hasPageWhere, books: { some: { review: { not: null }, ...sharedBookWhere } } },
+      select: { id: true, openLibraryKey: true, title: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 1000,
+    }),
   ]).catch((err) => {
     console.error('sitemap: database unavailable, serving static routes only', err)
-    return [[], []] as const
+    return [[], [], []] as const
   })
 
   const profileRoutes: MetadataRoute.Sitemap = usersWithBooks.map((u) => ({
@@ -58,5 +67,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...publicLists.map((l) => ({ url: `${siteUrl}/lists/${l.id}`, lastModified: l.updatedAt, changeFrequency: 'weekly' as const, priority: 0.6 })),
   ]
 
-  return [...staticRoutes, ...discoverRoutes, ...profileRoutes]
+  const bookRoutes: MetadataRoute.Sitemap = reviewedWorks.map((w) => ({
+    url: `${siteUrl}${bookHref({ workKey: w.openLibraryKey, pageWorkId: w.id, title: w.title })}`,
+    lastModified: w.updatedAt,
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  }))
+
+  return [...staticRoutes, ...discoverRoutes, ...bookRoutes, ...profileRoutes]
 }

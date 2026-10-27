@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils'
 import { formatLength, formatPosition, formatStoppedAt, progressWhole } from '@/lib/progress'
 import useFavourite from '@/app/hooks/useFavourite'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
+import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
+import { discoverBookOf } from '@/lib/openLibrary'
 import BookCover from './BookCover'
 import BookActions from './BookActions'
 import { recommendedByOf } from '@/lib/recommendRules'
@@ -17,6 +19,7 @@ import AuthorLink from '@/app/components/AuthorLink'
 interface BookCoverCardProps {
   book: Book
   accentColour?: string | null
+  // Someone else's book: the card opens its details instead of the progress modal.
   readOnly?: boolean
   // Insets the text so it clears the selection ring BookGrid draws around the card.
   selecting?: boolean
@@ -43,6 +46,7 @@ const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, 
 const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = false, selecting = false }) => {
   const { title, author, status, rating, completedAt, stoppedAt } = book
   const bookUpdateModal = useBookUpdateModal()
+  const openDetails = useBookDetailsModal((s) => s.onOpen)
   const isPaused = status === Status.PAUSED
   const progress = status === Status.STARTED || isPaused ? progressWhole(book) : 0
   const length = formatLength(book)
@@ -53,31 +57,31 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
     bookUpdateModal.onOpen(book.id)
   }
 
+  const onActivate = readOnly ? () => openDetails(discoverBookOf(book)) : openProgress
+
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      openProgress()
+      onActivate()
     }
   }
 
-  const interactiveProps = readOnly ? {} : {
+  const interactiveProps = {
     role: "button",
     tabIndex: 0,
-    "aria-label": `${title} by ${author}. Update progress`,
-    onClick: openProgress,
+    "aria-label": readOnly ? `About ${title} by ${author}` : `${title} by ${author}. Update progress`,
+    onClick: onActivate,
     onKeyDown: handleKeyDown,
   }
 
   return (
     <div
       {...interactiveProps}
-      className={cn(
-        "group flex flex-col gap-3 rounded-lg",
-        !readOnly && "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
-      )}
+      className="group flex flex-col gap-3 rounded-lg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
     >
-      <div className="relative">
+      {/* Someone else's book lifts a touch on hover, as Discover's covers do, since there's no overlay to show. */}
+      <div className={cn("relative", readOnly && "transition md:group-hover:-translate-y-0.5 md:group-hover:opacity-90")}>
         <BookCover
           book={book}
           sizes="(min-width: 1280px) 180px, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw"

@@ -13,6 +13,7 @@ import { consumeVerificationToken } from "@/lib/emailVerification";
 import { MAGIC_LINK_MAX_AGE_SECONDS, sendMagicLink } from "@/lib/magicLink";
 import type { Adapter, AdapterUser } from "next-auth/adapters";
 import { appleClientSecret, appleWebConfig } from "@/lib/appleSignIn";
+import { isUserSuspended } from "@/lib/suspension";
 
 const apple = appleWebConfig()
 
@@ -28,7 +29,8 @@ export const authOptions: AuthOptions = {
   pages: {
     signIn: '/signin',
     error: '/signin',
-    // signOut: '/signin',
+    // Only reached when a sign-out fails NextAuth's CSRF check; it retries instead of showing NextAuth's own page.
+    signOut: '/signout',
     newUser: '/new-user',
   },
   providers: [
@@ -97,6 +99,9 @@ export const authOptions: AuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, email }) {
+      // A suspended account can't sign in by any route (lib/suspension.ts). A brand-new OAuth or magic-link
+      // user has no row yet, so there's nothing to look up.
+      if (user?.id && /^[a-f0-9]{24}$/.test(user.id) && (await isUserSuspended(user.id))) return "/signin?error=suspended"
       // Opening a magic link proves the inbox is theirs, and NextAuth then marks the user verified. If the
       // account was unverified and has a password, that password was set by whoever registered the
       // address, maybe not this person, so drop it before verification would let it sign in.

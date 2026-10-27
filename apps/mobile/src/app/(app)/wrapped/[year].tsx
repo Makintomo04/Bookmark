@@ -5,6 +5,7 @@ import useSWR from "swr";
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 import { readableInk, shade } from "@bookmark/shared/colour";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { ratingGlyphs } from "@bookmark/shared/rating";
 import type { WrappedData } from "@bookmark/shared/statsTypes";
 import * as copy from "@bookmark/shared/wrappedCopy";
 import { Medal } from "@/components/achievements/Medal";
@@ -145,7 +146,7 @@ export default function Wrapped() {
           <Kicker>{own ? "Your favourite" : `${name}'s favourite`}</Kicker>
           <BookFeature book={w.topRated} accent={accent}>
             <Ink style={{ fontSize: 24, letterSpacing: 2, marginTop: 8 }} accessibilityLabel={`${w.topRated.rating} stars`}>
-              {"★".repeat(Math.floor(w.topRated.rating))}{w.topRated.rating % 1 ? "½" : ""}
+              {"★".repeat(Math.floor(w.topRated.rating))}{ratingGlyphs(w.topRated.rating % 1)}
             </Ink>
           </BookFeature>
           <Line>{copy.topRatedLine(w)}</Line>

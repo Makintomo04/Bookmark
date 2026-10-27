@@ -3,12 +3,15 @@ import type { Series } from "../catalog/normalise.ts";
 
 // Kept free of "@/" imports (type-only imports are fine) so scripts/test/import.test.ts runs under plain Node.
 
-export type ImportSource = "goodreads" | "storygraph" | "bookmark";
+// "list": a pasted list or plain text file (lib/import/text.ts). Its books come only from the search:
+// rows nothing matched are left out, not added as typed.
+export type ImportSource = "goodreads" | "storygraph" | "bookmark" | "list";
 
 export const SOURCE_LABEL: Record<ImportSource, string> = {
   goodreads: "Goodreads",
   storygraph: "StoryGraph",
   bookmark: "Bookmark",
+  list: "Your list",
 };
 
 // A past read. Dates are ISO strings so rows survive a JSON round trip through the ImportJob.
@@ -32,7 +35,7 @@ export interface ImportRow {
   // From a Goodreads title: "(The Stormlight Archive, #2)".
   series: Series | null;
   status: Status;
-  // 0.5 to 5 in half-star steps, or null for unrated.
+  // 0.25 to 5 in quarter-star steps, or null for unrated.
   rating: number | null;
   pages: number | null;
   // Only Bookmark's own export carries progress.
@@ -141,6 +144,8 @@ export interface FileNotes {
   // Date cells that couldn't be read. Left blank rather than guessed; the first few are listed.
   unreadableDates: { line: number; column: string; value: string }[];
   unreadableDateCount: number;
+  // A pasted list only: whether the model read it, the rules did (no key, or the model failed), or both.
+  listReadBy?: "model" | "rules" | "mixed";
 }
 
 export const emptyNotes = (): FileNotes => ({

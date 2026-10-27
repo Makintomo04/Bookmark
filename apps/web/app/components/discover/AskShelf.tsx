@@ -6,7 +6,7 @@ import { apiError, notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { isUpgradeRequired } from '@/lib/entitlements'
 import { preferencesOf } from '@/lib/preferences'
-import { MOOD_LABEL, WARNING_LEVEL_LABEL } from '@/lib/workTags'
+import { MOOD_LABEL, SPICE_LABEL, SPICE_MAX, WARNING_LEVEL_LABEL, spiceRangeText } from '@/lib/workTags'
 import { ASK_QUERY_MAX, type AskResult, type AskShelfResponse, type FriendSignal, type ShelfIntent } from '@/lib/askShelf'
 import type { AllowanceStatus } from '@/lib/ai/usage'
 import useUser from '@/app/hooks/useUser'
@@ -15,6 +15,8 @@ import { primaryButtonClass, secondaryButtonClass } from '../profile-head/Profil
 import { CuratorAvatar } from '../lists/CuratorNote'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import DiscoverBookCard from './DiscoverBookCard'
+import { SpiceFlames } from '../books/WorkTags'
+import { can } from '@/lib/roles'
 
 const EXAMPLES = [
   "Cosy and low-stakes, after a heavy week",
@@ -106,6 +108,12 @@ const ResultContext: FC<{ result: AskResult }> = ({ result }) => (
         ))}
       </ul>
     )}
+    {result.spice?.level != null && (
+      <p className="flex items-center gap-1.5 text-[11px]" aria-label={`Spice ${result.spice.level} of ${SPICE_MAX}, ${SPICE_LABEL[result.spice.level]}`}>
+        <SpiceFlames level={result.spice.level} size={12} />
+        <span aria-hidden>{SPICE_LABEL[result.spice.level]}</span>
+      </p>
+    )}
     <Warnings result={result} />
   </div>
 )
@@ -122,6 +130,8 @@ function intentChips(intent: ShelfIntent): string[] {
   else if (intent.maxPages) chips.push(`under ${intent.maxPages} pages`)
   else if (intent.minPages) chips.push(`over ${intent.minPages} pages`)
   if (intent.format) chips.push(intent.format)
+  const spice = spiceRangeText(intent.minSpice ?? null, intent.maxSpice ?? null)
+  if (spice) chips.push(spice)
   for (const w of intent.mustNotHaves) chips.push(`no ${w.toLowerCase()}`)
   for (const s of intent.avoidSubjects) chips.push(`no ${s}`)
   for (const m of intent.avoidMoods) chips.push(`not ${MOOD_LABEL[m]}`)
@@ -281,7 +291,7 @@ const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, ini
 
   const saveAsList = () => {
     if (!outcome) return
-    const base = emptyList(!!user?.isStaff, user ? preferencesOf(user).defaultListVisibility : undefined)
+    const base = emptyList(can(user, "lists.curate"), user ? preferencesOf(user).defaultListVisibility : undefined)
     onOpen({
       ...base,
       title: outcome.query.slice(0, 80),

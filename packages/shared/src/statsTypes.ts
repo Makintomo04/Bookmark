@@ -56,7 +56,7 @@ export interface ReadingStats {
   longestBook: BookSummary | null;
   ratedBooks: number;
   averageRating: number | null;
-  // 0.5 to 5, every half star, including empty buckets.
+  // 0.5 to 5, every half star, including empty buckets. A quarter counts with the half below it.
   ratings: { rating: number; count: number }[];
   genres: Tally[];
   authors: Tally[];

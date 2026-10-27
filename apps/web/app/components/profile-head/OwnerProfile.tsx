@@ -1,6 +1,6 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
-import { SWRConfig } from 'swr'
+import useSWR, { SWRConfig } from 'swr'
 import { Book } from '@prisma/client'
 import { privacyOf, visibleReview, type Relation } from '@/lib/privacyRules'
 import useBooks from '@/app/hooks/useBooks'
@@ -14,6 +14,10 @@ import ProfileLists from '../discover/ProfileLists'
 import GenrePicks from '../discover/GenrePicks'
 import { GENRE_PICKS_SHELF_LIMIT } from '@/lib/genres'
 import FollowRequests from './FollowRequests'
+import ProfileAuthors from './ProfileAuthors'
+import SeriesTracker from '../series/SeriesTracker'
+import type { FollowedAuthor } from '@/lib/authorFollows'
+import { fetcher, swrOptions } from '@/lib/fetcher'
 
 interface OwnerProfileProps {
   username: string
@@ -35,6 +39,13 @@ const OwnReviews: FC = () => {
     .filter((b) => b.status === "COMPLETED")
     .map((b) => ({ ...b, completedAt: b.completedAt ? String(b.completedAt) : null, ...visibleReview(b, SELF, privacy) }))
   return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" />
+}
+
+// The authors you follow, from your own list so an unfollow elsewhere shows on the next visit.
+const OwnAuthors: FC = () => {
+  const { data } = useSWR<{ authors: FollowedAuthor[] }>('/api/user/authors', fetcher, swrOptions)
+  if (!data) return null
+  return <div className="mt-12"><ProfileAuthors authors={data.authors} isSelf /></div>
 }
 
 // Somewhere to start while your shelf is still new: popular books in the genres you picked at sign-up,
@@ -64,8 +75,10 @@ const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
       <FollowRequests className="mb-10" />
       <NewShelfPicks />
       <BookList />
+      <div className="mt-12"><SeriesTracker /></div>
       <OwnReviews />
       <ProfileLists username={username} isSelf />
+      <OwnAuthors />
     </div>
   </SWRConfig>
 )

@@ -5,6 +5,7 @@ import Container from '@/app/components/Container'
 import TierAvatar from '@/app/components/profile-head/TierAvatar'
 import TierPreviewControls from '@/app/components/dev/TierPreviewControls'
 import PlanPreviewControls from '@/app/components/dev/PlanPreviewControls'
+import CelebrationPreviewControls from '@/app/components/dev/CelebrationPreviewControls'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { READER_TIERS, tierRingStyle } from '@/lib/readerTier'
 
@@ -26,6 +27,7 @@ const Page = async () => {
         <p className="mt-2 text-muted-foreground">Dev only. Each avatar is rendered at its tier&apos;s threshold.</p>
         <TierPreviewControls />
         <PlanPreviewControls />
+        <CelebrationPreviewControls />
 
         <ul className="mt-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8">
           {samples.map((s) => (

@@ -10,7 +10,7 @@ export const FREE = [
   'Join any circle: every comment, reply and reaction',
   'Host one active reading circle at a time',
   'Reviews, notes, lists, feed, follows and privacy controls',
-  'DNF, paused, re-reads, half stars and medals',
+  'DNF, paused, re-reads, quarter stars and medals',
   'Export all your data, always',
 ]
 export const FREE_SOON = [

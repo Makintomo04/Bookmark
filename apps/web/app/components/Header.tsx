@@ -2,6 +2,7 @@
 import { FC } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { Search } from 'lucide-react'
 import Container from './Container'
 import UserMenu from './header/UserMenu'
 
@@ -14,7 +15,9 @@ const Header: FC = () => {
           <span className="font-bold text-2xl">Bookmark</span>
         </Link>
         <div className="flex items-center gap-2 sm:gap-4">
-          <Link href="/discover" className="hidden sm:inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {/* The search icon says this is where to look a book up. */}
+          <Link href="/discover" className="hidden sm:inline-flex h-9 items-center gap-1.5 px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Search size={16} aria-hidden />
             Discover
           </Link>
           <Link href="/stats" className="hidden sm:inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

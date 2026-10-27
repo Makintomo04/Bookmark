@@ -1,6 +1,7 @@
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { Award, Crown, Flame, Library, Mountain, Quote, ScrollText, Star, Target, Users } from "lucide-react-native";
+import { useTheme } from "@/lib/theme";
 
 // The medals, drawn as on the web (components/achievements/Medal.tsx and achievementTheme.ts): a
 // ladder medal in its own colour.
@@ -67,6 +68,44 @@ export function Medal({ achievementKey, earned, size }: { achievementKey: string
       <View style={[StyleSheet.absoluteFill, styles.centre]}>
         <Icon size={size * 0.4} strokeWidth={1.75} color={MEDAL_INK} />
       </View>
+    </View>
+  );
+}
+
+// A medal at list size: the real medal once a rung is earned, otherwise a dashed outline of it, so
+// what's still to earn reads as a goal rather than a greyed-out mistake (the web's MedalMark).
+export function MedalMark({ achievementKey, earned, size }: { achievementKey: string; earned: boolean; size: number }) {
+  const { colors } = useTheme();
+  if (earned) return <Medal achievementKey={achievementKey} earned size={size} />;
+  const Icon = ICONS[achievementKey] ?? Award;
+  return (
+    <View style={[styles.centre, { width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderStyle: "dashed", borderColor: colors.border }]}>
+      <Icon size={size * 0.45} strokeWidth={1.75} color={colors.mutedForeground} />
+    </View>
+  );
+}
+
+const RING_R = 46;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R;
+
+// The medal inside a ring in its own colour that fills towards the next rung (the web's MedalRing). Not
+// started yet, it's the dashed outline inside an empty ring: a goal, never a padlock.
+export function MedalRing({ achievementKey, earned, percent, size }: { achievementKey: string; earned: boolean; percent: number; size: number }) {
+  const { colors } = useTheme();
+  const clamped = Math.max(0, Math.min(100, percent));
+  // A sliver of ring for any progress at all, so "started" never looks like "not started".
+  const shown = clamped > 0 ? Math.max(clamped, 4) : 0;
+  const inner = Math.round(size * 0.76);
+  return (
+    <View style={[styles.centre, { width: size, height: size }]}>
+      <Svg viewBox="0 0 100 100" width={size} height={size} style={[StyleSheet.absoluteFill, { transform: [{ rotate: "-90deg" }] }]}>
+        <Circle cx="50" cy="50" r={RING_R} fill="none" strokeWidth={4} stroke={colors.border} />
+        {shown > 0 && (
+          <Circle cx="50" cy="50" r={RING_R} fill="none" strokeWidth={4} strokeLinecap="round" stroke={getMedalColour(achievementKey)}
+            strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`} strokeDashoffset={RING_CIRCUMFERENCE * (1 - shown / 100)} />
+        )}
+      </Svg>
+      <MedalMark achievementKey={achievementKey} earned={earned} size={inner} />
     </View>
   );
 }

@@ -1,4 +1,6 @@
 import { normaliseWorkKey } from "./workKey.ts"
+import { workMatchKey } from "./catalog/normalise.ts"
+import { collapseDuplicates, duplicateGroups } from "./workDuplicates.ts"
 
 export interface DiscoverBook {
   workKey: string | null
@@ -15,7 +17,31 @@ export interface DiscoverBook {
   isbn10?: string | null
   // Optional, from fresh results only: the first author's Open Library key (OL7315784A).
   authorKey?: string | null
+  // Optional, from fresh results only: the languages of the work's editions ("eng", "spa"), for leaving
+  // translations out of an author's list (lib/bookListCleanup.ts).
+  languages?: string[]
+  // Optional, from Hardcover results only (lib/hardcover.ts): they have no Open Library work to fetch a
+  // blurb from, so the search hit carries it.
+  description?: string | null
+  source?: "hardcover"
+  hardcoverId?: string | null
+  // Optional: the catalogue Work a book without a work key has its page under (bookHref), set only when
+  // it has one. Shelf search and Hardcover hits already in the catalogue carry it.
+  pageWorkId?: string | null
+  // Optional, from fresh results only: how many editions Open Library has of the work, for picking
+  // between copies of one book (lib/workDuplicates.ts).
+  editionCount?: number | null
 }
+
+// A reader's copy of a book, as the book details modal and the add buttons take it. Pages of 0 mean unknown.
+// An uploaded cover shows here as it does on their shelf; adding it swaps in the catalogue's (api/books).
+export const discoverBookOf = (book: { workKey?: string | null, title: string, author: string, pages?: number | null, coverImage?: string | null }): DiscoverBook => ({
+  workKey: book.workKey ?? null,
+  title: book.title,
+  author: book.author,
+  pages: book.pages || null,
+  coverUrl: book.coverImage || null,
+})
 
 export const coverUrlFor = (coverId?: number | null, size: "S" | "M" | "L" = "L") =>
   coverId ? `https://covers.openlibrary.org/b/id/${coverId}-${size}.jpg` : null
@@ -29,11 +55,13 @@ interface SearchDoc {
   number_of_pages_median?: number
   first_publish_year?: number
   subject?: string[]
+  language?: string[]
+  edition_count?: number
   // The "editions" sub-query: the edition that best matches the search, with its ISBNs.
   editions?: { docs?: { key?: string, isbn?: string[] }[] }
 }
 
-const FIELDS = "key,title,author_name,author_key,cover_i,number_of_pages_median,first_publish_year,editions,editions.key,editions.isbn"
+const FIELDS = "key,title,author_name,author_key,cover_i,number_of_pages_median,first_publish_year,language,edition_count,editions,editions.key,editions.isbn"
 
 const pickIsbns = (isbns?: string[]) => ({
   isbn13: isbns?.find((i) => /^\d{13}$/.test(i)) ?? null,
@@ -55,6 +83,8 @@ const toDiscoverBooks = (data: any): DiscoverBook[] =>
         editionKey: edition?.key?.match(/OL\d+M/)?.[0] ?? null,
         ...pickIsbns(edition?.isbn),
         authorKey: normaliseAuthorKey(doc.author_key?.[0]),
+        languages: Array.isArray(doc.language) ? doc.language : [],
+        editionCount: doc.edition_count ?? null,
       }
     })
 
@@ -64,12 +94,41 @@ export function normaliseAuthorKey(key?: string | null) {
   return match ? match[0] : null
 }
 
+// Which of these works have a description, in one request (the query API takes a list of keys, where
+// search can't return descriptions at all). Only asked when a list holds copies of one book, to pick the
+// copy whose book page will have a blurb. Not knowing just means picking on the other data.
+async function describedWorks(workKeys: string[]): Promise<Set<string>> {
+  if (!workKeys.length) return new Set()
+  const query = { type: "/type/work", key: workKeys.map((k) => `/works/${k}`), description: null, limit: workKeys.length }
+  try {
+    const res = await fetch(`https://openlibrary.org/query.json?query=${encodeURIComponent(JSON.stringify(query))}`, {
+      signal: AbortSignal.timeout(4000),
+      next: { revalidate: 86400 },
+    })
+    if (!res.ok) return new Set()
+    const rows = (await res.json()) as { key?: string, description?: unknown }[]
+    return new Set(rows.filter((r) => r.description).map((r) => normaliseWorkKey(r.key)).filter((k): k is string => !!k))
+  } catch {
+    return new Set()
+  }
+}
+
+// One card per book (lib/workDuplicates.ts), checking descriptions only when there are copies.
+async function withoutDuplicates(books: DiscoverBook[]): Promise<DiscoverBook[]> {
+  const groups = duplicateGroups(books)
+  if (!groups.length) return books
+  return collapseDuplicates(books, await describedWorks(groups.flat()))
+}
+
+// A few more than asked for, so collapsing copies of one book still leaves a full list.
+const searchPool = (limit: number) => limit + Math.ceil(limit / 2)
+
 export async function searchBooks(query: string, limit = 6): Promise<DiscoverBook[]> {
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${FIELDS}&limit=${limit}`
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&fields=${FIELDS}&limit=${searchPool(limit)}`
   // Open Library's search often takes 3–6s. A failure throws, so callers can tell it from no matches.
   const res = await fetch(url, { signal: AbortSignal.timeout(9000) })
   if (!res.ok) throw new Error(`Open Library search failed: ${res.status}`)
-  return toDiscoverBooks(await res.json())
+  return (await withoutDuplicates(toDiscoverBooks(await res.json()))).slice(0, limit)
 }
 
 // Work descriptions are user-edited Markdown. Many trail a "----------" block of edition notes or
@@ -104,6 +163,18 @@ export async function workDescription(workKey: string): Promise<string | null> {
   return cleanDescription(raw)?.slice(0, DESCRIPTION_MAX) ?? null
 }
 
+// A work's own cover, from the same cached /works record as workDescription, so asking for both costs one fetch.
+export async function workCover(workKey: string): Promise<string | null> {
+  const res = await fetch(`https://openlibrary.org/works/${workKey}.json`, {
+    signal: AbortSignal.timeout(6000),
+    next: { revalidate: 604800 },
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  const coverId = Array.isArray(data?.covers) ? data.covers.find((id: unknown) => typeof id === "number" && id > 0) : null
+  return coverUrlFor(coverId)
+}
+
 // Ranked by how many Open Library readers have shelved each book, which surfaces far more familiar
 // titles than the subjects feed (ordered by edition count), and comes with page counts.
 // Cached for a day: rankings change slowly and Open Library is slow. `exclude` drops works tagged with
@@ -113,7 +184,7 @@ export async function subjectBooks(subject: string, offset = 0, limit = 24, excl
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${FIELDS}&limit=${limit}&offset=${offset}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } })
   if (!res.ok) return []
-  return toDiscoverBooks(await res.json())
+  return withoutDuplicates(toDiscoverBooks(await res.json()))
 }
 
 export interface OpenLibraryAuthor {
@@ -137,26 +208,43 @@ export async function searchAuthors(query: string, limit = 10): Promise<OpenLibr
     .sort((a, b) => b.workCount - a.workCount)
 }
 
-// An author's books, most shelved first, like subjectBooks. By key when we have one; otherwise by name,
-// which can also catch namesakes. Throws on failure so the author page can tell it from "no books".
-// Cached for a day.
-export async function authorBooks(by: { key?: string | null, name: string }, offset = 0, limit = 24): Promise<DiscoverBook[]> {
+// One author's own record: their bio (plain text, or { value } on older records) and photo ids. A photo id
+// of -1 is a removed photo. Cached for a week; author records rarely change.
+export async function authorRecord(key: string): Promise<{ bio: string | null, photoIds: number[] }> {
+  const res = await fetch(`https://openlibrary.org/authors/${key}.json`, { signal: AbortSignal.timeout(8000), next: { revalidate: 604800 } })
+  if (!res.ok) throw new Error(`Open Library author record failed: ${res.status}`)
+  const data = await res.json() as { bio?: string | { value?: string }, photos?: number[] }
+  const bio = typeof data.bio === "string" ? data.bio : data.bio?.value ?? null
+  return { bio, photoIds: (data.photos ?? []).filter((id) => Number.isInteger(id) && id > 0) }
+}
+
+// An author's books, most shelved first, like subjectBooks: all of them in one request (up to `limit`),
+// so the author page can tidy the whole list and page through it itself. By key when we have one;
+// otherwise by name, which can also catch namesakes. Throws on failure so the author page can tell it
+// from "no books". Cached for a day.
+// Without the "editions" sub-query, which makes a few hundred results time out for prolific authors
+// (Nicholas Sparks: 60s+ with it, under 10s without); a book added from the list gets a best-guess edition.
+export const AUTHOR_BOOKS_MAX = 300
+const AUTHOR_LIST_FIELDS = FIELDS.replace(",editions,editions.key,editions.isbn", "")
+export async function authorBooks(by: { key?: string | null, name: string }, limit = AUTHOR_BOOKS_MAX): Promise<DiscoverBook[]> {
   const q = by.key ? `author_key:${by.key}` : `author:"${by.name.replace(/"/g, "")}"`
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${FIELDS}&limit=${limit}&offset=${offset}`
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } })
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=readinglog&fields=${AUTHOR_LIST_FIELDS}&limit=${limit}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000), next: { revalidate: 86400 } })
   if (!res.ok) throw new Error(`Open Library author books failed: ${res.status}`)
   return toDiscoverBooks(await res.json())
 }
 
 // Open Library's index keeps a reading-log activity count for each of the last seven days.
 const DAYS = [0, 1, 2, 3, 4, 5, 6]
-const TRENDING_FIELDS = `${FIELDS},${DAYS.map((d) => `trending_score_daily_${d}`).join(",")}`
+const TRENDING_FIELDS = `key,title,author_name,${DAYS.map((d) => `trending_score_daily_${d}`).join(",")}`
 const TRENDING_POOL = 200
 const weekScore = (doc: any) => DAYS.reduce((sum, d) => sum + (doc[`trending_score_daily_${d}`] || 0), 0)
 
 // Ranked by reader activity over the past week. Search can't sort by that directly (its "trending"
 // sort is a spike score that favours obscure titles), so this takes the books most active in the last
 // day and re-ranks them by their seven-day total. Pages beyond the pool come back empty.
+// The pool is fetched with just keys and scores, then only the page shown is looked up in full:
+// asking for edition details across all 200 takes Open Library 7–11s, often past the timeout.
 // Cached for six hours: the daily counts only move once a day.
 export async function trendingSubjectBooks(subject: string, offset = 0, limit = 24): Promise<DiscoverBook[]> {
   const q = `subject_key:"${subject}" language:eng`
@@ -164,8 +252,24 @@ export async function trendingSubjectBooks(subject: string, offset = 0, limit = 
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } })
   if (!res.ok) return []
   const data = await res.json()
-  const docs = [...(data?.docs || [])].sort((a, b) => weekScore(b) - weekScore(a))
-  return toDiscoverBooks({ docs: docs.slice(offset, offset + limit) })
+  // Copies of one book (lib/workDuplicates.ts) count as one place in the ranking, at the first copy's,
+  // so a page is `limit` books and a later page never repeats one shown earlier.
+  const books = new Map<string, string[]>()
+  for (const doc of [...(data?.docs || [])].sort((a, b) => weekScore(b) - weekScore(a))) {
+    if (!doc.key) continue
+    const book = workMatchKey(doc.title ?? "", doc.author_name?.[0]) ?? doc.key
+    books.set(book, [...(books.get(book) ?? []), doc.key])
+  }
+  const keys: string[] = Array.from(books.values()).slice(offset, offset + limit).flat()
+  if (!keys.length) return []
+
+  const pageQ = `key:(${keys.map((k) => JSON.stringify(k)).join(" OR ")}) language:eng`
+  const pageUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(pageQ)}&fields=${FIELDS}&limit=${keys.length}`
+  const pageRes = await fetch(pageUrl, { signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } })
+  if (!pageRes.ok) return []
+  const order = new Map(keys.map((k, i) => [k, i]))
+  const docs = [...((await pageRes.json())?.docs || [])].sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
+  return withoutDuplicates(toDiscoverBooks({ docs }))
 }
 
 // ---- Catalog lookups (lib/catalog) -----------------------------------------------------------

@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { BookOpen, Flame, Headphones, Repeat, Ruler, Sparkles, Undo2 } from "lucide-react-native";
 import { formatPace } from "@bookmark/shared/goals";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { ratingGlyphs } from "@bookmark/shared/rating";
 import type { ReadingStats } from "@bookmark/shared/statsTypes";
 import { ColumnChart, RankedBars, type Datum } from "@/components/stats/Charts";
 import { Button } from "@/components/ui/Button";
@@ -19,7 +20,6 @@ import { useTheme } from "@/lib/theme";
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const fmt = (n: number) => n.toLocaleString("en-GB");
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`;
-const stars = (r: number) => `${Math.floor(r) || ""}${r % 1 ? "½" : ""}`;
 
 type StatsResponse = { stats: ReadingStats; wrappedYears: number[]; accent: string | null };
 
@@ -44,7 +44,7 @@ export default function Stats() {
   const recentYears = stats.years.slice(-6);
   const yearBooks: Datum[] = recentYears.map((y) => ({ label: String(y.year), short: `’${String(y.year).slice(2)}`, value: y.books, detail: `${plural(y.books, "book")} · ${plural(y.pages, "page")}` }));
   const yearPages: Datum[] = recentYears.map((y) => ({ label: String(y.year), short: `’${String(y.year).slice(2)}`, value: y.pages, detail: plural(y.pages, "page") }));
-  const ratingData: Datum[] = stats.ratings.map((r) => ({ label: stars(r.rating), name: `${stars(r.rating)} ${r.rating === 1 ? "star" : "stars"}`, value: r.count, detail: plural(r.count, "book") }));
+  const ratingData: Datum[] = stats.ratings.map((r) => ({ label: ratingGlyphs(r.rating), name: `${ratingGlyphs(r.rating)} ${r.rating === 1 ? "star" : "stars"}`, value: r.count, detail: plural(r.count, "book") }));
   const yearTotal = stats.years.find((y) => y.year === year);
   const icon = (Icon: typeof BookOpen) => <Icon size={16} color={accent} />;
 
@@ -110,7 +110,7 @@ export default function Stats() {
       </Section>
 
       <Section title="How you rate">
-        {stats.ratedBooks ? <ColumnChart data={ratingData} accent={accent} label="Books per star rating" /> : <Text variant="muted">Rate a book (half stars welcome) and your spread shows up here.</Text>}
+        {stats.ratedBooks ? <ColumnChart data={ratingData} accent={accent} label="Books per star rating" /> : <Text variant="muted">Rate a book (quarter stars welcome) and your spread shows up here.</Text>}
       </Section>
       <Section title="Top genres">
         {stats.genres.length ? <RankedBars data={stats.genres.map((g) => ({ label: g.name, value: g.count, detail: plural(g.count, "book") }))} accent={accent} label="Genres you read most" /> : <Text variant="muted">Books you finish with a genre will be counted here.</Text>}

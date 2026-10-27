@@ -2,6 +2,7 @@ import { FC, ReactNode } from 'react'
 import Link from 'next/link'
 import type { WrappedData } from '@/lib/stats'
 import { readableInk, shade } from '@/lib/colour'
+import { ratingGlyphs } from '@bookmark/shared/rating'
 import { cn } from '@/lib/utils'
 import BookCover from '@/app/components/cards/BookCover'
 import Medal from '@/app/components/achievements/Medal'
@@ -57,7 +58,7 @@ const Line: FC<{ children: ReactNode }> = ({ children }) => (children ? <p class
 const Stars: FC<{ rating: number }> = ({ rating }) => (
   <span aria-label={`${rating} stars`} className="text-2xl tracking-wider">
     {'★'.repeat(Math.floor(rating))}
-    {rating % 1 ? '½' : ''}
+    {ratingGlyphs(rating % 1)}
   </span>
 )
 

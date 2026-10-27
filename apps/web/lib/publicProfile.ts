@@ -1,10 +1,13 @@
 import { cache } from "react";
 import prisma from "@/lib/db";
-import { QUEST_MEDAL_PREFIX, getMilestone } from "@/lib/achievements-catalog";
+import { QUEST_MEDAL_PREFIX } from "@/lib/achievements-catalog";
+import { ladders } from "@bookmark/shared/medals";
+import { computeAchievementStats } from "@/lib/achievements";
 import { canView, getRelation, privacyOf, privacySelect, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
 import { isFinishedBook } from "@/lib/readerTier";
 import { resolveBanner } from "@/lib/banners";
 import { supporterOf, supporterSelect } from "@/lib/supporter";
+import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
@@ -46,6 +49,7 @@ async function loadProfileRecord(username: string) {
       createdAt: true,
       ...privacySelect,
       ...supporterSelect,
+      ...staffBadgeSelect,
       books: {
         where: { status: { in: ["STARTED", "COMPLETED", "NOT_STARTED"] } },
         orderBy: { createdAt: "desc" },
@@ -53,6 +57,7 @@ async function loadProfileRecord(username: string) {
       },
       _count: { select: { followers: true, following: true } },
       achievements: { where: { NOT: { key: { startsWith: QUEST_MEDAL_PREFIX } } }, select: { key: true, earnedAt: true } },
+      authorFollows: { orderBy: { name: "asc" }, select: { name: true, slug: true } },
     },
   });
   if (!user?.username) return null;
@@ -68,6 +73,8 @@ export interface RestrictedProfile {
   username: string;
   image: string | null;
   favColour: string | null;
+  // Shown even on a private profile, so a real staff account can be told from someone pretending.
+  staffBadge: StaffBadgeKind | null;
 }
 
 export type RestrictedReason =
@@ -103,9 +110,13 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     favColour: record.favColour,
     // The plan itself never leaves; the supporter badge is the public part of it.
     ...supporterOf(record),
+    // "team" or "librarian". The role itself never leaves.
+    staffBadge: staffBadgeOf(record),
     createdAt: record.createdAt,
     books,
     achievements: record.achievements,
+    // Authors they follow. Shown to whoever can see the profile, like their shelves.
+    followedAuthors: record.authorFollows,
     // null when hidden. The owner always gets them; ProfileHead hides the numbers itself.
     followerCount: showCounts ? record._count.followers : null,
     followingCount: showCounts ? record._count.following : null,
@@ -146,12 +157,34 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
       username: record.username,
       image: reason === "unavailable" ? null : record.image,
       favColour: reason === "unavailable" ? null : record.favColour,
+      staffBadge: reason === "unavailable" ? null : staffBadgeOf(record),
     },
   };
 });
 
 // The profile as a signed-out visitor (or a crawler) sees it: for metadata and the share image.
 export const getPublicProfile = (username: string) => getProfileView(username, null);
+
+// A reader's tier and medals (/u/<username>/achievements and its API), behind the same privacy as their
+// profile: a restricted profile comes back restricted, with nothing about their reading. Someone else
+// gets the rungs earned and the books on their shelf, never the ladders' real numbers, which can count
+// private books, reviews and goals. The owner gets the real numbers, read without awarding anything.
+export async function getAchievementsView(username: string, viewerId: string | null | undefined) {
+  const view = await getProfileView(username, viewerId);
+  if (!view || view.access === "restricted") return view;
+  const { profile, relation } = view;
+  const stats = relation.isSelf ? await computeAchievementStats(view.userId) : null;
+  return {
+    ...view,
+    achievements: {
+      username: profile.username,
+      // The shelf's count, as their profile and tier frame show it: private books aren't in it.
+      booksRead: readingCounts(profile.books).booksRead,
+      ladders: ladders(profile.achievements, stats),
+    },
+  };
+}
+export type PublicAchievements = NonNullable<Extract<Awaited<ReturnType<typeof getAchievementsView>>, { access: "full" }>>["achievements"];
 
 
 // Completed books, and how many of them were finished in the given year.
@@ -169,25 +202,8 @@ export function currentBook<T extends Pick<PublicBook, "status" | "startedAt" | 
   return books.filter((b) => b.status === "STARTED").sort((a, b) => time(b) - time(a))[0] ?? null;
 }
 
-// Each achievement's highest earned rung, best first: the furthest up its ladder, then the later rung.
-export function topMedals(earned: { key: string }[], limit = 3) {
-  const best = new Map<string, { key: string; title: string; achievement: string; rung: number; progress: number }>();
-  for (const { key } of earned) {
-    const found = getMilestone(key);
-    if (!found) continue;
-    const { achievement, milestone } = found;
-    const rung = achievement.milestones.indexOf(milestone);
-    if ((best.get(achievement.key)?.rung ?? -1) >= rung) continue;
-    best.set(achievement.key, {
-      key: achievement.key,
-      title: milestone.title,
-      achievement: achievement.title,
-      rung,
-      progress: (rung + 1) / achievement.milestones.length,
-    });
-  }
-  return Array.from(best.values()).sort((a, b) => b.progress - a.progress || b.rung - a.rung).slice(0, limit);
-}
+// The top three medals live in packages/shared so the mobile profile picks the same ones.
+export { topMedals } from "@bookmark/shared/medals";
 
 // Plain JSON for client components and the API: dates as ISO strings, as the API has always sent them.
 export function serializeProfile(profile: PublicProfileData) {

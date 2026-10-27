@@ -22,6 +22,7 @@ import { readableInk } from '@/lib/colour'
 import BookBlurb from '../books/BookBlurb'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import { celebrate } from '@/app/hooks/useEarnMoment'
 import FormatPicker, { type FormatChoice, formatPayload } from '../books/FormatPicker'
 
 type Shelf = "NOT_STARTED" | "STARTED" | "COMPLETED"
@@ -82,7 +83,11 @@ const BookEntryModal: FC = () => {
     : pages && `${pages} pages`
   const year = new Date().getFullYear()
   const [published, setPublished] = useState<number | null>(null)
-  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null)
+  // A Hardcover hit brings its own blurb; it has no Open Library work to fetch one from.
+  const [givenBlurb, setGivenBlurb] = useState<string | null>(null)
+  // And its Hardcover id, which files it in the catalogue so it gets a book page.
+  const [hardcoverId, setHardcoverId] = useState<string | null>(null)
+  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null)
 
   const resetAll = () => {
     reset(defaultValues)
@@ -95,6 +100,8 @@ const BookEntryModal: FC = () => {
     setFinishedThisYear(false)
     setRating(0)
     setPublished(null)
+    setGivenBlurb(null)
+    setHardcoverId(null)
     setQuery("")
   }
 
@@ -124,6 +131,8 @@ const BookEntryModal: FC = () => {
       isbn10: result.isbn10 || "",
     })
     setPublished(result.year ?? null)
+    setGivenBlurb(result.description ?? null)
+    setHardcoverId(result.hardcoverId ?? null)
     setFormat("PRINT")
     // Open Library doesn't always know the page count. Only progress needs it, so ask only when starting.
     setIsEditing(!result.pages && onShelf === "STARTED")
@@ -144,6 +153,8 @@ const BookEntryModal: FC = () => {
   const handleAddManually = () => {
     reset({ ...defaultValues, title: query.trim() })
     setPublished(null)
+    setGivenBlurb(null)
+    setHardcoverId(null)
     setIsEditing(true)
     setStage("shelf")
   }
@@ -167,6 +178,7 @@ const BookEntryModal: FC = () => {
       editionKey: data.editionKey || undefined,
       isbn13: data.isbn13 || undefined,
       isbn10: data.isbn10 || undefined,
+      hardcoverId: hardcoverId || undefined,
       description: description || undefined,
       status: shelf,
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
@@ -175,7 +187,7 @@ const BookEntryModal: FC = () => {
       isPrivate: isPrivate || undefined,
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
-      notify.success(isPrivate ? `Added to ${label}, privately` : `Added to ${label}`)
+      celebrate(saved?.earnMoment, { message: isPrivate ? `Added to ${label}, privately` : `Added to ${label}` })
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()

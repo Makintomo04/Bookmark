@@ -2,7 +2,7 @@ import { FC } from 'react'
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
 import type { RestrictedProfile as RestrictedProfileData, RestrictedReason } from '@/lib/publicProfile'
-import { primaryButtonClass } from './ProfileHeader'
+import { StaffBadge, primaryButtonClass } from './ProfileHeader'
 import TierAvatar from './TierAvatar'
 import FollowButton from './FollowButton'
 import ProfileMenu from './ProfileMenu'
@@ -34,7 +34,10 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
           <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${profile.username}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
           {viewer && <div className="pb-1"><ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} /></div>}
         </div>
-        <h1 className="page-title mt-4 break-words">{profile.username}</h1>
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="page-title break-words">{profile.username}</h1>
+          {profile.staffBadge && <StaffBadge kind={profile.staffBadge} />}
+        </div>
 
         <div className="mt-10 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 p-6">
           <Lock size={20} className="text-muted-foreground" aria-hidden />

@@ -10,12 +10,13 @@ import useUser from '@/app/hooks/useUser'
 import { REPORT_REASONS } from '@/lib/listRules'
 import useListEditorModal, { EditableList, emptyList } from '@/app/hooks/useListEditorModal'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
+import { can } from '@/lib/roles'
 
 // Picks are team-only; readers start their own lists from their profile or a book's "Add to list".
 export const NewPickButton: FC = () => {
   const { user } = useUser()
   const { onOpen } = useListEditorModal()
-  if (!user?.isStaff) return null
+  if (!can(user, "lists.curate")) return null
   return (
     <button type="button" onClick={() => onOpen(emptyList(true))} className={secondaryButtonClass}>
       <Plus size={16} aria-hidden />New Pick

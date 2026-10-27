@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import prisma from "@/lib/db"
 import { bearerUserId } from "@/lib/mobileAuth";
+import { isSuspended } from "@/lib/suspension";
 
 export async function getSession(){
   return await getServerSession(authOptions)
@@ -35,8 +36,20 @@ async function findCurrentUser() {
   })
 }
 
+function serialise(currentUser: NonNullable<Awaited<ReturnType<typeof findCurrentUser>>>) {
+  return {...currentUser, createdAt: currentUser.createdAt.toISOString(),updatedAt: currentUser.updatedAt.toISOString(),emailVerified: currentUser.emailVerified?.toISOString() || null}
+}
+
+// The signed-in reader, or whether the one signed in is suspended (lib/suspension.ts). requireUser uses
+// this to answer a suspended account with 403 instead of 401.
+export async function resolveCurrentUser(): Promise<{ user: ReturnType<typeof serialise> | null; suspended: boolean }> {
+  const currentUser = await findCurrentUser()
+  if (!currentUser) return { user: null, suspended: false }
+  if (isSuspended(currentUser)) return { user: null, suspended: true }
+  return { user: serialise(currentUser), suspended: false }
+}
+
+// A suspended account reads as signed out, wherever its session or token came from.
 export default async function getCurrentUser(){
-    const currentUser = await findCurrentUser()
-    if(!currentUser) return null
-    return {...currentUser, createdAt: currentUser.createdAt.toISOString(),updatedAt: currentUser.updatedAt.toISOString(),emailVerified: currentUser.emailVerified?.toISOString() || null}
+    return (await resolveCurrentUser()).user
 }

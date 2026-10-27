@@ -42,3 +42,9 @@ export function genreFromTags(tags: (string | null | undefined)[]): string | nul
 export function genreFromSubjects(subjects: string[] | undefined): string | null {
   return subjects ? genreFromTags(subjects.slice(0, 25)) : null;
 }
+
+// Every genre the subjects point at, most specific first, for a book page's genre links.
+export function genresFromSubjects(subjects: string[] | undefined): string[] {
+  const clean = (subjects ?? []).slice(0, 25).map((t) => t.trim().toLowerCase()).filter(Boolean);
+  return RULES.filter(([, pattern]) => clean.some((t) => pattern.test(t))).map(([label]) => label);
+}

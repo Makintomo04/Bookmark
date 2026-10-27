@@ -1,9 +1,11 @@
-// Book search rules: query tokens, ranking shelf copies and merging with Open Library. No database.
+// Book search rules: query tokens, ranking shelf copies, merging with Open Library and the Hardcover fallback.
+// No database.
 //
 //   node --import ./scripts/test/register.mjs --test scripts/test/bookSearch.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergeResults, normaliseQuery, queryTokens, rankShelfRows, type ShelfRow } from "@/lib/bookSearchRules";
+import { mergeResults, needsFallback, normaliseQuery, queryTokens, rankShelfRows, withFallback, type ShelfRow } from "@/lib/bookSearchRules";
+import { hardcoverBook } from "@/lib/hardcover";
 import type { DiscoverBook } from "@/lib/openLibrary";
 
 const row = (workKey: string | null, title: string, extra: Partial<ShelfRow> = {}): ShelfRow =>
@@ -31,6 +33,16 @@ test("rankShelfRows groups readers' copies, drops hand-typed books and ranks tit
   assert.equal(ranked[0].pages, 412);
 });
 
+test("rankShelfRows keeps books without a work key whose catalogue work has a page, grouped by it", () => {
+  const rows = [
+    row(null, "Gilded Rose", { pageWorkId: "w1" }), row(null, "Gilded Rose", { pageWorkId: "w1" }),
+    row(null, "Gilded notes"),
+    row("OL1W", "Gilded"),
+  ];
+  const ranked = rankShelfRows(rows, "gilded rose", 6);
+  assert.deepEqual(ranked.map((b) => [b.workKey, b.pageWorkId]), [[null, "w1"], ["OL1W", undefined]]);
+});
+
 test("mergeResults leads with shelf books, caps them at half and drops duplicates", () => {
   const local = [book("OL1W"), book("OL2W"), book("OL3W"), book("OL4W")].map((b) => ({ ...b, year: undefined }));
   const remote = [book("OL9W"), book("OL1W"), book("OL8W"), book("OL7W")];
@@ -38,4 +50,61 @@ test("mergeResults leads with shelf books, caps them at half and drops duplicate
   assert.deepEqual(merged.map((b) => b.workKey), ["OL1W", "OL2W", "OL3W", "OL9W", "OL8W", "OL7W"]);
   assert.equal(merged[0].year, 2020);
   assert.deepEqual(mergeResults([], remote, 2).map((b) => b.workKey), ["OL9W", "OL1W"]);
+});
+
+const hc = (title: string, author: string, extra: Partial<DiscoverBook> = {}): DiscoverBook =>
+  ({ workKey: null, title, author, pages: null, coverUrl: null, source: "hardcover", ...extra });
+
+test("needsFallback asks Hardcover when Open Library has nothing, or nothing matching every word", () => {
+  assert.equal(needsFallback([], "caged blackthorn"), true);
+  assert.equal(needsFallback([book("OL1W", "The Caged Bird")], "caged blackthorn"), true);
+  assert.equal(needsFallback([{ ...book("OL1W", "Caged"), author: "Bernadette Blackthorn" }], "Caged, Blackthorn"), false);
+  assert.equal(needsFallback([book("OL1W", "Dune")], "dune"), false);
+  // An ISBN search's hit doesn't contain the number, and is still right.
+  assert.equal(needsFallback([book("OL1W", "Dune")], "9780441172719"), false);
+});
+
+test("withFallback leads with Hardcover's books and drops ones Open Library already has", () => {
+  const openLibrary = [
+    { ...book("OL1W", "Dune"), author: "Frank Herbert", isbn13: "9780441172719" },
+    { ...book("OL2W", "The Caged Bird"), author: "Someone Else" },
+  ];
+  const hardcover = [
+    hc("Caged", "Bernadette Blackthorn"),
+    hc("Dune (Deluxe Edition)", "Frank Herbert"),
+    hc("Dune Messiah", "Frank Herbert", { isbn13: "9780441172719" }),
+    hc("Caged", "Bernadette Blackthorn"),
+  ];
+  const merged = withFallback(openLibrary, hardcover, 6);
+  assert.deepEqual(merged.map((b) => b.title), ["Caged", "Dune", "The Caged Bird"]);
+  assert.equal(withFallback(openLibrary, hardcover, 1).length, 1);
+});
+
+test("mergeResults drops a Hardcover result for a book a shelf already shows", () => {
+  const local = [{ ...book("OL1W", "Caged"), author: "Bernadette Blackthorn" }];
+  const merged = mergeResults(local, [hc("Caged", "Bernadette Blackthorn"), hc("Awakened", "Bernadette Blackthorn")], 6);
+  assert.deepEqual(merged.map((b) => b.title), ["Caged", "Awakened"]);
+  assert.equal(merged[0].workKey, "OL1W");
+});
+
+test("mergeResults shows one card when a shelf and Open Library hold a book as different works", () => {
+  const local = [book("OL1W", "United States history"), book("OL2W", "United States History")].map((b) => ({ ...b, pages: 400 }));
+  const remote = [{ ...book("OL3W", "United States History"), pages: 1264 }, { ...book("OL4W", "United States History"), author: "Someone Else" }];
+  const merged = mergeResults(local, remote, 6);
+  assert.deepEqual(merged.map((b) => b.workKey), ["OL1W", "OL4W"]);
+  assert.equal(merged[0].year, 2020);
+});
+
+test("hardcoverBook maps a search hit and skips ones without a title or author", () => {
+  const mapped = hardcoverBook({
+    id: 1, title: " Caged ", author_names: ["", "Bernadette Blackthorn"], image: { url: "https://assets.hardcover.app/c.jpg" },
+    release_year: 2026, pages: 0, isbns: ["B0FNGK5YVP", "9781234567897", "123456789X"], description: "A blurb.",
+  });
+  assert.deepEqual(mapped, {
+    workKey: null, title: "Caged", author: "Bernadette Blackthorn", pages: null, coverUrl: "https://assets.hardcover.app/c.jpg",
+    year: 2026, editionKey: null, isbn13: "9781234567897", isbn10: "123456789X", authorKey: null, description: "A blurb.", source: "hardcover",
+    hardcoverId: "1",
+  });
+  assert.equal(hardcoverBook({ title: "No author" }), null);
+  assert.equal(hardcoverBook({ author_names: ["Someone"] }), null);
 });

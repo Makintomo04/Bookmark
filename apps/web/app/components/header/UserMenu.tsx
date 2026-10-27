@@ -9,10 +9,11 @@ import { usePathname } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
-import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, ShieldCheck, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isWrappedSeason } from '@/lib/wrappedSeason'
 import { tierPreviewEnabled } from '@/app/hooks/useTierPreview'
+import { isStaffRole } from '@/lib/roles'
 interface UserMenuProps {
 
 }
@@ -105,9 +106,12 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
           {/* Catches clicks outside the dropdown on wider screens. */}
           <div onClick={close} className="fixed inset-0 z-40" aria-hidden />
           <nav aria-label="Account menu" className="fixed inset-0 z-50 flex flex-col h-[100dvh] bg-background overflow-y-auto overscroll-contain md:overflow-visible md:absolute md:inset-auto md:right-0 md:top-12 md:h-auto md:w-72 md:rounded-xl md:shadow-lg md:ring-1 md:ring-neutral-200 md:dark:ring-neutral-800 md:pb-1">
-            <div className="flex items-center gap-3 px-4 pt-5 pb-4 md:pt-4">
-              {avatar("h-11 w-11 md:h-9 md:w-9")}
-              <p className="min-w-0 flex-1 font-semibold truncate">{user.username}</p>
+            <div className="flex items-center gap-2 px-2 pt-3 pb-2 md:pt-2">
+              {/* Same place as Home: your own profile. */}
+              <Link href="/" onClick={close} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                {avatar("h-11 w-11 md:h-9 md:w-9")}
+                <p className="min-w-0 flex-1 font-semibold truncate">{user.username}</p>
+              </Link>
               <button type="button" aria-label="Close menu" onClick={close} className="p-2 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition rounded-full md:hidden">
                 <X size={20} aria-hidden />
               </button>
@@ -133,11 +137,13 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <div className="flex flex-col px-2 py-2">{secondary.map(navLink)}</div>
             <div className="mx-2 mt-auto md:mt-0 border-t border-neutral-200 dark:border-neutral-800 py-2">
               {navLink({ href: "/settings", label: "Settings", icon: Settings })}
+              {isStaffRole(user) && navLink({ href: "/staff", label: "Staff", icon: ShieldCheck })}
               {tierPreviewEnabled && navLink({ href: "/dev/tiers", label: "Dev tools", icon: Wrench })}
-              <button type="button" onClick={() => signOut({ callbackUrl: `${window.location.origin}/signin` })}
+              {/* Straight to the landing page: no confirmation screen. */}
+              <button type="button" onClick={() => { close(); void signOut({ callbackUrl: '/' }) }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm font-medium text-muted-foreground transition hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-foreground">
                 <LogOut size={18} className="shrink-0" aria-hidden />
-                Log out
+                Sign out
               </button>
             </div>
           </nav>

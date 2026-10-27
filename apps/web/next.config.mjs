@@ -11,6 +11,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'images3.penguinrandomhouse.com' },
       { protocol: 'https', hostname: 'images1.penguinrandomhouse.com' },
       { protocol: 'https', hostname: 'covers.openlibrary.org' },
+      // Covers on books found through Hardcover, the search fallback (lib/hardcover.ts).
+      { protocol: 'https', hostname: 'assets.hardcover.app' },
       // Avatars from Google and GitHub sign-ins, kept as the profile picture until the reader changes it.
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },

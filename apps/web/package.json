@@ -19,6 +19,7 @@
     "test:catalog": "node --import ./scripts/test/register.mjs --test scripts/test/catalog.test.ts",
     "dev:test:3031": "node scripts/with-test-db.mjs pnpm exec next dev -p 3031",
     "test:import:broken": "node --import ./scripts/test/register.mjs --test scripts/test/import-broken.test.ts",
+    "test:import:text": "node --import ./scripts/test/register.mjs --test scripts/test/import-text.test.ts",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "@vercel/speed-insights": "^1.0.9",
     "axios": "^1.6.6",
     "bcrypt": "^5.1.1",
+    "canvas-confetti": "1.9.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "d3-ease": "^3.0.1",
@@ -74,6 +76,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/canvas-confetti": "1.9.0",
     "@types/d3-ease": "^3.0.2",
     "@types/node": "^20.11.16",
     "@types/nodemailer": "^8.0.2",

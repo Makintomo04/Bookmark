@@ -29,6 +29,9 @@ export interface AchievementDefinition {
   category: AchievementCategory
   // What reaching `n` asks of the reader, e.g. "Complete 25 books".
   describe: (n: number) => string
+  // For ladders that count up one at a time: what's being counted, singular and plural, so the page
+  // can say "6 more books". Ladders without it (a single big book, yearly goals) use `describe`.
+  unit?: [string, string]
   milestones: Milestone[]
 }
 
@@ -40,6 +43,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: "Books read",
     category: "reading",
     describe: (n) => (n === 1 ? "Complete your first book" : `Complete ${fmt(n)} books`),
+    unit: ["book", "books"],
     milestones: [
       { value: 1, title: "First Bookmark" },
       { value: 5, title: "Getting Hooked" },
@@ -56,6 +60,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: "Pages read",
     category: "reading",
     describe: (n) => `Read ${fmt(n)} pages`,
+    unit: ["page", "pages"],
     milestones: [
       { value: 1000, title: "Warming Up" },
       { value: 5000, title: "Paper Trail" },
@@ -82,6 +87,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: "Reading streak",
     category: "consistency",
     describe: (n) => `Stay active for ${fmt(n)} days in a row`,
+    unit: ["day in a row", "days in a row"],
     milestones: [
       { value: 3, title: "On a Roll" },
       { value: 7, title: "Dedicated Reader" },
@@ -108,6 +114,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: "Reviews written",
     category: "engagement",
     describe: (n) => (n === 1 ? "Write your first review" : `Write ${fmt(n)} reviews`),
+    unit: ["review", "reviews"],
     milestones: [
       { value: 1, title: "First Impression" },
       { value: 5, title: "Opinionated" },
@@ -121,6 +128,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: "Books rated",
     category: "engagement",
     describe: (n) => `Rate ${fmt(n)} books`,
+    unit: ["rating", "ratings"],
     milestones: [
       { value: 5, title: "Starstruck" },
       { value: 10, title: "Critic" },
@@ -134,6 +142,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     title: "Reading circles finished",
     category: "engagement",
     describe: (n) => (n === 1 ? "Finish a reading circle" : `Finish ${fmt(n)} reading circles`),
+    unit: ["circle", "circles"],
     milestones: [
       { value: 1, title: "Reading Buddy" },
       { value: 5, title: "Book Club Regular" },
@@ -184,4 +193,35 @@ export function getMilestone(storedKey: string): { achievement: AchievementDefin
 export function getAchievementTitle(storedKey: string): string {
   if (storedKey.startsWith(QUEST_MEDAL_PREFIX)) return "a limited-edition quest medal"
   return getMilestone(storedKey)?.milestone.title ?? "an achievement"
+}
+
+// Whether a ladder counts up one at a time, so "N more" makes sense for it.
+export function countsUp(key: string): boolean {
+  return !!getAchievement(key)?.unit
+}
+
+// What's left before the next rung, in plain words: "6 more books", or the rung's own description
+// ("Complete a book that's 750+ pages") where counting up doesn't apply.
+export function toNextText(key: string, current: number, next: number): string {
+  const achievement = getAchievement(key)
+  if (!achievement) return ""
+  const left = Math.max(0, next - current)
+  if (!achievement.unit || current === 0) return achievement.describe(next)
+  return `${fmt(left)} more ${left === 1 ? achievement.unit[0] : achievement.unit[1]}`
+}
+
+type Ladder = { key: string; current: number; milestones: { value: number; title: string; earned: boolean }[] }
+
+// The rungs the reader is closest to: each ladder's next rung, nearest first by share of the way
+// there. Ladders already started come first, so a nearly-there streak beats an untouched one.
+export function closestMilestones<T extends Ladder>(ladders: T[], count = 3) {
+  return ladders
+    .flatMap((ladder) => {
+      const next = ladder.milestones.find((m) => !m.earned)
+      if (!next) return []
+      const progress = Math.max(0, Math.min(1, ladder.current / next.value))
+      return [{ ladder, next, progress }]
+    })
+    .sort((a, b) => Number(b.progress > 0) - Number(a.progress > 0) || b.progress - a.progress)
+    .slice(0, count)
 }

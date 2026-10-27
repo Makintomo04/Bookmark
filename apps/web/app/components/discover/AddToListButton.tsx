@@ -12,6 +12,7 @@ import useUser from '@/app/hooks/useUser'
 import { preferencesOf } from '@/lib/preferences'
 import { isListsKey, useMyLists } from '@/app/hooks/useLists'
 import useListEditorModal, { emptyList } from '@/app/hooks/useListEditorModal'
+import { can } from '@/lib/roles'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +47,7 @@ const AddToListButton: FC<{ book: DiscoverBook, className?: string }> = ({ book,
   }
 
   const newListWithBook = () =>
-    onOpen({ ...emptyList(!!user?.isStaff, user ? preferencesOf(user).defaultListVisibility : undefined), items: [{ workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverUrl, pages: book.pages, note: "" }] })
+    onOpen({ ...emptyList(can(user, "lists.curate"), user ? preferencesOf(user).defaultListVisibility : undefined), items: [{ workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverUrl, pages: book.pages, note: "" }] })
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>

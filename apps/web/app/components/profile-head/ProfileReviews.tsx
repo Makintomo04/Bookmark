@@ -4,6 +4,7 @@ import StarRating from '../StarRating'
 import ReviewText from '../feed/ReviewText'
 import { ShelfSection } from '../books/shelf'
 import AuthorLink from '@/app/components/AuthorLink'
+import BookDetailsButton from '../books/BookDetailsButton'
 
 export interface ReviewedBook {
   id: string
@@ -11,6 +12,9 @@ export interface ReviewedBook {
   author: string
   coverImage: string
   cardColour: string | null
+  // For opening the book's details.
+  workKey?: string | null
+  pages?: number | null
   rating: number | null
   completedAt: string | null
   review: string | null
@@ -39,9 +43,13 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
       <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
         {reviewed.map((book) => (
           <li key={book.id} className="flex gap-4 py-5 first:pt-0">
-            <BookCover book={book} variant="thumb" sizes="64px" className="w-16 shrink-0 self-start shadow-sm" />
+            <BookDetailsButton book={book} duplicate className="w-16 shrink-0 self-start transition hover:opacity-90">
+              <BookCover book={book} variant="thumb" sizes="64px" className="shadow-sm" />
+            </BookDetailsButton>
             <div className="min-w-0 flex-1">
-              <p className="font-semibold leading-snug break-words">{book.title}</p>
+              <BookDetailsButton book={book} className="font-semibold leading-snug break-words hover:underline underline-offset-4">
+                <span className="sr-only">About </span>{book.title}
+              </BookDetailsButton>
               <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} /></p>
               {book.rating ? <StarRating value={book.rating} readOnly size={14} label="Rating" className="mt-1" /> : null}
               <ReviewText review={book.review} spoiler={book.reviewSpoiler} hidden={book.reviewHidden} className="mt-2 max-w-2xl" />

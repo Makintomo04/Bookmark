@@ -9,6 +9,7 @@ import { GENRES } from "@bookmark/shared/genres";
 import { preferencesOf, type CommunityPreferences } from "@bookmark/shared/preferences";
 import { privacyOf, type PrivacySettings } from "@bookmark/shared/privacyRules";
 import { PUSH_GROUP_LABELS, type PushGroup } from "@bookmark/shared/push";
+import { roleOf } from "@bookmark/shared/roles";
 import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS } from "@bookmark/shared/settingsCopy";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { Button } from "@/components/ui/Button";
@@ -25,7 +26,7 @@ import { useTheme, useThemePreference, type ThemePreference } from "@/lib/theme"
 // deleting the account. Every control saves as soon as it changes.
 
 type Settings = PrivacySettings & CommunityPreferences & { favGenres: string[]; hideShelfPicks: boolean };
-type SettingsUser = Partial<Settings> & { id: string; username: string | null };
+type SettingsUser = Partial<Settings> & { id: string; username: string | null; role?: string | null; isStaff?: boolean | null };
 type PlanResponse = { status: { plan: "FREE" | "PLUS"; store: "APP_STORE" | "PLAY_STORE" | null; source: string | null } | null };
 
 const APPEARANCE: { value: ThemePreference; label: string }[] = [
@@ -116,6 +117,10 @@ export default function SettingsScreen() {
         <Segmented label="Who can read your reviews" options={REVIEW_OPTIONS} value={settings.reviewVisibility} onChange={(v) => void save("reviewVisibility", v)} disabled={busy} />
         <Toggle label="Hide my Want to read shelf" hint="Others won't see what's on your list, or when you add to it." value={settings.hideWantToRead} onChange={(v) => void save("hideWantToRead", v)} disabled={busy} />
         <Toggle label="Hide follower and following counts" hint="No numbers on your profile, for you or anyone else, and your connection lists stay private." value={settings.hideFollowCounts} onChange={(v) => void save("hideFollowCounts", v)} disabled={busy} />
+        {/* The team's badge always shows, so only librarians get the choice. */}
+        {roleOf(user) === "LIBRARIAN" && (
+          <Toggle label="Hide my Librarian badge" hint="Your profile and reviews won't show that you're a librarian. Your librarian tools stay the same." value={settings.hideStaffBadge} onChange={(v) => void save("hideStaffBadge", v)} disabled={busy} />
+        )}
       </Card>
 
       <Card title="Community">

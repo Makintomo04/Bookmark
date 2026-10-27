@@ -1,11 +1,12 @@
 import { FC, ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Sparkles } from 'lucide-react'
+import { Bookmark, Library, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
 import { bannerPresetOf, resolveBanner } from '@/lib/banners'
 import type { SupporterBadgeKind } from '@/lib/supporter'
+import { STAFF_BADGE, type StaffBadgeKind } from '@/lib/staffBadge'
 import BannerPattern from '../profile/BannerPattern'
 import TierAvatar from './TierAvatar'
 import FollowListStat from './FollowListStat'
@@ -41,6 +42,8 @@ interface ProfileHeaderProps {
   founding?: boolean
   // Which supporter badge, when the profile has one. Takes over from supporter/founding.
   badge?: SupporterBadgeKind | null
+  // "Bookmark team" or "Librarian" (lib/staffBadge.ts). Shown before any supporter badge.
+  staffBadge?: StaffBadgeKind | null
 }
 
 const BADGE: Record<SupporterBadgeKind, { label: string; title: string }> = {
@@ -75,7 +78,21 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
   </Link>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge }) => {
+// Quieter than the supporter badge: plain text and a hairline, no brand colour and no tick, so it reads
+// as who someone is rather than a status. Also beside names on reviews.
+export const StaffBadge: FC<{ kind: StaffBadgeKind; className?: string }> = ({ kind, className }) => {
+  const Icon = kind === "team" ? Bookmark : Library
+  return (
+    <span
+      title={STAFF_BADGE[kind].title}
+      className={cn("inline-flex shrink-0 items-center gap-1 rounded-full border border-neutral-300 dark:border-neutral-700 px-2 py-0.5 align-middle text-xs font-medium text-muted-foreground", className)}
+    >
+      <Icon size={12} aria-hidden /> {STAFF_BADGE[kind].label}
+    </span>
+  )
+}
+
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge }) => {
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
   const preset = bannerPresetOf(shownBanner)
@@ -104,6 +121,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
         <div className="mt-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="page-title break-words">{username}</h1>
+            {staffBadge && <StaffBadge kind={staffBadge} />}
             {badge ? <SupporterBadge kind={badge} /> : supporter && <SupporterBadge founding={founding} />}
           </div>
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}

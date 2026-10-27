@@ -14,11 +14,14 @@ import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import { Skeleton } from '../ui/skeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
+import MedalShowcase from '../achievements/MedalShowcase'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
 import { resolveBanner } from '@/lib/banners'
 import { supporterOf } from '@/lib/supporter'
+import { staffBadgeOf } from '@/lib/staffBadge'
+import { milestoneKey, type AchievementKey } from '@/lib/achievements-catalog'
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -53,9 +56,10 @@ const ProfileHead: FC = () => {
 
   // Until the shelf and achievements load, use the counts that came with the server render, so the stats don't flash 0.
   const booksRead = books ? books.filter(isFinishedBook).length : user._count?.books ?? 0
-  const earned = achievementsLoading
-    ? profile?.achievements?.length ?? 0
-    : achievements.flatMap((a) => a.milestones).filter((m) => m.earned).length
+  const earnedKeys = achievementsLoading
+    ? profile?.achievements ?? []
+    : achievements.flatMap((a) => a.milestones.filter((m) => m.earned).map((m) => ({ key: milestoneKey(a.key as AchievementKey, m.value) })))
+  const earned = earnedKeys.length
   const followers = profile?.followerCount ?? 0
   const following = profile?.followingCount ?? 0
   // Calm social: with counts hidden, even the owner just gets the links to the lists.
@@ -71,6 +75,7 @@ const ProfileHead: FC = () => {
         banner={resolveBanner(user.banner, user.id)}
         colour={user.favColour}
         {...supporterOf(user)}
+        staffBadge={staffBadgeOf(user)}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
@@ -89,6 +94,7 @@ const ProfileHead: FC = () => {
           </>
         }
       >
+        <MedalShowcase earned={earnedKeys} href="/achievements" />
         <ReadingGoalWidget />
       </ProfileHeader>
 

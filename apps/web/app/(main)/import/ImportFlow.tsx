@@ -2,7 +2,7 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { notify } from '@/lib/notify'
-import { BookCheck, CalendarOff, Check, CopyX, ExternalLink, FileUp, HelpCircle, Loader2, Search, Sparkles, Upload } from 'lucide-react'
+import { BookCheck, CalendarOff, Check, Copy, CopyX, ExternalLink, FileUp, HelpCircle, Loader2, Search, Sparkles, Upload } from 'lucide-react'
 import type { Status } from '@prisma/client'
 import { Button } from '@/app/components/ui/button'
 import Medal from '@/app/components/achievements/Medal'
@@ -11,6 +11,7 @@ import type { ImportJobView } from '@/lib/import/job'
 import type { UncertainRow } from '@/lib/import/review'
 import { SOURCE_LABEL, type FileNotes, type ImportCandidate } from '@/lib/import/types'
 import { SearchFailed } from "@/app/components/modals/BookSearchResults";
+import { AiLabel } from "@/app/components/discover/AskShelf";
 
 const MAX_BYTES = 5 * 1024 * 1024
 
@@ -45,10 +46,18 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // ---- Page --------------------------------------------------------------------------------
 
-const ImportFlow: FC = () => {
+// A pasted list, or a .txt/.md file read in the browser. lib/import/text.ts reads it on the server.
+export type ListUpload = { text: string; defaultStatus: "NOT_STARTED" | "COMPLETED"; useAi: boolean; fileName?: string | null }
+type ListDraft = { text: string; fileName: string | null }
+
+const isTextFile = (file: File) => /\.(txt|md|markdown)$/i.test(file.name) || file.type === "text/plain" || file.type === "text/markdown"
+
+const ImportFlow: FC<{ aiAvailable: boolean; aiDefault: boolean }> = ({ aiAvailable, aiDefault }) => {
   const [job, setJob] = useState<ImportJobView | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Kept here, not in the paste box, so "Change the list" brings the reader back to their text.
+  const [draft, setDraft] = useState<ListDraft>({ text: "", fileName: null })
   const runId = useRef(0)
 
   // Repeats one step until the job leaves `while`. Network blips are retried a few times; a 4xx stops.
@@ -107,6 +116,18 @@ const ImportFlow: FC = () => {
     }
   }
 
+  const uploadList = async (list: ListUpload) => {
+    setError(null)
+    try {
+      const created = await call("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(list) })
+      if (!created) return
+      setJob(created)
+      if (created.status === "matching") drive(created, "match", "matching")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't read that list.")
+    }
+  }
+
   const confirm = async () => {
     if (!job) return
     try {
@@ -145,7 +166,7 @@ const ImportFlow: FC = () => {
           )}
         </div>
       )}
-      {!job || job.status === "cancelled" ? <UploadStep onFile={upload} />
+      {!job || job.status === "cancelled" ? <UploadStep onFile={upload} onList={uploadList} list={draft} onListChange={setDraft} aiAvailable={aiAvailable} aiDefault={aiDefault} />
         : job.status === "matching" ? (
           job.checking > 0 && job.looked >= job.total
             ? <ProgressStep title="Checking the unsure ones" detail={`${plural(job.checking, "title")} left to check`} value={job.total - job.checking} max={job.total} job={job} />
@@ -168,13 +189,29 @@ const HOW_TO: { source: string; steps: string; href?: string }[] = [
   { source: "Bookmark", steps: "An export from Bookmark itself (Settings → Your data → Export books) imports exactly as it left." },
 ]
 
-const UploadStep: FC<{ onFile: (file: File) => Promise<void> }> = ({ onFile }) => {
+type UploadProps = {
+  onFile: (file: File) => Promise<void>
+  onList: (list: ListUpload) => Promise<void>
+  list: ListDraft
+  onListChange: (list: ListDraft) => void
+  aiAvailable: boolean
+  aiDefault: boolean
+}
+
+const UploadStep: FC<UploadProps> = ({ onFile, onList, list, onListChange: setList, aiAvailable, aiDefault }) => {
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
   const input = useRef<HTMLInputElement>(null)
 
   const take = async (file?: File | null) => {
     if (!file || busy) return
+    // A plain text file is a list, not an export: it goes into the paste box to check first.
+    if (isTextFile(file)) {
+      if (file.size > 512 * 1024) return notify.error("That list is too long for one import. Split it in two.")
+      setList({ text: await file.text(), fileName: file.name })
+      document.getElementById("paste-list")?.focus()
+      return
+    }
     setBusy(true)
     try { await onFile(file) } finally { setBusy(false) }
   }
@@ -206,7 +243,7 @@ const UploadStep: FC<{ onFile: (file: File) => Promise<void> }> = ({ onFile }) =
         <input
           ref={input}
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,text/csv,.txt,.md,text/plain,text/markdown"
           className="sr-only"
           id="import-file"
           onChange={(e) => { take(e.target.files?.[0]); e.target.value = "" }}
@@ -235,7 +272,89 @@ const UploadStep: FC<{ onFile: (file: File) => Promise<void> }> = ({ onFile }) =
           ))}
         </ul>
       </section>
+
+      <PasteList list={list} onChange={setList} onSubmit={onList} disabled={busy} aiAvailable={aiAvailable} aiDefault={aiDefault} />
     </>
+  )
+}
+
+const PASTE_EXAMPLE = `Read 2024
+- Fourth Wing by Rebecca Yarros
+- The Seven Husbands of Evelyn Hugo - Taylor Jenkins Reid ⭐⭐⭐⭐⭐
+
+TBR
+- Babel
+- Iron Flame (Rebecca Yarros)`
+
+// A list from a notes app: one book a line, in whatever shape the reader keeps it.
+const PasteList: FC<{
+  list: ListDraft
+  onChange: (list: ListDraft) => void
+  onSubmit: (list: ListUpload) => Promise<void>
+  disabled: boolean
+  aiAvailable: boolean
+  aiDefault: boolean
+}> = ({ list, onChange, onSubmit, disabled, aiAvailable, aiDefault }) => {
+  const [busy, setBusy] = useState(false)
+  const [defaultStatus, setDefaultStatus] = useState<ListUpload["defaultStatus"]>("NOT_STARTED")
+  const [useAi, setUseAi] = useState(aiAvailable && aiDefault)
+  const lines = list.text.split(/\r?\n/).filter((l) => /\p{L}/u.test(l)).length
+
+  const submit = async () => {
+    if (busy || !list.text.trim()) return
+    setBusy(true)
+    try { await onSubmit({ text: list.text, defaultStatus, useAi: aiAvailable && useAi, fileName: list.fileName }) } finally { setBusy(false) }
+  }
+
+  return (
+    <section aria-labelledby="paste" className="flex flex-col gap-4 rounded-xl border p-5 sm:p-6">
+      <div>
+        <h2 id="paste" className="text-lg font-semibold">Or paste a list</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Keep your books in a notes app? Paste the list here, one book a line. Authors help but aren&apos;t needed, and headings like
+          &ldquo;Read&rdquo; or &ldquo;TBR&rdquo; put the books under them on that shelf. We find each book with search, and any we can&apos;t find are left out.
+        </p>
+      </div>
+      <label htmlFor="paste-list" className="sr-only">Your list of books</label>
+      <textarea
+        id="paste-list"
+        value={list.text}
+        onChange={(e) => onChange({ text: e.target.value, fileName: null })}
+        placeholder={PASTE_EXAMPLE}
+        rows={8}
+        spellCheck={false}
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm font-mono placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium mb-2">Books without a shelf go to</legend>
+        <div className="flex flex-wrap gap-2">
+          {([["NOT_STARTED", "Want to read"], ["COMPLETED", "Finished"]] as const).map(([value, label]) => (
+            <label key={value} className={cn("cursor-pointer rounded-full border px-3 py-1 text-sm", defaultStatus === value ? "border-primary bg-primary/10" : "hover:bg-muted")}>
+              <input type="radio" name="list-default" value={value} checked={defaultStatus === value} onChange={() => setDefaultStatus(value)} className="sr-only" />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {aiAvailable && (
+        <label className="flex gap-3 items-start text-sm cursor-pointer">
+          <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} className="mt-1 h-4 w-4 accent-[hsl(var(--primary))]" />
+          <span>
+            <span className="font-medium inline-flex items-center gap-1.5">Use AI to pick out the books <Sparkles size={13} className="text-brand" aria-hidden /></span>
+            <span className="block text-muted-foreground">
+              Better with messy lists: it skips notes to self and copies each title and author out of its line, word for word. It never adds a book that isn&apos;t in your list.
+            </span>
+          </span>
+        </label>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" disabled={disabled || busy || lines === 0} onClick={submit} className="gap-2">
+          {busy && <Loader2 size={15} className="animate-spin" aria-hidden />}
+          {busy ? "Reading your list…" : lines > 0 ? `Find these ${plural(lines, "line")}` : "Find these books"}
+        </Button>
+        {list.fileName && <span className="text-sm text-muted-foreground">From {list.fileName}</span>}
+      </div>
+    </section>
   )
 }
 
@@ -260,7 +379,7 @@ const ProgressStep: FC<{ title: string; detail: string; value: number; max: numb
     <p className="text-sm text-muted-foreground tabular-nums">{detail}</p>
     {job && job.looked > 0 && (
       <p className="text-sm tabular-nums">
-        {plural(job.matched, "match", "matches")} so far{job.unmatched > 0 && `, ${fmt(job.unmatched)} to check later`}.
+        {plural(job.matched, "match", "matches")} so far{job.unmatched > 0 && `, ${fmt(job.unmatched)} ${job.source === "list" ? "not found" : "to check later"}`}.
       </p>
     )}
     <p className="text-xs text-muted-foreground">You can leave this page open in the background. Closing it pauses the import; come back to carry on.</p>
@@ -334,11 +453,16 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
   const duplicates = job.duplicates.shelf + job.duplicates.file
   const unsure = job.uncertain.length
   const unmatched = job.unmatched
+  const isList = job.source === "list"
+  const readByAi = job.notes?.listReadBy === "model" || job.notes?.listReadBy === "mixed"
 
   return (
     <section className="flex flex-col gap-6">
       <header>
-        <p className="text-sm text-muted-foreground">{SOURCE_LABEL[job.source]} export{job.fileName ? ` · ${job.fileName}` : ""}</p>
+        <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-2">
+          {isList ? SOURCE_LABEL.list : `${SOURCE_LABEL[job.source]} export`}{job.fileName ? ` · ${job.fileName}` : ""}
+          {readByAi && <AiLabel />}
+        </p>
         <h1 className="page-title mt-1">Ready to import {plural(job.toImport, "book")}</h1>
       </header>
 
@@ -355,7 +479,7 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
           <li className="flex gap-3">
             <Sparkles size={18} className="mt-0.5 flex-shrink-0 text-amber-600" aria-hidden />
             <span>
-              <strong className="tabular-nums">{fmt(unsure)}</strong> {unsure === 1 ? "match" : "matches"} to check below. Any you don&apos;t check {unsure === 1 ? "is" : "are"} added as typed.
+              <strong className="tabular-nums">{fmt(unsure)}</strong> {unsure === 1 ? "match" : "matches"} to check below. Any you don&apos;t check {unsure === 1 ? "is" : "are"} {isList ? "left out" : "added as typed"}.
             </span>
           </li>
         )}
@@ -363,7 +487,9 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
           <li className="flex gap-3">
             <Search size={18} className="mt-0.5 flex-shrink-0 text-amber-600" aria-hidden />
             <span>
-              <strong className="tabular-nums">{fmt(unmatched)}</strong> without a match. They&apos;re still imported, and you can match them afterwards.
+              {isList
+                ? <><strong className="tabular-nums">{fmt(unmatched)}</strong> we couldn&apos;t find. They&apos;ll be left out, and you&apos;ll get the list to copy afterwards.</>
+                : <><strong className="tabular-nums">{fmt(unmatched)}</strong> without a match. They&apos;re still imported, and you can match them afterwards.</>}
               {job.samples.unmatched.length > 0 && <span className="block mt-1 text-muted-foreground">{job.samples.unmatched.join("; ")}{job.unmatched > job.samples.unmatched.length && "…"}</span>}
             </span>
           </li>
@@ -379,7 +505,13 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
         )}
       </ul>
 
-      <FileNotesList notes={job.notes} undatedFinished={job.undatedFinished} />
+      {readByAi && (
+        <p className="text-sm text-muted-foreground">
+          AI picked the books out of your list, copying each title from its line. Every match comes from search, not from the AI.
+        </p>
+      )}
+
+      <FileNotesList notes={job.notes} undatedFinished={isList ? 0 : job.undatedFinished} />
 
       {unsure > 0 && <ReviewList job={job} onChange={onChange} />}
 
@@ -392,7 +524,7 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
           {busy && <Loader2 size={15} className="animate-spin" aria-hidden />}
           Import {plural(job.toImport, "book")}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>Choose a different file</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>{isList ? "Change the list" : "Choose a different file"}</Button>
       </div>
     </section>
   )
@@ -409,11 +541,11 @@ const ReviewList: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => voi
       <div>
         <h2 id="review" className="text-lg font-semibold">{plural(rows.length, "match", "matches")} to check</h2>
         <p className="text-sm text-muted-foreground">
-          We weren&apos;t sure about these. Confirm the suggestion, pick another, or add the book as it is in your file.
+          We weren&apos;t sure about these. Confirm the suggestion, pick another, or {job.source === "list" ? "leave the book out" : "add the book as it is in your file"}.
         </p>
       </div>
       <ul className="flex flex-col divide-y rounded-lg border">
-        {rows.slice(0, shown).map((row) => <ReviewRow key={row.index} jobId={job.id} row={row} onChange={onChange} />)}
+        {rows.slice(0, shown).map((row) => <ReviewRow key={row.index} jobId={job.id} row={row} onChange={onChange} isList={job.source === "list"} />)}
       </ul>
       {rows.length > shown && (
         <Button type="button" variant="ghost" onClick={() => setShown((n) => n + 20)} className="self-start">Show more</Button>
@@ -428,7 +560,7 @@ const CoverThumb: FC<{ url: string | null }> = ({ url }) =>
     ? <img src={url.replace(/-L\.jpg$/, "-M.jpg")} alt="" className="h-20 w-14 rounded object-cover flex-shrink-0 bg-muted" />
     : <span className="h-20 w-14 rounded bg-muted flex-shrink-0" aria-hidden />
 
-const ReviewRow: FC<{ jobId: string; row: UncertainRow; onChange: (job: ImportJobView) => void }> = ({ jobId, row, onChange }) => {
+const ReviewRow: FC<{ jobId: string; row: UncertainRow; onChange: (job: ImportJobView) => void; isList: boolean }> = ({ jobId, row, onChange, isList }) => {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const yours = [row.author, row.year, row.format && FORMAT_LABEL[row.format]].filter(Boolean).join(" · ")
@@ -453,7 +585,7 @@ const ReviewRow: FC<{ jobId: string; row: UncertainRow; onChange: (job: ImportJo
         <CoverThumb url={row.pick.coverUrl} />
         <div className="min-w-0 flex-1 flex flex-col gap-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">In your file</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">In your {isList ? "list" : "file"}</p>
             <p className="font-medium leading-tight">{row.title}</p>
             {yours && <p className="text-sm text-muted-foreground">{yours}</p>}
           </div>
@@ -474,7 +606,7 @@ const ReviewRow: FC<{ jobId: string; row: UncertainRow; onChange: (job: ImportJo
           Pick another
         </Button>
         <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => send({ choice: "typed" })} className="flex-1 sm:flex-none">
-          Add as typed
+          {isList ? "Leave it out" : "Add as typed"}
         </Button>
       </div>
       {open && <WorkSearch id={`review-${row.index}`} initialQuery={`${row.title} ${row.author === "Unknown" ? "" : row.author}`.trim()} others={row.others} busy={busy} onPick={pick} />}
@@ -609,9 +741,11 @@ const SummaryStep: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => vo
         </section>
       )}
 
-      <FileNotesList notes={result.file ?? null} undatedFinished={result.undatedFinished} />
+      <FileNotesList notes={result.file ?? null} undatedFinished={job.source === "list" ? 0 : result.undatedFinished} />
 
       {result.unmatched.length > 0 && <UnmatchedList job={job} onChange={onChange} />}
+
+      {(result.leftOut?.length ?? 0) > 0 && <LeftOutList books={result.leftOut!} />}
 
       {job.coversToCheck > 0 && (
         <p className="text-xs text-muted-foreground flex items-center gap-2">
@@ -620,7 +754,7 @@ const SummaryStep: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => vo
       )}
 
       <div>
-        <Button type="button" variant="outline" onClick={onAnother}>Import another file</Button>
+        <Button type="button" variant="outline" onClick={onAnother}>{job.source === "list" ? "Import another list" : "Import another file"}</Button>
       </div>
     </section>
   )
@@ -651,6 +785,39 @@ function useCovers(job: ImportJobView, onChange: (job: ImportJobView) => void) {
     })()
     return () => { alive = false }
   }, [job.id, pending])
+}
+
+// A pasted list only: the books search couldn't find, left off the shelf. One tap copies them, to add by hand
+// or paste back in after a fix.
+const LeftOutList: FC<{ books: { title: string; author: string }[] }> = ({ books }) => {
+  const [shown, setShown] = useState(10)
+  const asLine = (b: { title: string; author: string }) => (b.author === "Unknown" ? b.title : `${b.title} by ${b.author}`)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(books.map(asLine).join("\n"))
+      notify.success(`Copied ${plural(books.length, "book")}`)
+    } catch {
+      notify.error("Couldn't copy. Select the list and copy it instead.")
+    }
+  }
+
+  return (
+    <section aria-labelledby="left-out" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[12rem]">
+          <h2 id="left-out" className="text-lg font-semibold">{plural(books.length, "book")} we couldn&apos;t find</h2>
+          <p className="text-sm text-muted-foreground">These weren&apos;t added. Copy them to add by hand, or fix a spelling and paste them in again.</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={copy} className="gap-1.5"><Copy size={14} aria-hidden /> Copy list</Button>
+      </div>
+      <ul className="flex flex-col divide-y rounded-lg border text-sm">
+        {books.slice(0, shown).map((b, i) => <li key={i} className="px-3 py-2 sm:px-4">{asLine(b)}</li>)}
+      </ul>
+      {books.length > shown && (
+        <Button type="button" variant="ghost" onClick={() => setShown((n) => n + 50)} className="self-start">Show more</Button>
+      )}
+    </section>
+  )
 }
 
 const UnmatchedList: FC<{ job: ImportJobView; onChange: (job: ImportJobView) => void }> = ({ job, onChange }) => {

@@ -21,11 +21,16 @@ export class ApiError extends Error {
   }
 }
 
+const SUSPENDED = "suspended";
+// The server's own wording (apps/web/lib/suspension.ts), for a 403 that arrives without it.
+const SUSPENDED_MESSAGE = "This account is suspended. Email support if you think that's a mistake.";
+
 let accessToken: string | null = null;
 let refreshing: Promise<boolean> | null = null;
-let onSessionEnded: () => void = () => {};
+// `message` says why, when the reader should be told (a suspension); a plain expiry passes none.
+let onSessionEnded: (message?: string) => void = () => {};
 
-export function setSessionEndedHandler(handler: () => void) {
+export function setSessionEndedHandler(handler: (message?: string) => void) {
   onSessionEnded = handler;
 }
 
@@ -96,6 +101,15 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     if (await refresh()) res = await send(path, init);
   }
   if (res.status === 401 && accessToken === null) onSessionEnded();
+  // A suspended account (apps/web/lib/suspension.ts): its sessions are already gone on the server, so
+  // drop the tokens and sign out rather than waiting for the access token to run out.
+  if (res.status === 403) {
+    const body = await res.clone().json().catch(() => null);
+    if (body?.code === SUSPENDED) {
+      await clearTokens();
+      onSessionEnded(typeof body.error === "string" ? body.error : SUSPENDED_MESSAGE);
+    }
+  }
   return res;
 }
 
@@ -108,6 +122,7 @@ async function parse<T>(res: Response): Promise<T> {
 export const api = {
   get: <T>(path: string) => apiFetch(path).then((r) => parse<T>(r)),
   post: <T>(path: string, body?: unknown) => apiFetch(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
+  put: <T>(path: string, body?: unknown) => apiFetch(path, { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
   patch: <T>(path: string, body: unknown) => apiFetch(path, { method: "PATCH", body: JSON.stringify(body) }).then((r) => parse<T>(r)),
   delete: <T>(path: string, body?: unknown) => apiFetch(path, { method: "DELETE", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
 };

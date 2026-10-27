@@ -1,69 +1,75 @@
 "use client"
 import { FC } from 'react'
-import { Check } from 'lucide-react'
+import { achievementCounts, achievementCountsLine } from '@bookmark/shared/achievementCounts'
 import { cn } from '@/lib/utils'
 import { READER_TIERS, booksReadOf, tierProgress, type ReaderTier } from '@/lib/readerTier'
 import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
+import type { AchievementItem } from '@/app/hooks/useAchievements'
 
 const metal = (t: ReaderTier) => `linear-gradient(135deg, ${t.light}, ${t.colour} 45%, ${t.shade})`
+const fmt = (n: number) => n.toLocaleString('en-GB')
 
 // Where the reader sits on the tier ladder, and what the next rung takes. The user menu's tier card links here.
-const ReaderTierCard: FC = () => {
+// Before Bronze there's no metal to show, so the swatch is the next tier's outline with the books still to go.
+// Under the ladder, one quiet line of medal counts from the achievements the page already has.
+// Pass `reader` to show someone else's (their achievements page); otherwise it's the signed-in reader's.
+const ReaderTierCard: FC<{ achievements: AchievementItem[]; reader?: { username: string; booksRead: number } }> = ({ achievements, reader }) => {
   const { user } = useUser()
   const booksReadFor = useBooksReadFor()
-  if (!user) return null
+  if (!reader && !user) return null
 
-  const booksRead = booksReadFor(user.username, booksReadOf(user))
-  const { tier, next, remaining, progress } = tierProgress(booksRead)
-  const barTier = next ?? tier
+  const booksRead = reader ? reader.booksRead : booksReadFor(user!.username, booksReadOf(user!))
+  const { tier, next, remaining } = tierProgress(booksRead)
+
+  const heading = tier ? `${tier.label} reader` : `On ${reader ? "their" : "your"} way to ${next!.label}`
+  const detail = !tier
+    ? `${fmt(booksRead)} of ${fmt(next!.minBooks)} books read.${reader ? "" : " Your tier frames your avatar wherever your name appears."}`
+    : next
+      ? `${fmt(booksRead)} books read · ${fmt(remaining)} more to ${next.label}`
+      : `${fmt(booksRead)} books read · you've reached the top tier`
 
   return (
-    <section id="tier" aria-labelledby="tier-heading" className="scroll-mt-24 mb-12 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 sm:p-6">
-      <div className="flex items-start gap-4">
-        <div aria-hidden className={cn("relative h-12 w-12 shrink-0 rounded-xl overflow-hidden", !tier && "bg-neutral-200 dark:bg-neutral-800")}
-          style={tier ? { background: metal(tier) } : undefined}>
-          {tier?.shimmer && <div className={cn("tier-shimmer absolute inset-0", tier.key === "diamond" && "tier-shimmer-diamond")} />}
-        </div>
+    <section id="tier" aria-labelledby="tier-heading" className="scroll-mt-24 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 sm:p-6">
+      <div className="flex items-center gap-4">
+        {tier ? (
+          <div aria-hidden className="relative size-14 shrink-0 overflow-hidden rounded-xl" style={{ background: metal(tier) }}>
+            {tier.shimmer && <div className={cn("tier-shimmer absolute inset-0", tier.key === "diamond" && "tier-shimmer-diamond")} />}
+          </div>
+        ) : (
+          <div aria-hidden className="grid size-14 shrink-0 place-content-center rounded-xl border-2 border-dashed text-center leading-none"
+            style={{ borderColor: next!.colour, color: next!.colour }}>
+            <span className="text-lg font-bold tabular-nums">{fmt(remaining)}</span>
+            <span className="mt-0.5 text-[11px] font-medium">to go</span>
+          </div>
+        )}
         <div className="min-w-0 flex-1">
-          <h2 id="tier-heading" className="text-lg font-semibold">{tier ? `${tier.label} reader` : "Reading tier"}</h2>
-          <p className="text-sm text-muted-foreground tabular-nums">
-            {booksRead} {booksRead === 1 ? "book" : "books"} read
-            {next ? ` · ${remaining} more to ${next.label}` : " · you've reached the top tier"}
-          </p>
+          <h2 id="tier-heading" className="text-lg font-semibold">{heading}</h2>
+          <p className="text-sm text-muted-foreground tabular-nums">{detail}</p>
         </div>
       </div>
 
-      {barTier && (
-        <div className="mt-4 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden"
-          role="progressbar" aria-label={next ? `Progress to ${next.label}` : "Top tier reached"}
-          aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
-          <div className="h-full rounded-full" style={{ width: `${Math.max(progress * 100, 3)}%`, background: `linear-gradient(90deg, ${barTier.colour}, ${barTier.shade})` }} />
-        </div>
-      )}
-
-      <ol className="mt-6 grid grid-cols-5 gap-2">
-        {READER_TIERS.map((t) => {
+      {/* One segment per tier, each filling from the tier before it, so a reader with four books still sees
+          progress instead of a sliver of a 500-book bar. */}
+      <ol className="mt-5 grid grid-cols-5 gap-1.5">
+        {READER_TIERS.map((t, i) => {
+          const from = i === 0 ? 0 : READER_TIERS[i - 1].minBooks
+          const fill = Math.max(0, Math.min(1, (booksRead - from) / (t.minBooks - from)))
           const reached = booksRead >= t.minBooks
-          const current = t.key === tier?.key
           return (
-            <li key={t.key} className="flex flex-col items-center gap-1.5 text-center" aria-current={current ? "step" : undefined}>
-              <div className={cn("relative grid h-8 w-8 place-items-center rounded-lg transition", !reached && "opacity-35 saturate-50",
-                current && "ring-2 ring-offset-2 ring-offset-background ring-neutral-400 dark:ring-neutral-500")}
-                style={{ background: metal(t) }}>
-                {reached && <Check size={14} strokeWidth={3} className="text-black/60" aria-hidden />}
+            <li key={t.key} aria-current={t.key === tier?.key ? "step" : undefined}>
+              <div className="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                {fill > 0 && <div className="h-full rounded-full" style={{ width: `${fill * 100}%`, background: metal(t) }} />}
               </div>
-              <span className={cn("text-xs font-medium", !reached && "text-muted-foreground")}>{t.label}</span>
-              <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">{t.minBooks}<span className="max-sm:sr-only"> books</span></span>
+              <p className={cn("mt-1.5 text-xs font-medium", !reached && "text-muted-foreground")}>{t.label}</p>
+              <p className="text-[11px] text-muted-foreground tabular-nums">{fmt(t.minBooks)}<span className="max-sm:sr-only"> books</span></p>
               <span className="sr-only">{reached ? "reached" : "not reached yet"}</span>
             </li>
           )
         })}
       </ol>
 
-      <p className="mt-5 text-sm text-muted-foreground">
-        Your tier frames your avatar on your profile and wherever your name appears. Each tier lands with a Books read milestone, and Gold and above shimmer.
-      </p>
+      <p className="mt-4 text-sm text-muted-foreground tabular-nums">{achievementCountsLine(achievementCounts(achievements))}</p>
     </section>
   )
 }
