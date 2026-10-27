@@ -1,6 +1,6 @@
 import { FC, ReactNode } from 'react'
 import Link from 'next/link'
-import { BookOpen, Flame, Headphones, Repeat, Ruler, Sparkles, Undo2 } from 'lucide-react'
+import { BookOpen, BookOpenText, Flame, Headphones, Repeat, Ruler, Star, Undo2 } from 'lucide-react'
 import type { ReadingStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 import { formatPace } from '@/lib/goals'
@@ -111,7 +111,7 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Tile icon={<BookOpen size={16} />} label="Books read" value={fmt(stats.booksRead)} note={stats.undatedFinishes ? `${plural(stats.undatedFinishes, 'finish', 'finishes')} without a date` : undefined} />
-        <Tile icon={<Sparkles size={16} />} label="Pages read" value={fmt(stats.pagesRead)} note="across every finished read" />
+        <Tile icon={<BookOpenText size={16} />} label="Pages read" value={fmt(stats.pagesRead)} note="across every finished read" />
         {stats.minutesListened > 0 && (
           <Tile icon={<Headphones size={16} />} label="Hours listened" value={fmt(Math.round(stats.minutesListened / 60))} note="of audiobooks finished" />
         )}
@@ -124,7 +124,7 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
           value={stats.dnfRate === null ? '–' : `${Math.round(stats.dnfRate * 100)}%`}
           note={stats.dnf ? `${plural(stats.dnf, 'book')} put down` : 'of the books you started'}
         />
-        <Tile icon={<Sparkles size={16} />} label="Average rating" value={stats.averageRating ? `${stats.averageRating} ★` : '–'} note={stats.ratedBooks ? `from ${plural(stats.ratedBooks, 'rating')}` : 'no ratings yet'} />
+        <Tile icon={<Star size={16} />} label="Average rating" value={stats.averageRating ? `${stats.averageRating} ★` : '–'} note={stats.ratedBooks ? `from ${plural(stats.ratedBooks, 'rating')}` : 'no ratings yet'} />
         <Tile
           icon={<Ruler size={16} />}
           label="Longest book"

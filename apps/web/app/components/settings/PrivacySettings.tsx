@@ -73,7 +73,7 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
         </div>
         <Toggle
           label="Use AI features"
-          hint="Ask the shelf, which finds books from a description in your own words, and Catch me up, a short recap of the story so far when you come back to a book. Recaps are only for you."
+          hint="Ask the shelf, which finds books from a description in your own words, and Catch me up, a short recap of the story so far when you come back to a book (with Plus). Recaps are only for you. Off to start on a free account and on with Plus; switch it off any time."
           checked={settings.aiFeatures}
           onChange={(v) => save("aiFeatures", v)}
           disabled={busy}

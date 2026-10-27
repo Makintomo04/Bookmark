@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Bookmark — Your reading and your friends, in one app',
     short_name: 'Bookmark',
-    description: "Track every book with free stats, goals and Wrapped, and read with friends in reading circles where nobody gets spoiled.",
+    description: "Your reading and your friends, in one app. Free stats, goals and Wrapped, and private reading circles with friends.",
     start_url: '/',
     display: 'standalone',
     background_color: '#0a0a0a',

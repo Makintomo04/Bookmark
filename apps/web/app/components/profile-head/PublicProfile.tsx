@@ -92,7 +92,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
                 </div>
               </ShelfSection>
             )}
-            <ProfileReviews books={profile.books} accentColour={profile.favColour} />
+            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport />
             {wantToRead.length > 0 && (
               <ShelfSection id="public-shelf-want" title="Want to read" count={wantToRead.length}>
                 <div className={coverGridClass}>

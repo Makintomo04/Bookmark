@@ -3,9 +3,14 @@ import prisma from "@/lib/db";
 import { logStaffAction } from "@/lib/staffLog";
 import { staffFail, type StaffOutcome } from "@/lib/staffRoute";
 import { isObjectId } from "@/lib/staffUsers";
+import { createNotification } from "@/lib/notifications";
+import { bookHref } from "@/lib/workKey";
+import { actionAllowed, type ReportAction, type ReportKind } from "@/lib/staffReportRules";
 
-// The reports queue on /staff/reports. Readers report lists, reading-circle comments and wrong book
-// details; each report is a row (ListReport, BuddyReadCommentReport, BookReport). The queue groups them by
+export * from "@/lib/staffReportRules";
+
+// The reports queue on /staff/reports. Readers report lists, reading-circle comments, reviews and wrong
+// book details; each report is a row (ListReport, BuddyReadCommentReport, ReviewReport, BookReport). The queue groups them by
 // what was reported, so ten reports of one list are one entry, and an action resolves them all.
 //
 // Status, on every report row (unset reads as OPEN):
@@ -14,8 +19,6 @@ import { isObjectId } from "@/lib/staffUsers";
 //   ACTIONED   something was done: content taken down, or the book fixed
 //   DISMISSED  nothing needed doing
 
-export const REPORT_KINDS = ["list", "comment", "book"] as const;
-export type ReportKind = (typeof REPORT_KINDS)[number];
 export const REPORT_STATUSES = ["OPEN", "ESCALATED", "ACTIONED", "DISMISSED"] as const;
 export type ReportStatus = (typeof REPORT_STATUSES)[number];
 
@@ -26,8 +29,6 @@ export const BOOK_REPORT_REASONS = {
 } as const;
 export type BookReportReason = keyof typeof BOOK_REPORT_REASONS;
 export const BOOK_REPORT_NOTE_MAX = 500;
-
-export const isReportKind = (value: unknown): value is ReportKind => typeof value === "string" && (REPORT_KINDS as readonly string[]).includes(value);
 
 // The open queue is OPEN and ESCALATED; "open" and unset both count, since rows from before the queue
 // have no status at all.
@@ -41,7 +42,7 @@ export const openReportWhere = statusWhere("queue");
 
 export interface QueueEntry {
   kind: ReportKind;
-  // What was reported: the list, comment or work id.
+  // What was reported: the list, comment or work id, or for a review the reviewer's copy (Book) id.
   itemId: string;
   title: string;
   excerpt: string | null;
@@ -49,7 +50,7 @@ export interface QueueEntry {
   path: string | null;
   authorId: string | null;
   authorUsername: string | null;
-  // Already taken down (a hidden list, a deleted comment).
+  // Already taken down (a hidden list, a deleted comment, a hidden review).
   removed: boolean;
   reasons: Record<string, number>;
   notes: string[];
@@ -88,7 +89,7 @@ const LIMIT = 200;
 
 export async function reportQueue(view: "queue" | "closed" = "queue"): Promise<QueueEntry[]> {
   const where = statusWhere(view);
-  const [lists, comments, books] = await Promise.all([
+  const [lists, comments, reviews, books] = await Promise.all([
     prisma.listReport.findMany({
       where, orderBy: { createdAt: "desc" }, take: LIMIT,
       select: { reason: true, createdAt: true, status: true, list: { select: { id: true, title: true, description: true, hidden: true, owner: { select: { id: true, username: true } } } } },
@@ -97,6 +98,10 @@ export async function reportQueue(view: "queue" | "closed" = "queue"): Promise<Q
       where, orderBy: { createdAt: "desc" }, take: LIMIT,
       select: { reason: true, createdAt: true, status: true, comment: { select: { id: true, body: true, deletedAt: true, userId: true, buddyReadId: true } } },
     }),
+    prisma.reviewReport.findMany({
+      where, orderBy: { createdAt: "desc" }, take: LIMIT,
+      select: { bookId: true, reviewerId: true, reason: true, note: true, excerpt: true, createdAt: true, status: true },
+    }),
     prisma.bookReport.findMany({
       where, orderBy: { createdAt: "desc" }, take: LIMIT,
       select: { reason: true, note: true, createdAt: true, status: true, workId: true },
@@ -104,7 +109,7 @@ export async function reportQueue(view: "queue" | "closed" = "queue"): Promise<Q
   ]);
 
   const commentAuthors = await prisma.user.findMany({
-    where: { id: { in: Array.from(new Set(comments.map((c) => c.comment.userId))) } },
+    where: { id: { in: Array.from(new Set([...comments.map((c) => c.comment.userId), ...reviews.map((r) => r.reviewerId)])) } },
     select: { id: true, username: true },
   });
   const usernameOf = new Map(commentAuthors.map((u) => [u.id, u.username]));
@@ -113,6 +118,12 @@ export async function reportQueue(view: "queue" | "closed" = "queue"): Promise<Q
     select: { id: true, title: true, authors: true, openLibraryKey: true },
   });
   const workOf = new Map(works.map((w) => [w.id, w]));
+  // The reviewers' copies as they are now: the live text (it may have been edited), and whether it's hidden.
+  const reviewedCopies = await prisma.book.findMany({
+    where: { id: { in: Array.from(new Set(reviews.map((r) => r.bookId))) } },
+    select: { id: true, title: true, workKey: true, workId: true, review: true, reviewHiddenAt: true },
+  });
+  const copyOf = new Map(reviewedCopies.map((b) => [b.id, b]));
 
   const entries: QueueEntry[] = [];
   groupBy(lists, (r) => r.list.id).forEach((rows) => {
@@ -130,6 +141,18 @@ export async function reportQueue(view: "queue" | "closed" = "queue"): Promise<Q
       removed: !!comment.deletedAt, ...summarise(rows),
     });
   });
+  groupBy(reviews, (r) => r.bookId).forEach((rows, bookId) => {
+    const copy = copyOf.get(bookId);
+    const reviewerId = rows[0].reviewerId;
+    const href = copy ? bookHref({ workKey: copy.workKey, pageWorkId: copy.workId, title: copy.title }) : null;
+    entries.push({
+      kind: "review", itemId: bookId, title: copy ? `Review of ${copy.title}` : "A review whose book is no longer on the shelf",
+      // As it reads now; once hidden (or gone), as it read when first reported.
+      excerpt: copy?.review && !copy.reviewHiddenAt ? copy.review : rows[rows.length - 1].excerpt,
+      path: href ? `${href}#reviews-heading` : null, authorId: reviewerId, authorUsername: usernameOf.get(reviewerId) ?? null,
+      removed: !copy || !!copy.reviewHiddenAt, ...summarise(rows),
+    });
+  });
   groupBy(books, (r) => r.workId).forEach((rows, workId) => {
     const work = workOf.get(workId);
     entries.push({
@@ -145,22 +168,13 @@ export async function reportQueue(view: "queue" | "closed" = "queue"): Promise<Q
     || b.lastReportedAt.localeCompare(a.lastReportedAt));
 }
 
-export const REPORT_ACTIONS = ["dismiss", "hide", "resolve", "escalate"] as const;
-export type ReportAction = (typeof REPORT_ACTIONS)[number];
-
-// What each action may be used on: hiding is for lists and comments; "resolve" (it's been fixed) for books.
-export function actionAllowed(kind: ReportKind, action: ReportAction): boolean {
-  if (action === "hide") return kind !== "book";
-  if (action === "resolve") return kind === "book";
-  return true;
-}
-
-const statusFor: Record<ReportAction, ReportStatus> = { dismiss: "DISMISSED", hide: "ACTIONED", resolve: "ACTIONED", escalate: "ESCALATED" };
+const statusFor: Record<ReportAction, ReportStatus> = { dismiss: "DISMISSED", hide: "ACTIONED", hide_rating: "ACTIONED", resolve: "ACTIONED", escalate: "ESCALATED" };
 
 async function closeReports(kind: ReportKind, itemId: string, data: Prisma.ListReportUpdateManyMutationInput) {
   const open = statusWhere("queue");
   if (kind === "list") return (await prisma.listReport.updateMany({ where: { listId: itemId, ...open }, data })).count;
   if (kind === "comment") return (await prisma.buddyReadCommentReport.updateMany({ where: { commentId: itemId, ...open }, data })).count;
+  if (kind === "review") return (await prisma.reviewReport.updateMany({ where: { bookId: itemId, ...open }, data })).count;
   return (await prisma.bookReport.updateMany({ where: { workId: itemId, ...open }, data })).count;
 }
 
@@ -181,6 +195,19 @@ export async function actOnReport(actor: { id: string }, kind: ReportKind, itemI
     // The circle's own soft delete: replies keep their place and the body is cleared. The log keeps the text.
     if (!comment.deletedAt) await prisma.buddyReadComment.update({ where: { id: itemId }, data: { body: "", pageLabel: null, chapterLabel: null, deletedAt: new Date() } });
     before = { body: comment.body };
+  } else if ((action === "hide" || action === "hide_rating") && kind === "review") {
+    const copy = await prisma.book.findUnique({ where: { id: itemId }, select: { userId: true, review: true, rating: true, reviewHiddenAt: true, ratingHiddenAt: true } });
+    if (!copy) return staffFail(404, "That review no longer exists.");
+    // Hidden, not deleted: the review is part of the reader's own record (their journal, stats and export).
+    // The hide stays when they edit it, until staff lift it.
+    const now = new Date();
+    await prisma.book.update({
+      where: { id: itemId },
+      data: { reviewHiddenAt: copy.reviewHiddenAt ?? now, ...(action === "hide_rating" && { ratingHiddenAt: copy.ratingHiddenAt ?? now }) },
+    });
+    before = { review: copy.review, rating: copy.rating };
+    // The reviewer hears why their review went. actorId is them, so no librarian is named.
+    if (!copy.reviewHiddenAt) await createNotification({ userId: copy.userId, actorId: copy.userId, type: "REVIEW_HIDDEN", bookId: itemId });
   }
 
   const status = statusFor[action];

@@ -18,12 +18,13 @@ import useNotifications from '@/app/hooks/useNotifications'
 import { getAchievementTitle } from '@/lib/achievements-catalog'
 import { notify } from '@/lib/notify'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import { reviewHiddenMessage } from '@/lib/reviewReports'
 
 interface NotificationBellProps {
 
 }
 
-type NotificationLike = { type: string; achievementKey?: string | null; count?: number | null; buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null; book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null; actor: { username: string } }
+type NotificationLike = { type: string; achievementKey?: string | null; count?: number | null; buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null; book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null; actor: { username: string } }
 
 const notificationCopy = (n: NotificationLike) => {
   const others = (n.count ?? 1) - 1
@@ -42,6 +43,7 @@ const notificationCopy = (n: NotificationLike) => {
 
 const notificationHref = (n: NotificationLike) => {
   if (n.type === "ACHIEVEMENT_EARNED") return "/achievements"
+  if (n.type === "REVIEW_HIDDEN" && n.book?.href) return `${n.book.href}#reviews-heading`
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`
   if (n.buddyRead) return `/circles/${n.buddyRead.id}`
   return `/u/${encodeURIComponent(n.actor.username)}`
@@ -63,6 +65,9 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
   // Ids already accounted for. Null until the first load, which only records what's there, so a page
   // load never replays old notifications as toasts.
   const seen = useRef<Set<string> | null>(null)
+  // Set when a row's link is followed, so closing the menu doesn't hand focus back to the bell: that scrolls
+  // the page to the top and undoes a link to part of a page (a hidden review's #reviews-heading).
+  const followedLink = useRef(false)
 
   // Adds a recommended book to Want to read. Its own menu item, beside the row's link rather than inside it.
   const addRecommended = (id: string) => {
@@ -131,21 +136,33 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+      <DropdownMenuContent
+        align="end"
+        className="w-80 max-h-96 overflow-y-auto"
+        onCloseAutoFocus={(e) => {
+          if (!followedLink.current) return
+          followedLink.current = false
+          e.preventDefault()
+        }}
+      >
         {notifications.length === 0 && (
           <p className="p-3 text-sm text-muted-foreground">No notifications yet.</p>
         )}
         {notifications.map((n: any) => (
           <div key={n.id} className="flex flex-col">
             <DropdownMenuItem asChild className="items-center gap-3 p-2 rounded-md cursor-pointer">
-              <Link href={notificationHref(n)}>
+              <Link href={notificationHref(n)} onClick={() => { followedLink.current = true }}>
                 <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: n.actor.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(n.actor.username, booksReadOf(n.actor))) }}>
                   {n.actor.image && <Image src={n.actor.image} alt="" fill sizes="36px" className="object-cover"/>}
                 </div>
                 <div className="min-w-0">
                   {n.type === "COMMENTS_UNLOCKED" ? (
-                    // Not one person's doing: "3 comments unlocked in Dune".
-                    <p className="text-sm truncate">{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} unlocked in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
+                    // Not one person's doing: "3 comments to read in Dune", reached or newly posted.
+                    <p className="text-sm truncate">{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} to read in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
+                  ) : n.type === "REVIEW_HIDDEN" ? (
+                    // Moderation, so nobody is named: not the reporter, not the librarian.
+                    // Never cut short: the last line is how to appeal.
+                    <p className="text-sm">{reviewHiddenMessage(n.book?.title ?? null)}</p>
                   ) : n.type === "BUDDY_READ_HOST_INHERITED" ? (
                     // The old host closed their account, so there's nobody to name.
                     <p className="text-sm line-clamp-2">

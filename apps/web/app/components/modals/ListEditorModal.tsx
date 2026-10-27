@@ -1,10 +1,10 @@
 "use client"
-import { FC, useEffect, useMemo, useState } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSWRConfig } from 'swr'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
-import { ArrowDown, ArrowUp, MessageSquareQuote, Plus, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, MessageSquareQuote, Plus, Search, X } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import Modal from './Modal'
 import BookSearchResults, { BookSearchResult } from './BookSearchResults'
@@ -58,11 +58,16 @@ const ListEditorModal: FC = () => {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // Why the last pick didn't go on the list, shown under the search box until the next search or add.
   const [addNotice, setAddNotice] = useState<string | null>(null)
+  // The last book added, confirmed under the search box once its results have cleared away.
+  const [lastAdded, setLastAdded] = useState<string | null>(null)
+  const searchInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isOpen || !initial) return
     setDraft(initial)
     setQuery("")
+    setLastAdded(null)
+    setAddNotice(null)
     setTagInput("")
     setOpenNote(null)
     setConfirmDelete(false)
@@ -95,6 +100,10 @@ const ListEditorModal: FC = () => {
       return
     }
     setAddNotice(null)
+    // Clear the search so the results close and the book shows up on the list below, ready for the next one.
+    setQuery("")
+    setLastAdded(book.title)
+    searchInput.current?.focus()
     setItems([...draft.items, { workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverUrl, pages: book.pages, note: "" }])
   }
 
@@ -175,9 +184,16 @@ const ListEditorModal: FC = () => {
       </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden />
-        <input value={query} onChange={(e) => { setQuery(e.target.value); setAddNotice(null) }} placeholder={source === "search" ? "Search by title or author to add" : "Filter your books"} aria-label="Find a book to add" autoComplete="off" disabled={isSaving} className={cn(fieldClass, "h-10 pl-9")} />
+        <input ref={searchInput} value={query} onChange={(e) => { setQuery(e.target.value); setAddNotice(null); setLastAdded(null) }} placeholder={source === "search" ? "Search by title or author to add" : "Filter your books"} aria-label="Find a book to add" autoComplete="off" disabled={isSaving} className={cn(fieldClass, "h-10 pl-9", query && "pr-10")} />
+        {query && (
+          <button type="button" aria-label="Clear search" onClick={() => { setQuery(""); setAddNotice(null); searchInput.current?.focus() }} disabled={isSaving} className={cn(iconButtonClass, "absolute right-1 top-1/2 -translate-y-1/2")}>
+            <X size={15} aria-hidden />
+          </button>
+        )}
       </div>
-      {addNotice && <p role="status" className="px-1 text-sm text-amber-700 dark:text-amber-400">{addNotice}</p>}
+      {addNotice
+        ? <p role="status" className="px-1 text-sm text-amber-700 dark:text-amber-400">{addNotice}</p>
+        : lastAdded && <p role="status" className="flex items-center gap-1.5 px-1 text-sm text-muted-foreground"><Check size={14} aria-hidden style={{ color: accent }} />Added &ldquo;{lastAdded}&rdquo; to the list.</p>}
       {source === "search"
         ? query.trim().length >= 3 && <BookSearchResults results={results} isLoading={isSearching} onSelect={addBook} failed={searchFailed} onRetry={() => setSearchAttempt((n) => n + 1)} />
         : shelfMatches.length === 0
@@ -222,7 +238,7 @@ const ListEditorModal: FC = () => {
                 <div className="flex shrink-0">
                   <button type="button" aria-label={`Move ${item.title} up`} onClick={() => move(i, i - 1)} disabled={i === 0 || isSaving} className={iconButtonClass}><ArrowUp size={15} aria-hidden /></button>
                   <button type="button" aria-label={`Move ${item.title} down`} onClick={() => move(i, i + 1)} disabled={i === draft.items.length - 1 || isSaving} className={iconButtonClass}><ArrowDown size={15} aria-hidden /></button>
-                  <button type="button" aria-label={`Remove ${item.title}`} onClick={() => { setItems(draft.items.filter((_, j) => j !== i)); setOpenNote(null) }} disabled={isSaving} className={iconButtonClass}><X size={15} aria-hidden /></button>
+                  <button type="button" aria-label={`Remove ${item.title}`} onClick={() => { setItems(draft.items.filter((_, j) => j !== i)); setOpenNote(null); setLastAdded(null) }} disabled={isSaving} className={iconButtonClass}><X size={15} aria-hidden /></button>
                 </div>
               </div>
               {openNote === i && (

@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client"
 import prisma from "./db"
 import { GENRES } from "./genres"
 import { normaliseWorkKey, sameBook } from "./workKey"
-import { blockedUserIds, canView, canViewUser, getRelation, notSuspendedWhere, privacyOf, privacySelect, sharedBookWhere, visibleReview, type Relation } from "./privacy"
+import { blockedUserIds, canView, canViewUser, countedRatingWhere, getRelation, notSuspendedWhere, privacyOf, privacySelect, sharedBookWhere, visibleReview, type Relation } from "./privacy"
 import { can } from "./roles"
 import { QUALITY_MIN_ACCOUNT_DAYS } from "./genreListRules"
 import { openReportWhere } from "./staffReports"
@@ -387,7 +387,7 @@ export async function followedPeople(viewerId: string) {
 export const publicPerson = ({ privacy, ...person }: FollowedPerson): Curator => person
 
 // A review as a reason: only when the viewer may read it, and never a spoiler.
-function reviewSnippet(book: { review: string | null, reviewSpoiler: boolean | null, reviewPrivate: boolean | null }, person: FollowedPerson) {
+function reviewSnippet(book: { review: string | null, reviewSpoiler: boolean | null, reviewPrivate: boolean | null, reviewHiddenAt: Date | null }, person: FollowedPerson) {
   const shown = visibleReview(book, FOLLOWER, person.privacy)
   if (!shown.review || shown.reviewSpoiler) return null
   const text = shown.review.trim().replace(/\s+/g, " ")
@@ -431,9 +431,9 @@ export async function peoplePicksForBook(viewerId: string, book: { workKey: stri
         })
       : [],
     prisma.book.findMany({
-      where: { ...match, userId: { in: ids }, rating: { gte: 4 }, ...sharedBookWhere },
+      where: { ...match, userId: { in: ids }, rating: { gte: 4 }, ...sharedBookWhere, AND: [countedRatingWhere] },
       take: 100,
-      select: { userId: true, workKey: true, title: true, author: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true },
+      select: { userId: true, workKey: true, title: true, author: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true },
     }),
   ])
 
@@ -495,10 +495,10 @@ export async function followingPicks(viewerId: string) {
         })
       : [],
     prisma.book.findMany({
-      where: { userId: { in: ids }, status: "COMPLETED", rating: { gte: 4 }, ...sharedBookWhere },
+      where: { userId: { in: ids }, status: "COMPLETED", rating: { gte: 4 }, ...sharedBookWhere, AND: [countedRatingWhere] },
       orderBy: { completedAt: "desc" },
       take: 40,
-      select: { id: true, userId: true, workKey: true, title: true, author: true, coverImage: true, pages: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, completedAt: true, createdAt: true },
+      select: { id: true, userId: true, workKey: true, title: true, author: true, coverImage: true, pages: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, completedAt: true, createdAt: true },
     }),
   ])
 

@@ -5,6 +5,7 @@ import ReviewText from '../feed/ReviewText'
 import { ShelfSection } from '../books/shelf'
 import AuthorLink from '@/app/components/AuthorLink'
 import BookDetailsButton from '../books/BookDetailsButton'
+import ReportReviewButton from '../books/ReportReviewButton'
 
 export interface ReviewedBook {
   id: string
@@ -20,6 +21,7 @@ export interface ReviewedBook {
   review: string | null
   reviewSpoiler: boolean
   reviewHidden?: boolean
+  reviewRemoved?: boolean
 }
 
 interface ProfileReviewsProps {
@@ -27,12 +29,14 @@ interface ProfileReviewsProps {
   books: ReviewedBook[]
   accentColour?: string | null
   title?: string
+  // Someone else's profile: each review gets a Report button.
+  canReport?: boolean
 }
 
 const time = (date: string | null) => (date ? new Date(date).getTime() : 0)
 
 // The reviews on a profile, newest finish first. Renders nothing when there are none to show.
-const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews" }) => {
+const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false }) => {
   const reviewed = books
     .filter((b): b is ReviewedBook & { review: string } => !!b.review)
     .sort((a, b) => time(b.completedAt) - time(a.completedAt))
@@ -52,7 +56,8 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
               </BookDetailsButton>
               <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} /></p>
               {book.rating ? <StarRating value={book.rating} readOnly size={14} label="Rating" className="mt-1" /> : null}
-              <ReviewText review={book.review} spoiler={book.reviewSpoiler} hidden={book.reviewHidden} className="mt-2 max-w-2xl" />
+              <ReviewText review={book.review} spoiler={book.reviewSpoiler} hidden={book.reviewHidden} removed={book.reviewRemoved} className="mt-2 max-w-2xl" />
+              {canReport && <ReportReviewButton bookId={book.id} className="mt-2" />}
             </div>
           </li>
         ))}

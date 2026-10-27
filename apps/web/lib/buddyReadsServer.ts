@@ -19,9 +19,11 @@ import {
   hostingAllowance,
   inheritedAllowance,
   makeInviteCode,
+  newCommentRecipients,
   progressPercent,
   scheduleSchema,
   serializeComments,
+  unlockedByProgress,
   type BuddyReadSchedule,
   type CommentAuthors,
   type HostingAllowance,
@@ -225,7 +227,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       // Members can share the link; anyone with it can join.
       inviteCode: buddyRead.inviteCode,
     },
-    viewer: { userId: viewerId, progress, isHost, bookId: membership.member.bookId },
+    viewer: { userId: viewerId, progress, isHost, bookId: membership.member.bookId, muted: !!membership.member.mutedAt },
     members,
     comments,
   }
@@ -347,8 +349,9 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
 // ---- Notifications ------------------------------------------------------------------------
 
 // Reading circle notifications are batched: while the last one for this reading circle is unread, it's bumped
-// ("ana and 2 others joined", "5 comments unlocked") instead of a new row per event.
-export async function bumpNotification(n: { userId: string, actorId: string, type: NotificationType, buddyReadId: string, by: number }) {
+// ("ana and 2 others joined", "5 comments to read") instead of a new row per event. `push: false` writes a
+// new row for the bell only.
+export async function bumpNotification(n: { userId: string, actorId: string, type: NotificationType, buddyReadId: string, by: number, push?: boolean }) {
   const unread = await prisma.notification.findFirst({
     where: { userId: n.userId, read: false, type: n.type, buddyReadId: n.buddyReadId },
     orderBy: { createdAt: "desc" },
@@ -362,13 +365,16 @@ export async function bumpNotification(n: { userId: string, actorId: string, typ
   } else {
     // Only a new row is pushed: while one is unread, more joins or unlocks just bump it, so a busy circle
     // doesn't buzz the phone with every one.
-    await createNotification({ userId: n.userId, actorId: n.actorId, type: n.type, buddyReadId: n.buddyReadId, count: n.by })
+    const data = { userId: n.userId, actorId: n.actorId, type: n.type, buddyReadId: n.buddyReadId, count: n.by }
+    if (n.push === false) await prisma.notification.create({ data })
+    else await createNotification(data)
   }
 }
 
 // Called by /api/book-progress after a reader's page or status changes. For each reading circle the book
 // is in: records a first finish (for the medal), and if the reader moved past other members' comments,
-// adds them to one batched "N comments unlocked" notification. Cheap when the book isn't in one.
+// adds them to one batched "N comments to read" notification (not while they've muted the circle). Cheap
+// when the book isn't in one.
 export async function onBuddyReadProgress(userId: string, book: ProgressBook) {
   const memberships = await prisma.buddyReadMember.findMany({ where: { bookId: book.id, userId } })
   if (memberships.length === 0) return
@@ -386,7 +392,8 @@ export async function onBuddyReadProgress(userId: string, book: ProgressBook) {
         ...(finished && { finishedAt: new Date() }),
       },
     })
-    if (claimed.count === 0 || progress <= m.notifiedProgress) continue
+    // Muted: the claim above still moves on, so unmuting doesn't bring back a backlog.
+    if (claimed.count === 0 || progress <= m.notifiedProgress || m.mutedAt) continue
 
     const unlocked = await prisma.buddyReadComment.findMany({
       // MongoDB: `deletedAt: null` alone misses comments that never had the field set, which is all of them.
@@ -397,12 +404,54 @@ export async function onBuddyReadProgress(userId: string, book: ProgressBook) {
         position: { gt: m.notifiedProgress, lte: progress },
       },
       orderBy: { createdAt: "desc" },
-      select: { userId: true },
+      select: { userId: true, position: true },
     })
     const fromVisible: string[] = []
-    for (const c of unlocked) if (!(await isBlockedEitherWay(userId, c.userId))) fromVisible.push(c.userId)
+    for (const c of unlocked) {
+      if (unlockedByProgress(c.position, m.notifiedProgress, progress) && !(await isBlockedEitherWay(userId, c.userId))) fromVisible.push(c.userId)
+    }
     if (fromVisible.length === 0) continue
     await bumpNotification({ userId, actorId: fromVisible[0], type: "COMMENTS_UNLOCKED", buddyReadId: m.buddyReadId, by: fromVisible.length })
+  }
+}
+
+// A comment was just posted. Members already at or past it hear now (newCommentRecipients); the rest hear
+// when their progress passes it (onBuddyReadProgress), so nobody is told twice or before they can read it.
+// Someone with the circle open gets the bell row without a push. Never fails the post.
+export const CIRCLE_OPEN_MS = 5 * 60 * 1000
+export async function notifyNewComment(buddyReadId: string, comment: { userId: string, position: number }) {
+  try {
+    const members = await prisma.buddyReadMember.findMany({
+      where: { buddyReadId, userId: { not: comment.userId } },
+      select: { userId: true, notifiedProgress: true, mutedAt: true, lastSeenAt: true },
+    })
+    if (members.length === 0) return
+    const blocked = await blockedAmong(comment.userId, members.map((m) => m.userId))
+    const recipients = new Set(newCommentRecipients(comment, members, blocked))
+    const openSince = Date.now() - CIRCLE_OPEN_MS
+    for (const m of members) {
+      if (!recipients.has(m.userId)) continue
+      const open = !!m.lastSeenAt && m.lastSeenAt.getTime() > openSince
+      await bumpNotification({ userId: m.userId, actorId: comment.userId, type: "COMMENTS_UNLOCKED", buddyReadId, by: 1, push: !open })
+    }
+  } catch (e) {
+    console.error("Couldn't notify the circle about a new comment", e)
+  }
+}
+
+// The reader has the circle open: what it had for them is read now, so the next comment buzzes again.
+// lastSeenAt is written at most once a minute, as the app polls every few seconds.
+export async function markCircleSeen(buddyReadId: string, userId: string) {
+  try {
+    const now = new Date()
+    await prisma.buddyReadMember.updateMany({
+      // MongoDB: `lastSeenAt: null` alone misses memberships that never had the field set.
+      where: { buddyReadId, userId, OR: [{ lastSeenAt: null }, { lastSeenAt: { isSet: false } }, { lastSeenAt: { lt: new Date(now.getTime() - 60 * 1000) } }] },
+      data: { lastSeenAt: now },
+    })
+    await prisma.notification.updateMany({ where: { userId, buddyReadId, read: false, type: "COMMENTS_UNLOCKED" }, data: { read: true } })
+  } catch (e) {
+    console.error("Couldn't mark the reading circle as seen", e)
   }
 }
 

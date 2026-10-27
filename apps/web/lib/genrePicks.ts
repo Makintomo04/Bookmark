@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { GENRES } from "@/lib/genres";
 import { subjectBooks, type DiscoverBook } from "@/lib/openLibrary";
 import { sameBook } from "@/lib/workKey";
+import { withCatalogueFixesOrAsIs } from "@/lib/curatedBooks";
 
 // The most-shelved books in up to this many of your favourite genres, taken in turn so one genre
 // doesn't fill the row. Each genre offers a deeper pool than the row needs, since one book per author
@@ -55,5 +56,5 @@ export async function genrePicks(userId: string, favGenres: string[]): Promise<G
       books.push(book);
     }
   }
-  return { genres: genres.map(({ slug, label }) => ({ slug, label })), books };
+  return { genres: genres.map(({ slug, label }) => ({ slug, label })), books: await withCatalogueFixesOrAsIs(books) };
 }

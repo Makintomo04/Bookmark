@@ -1,10 +1,11 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
 import axios from 'axios'
+import Link from 'next/link'
 import useSWR from 'swr'
-import { BookOpen, Loader2, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { BookOpen, Crown, Loader2, Feather, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { fetcher, swrOptions } from '@/lib/fetcher'
-import { isUpgradeRequired } from '@/lib/entitlements'
+import { FEATURE_COPY, UPGRADE_URL, isUpgradeRequired } from '@/lib/entitlements'
 import type { AllowanceStatus } from '@/lib/ai/usage'
 import type { RecapKind, RecapVote, ResumeOption, SeriesOption, StoredRecap } from '@/lib/recap'
 import { formatPercent } from '@/lib/buddyReads'
@@ -17,6 +18,8 @@ import UpgradePrompt from '../plus/UpgradePrompt'
 // earlier books in a series. A gentle prompt card when the reader is coming back to the book (paused,
 // untouched for a while, or starting a later book in a series), otherwise one quiet action. Shows
 // nothing when the reader switched recaps off, or when the book isn't well known enough to recap.
+// Catch me up comes with Plus (free allowance 0): a free reader gets one quiet line pointing at /plus
+// instead of a button that would only fail, and can still open recaps they kept from a Plus month.
 // Types only from lib/recap.ts: it meters usage on the server and mustn't reach the client bundle.
 
 // On every recap, whatever its kind.
@@ -55,8 +58,11 @@ const promptText = (resume: ResumeOption | null, series: SeriesOption | null) =>
   return ''
 }
 
+// A free allowance of 0 means the feature comes with Plus.
+const withPlusOnly = (a: AllowanceStatus) => !a.isPlus && a.allowance === 0
+
 const allowanceText = (a: AllowanceStatus) =>
-  a.left === null ? null
+  a.left === null || withPlusOnly(a) ? null
     : a.isPlus ? `${a.left} of ${a.allowance} recaps left this month (fair use)`
     : `${a.left} of ${a.allowance} free recaps left this month`
 
@@ -112,14 +118,29 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
       .catch(() => setVote(before))
   }
 
-  const actions: { kind: RecapKind, label: string }[] = []
+  const plusOnly = withPlusOnly(allowance)
+  let actions: { kind: RecapKind, label: string }[] = []
   if (resume) actions.push({ kind: 'RESUME', label: resume.recap?.confident ? 'Show my recap' : 'Catch me up' })
   if (series) actions.push({ kind: 'SERIES', label: series.recap?.confident ? `Show recap of ${seriesBooksText(series)}` : `Recap ${seriesBooksText(series)}` })
   // The prompt leads with the kind that triggered it.
   if (!resume?.prompt && series?.prompt) actions.reverse()
+  // Without Plus, only kept recaps open.
+  const kept = (kind: RecapKind) => (kind === 'RESUME' ? resume?.recap : series?.recap)
+  const lockedOut = plusOnly && actions.some((a) => !kept(a.kind))
+  if (plusOnly) actions = actions.filter((a) => kept(a.kind))
+  const withPlus = lockedOut && view.kind === 'idle' && (
+    <p className="text-xs text-muted-foreground">
+      <Link href={UPGRADE_URL} className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline">
+        <Crown size={12} aria-hidden />{FEATURE_COPY.recaps.title}
+      </Link>
+    </p>
+  )
 
-  const prompting = !dismissed && (resume?.prompt || series?.prompt)
-  const intro = promptText(resume, series)
+  // The prompt card only offers what the reader can open.
+  const openResume = plusOnly && !resume?.recap ? null : resume
+  const openSeries = plusOnly && !series?.recap ? null : series
+  const prompting = !dismissed && (openResume?.prompt || openSeries?.prompt)
+  const intro = promptText(openResume, openSeries)
   const busy = view.kind === 'loading'
 
   const body = (() => {
@@ -194,7 +215,7 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
         i === 0 && prompting
           ? (
             <Button key={a.kind} size="sm" style={{ background: accent, color: accentInk }} onClick={() => ask(a.kind)} disabled={busy}>
-              <Sparkles size={14} className="mr-1.5" aria-hidden />{a.label}
+              <Feather size={14} className="mr-1.5" aria-hidden />{a.label}
             </Button>
           )
           : (
@@ -217,7 +238,7 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
         </button>
         <div className="flex items-start gap-3 pr-8">
           <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">
-            <Sparkles size={16} aria-hidden />
+            <Feather size={16} aria-hidden />
           </span>
           <div>
             <p className="text-sm font-semibold">Catch me up</p>
@@ -225,6 +246,7 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
           </div>
         </div>
         {buttons}
+        {withPlus}
         {unavailable}
         {available && left && <p className="text-[11px] text-muted-foreground">{left}. Opening a recap again is free.</p>}
       </section>
@@ -235,6 +257,7 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
     <section aria-label="Catch me up" className={cn('flex flex-col gap-3', view.kind !== 'idle' && view.kind !== 'upgrade' && 'rounded-2xl border p-4')}>
       {view.kind === 'idle' ? buttons : body}
       {view.kind !== 'idle' && view.kind !== 'recap' && view.kind !== 'loading' && buttons}
+      {withPlus}
       {view.kind === 'idle' && unavailable}
     </section>
   )

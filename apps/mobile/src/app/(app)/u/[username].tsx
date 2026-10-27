@@ -10,6 +10,7 @@ import { StarRating } from "@/components/books/StarRating";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { ReviewText } from "@/components/social/ReviewText";
+import { ReportReview } from "@/components/social/ReportReview";
 import { ProfileAuthors } from "@/components/authors/ProfileAuthors";
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
@@ -243,6 +244,7 @@ function Reading({ profile }: { profile: Profile }) {
                 </View>
               </View>
               <ReviewText review={b.review!} spoiler={b.reviewSpoiler} />
+              <ReportReview bookId={b.id} />
             </View>
           ))}
         </View>

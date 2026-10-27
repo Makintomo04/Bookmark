@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as WebBrowser from "expo-web-browser";
-import { BookCheck, CalendarOff, Check, CopyX, ExternalLink, FileUp, HelpCircle, Search, Sparkles } from "lucide-react-native";
+import { BookCheck, CalendarOff, Check, CopyX, ExternalLink, Feather, FileUp, HelpCircle, Search } from "lucide-react-native";
 import { Medal } from "@/components/achievements/Medal";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -330,7 +330,7 @@ function PasteList({ text, setText, onSubmit, disabled }: { text: string; setTex
           <View style={{ flex: 1, gap: 2 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text variant="label">Use AI to pick out the books</Text>
-              <Sparkles size={13} color={colors.brand} />
+              <Feather size={13} color={colors.brand} />
             </View>
             <Text variant="small">Better with messy lists: it skips notes to self and copies each title and author out of its line, word for word. It never adds a book that isn't in your list.</Text>
           </View>
@@ -458,7 +458,7 @@ function PreviewStep({ job, onConfirm, onCancel, onChange }: { job: Job; onConfi
           <Text style={{ fontWeight: "700" }}>{fmt(job.matched)}</Text> matched on Open Library, with covers and work details.
         </Note>
         {unsure > 0 && (
-          <Note icon={<Sparkles size={18} color="#d97706" />}>
+          <Note icon={<HelpCircle size={18} color="#d97706" />}>
             <Text style={{ fontWeight: "700" }}>{fmt(unsure)}</Text> {unsure === 1 ? "match" : "matches"} to check below. Any you don't check {unsure === 1 ? "is" : "are"} {isList ? "left out" : "added as typed"}.
           </Note>
         )}
@@ -470,7 +470,7 @@ function PreviewStep({ job, onConfirm, onCancel, onChange }: { job: Job; onConfi
           </Note>
         )}
         {readByAi && (
-          <Note icon={<Sparkles size={18} color={colors.brand} />}>
+          <Note icon={<Feather size={18} color={colors.brand} />}>
             AI picked the books out of your list, copying each title from its line. Every match comes from search, not from the AI.
           </Note>
         )}

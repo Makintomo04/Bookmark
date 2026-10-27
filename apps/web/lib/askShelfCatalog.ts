@@ -1,7 +1,7 @@
 import type { EditionFormat } from "@prisma/client";
 import prisma from "@/lib/db";
 import { followedPeople, publicPerson } from "@/lib/lists";
-import { blockedUserIds, canView, privacyOf, privacySelect } from "@/lib/privacy";
+import { blockedUserIds, canView, countedRatingWhere, privacyOf, privacySelect } from "@/lib/privacy";
 import { SPICE_MAX, aggregateTags } from "@/lib/workTags";
 import { hasSpiceRange, isShapeOnly, searchTerms, type AskFormat, type CatalogCandidate, type CatalogSource, type FriendSignal, type ShelfIntent, type SignalPerson } from "@/lib/askShelf";
 
@@ -172,7 +172,7 @@ async function followedSignals(userId: string, candidates: CatalogCandidate[], s
   if (people.size === 0) return;
   const resolve = workResolver(candidates);
   const books = await prisma.book.findMany({
-    where: { userId: { in: Array.from(people.keys()) }, rating: { gte: 4 }, ...bookWhere(candidates) },
+    where: { userId: { in: Array.from(people.keys()) }, rating: { gte: 4 }, ...bookWhere(candidates), AND: [countedRatingWhere] },
     select: { userId: true, workId: true, workKey: true, rating: true },
     orderBy: { rating: "desc" },
   });

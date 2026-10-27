@@ -98,18 +98,22 @@ export interface VisibleReview {
   reviewSpoiler: boolean;
   // Only ever true for the owner: tells them this review is hidden from everyone else.
   reviewHidden: boolean;
+  // Only ever true for the owner: staff took this review down after a report, so nobody else sees it.
+  reviewRemoved: boolean;
 }
 
 // The one place a review's text leaves the server. Anything that shows reviews (profile, feed)
 // passes the stored book through this; a review the viewer can't see comes back as null.
+// A review staff took down (reviewHiddenAt) is the reader's own from then on, like a private one.
 export function visibleReview(
-  book: { review?: string | null; reviewSpoiler?: boolean | null; reviewPrivate?: boolean | null },
+  book: { review?: string | null; reviewSpoiler?: boolean | null; reviewPrivate?: boolean | null; reviewHiddenAt?: Date | string | null },
   relation: Relation,
   owner: PrivacySettings,
 ): VisibleReview {
   const text = book.review?.trim() ? book.review : null;
-  const allowed = relation.isSelf || (!book.reviewPrivate && canView(relation, owner, "reviews"));
-  if (!text || !allowed) return { review: null, reviewSpoiler: false, reviewHidden: false };
-  const onlyOwner = !!book.reviewPrivate || owner.reviewVisibility === "ONLY_ME" || owner.profileVisibility === "PRIVATE";
-  return { review: text, reviewSpoiler: !!book.reviewSpoiler, reviewHidden: relation.isSelf && onlyOwner };
+  const removed = !!book.reviewHiddenAt;
+  const allowed = relation.isSelf || (!book.reviewPrivate && !removed && canView(relation, owner, "reviews"));
+  if (!text || !allowed) return { review: null, reviewSpoiler: false, reviewHidden: false, reviewRemoved: false };
+  const onlyOwner = !!book.reviewPrivate || removed || owner.reviewVisibility === "ONLY_ME" || owner.profileVisibility === "PRIVATE";
+  return { review: text, reviewSpoiler: !!book.reviewSpoiler, reviewHidden: relation.isSelf && onlyOwner, reviewRemoved: relation.isSelf && removed };
 }

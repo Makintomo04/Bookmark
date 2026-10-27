@@ -1,7 +1,7 @@
 import { booksReadCount } from "@/lib/readerTier";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
-import { sameBook } from "@/lib/workKey";
+import { bookHref, sameBook } from "@/lib/workKey";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -44,7 +44,15 @@ export async function GET(req: Request) {
   const recommendedById = new Map(recommended.map(({ workKey, ...b }) => [b.id, { ...b, onShelf: mine.some((m) => sameBook(m, { ...b, workKey })) }]))
   const withRecommendations = withBuddyReads.map((n) => (n.type === "BOOK_RECOMMENDED" ? { ...n, book: n.bookId ? recommendedById.get(n.bookId) ?? null : null } : n))
 
-  return NextResponse.json({ notifications: withRecommendations, unreadCount })
+  // A hidden review names the reader's own copy, and links to the book's page where they can see it.
+  const hiddenIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "REVIEW_HIDDEN" && n.bookId ? [n.bookId] : []))))
+  const hiddenCopies = hiddenIds.length > 0
+    ? await prisma.book.findMany({ where: { id: { in: hiddenIds }, userId: currentUser.id }, select: { id: true, title: true, author: true, coverImage: true, workKey: true, workId: true } })
+    : []
+  const hiddenById = new Map(hiddenCopies.map(({ workKey, workId, ...b }) => [b.id, { ...b, onShelf: true, href: bookHref({ workKey, pageWorkId: workId, title: b.title }) }]))
+  const withHiddenReviews = withRecommendations.map((n) => (n.type === "REVIEW_HIDDEN" ? { ...n, book: n.bookId ? hiddenById.get(n.bookId) ?? null : null } : n))
+
+  return NextResponse.json({ notifications: withHiddenReviews, unreadCount })
 }
 
 export async function PATCH(req: Request) {

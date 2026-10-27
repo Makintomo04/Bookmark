@@ -323,6 +323,11 @@ model Book {
   reviewSpoiler Boolean?
   // Only the reader sees this review, whatever their review visibility setting.
   reviewPrivate Boolean?
+  // Staff took the review down after a report (lib/staffReports.ts): only the reader still sees the text.
+  // Stays set when they edit it, until staff lift it. Their own copy, stats and export are untouched.
+  reviewHiddenAt DateTime?
+  // Staff also took the rating out of the book's average and every "people you follow" signal.
+  ratingHiddenAt DateTime?
   // A private copy: only the reader sees it, whatever shelf it's on. Left off their profile, the feed, Wrapped
   // as others see it, and every "people you follow" signal (lib/privacy.ts sharedBookWhere). Unset is shared.
   isPrivate Boolean?
@@ -646,7 +651,8 @@ enum NotificationType {
   BUDDY_READ_INVITE
   // Someone joined a reading circle you host. Unread ones are batched: count says how many joined.
   BUDDY_READ_JOINED
-  // Your progress passed other members' comments. Batched per reading circle: count says how many unlocked.
+  // Comments you can now read: your progress passed other members' comments, or someone posted at or before
+  // where you'd already read (BOO-43). Batched per reading circle: count says how many.
   COMMENTS_UNLOCKED
   // The host left and handed you the reading circle. actorId is the old host.
   BUDDY_READ_HOSTED
@@ -659,6 +665,8 @@ enum NotificationType {
   QUEST_COMPLETED
   // A friend (someone you both follow) sent you a book, with an optional message.
   BOOK_RECOMMENDED
+  // Staff hid your review after a report. actorId is you, so no librarian is named; bookId is your copy.
+  REVIEW_HIDDEN
 }
 
 model UserAchievement {
@@ -859,6 +867,10 @@ model BuddyReadMember {
   notifiedProgress Float @default(0)
   // When their book first reached 100%.
   finishedAt DateTime?
+  // Set while they've muted the circle: no comment notifications, bell or push. Unset reads as not muted.
+  mutedAt DateTime?
+  // When they last had the circle open, so a comment posted while they're reading it isn't pushed too.
+  lastSeenAt DateTime?
 
   buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
 
@@ -1052,6 +1064,28 @@ model BookReport {
   resolutionNote String?
 
   @@unique([workId, reporterId])
+  @@index([status, createdAt])
+}
+
+// A reader's report of someone's review. The review lives on the reviewer's copy (Book), so bookId is that
+// copy. Plain ids, so the report and its excerpt (the text as reported) outlive an edit or a deleted copy.
+model ReviewReport {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  bookId String @db.ObjectId
+  reviewerId String @db.ObjectId
+  reporterId String @db.ObjectId
+  // One of REVIEW_REPORT_REASONS (packages/shared/src/reviewReports.ts).
+  reason String
+  note String?
+  excerpt String?
+  createdAt DateTime @default(now())
+  // The staff reports queue (/staff/reports), as on the other report rows. Unset reads as OPEN.
+  status String?
+  resolvedById String? @db.ObjectId
+  resolvedAt DateTime?
+  resolutionNote String?
+
+  @@unique([bookId, reporterId])
   @@index([status, createdAt])
 }
 

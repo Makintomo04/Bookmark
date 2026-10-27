@@ -8,6 +8,7 @@ import { StarRating } from "@/components/books/StarRating";
 import { Avatar } from "@/components/profile/Avatar";
 import { NotificationBell } from "@/components/social/NotificationBell";
 import { ReviewText } from "@/components/social/ReviewText";
+import { ReportReview } from "@/components/social/ReportReview";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
@@ -74,6 +75,7 @@ export default function Feed() {
                 <Text variant="small">by {book.author} · {timeAgo(item.createdAt)}</Text>
                 {item.type === "RATED_BOOK" && book.rating ? <StarRating value={book.rating} size={14} /> : null}
                 {item.type === "REVIEWED_BOOK" && book.review ? <ReviewText review={book.review} spoiler={book.reviewSpoiler} maxChars={220} /> : null}
+                {item.type === "REVIEWED_BOOK" && book.review && book.id ? <ReportReview bookId={book.id} /> : null}
               </View>
               <BookCover book={book} width={44} />
             </View>
