@@ -66,6 +66,17 @@ export const SPICE_HINT: Record<SpiceLevel, string> = {
   5: "Very explicit, close to erotica",
 }
 
+// Spice is only asked about and shown where it means something: a book whose Open Library subjects or
+// any reader's genre for it say romance (romantasy and erotica included), or one readers have flagged
+// for sexual content. Readers catch what Open Library misses: romantasy filed under fantasy alone, or
+// a duplicate work with no subjects at all.
+const ROMANCE_PATTERN = /romance|romantic|romantasy|love[\s_-]*stor|erotic/i
+export type SpiceContext = { subjects?: string[] | null, genres?: (string | null)[] }
+export function spiceApplies(about: SpiceContext | undefined, warnings: { topic: string }[]): boolean {
+  if (warnings.some((w) => w.topic === "Sexual content")) return true
+  return [...(about?.genres ?? []), ...(about?.subjects ?? [])].some((t) => !!t && ROMANCE_PATTERN.test(t))
+}
+
 export const spiceSchema = z.number().int().min(0).max(SPICE_MAX).nullable()
 
 export const readerTagsSchema = z.object({
@@ -117,14 +128,17 @@ export type TagAggregate = {
   moods: MoodCount[]
   warnings: WarningSummary[]
   spice: SpiceSummary
+  // Whether the book is one spice applies to (spiceApplies): the spice line and picker show only if so.
+  spiceApplies: boolean
   mine: SavedTags | null
 }
 
 const LEVEL_RANK: Record<WarningLevel, number> = { MINOR: 0, MODERATE: 1, GRAPHIC: 2 }
 
 // Everyone's tags for one work, summed: moods by how many readers chose them (share of taggers, as a
-// fraction), warnings by topic with the commonest level. `viewerId` picks out the viewer's own row.
-export function aggregateTags(rows: ReaderTagsRow[], viewerId?: string | null): TagAggregate {
+// fraction), warnings by topic with the commonest level. `viewerId` picks out the viewer's own row, and
+// `about` is the book's subjects and genre, for spiceApplies.
+export function aggregateTags(rows: ReaderTagsRow[], viewerId?: string | null, about?: SpiceContext): TagAggregate {
   const moodCounts = new Map<Mood, number>()
   const warningCounts = new Map<WarningTopic, Record<WarningLevel, number>>()
   const spiceReports: number[] = []
@@ -162,8 +176,13 @@ export function aggregateTags(rows: ReaderTagsRow[], viewerId?: string | null): 
     reports: spiceReports.length,
   }
 
-  return { readers, moods, warnings, spice, mine }
+  return { readers, moods, warnings, spice, spiceApplies: spiceApplies(about, warnings), mine }
 }
+
+// Whether to ask this reader for spice: the book is one it applies to, the warnings they're giving now
+// flag sexual content, or they reported spice before (so they can still change or clear it).
+export const spiceAskable = (tags: TagAggregate | undefined, warnings: { topic: string }[]) =>
+  !!tags?.spiceApplies || tags?.mine?.spice != null || spiceApplies(undefined, warnings)
 
 // Once a book has this many taggers, a mood needs MOOD_FLOOR of them to be shown: with only twelve moods,
 // a stray pick or two would otherwise sit among the real ones on a book a thousand people tagged. Below

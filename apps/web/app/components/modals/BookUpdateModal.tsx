@@ -30,7 +30,7 @@ import useWorkTags from '@/app/hooks/useWorkTags'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import BookBlurb from '../books/BookBlurb'
 import { recommendedByOf } from '@/lib/recommendRules'
-import type { ReaderTagsInput } from '@/lib/workTags'
+import { spiceAskable, type ReaderTagsInput } from '@/lib/workTags'
 import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../books/WorkTags'
 import AuthorLink from '@/app/components/AuthorLink'
 import Link from 'next/link'
@@ -535,7 +535,7 @@ const BookUpdateModal: FC = () => {
           <AccentCheckbox checked={reviewPrivate} onChange={setReviewPrivate} disabled={isSaving} accent={accent} label="Only me" />
         </div>
       </div>
-      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} canReportSpice={status === "COMPLETED" || finished} />
+      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} canReportSpice={(status === "COMPLETED" || finished) && spiceAskable(workTags, tags.warnings)} />
     </div>
   )
 
