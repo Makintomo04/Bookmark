@@ -37,6 +37,10 @@ export function readingGridCols(count: number) {
   return count % 3 === 0 || count > 4 ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2"
 }
 
+// Covers each shelf shows before "See all": two rows on a wide screen. Enough to recognise the shelf, and
+// short enough that the series tracker, reviews and lists below are a scroll or two away.
+export const SHELF_PREVIEW = 12
+
 export const coverGridClass = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-5 gap-y-8"
 
 export const ShelfSection: FC<{ id: string; title: string; count: number; action?: ReactNode; children: ReactNode }> = ({ id, title, count, action, children }) => (

@@ -316,8 +316,12 @@ model Book {
   cardColour String?
   status Status @default(NOT_STARTED)
   genre String?
-  // 0.5 to 5 in half-star steps.
+  // 0.25 to 5 in quarter-star steps (lib/readHistory.ts ratingSchema).
   rating Float?
+  // The reader's own filing labels ("owned", "kindle", "book-club-2023"), private to them. Imported from
+  // Goodreads shelves and StoryGraph tags, written back out as "Bookshelves". Not ReaderTags, which
+  // describe the work for everyone.
+  tags String[] @db.String
   review String?
   // The review gives the plot away: others see it collapsed behind a click-to-reveal.
   reviewSpoiler Boolean?

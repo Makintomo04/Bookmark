@@ -4,6 +4,7 @@ import { genreFromTags } from "./genre.ts";
 import type { ImportRow, ImportSource, ImportedRead, ParsedImport } from "./types.ts";
 import { seriesFromTitle, yearFrom } from "../catalog/normalise.ts";
 import { cleanCsvText, cleanRecords, detectFormat } from "./clean.ts";
+import { tagsFromShelves } from "../shelfTags.ts";
 
 // Detects Goodreads, StoryGraph and Bookmark CSV exports and maps each row onto Bookmark's model.
 // Kept free of "@/" imports so scripts/test/import.test.ts can load it with plain Node.
@@ -97,6 +98,8 @@ const DNF_SHELF = /^(dnf|did[\s_-]*not[\s_-]*finish|abandon(ed)?|gave[\s_-]*up|d
 const PAUSED_SHELF = /^(paused|on[\s_-]*hold)$/i;
 const NOT_INTERESTED_SHELF = /^(not[\s_-]*interested|will[\s_-]*not[\s_-]*read|won'?t[\s_-]*read)$/i;
 const FAVOURITE_SHELF = /^favou?rites?$/i;
+// Shelves import reads as a status or a favourite, so they aren't kept as tags too.
+const STATUS_SHELVES = [DNF_SHELF, PAUSED_SHELF, FAVOURITE_SHELF];
 
 export function statusForShelf(shelf: string): Status | null {
   const s = shelf.trim().toLowerCase();
@@ -179,6 +182,8 @@ function goodreadsRow(r: Record<string, string>, line: number): ImportRow {
     review: cleanReview(r["My Review"]),
     privateNotes: orNull(r["Private Notes"]),
     genre: genreFromTags(shelves),
+    // Custom shelves ("owned", "kindle", "book-club-2023") come over as tags. Status shelves don't.
+    tags: tagsFromShelves(shelves, STATUS_SHELVES),
     favourite: shelves.some((s) => FAVOURITE_SHELF.test(s)),
     addedAt: parseDate(r["Date Added"]),
     // Goodreads' current export has no start date; older ones (and some tools) add "Date Started".
@@ -250,6 +255,8 @@ function storygraphRow(r: Record<string, string>, line: number): ImportRow {
     rating: roundRating(r["Star Rating"]),
     review: cleanReview(r["Review"]),
     genre: genreFromTags(tags),
+    // StoryGraph's own tags, not its moods: moods describe the book (ReaderTags), tags are the reader's filing.
+    tags: tagsFromShelves(splitList(r["Tags"]), STATUS_SHELVES),
     favourite: tags.some((t) => FAVOURITE_SHELF.test(t)),
     addedAt: parseDate(r["Date Added"]),
     startedAt: current ? current.startedAt : status === "COMPLETED" ? latest?.startedAt ?? null : null,
@@ -287,6 +294,8 @@ function bookmarkRow(r: Record<string, string>, line: number): ImportRow {
     // Exported reviews are already plain text; keep them byte for byte.
     review: r["My Review"] ? r["My Review"] : null,
     genre: orNull(r["Genre"]),
+    // Written out as "Bookshelves" (lib/export.ts), with "favourites" for favourites.
+    tags: tagsFromShelves(splitList(r["Bookshelves"]), STATUS_SHELVES),
     favourite: text(r["Favourite"]).toLowerCase() === "true" || splitList(r["Bookshelves"]).some((s) => FAVOURITE_SHELF.test(s)),
     addedAt: parseDate(r["Date Added"]),
     startedAt,

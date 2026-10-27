@@ -1,7 +1,10 @@
 "use client"
 import { FC, FormEvent, useEffect, useState } from 'react'
 import axios from 'axios'
-import { BookCheck, ListPlus, Loader2, Feather, Star, AlertTriangle, Users } from 'lucide-react'
+import { BookCheck, ListPlus, Loader2, Feather, Star, AlertTriangle, Users, Search } from 'lucide-react'
+import Link from 'next/link'
+import { shelfParams, shelfQuestion, type ShelfFilter } from '@/lib/shelfFilter'
+import { GENRES } from '@/lib/genres'
 import { apiError, notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { isUpgradeRequired } from '@/lib/entitlements'
@@ -222,6 +225,8 @@ const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, ini
   const [upgrade, setUpgrade] = useState(!initialStatus.isPlus && initialStatus.left === 0)
   const [enabled, setEnabled] = useState(initiallyEnabled)
   const [recent, setRecent] = useState<Outcome[]>([])
+  // Set when the question is about books already read: where shelf search would look (lib/shelfFilter.ts).
+  const [ownShelf, setOwnShelf] = useState<Partial<ShelfFilter> | null>(null)
 
   // After mount, so the server render and the first client render agree.
   const userId = user?.id
@@ -257,9 +262,17 @@ const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, ini
 
   const outOfSearches = status.left === 0
 
-  const search = (text: string) => {
+  const search = (text: string, { anyway = false } = {}) => {
     const trimmed = text.trim()
     if (trimmed.length < 3 || isSearching) return
+    // "Have I read…?" is about the reader's own shelf, which Ask the shelf leaves out: offer shelf search
+    // instead, before spending one of their searches.
+    const own = anyway ? null : shelfQuestion(trimmed, GENRES.map((g) => g.label))
+    setOwnShelf(own)
+    if (own) {
+      setQuery(trimmed)
+      return
+    }
     setQuery(trimmed)
     setIsSearching(true)
     setError(null)
@@ -376,6 +389,24 @@ const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, ini
           </div>
         )}
       </form>
+
+      {ownShelf && (
+        <div role="status" className="max-w-2xl rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5">
+          <p className="font-semibold">Looking for a book you&apos;ve already read?</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ask the shelf suggests books you haven&apos;t read yet. Your own shelf can be searched by title or author and
+            filtered by year, genre and rating{ownShelf.year || ownShelf.genre ? `, and we've set it to ${[ownShelf.genre, ownShelf.year && `finished in ${ownShelf.year}`].filter(Boolean).join(", ")}` : ""}.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href={`/shelf?${shelfParams(ownShelf)}`} className={primaryButtonClass}>
+              <Search size={16} aria-hidden />Search your shelf
+            </Link>
+            <button type="button" onClick={() => search(query, { anyway: true })} className={secondaryButtonClass}>
+              Ask for new books anyway
+            </button>
+          </div>
+        </div>
+      )}
 
       {upgrade && <UpgradePrompt feature="askShelfSearches" className="max-w-2xl" />}
       {error && <p role="alert" className="max-w-2xl rounded-2xl border border-rose-500/30 p-4 text-sm">{error}</p>}

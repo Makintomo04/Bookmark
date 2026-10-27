@@ -1,4 +1,5 @@
-import { FC } from 'react'
+"use client"
+import { FC, useState } from 'react'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import ReviewText from '../feed/ReviewText'
@@ -35,17 +36,23 @@ interface ProfileReviewsProps {
 
 const time = (date: string | null) => (date ? new Date(date).getTime() : 0)
 
+// The newest few show straight away; a reader with hundreds of reviews pages through the rest.
+const FIRST = 5
+const MORE = 20
+
 // The reviews on a profile, newest finish first. Renders nothing when there are none to show.
 const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false }) => {
+  const [shown, setShown] = useState(FIRST)
   const reviewed = books
     .filter((b): b is ReviewedBook & { review: string } => !!b.review)
     .sort((a, b) => time(b.completedAt) - time(a.completedAt))
   if (reviewed.length === 0) return null
+  const left = reviewed.length - shown
 
   return (
     <ShelfSection id="profile-reviews" title={title} count={reviewed.length}>
       <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
-        {reviewed.map((book) => (
+        {reviewed.slice(0, shown).map((book) => (
           <li key={book.id} className="flex gap-4 py-5 first:pt-0">
             <BookDetailsButton book={book} duplicate className="w-16 shrink-0 self-start transition hover:opacity-90">
               <BookCover book={book} variant="thumb" sizes="64px" className="shadow-sm" />
@@ -62,6 +69,18 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
           </li>
         ))}
       </ul>
+      {left > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          <button type="button" onClick={() => setShown((n) => n + MORE)} className="font-medium underline underline-offset-4 hover:text-muted-foreground">
+            Show {Math.min(MORE, left)} more
+          </button>
+          {left > MORE && (
+            <button type="button" onClick={() => setShown(reviewed.length)} className="text-muted-foreground underline underline-offset-4 hover:text-foreground">
+              See all {reviewed.length.toLocaleString('en-GB')}
+            </button>
+          )}
+        </div>
+      )}
     </ShelfSection>
   )
 }

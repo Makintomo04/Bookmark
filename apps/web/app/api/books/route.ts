@@ -8,7 +8,7 @@ import { shareableCover } from "@/lib/uploads";
 import { normaliseWorkKey } from "@/lib/workKey";
 import { workIdsWithPages } from "@/lib/workPages";
 import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
-import { RATING_ERROR, ratingSchema, readFromBook } from "@/lib/readHistory";
+import { RATING_ERROR, optionalDaySchema, ratingSchema, readFromBook } from "@/lib/readHistory";
 import { EditionFormat, Status } from "@prisma/client";
 import { z } from "zod";
 import { parseAudioMinutes } from "@/lib/bookInput";
@@ -39,11 +39,15 @@ export async function GET(req:Request, res:Response) {
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
 
-const books = await prisma.book.findMany({
+// The whole shelf goes to the browser for search, sort and filter (lib/shelfFilter.ts), so the blurb stays
+// behind: it can run to a few KB a book, and the book's panel loads it from /api/books/[bookId] when opened.
+const rows = await prisma.book.findMany({
   where:{
     userId: currentUser.id
   },
+  include: { edition: { select: { format: true } } },
 })
+const books = rows.map(({ edition, description, ...b }) => ({ ...b, format: edition?.format ?? null }))
 // "Recommended by" is shown to the reader only: a Bookmark user by @username, otherwise the name they typed.
 const recommenderIds = Array.from(new Set(books.flatMap((b) => (b.recommendedById ? [b.recommendedById] : []))))
 const recommenders = recommenderIds.length > 0
@@ -64,7 +68,7 @@ const { user: currentUser, response } = await requireUser();
 if (response) return response;
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, hardcoverId, format, audioMinutes, isPrivate } = body
+  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, finishedOn, startedOn, rating, genre, workKey, description, editionKey, isbn13, isbn10, hardcoverId, format, audioMinutes, isPrivate } = body
 
 if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {
   return NextResponse.json({ error: "Title and author are required" }, { status: 400 })
@@ -97,6 +101,20 @@ if (!parsedRating.success) {
 const now = new Date()
 const shelf = parsedStatus.data
 const isCompleted = shelf === "COMPLETED"
+// A finished book's dates, as picked ("2024-03-01", or null for "I don't remember"). Older clients send
+// finishedThisYear instead, which means today.
+const finishedDay = optionalDaySchema.optional().safeParse(finishedOn)
+const startedDay = optionalDaySchema.optional().safeParse(startedOn)
+if (!finishedDay.success || !startedDay.success) {
+  return NextResponse.json({ error: (finishedDay.success ? startedDay : finishedDay).error?.issues[0]?.message ?? "Invalid date" }, { status: 400 })
+}
+const finishedAt = finishedDay.data !== undefined ? finishedDay.data : finishedThisYear ? now : null
+const startedAt = isCompleted ? startedDay.data ?? null : null
+if (startedAt && finishedAt && startedAt > finishedAt) {
+  return NextResponse.json({ error: "The start date is after the finish date" }, { status: 400 })
+}
+// A finish dated this year posts to followers and can earn a medal moment; a past read is logged quietly.
+const finishedThisYearNow = isCompleted && !!finishedAt && finishedAt.getUTCFullYear() === now.getUTCFullYear()
 const isStopped = shelf === "DNF" || shelf === "PAUSED"
 
 const startMinute = runningTime ? Math.max(0, Math.min(runningTime, parseInt(currentMinute) || 0)) : 0
@@ -139,14 +157,13 @@ const book = await prisma.book.create({
     ...catalogIds(catalog),
     description: await resolveDescription(description, workKey, catalog),
     // The start date only feeds a "Started 3 Mar" label, so default it to today rather than asking.
-    startedAt: shelf === "STARTED" ? now : null,
+    startedAt: shelf === "STARTED" ? now : startedAt,
     currentPage: isCompleted ? totalPages : shelf === "STARTED" || isStopped ? startPage : 0,
     progressUnit: runningTime ? "MINUTES" : null,
     audioMinutes: runningTime,
     currentMinute: runningTime ? (isCompleted ? runningTime : shelf === "STARTED" || isStopped ? startMinute : 0) : null,
-    // Past reads stay undated so they don't count toward this year's goal;
-    // only a book the user says they finished this year gets a completion date.
-    completedAt: isCompleted && finishedThisYear ? now : null,
+    // The day the reader says they finished. Undated past reads count toward totals but no year's goal.
+    completedAt: isCompleted ? finishedAt : null,
     stoppedAt: isStopped ? now : null,
     timesRead: isCompleted ? 1 : 0,
     rating: (isCompleted || shelf === "DNF") && parsedRating.data ? parsedRating.data : null,
@@ -164,11 +181,11 @@ if (shelf !== "NOT_INTERESTED") await prisma.activity.create({
   data: {
     userId: currentUser.id,
     bookId: book.id,
-    type: shelf === "STARTED" ? "STARTED_BOOK" : isCompleted && finishedThisYear ? "COMPLETED_BOOK" : "ADDED_BOOK",
+    type: shelf === "STARTED" ? "STARTED_BOOK" : finishedThisYearNow ? "COMPLETED_BOOK" : "ADDED_BOOK",
   }
 })
 // Adding a finished book can earn medals; the app celebrates what comes back.
-const earnMoment = isCompleted ? await earnMomentFor(currentUser, await syncAchievements(currentUser.id), { finished: finishedThisYear }) : null
+const earnMoment = isCompleted ? await earnMomentFor(currentUser, await syncAchievements(currentUser.id), { finished: finishedThisYearNow }) : null
 await seriesFilled
 return NextResponse.json({ ...book, earnMoment })
 }

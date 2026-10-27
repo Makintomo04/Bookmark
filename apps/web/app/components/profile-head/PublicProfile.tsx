@@ -9,9 +9,9 @@ import ProfileMenu from './ProfileMenu'
 import ProfileReviews from './ProfileReviews'
 import BooksInCommon from './BooksInCommon'
 import { cn } from '@/lib/utils'
-import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
-import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from '../books/shelf'
+import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books/shelf'
+import CappedShelf from './CappedShelf'
 import ProfileLists from '../discover/ProfileLists'
 import ProfileAuthors from './ProfileAuthors'
 import MedalShowcase from '../achievements/MedalShowcase'
@@ -86,19 +86,11 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
               </ShelfSection>
             )}
             {finished.length > 0 && (
-              <ShelfSection id="public-shelf-finished" title="Finished" count={finished.length}>
-                <div className={coverGridClass}>
-                  {finished.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
-                </div>
-              </ShelfSection>
+              <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} />
             )}
             <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport />
             {wantToRead.length > 0 && (
-              <ShelfSection id="public-shelf-want" title="Want to read" count={wantToRead.length}>
-                <div className={coverGridClass}>
-                  {wantToRead.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
-                </div>
-              </ShelfSection>
+              <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} />
             )}
           </>
         )}
