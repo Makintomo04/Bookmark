@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { parseShelfParams, shelfParams } from '@/lib/shelfFilter'
+import { parseShelfParams, shelfPageHref, shelfParams } from '@/lib/shelfFilter'
 
 interface PageProps {
   searchParams: Record<string, string | string[] | undefined>
@@ -17,5 +17,7 @@ export default async function Page({ searchParams }: PageProps) {
   const user = await getCurrentUser()
   if (!user) redirect(`/signin?callbackUrl=${encodeURIComponent(`/shelf${query ? `?${query}` : ''}`)}`)
   if (!user.username) redirect('/')
+  // One shelf goes to that shelf's page; otherwise the profile, where a search spans every shelf.
+  if (filter.shelf) redirect(shelfPageHref(user.username, filter.shelf, filter))
   redirect(`/u/${encodeURIComponent(user.username)}${query ? `?${query}` : ''}`)
 }

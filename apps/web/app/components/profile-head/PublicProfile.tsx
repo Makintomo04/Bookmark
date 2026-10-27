@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books/shelf'
 import CappedShelf from './CappedShelf'
+import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileLists from '../discover/ProfileLists'
 import ProfileAuthors from './ProfileAuthors'
 import MedalShowcase from '../achievements/MedalShowcase'
@@ -86,11 +87,11 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
               </ShelfSection>
             )}
             {finished.length > 0 && (
-              <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} />
+              <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
             )}
             <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport />
             {wantToRead.length > 0 && (
-              <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} />
+              <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
             )}
           </>
         )}

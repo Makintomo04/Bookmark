@@ -24,6 +24,25 @@ export const SHELF_TITLE: Record<ShelfKey, string> = {
   notInterested: "Will not read",
 };
 
+// Each shelf's page: /u/<username>/shelf/<slug>.
+export const SHELF_SLUG: Record<ShelfKey, string> = {
+  reading: "reading",
+  paused: "paused",
+  want: "want-to-read",
+  finished: "finished",
+  dnf: "did-not-finish",
+  notInterested: "will-not-read",
+};
+
+export const shelfFromSlug = (slug: string): ShelfKey | null =>
+  (Object.keys(SHELF_SLUG) as ShelfKey[]).find((k) => SHELF_SLUG[k] === slug) ?? null;
+
+// A shelf's own page, carrying any search, sort and filters (the shelf itself is in the path).
+export function shelfPageHref(username: string, shelf: ShelfKey, filter: Partial<ShelfFilter> = {}) {
+  const query = shelfParams({ ...filter, shelf: null }).toString();
+  return `/u/${encodeURIComponent(username)}/shelf/${SHELF_SLUG[shelf]}${query ? `?${query}` : ""}`;
+}
+
 export const shelfOf = (status: Status): ShelfKey =>
   (Object.keys(SHELF_STATUS) as ShelfKey[]).find((k) => SHELF_STATUS[k] === status) ?? "want";
 
@@ -84,7 +103,7 @@ export interface ShelfBook {
   createdAt: When;
   startedAt: When;
   completedAt: When;
-  stoppedAt: When;
+  stoppedAt?: When;
   progressUnit?: "PAGES" | "MINUTES" | null;
   audioMinutes?: number | null;
   // The catalogue edition's format, sent with /api/books.

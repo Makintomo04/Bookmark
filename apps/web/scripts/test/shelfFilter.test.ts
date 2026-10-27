@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EMPTY_FILTER, filterOptions, isNarrowed, matchesFilter, parseShelfParams, shelfParams, shelfQuestion, sortBooks,
+  EMPTY_FILTER, filterOptions, isNarrowed, matchesFilter, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
   type ShelfBook, type ShelfFilter,
 } from "@/lib/shelfFilter";
 
@@ -80,4 +80,11 @@ test("Ask the shelf questions about books already read become shelf searches", (
   // Questions for something new stay with Ask the shelf.
   assert.equal(shelfQuestion("a cosy fantasy with found family", genres, now), null);
   assert.equal(shelfQuestion("something like books I loved, but darker romantasy", genres, now), null);
+});
+
+test("each shelf has its own page, and the page link carries the filters but not the shelf", () => {
+  assert.equal(shelfPageHref("persona", "finished"), "/u/persona/shelf/finished");
+  assert.equal(shelfPageHref("a b", "want", { sort: "rating", shelf: "want", year: 2021 }), "/u/a%20b/shelf/want-to-read?sort=rating&year=2021");
+  assert.equal(shelfFromSlug("did-not-finish"), "dnf");
+  assert.equal(shelfFromSlug("nope"), null);
 });

@@ -1,8 +1,9 @@
 "use client"
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Book } from '@prisma/client'
-import { LayoutGrid, Grid3x3, ArrowLeft } from 'lucide-react'
+import { LayoutGrid, Grid3x3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
 import useViewMode from '@/app/hooks/useViewMode'
@@ -14,7 +15,7 @@ import BulkBar from './BulkBar'
 import ShelfToolbar, { pillClass } from './ShelfToolbar'
 import GrowingList from './GrowingList'
 import {
-  EMPTY_FILTER, SHELF_TITLE, isNarrowed, matchesFilter, parseShelfParams, shelfOf, shelfParams, sortBooks,
+  EMPTY_FILTER, SHELF_TITLE, isNarrowed, matchesFilter, parseShelfParams, shelfOf, shelfPageHref, shelfParams, sortBooks,
   type ShelfFilter, type ShelfKey,
 } from '@/lib/shelfFilter'
 
@@ -22,9 +23,11 @@ interface BookGridProps {
   books: Book[]
   // One ungrouped grid in the given order, for pages like Favourites that want everything at a glance.
   flat?: boolean
+  // A shelf's own page (/u/<username>/shelf/<slug>): that shelf only, searched, sorted and filtered.
+  shelf?: ShelfKey
 }
 
-const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
+const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) => {
   const [mounted, setMounted] = useState(false)
   const { viewMode, setViewMode } = useViewMode()
   const { user } = useUser()
@@ -55,15 +58,18 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
   const urlKey = searchParams?.toString() ?? ""
   const written = useRef<string | null>(null)
   const top = useRef<HTMLDivElement>(null)
-  const [filter, setFilter] = useState<ShelfFilter>(() => flat ? EMPTY_FILTER : parseShelfParams(new URLSearchParams(urlKey)))
+  // The shelf is the page's (onlyShelf) or none: one shelf at a time lives on its own page, not in a param.
+  const fromUrl = (key: string): ShelfFilter => ({ ...parseShelfParams(new URLSearchParams(key)), shelf: onlyShelf ?? null })
+  const [filter, setFilter] = useState<ShelfFilter>(() => flat ? EMPTY_FILTER : fromUrl(urlKey))
   useEffect(() => {
     if (flat || urlKey === written.current) return
     written.current = urlKey
-    setFilter(parseShelfParams(new URLSearchParams(urlKey)))
+    setFilter(fromUrl(urlKey))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlKey, flat])
   useEffect(() => {
     if (flat) return
-    const next = shelfParams(filter).toString()
+    const next = shelfParams({ ...filter, shelf: null }).toString()
     if (next === (written.current ?? urlKey)) return
     const timer = setTimeout(() => {
       written.current = next
@@ -77,10 +83,9 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, flat])
 
-  const openShelf = (shelf: ShelfKey | null) => {
-    setFilter({ ...EMPTY_FILTER, sort: filter.sort, shelf })
-    top.current?.scrollIntoView({ block: "start", behavior: "smooth" })
-  }
+  // "See all" opens the shelf's own page, keeping the sort: a real navigation, so Back returns here.
+  const username = user?.username ?? null
+  const seeAllHref = (key: ShelfKey) => (username ? shelfPageHref(username, key, { sort: filter.sort }) : null)
 
   useEffect(() => {
     setMounted(true)
@@ -173,27 +178,23 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
     </div>
   )
 
-  const toolbar = <ShelfToolbar books={books} filter={filter} onChange={setFilter} actions={viewToggle} />
+  // On a shelf's page the filters only offer what's on that shelf.
+  const toolbarBooks = onlyShelf ? books.filter((b) => shelfOf(b.status) === onlyShelf) : books
+  const toolbar = <ShelfToolbar books={toolbarBooks} filter={filter} onChange={setFilter} actions={viewToggle} />
 
-  // A search or filter: one list of matches from every shelf (or the one shelf open), each labelled.
+  // A search or filter: one list of matches from every shelf, each labelled. On a shelf's own page, that
+  // shelf in full (the page's title names it).
   if (narrowed || filter.shelf) {
+    const n = matches.length.toLocaleString('en-GB')
     const title = narrowed
-      ? `${matches.length === 1 ? "1 book matches" : `${matches.length.toLocaleString('en-GB')} books match`}${filter.shelf ? ` on ${SHELF_TITLE[filter.shelf]}` : ""}`
-      : SHELF_TITLE[filter.shelf!]
+      ? matches.length === 1 ? "1 book matches" : `${n} books match`
+      : matches.length === 1 ? "1 book" : `${n} books`
     return (
       <div ref={top} className="w-full scroll-mt-24">
         {toolbar}
         <section aria-labelledby="shelf-results">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4 min-h-10">
-            <h2 id="shelf-results" className="flex items-baseline gap-2 text-lg font-semibold">
-              {filter.shelf && (
-                <button type="button" onClick={() => openShelf(null)} aria-label="Back to every shelf" className="self-center -ml-1 rounded-full p-1 hover:bg-neutral-200 dark:hover:bg-neutral-800">
-                  <ArrowLeft size={18} aria-hidden />
-                </button>
-              )}
-              {title}
-              {!narrowed && <span className="text-sm font-normal text-muted-foreground tabular-nums">{matches.length.toLocaleString('en-GB')}</span>}
-            </h2>
+            <h2 id="shelf-results" className="text-lg font-semibold tabular-nums">{title}</h2>
             {selectAll(matches)}
           </div>
           {matches.length > 0
@@ -226,15 +227,17 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
         )}
       </ShelfSection>
 
-      {/* Empty shelves are hidden. Long ones show a preview; "See all" opens the whole shelf on its own. */}
+      {/* Empty shelves are hidden. Long ones show a preview; "See all" opens the shelf's own page. */}
       {coverShelves.map(({ key, items }) => (
         <ShelfSection key={key} id={`shelf-${key}`} title={SHELF_TITLE[key]} count={items.length} action={selectAll(items)}>
           {shelf(items.slice(0, SHELF_PREVIEW))}
           {items.length > SHELF_PREVIEW && (
             <div className="mt-6 flex justify-center">
-              <button type="button" onClick={() => openShelf(key)} className={pillClass}>
-                See all {items.length.toLocaleString('en-GB')}
-              </button>
+              {seeAllHref(key) && (
+                <Link href={seeAllHref(key)!} className={cn(pillClass, "inline-flex items-center")}>
+                  See all {items.length.toLocaleString('en-GB')}
+                </Link>
+              )}
             </div>
           )}
         </ShelfSection>

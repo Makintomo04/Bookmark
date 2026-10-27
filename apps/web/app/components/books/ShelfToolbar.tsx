@@ -3,7 +3,7 @@ import { FC, ReactNode, useMemo, useState } from 'react'
 import { ArrowUpDown, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  EMPTY_FILTER, FORMAT_LABEL, SHELF_SORTS, SORT_LABEL, filterOptions,
+  EMPTY_FILTER, FORMAT_LABEL, SHELF_SORTS, SHELF_TITLE, SORT_LABEL, filterOptions,
   type ShelfBook, type ShelfFilter, type ShelfSort,
 } from '@/lib/shelfFilter'
 import { ratingGlyphs } from '@bookmark/shared/rating'
@@ -92,7 +92,7 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
             type="search"
             value={filter.q}
             onChange={(e) => set({ q: e.target.value })}
-            placeholder="Search your shelf by title, author or tag"
+            placeholder={filter.shelf ? `Search ${SHELF_TITLE[filter.shelf]} by title, author or tag` : "Search your shelf by title, author or tag"}
             className="h-10 w-full rounded-full border border-neutral-300 dark:border-neutral-700 bg-background pl-10 pr-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </label>
@@ -154,9 +154,9 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
               {filter.author}<X size={15} aria-hidden className="opacity-70" />
             </button>
           )}
-          {(activeFilters > 0 || filter.q || filter.shelf) && (
-            <button type="button" onClick={() => onChange({ ...EMPTY_FILTER, sort: filter.sort })} className="h-9 px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
-              Clear{filter.shelf ? ` and show every shelf` : " filters"}
+          {(activeFilters > 0 || filter.q) && (
+            <button type="button" onClick={() => onChange({ ...EMPTY_FILTER, sort: filter.sort, shelf: filter.shelf })} className="h-9 px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+              Clear filters
             </button>
           )}
           {options.years.length === 0 && options.genres.length === 0 && options.formats.length === 0 && options.tags.length === 0 && options.ratings.length === 0 && (

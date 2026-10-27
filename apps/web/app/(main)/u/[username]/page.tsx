@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { parseShelfParams, shelfPageHref } from '@/lib/shelfFilter'
 import { hasRequested, needsFollowApproval } from '@/lib/followRequests'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { currentBook, getProfileView, getPublicProfile, readingCounts, serializeProfile } from '@/lib/publicProfile'
@@ -10,6 +11,7 @@ import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 
 interface PageProps {
   params: { username: string }
+  searchParams?: Record<string, string | string[] | undefined>
 }
 
 // Metadata is what link unfurls and search engines see, so it's built from the signed-out view
@@ -46,7 +48,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function Page({ params }: PageProps) {
+export default async function Page({ params, searchParams = {} }: PageProps) {
+  // Links from before shelves had their own pages (?shelf=finished) go to the shelf's page.
+  const one = (name: string) => { const v = searchParams[name]; return typeof v === 'string' ? v : null }
+  const linked = parseShelfParams({ get: one })
+  if (linked.shelf) redirect(shelfPageHref(params.username, linked.shelf, linked))
   const viewer = await getCurrentUser()
   const data = await getProfileView(params.username, viewer?.id)
   if (!data) notFound()
