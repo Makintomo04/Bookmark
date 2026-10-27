@@ -68,7 +68,7 @@ export default function PlusScreen() {
         </View>
         <Text variant="hero" style={{ textAlign: "center" }}>All your stats are free.</Text>
         <Text variant="muted" style={{ textAlign: "center", fontSize: 16, lineHeight: 23 }}>
-          Plus lets you host more circles and set extra goals, with AI recaps on the way. It never gates your stats, your import, or the circles your friends invite you to.
+          Plus lets you host more circles, set extra goals and use Ask the shelf and Catch me up more often. It never gates your stats, your import, or the circles your friends invite you to.
         </Text>
       </View>
 
@@ -97,7 +97,8 @@ function PlanCard({ status, allowances }: { status: Status; allowances: PlusResp
         ? isIndefiniteComp(status.compUntil) ? "Complimentary Plus from the Bookmark team, with no end date." : `Free Plus until ${day(status.compUntil)}.`
         : "You're on the free plan. Every stat, import and circle you join stays free.";
   const label = status.source === "lifetime" ? "Lifetime" : status.patron ? "Patron" : status.founding && status.source !== "comp" ? "Founding Reader" : status.trialing ? "Trial" : status.source === "comp" ? (isIndefiniteComp(status.compUntil) ? "Complimentary" : "Free months") : status.plan === "PLUS" ? "Active" : "Free";
-  const allowanceLine = (name: string, a: Allowance) => (a.left === null ? null : `${name}: ${a.left} of ${a.allowance} left this month${a.isPlus ? " (fair use)" : ""}`);
+  const allowanceLine = (name: string, a: Allowance) =>
+    a.left === null ? null : !a.isPlus && a.allowance === 0 ? `${name}: with Plus` : `${name}: ${a.left} of ${a.allowance} left this month${a.isPlus ? " (fair use)" : ""}`;
   const lines = allowances ? [allowanceLine("Ask the shelf", allowances.askShelfSearches), allowanceLine("Catch me up", allowances.recaps)].filter(Boolean) : [];
 
   return (

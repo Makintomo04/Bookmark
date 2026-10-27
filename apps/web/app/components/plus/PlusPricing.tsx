@@ -97,7 +97,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
         </span>
         <h1 className="display-hero mt-4">All your stats are free.</h1>
         <p className={cn('mt-4 text-base md:text-lg', mutedClassName)}>
-          Plus lets you host more circles and set extra goals, with AI recaps on the way. It never gates your stats, your import, or the circles your friends invite you to.
+          Plus lets you host more circles, set extra goals and use Ask the shelf and Catch me up more often. It never gates your stats, your import, or the circles your friends invite you to.
         </p>
       </header>
 

@@ -201,7 +201,7 @@ const TurnOnAi: FC<{ onEnabled: () => void }> = ({ onEnabled }) => {
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100 dark:bg-neutral-900"><Sparkles size={18} aria-hidden /></span>
       <div className="min-w-0 flex-1">
         <p className="font-medium">AI features are off.</p>
-        <p className="mt-0.5 text-sm text-muted-foreground">Turn them on to use Ask the shelf and Catch me up recaps. AI only runs when you ask it to, is always labelled, and is never about you. You can turn it off again in settings.</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">Turn them on to use Ask the shelf, and Catch me up recaps with Plus. AI only runs when you ask it to, is always labelled, and is never about you. You can turn it off again in settings.</p>
       </div>
       <button type="button" onClick={turnOn} disabled={saving} className={primaryButtonClass}>
         {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Sparkles size={16} aria-hidden />}

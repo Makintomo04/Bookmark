@@ -78,7 +78,7 @@ function facts({ wrapped: w, username, favColour }: ImageInput) {
   // The accent also sets text on the dark ground; lift dark accents so they stay legible.
   const accentText = readableInk(accent) === '#ffffff' ? shade(accent, 0.45) : accent
   const favourite = w.topRated ?? w.longestBook
-  // A month's card (Plus): the month is the headline and the period is "month", not "year".
+  // A month's card (free for everyone): the month is the headline and the period is "month", not "year".
   const monthly = w.month !== null
   const goalName = monthly ? 'monthly goal' : 'goal'
   const goal = w.goal ? (w.goal.met ? `${monthly ? 'Monthly goal' : 'Goal'} met: ${fmt(w.goal.completed)} of ${fmt(w.goal.target)}` : `${fmt(w.goal.completed)} of ${fmt(w.goal.target)} ${goalName}`) : null
