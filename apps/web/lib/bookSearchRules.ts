@@ -1,6 +1,8 @@
 import type { DiscoverBook } from "./openLibrary"
+import { workMatchKey } from "./catalog/normalise.ts"
 
-// How book search turns Bookmark's own shelves into results and blends them with Open Library's. No database.
+// How book search turns Bookmark's own shelves into results and blends them with Open Library's, and with
+// Hardcover's when Open Library falls short. No database.
 
 const MAX_TOKENS = 5
 
@@ -72,6 +74,7 @@ function mostCommon<T>(values: T[]): T | null {
 // Bookmark's own matches lead, but take at most half the slots so a reader's niche pick can't push the
 // catalogue's best match off the list. An Open Library result already shown from a shelf is dropped; the
 // shelf copy keeps its mirrored cover, and Open Library fills in the publication year.
+// A Hardcover result has no work key, so it's matched to a shown book by title and author instead.
 export function mergeResults(local: DiscoverBook[], remote: DiscoverBook[], limit: number): DiscoverBook[] {
   const remoteByKey = new Map(remote.filter((b) => b.workKey).map((b) => [b.workKey, b]))
   const lead = local.slice(0, Math.ceil(limit / 2)).map((b) => {
@@ -79,6 +82,39 @@ export function mergeResults(local: DiscoverBook[], remote: DiscoverBook[], limi
     return match ? { ...b, year: b.year ?? match.year ?? null, pages: b.pages ?? match.pages } : b
   })
   const shown = new Set(lead.map((b) => b.workKey))
-  const rest = remote.filter((b) => !b.workKey || !shown.has(b.workKey))
+  const shownBooks = new Set(lead.map(matchKeyOf).filter(Boolean))
+  const rest = remote.filter((b) => (b.workKey ? !shown.has(b.workKey) : !shownBooks.has(matchKeyOf(b))))
   return [...lead, ...rest].slice(0, limit)
+}
+
+const matchKeyOf = (b: DiscoverBook) => workMatchKey(b.title, b.author)
+
+// Whether Open Library's answer is weak enough to ask Hardcover too: nothing at all, or nothing whose
+// title and author between them hold every word searched for ("caged blackthorn" bringing back other
+// books). An ISBN search is left alone: the hit is right even though its title doesn't contain the number.
+export function needsFallback(results: DiscoverBook[], query: string) {
+  if (results.length === 0) return true
+  const tokens = queryTokens(query).map(fold).filter(Boolean)
+  if (tokens.length === 0 || tokens.every((t) => /^[\dx]+$/.test(t))) return false
+  return !results.some((b) => {
+    const text = ` ${fold(`${b.title} ${b.author}`)} `
+    return tokens.every((t) => text.includes(t))
+  })
+}
+
+// Open Library's results with Hardcover's added. Open Library fell short to get here, so Hardcover's lead;
+// one already in Open Library's list (same ISBN, or same title and first author) is dropped, keeping
+// Open Library's copy, which has the work key book pages and shelf search go by.
+export function withFallback(openLibrary: DiscoverBook[], hardcover: DiscoverBook[], limit: number): DiscoverBook[] {
+  const isbns = new Set(openLibrary.flatMap((b) => [b.isbn13, b.isbn10].filter(Boolean)))
+  const books = new Set(openLibrary.map(matchKeyOf).filter(Boolean))
+  const seen = new Set<string>()
+  const extra = hardcover.filter((b) => {
+    const key = matchKeyOf(b)
+    if ((b.isbn13 && isbns.has(b.isbn13)) || (b.isbn10 && isbns.has(b.isbn10))) return false
+    if (key && (books.has(key) || seen.has(key))) return false
+    if (key) seen.add(key)
+    return true
+  })
+  return [...extra, ...openLibrary].slice(0, limit)
 }

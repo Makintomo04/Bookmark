@@ -18,6 +18,10 @@ export interface DiscoverBook {
   // Optional, from fresh results only: the languages of the work's editions ("eng", "spa"), for leaving
   // translations out of an author's list (lib/bookListCleanup.ts).
   languages?: string[]
+  // Optional, from Hardcover results only (lib/hardcover.ts): they have no Open Library work to fetch a
+  // blurb from, so the search hit carries it.
+  description?: string | null
+  source?: "hardcover"
 }
 
 // A reader's copy of a book, as the book details modal and the add buttons take it. Pages of 0 mean unknown.

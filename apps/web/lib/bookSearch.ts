@@ -1,7 +1,8 @@
 import { unstable_cache } from "next/cache"
 import prisma from "@/lib/db"
 import { searchBooks, type DiscoverBook } from "./openLibrary"
-import { normaliseQuery, queryTokens, rankShelfRows } from "./bookSearchRules"
+import { hardcoverConfigured, searchHardcover } from "./hardcover"
+import { needsFallback, normaliseQuery, queryTokens, rankShelfRows, withFallback } from "./bookSearchRules"
 import { isShareableCover } from "./uploadedImages"
 import { uploadersOf } from "./uploads"
 
@@ -41,4 +42,31 @@ const cachedCatalogue = unstable_cache(
   { revalidate: CATALOGUE_TTL },
 )
 
-export const searchCatalogue = (query: string, limit: number) => cachedCatalogue(normaliseQuery(query), limit)
+// Hardcover's results barely change either, and its free plan allows 5,000 requests a day.
+const cachedHardcover = unstable_cache(
+  (query: string, limit: number) => searchHardcover(query, limit),
+  ["hardcover-search"],
+  { revalidate: CATALOGUE_TTL },
+)
+
+// Open Library first. When it has nothing, or nothing that matches every word, Hardcover fills in: it has
+// the indie and Kindle-only books Open Library misses, and stands in when Open Library is down. Hardcover
+// failing (or no token set) never fails the search; it just isn't added.
+export async function searchCatalogue(query: string, limit: number) {
+  const q = normaliseQuery(query)
+  const hardcover = () => cachedHardcover(q, limit).catch((err) => {
+    console.warn("Hardcover search failed", err instanceof Error ? err.message : err)
+    return null
+  })
+  let openLibrary: DiscoverBook[]
+  try {
+    openLibrary = await cachedCatalogue(q, limit)
+  } catch (err) {
+    // Throwing tells the search route Open Library is down, unless Hardcover can answer instead.
+    const standIn = hardcoverConfigured() ? await hardcover() : null
+    if (standIn?.length) return standIn
+    throw err
+  }
+  if (!hardcoverConfigured() || !needsFallback(openLibrary, q)) return openLibrary
+  return withFallback(openLibrary, (await hardcover()) ?? [], limit)
+}
