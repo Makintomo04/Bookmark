@@ -105,33 +105,37 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
     .map((s) => ({ ...s, items: filter.sort === "recent" ? s.items : sortBooks(s.items, filter.sort) }))
 
   // In select mode a button over each card takes the click, so the card's own modal and menu stay shut.
-  const pickable = (book: Book, card: JSX.Element) => !selecting ? card : (
+  // The cover card draws its own check and ring; the compact row gets a ring round the row.
+  const pickable = (book: Book, card: JSX.Element, drawsOwnCheck: boolean) => !selecting ? card : (
     <div key={book.id} className="relative">
       {card}
       <button type="button" aria-pressed={picked.has(book.id)} aria-label={`Select ${book.title}`} onClick={() => togglePick(book.id)}
-        style={accent && picked.has(book.id) ? { '--tw-ring-color': accent } as CSSProperties : undefined}
-        className={cn("absolute inset-0 z-10 rounded-xl transition focus-visible:outline-none focus-visible:ring-2",
-          picked.has(book.id) ? "ring-2 ring-foreground bg-foreground/10" : "hover:bg-foreground/5")}>
-        <span aria-hidden className={cn("absolute top-2 left-2 h-5 w-5 rounded-md border-2 border-white shadow flex items-center justify-center",
-          picked.has(book.id) ? "bg-foreground text-background" : "bg-black/30")}>
-          {picked.has(book.id) && <Check size={14} />}
-        </span>
+        style={accent && picked.has(book.id) && !drawsOwnCheck ? { '--tw-ring-color': accent } as CSSProperties : undefined}
+        className={cn("absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background",
+          !drawsOwnCheck && (picked.has(book.id) ? "ring-2 ring-foreground" : "hover:bg-foreground/5"))}>
+        {!drawsOwnCheck && (
+          <span aria-hidden className={cn("absolute top-1/2 right-3 -translate-y-1/2 h-5 w-5 rounded-full border-2 flex items-center justify-center",
+            picked.has(book.id) ? "border-foreground bg-foreground text-background" : "border-neutral-400")}>
+            {picked.has(book.id) && <Check size={12} strokeWidth={3} />}
+          </span>
+        )}
       </button>
     </div>
   )
 
   // `showShelf` labels each card with its shelf, for search results that mix them.
   const card = (book: Book, showShelf = false) => {
-    const inner = activeMode === 'comfortable'
-      ? <BookCoverCard key={book.id} book={book} accentColour={accent} selecting={selecting} />
-      : <CompactBookCard key={book.id} book={book} />
-    const labelled = showShelf ? (
+    const label = showShelf ? SHELF_TITLE[shelfOf(book.status)] : undefined
+    if (activeMode === 'comfortable') {
+      return pickable(book, <BookCoverCard key={book.id} book={book} accentColour={accent} selected={selecting ? picked.has(book.id) : null} shelfLabel={label} />, true)
+    }
+    const row = <CompactBookCard key={book.id} book={book} />
+    return pickable(book, label ? (
       <div key={book.id} className="flex flex-col">
-        {inner}
-        <p className={cn("text-xs text-muted-foreground", activeMode === 'comfortable' ? "mt-1" : "mt-1 ml-1")}>{SHELF_TITLE[shelfOf(book.status)]}</p>
+        {row}
+        <p className="mt-1 ml-1 text-xs text-muted-foreground">{label}</p>
       </div>
-    ) : inner
-    return pickable(book, labelled)
+    ) : row, false)
   }
   const gridClass = activeMode === 'comfortable' ? coverGridClass : "grid grid-cols-1 lg:grid-cols-2 gap-3"
   const shelf = (items: Book[], showShelf = false) => (
