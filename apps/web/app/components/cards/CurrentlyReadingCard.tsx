@@ -27,7 +27,7 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
   const bookUpdateModal = useBookUpdateModal()
   const openDetails = useBookDetailsModal((s) => s.onOpen)
   const progress = progressWhole(book)
-  const position = formatPosition(book)
+  const position = formatPosition(book, { percent: false })
   const accent = accentColour || '#F13C3C'
 
   const openProgress = () => {

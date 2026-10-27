@@ -95,12 +95,9 @@ export async function POST(req: Request) {
 
   const book = isObjectId(bookId) ? await prisma.book.findUnique({ where: { id: bookId } }) : null;
   if (!book || book.userId !== currentUser.id) return buddyReadError("Book not found", 404);
+  // A book with no page count can host too: its members log a percent (lib/progress.ts entersPercent),
+  // and circles only ever compare percents.
   const scale = progressScale(book);
-  if (!(scale.total > 0)) {
-    return buddyReadError(scale.unit === "MINUTES"
-      ? "Add the audiobook's running time first, so everyone's progress can be tracked."
-      : "Add the book's page count first, so everyone's progress can be tracked.", 400);
-  }
 
   // Free accounts host one active circle at a time; Plus has no limit. Joining is never limited.
   const hosting = await canHostAnotherCircle(currentUser.id);

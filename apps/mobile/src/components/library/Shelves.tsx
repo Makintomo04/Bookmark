@@ -60,7 +60,7 @@ function ReadingCard({ book, accent, rereading }: { book: Book; accent: string; 
         <View style={[styles.track, { backgroundColor: colors.muted }]}>
           <View style={[styles.fill, { width: `${percent}%`, backgroundColor: accent }]} />
         </View>
-        <Text variant="small">{formatPosition(book)} · {percent}%</Text>
+        <Text variant="small">{formatPosition(book, { percent: false })} · {percent}%</Text>
       </View>
     </Pressable>
   );

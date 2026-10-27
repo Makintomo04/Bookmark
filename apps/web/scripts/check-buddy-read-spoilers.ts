@@ -224,6 +224,36 @@ check("minutes round to one decimal", progressPercent({ ...audio, currentMinute:
   check("a re-reader still can't see past their furthest point", flatten(rereader).some((c) => c.id === aheadReply2.id && c.locked))
 }
 
+// Kindle readers log a percent, often on a book with no page count (BOO-44). The lock is the same: their
+// typed percent is their progress, and nothing past it opens.
+{
+  const kindle = (currentPercent: number | null) => ({ status: "STARTED", currentPage: 0, pages: 0, currentPercent })
+  check("a percent-only book is at its typed percent", progressPercent(kindle(40)) === 40)
+  check("a percent-only book with no percent yet is 0", progressPercent(kindle(null)) === 0)
+  check("a typed percent wins over a rounded page", progressPercent({ status: "STARTED", currentPage: 19, pages: 50, currentPercent: 37 }) === 37)
+  check("a finished percent-only book is 100", progressPercent({ ...kindle(40), status: "COMPLETED" }) === 100)
+
+  const at40 = row("ana", 40)
+  const at41 = row("ben", 41)
+  const out = serializeComments([at40, at41], { userId: "stranger", progress: progressPercent(kindle(40)) }, authors)
+  check("a percent-only reader at 40% sees the 40% comment", out.some((c) => c.id === at40.id && !c.locked))
+  check("a percent-only reader at 40% has the 41% comment locked", out.some((c) => c.id === at41.id && c.locked))
+  check("a locked body never reaches a percent-only reader", !JSON.stringify(out).includes(`SECRET-BODY-${at41.id}-END`))
+  check("a percent-only reader's comment sits at their percent", commentPosition(undefined, progressPercent(kindle(40))) === 40)
+  check("a percent-only reader can't post ahead of their percent", commentPosition(80, progressPercent(kindle(40))) === 40)
+
+  // Starting again clears the percent (the book is back at 0), but the circle keeps the furthest point.
+  check("a re-read with the percent cleared keeps the furthest point", circleProgress(progressPercent(kindle(null)), 40) === 40)
+  const rereader = serializeComments([at40, at41], { userId: "stranger", progress: circleProgress(progressPercent(kindle(null)), 40) }, authors)
+  check("a percent-only re-reader still sees what they'd reached and no further",
+    rereader.some((c) => c.id === at40.id && !c.locked) && rereader.some((c) => c.id === at41.id && c.locked))
+
+  // The whole sweep again, at typed percents on and around each boundary.
+  for (const percent of [0, 9.9, 10, 29.9, 30, 41.9, 42, 99.9, 100]) {
+    for (const userId of ["ana", "ben", "cal", "stranger"]) checkViewer(userId, progressPercent(kindle(percent)))
+  }
+}
+
 // BOO-43: who hears about a comment. Posting tells members already past it (newCommentRecipients); reading on
 // tells the rest as they pass it (unlockedByProgress). Never before they can read it, and never twice.
 {

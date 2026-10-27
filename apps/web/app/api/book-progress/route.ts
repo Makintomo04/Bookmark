@@ -6,6 +6,7 @@ import { progressTriggers } from "@/lib/achievementTriggers";
 import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
 import { OPEN_READ_STATUSES, RATING_ERROR, RESHELVE_TARGETS, ratingInputSchema, readFromBook, reshelvedFields } from "@/lib/readHistory";
 import { lengthSnapshot, progressScale } from "@/lib/progress";
+import { positionFromBody } from "@/lib/progressPayload";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -66,6 +67,11 @@ const bodySchema = z.object({
   // Audiobooks: minutes listened, absolute or as an increment. Used only when the book runs on minutes.
   currentMinute: z.number().finite().optional(),
   minutesUpdate: z.union([z.string(), z.number()]).optional(),
+  // Kindle readers: the place as a percent. Wins over a page or minute sent alongside it; the matching
+  // position is stored with it when the book's length is known.
+  currentPercent: z.number().min(0).max(100).optional(),
+  // Remember percent entry for this book, on every device.
+  logsPercent: z.boolean().optional(),
   rating: ratingInputSchema.optional(),
   review: z.string().max(2000, "Review must be 2000 characters or fewer").optional(),
   // Spoiler reviews show collapsed behind a click-to-reveal; private ones only to the reader (lib/privacy.ts).
@@ -136,23 +142,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Choose a different shelf" }, { status: 400 })
   }
 
-  // The book's own scale: pages, or minutes for an audiobook. The position sent in the other unit is
-  // ignored, so an old client that only knows pages can't drag an audiobook back to page 0.
+  // The book's own scale: pages, or minutes for an audiobook (lib/progressPayload.ts). A percent comes
+  // with its position worked out; a page or minute clears any percent logged before.
   const scale = progressScale(book)
   const onMinutes = scale.unit === "MINUTES"
-  const clampPos = (n: number) => Math.max(0, Math.min(scale.total, Math.round(n)))
-  const absolute = onMinutes ? body.currentMinute : body.currentPage
-  const rawIncrement = onMinutes ? body.minutesUpdate : body.pagesUpdate
-  const increment = rawIncrement === undefined ? NaN : parseInt(String(rawIncrement))
-  const position = absolute !== undefined ? clampPos(absolute)
-    : !isNaN(increment) ? clampPos(scale.current + increment)
-    : undefined
+  const { position, percent } = positionFromBody(book, body)
   if (action === "progress" && position === undefined) {
     return NextResponse.json({ error: onMinutes ? "Minutes to add must be greater than 0" : "Pages to increment must be greater than 0" }, { status: 400 })
   }
-  // Book mirrors the open read: currentPage for a paper book, currentMinute for an audiobook.
+  // Book mirrors the open read: currentPage for a paper book, currentMinute for an audiobook, and the
+  // percent (`logged`), set whenever a position was sent: a pause without one keeps the place as it was.
   const at = (n: number | null | undefined): Prisma.BookUpdateInput => (onMinutes ? { currentMinute: n ?? 0 } : { currentPage: n ?? 0 })
   const readAt = (n: number | null | undefined): Prisma.BookReadUncheckedUpdateInput => (onMinutes ? { currentMinute: n ?? 0 } : {})
+  const logged = position !== undefined ? { currentPercent: percent } : {}
   const page = position
 
   const now = new Date()
@@ -166,18 +168,19 @@ export async function POST(req: Request) {
         case "start":
         case "restart":
           // A re-read is a new row: the finished (or abandoned) read keeps its own dates and rating.
-          await tx.bookRead.create({ data: { bookId: book.id, userId: book.userId, status: "STARTED", startedAt: now } })
+          await tx.bookRead.create({ data: { bookId: book.id, userId: book.userId, status: "STARTED", startedAt: now, ...(action === "start" && logged) } })
           // completedAt stays as the last finish; goal and stats only count it while the status is COMPLETED.
-          data = { status: "STARTED", startedAt: now, stoppedAt: null, currentPage: 0, currentMinute: 0, ...at(action === "start" ? page ?? 0 : 0) }
+          data = { status: "STARTED", startedAt: now, stoppedAt: null, currentPage: 0, currentMinute: 0, currentPercent: null, ...at(action === "start" ? page ?? 0 : 0), ...(action === "start" && logged) }
           break
         case "progress":
-          await updateOpenRead(tx, book, readAt(page))
-          data = at(page)
+          await updateOpenRead(tx, book, { ...readAt(page), ...logged })
+          data = { ...at(page), ...logged }
           break
         case "complete":
           // The read keeps the format and length it was read in, whatever the book is changed to later.
           await updateOpenRead(tx, book, { status: "COMPLETED", finishedAt: now, rating: ratingForRead, ...lengthSnapshot(book), ...readAt(scale.total) })
-          data = { status: "COMPLETED", completedAt: now, stoppedAt: null, currentPage: book.pages, timesRead: { increment: 1 }, ...(onMinutes && { currentMinute: scale.total }) }
+          // A finished book is 100% whatever was logged, so the percent is cleared with the read.
+          data = { status: "COMPLETED", completedAt: now, stoppedAt: null, currentPage: book.pages, currentPercent: null, timesRead: { increment: 1 }, ...(onMinutes && { currentMinute: scale.total }) }
           break
         case "rate": {
           // The rating belongs to the read that just ended, as well as to the book.
@@ -191,26 +194,28 @@ export async function POST(req: Request) {
           break
         }
         case "pause":
-          await updateOpenRead(tx, book, { status: "PAUSED", ...readAt(page ?? scale.current) })
-          data = { status: "PAUSED", stoppedAt: now, ...at(page ?? scale.current) }
+          await updateOpenRead(tx, book, { status: "PAUSED", ...readAt(page ?? scale.current), ...logged })
+          data = { status: "PAUSED", stoppedAt: now, ...at(page ?? scale.current), ...logged }
           break
         case "resume":
-          await updateOpenRead(tx, book, { status: "STARTED", ...readAt(page ?? scale.current) })
-          data = { status: "STARTED", stoppedAt: null, ...at(page ?? scale.current) }
+          await updateOpenRead(tx, book, { status: "STARTED", ...readAt(page ?? scale.current), ...logged })
+          data = { status: "STARTED", stoppedAt: null, ...at(page ?? scale.current), ...logged }
           break
         case "dnf": {
           const stoppedAt = page ?? scale.current
           await updateOpenRead(tx, book, {
             status: "DNF", finishedAt: now, rating: ratingForRead, ...lengthSnapshot(book),
             ...(onMinutes ? { stoppedAtMinute: stoppedAt, currentMinute: stoppedAt } : { stoppedAtPage: stoppedAt }),
+            // Final on a DNF: a book with no page count stopped at a percent, not at page 0.
+            currentPercent: position !== undefined ? percent : book.currentPercent ?? null,
           })
-          data = { status: "DNF", stoppedAt: now, ...at(stoppedAt) }
+          data = { status: "DNF", stoppedAt: now, ...at(stoppedAt), ...logged }
           break
         }
         case "wantToRead":
           // A read put back on the shelf mid-way wasn't really a read; a DNF stays in the history.
           await tx.bookRead.deleteMany({ where: { bookId: book.id, status: { in: [...OPEN_READ_STATUSES] } } })
-          data = { status: "NOT_STARTED", startedAt: null, stoppedAt: null, currentPage: 0, currentMinute: 0 }
+          data = { status: "NOT_STARTED", startedAt: null, stoppedAt: null, currentPage: 0, currentMinute: 0, currentPercent: null }
           break
         case "notInterested":
           // Only from Want to read, so there's no open read to close.
@@ -238,6 +243,7 @@ export async function POST(req: Request) {
       }
       // When the reader last moved their place in the book (lib/recap.ts tells a book left untouched by it).
       if (action === "start" || action === "restart" || action === "progress" || action === "resume") data.progressAt = now
+      if (body.logsPercent !== undefined) data.logsPercent = body.logsPercent
       if (rating !== undefined && action !== "reshelve") data.rating = rating
       if (review !== undefined) data.review = review
       if (reviewSpoiler !== undefined) data.reviewSpoiler = reviewSpoiler
@@ -274,7 +280,7 @@ export async function POST(req: Request) {
   const synced = await syncAchievements(currentUser.id, {
     trigger: progressTriggers({
       action: action === "reshelve" && to === "COMPLETED" ? "complete" : action,
-      moved: updated.currentPage !== book.currentPage || updated.currentMinute !== book.currentMinute,
+      moved: updated.currentPage !== book.currentPage || updated.currentMinute !== book.currentMinute || updated.currentPercent !== book.currentPercent,
       rated: activities.includes("RATED_BOOK"),
       reviewed: activities.includes("REVIEWED_BOOK"),
     }),
