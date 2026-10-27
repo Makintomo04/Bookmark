@@ -134,3 +134,14 @@ test("toppedUp fills a thin Open Library result from the same book on Hardcover,
   // No match on Hardcover: left as it was.
   assert.deepEqual(toppedUp([thin], [hc("Other Book", "Kate Posey")]), [thin]);
 });
+
+test("mergeResults gives a coverless shelf copy the catalogue result's cover and blurb", () => {
+  const shelf = { ...book("OL42428428W", "Serial Killer Games"), author: "Kate Posey", pages: 384 };
+  const remote = { ...shelf, coverUrl: "https://assets.hardcover.app/skg.jpg", description: "A blurb." };
+  const [merged] = mergeResults([shelf], [remote], 6);
+  assert.equal(merged.coverUrl, "https://assets.hardcover.app/skg.jpg");
+  assert.equal(merged.description, "A blurb.");
+  // A shelf copy's own cover stays.
+  const mirrored = { ...shelf, coverUrl: "https://utfs.io/f/skg" };
+  assert.equal(mergeResults([mirrored], [remote], 6)[0].coverUrl, "https://utfs.io/f/skg");
+});
