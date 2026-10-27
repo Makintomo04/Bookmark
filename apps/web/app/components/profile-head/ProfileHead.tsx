@@ -94,8 +94,11 @@ const ProfileHead: FC = () => {
           </>
         }
       >
-        <MedalShowcase earned={earnedKeys} href="/achievements" />
-        <ReadingGoalWidget />
+        {/* Your year beside your best medals: one row on a wide screen, stacked on a phone. */}
+        <div className="mt-5 grid items-stretch gap-3 md:grid-cols-2">
+          <ReadingGoalWidget />
+          <MedalShowcase earned={earnedKeys} href="/achievements" layout="panel" />
+        </div>
       </ProfileHeader>
 
       {showLightbox && user.image && (

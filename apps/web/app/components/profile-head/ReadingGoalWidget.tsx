@@ -112,7 +112,7 @@ const ReadingGoalWidget: FC = () => {
 
   if (isEditing) {
     return (
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-5 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+      <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
         <label htmlFor="targetBooks" className="block text-sm font-medium">How many books do you want to read in {year}?</label>
         <div className="mt-2.5 flex flex-wrap items-start gap-2">
           <div className="w-20">
@@ -158,7 +158,7 @@ const ReadingGoalWidget: FC = () => {
       <button
         type="button"
         onClick={startEditing}
-        className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-6 text-sm text-muted-foreground hover:text-foreground hover:border-neutral-400 dark:hover:border-neutral-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Target size={15} aria-hidden />
         Set a {year} reading goal
@@ -174,8 +174,8 @@ const ReadingGoalWidget: FC = () => {
   const monthGoal = monthTarget(goal, progress.books - progress.thisMonth, progress.month, canExtra)
 
   return (
-    <div className="mt-5 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
-      <div className="flex items-center gap-4">
+    <section aria-label={`${year} reading goal`} className="flex flex-col rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+      <div className="mb-3 flex items-center gap-4">
         <svg
           role="progressbar"
           aria-label={`${year} reading goal`}
@@ -211,18 +211,22 @@ const ReadingGoalWidget: FC = () => {
           <Pencil size={15} aria-hidden />
         </button>
       </div>
-      <div className="mt-3 flex flex-col gap-2.5 border-t border-neutral-200 dark:border-neutral-800 pt-3">
-        {monthGoal.perMonth > 0 && (
-          <ExtraGoal
-            label={monthGoal.custom ? `Books in ${MONTHS[progress.month]}` : `Books in ${MONTHS[progress.month]} · to stay on track`}
-            done={progress.thisMonth}
-            target={monthGoal.perMonth}
-            colour={colour}
-          />
-        )}
-        {pagesTarget ? <ExtraGoal label={`Pages in ${year}`} done={progress.pages} target={pagesTarget} colour={colour} /> : null}
-      </div>
-    </div>
+      {(monthGoal.perMonth > 0 || pagesTarget) && (
+        // At the foot of the card, so it lines up with the medals beside it.
+        <div className="mt-auto flex flex-col gap-2.5 border-t border-neutral-200 dark:border-neutral-800 pt-3">
+          {monthGoal.perMonth > 0 && (
+            <ExtraGoal
+              label={MONTHS[progress.month]}
+              done={progress.thisMonth}
+              target={monthGoal.perMonth}
+              targetLabel={monthGoal.custom ? undefined : `${fmt(monthGoal.perMonth)} to stay on track`}
+              colour={colour}
+            />
+          )}
+          {pagesTarget ? <ExtraGoal label={`Pages in ${year}`} done={progress.pages} target={pagesTarget} colour={colour} /> : null}
+        </div>
+      )}
+    </section>
   )
 }
 
