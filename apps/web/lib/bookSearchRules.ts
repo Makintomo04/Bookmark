@@ -1,6 +1,7 @@
 import type { DiscoverBook } from "./openLibrary"
 import { workMatchKey } from "./catalog/normalise.ts"
 import { collapseDuplicates } from "./workDuplicates.ts"
+import { titleKey } from "./bookListCleanup.ts"
 
 // How book search turns Bookmark's own shelves into results and blends them with Open Library's, and with
 // Hardcover's when Open Library falls short. No database.
@@ -157,6 +158,19 @@ export function topUp(book: DiscoverBook, from: DiscoverBook | null | undefined)
 // Each thin Open Library result filled from the matching Hardcover hit, when there is one.
 export const toppedUp = (openLibrary: DiscoverBook[], hardcover: DiscoverBook[]) =>
   openLibrary.map((b) => (isThin(b) ? topUp(b, sameBook(b, hardcover)) : b))
+
+// One author's thin books filled from another list of the same author's books (our catalogue's, or
+// Hardcover's), matched by title alone: within one author's books the title is enough, and it survives
+// a co-author being credited first. Of several matches, the first with a cover is used.
+export function toppedUpByTitle(books: DiscoverBook[], from: DiscoverBook[]): DiscoverBook[] {
+  const byTitle = new Map<string, DiscoverBook>()
+  for (const f of from) {
+    const key = titleKey(f.title)
+    const held = byTitle.get(key)
+    if (key && (!held || (!held.coverUrl && f.coverUrl))) byTitle.set(key, f)
+  }
+  return books.map((b) => (isThin(b) ? topUp(b, byTitle.get(titleKey(b.title))) : b))
+}
 
 // Open Library's results with Hardcover's added. Open Library fell short to get here, so Hardcover's lead;
 // one already in Open Library's list (same ISBN, or same title and first author) is dropped, keeping

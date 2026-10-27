@@ -5,7 +5,7 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/bookSearch.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergeResults, needsFallback, needsTopUp, normaliseQuery, queryTokens, rankShelfRows, toppedUp, withFallback, type ShelfRow } from "@/lib/bookSearchRules";
+import { mergeResults, needsFallback, needsTopUp, normaliseQuery, queryTokens, rankShelfRows, toppedUp, toppedUpByTitle, withFallback, type ShelfRow } from "@/lib/bookSearchRules";
 import { hardcoverBook } from "@/lib/hardcover";
 import type { DiscoverBook } from "@/lib/openLibrary";
 
@@ -144,4 +144,18 @@ test("mergeResults gives a coverless shelf copy the catalogue result's cover and
   // A shelf copy's own cover stays.
   const mirrored = { ...shelf, coverUrl: "https://utfs.io/f/skg" };
   assert.equal(mergeResults([mirrored], [remote], 6)[0].coverUrl, "https://utfs.io/f/skg");
+});
+
+test("toppedUpByTitle fills an author's thin books by title, preferring a match with a cover", () => {
+  const thin = { ...book("OL42428428W", "Serial Killer Games"), author: "Kate Posey", pages: 384 };
+  const full = { ...book("OL2W", "Another Book"), coverUrl: "https://covers.openlibrary.org/b/id/2-L.jpg", pages: 300 };
+  const [filled, untouched] = toppedUpByTitle([thin, full], [
+    hc("Serial Killer Games", "Someone Credited First"),
+    hc("Serial Killer Games", "Kate Posey", { coverUrl: "https://assets.hardcover.app/skg.jpg", description: "A blurb." }),
+    hc("Another Book", "Kate Posey", { coverUrl: "https://assets.hardcover.app/other.jpg" }),
+  ]);
+  assert.equal(filled.coverUrl, "https://assets.hardcover.app/skg.jpg");
+  assert.equal(filled.workKey, "OL42428428W");
+  assert.equal(filled.description, "A blurb.");
+  assert.equal(untouched, full);
 });
