@@ -57,7 +57,7 @@ export type CircleView = {
     hostId: string;
     inviteCode: string;
   };
-  viewer: { userId: string; progress: number; isHost: boolean; bookId: string };
+  viewer: { userId: string; progress: number; isHost: boolean; bookId: string; muted: boolean };
   members: CircleMember[];
   comments: SerializedComment[];
 };

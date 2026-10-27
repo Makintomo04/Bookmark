@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import Container from '@/app/components/Container'
 import BuddyReadView from '@/app/components/buddy-reads/BuddyReadView'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { loadBuddyReadView } from '@/lib/buddyReadsServer'
+import { loadBuddyReadView, markCircleSeen } from '@/lib/buddyReadsServer'
 
 interface PageProps {
   params: { id: string }
@@ -21,6 +21,7 @@ const Page = async ({ params }: PageProps) => {
   if (!viewer) redirect(`/signin?callbackUrl=${encodeURIComponent(`/circles/${params.id}`)}`)
   const view = await loadBuddyReadView(params.id, viewer.id)
   if (!view) notFound()
+  await markCircleSeen(view.buddyRead.id, viewer.id)
 
   return (
     <div className="mt-8 sm:mt-12">

@@ -648,7 +648,8 @@ enum NotificationType {
   BUDDY_READ_INVITE
   // Someone joined a reading circle you host. Unread ones are batched: count says how many joined.
   BUDDY_READ_JOINED
-  // Your progress passed other members' comments. Batched per reading circle: count says how many unlocked.
+  // Comments you can now read: your progress passed other members' comments, or someone posted at or before
+  // where you'd already read (BOO-43). Batched per reading circle: count says how many.
   COMMENTS_UNLOCKED
   // The host left and handed you the reading circle. actorId is the old host.
   BUDDY_READ_HOSTED
@@ -863,6 +864,10 @@ model BuddyReadMember {
   notifiedProgress Float @default(0)
   // When their book first reached 100%.
   finishedAt DateTime?
+  // Set while they've muted the circle: no comment notifications, bell or push. Unset reads as not muted.
+  mutedAt DateTime?
+  // When they last had the circle open, so a comment posted while they're reading it isn't pushed too.
+  lastSeenAt DateTime?
 
   buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
 

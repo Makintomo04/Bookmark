@@ -207,6 +207,33 @@ export function canSeeComment(comment: Pick<CommentRow, "userId" | "position">, 
   return comment.userId === viewer.userId || comment.position <= viewer.progress
 }
 
+// ---- Who hears about a comment -------------------------------------------------------------
+//
+// Every (member, comment) pair is told about once, by one of two paths, and never before the member's
+// progress reaches it. Both split on the member's notifiedProgress, the raw stored value:
+//   - posting: members already at or past the comment hear now (newCommentRecipients);
+//   - reading on: members below it hear when their progress passes it (unlockedByProgress).
+// notifiedProgress never exceeds circleProgress, so anyone told can open the comment.
+
+// Did moving from `prev` to `next` reach a comment at `position`? The "comments unlocked" range.
+export function unlockedByProgress(position: number, prev: number, next: number) {
+  return position > prev && position <= next
+}
+
+export type CommentRecipientCandidate = { userId: string, notifiedProgress: number, mutedAt?: Date | string | null }
+
+// The members to tell about a comment just posted: not its writer, not blocked either way, not muting
+// the circle, and already at or past its position. The rest hear through unlockedByProgress later.
+export function newCommentRecipients(
+  comment: { userId: string, position: number },
+  members: CommentRecipientCandidate[],
+  blocked: Set<string>,
+): string[] {
+  return members
+    .filter((m) => m.userId !== comment.userId && !blocked.has(m.userId) && !m.mutedAt && m.notifiedProgress >= comment.position)
+    .map((m) => m.userId)
+}
+
 function summariseReactions(reactions: CommentRow["reactions"], viewerId: string): ReactionSummary[] {
   const byEmoji = new Map<string, ReactionSummary>()
   for (const r of reactions) {
