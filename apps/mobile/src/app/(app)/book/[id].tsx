@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Switch, TextInput, View } fro
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
-import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from "@bookmark/shared/progress";
+import { NEARLY_FINISHED_PERCENT, PERCENT_QUICK_ADDS, QUICK_ADDS, entersPercent, formatMinutes, formatStoppedAt, percentToPosition, progressPercent, progressScale } from "@bookmark/shared/progress";
 import { spiceAskable, type SpiceLevel, type TagAggregate } from "@bookmark/shared/workTags";
 import { positionLabel } from "@bookmark/shared/series";
 import { AuthorNames } from "@/components/authors/AuthorNames";
@@ -15,6 +15,7 @@ import { FollowSeries } from "@/components/series/FollowSeries";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
+import { Segmented } from "@/components/ui/Segmented";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
@@ -72,8 +73,14 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const onMinutes = unit === "MINUTES";
   const fmt = (n: number) => (onMinutes ? formatMinutes(n) : String(n));
   const hasPageCount = pages > 0;
+  // Kindle readers type a percent instead of a page (Book.logsPercent remembers it, on web too); a book
+  // with no length can only take one. pageInput then holds the percent (0-100).
+  const [inPercent, setInPercent] = useState(entersPercent(book));
+  const percentMode = inPercent || !hasPageCount;
+  const max = percentMode ? 100 : pages;
+  const startValue = percentMode ? Math.round(progressPercent(book)) : startPage;
 
-  const [pageInput, setPageInput] = useState(String(startPage));
+  const [pageInput, setPageInput] = useState(String(startValue));
   const [finished, setFinished] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [pageBeforeFinish, setPageBeforeFinish] = useState<number | null>(null);
@@ -87,15 +94,23 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => setPageInput(String(startPage)), [startPage]);
+  // The saved place changed (a save here, or on another device): start again from it.
+  useEffect(() => {
+    const percent = entersPercent(book);
+    setInPercent(percent);
+    setPageInput(String(percent ? Math.round(progressPercent(book)) : startPage));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startPage, book.currentPercent, book.logsPercent]);
   useEffect(() => setSpice(tags?.mine?.spice ?? null), [tags]);
 
   const status = book.status;
   const typed = parseInt(pageInput, 10);
-  const isOverTotal = !isNaN(typed) && typed > pages;
-  const page = isNaN(typed) ? startPage : clamp(typed, pages);
-  const delta = page - startPage;
-  const progress = hasPageCount ? Math.round((page / pages) * 100) : 0;
+  const isOverTotal = !percentMode && !isNaN(typed) && typed > pages;
+  // `value` is what's typed; `page` is always the place on the book's own scale.
+  const value = isNaN(typed) ? startValue : clamp(typed, max);
+  const page = percentMode ? percentToPosition(value, pages) : value;
+  const delta = value - startValue;
+  const progress = percentMode ? value : Math.round(progressPercent({ ...book, currentPercent: null, ...at(page) }));
   const isActive = status === "STARTED" || status === "PAUSED";
   const isClosed = status === "COMPLETED" || status === "DNF";
   const ratingChanged = rating !== (book.rating ?? 0);
@@ -103,17 +118,30 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   // Spice is only asked of a reader who finished a book it applies to (the server holds the same line).
   const canReportSpice = (status === "COMPLETED" || finished) && spiceAskable(tags, tags?.mine?.warnings ?? []);
   const spiceChanged = canReportSpice && spice !== (tags?.mine?.spice ?? null);
-  const hasChanges = isActive ? delta !== 0 || finished || stopping : isClosed ? ratingChanged || reviewChanged || spiceChanged : false;
+  const modeChanged = hasPageCount && inPercent !== entersPercent(book);
+  const hasChanges = isActive ? delta !== 0 || modeChanged || finished || stopping : isClosed ? ratingChanged || reviewChanged || spiceChanged : false;
   const canSave = !saving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges);
-  const at = (n: number) => (onMinutes ? { currentMinute: n } : { currentPage: n });
-  const setPage = (n: number) => setPageInput(String(clamp(n, pages)));
+  function at(n: number) { return onMinutes ? { currentMinute: n } : { currentPage: n }; }
+  // Where the reader is, as the API takes it: a percent (and the choice to keep logging one), or a position.
+  const place = () => (percentMode
+    ? { currentPercent: value, ...(hasPageCount && { logsPercent: true }) }
+    : { ...at(page), ...(book.logsPercent && { logsPercent: false }) });
+  const setPage = (n: number) => setPageInput(String(clamp(n, max)));
+
+  // Switching keeps the reader's place: 111 of 300 becomes 37%, and back.
+  const changeMode = (mode: "unit" | "percent") => {
+    const toPercent = mode === "percent";
+    if (toPercent === inPercent) return;
+    setPageInput(String(toPercent ? progress : page));
+    setInPercent(toPercent);
+  };
 
   const toggleFinished = () => {
     if (!finished) {
-      setPageBeforeFinish(page);
-      setPageInput(String(pages));
+      setPageBeforeFinish(value);
+      setPageInput(String(max));
     } else {
-      setPageInput(String(pageBeforeFinish ?? startPage));
+      setPageInput(String(pageBeforeFinish ?? startValue));
       setPageBeforeFinish(null);
     }
     setFinished(!finished);
@@ -122,7 +150,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
 
   const toggleStopping = () => {
     if (finished) {
-      setPageInput(String(pageBeforeFinish ?? startPage));
+      setPageInput(String(pageBeforeFinish ?? startValue));
       setPageBeforeFinish(null);
       setFinished(false);
     }
@@ -155,11 +183,11 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const save = () => {
     if (!canSave) return;
     const ratingAndReview = { rating: rating > 0 ? rating : null, review, reviewSpoiler, reviewPrivate };
-    if (status === "NOT_STARTED") return run({ action: "start", ...at(page) });
+    if (status === "NOT_STARTED") return run({ action: "start", ...place() });
     if (isActive && finished) return run({ action: "complete", ...ratingAndReview });
-    if (isActive && stopping) return run({ action: "dnf", ...at(page), ...ratingAndReview });
-    if (status === "STARTED") return run({ action: "progress", ...at(page) });
-    if (status === "PAUSED") return run({ action: "resume", ...at(page) });
+    if (isActive && stopping) return run({ action: "dnf", ...place(), ...ratingAndReview });
+    if (status === "STARTED") return run({ action: "progress", ...place() });
+    if (status === "PAUSED") return run({ action: "resume", ...place() });
     return run({ action: "rate", ...ratingAndReview });
   };
 
@@ -167,11 +195,12 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const meta = status === "STARTED" && book.startedAt ? `${rereading ? "Rereading since" : "Started"} ${formatDay(book.startedAt)}`
     : status === "COMPLETED" && book.completedAt ? `Finished ${formatDay(book.completedAt)}`
     : status === "PAUSED" ? `Paused${book.stoppedAt ? ` since ${formatDay(book.stoppedAt)}` : ""}`
-    : status === "DNF" ? `${formatStoppedAt(book)} of ${fmt(pages)}${book.stoppedAt ? ` on ${formatDay(book.stoppedAt)}` : ""}`
+    : status === "DNF" ? `${formatStoppedAt(book)}${hasPageCount ? ` of ${fmt(pages)}` : ""}${book.stoppedAt ? ` on ${formatDay(book.stoppedAt)}` : ""}`
     : status === "NOT_STARTED" ? "On your Want to read shelf"
     : status === "NOT_INTERESTED" ? "On your Will not read shelf. Only you can see it." : "";
 
   const deltaText = !isActive || delta === 0 ? ""
+    : percentMode ? `${Math.abs(delta)}% ${delta > 0 ? "since" : "back from"} your last update`
     : delta > 0 ? `${onMinutes ? formatMinutes(delta) : plural(delta, "page")} since your last update`
     : `${onMinutes ? formatMinutes(-delta) : plural(-delta, "page")} back from your last update`;
   const daysReading = book.startedAt ? (Date.now() - new Date(book.startedAt).getTime()) / 86_400_000 : 0;
@@ -196,17 +225,33 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const pageField = (
     <TextInput
       value={pageInput}
-      onChangeText={(t) => setPageInput(t.replace(/\D/g, "").slice(0, 5))}
-      onBlur={() => setPageInput(String(page))}
+      onChangeText={(t) => setPageInput(t.replace(/\D/g, "").slice(0, percentMode ? 3 : 5))}
+      onBlur={() => setPageInput(String(value))}
       keyboardType="number-pad"
       returnKeyType="done"
       selectTextOnFocus
       editable={!saving && !finished}
-      accessibilityLabel={onMinutes ? "Minutes listened" : "Current page"}
+      accessibilityLabel={percentMode ? "Percent read" : onMinutes ? "Minutes listened" : "Current page"}
       // Sized to its digits, like the web's, so "of 476" sits right beside it.
       style={[styles.bigNumber, { width: Math.max(56, (pageInput.length || 1) * 26 + 12), color: colors.foreground, borderBottomColor: colors.input, fontFamily: fonts.display }]}
     />
   );
+
+  // Only a book with a length can switch: without one there's no page to type.
+  const modeToggle = hasPageCount && (
+    <View style={{ width: 132 }}>
+      <Segmented
+        options={[{ value: "unit", label: onMinutes ? "Min" : "Page" }, { value: "percent", label: "%" }]}
+        value={inPercent ? "percent" : "unit"}
+        onChange={changeMode}
+        disabled={saving || finished}
+      />
+    </View>
+  );
+  // "% · page 111 of 300" beside a percent, "of 300" beside a page.
+  const besideNumber = percentMode
+    ? `%${hasPageCount ? ` · ${onMinutes ? `${formatMinutes(page)} of ${formatMinutes(pages)}` : `page ${page} of ${pages}`}` : ""}`
+    : onMinutes ? `min · ${formatMinutes(page)} of ${formatMinutes(pages)}` : `of ${pages}`;
 
   return (
     <Screen>
@@ -235,58 +280,69 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
       {status === "NOT_STARTED" && (
         showStartPage ? (
           <View style={{ gap: 6 }}>
-            <Text variant="label">{onMinutes ? "Minutes listened so far" : "Current page"}</Text>
-            <View style={styles.numberRow}>{pageField}<Text variant="muted">of {fmt(pages)}</Text></View>
+            <View style={styles.labelRow}>
+              <Text variant="label">{percentMode ? "How far you are" : onMinutes ? "Minutes listened so far" : "Current page"}</Text>
+              {modeToggle}
+            </View>
+            <View style={styles.numberRow}>{pageField}<Text variant="muted">{percentMode ? besideNumber : `of ${fmt(pages)}`}</Text></View>
             {isOverTotal && <Text variant="small">{onMinutes ? `This audiobook runs ${formatMinutes(pages)}.` : `This book has ${pages} pages.`}</Text>}
           </View>
         ) : (
           <View style={{ gap: 4, alignItems: "flex-start" }}>
             <Text variant="muted">{onMinutes ? "Starts from the beginning." : "Starts from the first page."}</Text>
-            {hasPageCount && <Button variant="ghost" title={onMinutes ? "Already partway through? Set how far you are" : "Already partway through? Set your page"} onPress={() => setShowStartPage(true)} />}
+            <Button variant="ghost" title={onMinutes || percentMode ? "Already partway through? Set how far you are" : "Already partway through? Set your page"} onPress={() => setShowStartPage(true)} />
           </View>
         )
       )}
 
-      {isActive && (hasPageCount ? (
+      {isActive && (
         <View style={{ gap: 10 }}>
-          <Text variant="label">{onMinutes ? "You've listened for" : "You're on page"}</Text>
+          <View style={styles.labelRow}>
+            <Text variant="label">{percentMode ? "You're at" : onMinutes ? "You've listened for" : "You're on page"}</Text>
+            {modeToggle}
+          </View>
           <View style={[styles.numberRow, { justifyContent: "space-between" }]}>
-            <View style={styles.numberRow}>
+            <View style={[styles.numberRow, { flexShrink: 1 }]}>
               {pageField}
-              <Text variant="muted" style={{ fontSize: 17 }}>{onMinutes ? `min · ${formatMinutes(page)} of ${formatMinutes(pages)}` : `of ${pages}`}</Text>
+              <Text variant="muted" style={{ fontSize: 17, flexShrink: 1 }}>{besideNumber}</Text>
             </View>
-            <Text variant="title">{progress}%</Text>
+            {!percentMode && <Text variant="title">{progress}%</Text>}
           </View>
           <View style={[styles.track, { backgroundColor: colors.muted }]}>
             <View style={[styles.fill, { width: `${progress}%`, backgroundColor: accent }]} />
           </View>
           {isOverTotal && <Text variant="small">{onMinutes ? `This audiobook runs ${formatMinutes(pages)}.` : `This book has ${pages} pages.`}</Text>}
           <View style={styles.quickRow}>
-            {QUICK_ADDS[unit].map((n) => (
+            {(percentMode ? PERCENT_QUICK_ADDS : QUICK_ADDS[unit]).map((n) => (
               <Pressable
                 key={n}
                 accessibilityRole="button"
-                accessibilityLabel={`Add ${n} ${onMinutes ? "minutes" : "pages"}`}
-                disabled={saving || finished || page >= pages}
-                onPress={() => setPage(page + n)}
-                style={({ pressed }) => [styles.quick, { borderRadius: radii.md, borderColor: colors.input, backgroundColor: pressed ? colors.muted : "transparent" }, (finished || page >= pages) && { opacity: 0.5 }]}
+                accessibilityLabel={`Add ${n} ${percentMode ? "percent" : onMinutes ? "minutes" : "pages"}`}
+                disabled={saving || finished || value >= max}
+                onPress={() => setPage(value + n)}
+                style={({ pressed }) => [styles.quick, { borderRadius: radii.md, borderColor: colors.input, backgroundColor: pressed ? colors.muted : "transparent" }, (finished || value >= max) && { opacity: 0.5 }]}
               >
-                <Text style={{ fontFamily: fonts.sansSemibold }}>+{n}</Text>
+                <Text style={{ fontFamily: fonts.sansSemibold }}>+{n}{percentMode ? "%" : ""}</Text>
               </Pressable>
             ))}
           </View>
           {deltaText ? <Text variant="small" accessibilityLiveRegion="polite">{deltaText}</Text> : null}
           {paceText ? <Text variant="small">{paceText}</Text> : null}
-          {page === pages && !finished && (
-            <Button variant="ghost" title={onMinutes ? "That's the end. Mark it as finished?" : "That's the last page. Mark it as finished?"} onPress={toggleFinished} />
+          {/* Kindle books often end in acknowledgements and a preview of the next book, from about 97%. */}
+          {(value === max || (percentMode && value >= NEARLY_FINISHED_PERCENT)) && !finished && (
+            <Button
+              variant="ghost"
+              title={value < max ? "Nearly there: the rest may be extras. Mark it as finished?" : onMinutes || percentMode ? "That's the end. Mark it as finished?" : "That's the last page. Mark it as finished?"}
+              onPress={toggleFinished}
+            />
+          )}
+          {!hasPageCount && (
+            <View style={{ alignItems: "flex-start" }}>
+              <Button title="Add a page count to count its pages in your stats" variant="ghost" onPress={() => router.push(`/book/edit/${book.id}`)} />
+            </View>
           )}
         </View>
-      ) : (
-        <View style={{ gap: 4, alignItems: "flex-start" }}>
-          <Text variant="muted">This book doesn{"’"}t have a page count or running time yet, so progress can{"’"}t be tracked.</Text>
-          <Button title="Add it" variant="ghost" onPress={() => router.push(`/book/edit/${book.id}`)} />
-        </View>
-      ))}
+      )}
 
       {isActive && !stopping && (
         <View style={styles.switchRow}>
@@ -297,12 +353,12 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
 
       {isActive && !finished && (stopping ? (
         <View style={{ gap: 2 }}>
-          <Text>Stopping at {onMinutes ? formatMinutes(page) : `page ${page}`} of {fmt(pages)}.</Text>
+          <Text>Stopping at {percentMode ? `${value}%` : `${onMinutes ? formatMinutes(page) : `page ${page}`} of ${fmt(pages)}`}.</Text>
           <Button variant="ghost" title="Keep reading" onPress={toggleStopping} disabled={saving} />
         </View>
       ) : (
         <View style={styles.links}>
-          {status === "STARTED" && <Button variant="ghost" title="Pause this book" disabled={saving} onPress={() => run({ action: "pause", ...at(page) })} />}
+          {status === "STARTED" && <Button variant="ghost" title="Pause this book" disabled={saving} onPress={() => run({ action: "pause", ...place() })} />}
           <Button variant="ghost" title={"I’m not going to finish it"} disabled={saving} onPress={toggleStopping} />
         </View>
       ))}
@@ -345,7 +401,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: fonts.sansMedium }}>
                   {read.status === "COMPLETED" ? "Finished"
-                    : read.status === "DNF" ? `Did not finish${read.stoppedAtMinute !== null ? ` · ${formatMinutes(read.stoppedAtMinute)}` : read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
+                    : read.status === "DNF" ? `Did not finish${read.currentPercent != null ? ` · ${Math.round(read.currentPercent)}%` : read.stoppedAtMinute !== null ? ` · ${formatMinutes(read.stoppedAtMinute)}` : read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
                     : read.status === "PAUSED" ? "Paused" : "Reading now"}
                 </Text>
                 <Text variant="small">
@@ -372,6 +428,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
 const styles = StyleSheet.create({
   bookRow: { flexDirection: "row", gap: 16, alignItems: "flex-start" },
   numberRow: { flexDirection: "row", alignItems: "baseline", gap: 10 },
+  labelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   bigNumber: { fontSize: 44, minWidth: 64, borderBottomWidth: 2, paddingHorizontal: 4, paddingVertical: 0 },
   track: { height: 8, borderRadius: 4, overflow: "hidden" },
   fill: { height: 8, borderRadius: 4 },

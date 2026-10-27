@@ -11,6 +11,8 @@ export interface BookReadEntry {
   stoppedAtPage: number | null
   // Audiobook reads.
   stoppedAtMinute: number | null
+  // Set when the reader logged a percent (Kindle); a DNF then shows where they stopped as one.
+  currentPercent?: number | null
 }
 
 export default function useBookReads(bookId?: string | null) {

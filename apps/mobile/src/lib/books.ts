@@ -38,6 +38,8 @@ export interface BookRead {
   rating: number | null;
   stoppedAtPage: number | null;
   stoppedAtMinute: number | null;
+  // Set when the reader logged a percent (Kindle); a DNF then shows where they stopped as one.
+  currentPercent?: number | null;
 }
 
 export const useBooks = () => useSWR<Book[]>("/api/books");

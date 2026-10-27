@@ -3,7 +3,7 @@ import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { EditionFormat } from "@prisma/client";
-import { convertPosition, progressScale, readLengthsAfterEdit } from "@/lib/progress";
+import { convertPosition, percentToPosition, progressScale, readLengthsAfterEdit } from "@/lib/progress";
 import { bookFieldsProblem, parseAudioMinutes } from "@/lib/bookInput";
 import { shareableCover } from "@/lib/uploads";
 
@@ -79,7 +79,10 @@ export async function PATCH( request: Request,
   const before = progressScale(book)
   const after = { unit: wantsMinutes ? "MINUTES" : "PAGES", total: wantsMinutes ? runningTime ?? 0 : totalPages } as const
   const moved = before.unit !== after.unit && before.total > 0 && before.current > 0
-  const position = moved ? convertPosition(before.current, before.total, after.total) : null
+  // A place logged as a percent is the reader's own: the page (or minute) follows it on the new length,
+  // so a Kindle book with no page count catches up when one is added (0 pages → 400 puts 25% on page 100).
+  const position = book.currentPercent != null && after.total > 0 ? percentToPosition(book.currentPercent, after.total)
+    : moved ? convertPosition(before.current, before.total, after.total) : null
   const open = book.status === "STARTED" || book.status === "PAUSED"
 
   // Ended reads keep the format and length they were read in: a correction reaches the reads of this

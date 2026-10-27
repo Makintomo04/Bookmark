@@ -343,6 +343,11 @@ model Book {
   progressUnit ProgressUnit?
   audioMinutes Int?
   currentMinute Int?
+  // Kindle readers log a percent, not a page. currentPercent is the exact percent typed (the page or
+  // minute above is set to match when the length is known, so pace and stats keep working); null when
+  // the place was last logged in pages or minutes. logsPercent remembers the reader's choice per book.
+  currentPercent Float?
+  logsPercent Boolean?
   createdAt DateTime @default(now())
   // These mirror the current (or latest) read so existing queries keep working; BookRead holds the history.
   startedAt DateTime?
@@ -575,6 +580,9 @@ model BookRead {
   currentMinute Int?
   // For a DNF of an audiobook, the minute the reader stopped at.
   stoppedAtMinute Int?
+  // The percent the reader logged, when they logged one (Book.currentPercent): kept up to date while
+  // the read is open, final on a DNF.
+  currentPercent Float?
   // The book's page count when this read ended, stamped with progressUnit and audioMinutes above, so
   // stats and Wrapped count each read in the format and length it was read in (lib/progress.ts
   // readLength). Unset on reads that ended before this existed: those follow the book until an edit

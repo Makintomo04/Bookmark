@@ -15,7 +15,7 @@ export const OPEN_READ_STATUSES = ["STARTED", "PAUSED"] as const satisfies reado
 export const READ_STATUSES = ["STARTED", "PAUSED", "COMPLETED", "DNF"] as const satisfies readonly Status[];
 
 type BookForRead = Pick<Book, "id" | "userId" | "status" | "startedAt" | "completedAt" | "stoppedAt" | "rating" | "currentPage" | "pages"
-  | "progressUnit" | "audioMinutes" | "currentMinute">;
+  | "progressUnit" | "audioMinutes" | "currentMinute"> & Partial<Pick<Book, "currentPercent">>;
 
 // The single read implied by a book's own fields. Used when a book is created, by the backfill for books
 // shelved before BookRead existed, and as a fallback when a book has no open read to update.
@@ -35,6 +35,8 @@ export function readFromBook(book: BookForRead) {
     audioMinutes: book.progressUnit === "MINUTES" ? book.audioMinutes ?? null : null,
     currentMinute: book.progressUnit === "MINUTES" ? book.currentMinute ?? 0 : null,
     stoppedAtMinute: book.status === "DNF" && book.progressUnit === "MINUTES" ? book.currentMinute ?? 0 : null,
+    // A percent logged by a Kindle reader (Book.currentPercent); a finished read is 100% whatever it says.
+    currentPercent: book.status === "COMPLETED" ? null : book.currentPercent ?? null,
     // An ended read keeps its length (lib/progress.ts readLength); an open one follows the book.
     pages: book.status === "COMPLETED" || book.status === "DNF" ? book.pages : null,
   };
@@ -65,6 +67,8 @@ export function reshelvedFields(
     completedAt: finished ? (finishedThisYear ? now : null) : book.completedAt,
     currentPage: finished ? book.pages : 0,
     currentMinute: runningTime ? (finished ? runningTime : 0) : book.currentMinute,
+    // The place starts again from the beginning (or the end), so a percent logged before goes.
+    currentPercent: null,
     timesRead: Math.max(0, book.timesRead + (finished ? 1 : 0) - (book.status === "COMPLETED" ? 1 : 0)),
     rating: ended && rating !== undefined ? rating : earlierRating,
   };

@@ -25,7 +25,8 @@ import BuddyReadEntry from '../buddy-reads/BuddyReadEntry'
 import CatchMeUp from '../books/CatchMeUp'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { celebrate } from '@/app/hooks/useEarnMoment'
-import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from '@/lib/progress'
+import { NEARLY_FINISHED_PERCENT, PERCENT_QUICK_ADDS, QUICK_ADDS, entersPercent, formatMinutes, formatStoppedAt, percentToPosition, progressPercent, progressScale } from '@/lib/progress'
+import ProgressModeToggle from '../books/ProgressModeToggle'
 import useWorkTags from '@/app/hooks/useWorkTags'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import BookBlurb from '../books/BookBlurb'
@@ -84,6 +85,8 @@ const BookUpdateModal: FC = () => {
     useBookDescription(wantsBlurb && !book?.description && book ? bookKeyOf(book) : null, null, book)
 
   const [pageInput, setPageInput] = useState("0")
+  // Kindle readers type a percent instead of a page; pageInput then holds the percent (0-100).
+  const [inPercent, setInPercent] = useState(false)
   // Moods, spice and content warnings, tagged along with the review.
   const [tags, setTags] = useState<ReaderTagsInput>(EMPTY_TAGS)
   const [finished, setFinished] = useState(false)
@@ -111,7 +114,8 @@ const BookUpdateModal: FC = () => {
 
   useEffect(() => {
     if (!isOpen || !book) return
-    setPageInput(String(progressScale(book).current))
+    setInPercent(entersPercent(book))
+    setPageInput(String(entersPercent(book) ? Math.round(progressPercent(book)) : progressScale(book).current))
     setFinished(false)
     setStopping(false)
     setPageBeforeFinish(null)
@@ -139,22 +143,33 @@ const BookUpdateModal: FC = () => {
   const unitWord = onMinutes ? "minute" : "page"
   const fmt = (n: number) => (onMinutes ? formatMinutes(n) : String(n))
   const hasPageCount = pages > 0
+  // The field's own scale: the book's pages (or minutes), or 0-100 when typing a percent. A book with no
+  // length can only take a percent. `value` is what's typed; `page` is always the place on the book's scale.
+  const percentMode = inPercent || !hasPageCount
+  const max = percentMode ? 100 : pages
+  const startValue = percentMode ? Math.round(progressPercent(book)) : startPage
   const typed = parseInt(pageInput, 10)
-  const isOverTotal = !isNaN(typed) && typed > pages
-  const page = isNaN(typed) ? startPage : clamp(typed, pages)
-  const delta = page - startPage
-  const progress = hasPageCount ? Math.round((page / pages) * 100) : 0
+  const isOverTotal = !percentMode && !isNaN(typed) && typed > pages
+  const value = isNaN(typed) ? startValue : clamp(typed, max)
+  const page = percentMode ? percentToPosition(value, pages) : value
+  const delta = value - startValue
+  const progress = percentMode ? value : Math.round(progressPercent({ ...book, currentPercent: null, ...at(page) }))
   const ratingChanged = rating !== (book.rating ?? 0)
   const reviewChanged = review !== (book.review ?? "")
     || reviewSpoiler !== !!book.reviewSpoiler || reviewPrivate !== !!book.reviewPrivate
   const tagsChanged = !sameTags(tags, workTags?.mine ?? EMPTY_TAGS)
   // The position field the API reads for this book's unit.
-  const at = (n: number) => (onMinutes ? { currentMinute: n } : { currentPage: n })
+  function at(n: number) { return onMinutes ? { currentMinute: n } : { currentPage: n } }
+  // Where the reader is, as the API takes it: a percent (and the choice to keep logging one), or a position.
+  const place = () => (percentMode
+    ? { currentPercent: value, ...(hasPageCount && { logsPercent: true }) }
+    : { ...at(page), ...(book.logsPercent && { logsPercent: false }) })
+  const modeChanged = hasPageCount && inPercent !== entersPercent(book)
 
   // A paused book shows the same progress controls as one being read, and saving resumes it.
   const isActive = status === "STARTED" || status === "PAUSED"
   const isClosed = status === "COMPLETED" || status === "DNF"
-  const hasChanges = isActive ? delta !== 0 || finished || stopping
+  const hasChanges = isActive ? delta !== 0 || modeChanged || finished || stopping
     : isClosed ? ratingChanged || reviewChanged || tagsChanged
     : false
   const canSave = !isSaving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges)
@@ -164,14 +179,21 @@ const BookUpdateModal: FC = () => {
   // shelf API sets pageWorkId then, lib/workPages.ts).
   const pageHref = bookHref(book)
 
-  const setPage = (n: number) => setPageInput(String(clamp(n, pages)))
+  const setPage = (n: number) => setPageInput(String(clamp(n, max)))
+
+  // Switching keeps the reader's place: 111 of 300 becomes 37%, and back.
+  const changeMode = (toPercent: boolean) => {
+    if (toPercent === inPercent) return
+    setPageInput(String(toPercent ? progress : page))
+    setInPercent(toPercent)
+  }
 
   const toggleFinished = () => {
     if (!finished) {
-      setPageBeforeFinish(page)
-      setPageInput(String(pages))
+      setPageBeforeFinish(value)
+      setPageInput(String(max))
     } else {
-      setPageInput(String(pageBeforeFinish ?? startPage))
+      setPageInput(String(pageBeforeFinish ?? startValue))
       setPageBeforeFinish(null)
     }
     setFinished(!finished)
@@ -181,7 +203,7 @@ const BookUpdateModal: FC = () => {
   // The page stays editable while stopping: it's where the reader gave up.
   const toggleStopping = () => {
     if (finished) {
-      setPageInput(String(pageBeforeFinish ?? startPage))
+      setPageInput(String(pageBeforeFinish ?? startValue))
       setPageBeforeFinish(null)
       setFinished(false)
     }
@@ -207,19 +229,19 @@ const BookUpdateModal: FC = () => {
     let success: string | null
     const ratingAndReviewPayload = { rating: rating > 0 ? rating : null, review, reviewSpoiler, reviewPrivate }
     if (status === "NOT_STARTED") {
-      payload = { id: book.id, action: "start", ...at(page) }
+      payload = { id: book.id, action: "start", ...place() }
       success = onMinutes ? "Started listening" : "Started reading"
     } else if (isActive && finished) {
       payload = { id: book.id, action: "complete", ...ratingAndReviewPayload }
       success = "Marked as finished"
     } else if (isActive && stopping) {
-      payload = { id: book.id, action: "dnf", ...at(page), ...ratingAndReviewPayload }
+      payload = { id: book.id, action: "dnf", ...place(), ...ratingAndReviewPayload }
       success = "Moved to Did not finish"
     } else if (status === "STARTED") {
-      payload = { id: book.id, action: "progress", ...at(page) }
+      payload = { id: book.id, action: "progress", ...place() }
       success = null
     } else if (status === "PAUSED") {
-      payload = { id: book.id, action: "resume", ...at(page) }
+      payload = { id: book.id, action: "resume", ...place() }
       success = onMinutes ? "Back to Currently listening" : "Back to Currently reading"
     } else {
       payload = { id: book.id, action: "rate", ...ratingAndReviewPayload }
@@ -255,7 +277,7 @@ const BookUpdateModal: FC = () => {
   // Pause keeps the page typed in; the other moves don't take one.
   const move = (action: ShelfAction) => {
     setIsSaving(true)
-    moveBook(book.id, action, action === "pause" ? at(page) : {}).then((ok) => {
+    moveBook(book.id, action, action === "pause" ? place() : {}).then((ok) => {
       if (!ok) return
       mutate()
       booksMutate()
@@ -281,11 +303,12 @@ const BookUpdateModal: FC = () => {
     : status === "COMPLETED" && book.completedAt
       ? `Finished ${formatDay(book.completedAt)}`
       : status === "PAUSED" ? `Paused${book.stoppedAt ? ` since ${formatDay(book.stoppedAt)}` : ""}`
-      : status === "DNF" ? `${formatStoppedAt(book)} of ${fmt(pages)}${book.stoppedAt ? ` on ${formatDay(book.stoppedAt)}` : ""}`
+      : status === "DNF" ? `${formatStoppedAt(book)}${hasPageCount ? ` of ${fmt(pages)}` : ""}${book.stoppedAt ? ` on ${formatDay(book.stoppedAt)}` : ""}`
       : status === "NOT_STARTED" ? "On your Want to read shelf"
       : status === "NOT_INTERESTED" ? "On your Will not read shelf. Only you can see it." : ""
 
   const deltaText = !isActive || delta === 0 ? ""
+    : percentMode ? `${Math.abs(delta)}% ${delta > 0 ? "since" : "back from"} your last update`
     : delta > 0 ? `${onMinutes ? formatMinutes(delta) : plural(delta, "page")} since your last update`
     : `${onMinutes ? formatMinutes(-delta) : plural(-delta, "page")} back from your last update`
 
@@ -316,12 +339,12 @@ const BookUpdateModal: FC = () => {
           value={pageInput}
           aria-describedby="page-total"
           onFocus={(e) => e.target.select()}
-          onChange={(e) => setPageInput(e.target.value.replace(/\D/g, "").slice(0, 5))}
-          onBlur={() => setPageInput(String(page))}
+          onChange={(e) => setPageInput(e.target.value.replace(/\D/g, "").slice(0, percentMode ? 3 : 5))}
+          onBlur={() => setPageInput(String(value))}
           onKeyDown={(e) => {
             if (e.key !== "Enter") return
             e.preventDefault()
-            setPageInput(String(page))
+            setPageInput(String(value))
             save()
           }}
           disabled={isSaving || finished}
@@ -329,17 +352,26 @@ const BookUpdateModal: FC = () => {
         />
       </span>
       <span id="page-total" className="text-lg text-muted-foreground tabular-nums whitespace-nowrap">
-        {onMinutes ? <>min · {formatMinutes(page)} of {formatMinutes(pages)}</> : <>of {pages}</>}
+        {percentMode ? <>%{hasPageCount && <> · {onMinutes ? `${formatMinutes(page)} of ${formatMinutes(pages)}` : `page ${page} of ${pages}`}</>}</>
+          : onMinutes ? <>min · {formatMinutes(page)} of {formatMinutes(pages)}</> : <>of {pages}</>}
       </span>
     </div>
   )
 
-  const progressControl = hasPageCount ? (
+  // Only a book with a length can switch: without one there's no page to type.
+  const modeToggle = hasPageCount && (
+    <ProgressModeToggle inPercent={inPercent} onChange={changeMode} onMinutes={onMinutes} disabled={isSaving || finished} />
+  )
+
+  const progressControl = (
     <div>
-      <label htmlFor="current-page" className="text-sm font-medium text-muted-foreground">{onMinutes ? "You've listened for" : "You're on page"}</label>
+      <div className="flex items-center justify-between gap-4">
+        <label htmlFor="current-page" className="text-sm font-medium text-muted-foreground">{percentMode ? "You're at" : onMinutes ? "You've listened for" : "You're on page"}</label>
+        {modeToggle}
+      </div>
       <div className="mt-1 flex items-baseline justify-between gap-4">
         {pageNumber}
-        <span className="text-lg font-semibold tabular-nums">{progress}%</span>
+        {!percentMode && <span className="text-lg font-semibold tabular-nums">{progress}%</span>}
       </div>
 
       {isOverTotal && (
@@ -351,11 +383,11 @@ const BookUpdateModal: FC = () => {
 
       <input
         type="range"
-        aria-label={onMinutes ? "Minutes listened" : "Current page"}
-        aria-valuetext={onMinutes ? `${formatMinutes(page)} of ${formatMinutes(pages)}` : `Page ${page} of ${pages}`}
+        aria-label={percentMode ? "Percent read" : onMinutes ? "Minutes listened" : "Current page"}
+        aria-valuetext={percentMode ? `${value}%` : onMinutes ? `${formatMinutes(page)} of ${formatMinutes(pages)}` : `Page ${page} of ${pages}`}
         min={0}
-        max={pages}
-        value={page}
+        max={max}
+        value={value}
         onChange={(e) => setPage(Number(e.target.value))}
         disabled={isSaving || finished}
         style={{ accentColor: accent }}
@@ -364,16 +396,16 @@ const BookUpdateModal: FC = () => {
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex gap-1.5">
-          {QUICK_ADDS[unit].map((n) => (
+          {(percentMode ? PERCENT_QUICK_ADDS : QUICK_ADDS[unit]).map((n) => (
             <button
               key={n}
               type="button"
-              aria-label={`Add ${n} ${unitWord}s`}
-              onClick={() => setPage(page + n)}
-              disabled={isSaving || finished || page >= pages}
+              aria-label={percentMode ? `Add ${n} percent` : `Add ${n} ${unitWord}s`}
+              onClick={() => setPage(value + n)}
+              disabled={isSaving || finished || value >= max}
               className="h-10 sm:h-8 px-3.5 sm:px-3 rounded-full text-sm font-medium tabular-nums bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:pointer-events-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              +{n}
+              +{n}{percentMode && "%"}
             </button>
           ))}
         </div>
@@ -383,23 +415,29 @@ const BookUpdateModal: FC = () => {
         </div>
       </div>
 
-      {page === pages && !finished && (
+      {/* Kindle books often end in acknowledgements and a preview of the next book, from about 97%. */}
+      {(value === max || (percentMode && value >= NEARLY_FINISHED_PERCENT)) && !finished && (
         <p className="mt-4 text-sm">
-          {onMinutes ? "That's the end." : "That's the last page."}{" "}
+          {value < max ? "Nearly there: the rest may be extras." : onMinutes || percentMode ? "That's the end." : "That's the last page."}{" "}
           <button type="button" onClick={toggleFinished} className="font-medium underline underline-offset-4">Mark it as finished?</button>
         </p>
       )}
+
+      {!hasPageCount && (
+        <p className="mt-4 text-sm text-muted-foreground">
+          <button type="button" onClick={editDetails} className="underline underline-offset-4 hover:text-foreground">Add a page count</button>
+          {" "}to count its pages in your stats.
+        </p>
+      )}
     </div>
-  ) : (
-    <p className="text-sm text-muted-foreground">
-      This book doesn&apos;t have a page count or running time yet, so progress can&apos;t be tracked.{" "}
-      <button type="button" onClick={editDetails} className="font-medium text-foreground underline underline-offset-4">Add it</button>
-    </p>
   )
 
   const startControl = showStartPage ? (
     <div className="flex flex-col gap-2">
-      <label htmlFor="current-page" className="text-sm font-medium">{onMinutes ? "Minutes listened so far" : "Current page"}</label>
+      <div className="flex items-center justify-between gap-4">
+        <label htmlFor="current-page" className="text-sm font-medium">{percentMode ? "How far you are" : onMinutes ? "Minutes listened so far" : "Current page"}</label>
+        {modeToggle}
+      </div>
       <div className="flex items-center gap-2">
         <input
           id="current-page"
@@ -411,18 +449,18 @@ const BookUpdateModal: FC = () => {
           value={pageInput}
           aria-describedby="page-total"
           onFocus={(e) => e.target.select()}
-          onChange={(e) => setPageInput(e.target.value.replace(/\D/g, "").slice(0, 5))}
-          onBlur={() => setPageInput(String(page))}
+          onChange={(e) => setPageInput(e.target.value.replace(/\D/g, "").slice(0, percentMode ? 3 : 5))}
+          onBlur={() => setPageInput(String(value))}
           onKeyDown={(e) => {
             if (e.key !== "Enter") return
             e.preventDefault()
-            setPageInput(String(page))
+            setPageInput(String(value))
             save()
           }}
           disabled={isSaving}
           className="h-10 w-[120px] rounded-md border border-input bg-background px-3 text-base tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
-        <span id="page-total" className="text-sm text-muted-foreground">of {fmt(pages)}</span>
+        <span id="page-total" className="text-sm text-muted-foreground">{percentMode ? `%${hasPageCount ? ` · ${onMinutes ? formatMinutes(page) : `page ${page}`} of ${fmt(pages)}` : ""}` : `of ${fmt(pages)}`}</span>
       </div>
       {isOverTotal && <p className="text-sm text-muted-foreground">{onMinutes ? `This audiobook runs ${formatMinutes(pages)}.` : `This book has ${pages} pages.`}</p>}
     </div>
@@ -434,11 +472,9 @@ const BookUpdateModal: FC = () => {
         {onMinutes ? "From the beginning." : "From the first page."}
         {hasPageCount && (onMinutes ? ` Runs ${formatMinutes(pages)} in all.` : ` ${plural(pages, "page")} in all.`)}
       </p>
-      {hasPageCount && (
-        <button type="button" onClick={() => setShowStartPage(true)} className="rounded-sm text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-          {onMinutes ? "Already partway through? Set how far you are" : "Already partway through? Set your page"}
-        </button>
-      )}
+      <button type="button" onClick={() => setShowStartPage(true)} className="rounded-sm text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+        {onMinutes || percentMode ? "Already partway through? Set how far you are" : "Already partway through? Set your page"}
+      </button>
     </section>
   )
 
@@ -463,7 +499,7 @@ const BookUpdateModal: FC = () => {
 
   const stopOptions = stopping ? (
     <p className="text-sm">
-      Stopping at {onMinutes ? formatMinutes(page) : `page ${page}`} of {fmt(pages)}.{" "}
+      Stopping at {percentMode ? `${value}%` : `${onMinutes ? formatMinutes(page) : `page ${page}`} of ${fmt(pages)}`}.{" "}
       <button type="button" onClick={toggleStopping} disabled={isSaving} className="underline underline-offset-4 text-muted-foreground hover:text-foreground">
         Keep reading
       </button>
@@ -498,7 +534,7 @@ const BookUpdateModal: FC = () => {
             <div className="min-w-0">
               <p className="font-medium">
                 {read.status === "COMPLETED" ? "Finished"
-                  : read.status === "DNF" ? `Did not finish${read.stoppedAtMinute !== null ? ` · ${formatMinutes(read.stoppedAtMinute)}` : read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
+                  : read.status === "DNF" ? `Did not finish${read.currentPercent != null ? ` · ${Math.round(read.currentPercent)}%` : read.stoppedAtMinute !== null ? ` · ${formatMinutes(read.stoppedAtMinute)}` : read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
                   : read.status === "PAUSED" ? "Paused"
                   : "Reading now"}
               </p>
