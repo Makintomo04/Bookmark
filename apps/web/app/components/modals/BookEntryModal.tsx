@@ -85,6 +85,8 @@ const BookEntryModal: FC = () => {
   const [published, setPublished] = useState<number | null>(null)
   // A Hardcover hit brings its own blurb; it has no Open Library work to fetch one from.
   const [givenBlurb, setGivenBlurb] = useState<string | null>(null)
+  // And its Hardcover id, which files it in the catalogue so it gets a book page.
+  const [hardcoverId, setHardcoverId] = useState<string | null>(null)
   const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null)
 
   const resetAll = () => {
@@ -99,6 +101,7 @@ const BookEntryModal: FC = () => {
     setRating(0)
     setPublished(null)
     setGivenBlurb(null)
+    setHardcoverId(null)
     setQuery("")
   }
 
@@ -129,6 +132,7 @@ const BookEntryModal: FC = () => {
     })
     setPublished(result.year ?? null)
     setGivenBlurb(result.description ?? null)
+    setHardcoverId(result.hardcoverId ?? null)
     setFormat("PRINT")
     // Open Library doesn't always know the page count. Only progress needs it, so ask only when starting.
     setIsEditing(!result.pages && onShelf === "STARTED")
@@ -150,6 +154,7 @@ const BookEntryModal: FC = () => {
     reset({ ...defaultValues, title: query.trim() })
     setPublished(null)
     setGivenBlurb(null)
+    setHardcoverId(null)
     setIsEditing(true)
     setStage("shelf")
   }
@@ -173,6 +178,7 @@ const BookEntryModal: FC = () => {
       editionKey: data.editionKey || undefined,
       isbn13: data.isbn13 || undefined,
       isbn10: data.isbn10 || undefined,
+      hardcoverId: hardcoverId || undefined,
       description: description || undefined,
       status: shelf,
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,

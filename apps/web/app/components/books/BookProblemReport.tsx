@@ -14,8 +14,9 @@ const REASONS = [
 ] as const
 
 // Under a book's details: readers can report a wrong cover or wrong details for a librarian to fix, and
-// librarians get a link straight to the book in the staff catalogue.
-const BookProblemReport: FC<{ workKey: string }> = ({ workKey }) => {
+// librarians get a link straight to the book in the staff catalogue. A book Open Library lacks goes by
+// its catalogue Work id.
+const BookProblemReport: FC<{ workKey?: string | null, workId?: string | null }> = ({ workKey, workId }) => {
   const { user } = useUser()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState<(typeof REASONS)[number]['value']>('cover')
@@ -29,7 +30,7 @@ const BookProblemReport: FC<{ workKey: string }> = ({ workKey }) => {
     setPending(true)
     setError(null)
     try {
-      const res = await fetch('/api/books/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workKey, reason, note }) })
+      const res = await fetch('/api/books/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(workId ? { workId, reason, note } : { workKey, reason, note }) })
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Couldn't send that. Try again.")
       setSent(true)
     } catch (e) {
@@ -43,7 +44,7 @@ const BookProblemReport: FC<{ workKey: string }> = ({ workKey }) => {
     <div className="text-sm">
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
         {!sent && !open && <button type="button" onClick={() => setOpen(true)} className="hover:text-foreground hover:underline underline-offset-2">Report a problem with this book</button>}
-        {can(user, 'catalogue.edit') && <Link href={`/staff/catalogue?q=${workKey}`} className="text-brand-text hover:underline">Fix this book</Link>}
+        {can(user, 'catalogue.edit') && <Link href={workId ? `/staff/catalogue?work=${workId}` : `/staff/catalogue?q=${workKey}`} className="text-brand-text hover:underline">Fix this book</Link>}
       </div>
       {sent && <p role="status" className="text-muted-foreground">Thanks. A librarian will take a look.</p>}
       {open && !sent && (

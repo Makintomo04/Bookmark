@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { orderReviews, summariseRatings } from "@/lib/workReviewRules";
-import { bookHref, bookSlug, normaliseWorkKey } from "@/lib/workKey";
+import { bookHref, bookKeyOf, bookKeyOfSlug, bookSlug, normaliseBookKey, normaliseWorkKey } from "@/lib/workKey";
 import { genresFromSubjects } from "@/lib/import/genre";
 
 test("nobody's rated it: no summary", () => {
@@ -60,6 +60,22 @@ test("book page addresses lead with the work key, which is all that identifies t
   assert.equal(bookHref({ workKey: null, title: "A book added by hand" }), null);
   // The key comes back out of any slug, stale title or not.
   assert.equal(normaliseWorkKey("OL29226517W-old-title"), "OL29226517W");
+  assert.equal(bookKeyOfSlug("OL29226517W-old-title"), "OL29226517W");
+});
+
+test("a book Open Library lacks is addressed by its catalogue work id, and the work key still wins", () => {
+  const id = "6720c0ffee0123456789abcd";
+  assert.equal(bookHref({ workKey: null, pageWorkId: id, title: "Gilded Rose" }), `/books/${id}-gilded-rose`);
+  assert.equal(bookHref({ workKey: "OL1W", pageWorkId: id, title: "Dune" }), "/books/OL1W-dune");
+  assert.equal(bookHref({ workKey: null, pageWorkId: "not-an-id", title: "Gilded Rose" }), null);
+  assert.equal(bookKeyOf({ workKey: null, pageWorkId: id }), id);
+  assert.equal(bookKeyOfSlug(`${id}-gilded-rose`), id);
+  assert.equal(bookKeyOfSlug(id), id);
+  assert.equal(bookKeyOfSlug(`${id}x-gilded-rose`), null);
+  assert.equal(bookKeyOfSlug("gilded-rose"), null);
+  assert.equal(normaliseBookKey(id), id);
+  assert.equal(normaliseBookKey("OL45883W"), "OL45883W");
+  assert.equal(normaliseBookKey("6720C0FFEE0123456789ABCD"), null);
 });
 
 test("a book page's genres come from its subjects, most specific first, in any language's noise", () => {

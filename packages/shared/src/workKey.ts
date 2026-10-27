@@ -14,9 +14,20 @@ export function sameBook(a: Comparable, b: Comparable) {
   return normalise(a.title) === normalise(b.title) && normalise(a.author) === normalise(b.author)
 }
 
+// A catalogue Work's id (a 24-character ObjectId), which stands in for the work key on the page of a
+// book Open Library doesn't have (one added from a Hardcover search hit).
+const CATALOGUE_ID = /^[0-9a-f]{24}$/
+
+export const normaliseCatalogueId = (id?: string | null) => (id && CATALOGUE_ID.test(id) ? id : null)
+
+// What a book page and its APIs (reader counts, reviews, tags) are keyed by: the Open Library work
+// key, else a catalogue Work id.
+export const normaliseBookKey = (key?: string | null) => normaliseWorkKey(key) ?? normaliseCatalogueId(key)
+
 // Book pages (/books/OL45883W-dune) are keyed by the Open Library work key; the title after it is
-// only for people and search engines, and a stale one redirects to the current. Books without a
-// work key (added by hand) have no page.
+// only for people and search engines, and a stale one redirects to the current. A book Open Library
+// lacks but the catalogue knows from Hardcover has its page under the Work's id instead
+// (/books/6720c0ffee0123456789abcd-gilded-rose). Books added by hand have no page.
 const TITLE_SLUG_MAX = 60
 
 export function titleSlug(title: string) {
@@ -30,9 +41,19 @@ export function titleSlug(title: string) {
     .replace(/^-+|-+$/g, "")
 }
 
-export const bookSlug = (workKey: string, title: string) => [workKey, titleSlug(title)].filter(Boolean).join("-")
+export const bookSlug = (bookKey: string, title: string) => [bookKey, titleSlug(title)].filter(Boolean).join("-")
 
-export function bookHref(book: { workKey?: string | null, title: string }) {
-  const workKey = normaliseWorkKey(book.workKey)
-  return workKey ? `/books/${encodeURIComponent(bookSlug(workKey, book.title))}` : null
+// The page key in a slug: "OL45883W-dune" -> "OL45883W", "6720c0ffee0123456789abcd-gilded-rose" -> the id.
+export function bookKeyOfSlug(slug: string) {
+  return normaliseWorkKey(slug) ?? normaliseCatalogueId(slug.match(/^([0-9a-f]{24})(?:-|$)/)?.[1])
+}
+
+// A book's page key. `pageWorkId` is the catalogue Work a book without a work key has its page under;
+// whoever sets it has checked the Work has a page (apps/web/lib/bookPage.ts hasPageWhere).
+export const bookKeyOf = (book: { workKey?: string | null, pageWorkId?: string | null }) =>
+  normaliseWorkKey(book.workKey) ?? normaliseCatalogueId(book.pageWorkId)
+
+export function bookHref(book: { workKey?: string | null, pageWorkId?: string | null, title: string }) {
+  const key = bookKeyOf(book)
+  return key ? `/books/${encodeURIComponent(bookSlug(key, book.title))}` : null
 }

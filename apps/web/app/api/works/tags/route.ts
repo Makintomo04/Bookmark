@@ -5,13 +5,14 @@ import { requireUser } from "@/lib/apiAuth";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { catalogIds, linkCatalog } from "@/lib/catalog";
 import { isObjectId } from "@/lib/buddyReadsServer";
-import { normaliseWorkKey } from "@/lib/workKey";
+import { normaliseBookKey, normaliseWorkKey } from "@/lib/workKey";
+import { hasPageWhere } from "@/lib/workPages";
 import { aggregateTags, readerTagsSchema, spiceApplies, type SpiceContext, type TagAggregate } from "@/lib/workTags";
 
 // Moods, content warnings and spice live on the shared Work, so every reader of a book sees one aggregate.
 //
 //   GET /api/works/tags?bookId=<shelf book>   the aggregate plus the reader's own tags (owner only)
-//   GET /api/works/tags?workKey=OL45883W      the aggregate for a Discover book; public, like search
+//   GET /api/works/tags?workKey=OL45883W      the aggregate for a Discover book; public, like search (or a catalogue Work id)
 //   PUT /api/works/tags { bookId, moods, warnings, spice? }   the reader's tags for that book's work
 //
 // Spice only counts from a reader who has finished the book, now or on an earlier read, and only for a
@@ -51,7 +52,7 @@ async function loadAggregate(workId: string, viewerId: string | null, about: Spi
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams
   const bookId = params.get("bookId")
-  const workKey = normaliseWorkKey(params.get("workKey"))
+  const bookKey = normaliseBookKey(params.get("workKey"))
 
   if (bookId) {
     const { user, response } = await requireUser()
@@ -62,9 +63,10 @@ export async function GET(req: Request) {
     return NextResponse.json(await loadAggregate(book.workId, user.id, await spiceContext(book.workId)), { headers: { "Cache-Control": "private, no-store" } })
   }
 
-  if (workKey) {
+  if (bookKey) {
     const viewer = await getCurrentUser()
-    const work = await prisma.work.findFirst({ where: { openLibraryKey: workKey }, select: { id: true } })
+    const workKey = normaliseWorkKey(bookKey)
+    const work = await prisma.work.findFirst({ where: workKey ? { openLibraryKey: workKey } : { id: bookKey, ...hasPageWhere }, select: { id: true } })
     if (!work) return NextResponse.json(empty(null))
     return NextResponse.json(await loadAggregate(work.id, viewer?.id ?? null, await spiceContext(work.id)), { headers: { "Cache-Control": "private, no-store" } })
   }

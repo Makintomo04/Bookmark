@@ -25,8 +25,9 @@ const Group: FC<{ group: ReaderGroup, one: string, many: string }> = ({ group, o
 
 // Book details: how many readers are in the middle of this book and how many have it lined up.
 // Nothing at all until someone has shelved it, so a new book doesn't open on two zeros.
-const ReaderCounts: FC<{ workKey: string | null | undefined }> = ({ workKey }) => {
-  const { data } = useSWR<Counts>(workKey ? `/api/books/readers?workKey=${encodeURIComponent(workKey)}` : null, fetcher, swrOptions)
+// `bookKey`: the Open Library work key, or the catalogue Work id of a book Open Library lacks (bookKeyOf).
+const ReaderCounts: FC<{ bookKey: string | null | undefined }> = ({ bookKey }) => {
+  const { data } = useSWR<Counts>(bookKey ? `/api/books/readers?workKey=${encodeURIComponent(bookKey)}` : null, fetcher, swrOptions)
   if (!data || (data.reading.count === 0 && data.wantToRead.count === 0)) return null
 
   return (

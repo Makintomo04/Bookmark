@@ -390,6 +390,9 @@ model Work {
   key String @unique
   // Open Library work key (OL45883W), when known. Null for manual entries.
   openLibraryKey String?
+  // Hardcover's book id, for a book first added from a Hardcover search hit (lib/hardcover.ts). With no
+  // Open Library key, this is what gives the work a book page (lib/bookPage.ts): a hand-typed work has neither.
+  hardcoverId String?
   title String
   authors String[] @db.String
   // Open Library author keys (OL7477772A), in step with `authors` where Open Library had them. The
@@ -424,6 +427,7 @@ model Work {
   readerTags ReaderTags[]
 
   @@index([openLibraryKey])
+  @@index([hardcoverId])
   @@index([authorKeys])
   @@index([matchKey])
 }

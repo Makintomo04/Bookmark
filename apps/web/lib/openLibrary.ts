@@ -22,6 +22,10 @@ export interface DiscoverBook {
   // blurb from, so the search hit carries it.
   description?: string | null
   source?: "hardcover"
+  hardcoverId?: string | null
+  // Optional: the catalogue Work a book without a work key has its page under (bookHref), set only when
+  // it has one. Shelf search and Hardcover hits already in the catalogue carry it.
+  pageWorkId?: string | null
 }
 
 // A reader's copy of a book, as the book details modal and the add buttons take it. Pages of 0 mean unknown.
