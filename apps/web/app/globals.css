@@ -199,12 +199,12 @@ progress { color: black;width: 100%; }
   background-image: linear-gradient(115deg, transparent 40%, rgba(150, 232, 255, 0.9) 45%, rgba(255, 255, 255, 1) 50%, rgba(200, 170, 255, 0.9) 55%, transparent 60%);
 }
 @media (prefers-reduced-motion: no-preference) {
-  .tier-shimmer { animation: tier-shimmer 5s ease-in-out infinite; }
-  .tier-shimmer-diamond { animation-duration: 3.5s; }
+  .tier-shimmer { animation: tier-shimmer 2.5s ease-in-out infinite; }
+  .tier-shimmer-diamond { animation-duration: 1.8s; }
 }
 @keyframes tier-shimmer {
   0% { background-position: 120% 0; }
-  45%, 100% { background-position: -20% 0; }
+  85%, 100% { background-position: -20% 0; }
 }
 
 /* Loading skeletons (app/components/ui/skeleton.tsx): a soft band of light sweeping across,
