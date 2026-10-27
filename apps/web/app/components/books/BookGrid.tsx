@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect, useMemo, useRef, useState } from 'react'
+import { FC, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Book } from '@prisma/client'
@@ -7,10 +7,11 @@ import { LayoutGrid, Grid3x3, ListChecks, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
 import useViewMode from '@/app/hooks/useViewMode'
+import useShelfPreview from '@/app/hooks/useShelfPreview'
 import BookCoverCard from '../cards/BookCoverCard'
 import CompactBookCard from '../cards/CompactBookCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
-import { SHELF_PREVIEW, SeeAllLink, ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from './shelf'
+import { SeeAllLink, ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from './shelf'
 import BulkBar from './BulkBar'
 import ShelfToolbar, { pillClass } from './ShelfToolbar'
 import GrowingList from './GrowingList'
@@ -19,16 +20,23 @@ import {
   type ShelfFilter, type ShelfKey,
 } from '@/lib/shelfFilter'
 
+// Compact rows are short: six of them preview a shelf in about the height of two rows of covers.
+const SHELF_ROWS_COMPACT = 6
+
 interface BookGridProps {
   books: Book[]
   // One ungrouped grid in the given order, for pages like Favourites that want everything at a glance.
   flat?: boolean
   // A shelf's own page (/u/<username>/shelf/<slug>): that shelf only, searched, sorted and filtered.
   shelf?: ShelfKey
+  // Under the toolbar: the profile's links to its other sections.
+  belowToolbar?: ReactNode
 }
 
-const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) => {
+const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, belowToolbar }) => {
   const [mounted, setMounted] = useState(false)
+  // Two rows of covers on this screen, for each shelf's preview.
+  const preview = useShelfPreview()
   const { viewMode, setViewMode } = useViewMode()
   const { user } = useUser()
   const accent = user?.favColour ?? null
@@ -200,7 +208,8 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) 
     return (
       <div ref={top} className="w-full scroll-mt-24">
         {toolbar}
-        <section aria-labelledby="shelf-results">
+        {belowToolbar}
+        <section id="profile-shelf" aria-labelledby="shelf-results">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4 min-h-10">
             <h2 id="shelf-results" className="text-lg font-semibold tabular-nums">{title}</h2>
             {selectAll(matches)}
@@ -219,8 +228,9 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) 
   return (
     <div ref={top} className="w-full scroll-mt-24">
       {toolbar}
+      {belowToolbar}
       {/* Wrapped so the first shelf is a first child and skips ShelfSection's top margin. */}
-      <div>
+      <div id="profile-shelf">
       {/* With nothing on the go, the section only shows while the shelf is new: for a reader with a full
           shelf it would push the first cover below the fold. */}
       {(reading.length > 0 || coverShelves.length === 0) && <ShelfSection id="shelf-reading" title="Currently reading" count={reading.length}>
@@ -242,9 +252,9 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) 
       {/* Empty shelves are hidden. Long ones show a preview; "See all" opens the shelf's own page. */}
       {coverShelves.map(({ key, items }) => (
         <ShelfSection key={key} id={`shelf-${key}`} title={SHELF_TITLE[key]} count={items.length}
-          action={selecting ? selectAll(items) : items.length > SHELF_PREVIEW && seeAllHref(key) ? <SeeAllLink href={seeAllHref(key)!} /> : undefined}>
-          {shelf(items.slice(0, SHELF_PREVIEW))}
-          {items.length > SHELF_PREVIEW && (
+          action={selecting ? selectAll(items) : items.length > preview && seeAllHref(key) ? <SeeAllLink href={seeAllHref(key)!} /> : undefined}>
+          {shelf(items.slice(0, activeMode === 'comfortable' ? preview : SHELF_ROWS_COMPACT))}
+          {items.length > (activeMode === 'comfortable' ? preview : SHELF_ROWS_COMPACT) && (
             <div className="mt-6 flex justify-center">
               {seeAllHref(key) && (
                 <Link href={seeAllHref(key)!} className={cn(pillClass, "inline-flex items-center")}>

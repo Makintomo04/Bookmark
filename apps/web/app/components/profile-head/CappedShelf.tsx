@@ -3,7 +3,8 @@ import { FC } from 'react'
 import Link from 'next/link'
 import type { Book } from '@prisma/client'
 import BookCoverCard from '../cards/BookCoverCard'
-import { SHELF_PREVIEW, SeeAllLink, ShelfSection, coverGridClass } from '../books/shelf'
+import { SeeAllLink, ShelfSection, coverGridClass } from '../books/shelf'
+import useShelfPreview from '@/app/hooks/useShelfPreview'
 import { pillClass } from '../books/ShelfToolbar'
 
 interface CappedShelfProps {
@@ -17,17 +18,21 @@ interface CappedShelfProps {
 
 // A shelf on someone else's profile: the first two rows, then "See all" opens the shelf's own page. Keeps
 // their reviews, lists and authors within a scroll or two however much they've read.
-const CappedShelf: FC<CappedShelfProps> = ({ id, title, books, accentColour, href }) => (
-  <ShelfSection id={id} title={title} count={books.length} action={books.length > SHELF_PREVIEW ? <SeeAllLink href={href} /> : undefined}>
+const CappedShelf: FC<CappedShelfProps> = ({ id, title, books, accentColour, href }) => {
+  // Two rows of covers on this screen.
+  const preview = useShelfPreview()
+  return (
+  <ShelfSection id={id} title={title} count={books.length} action={books.length > preview ? <SeeAllLink href={href} /> : undefined}>
     <div className={coverGridClass}>
-      {books.slice(0, SHELF_PREVIEW).map((book) => <BookCoverCard key={book.id} book={book} accentColour={accentColour} readOnly />)}
+      {books.slice(0, preview).map((book) => <BookCoverCard key={book.id} book={book} accentColour={accentColour} readOnly />)}
     </div>
-    {books.length > SHELF_PREVIEW && (
+    {books.length > preview && (
       <div className="mt-6 flex justify-center">
         <Link href={href} className={`${pillClass} inline-flex items-center`}>See all {books.length.toLocaleString('en-GB')}</Link>
       </div>
     )}
   </ShelfSection>
-)
+  )
+}
 
 export default CappedShelf

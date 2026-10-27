@@ -9,7 +9,8 @@ import { positionLabel, progressLabel, trackerGroups, type SeriesEntry, type Ser
 import useBooks from '@/app/hooks/useBooks'
 import BookCover from '../cards/BookCover'
 import AddToShelfButton from '../discover/AddToShelfButton'
-import { SHELF_PREVIEW, SeeAllLink, ShelfSection, coverGridClass } from '../books/shelf'
+import { SeeAllLink, ShelfSection, coverGridClass } from '../books/shelf'
+import useShelfPreview from '@/app/hooks/useShelfPreview'
 import { pillClass } from '../books/ShelfToolbar'
 import AuthorLink from '@/app/components/AuthorLink'
 import { SERIES_TRACKER_KEY } from './FollowSeriesButton'
@@ -111,6 +112,7 @@ const SeriesTracker: FC = () => {
   // Two rows of covers (or a handful of series) at first, so lists and authors below stay close. "Show
   // more" at the foot opens the next lot in place; "See all" in the heading opens the rest.
   const [count, setCount] = useState<number | null>(null)
+  const preview = useShelfPreview()
 
   // A book moved between shelves changes what's next.
   useEffect(() => { if (books) void mutate() }, [books, mutate])
@@ -118,7 +120,7 @@ const SeriesTracker: FC = () => {
   if (!data) return null
   const groups = trackerGroups(data.series)
   const shown = groups[tab]
-  const cap = tab === 'nextUp' ? SHELF_PREVIEW : 6
+  const cap = tab === 'nextUp' ? preview : 6
   const limit = count ?? cap
   const visible = shown.slice(0, limit)
   const more = shown.length > limit
