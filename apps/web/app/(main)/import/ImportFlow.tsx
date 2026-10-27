@@ -2,7 +2,7 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { notify } from '@/lib/notify'
-import { BookCheck, CalendarOff, Check, Copy, CopyX, ExternalLink, FileUp, HelpCircle, Loader2, Search, Sparkles, Upload } from 'lucide-react'
+import { BookCheck, CalendarOff, Check, Copy, CopyX, ExternalLink, Feather, FileUp, HelpCircle, Loader2, Search, Upload } from 'lucide-react'
 import type { Status } from '@prisma/client'
 import { Button } from '@/app/components/ui/button'
 import Medal from '@/app/components/achievements/Medal'
@@ -97,6 +97,12 @@ const ImportFlow: FC<{ aiAvailable: boolean; aiDefault: boolean }> = ({ aiAvaila
       .finally(() => setLoaded(true))
     return () => { runId.current++ }
   }, [drive])
+
+  // Once the books are on the shelves the pasted list has done its job, so the next import starts blank.
+  // Any it couldn't find stay on the summary to copy.
+  useEffect(() => {
+    if (job?.status === "done") setDraft({ text: "", fileName: null })
+  }, [job?.status])
 
   const upload = async (file: File) => {
     if (file.size > MAX_BYTES) {
@@ -340,7 +346,7 @@ const PasteList: FC<{
         <label className="flex gap-3 items-start text-sm cursor-pointer">
           <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} className="mt-1 h-4 w-4 accent-[hsl(var(--primary))]" />
           <span>
-            <span className="font-medium inline-flex items-center gap-1.5">Use AI to pick out the books <Sparkles size={13} className="text-brand" aria-hidden /></span>
+            <span className="font-medium inline-flex items-center gap-1.5">Use AI to pick out the books <Feather size={13} className="text-brand" aria-hidden /></span>
             <span className="block text-muted-foreground">
               Better with messy lists: it skips notes to self and copies each title and author out of its line, word for word. It never adds a book that isn&apos;t in your list.
             </span>
@@ -477,7 +483,7 @@ const PreviewStep: FC<{ job: ImportJobView; onConfirm: () => Promise<void>; onCa
         </li>
         {unsure > 0 && (
           <li className="flex gap-3">
-            <Sparkles size={18} className="mt-0.5 flex-shrink-0 text-amber-600" aria-hidden />
+            <HelpCircle size={18} className="mt-0.5 flex-shrink-0 text-amber-600" aria-hidden />
             <span>
               <strong className="tabular-nums">{fmt(unsure)}</strong> {unsure === 1 ? "match" : "matches"} to check below. Any you don&apos;t check {unsure === 1 ? "is" : "are"} {isList ? "left out" : "added as typed"}.
             </span>

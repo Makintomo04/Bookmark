@@ -2,15 +2,17 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { updateBuddyReadSchema } from "@/lib/buddyReads";
-import { buddyReadError, canHostAnotherCircle, canInheritAnotherCircle, hostingRefusal, loadBuddyReadView, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { buddyReadError, canHostAnotherCircle, canInheritAnotherCircle, hostingRefusal, loadBuddyReadView, markCircleSeen, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 
 // The reading circle page polls this. Comments past the viewer's progress come back as locked stubs.
+// Having it open marks the circle's comment notifications read.
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
   const view = await loadBuddyReadView(params.id, currentUser.id);
   if (!view) return buddyReadError("Reading circle not found", 404);
+  await markCircleSeen(view.buddyRead.id, currentUser.id);
   return NextResponse.json(view, { headers: { "Cache-Control": "private, no-store" } });
 }
 

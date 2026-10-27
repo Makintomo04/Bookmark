@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
-import { BookOpen, Flame, Headphones, Repeat, Ruler, Sparkles, Undo2 } from "lucide-react-native";
+import { BookOpen, BookOpenText, Flame, Headphones, Repeat, Ruler, Star, Undo2 } from "lucide-react-native";
 import { formatPace } from "@bookmark/shared/goals";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { ratingGlyphs } from "@bookmark/shared/rating";
@@ -54,13 +54,13 @@ export default function Stats() {
 
       <View style={styles.tiles}>
         <Tile icon={icon(BookOpen)} label="Books read" value={fmt(stats.booksRead)} note={stats.undatedFinishes ? `${plural(stats.undatedFinishes, "finish", "finishes")} without a date` : undefined} />
-        <Tile icon={icon(Sparkles)} label="Pages read" value={fmt(stats.pagesRead)} note="across every finished read" />
+        <Tile icon={icon(BookOpenText)} label="Pages read" value={fmt(stats.pagesRead)} note="across every finished read" />
         {stats.minutesListened > 0 && <Tile icon={icon(Headphones)} label="Hours listened" value={fmt(Math.round(stats.minutesListened / 60))} note="of audiobooks finished" />}
         <Tile icon={icon(Ruler)} label="Average length" value={stats.averagePages ? fmt(stats.averagePages) : "–"} note="pages per book" />
         <Tile icon={icon(Flame)} label="Current streak" value={plural(stats.streak, "day")} note={stats.streak ? "keep it going today" : "read a page to start one"} />
         <Tile icon={icon(Repeat)} label="Re-reads" value={fmt(stats.rereads)} note={stats.rereadBooks ? `across ${plural(stats.rereadBooks, "book")}` : "none yet"} />
         <Tile icon={icon(Undo2)} label="Did not finish" value={stats.dnfRate === null ? "–" : `${Math.round(stats.dnfRate * 100)}%`} note={stats.dnf ? `${plural(stats.dnf, "book")} put down` : "of the books you started"} />
-        <Tile icon={icon(Sparkles)} label="Average rating" value={stats.averageRating ? `${stats.averageRating} ★` : "–"} note={stats.ratedBooks ? `from ${plural(stats.ratedBooks, "rating")}` : "no ratings yet"} />
+        <Tile icon={icon(Star)} label="Average rating" value={stats.averageRating ? `${stats.averageRating} ★` : "–"} note={stats.ratedBooks ? `from ${plural(stats.ratedBooks, "rating")}` : "no ratings yet"} />
         <Tile icon={icon(Ruler)} label="Longest book" value={stats.longestBook ? fmt(stats.longestBook.pages) : "–"} note={stats.longestBook?.title} />
       </View>
 

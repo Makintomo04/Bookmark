@@ -3,10 +3,11 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit } from "@/lib/rateLimit";
 import { canSeeComment, commentPosition, commentSchema } from "@/lib/buddyReads";
-import { buddyReadError, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { buddyReadError, isObjectId, notifyNewComment, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 
 // Posts a comment pinned to a point in the book: the author's progress, or lower if they say so.
-// A reply sits with its parent (or later), and you can only reply to what you can read.
+// A reply sits with its parent (or later), and you can only reply to what you can read. Members who've
+// already read that far are told about it (notifyNewComment).
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
@@ -46,5 +47,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     },
     select: { id: true, position: true },
   });
+  // Members already past it hear now; the rest when their progress reaches it.
+  await notifyNewComment(buddyRead.id, { userId: currentUser.id, position: comment.position });
   return NextResponse.json(comment);
 }

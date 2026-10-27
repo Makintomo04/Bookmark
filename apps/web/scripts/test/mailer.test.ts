@@ -20,3 +20,10 @@ test("development without an SMTP host uses the Ethereal test inbox", () => {
   assert.equal(mailTransportFor({ NODE_ENV: "development" }), "ethereal");
   assert.equal(mailTransportFor({ NODE_ENV: "test" }), "ethereal");
 });
+
+test("the end-to-end outbox is used outside production only", () => {
+  assert.equal(mailTransportFor({ NODE_ENV: "development", MAIL_OUTBOX_DIR: "e2e/.outbox" }), "outbox");
+  assert.equal(mailTransportFor({ NODE_ENV: "development", MAIL_OUTBOX_DIR: "e2e/.outbox", EMAIL_SERVER_HOST: "smtp.example.com" }), "outbox");
+  assert.equal(mailTransportFor({ NODE_ENV: "production", MAIL_OUTBOX_DIR: "e2e/.outbox", EMAIL_SERVER_HOST: "smtp.example.com" }), "smtp");
+  assert.throws(() => mailTransportFor({ NODE_ENV: "production", MAIL_OUTBOX_DIR: "e2e/.outbox" }), /EMAIL_SERVER_HOST/);
+});

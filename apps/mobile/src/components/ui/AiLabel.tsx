@@ -1,5 +1,5 @@
 import { StyleSheet, View } from "react-native";
-import { Sparkles } from "lucide-react-native";
+import { Feather } from "lucide-react-native";
 import { useTheme } from "@/lib/theme";
 import { Text } from "./Text";
 
@@ -8,7 +8,7 @@ export function AiLabel() {
   const { colors } = useTheme();
   return (
     <View style={[styles.label, { backgroundColor: colors.muted }]} accessibilityLabel="Written by AI">
-      <Sparkles size={10} color={colors.brand} />
+      <Feather size={10} color={colors.brand} />
       <Text style={{ fontSize: 10, color: colors.brandText, letterSpacing: 0.5 }}>AI</Text>
     </View>
   );

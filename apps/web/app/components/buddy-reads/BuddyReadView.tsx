@@ -20,6 +20,7 @@ import ProgressTrack from './ProgressTrack'
 import Discussion from './Discussion'
 import InvitePanel from './InvitePanel'
 import HandOverDialog from './HandOverDialog'
+import MuteCircleButton from './MuteCircleButton'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import AuthorLink from '@/app/components/AuthorLink'
 
@@ -144,6 +145,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
               Listening instead? Minutes count the same way: progress is a percent of your own copy.
             </p>
           </section>
+          <MuteCircleButton buddyReadId={id} viewerId={viewer.userId} muted={viewer.muted} onChange={() => mutate()} />
           <section className="flex flex-col items-start gap-2">
             {viewer.isHost ? (
               <>

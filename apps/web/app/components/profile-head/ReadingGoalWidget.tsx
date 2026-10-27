@@ -2,7 +2,7 @@
 import { FC, useState } from 'react'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
-import { Pencil, Sparkles, Target } from 'lucide-react'
+import { Pencil, Crown, Target } from 'lucide-react'
 import useGoalProgress from '@/app/hooks/useGoalProgress'
 import useReadingGoal from '@/app/hooks/useReadingGoal'
 import useUser from '@/app/hooks/useUser'
@@ -124,7 +124,7 @@ const ReadingGoalWidget: FC = () => {
         {canExtra ? (
           <fieldset className="mt-4 flex flex-col gap-3">
             <legend className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-              <Sparkles size={14} aria-hidden className="text-brand" /> Plus goals <span className="font-normal text-muted-foreground">· optional</span>
+              <Crown size={14} aria-hidden className="text-brand" /> Plus goals <span className="font-normal text-muted-foreground">· optional</span>
             </legend>
             <div className="flex flex-wrap items-center gap-2">
               <div className="w-28">

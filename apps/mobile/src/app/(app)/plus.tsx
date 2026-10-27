@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Platform, StyleSheet, View } from "react-native";
 import useSWR from "swr";
 import * as WebBrowser from "expo-web-browser";
-import { Check, Sparkles } from "lucide-react-native";
+import { Check, Crown } from "lucide-react-native";
 import { FOUNDING, isIndefiniteComp } from "@bookmark/shared/entitlements";
 import { FREE, FREE_SOON, PLUS, PLUS_SOON } from "@bookmark/shared/plusFeatures";
 import { Button } from "@/components/ui/Button";
@@ -63,12 +63,12 @@ export default function PlusScreen() {
     <Screen edges={["left", "right"]}>
       <View style={{ alignItems: "center", gap: 12 }}>
         <View style={[styles.pill, { backgroundColor: colors.muted }]}>
-          <Sparkles size={14} color={colors.brandText} />
+          <Crown size={14} color={colors.brandText} />
           <Text variant="label" style={{ color: colors.brandText }}>Bookmark Plus</Text>
         </View>
         <Text variant="hero" style={{ textAlign: "center" }}>All your stats are free.</Text>
         <Text variant="muted" style={{ textAlign: "center", fontSize: 16, lineHeight: 23 }}>
-          Plus lets you host more circles and set extra goals, with AI recaps on the way. It never gates your stats, your import, or the circles your friends invite you to.
+          Plus lets you host more circles, set extra goals and use Ask the shelf and Catch me up more often. It never gates your stats, your import, or the circles your friends invite you to.
         </Text>
       </View>
 
@@ -97,7 +97,8 @@ function PlanCard({ status, allowances }: { status: Status; allowances: PlusResp
         ? isIndefiniteComp(status.compUntil) ? "Complimentary Plus from the Bookmark team, with no end date." : `Free Plus until ${day(status.compUntil)}.`
         : "You're on the free plan. Every stat, import and circle you join stays free.";
   const label = status.source === "lifetime" ? "Lifetime" : status.patron ? "Patron" : status.founding && status.source !== "comp" ? "Founding Reader" : status.trialing ? "Trial" : status.source === "comp" ? (isIndefiniteComp(status.compUntil) ? "Complimentary" : "Free months") : status.plan === "PLUS" ? "Active" : "Free";
-  const allowanceLine = (name: string, a: Allowance) => (a.left === null ? null : `${name}: ${a.left} of ${a.allowance} left this month${a.isPlus ? " (fair use)" : ""}`);
+  const allowanceLine = (name: string, a: Allowance) =>
+    a.left === null ? null : !a.isPlus && a.allowance === 0 ? `${name}: with Plus` : `${name}: ${a.left} of ${a.allowance} left this month${a.isPlus ? " (fair use)" : ""}`;
   const lines = allowances ? [allowanceLine("Ask the shelf", allowances.askShelfSearches), allowanceLine("Catch me up", allowances.recaps)].filter(Boolean) : [];
 
   return (
@@ -250,7 +251,7 @@ function Column({ title, features, soon, highlight }: { title: string; features:
   return (
     <View style={[styles.card, { borderColor: colors.border }]}>
       <View style={[styles.row, { justifyContent: "flex-start", gap: 8 }]}>
-        {highlight && <Sparkles size={18} color={colors.brandText} />}
+        {highlight && <Crown size={18} color={colors.brandText} />}
         <Text variant="title" accessibilityRole="header">{title}</Text>
       </View>
       {features.map((f, i) => (

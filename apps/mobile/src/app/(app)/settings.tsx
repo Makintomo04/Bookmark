@@ -136,7 +136,7 @@ export default function SettingsScreen() {
       <Card title="AI features" hint="Only ever for something you ask for, always labelled, and never about you.">
         <Toggle
           label="Use AI features"
-          hint="Ask the shelf, which finds books from a description in your own words, and Catch me up, a short recap of the story so far when you come back to a book. Recaps are only for you."
+          hint="Ask the shelf, which finds books from a description in your own words, and Catch me up, a short recap of the story so far when you come back to a book (with Plus). Recaps are only for you. Off to start on a free account and on with Plus; switch it off any time."
           value={settings.aiFeatures}
           onChange={(v) => void save("aiFeatures", v)}
           disabled={busy}

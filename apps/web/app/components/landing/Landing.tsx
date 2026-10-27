@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { FC } from 'react'
+import { PITCH } from '@bookmark/shared/pitch'
 import { Button } from '../ui/button'
 import {
   ArrowRight,
@@ -49,7 +50,7 @@ const tracking = [
 const together = [
   {
     icon: Lock,
-    title: "Reading circles where nobody gets spoiled",
+    title: "Reading circles that wait for you",
     description: "A private chat for one book. Every comment is pinned to where its writer was, and stays locked until you've read that far.",
   },
   {
@@ -193,16 +194,16 @@ const Landing: FC = () => {
               Goodreads for friends, StoryGraph for stats?
             </p>
             <h1 className="display-hero max-w-3xl">
-              Your reading and your friends, in one app.
+              {PITCH.headline}
             </h1>
             <p className={`text-base md:text-lg mt-5 max-w-xl ${mutedClassName}`}>
-              Stop logging every book twice. Bookmark tracks every book with free stats, goals and streaks, and lets you read the next one with friends in a private reading circle.
+              {PITCH.ledeWeb}
             </p>
             <Button asChild className={`${ctaClassName} mt-8`}>
               <Link href="/register">Start reading free</Link>
             </Button>
             <p className={`text-sm mt-4 ${mutedClassName}`}>
-              No card needed. Import from Goodreads, StoryGraph, or both, in about a minute.
+              No card needed. {PITCH.importLine}
             </p>
           </div>
           <div className="flex flex-col gap-4 w-full max-w-md mx-auto lg:mr-0">

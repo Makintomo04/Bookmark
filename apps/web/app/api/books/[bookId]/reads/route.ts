@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: { bookId: stri
   const reads = await prisma.bookRead.findMany({
     where: { bookId: params.bookId },
     orderBy: { createdAt: "asc" },
-    select: { id: true, status: true, startedAt: true, finishedAt: true, rating: true, stoppedAtPage: true, stoppedAtMinute: true },
+    select: { id: true, status: true, startedAt: true, finishedAt: true, rating: true, stoppedAtPage: true, stoppedAtMinute: true, currentPercent: true },
   });
   return NextResponse.json(reads);
 }

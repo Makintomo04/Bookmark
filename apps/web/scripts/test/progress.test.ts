@@ -4,8 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  convertPosition, formatLength, formatMinutes, formatPosition, formatStoppedAt, lengthSnapshot, progressPercent, progressScale, readLength,
-  readLengthsAfterEdit, unitOf,
+  convertPosition, entersPercent, formatLength, formatMinutes, formatPosition, formatStoppedAt, lengthSnapshot, percentToPosition, progressPercent,
+  progressScale, readLength, readLengthsAfterEdit, unitOf,
 } from "@/lib/progress";
 
 const paper = { status: "STARTED", currentPage: 75, pages: 300, progressUnit: null, currentMinute: null, audioMinutes: null };
@@ -97,4 +97,70 @@ test("fixing a length reaches reads of the same edition only", () => {
   assert.deepEqual(readLengthsAfterEdit(reads, hardback, fixed)[0].data, lengthSnapshot(fixed));
   // Nothing changed, nothing written.
   assert.deepEqual(readLengthsAfterEdit([{ id: "this-edition", ...lengthSnapshot(hardback) }], hardback, hardback), []);
+});
+
+// ---- Logging in percent (Kindle) --------------------------------------------------------------
+
+const kindle = { status: "STARTED", currentPage: 0, pages: 0, progressUnit: null, currentMinute: null, audioMinutes: null, currentPercent: 25 };
+
+test("a typed percent wins over current/total", () => {
+  assert.equal(progressPercent(kindle), 25);
+  // 37% of a 50-page book is page 19, which on its own would read as 38%.
+  assert.equal(progressPercent({ ...paper, pages: 50, currentPage: 19, currentPercent: 37 }), 37);
+  assert.equal(progressPercent({ ...kindle, currentPercent: 37.25 }), 37.3);
+  // No percent and no length is still 0.
+  assert.equal(progressPercent({ ...kindle, currentPercent: null }), 0);
+  assert.equal(progressPercent({ ...paper, currentPercent: null }), 25);
+  // Finished is 100 whatever was typed.
+  assert.equal(progressPercent({ ...kindle, status: "COMPLETED" }), 100);
+  assert.equal(progressPercent({ ...kindle, status: "COMPLETED", currentPercent: 97 }), 100);
+});
+
+test("a percent becomes the matching page, rounded and kept within the book", () => {
+  assert.equal(percentToPosition(37, 300), 111);
+  assert.equal(percentToPosition(37, 50), 19);
+  assert.equal(percentToPosition(25, 724), 181);
+  assert.equal(percentToPosition(100, 300), 300);
+  assert.equal(percentToPosition(140, 300), 300);
+  assert.equal(percentToPosition(-5, 300), 0);
+  assert.equal(percentToPosition(40, 0), 0);
+  assert.equal(percentToPosition(NaN, 300), 0);
+});
+
+test("the update form opens in percent for a book with no length, or when the reader chose it", () => {
+  assert.equal(entersPercent(kindle), true);
+  assert.equal(entersPercent({ ...kindle, currentPercent: null }), true);
+  assert.equal(entersPercent(paper), false);
+  assert.equal(entersPercent({ ...paper, logsPercent: true }), true);
+  assert.equal(entersPercent({ ...paper, logsPercent: false }), false);
+  // An audiobook with a running time can be logged either way too.
+  assert.equal(entersPercent(audio), false);
+  assert.equal(entersPercent({ ...audio, logsPercent: true }), true);
+  assert.equal(entersPercent(null), false);
+});
+
+test("a place logged in percent reads as one", () => {
+  assert.equal(formatPosition(kindle), "25%");
+  assert.equal(formatPosition(kindle, { paused: true }), "Paused at 25%");
+  assert.equal(formatPosition({ ...paper, currentPage: 111, currentPercent: 37 }), "37% · page 111 of 300");
+  assert.equal(formatPosition({ ...audio, currentPercent: 25 }), "25% · 3h 1m of 12h 4m");
+  // Cards that show the percent beside it get the page, or say there's no count.
+  assert.equal(formatPosition({ ...paper, currentPage: 111, currentPercent: 37 }, { percent: false }), "Page 111 of 300");
+  assert.equal(formatPosition(kindle, { percent: false }), "No page count");
+  assert.equal(formatPosition({ ...kindle, currentPercent: null }), "0%");
+  assert.equal(formatPosition({ ...kindle, currentPercent: null }, { percent: false }), "No page count");
+  // A place logged in pages reads as before.
+  assert.equal(formatPosition({ ...paper, currentPercent: null }), "Page 75 of 300");
+  assert.equal(formatStoppedAt({ ...kindle, status: "DNF", currentPercent: 42 }), "Stopped at 42%");
+  assert.equal(formatStoppedAt({ ...paper, status: "DNF", currentPercent: 25 }), "Stopped at page 75");
+});
+
+test("adding a page count later stamps a percent-only finish, so pages read catch up", () => {
+  const noCount = { pages: 0, progressUnit: null, audioMinutes: null };
+  const counted = { pages: 320, progressUnit: null, audioMinutes: null };
+  const finish = { id: "kindle-finish", ...lengthSnapshot(noCount) };
+  assert.deepEqual(readLength(finish, noCount), { pages: 0, minutes: 0 });
+  const stamps = readLengthsAfterEdit([finish], noCount, counted);
+  assert.deepEqual(stamps, [{ id: "kindle-finish", data: lengthSnapshot(counted) }]);
+  assert.deepEqual(readLength(stamps[0].data, counted), { pages: 320, minutes: 0 });
 });

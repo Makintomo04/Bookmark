@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
+import { mutate } from 'swr'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '../ui/button'
 import { afterSignInPath, safeCallbackPath, withCallback } from '@/lib/callbackUrl'
@@ -23,6 +24,9 @@ const VerifyEmailComponent = () => {
     const res = await signIn("verify-email", { email, token, redirect: false }).catch(() => null)
     if (res?.ok) {
       setState("done")
+      // The signed-out /api/user answer is still cached from this page; refetch it, or onboarding
+      // opens on "Sign in to see your account" until the tab next regains focus.
+      await mutate("/api/user")
       router.push(afterSignInPath(callbackPath))
       return
     }

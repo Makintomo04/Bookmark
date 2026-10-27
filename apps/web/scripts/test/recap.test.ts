@@ -74,10 +74,12 @@ function memorySource(ctx: RecapContext | null, opts: { notes?: RecapNote[]; thr
 }
 
 const reader = { id: "reader", aiFeatures: true };
+// Catch me up comes with Plus, so most tests run as a Plus reader.
+const plusAccount = usageAccountOf({ plan: "PLUS", timeZone: "Europe/London" });
 const freeAccount = usageAccountOf({ plan: "FREE", timeZone: "Europe/London" });
 
-function deps(ask: AskJson, source: RecapSource, store = memoryUsageStore(), available = true) {
-  const usage: UsageOptions = { store, account: freeAccount, now: NOW };
+function deps(ask: AskJson, source: RecapSource, store = memoryUsageStore(), available = true, account = plusAccount) {
+  const usage: UsageOptions = { store, account, now: NOW };
   return { ask, source, available: () => available, usage, now: NOW, store };
 }
 
@@ -190,7 +192,7 @@ test("a recap that stops at or before the reader's point is kept and spends one 
   const d = deps(fakeModel(goodAnswer(45)).ask, source);
   const result = await catchMeUp(reader, "book1", "RESUME", d);
   assert.equal(result.status, "ready");
-  assert.equal(result.status === "ready" && result.left, 2);
+  assert.equal(result.status === "ready" && result.left, 29);
   assert.equal(recapsUsed(d.store), 1);
   assert.equal(source.saved[0].reachedPercent, 45);
   assert.equal(source.saved[0].bucket, 45);
@@ -269,7 +271,7 @@ test("'not confident' is refunded, kept, and asking again doesn't call the model
   const d = deps(ask, source);
   const first = await catchMeUp(reader, "book1", "RESUME", d);
   assert.equal(first.status, "not_confident");
-  assert.equal(first.status === "not_confident" && first.left, 3);
+  assert.equal(first.status === "not_confident" && first.left, 30);
   assert.equal(recapsUsed(d.store), 0, "refunded");
   const again = await catchMeUp(reader, "book1", "RESUME", d);
   assert.equal(again.status, "not_confident");
@@ -295,28 +297,53 @@ test("reopening a recap is free, even with the month's allowance used up", async
   const first = await catchMeUp(reader, "book1", "RESUME", d);
   assert.equal(first.status, "ready");
   assert.equal(recapsUsed(d.store), 1);
-  // Use the rest of the free allowance.
-  d.store.rows.set(`reader|recaps|${monthKey(NOW, "Europe/London")}`, 3);
+  // Use the rest of the month's allowance.
+  d.store.rows.set(`reader|recaps|${monthKey(NOW, "Europe/London")}`, 30);
   const again = await catchMeUp(reader, "book1", "RESUME", d);
   assert.equal(again.status, "ready");
   assert.equal(again.status === "ready" && again.cached, true);
   assert.equal(calls.length, 1);
-  assert.equal(recapsUsed(d.store), 3);
+  assert.equal(recapsUsed(d.store), 30);
   // recapState hands the kept recap to the book page without spending anything.
   const state = await recapState(reader, "book1", { source, available: () => true, now: NOW });
   assert.equal(state.enabled && state.resume?.recap?.id, first.status === "ready" ? first.recap.id : null);
 });
 
-test("a free account's fourth recap is refused with the upgrade, without calling the model", async () => {
+test("a Plus reader's 31st recap of the month is refused with the upgrade, without calling the model", async () => {
   const store = memoryUsageStore();
+  store.rows.set(`reader|recaps|${monthKey(NOW, "Europe/London")}`, 29);
   const { ask, calls } = fakeModel(goodAnswer(10));
-  for (const [i, pages] of [[1, 40], [2, 80], [3, 120], [4, 200]] as const) {
+  for (const [i, pages] of [[1, 40], [2, 80]] as const) {
     const source = memorySource({ book: book({ id: `book${i}`, currentPage: pages }), work: work(`w${i}`), finishedInSeries: [] });
     const result = await catchMeUp(reader, `book${i}`, "RESUME", deps(ask, source, store));
-    if (i < 4) assert.equal(result.status, "ready", `recap ${i}`);
-    else assert.equal(result.status, "allowance");
+    assert.equal(result.status, i === 1 ? "ready" : "allowance", `recap ${i}`);
   }
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 1);
+});
+
+test("Catch me up comes with Plus: a free reader gets the upgrade refusal and no model call", async () => {
+  const source = memorySource({ book: book(), work: work("w1"), finishedInSeries: [] });
+  const { ask, calls } = fakeModel(goodAnswer(40));
+  const d = deps(ask, source, memoryUsageStore(), true, freeAccount);
+  assert.equal((await catchMeUp(reader, "book1", "RESUME", d)).status, "allowance");
+  assert.equal(calls.length, 0);
+  assert.equal(recapsUsed(d.store), 0);
+  assert.equal(source.saved.length, 0);
+});
+
+test("a recap kept from a Plus month still opens on a free account, for nothing", async () => {
+  const source = memorySource({ book: book(), work: work("w1"), finishedInSeries: [] });
+  const { ask, calls } = fakeModel(goodAnswer(40));
+  const store = memoryUsageStore();
+  const first = await catchMeUp(reader, "book1", "RESUME", deps(ask, source, store));
+  assert.equal(first.status, "ready");
+  // Plus lapses.
+  const again = await catchMeUp(reader, "book1", "RESUME", deps(ask, source, store, true, freeAccount));
+  assert.equal(again.status === "ready" && again.cached, true);
+  assert.equal(calls.length, 1);
+  assert.equal(recapsUsed(store), 1);
+  const state = await recapState(reader, "book1", { source, available: () => true, now: NOW });
+  assert.equal(state.enabled && state.resume?.recap?.id, first.status === "ready" ? first.recap.id : null);
 });
 
 // ---- Preference and no key ------------------------------------------------------------------------------

@@ -64,19 +64,14 @@ export default function NewCircle() {
           </View>
         </View>
         <Text>Everyone reads their own copy, in any edition or on audio. Comments are pinned to where they were written and stay locked until each reader gets there.</Text>
-        {!hasLength && (
-          <View style={{ gap: 4, alignItems: "flex-start" }}>
-            <Notice tone="error" message="This book has no page count or running time, so progress can't be tracked. Add one first." />
-            <Button title="Edit details" variant="ghost" onPress={() => router.push(`/book/edit/${book.id}`)} />
-          </View>
-        )}
+        {!hasLength && <Text variant="muted">This book has no page count, so everyone logs their progress as a percent.</Text>}
         <DateField label="Start date" value={startsOn} onChange={(day) => day && setStartsOn(day)} />
         <View style={{ gap: 6 }}>
           <Text variant="label">Schedule · optional</Text>
           <ScheduleEditor rows={rows} onChange={setRows} disabled={starting} />
         </View>
         {error && <Notice tone="error" message={error} />}
-        <Button title="Start and get the link" loading={starting} disabled={!hasLength} onPress={start} />
+        <Button title="Start and get the link" loading={starting} onPress={start} />
         {!bookId && <Button title="Choose another book" variant="ghost" disabled={starting} onPress={() => setChosen(null)} />}
       </Screen>
     );

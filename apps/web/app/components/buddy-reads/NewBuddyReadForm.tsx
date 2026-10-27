@@ -108,7 +108,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
           </ul>
         )}
         {chosen && !chosenHasLength && (
-          <p className="text-sm text-danger">This book has no page count or running time, so progress can&apos;t be tracked. Add one from the book first.</p>
+          <p className="text-sm text-muted-foreground">This book has no page count, so everyone logs their progress as a percent.</p>
         )}
       </fieldset>
 
@@ -143,7 +143,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
 
       <div className="flex justify-end gap-3 border-t border-neutral-200 dark:border-neutral-800 pt-6">
         <Link href="/circles" className={secondaryButtonClass}>Cancel</Link>
-        <button type="submit" disabled={!chosen || !chosenHasLength || blocked || isSaving} className={primaryButtonClass}>
+        <button type="submit" disabled={!chosen || blocked || isSaving} className={primaryButtonClass}>
           {isSaving ? "Starting…" : "Start and get the link"}
         </button>
       </div>

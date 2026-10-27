@@ -14,6 +14,10 @@ export type ProgressBook = {
   progressUnit?: ProgressUnit | null
   currentMinute?: number | null
   audioMinutes?: number | null
+  // The exact percent a Kindle reader typed, when they logged one; null once they log a page or minute.
+  currentPercent?: number | null
+  // The reader's per-book choice to log in percent.
+  logsPercent?: boolean | null
 }
 
 // Prisma `select` for anything that calls progressPercent(): spread it, don't list the fields again.
@@ -24,6 +28,8 @@ export const progressSelect = {
   progressUnit: true,
   currentMinute: true,
   audioMinutes: true,
+  currentPercent: true,
+  logsPercent: true,
 } as const
 
 // A book runs on minutes only when it says so and its running time is known; otherwise pages, even
@@ -48,11 +54,13 @@ export function progressScale(book: ProgressBook | null | undefined): ProgressSc
 export const roundPercent = (n: number) => Math.round(Math.max(0, Math.min(100, n)) * 10) / 10
 
 // Members of a circle may own different editions (or listen while others read), so progress is a
-// percent of their own book. A finished book is 100 whatever its count says. One decimal place is
-// plenty and keeps JSON short.
+// percent of their own book. A finished book is 100 whatever its count says. A percent the reader
+// typed wins over current/total, so a book with no page count still moves, and 37% of a short book
+// doesn't drift to 38% by way of a rounded page. One decimal place is plenty and keeps JSON short.
 export function progressPercent(book: ProgressBook | null | undefined): number {
   if (!book) return 0
   if (book.status === "COMPLETED") return 100
+  if (book.currentPercent != null) return roundPercent(book.currentPercent)
   const { current, total } = progressScale(book)
   if (!(total > 0)) return 0
   return roundPercent((current / total) * 100)
@@ -70,16 +78,55 @@ export function formatMinutes(minutes: number): string {
   return rest === 0 ? `${h}h` : `${h}h ${rest}m`
 }
 
-// "Page 120 of 300" or "1h 35m of 12h 4m", for the cards and the update modal.
-export function formatPosition(book: ProgressBook | null | undefined, opts: { paused?: boolean } = {}): string {
+// ---- Logging in percent ----------------------------------------------------------------------
+// Kindle shows "37%", not a page. Percent is a way of entering progress, not a unit: the book stays in
+// pages (or minutes), and the matching position is stored beside the percent whenever the length is known.
+
+// Whether the update modal opens in percent: the reader chose it for this book, or there's no length
+// to log a page against.
+export function entersPercent(book: ProgressBook | null | undefined): boolean {
+  if (!book) return false
+  return !!book.logsPercent || !(progressScale(book).total > 0)
+}
+
+// 37% of 300 pages → page 111. Rounded, and kept within the book.
+export function percentToPosition(percent: number, total: number): number {
+  if (!(total > 0) || !Number.isFinite(percent)) return 0
+  return Math.max(0, Math.min(total, Math.round((percent / 100) * total)))
+}
+
+// Quick-add buttons in percent mode.
+export const PERCENT_QUICK_ADDS = [1, 5, 10]
+
+// Kindle back matter (acknowledgements, a preview of the next book) often starts around here, so the
+// modal offers to mark the book as finished from this point.
+export const NEARLY_FINISHED_PERCENT = 97
+
+const percentLabel = (n: number) => `${Math.round(n)}%`
+
+// "Page 120 of 300" or "1h 35m of 12h 4m", for the cards and the update modal. A place logged in
+// percent leads with it: "37% · page 111 of 300", or just "37%" when there's no length. Cards that
+// already show the percent beside it pass `percent: false`, and get the page (or "No page count").
+export function formatPosition(book: ProgressBook | null | undefined, opts: { paused?: boolean, percent?: boolean } = {}): string {
   const { unit, current, total } = progressScale(book)
+  const paused = opts.paused ? "Paused at " : ""
+  // With no length there's no page to show, only the percent (0% until one is logged).
+  if (!(total > 0)) return opts.percent === false ? "No page count" : `${paused}${percentLabel(progressPercent(book))}`
+  if (book && book.currentPercent != null) {
+    const pct = percentLabel(progressPercent(book))
+    if (opts.percent !== false) {
+      const where = unit === "MINUTES" ? `${formatMinutes(current)} of ${formatMinutes(total)}` : `page ${current} of ${total}`
+      return `${paused}${pct} · ${where}`
+    }
+  }
   if (unit === "MINUTES") return `${formatMinutes(current)} of ${formatMinutes(total)}${opts.paused ? " · paused" : ""}`
   return `${opts.paused ? "Paused on page" : "Page"} ${current} of ${total}`
 }
 
 // "Stopped at page 40" / "Stopped at 1h 10m".
 export function formatStoppedAt(book: ProgressBook | null | undefined): string {
-  const { unit, current } = progressScale(book)
+  const { unit, current, total } = progressScale(book)
+  if (book && book.currentPercent != null && !(total > 0)) return `Stopped at ${percentLabel(book.currentPercent)}`
   return unit === "MINUTES" ? `Stopped at ${formatMinutes(current)}` : `Stopped at page ${current}`
 }
 

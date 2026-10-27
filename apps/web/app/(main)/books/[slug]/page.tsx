@@ -13,14 +13,13 @@ import BookPageReaders from '@/app/components/books/BookPageReaders'
 import RatingSummary from '@/app/components/books/RatingSummary'
 import BookReviews from '@/app/components/books/BookReviews'
 import BookProblemReport from '@/app/components/books/BookProblemReport'
-import FollowSeriesButton from '@/app/components/series/FollowSeriesButton'
+import SeriesSection, { SeriesEyebrow } from '@/app/components/series/SeriesSection'
 import ListCard from '@/app/components/discover/ListCard'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { bookPageData } from '@/lib/bookPage'
 import { listsWithBook } from '@/lib/bookLists'
 import { BOOK_LISTS_SHOWN } from '@/lib/bookListRules'
-import { isFollowingSeries } from '@/lib/seriesFollows'
-import { seriesKey } from '@/lib/series'
+import { seriesOnPage } from '@/lib/seriesFollows'
 import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
 import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
 
@@ -47,10 +46,6 @@ const summaryOf = (text: string) => {
   const cut = flat.slice(0, DESCRIPTION_MAX - 1)
   return `${cut.slice(0, cut.lastIndexOf(" ")) || cut}…`
 }
-
-// "Empyrean #1", or just the series name when the position isn't known.
-const seriesLabel = (series: { name: string, position: number | null }) =>
-  series.position != null ? `${series.name} #${series.position}` : series.name
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const bookKey = bookKeyOfSlug(slugOf(params.slug))
@@ -87,10 +82,10 @@ const Page = async ({ params }: PageProps) => {
 
   const viewer = await getCurrentUser()
   const { book, series, genres, key } = data
-  const [rating, reviews, followingSeries, onLists] = await Promise.all([
+  const [rating, reviews, seriesTrack, onLists] = await Promise.all([
     ratingSummaryForWork(key),
     reviewsForWork(key, viewer?.id ?? null),
-    viewer && series ? isFollowingSeries(viewer.id, seriesKey(series.name, series.author)) : false,
+    series ? seriesOnPage(series, viewer?.id ?? null) : null,
     // One more than shown, so "See all" only appears when there's more to see.
     listsWithBook(book.workKey, viewer, BOOK_LISTS_SHOWN + 1),
   ])
@@ -119,18 +114,7 @@ const Page = async ({ params }: PageProps) => {
               the reviews and details. Inside a group things sit close; between groups, a clear break. */}
           <div className="min-w-0 max-w-3xl flex flex-col gap-12 md:gap-14">
             <header>
-              {series && (
-                <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <p className="text-sm text-muted-foreground">{seriesLabel(series)}</p>
-                  <FollowSeriesButton
-                    name={series.name}
-                    author={series.author}
-                    initialFollowing={followingSeries}
-                    signedIn={!!viewer}
-                    returnTo={href}
-                  />
-                </div>
-              )}
+              {series && <p className="mb-2"><SeriesEyebrow name={series.name} position={series.position} /></p>}
               <h1 className="page-title break-words">{book.title}</h1>
               <p className="mt-2 text-base"><AuthorLink author={book.author} /></p>
               {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
@@ -140,6 +124,17 @@ const Page = async ({ params }: PageProps) => {
                 <AddToListButton book={book} />
               </div>
             </header>
+
+            {seriesTrack && (
+              <SeriesSection
+                track={seriesTrack}
+                workId={data.workId}
+                position={series?.position ?? null}
+                signedIn={!!viewer}
+                returnTo={href}
+                headingClassName={sectionHeading}
+              />
+            )}
 
             <div className="flex flex-col gap-8 empty:hidden">
               <RatingSummary summary={rating} />

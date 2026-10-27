@@ -22,7 +22,8 @@ test("a free account gets the free allowances and no Plus features", () => {
   assert.equal(free.canHostUnlimited, false);
   assert.equal(free.extraGoalTypes, false);
   assert.equal(free.customWrapDesigns, false);
-  assert.deepEqual(free.allowances, { askShelfSearches: 5, recaps: 3 });
+  // Catch me up comes with Plus: a free allowance of 0, never null (which would mean unlimited).
+  assert.deepEqual(free.allowances, { askShelfSearches: 3, recaps: 0 });
 });
 
 test("accounts made before billing (no plan stored) are free", () => {
@@ -42,11 +43,13 @@ test("a Plus account gets every Plus feature and the fair-use allowances", () =>
 test("monthly allowances count down, with a higher stated ceiling on Plus", () => {
   const free = entitlementsOf({ plan: "FREE" });
   const plus = entitlementsOf({ plan: "PLUS" });
-  assert.equal(allowanceLeft(free, "askShelfSearches", 0), 5);
-  assert.equal(allowanceLeft(free, "askShelfSearches", 4), 1);
+  assert.equal(allowanceLeft(free, "askShelfSearches", 0), 3);
+  assert.equal(allowanceLeft(free, "askShelfSearches", 2), 1);
+  assert.equal(hasAllowance(free, "askShelfSearches", 2), true);
+  assert.equal(hasAllowance(free, "askShelfSearches", 3), false);
+  assert.equal(allowanceLeft(free, "recaps", 0), 0);
   assert.equal(allowanceLeft(free, "recaps", 7), 0);
-  assert.equal(hasAllowance(free, "recaps", 2), true);
-  assert.equal(hasAllowance(free, "recaps", 3), false);
+  assert.equal(hasAllowance(free, "recaps", 0), false);
   assert.equal(allowanceLeft(plus, "recaps", 10), 20);
   assert.equal(hasAllowance(plus, "askShelfSearches", 99), true);
   assert.equal(hasAllowance(plus, "askShelfSearches", 100), false);

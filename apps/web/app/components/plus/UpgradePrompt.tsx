@@ -1,6 +1,6 @@
 import { FC } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FEATURE_COPY, UPGRADE_URL, type AllowanceKey, type EntitlementKey } from '@/lib/entitlements'
 
@@ -33,7 +33,7 @@ const UpgradePrompt: FC<UpgradePromptProps> = ({ feature, variant = 'card', mess
     <div className={cn('flex flex-col gap-3 rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 p-4 sm:flex-row sm:items-center sm:justify-between', className)}>
       <div className="flex items-start gap-3">
         <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">
-          <Sparkles size={16} aria-hidden />
+          <Crown size={16} aria-hidden />
         </span>
         <div>
           <p className="text-sm font-semibold">{copy.title}</p>
