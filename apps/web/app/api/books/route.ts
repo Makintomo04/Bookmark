@@ -12,6 +12,7 @@ import { RATING_ERROR, ratingSchema, readFromBook } from "@/lib/readHistory";
 import { EditionFormat, Status } from "@prisma/client";
 import { z } from "zod";
 import { parseAudioMinutes } from "@/lib/bookInput";
+import { fillWorkSeriesQuietly } from "@/lib/seriesFill";
 
 const statusSchema = z.nativeEnum(Status)
 const optionalText = z.string().max(40).nullish()
@@ -153,6 +154,8 @@ const book = await prisma.book.create({
     ...(isPrivate === true && { isPrivate: true }),
   }
 })
+// The work's series, the first time anyone shelves it (lib/seriesFill.ts), while the rest is saved.
+const seriesFilled = fillWorkSeriesQuietly(book.workId)
 const firstRead = readFromBook(book)
 if (firstRead) await prisma.bookRead.create({ data: firstRead })
 // Backfilled reads are logged as an add so they don't post "finished" to followers' feeds.
@@ -166,5 +169,6 @@ if (shelf !== "NOT_INTERESTED") await prisma.activity.create({
 })
 // Adding a finished book can earn medals; the app celebrates what comes back.
 const earnMoment = isCompleted ? await earnMomentFor(currentUser, await syncAchievements(currentUser.id), { finished: finishedThisYear }) : null
+await seriesFilled
 return NextResponse.json({ ...book, earnMoment })
 }

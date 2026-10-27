@@ -12,7 +12,17 @@ export interface SeriesTracker {
 }
 
 export interface BookSeries {
-  series: { key: string; name: string; author: string; position: number | null; isFollowing: boolean } | null;
+  series: {
+    key: string;
+    name: string;
+    author: string;
+    // The book's own catalogue work, to mark it among the series' books.
+    workId?: string;
+    position: number | null;
+    isFollowing: boolean;
+    // The series' books in order, with where you have them. Missing from servers before "In this series".
+    track?: SeriesTrack;
+  } | null;
 }
 
 export interface AuthorSeries {

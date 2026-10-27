@@ -5,13 +5,14 @@ import useSWR from "swr";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from "@bookmark/shared/progress";
 import { spiceAskable, type SpiceLevel, type TagAggregate } from "@bookmark/shared/workTags";
-import { positionLabel } from "@bookmark/shared/series";
+import { seriesPlaceLabel } from "@bookmark/shared/series";
 import { AuthorNames } from "@/components/authors/AuthorNames";
 import { BookCover } from "@/components/books/BookCover";
 import { CatchMeUp } from "@/components/books/CatchMeUp";
 import { SpiceLine, SpicePicker } from "@/components/books/Spice";
 import { StarRating } from "@/components/books/StarRating";
 import { FollowSeries } from "@/components/series/FollowSeries";
+import { SeriesSection } from "@/components/series/SeriesSection";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -217,7 +218,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
           <Text variant="title" style={{ fontSize: 20, lineHeight: 26 }}>{book.title}</Text>
           <AuthorNames author={book.author} />
           {meta ? <Text variant="small">{meta}</Text> : null}
-          <BookSeriesFollow bookId={book.id} />
+          <BookSeriesPlace bookId={book.id} />
           <View style={{ alignItems: "flex-start" }}>
             <Button title="Edit details" variant="ghost" disabled={saving} onPress={() => router.push(`/book/edit/${book.id}`)} />
           </View>
@@ -365,6 +366,8 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
         {(status === "DNF" || status === "NOT_INTERESTED") && <Button title="Move to Want to read" variant="outline" disabled={saving} onPress={() => run({ action: "wantToRead" })} />}
         {status === "NOT_STARTED" && <Button title="Move to Will not read" variant="ghost" disabled={saving} onPress={() => run({ action: "notInterested" })} />}
       </View>
+
+      <BookSeriesSection bookId={book.id} accent={accent} />
     </Screen>
   );
 }
@@ -382,16 +385,20 @@ const styles = StyleSheet.create({
   historyRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
 });
 
-// The book's series, where it sits, and Follow series. Nothing when it isn't in one.
-function BookSeriesFollow({ bookId }: { bookId: string }) {
+// "Book 2 of The Empyrean" under the title. Nothing when the book isn't in a series.
+function BookSeriesPlace({ bookId }: { bookId: string }) {
   const { data } = useSWR<BookSeries>(bookSeriesKey(bookId));
   const series = data?.series;
   if (!series) return null;
-  const where = [series.name, positionLabel(series.position)].filter(Boolean).join(" · ");
-  return (
-    <View style={{ gap: 6, marginTop: 4 }}>
-      <Text variant="small">{where}</Text>
-      <FollowSeries name={series.name} author={series.author} following={series.isFollowing} refreshKey={bookSeriesKey(bookId)} />
-    </View>
-  );
+  return <Text variant="small">{seriesPlaceLabel(series.name, series.position)}</Text>;
+}
+
+// "In this series": the series' books in order and Follow series (one request, shared with the line above).
+// A server from before the section sends no books, so it falls back to Follow series alone.
+function BookSeriesSection({ bookId, accent }: { bookId: string; accent: string }) {
+  const { data } = useSWR<BookSeries>(bookSeriesKey(bookId));
+  const series = data?.series;
+  if (!series) return null;
+  if (!series.track) return <FollowSeries name={series.name} author={series.author} following={series.isFollowing} refreshKey={bookSeriesKey(bookId)} />;
+  return <SeriesSection track={series.track} workId={series.workId ?? null} position={series.position} refreshKey={bookSeriesKey(bookId)} accent={accent} />;
 }
