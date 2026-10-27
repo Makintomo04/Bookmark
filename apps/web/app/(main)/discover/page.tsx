@@ -8,9 +8,10 @@ import DiscoverSearch from '@/app/components/discover/DiscoverSearch'
 import GenreTile from '@/app/components/discover/GenreTile'
 import ListCard from '@/app/components/discover/ListCard'
 import FollowingPicks from '@/app/components/discover/FollowingPicks'
+import GenrePicks from '@/app/components/discover/GenrePicks'
 import { NewPickButton } from '@/app/components/discover/ListButtons'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { GENRES } from '@/lib/genres'
+import { GENRES, favouritesFirst } from '@/lib/genres'
 import { findLists, ListSummary } from '@/lib/lists'
 import { isOpenLibraryCover } from '@/utils/helpers'
 
@@ -87,10 +88,14 @@ const Page = async () => {
 
             <section aria-labelledby="genres-heading">
               <h2 id="genres-heading" className="text-xl font-bold">Browse by genre</h2>
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-                {GENRES.map((genre) => <GenreTile key={genre.slug} genre={genre} />)}
+              {/* Fifteen genres: rows of 3 or 5 come out even; on phones the last one spans the pair. */}
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
+                {favouritesFirst(GENRES, viewer?.favGenres).map((genre) => <GenreTile key={genre.slug} genre={genre} />)}
               </div>
             </section>
+
+            {/* Signed in with favourite genres: what readers shelve most in them. */}
+            {viewer && <GenrePicks placement="discover" />}
 
             {/* Signed in: recent picks by people the reader follows, each with its reason. */}
             {viewer && (

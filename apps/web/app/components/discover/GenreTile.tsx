@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
-  Feather, Fingerprint, Ghost, Heart, Hourglass, Landmark, LucideIcon, MessageSquareQuote,
+  Feather, Fingerprint, Ghost, Heart, HeartCrack, Hourglass, Landmark, LucideIcon, MessageSquareQuote,
   PenTool, Rocket, Scroll, Sparkles, Sprout, UserRound, Wand2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,6 +16,7 @@ const GENRE_ICONS: Record<string, LucideIcon> = {
   "fantasy": Wand2,
   "sci-fi": Rocket,
   "romance": Heart,
+  "dark-romance": HeartCrack,
   "mystery-thriller": Fingerprint,
   "horror": Ghost,
   "historical-fiction": Hourglass,

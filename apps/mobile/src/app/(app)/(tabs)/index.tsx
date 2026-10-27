@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Plus } from "lucide-react-native";
+import { GENRE_PICKS_SHELF_LIMIT } from "@bookmark/shared/genres";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { GenrePicks } from "@/components/discover/GenrePicks";
 import { staffBadgeOf } from "@bookmark/shared/staffBadge";
 import { OwnAuthors } from "@/components/authors/ProfileAuthors";
 import { FollowRequests } from "@/components/library/FollowRequests";
@@ -15,6 +18,7 @@ import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHea
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
+import { api } from "@/lib/api";
 import { FOLLOWED_AUTHORS_KEY } from "@/lib/authors";
 import { useBooks } from "@/lib/books";
 import { SERIES_TRACKER_KEY } from "@/lib/series";
@@ -58,12 +62,35 @@ export default function Library() {
             <Text variant="muted">Add the book you{"’"}re reading, or import your Goodreads or StoryGraph shelves from the web.</Text>
           </View>
         )}
+        <NewShelfPicks bookCount={books?.length} />
         {books && books.length > 0 && <Shelves books={books} accent={accent} />}
         {books && books.length > 0 && <SeriesTracker accent={accent} />}
         <OwnAuthors />
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+// Somewhere to start while the shelf is still new: popular books in the genres picked at setup, above
+// the shelves (the web's NewShelfPicks). Whether it shows is settled once per visit, so adding a few
+// picks in a row doesn't pull it away at the fifth; Hide applies straight away and sticks on every device.
+function NewShelfPicks({ bookCount }: { bookCount: number | undefined }) {
+  const { data: user, mutate } = useSWR<{ hideShelfPicks?: boolean | null }>("/api/user");
+  const [isNew, setIsNew] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (isNew === null && bookCount !== undefined) setIsNew(bookCount < GENRE_PICKS_SHELF_LIMIT);
+  }, [bookCount, isNew]);
+  if (!isNew || !user || user.hideShelfPicks) return null;
+
+  const hide = async () => {
+    void mutate({ ...user, hideShelfPicks: true }, { revalidate: false });
+    try {
+      await api.patch("/api/user/privacy", { hideShelfPicks: true });
+    } catch {
+      void mutate(user, { revalidate: false });
+    }
+  };
+  return <GenrePicks placement="shelf" onHide={() => void hide()} />;
 }
 
 const styles = StyleSheet.create({

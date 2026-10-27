@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { ChevronRight, ListOrdered, Search, Sparkles, Star, UserRound } from "lucide-react-native";
 import { genreBySlug } from "@bookmark/shared/genres";
 import { BookCover } from "@/components/books/BookCover";
+import { GenrePicks } from "@/components/discover/GenrePicks";
 import { ListCard } from "@/components/discover/ListCard";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -13,8 +14,8 @@ import { Text } from "@/components/ui/Text";
 import { addBook, type DiscoverHome, type FollowingPick, type ListSummary } from "@/lib/discover";
 import { useTheme } from "@/lib/theme";
 
-// Discover (the web's /discover): searching, Ask the shelf, the spotlight list, genres, what people you
-// follow listed or loved, Bookmark's picks and readers' lists.
+// Discover (the web's /discover): searching, Ask the shelf, the spotlight list, genres (your favourites
+// first) and what's popular in them, what people you follow listed or loved, Bookmark's picks and readers' lists.
 export default function Discover() {
   const { colors, radii } = useTheme();
   const { data, error, isLoading, mutate } = useSWR<DiscoverHome>("/api/discover");
@@ -65,6 +66,7 @@ export default function Discover() {
               ))}
             </View>
           </Section>
+          <GenrePicks placement="discover" />
           {data.following.picks.length > 0 && (
             <Section title="From people you follow">
               <FlatList horizontal data={data.following.picks} keyExtractor={(p) => p.key} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }} renderItem={({ item }) => <PickCard pick={item} />} />
