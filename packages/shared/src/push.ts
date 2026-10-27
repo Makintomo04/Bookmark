@@ -17,7 +17,7 @@ export type PushGroup = keyof typeof PUSH_GROUPS;
 export type PushType = (typeof PUSH_GROUPS)[PushGroup][number];
 
 export const PUSH_GROUP_LABELS: Record<PushGroup, { title: string; description: string }> = {
-  circles: { title: "Reading circles", description: "Invites, people joining, comments your progress has unlocked, and hosting handed to you." },
+  circles: { title: "Reading circles", description: "Invites, people joining, new comments you can read, and hosting handed to you." },
   follows: { title: "Followers", description: "New followers and follow requests." },
   recommendations: { title: "Books from friends", description: "When a friend sends you a book." },
   account: { title: "Your account", description: "When the Bookmark team hides something you posted." },
@@ -66,11 +66,13 @@ export function pushContentFor(n: PushContext): PushContent | null {
       return { title: "Reading circle invite", body: `${who} asked you to read ${book(n.bookTitle)} together.`, path: circlePath };
     case "BUDDY_READ_JOINED":
       return { title: "Your reading circle", body: `${who} joined your reading circle for ${book(n.bookTitle)}.`, path: circlePath };
+    // Comments the reader can now read: ones their progress just reached, and new ones posted at or before
+    // where they are (BOO-43). Counted, never quoted, and not one person's doing, so nobody is named.
     case "COMMENTS_UNLOCKED": {
       const count = n.count ?? 1;
       return {
-        title: "Comments unlocked",
-        body: `You've reached ${count === 1 ? "a comment" : `${count} comments`} in your reading circle for ${book(n.bookTitle)}.`,
+        title: "New in your reading circle",
+        body: `${count === 1 ? "A comment" : `${count} comments`} to read in your reading circle for ${book(n.bookTitle)}.`,
         path: circlePath,
       };
     }

@@ -157,8 +157,8 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
                 </div>
                 <div className="min-w-0">
                   {n.type === "COMMENTS_UNLOCKED" ? (
-                    // Not one person's doing: "3 comments unlocked in Dune".
-                    <p className="text-sm truncate">{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} unlocked in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
+                    // Not one person's doing: "3 comments to read in Dune", reached or newly posted.
+                    <p className="text-sm truncate">{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} to read in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
                   ) : n.type === "REVIEW_HIDDEN" ? (
                     // Moderation, so nobody is named: not the reporter, not the librarian.
                     // Never cut short: the last line is how to appeal.

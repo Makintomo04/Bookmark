@@ -113,7 +113,7 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
   };
 
   const text =
-    n.type === "COMMENTS_UNLOCKED" ? `${n.count ?? 1} ${n.count === 1 ? "comment" : "comments"} unlocked in ${n.buddyRead?.title ?? "your reading circle"}`
+    n.type === "COMMENTS_UNLOCKED" ? `${n.count ?? 1} ${n.count === 1 ? "comment" : "comments"} to read in ${n.buddyRead?.title ?? "your reading circle"}`
     : n.type === "BUDDY_READ_HOST_INHERITED"
       ? n.buddyRead?.status === "ARCHIVED"
         ? `The host of ${n.buddyRead?.title ?? "a reading circle"} closed their account. It's yours now, archived until you have room to reopen it.`

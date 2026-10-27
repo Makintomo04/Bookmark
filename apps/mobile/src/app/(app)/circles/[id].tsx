@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
@@ -75,6 +75,7 @@ export default function CircleScreen() {
         <Composer circleId={buddyRead.id} progress={viewer.progress} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onPosted={() => { setReplyTo(null); void mutate(); }} />
       )}
 
+      <MuteButton circleId={buddyRead.id} userId={viewer.userId} muted={viewer.muted} onChange={() => mutate()} />
       {!viewer.isHost && <LeaveButton circleId={buddyRead.id} userId={viewer.userId} />}
     </Screen>
   );
@@ -326,6 +327,32 @@ function Composer({ circleId, progress, replyTo, onCancelReply, onPosted }: { ci
       />
       <Text variant="small">Others see it once they reach {formatPercent(progress)}.</Text>
       <Button title={replyTo ? "Reply" : "Post"} loading={posting} onPress={post} />
+    </View>
+  );
+}
+
+// Muting is per circle and only for you: no comment notifications from it. Shown straight away, then put
+// back if the server says no.
+function MuteButton({ circleId, userId, muted, onChange }: { circleId: string; userId: string; muted: boolean; onChange: () => void }) {
+  const [shown, setShown] = useState(muted);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => setShown(muted), [muted]);
+  const toggle = async () => {
+    const next = !shown;
+    setShown(next);
+    setNote(null);
+    try {
+      await api.patch(`/api/buddy-reads/${circleId}/members/${userId}`, { muted: next });
+      onChange();
+    } catch (e) {
+      setShown(!next);
+      setNote(e instanceof ApiError ? e.message : "Couldn't change that. Try again.");
+    }
+  };
+  return (
+    <View style={{ gap: 4 }}>
+      <Button title={shown ? "Unmute this circle" : "Mute this circle"} variant="ghost" onPress={toggle} />
+      <Text variant="small">{note ?? `${shown ? "You won't hear about new comments here." : "Stop hearing about new comments here."} Invites and hosting changes still reach you.`}</Text>
     </View>
   );
 }
