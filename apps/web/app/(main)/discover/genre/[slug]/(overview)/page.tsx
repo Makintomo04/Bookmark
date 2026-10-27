@@ -11,6 +11,7 @@ import { genreBySlug } from '@/lib/genres'
 import { findLists } from '@/lib/lists'
 import { genreCommunityLists } from '@/lib/genreLists'
 import { trendingSubjectBooks } from '@/lib/openLibrary'
+import { withCatalogueFixesOrAsIs } from '@/lib/curatedBooks'
 
 interface PageProps {
   params: { slug: string }
@@ -28,7 +29,7 @@ export function generateMetadata({ params }: PageProps): Metadata {
 // Open Library can take a few seconds when its answer isn't cached, so the trending books stream in
 // behind a skeleton rather than holding up the header and lists.
 const TrendingBooks = async ({ slug, subject }: { slug: string, subject: string }) => {
-  const books = await trendingSubjectBooks(subject).catch(() => [])
+  const books = await withCatalogueFixesOrAsIs(await trendingSubjectBooks(subject).catch(() => []))
   return <GenreBooks slug={slug} initial={books} />
 }
 
