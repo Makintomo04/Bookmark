@@ -16,9 +16,11 @@ interface DiscoverBookCardProps {
   // Extra context under the reason, e.g. which list it's on.
   context?: ReactNode
   rank?: number
+  // Called as the details open, e.g. so search can remember the book.
+  onOpen?: () => void
 }
 
-const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, reason, context, rank }) => {
+const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, reason, context, rank, onOpen }) => {
   const openDetails = useBookDetailsModal((s) => s.onOpen)
 
   return (
@@ -28,7 +30,7 @@ const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, reason, context, ra
       <div className="flex flex-col min-w-0">
         <button
           type="button"
-          onClick={() => openDetails(book, reason)}
+          onClick={() => { onOpen?.(); openDetails(book, reason) }}
           aria-label={`About ${book.title} by ${book.author}`}
           className="group flex flex-col gap-2.5 min-w-0 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
