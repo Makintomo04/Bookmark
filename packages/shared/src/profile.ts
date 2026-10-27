@@ -48,8 +48,9 @@ export function isHexColour(value: unknown): value is string {
 }
 
 // Where profile pictures and covers may come from: uploads, catalogue covers, and the avatars Google and
-// GitHub sign-ins bring. Matches images.remotePatterns in next.config.mjs.
-export const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
+// GitHub sign-ins bring. Matches images.remotePatterns in next.config.mjs. assets.hardcover.app is for books
+// found through the Hardcover search fallback (apps/web/lib/hardcover.ts).
+export const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'assets.hardcover.app', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
 
 export function isAllowedImageUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 2048) return false
