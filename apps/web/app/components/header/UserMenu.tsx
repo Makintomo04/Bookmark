@@ -99,8 +99,9 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             )}
             <NotificationBell/>
 
+        {/* mr-1: the tier ring is drawn 4px outside the avatar, so this keeps it inside the page's edge. */}
         <button type="button" aria-label="Open menu" aria-expanded={showMenu} onClick={()=>setShowMenu((state)=>!state)}
-          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
+          className="mr-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
           {avatar()}
         </button>
         {showMenu && <>
