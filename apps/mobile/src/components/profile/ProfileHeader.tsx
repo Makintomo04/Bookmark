@@ -4,6 +4,7 @@ import { bannerPresetOf, resolveBanner } from "@bookmark/shared/banners";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { STAFF_BADGE, type StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { Avatar } from "@/components/profile/Avatar";
+import { MedalShowcase } from "@/components/achievements/MedalShowcase";
 import { BannerPattern } from "@/components/profile/BannerPattern";
 import { Text } from "@/components/ui/Text";
 import { useTheme } from "@/lib/theme";
@@ -21,7 +22,12 @@ export interface ProfileUser {
 
 // The top of a profile: banner, picture, name and bio (the web's ProfileHead, without its menus yet).
 // staffBadge: "Bookmark team" or "Librarian" beside the name (packages/shared/src/staffBadge.ts).
-export function ProfileHeader({ user, staffBadge }: { user: ProfileUser; staffBadge?: StaffBadgeKind | null }) {
+// medals: earned milestone keys for the top-three showcase, with where pressing it goes.
+export function ProfileHeader({ user, staffBadge, medals }: {
+  user: ProfileUser;
+  staffBadge?: StaffBadgeKind | null;
+  medals?: { earned: { key: string }[]; onPress: () => void };
+}) {
   const colour = user.favColour || DEFAULT_COLOUR;
   const banner = resolveBanner(user.banner, user.id);
   const preset = bannerPresetOf(banner);
@@ -40,6 +46,7 @@ export function ProfileHeader({ user, staffBadge }: { user: ProfileUser; staffBa
           {user.username && <Text variant="muted">@{user.username}{booksRead !== undefined ? ` · ${booksRead.toLocaleString("en-GB")} ${booksRead === 1 ? "book" : "books"} read` : ""}</Text>}
         </View>
         {user.bio ? <Text>{user.bio}</Text> : null}
+        {medals && <MedalShowcase earned={medals.earned} onPress={medals.onPress} />}
       </View>
     </View>
   );

@@ -12,11 +12,13 @@ import { formatNumber, formatPill, summarise } from './achievementProgress'
 interface AchievementDetailProps {
   achievement: AchievementItem | null
   onClose: () => void
+  // Someone else's medals: earned rungs only, without progress towards the next (their numbers aren't shared).
+  readOnly?: boolean
 }
 
 const formatEarned = (date: string) => moment(date).format(moment(date).isSame(moment(), 'year') ? "D MMM" : "D MMM YYYY")
 
-const AchievementDetail: FC<AchievementDetailProps> = ({ achievement, onClose }) => {
+const AchievementDetail: FC<AchievementDetailProps> = ({ achievement, onClose, readOnly = false }) => {
   if (!achievement) return null
   const { earned, highest, next, percent, total } = summarise(achievement)
   const colour = getMedalColour(achievement.key)
@@ -35,7 +37,7 @@ const AchievementDetail: FC<AchievementDetailProps> = ({ achievement, onClose })
         <div className="min-w-0 flex-1">
           <p className="text-lg font-semibold leading-snug">{highest ? highest.title : "Not started yet"}</p>
           <p className="text-sm text-muted-foreground tabular-nums">{earned.length} of {total} milestones earned</p>
-          {next ? (
+          {next ? !readOnly && (
             <div className="mt-3">
               <div className="flex justify-between gap-3 text-xs text-muted-foreground tabular-nums">
                 <span className="truncate">Next: {next.title}</span>
@@ -53,7 +55,7 @@ const AchievementDetail: FC<AchievementDetailProps> = ({ achievement, onClose })
               </div>
             </div>
           ) : (
-            <p className="mt-2 text-sm font-medium">Every milestone earned. Wonderful.</p>
+            <p className="mt-2 text-sm font-medium">Every milestone earned.{readOnly ? "" : " Wonderful."}</p>
           )}
         </div>
       </div>
@@ -93,7 +95,7 @@ const AchievementDetail: FC<AchievementDetailProps> = ({ achievement, onClose })
                   <p className="shrink-0 text-xs text-muted-foreground tabular-nums">
                     {m.earned
                       ? (m.earnedAt ? `Earned ${formatEarned(m.earnedAt)}` : "Earned")
-                      : isNext ? `${formatNumber(towardsNext)} / ${formatNumber(m.value)}` : null}
+                      : isNext && !readOnly ? `${formatNumber(towardsNext)} / ${formatNumber(m.value)}` : null}
                   </p>
                 </div>
                 <p className="mt-0.5 text-sm text-muted-foreground">{m.description}</p>
