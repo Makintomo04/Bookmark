@@ -33,7 +33,7 @@ const AchievementsView: FC = () => {
 
   return (
     <div className="flex flex-col gap-10">
-      <ReaderTierCard />
+      <ReaderTierCard achievements={achievements} />
       <UpNext achievements={achievements} onSelect={setSelectedKey} />
       <MedalList achievements={achievements} onSelect={setSelectedKey} />
       <AchievementDetail achievement={selected} onClose={() => setSelectedKey(null)} />

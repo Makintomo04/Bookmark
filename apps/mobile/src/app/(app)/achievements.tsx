@@ -2,10 +2,11 @@ import { useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import useSWR from "swr";
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
-import { Check, ChevronRight, Lock } from "lucide-react-native";
+import { Check, Lock } from "lucide-react-native";
+import { achievementCounts, achievementCountsLine } from "@bookmark/shared/achievementCounts";
 import { closestMilestones, countsUp, toNextText } from "@bookmark/shared/achievements-catalog";
 import { READER_TIERS, tierProgress, type ReaderTier } from "@bookmark/shared/readerTier";
-import { Medal, MedalMark, MEDAL_INK, getMedalColour, tierPill } from "@/components/achievements/Medal";
+import { Medal, MedalRing, MEDAL_INK, getMedalColour, tierPill } from "@/components/achievements/Medal";
 import type { ProfileUser } from "@/components/profile/ProfileHeader";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -17,7 +18,7 @@ import { useTheme } from "@/lib/theme";
 // then every medal. Select one to see its milestones.
 
 type Milestone = { value: number; title: string; description: string; earned: boolean; earnedAt: string | null };
-type Achievement = { key: string; title: string; category: string; current: number; milestones: Milestone[] };
+export type Achievement = { key: string; title: string; category: string; current: number; milestones: Milestone[] };
 
 const compact = new Intl.NumberFormat("en-GB", { notation: "compact", maximumFractionDigits: 1 });
 const full = new Intl.NumberFormat("en-GB");
@@ -36,9 +37,11 @@ function summarise(a: Achievement) {
 }
 
 // One line on where a ladder stands: the rung reached and what the next takes, or how to start it.
-function standing(a: Achievement): string {
-  const { highest, next } = summarise(a);
+// readOnly (someone else's medals) leaves out what's next: their real numbers aren't shared.
+function standing(a: Achievement, readOnly = false): string {
+  const { highest, next, earned, total } = summarise(a);
   if (!next) return `${highest!.title} · every milestone earned`;
+  if (readOnly) return highest ? `${highest.title} · ${earned.length} of ${total} milestones` : "Not started yet";
   if (!highest) return `${toNextText(a.key, a.current, next.value)} to earn ${next.title}`;
   return countsUp(a.key) ? `${highest.title} · ${next.title} in ${toNextText(a.key, a.current, next.value)}` : `${highest.title} · next, ${next.title}`;
 }
@@ -57,7 +60,7 @@ export default function Achievements() {
   return (
     <Screen edges={["left", "right"]}>
       <Text variant="display">Achievements</Text>
-      <ReaderTierCard />
+      <ReaderTierCard achievements={data} />
       <UpNext achievements={data} onSelect={setSelectedKey} />
       <MedalList achievements={data} onSelect={setSelectedKey} />
       {selected && <AchievementDetail achievement={selected} onClose={close} />}
@@ -91,14 +94,13 @@ function UpNext({ achievements, onSelect }: { achievements: Achievement[]; onSel
           style={[styles.card, { borderColor: colors.border }]}
         >
           <View style={styles.row}>
-            <MedalMark achievementKey={ladder.key} earned={ladder.milestones.some((m) => m.earned)} size={36} />
+            <View accessibilityRole="progressbar" accessibilityLabel={`Progress to ${next.title}`} accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}>
+              <MedalRing achievementKey={ladder.key} earned={ladder.milestones.some((m) => m.earned)} percent={progress * 100} size={52} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text variant="label">{next.title}</Text>
               <Text variant="small">{ladder.title}</Text>
             </View>
-          </View>
-          <View style={{ flexDirection: "row" }}>
-            <ProgressBar percent={Math.max(progress * 100, progress > 0 ? 4 : 0)} colour={getMedalColour(ladder.key)} height={6} />
           </View>
           <Text variant="muted">{toNextText(ladder.key, ladder.current, next.value)}</Text>
         </Pressable>
@@ -107,48 +109,58 @@ function UpNext({ achievements, onSelect }: { achievements: Achievement[]; onSel
   );
 }
 
-// Every achievement as a row: medal, what it's for, where it stands, and a dot per rung.
-function MedalList({ achievements, onSelect }: { achievements: Achievement[]; onSelect: (key: string) => void }) {
+const CATEGORIES = [
+  { key: "reading", title: "Reading" },
+  { key: "consistency", title: "Consistency" },
+  { key: "engagement", title: "Engagement" },
+];
+
+// Every achievement as a tile in a grid, grouped by category: the ring medal, the rung reached and how
+// many of the ladder's rungs are earned. `heading` and `readOnly` are for another reader's medals
+// (u/[username]/achievements): their progress towards the next rung isn't shared, so the ring stays empty.
+export function MedalList({ achievements, onSelect, heading = "Your medals", readOnly = false }: { achievements: Achievement[]; onSelect: (key: string) => void; heading?: string; readOnly?: boolean }) {
   const { colors } = useTheme();
   const earnedCount = achievements.reduce((n, a) => n + a.milestones.filter((m) => m.earned).length, 0);
   return (
     <View style={{ gap: 12, marginTop: 8 }}>
       <View style={styles.headingRow}>
-        <Text variant="title" accessibilityRole="header">Your medals</Text>
+        <Text variant="title" accessibilityRole="header">{heading}</Text>
         <Text variant="small">{earnedCount} earned</Text>
       </View>
-      <View style={[styles.list, { borderColor: colors.border }]}>
-        {achievements.map((a, i) => {
-          const { earned, total } = summarise(a);
-          const colour = getMedalColour(a.key);
-          return (
-            <Pressable
-              key={a.key}
-              accessibilityRole="button"
-              accessibilityLabel={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a)}. View milestones`}
-              onPress={() => onSelect(a.key)}
-              style={[styles.row, styles.listRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
-            >
-              <MedalMark achievementKey={a.key} earned={earned.length > 0} size={40} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="label">{a.title}</Text>
-                <Text variant="small">{standing(a)}</Text>
-                <View style={styles.dots}>
-                  {a.milestones.map((m) => (
-                    <View key={m.value} style={[styles.rungDot, m.earned ? { backgroundColor: colour } : { borderWidth: 1, borderColor: colors.border }]} />
-                  ))}
-                </View>
-              </View>
-              <ChevronRight size={16} color={colors.mutedForeground} />
-            </Pressable>
-          );
-        })}
-      </View>
+      {CATEGORIES.map((category) => {
+        const ladders = achievements.filter((a) => a.category === category.key);
+        if (ladders.length === 0) return null;
+        return (
+          <View key={category.key} style={{ gap: 8 }}>
+            <Text variant="small" accessibilityRole="header">{category.title}</Text>
+            <View style={styles.grid}>
+              {ladders.map((a) => {
+                const { earned, highest, percent, total } = summarise(a);
+                return (
+                  <Pressable
+                    key={a.key}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${a.title}: ${earned.length} of ${total} milestones earned. ${standing(a, readOnly)}. View milestones`}
+                    onPress={() => onSelect(a.key)}
+                    style={[styles.tile, { borderColor: colors.border }]}
+                  >
+                    <MedalRing achievementKey={a.key} earned={earned.length > 0} percent={readOnly ? 0 : percent} size={72} />
+                    <Text variant="label" style={{ textAlign: "center", marginTop: 6 }}>{highest ? highest.title : "Not started"}</Text>
+                    <Text variant="small" style={{ textAlign: "center" }}>{a.title}</Text>
+                    <Text variant="small" style={{ marginTop: "auto", paddingTop: 4, fontVariant: ["tabular-nums"] }}>{earned.length}/{total}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
 
-function AchievementDetail({ achievement: a, onClose }: { achievement: Achievement; onClose: () => void }) {
+// readOnly: someone else's medals, earned rungs only, without progress towards the next.
+export function AchievementDetail({ achievement: a, onClose, readOnly = false }: { achievement: Achievement; onClose: () => void; readOnly?: boolean }) {
   const { colors } = useTheme();
   const { earned, highest, next, percent, total } = summarise(a);
   const colour = getMedalColour(a.key);
@@ -167,7 +179,7 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="title">{highest ? highest.title : "Not started yet"}</Text>
           <Text variant="muted">{earned.length} of {total} milestones earned</Text>
-          {next ? (
+          {next ? !readOnly && (
             <View style={{ marginTop: 10, gap: 6 }}>
               <View style={styles.headingRow}>
                 <Text variant="small" numberOfLines={1} style={{ flex: 1 }}>Next: {next.title}</Text>
@@ -178,7 +190,7 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
               </View>
             </View>
           ) : (
-            <Text variant="label" style={{ marginTop: 8 }}>Every milestone earned. Wonderful.</Text>
+            <Text variant="label" style={{ marginTop: 8 }}>Every milestone earned.{readOnly ? "" : " Wonderful."}</Text>
           )}
         </View>
       </View>
@@ -205,7 +217,7 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
                 <View style={styles.headingRow}>
                   <Text variant="label" style={{ flex: 1 }}>{m.title}</Text>
                   <Text variant="small">
-                    {m.earned ? (m.earnedAt ? `Earned ${formatEarned(m.earnedAt)}` : "Earned") : isNext ? `${formatNumber(towardsNext)} / ${formatNumber(m.value)}` : ""}
+                    {m.earned ? (m.earnedAt ? `Earned ${formatEarned(m.earnedAt)}` : "Earned") : isNext && !readOnly ? `${formatNumber(towardsNext)} / ${formatNumber(m.value)}` : ""}
                   </Text>
                 </View>
                 <Text variant="muted">{m.description}</Text>
@@ -219,16 +231,18 @@ function AchievementDetail({ achievement: a, onClose }: { achievement: Achieveme
 }
 
 // Where the reader sits on the tier ladder, and what the next rung takes. Before Bronze there's no metal
-// to show, so the swatch is the next tier's outline with the books still to go.
-function ReaderTierCard() {
+// to show, so the swatch is the next tier's outline with the books still to go. Under the ladder, one quiet
+// line of medal counts. Pass `reader` to show someone else's (their achievements screen); otherwise it's the
+// signed-in reader's.
+export function ReaderTierCard({ achievements, reader }: { achievements: Achievement[]; reader?: { booksRead: number } }) {
   const { colors } = useTheme();
-  const { data: user } = useSWR<ProfileUser>("/api/user");
-  if (!user) return null;
-  const booksRead = user._count?.books ?? 0;
+  const { data: user } = useSWR<ProfileUser>(reader ? null : "/api/user");
+  if (!reader && !user) return null;
+  const booksRead = reader ? reader.booksRead : user?._count?.books ?? 0;
   const { tier, next, remaining } = tierProgress(booksRead);
-  const heading = tier ? `${tier.label} reader` : `On your way to ${next!.label}`;
+  const heading = tier ? `${tier.label} reader` : `On ${reader ? "their" : "your"} way to ${next!.label}`;
   const detail = !tier
-    ? `${formatNumber(booksRead)} of ${formatNumber(next!.minBooks)} books read. Your tier frames your avatar wherever your name appears.`
+    ? `${formatNumber(booksRead)} of ${formatNumber(next!.minBooks)} books read.${reader ? "" : " Your tier frames your avatar wherever your name appears."}`
     : next ? `${formatNumber(booksRead)} books read · ${formatNumber(remaining)} more to ${next.label}` : `${formatNumber(booksRead)} books read · you've reached the top tier`;
 
   return (
@@ -263,6 +277,8 @@ function ReaderTierCard() {
           );
         })}
       </View>
+
+      <Text variant="muted">{achievementCountsLine(achievementCounts(achievements))}</Text>
     </View>
   );
 }
@@ -290,10 +306,8 @@ const styles = StyleSheet.create({
   headingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 12 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   card: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10 },
-  list: { borderWidth: 1, borderRadius: 16, overflow: "hidden" },
-  listRow: { paddingHorizontal: 14, paddingVertical: 12 },
-  dots: { flexDirection: "row", gap: 4, marginTop: 4 },
-  rungDot: { width: 8, height: 8, borderRadius: 4 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tile: { width: "48%", borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingTop: 14, paddingBottom: 10, alignItems: "center" },
   pill: { position: "absolute", bottom: -10, alignSelf: "center", borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 1 },
   detailTop: { flexDirection: "row", alignItems: "center", gap: 18 },
   rung: { flexDirection: "row", gap: 14, paddingBottom: 18 },

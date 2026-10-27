@@ -85,6 +85,31 @@ export function MedalMark({ achievementKey, earned, size }: { achievementKey: st
   );
 }
 
+const RING_R = 46;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R;
+
+// The medal inside a ring in its own colour that fills towards the next rung (the web's MedalRing). Not
+// started yet, it's the dashed outline inside an empty ring: a goal, never a padlock.
+export function MedalRing({ achievementKey, earned, percent, size }: { achievementKey: string; earned: boolean; percent: number; size: number }) {
+  const { colors } = useTheme();
+  const clamped = Math.max(0, Math.min(100, percent));
+  // A sliver of ring for any progress at all, so "started" never looks like "not started".
+  const shown = clamped > 0 ? Math.max(clamped, 4) : 0;
+  const inner = Math.round(size * 0.76);
+  return (
+    <View style={[styles.centre, { width: size, height: size }]}>
+      <Svg viewBox="0 0 100 100" width={size} height={size} style={[StyleSheet.absoluteFill, { transform: [{ rotate: "-90deg" }] }]}>
+        <Circle cx="50" cy="50" r={RING_R} fill="none" strokeWidth={4} stroke={colors.border} />
+        {shown > 0 && (
+          <Circle cx="50" cy="50" r={RING_R} fill="none" strokeWidth={4} strokeLinecap="round" stroke={getMedalColour(achievementKey)}
+            strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`} strokeDashoffset={RING_CIRCUMFERENCE * (1 - shown / 100)} />
+        )}
+      </Svg>
+      <MedalMark achievementKey={achievementKey} earned={earned} size={inner} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   centre: { alignItems: "center", justifyContent: "center" },
 });

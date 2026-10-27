@@ -49,6 +49,8 @@ type Profile = {
   banner?: string;
   books?: PublicBook[];
   followedAuthors?: { name: string; slug: string }[];
+  // Earned milestone keys; absent on a restricted profile.
+  achievements?: { key: string; earnedAt: string }[];
   followerCount?: number | null;
   followingCount?: number | null;
   restricted: null | "followers" | "private" | "blockedByViewer";
@@ -78,12 +80,24 @@ export default function ReaderProfile() {
     );
   }
 
+  const achievementCount = profile.achievements?.length ?? 0;
+  const openAchievements = () => router.push(`/u/${encodeURIComponent(profile.username)}/achievements`);
+
   return (
     <Screen>
       <Stack.Screen options={{ title: profile.username }} />
-      <ProfileHeader user={{ id: profile.username, name: null, username: profile.username, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }} staffBadge={profile.staffBadge} />
+      <ProfileHeader
+        user={{ id: profile.username, name: null, username: profile.username, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
+        staffBadge={profile.staffBadge}
+        medals={profile.restricted ? undefined : { earned: profile.achievements ?? [], onPress: openAchievements }}
+      />
       {profile.followerCount != null && (
         <Text variant="muted">{profile.followerCount.toLocaleString("en-GB")} {profile.followerCount === 1 ? "follower" : "followers"} · {(profile.followingCount ?? 0).toLocaleString("en-GB")} following</Text>
+      )}
+      {!profile.restricted && (
+        <Pressable accessibilityRole="link" onPress={openAchievements}>
+          <Text variant="muted">{achievementCount.toLocaleString("en-GB")} {achievementCount === 1 ? "achievement" : "achievements"}</Text>
+        </Pressable>
       )}
       <Actions profile={profile} onChange={() => mutate()} />
       {profile.restricted ? <Restricted profile={profile} /> : <Reading profile={profile} />}

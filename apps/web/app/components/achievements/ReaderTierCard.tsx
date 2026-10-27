@@ -1,26 +1,30 @@
 "use client"
 import { FC } from 'react'
+import { achievementCounts, achievementCountsLine } from '@bookmark/shared/achievementCounts'
 import { cn } from '@/lib/utils'
 import { READER_TIERS, booksReadOf, tierProgress, type ReaderTier } from '@/lib/readerTier'
 import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
+import type { AchievementItem } from '@/app/hooks/useAchievements'
 
 const metal = (t: ReaderTier) => `linear-gradient(135deg, ${t.light}, ${t.colour} 45%, ${t.shade})`
 const fmt = (n: number) => n.toLocaleString('en-GB')
 
 // Where the reader sits on the tier ladder, and what the next rung takes. The user menu's tier card links here.
 // Before Bronze there's no metal to show, so the swatch is the next tier's outline with the books still to go.
-const ReaderTierCard: FC = () => {
+// Under the ladder, one quiet line of medal counts from the achievements the page already has.
+// Pass `reader` to show someone else's (their achievements page); otherwise it's the signed-in reader's.
+const ReaderTierCard: FC<{ achievements: AchievementItem[]; reader?: { username: string; booksRead: number } }> = ({ achievements, reader }) => {
   const { user } = useUser()
   const booksReadFor = useBooksReadFor()
-  if (!user) return null
+  if (!reader && !user) return null
 
-  const booksRead = booksReadFor(user.username, booksReadOf(user))
+  const booksRead = reader ? reader.booksRead : booksReadFor(user!.username, booksReadOf(user!))
   const { tier, next, remaining } = tierProgress(booksRead)
 
-  const heading = tier ? `${tier.label} reader` : `On your way to ${next!.label}`
+  const heading = tier ? `${tier.label} reader` : `On ${reader ? "their" : "your"} way to ${next!.label}`
   const detail = !tier
-    ? `${fmt(booksRead)} of ${fmt(next!.minBooks)} books read. Your tier frames your avatar wherever your name appears.`
+    ? `${fmt(booksRead)} of ${fmt(next!.minBooks)} books read.${reader ? "" : " Your tier frames your avatar wherever your name appears."}`
     : next
       ? `${fmt(booksRead)} books read · ${fmt(remaining)} more to ${next.label}`
       : `${fmt(booksRead)} books read · you've reached the top tier`
@@ -64,6 +68,8 @@ const ReaderTierCard: FC = () => {
           )
         })}
       </ol>
+
+      <p className="mt-4 text-sm text-muted-foreground tabular-nums">{achievementCountsLine(achievementCounts(achievements))}</p>
     </section>
   )
 }
