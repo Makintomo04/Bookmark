@@ -7,6 +7,7 @@
 //   pnpm backfill:series:prod --dry-run     # production, from .env.prod.local
 //   pnpm backfill:series:prod
 //   pnpm backfill:series --all --limit=1500  # every catalogue book with a page, not only shelved ones
+//   pnpm backfill:series --budget=2000      # stop before spending more than 2,000 Hardcover requests
 //
 // --all reaches the books nobody has shelved yet (an author's other books, ones filed from search), so
 // their pages show a series too. Shelved works go first, then the rest. One work in a series files and
@@ -14,7 +15,8 @@
 //
 // Needs HARDCOVER_API_TOKEN. Up to four Hardcover requests per work (each top-level query field counts),
 // paced under its 60-a-minute limit; its free plan allows 5,000 a day, shared with search and author
-// pages, so a large catalogue takes a --limit a day over several days (--limit=1000 uses up to 4,000).
+// pages, so a run stops at a request budget (--budget, 3,000 by default, leaving 2,000 of the day for
+// search and author pages) and a large catalogue takes a run a day over several days.
 // Safe to re-run: a work is only asked about once (Work.seriesCheckedAt), and a failed one is retried.
 import { register } from "node:module";
 import { PrismaClient } from "@prisma/client";
@@ -29,6 +31,9 @@ const all = process.argv.includes("--all");
 const limitArg = process.argv.find((a) => a.startsWith("--limit="));
 const limit = limitArg ? Number(limitArg.slice("--limit=".length)) : Infinity;
 if (!(limit > 0)) throw new Error("--limit takes a positive number, as in --limit=1500");
+const budgetArg = process.argv.find((a) => a.startsWith("--budget="));
+const budget = budgetArg ? Number(budgetArg.slice("--budget=".length)) : 3000;
+if (!(budget > 0) || budget > 5000) throw new Error("--budget takes a number of requests up to Hardcover's 5,000 a day, as in --budget=2000");
 // Hardcover counts each top-level field of a query as a request: a lookup is three (two searches and the
 // exact-title books) and a series' books one more, so four a work at most. A little over four seconds
 // keeps under its 60 a minute.
@@ -40,7 +45,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
   const { hardcoverConfigured } = await import("../lib/hardcover.ts");
-  const { fillWorkSeries } = await import("../lib/seriesFill.ts");
+  const { fillWorkSeries, SERIES_FILL_REQUESTS } = await import("../lib/seriesFill.ts");
   if (!hardcoverConfigured()) throw new Error("HARDCOVER_API_TOKEN is not set");
   const database = process.env.DATABASE_URL?.match(/@([^/?]+)\/([^?]*)/);
   console.log(`Database: ${database ? `${database[2] || "(default)"} on ${database[1]}` : "unknown"}`);
@@ -67,11 +72,18 @@ async function main() {
 
   const counts = { series: 0, none: 0, skipped: 0, failed: 0 };
   let throttled = 0;
+  // Requests spent, counted at the most a work can cost when a call fails part way (or is refused).
+  let spent = 0;
   for (let n = 0; n < works.length; n++) {
     const work = works[n];
+    if (spent + SERIES_FILL_REQUESTS.series > budget) {
+      console.log(`Stopping at the budget of ${budget} requests (${spent} spent); ${works.length - n} left for the next run.`);
+      break;
+    }
     try {
       const result = await fillWorkSeries(work.id);
       throttled = 0;
+      spent += SERIES_FILL_REQUESTS[result];
       counts[result]++;
       if (result === "series") {
         const after = await prisma.work.findUnique({ where: { id: work.id }, select: { seriesName: true, seriesPosition: true } });
@@ -81,6 +93,7 @@ async function main() {
       if (result === "skipped") continue;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      spent += SERIES_FILL_REQUESTS.series;
       // Over the minute's allowance (other servers share the token): wait it out and try this work again.
       // Still refused after a few minutes means the day's allowance is gone; the rest stay unchecked for
       // the next run.
@@ -99,7 +112,7 @@ async function main() {
     }
     if (n < works.length - 1) await sleep(PACE_MS);
   }
-  console.log(`Done: ${counts.series} in a series, ${counts.none} standalone, ${counts.skipped} skipped, ${counts.failed} failed.`);
+  console.log(`Done: ${counts.series} in a series, ${counts.none} standalone, ${counts.skipped} skipped, ${counts.failed} failed; about ${spent} Hardcover requests.`);
 }
 
 main()

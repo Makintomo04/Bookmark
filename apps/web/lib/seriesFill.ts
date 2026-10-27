@@ -14,14 +14,23 @@ import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf } from "@/
 
 export type SeriesFillResult = "series" | "none" | "skipped"
 
+// What one fill costs against Hardcover's allowance, by result (scripts/backfill-series.ts budgets by it).
+// A failure may have spent up to the series figure before it threw.
+export const SERIES_FILL_REQUESTS: Record<SeriesFillResult, number> = { series: 4, none: 3, skipped: 0 }
+
+// A series a librarian set or cleared (curatedFields, lib/catalogueFix.ts) is theirs: Hardcover never
+// fills or changes it, on the work or as a companion of another.
+export const SERIES_CURATED = "seriesName"
+const seriesCurated = (w: { curatedFields: string[] }) => w.curatedFields.includes(SERIES_CURATED)
+
 // One work. Throws when Hardcover fails, like lib/hardcover.ts.
 export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> {
   const work = await prisma.work.findUnique({
     where: { id: workId },
-    select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, seriesCheckedAt: true },
+    select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, seriesCheckedAt: true, curatedFields: true },
   })
   const author = work?.authors[0]
-  if (!work || !author || work.seriesCheckedAt || !hardcoverConfigured()) return "skipped"
+  if (!work || !author || work.seriesCheckedAt || seriesCurated(work) || !hardcoverConfigured()) return "skipped"
 
   const found = await hardcoverSeriesOf(work.title, author)
   if (!found) {
@@ -42,7 +51,7 @@ export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> 
   const existing = keyed.length
     ? await prisma.work.findMany({
       where: { OR: [{ matchKey: { in: keyed.map((k) => k.matchKey) } }, { authors: { has: author } }] },
-      select: { id: true, title: true, authors: true, matchKey: true, seriesName: true },
+      select: { id: true, title: true, authors: true, matchKey: true, seriesName: true, curatedFields: true },
       take: 1000,
     })
     : []
@@ -55,7 +64,7 @@ export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> 
   const checkedAt = new Date()
   for (const { book, matchKey } of keyed) {
     for (const had of byMatch.get(matchKey) ?? []) {
-      if (!had.seriesName) await prisma.work.update({ where: { id: had.id }, data: { seriesName: name, seriesPosition: book.position, seriesCheckedAt: checkedAt } })
+      if (!had.seriesName && !seriesCurated(had)) await prisma.work.update({ where: { id: had.id }, data: { seriesName: name, seriesPosition: book.position, seriesCheckedAt: checkedAt } })
     }
   }
   // The work's own place is taken by the work, whatever Hardcover titles it ("Mistborn: The Final Empire").
