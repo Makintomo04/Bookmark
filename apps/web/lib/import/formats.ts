@@ -14,7 +14,7 @@ export class ImportFormatError extends Error {}
 
 // ---- Detection ---------------------------------------------------------------------------
 
-export function detectSource(headers: string[]): ImportSource | null {
+export function detectSource(headers: string[]): Exclude<ImportSource, "list"> | null {
   const has = (h: string) => headers.includes(h);
   // Bookmark's export uses Goodreads' columns, so check its own columns first.
   if (has("Title") && has("Bookmark Status")) return "bookmark";
@@ -302,7 +302,7 @@ function bookmarkRow(r: Record<string, string>, line: number): ImportRow {
 
 // ---- Entry point -------------------------------------------------------------------------
 
-const MAPPERS: Record<ImportSource, (r: Record<string, string>, line: number) => ImportRow> = {
+const MAPPERS: Record<Exclude<ImportSource, "list">, (r: Record<string, string>, line: number) => ImportRow> = {
   goodreads: goodreadsRow,
   storygraph: storygraphRow,
   bookmark: bookmarkRow,
