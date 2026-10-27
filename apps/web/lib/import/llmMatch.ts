@@ -53,7 +53,7 @@ export interface LlmOutcome {
 
 export const llmAvailable = aiAvailable;
 
-const SYSTEM = `You match rows from a reader's book export (Goodreads or StoryGraph) to Open Library works.
+const SYSTEM = `You match rows from a reader's book export (Goodreads or StoryGraph) or their own list of books to Open Library works.
 
 For each row you get the title, author, publication year and binding as the reader's file has them, and a short list of candidate works found by searching Open Library. Decide which candidate, if any, is the same book.
 

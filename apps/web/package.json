@@ -19,6 +19,7 @@
     "test:catalog": "node --import ./scripts/test/register.mjs --test scripts/test/catalog.test.ts",
     "dev:test:3031": "node scripts/with-test-db.mjs pnpm exec next dev -p 3031",
     "test:import:broken": "node --import ./scripts/test/register.mjs --test scripts/test/import-broken.test.ts",
+    "test:import:text": "node --import ./scripts/test/register.mjs --test scripts/test/import-text.test.ts",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
