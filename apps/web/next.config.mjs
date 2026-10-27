@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs/config';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // packages/shared ships TypeScript source, so Next compiles it like the app's own files.
@@ -51,4 +53,20 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Error monitoring (BOO-54, docs/ops/error-monitoring.md). Wraps server routes and pages so their errors
+// reach Sentry, tags the build with the git commit as its release, and, when SENTRY_AUTH_TOKEN is set (on
+// Vercel), uploads source maps and then deletes them from the deploy so they're never public.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+    deleteSourcemapsAfterUpload: true,
+  },
+  // No session replay (it would record what readers type), so leave its code out of the bundle.
+  bundleSizeOptimizations: { excludeReplayIframe: true, excludeReplayShadowDom: true, excludeReplayWorker: true },
+  telemetry: false,
+});

@@ -20,6 +20,20 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 
+## Error monitoring
+
+Errors from the web server, the browser and the phone app go to Sentry, with personal data stripped first.
+It's off unless these are set (on Vercel for the web, as EAS environment variables for the phone app). Never
+commit the auth token. Setup, alerts and how to check it works: [`docs/ops/error-monitoring.md`](docs/ops/error-monitoring.md).
+
+| Variable | Where | What it's for |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SENTRY_DSN` | Vercel | The web project's DSN. Public |
+| `EXPO_PUBLIC_SENTRY_DSN` | EAS | The mobile project's DSN. Public |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | Vercel and EAS | Which project source maps upload to (`bookmark-web`, `bookmark-mobile`) |
+| `SENTRY_AUTH_TOKEN` | Vercel and EAS | **Secret.** Uploads source maps during builds |
+| `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | Vercel, optional | Share of requests traced for the 5xx alert (default 0.1 in production) |
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

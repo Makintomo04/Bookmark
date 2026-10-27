@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FC, useEffect, useRef, useState, useTransition } from 'react'
 import { Check, Copy, Home, Loader2, RotateCcw } from 'lucide-react'
+import * as Sentry from '@sentry/nextjs'
 import { cn } from '@/lib/utils'
 import Logo from './Logo'
 import { primaryButtonClass, secondaryButtonClass } from './profile-head/ProfileHeader'
@@ -40,6 +41,8 @@ const ErrorState: FC<ErrorStateProps> = ({ error, reset, fullScreen }) => {
 
   useEffect(() => {
     console.error(error)
+    // An error boundary swallows the error, so the browser's global handler never sees it (BOO-54).
+    Sentry.captureException(error)
     // Move focus here so keyboard and screen reader users land on the message, not mid-page.
     headingRef.current?.focus()
   }, [error])

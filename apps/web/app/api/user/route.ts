@@ -1,4 +1,5 @@
 import { booksReadCount } from "@/lib/readerTier";
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
@@ -124,6 +125,7 @@ export async function DELETE(req: Request) {
   } catch (err) {
     if (err instanceof SubscriptionCancelError) {
       console.error(`[account] couldn't cancel the subscription for user ${currentUser.id}, nothing deleted:`, err.message);
+      Sentry.captureException(err);
       return NextResponse.json(
         { error: "We couldn't cancel your Plus subscription, so your account hasn't been deleted. Please try again in a few minutes." },
         { status: 502 }
