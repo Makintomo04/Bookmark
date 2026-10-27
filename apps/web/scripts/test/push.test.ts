@@ -25,12 +25,20 @@ test("every pushed type has words and a screen", () => {
   }
 });
 
-test("circle pushes open the circle; unlocked comments are counted, never quoted", () => {
+test("circle pushes open the circle; comments to read are counted, never quoted", () => {
   const one = pushContentFor({ ...base, type: "COMMENTS_UNLOCKED", count: 1 })!;
   assert.equal(one.path, `/circles/${base.buddyReadId}`);
-  assert.equal(one.body, "You've reached a comment in your reading circle for The Hobbit.");
+  assert.equal(one.body, "A comment to read in your reading circle for The Hobbit.");
   const many = pushContentFor({ ...base, type: "COMMENTS_UNLOCKED", count: 4 })!;
-  assert.match(many.body, /4 comments/);
+  assert.equal(many.body, "4 comments to read in your reading circle for The Hobbit.");
+  assert.equal(pushGroupOf("COMMENTS_UNLOCKED"), "circles");
+});
+
+test("a comment's words never reach a push, even when they're passed in", () => {
+  const secret = "SECRET-BODY-snape-kills-dumbledore";
+  const widened = { ...base, type: "COMMENTS_UNLOCKED", count: 1, body: secret, pageLabel: secret, chapterLabel: secret, message: secret };
+  const content = pushContentFor(widened)!;
+  assert.ok(!JSON.stringify(content).includes(secret));
 });
 
 test("a follow opens the follower's profile, and a missing name still reads well", () => {

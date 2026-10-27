@@ -8,8 +8,10 @@ import {
   buildTimeline,
   circleProgress,
   commentPosition,
+  newCommentRecipients,
   progressPercent,
   serializeComments,
+  unlockedByProgress,
   type CommentAuthor,
   type CommentAuthors,
   type CommentRow,
@@ -249,6 +251,73 @@ check("minutes round to one decimal", progressPercent({ ...audio, currentMinute:
   // The whole sweep again, at typed percents on and around each boundary.
   for (const percent of [0, 9.9, 10, 29.9, 30, 41.9, 42, 99.9, 100]) {
     for (const userId of ["ana", "ben", "cal", "stranger"]) checkViewer(userId, progressPercent(kindle(percent)))
+  }
+}
+
+// BOO-43: who hears about a comment. Posting tells members already past it (newCommentRecipients); reading on
+// tells the rest as they pass it (unlockedByProgress). Never before they can read it, and never twice.
+{
+  const canRead = (notified: number, position: number) => circleProgress(0, notified) >= position
+  const members = [
+    { userId: "ana", notifiedProgress: 90 },
+    { userId: "ben", notifiedProgress: 50 },
+    { userId: "cal", notifiedProgress: 10 },
+    { userId: "dot", notifiedProgress: 60, mutedAt: new Date() },
+    { userId: "eve", notifiedProgress: 70 },
+  ]
+  const told = newCommentRecipients({ userId: "ana", position: 40 }, members, new Set(["eve"]))
+  check("a member already past a new comment hears now", told.includes("ben"))
+  check("a member short of a new comment doesn't hear now", !told.includes("cal"))
+  check("the writer isn't told about their own comment", !told.includes("ana"))
+  check("a muted member isn't told", !told.includes("dot"))
+  check("a blocked member isn't told", !told.includes("eve"))
+  check("a member who'd only rounded up to it waits", !newCommentRecipients({ userId: "ana", position: 25 }, [{ userId: "ben", notifiedProgress: 24.96 }], new Set()).includes("ben"))
+  check("...and hears when they read on to it", unlockedByProgress(25, 24.96, 25))
+  check("a member exactly at it hears now", newCommentRecipients({ userId: "ana", position: 25 }, [{ userId: "ben", notifiedProgress: 25 }], new Set()).includes("ben"))
+  check("...and isn't told again as they read on", !unlockedByProgress(25, 25, 80))
+
+  // Fuzz: comments posted while members read on. Every (member, comment) pair is claimed once, by one path,
+  // and only when the member can already read it.
+  let state = 0x2f6b9e1
+  const random = () => ((state = (state * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)
+  const roundTo = (n: number) => Math.round(n * 100) / 100
+  for (let run = 0; run < 300; run++) {
+    const readers = ["m0", "m1", "m2", "m3"].map((userId) => ({ userId, notifiedProgress: roundTo(random() * 30) }))
+    const comments: { id: number, userId: string, position: number }[] = []
+    const claims = new Map<string, number>()
+    const claim = (userId: string, id: number, notified: number, position: number, how: string) => {
+      const key = `${userId}:${id}`
+      claims.set(key, (claims.get(key) ?? 0) + 1)
+      if (!canRead(notified, position)) check(`fuzz ${run}: ${how} told ${userId} before they reached ${position}`, false, { notified })
+    }
+    for (let step = 0; step < 40; step++) {
+      if (random() < 0.5) {
+        // A post, at or below the writer's own progress (commentPosition rounds it).
+        const writer = readers[Math.floor(random() * readers.length)]
+        const position = commentPosition(random() < 0.3 ? undefined : random() * 100, circleProgress(0, writer.notifiedProgress))
+        const comment = { id: comments.length, userId: writer.userId, position }
+        comments.push(comment)
+        for (const userId of newCommentRecipients(comment, readers, new Set())) {
+          claim(userId, comment.id, readers.find((r) => r.userId === userId)!.notifiedProgress, position, "a new comment")
+        }
+      } else {
+        // Reading on: progress only ever rises, as notifiedProgress does.
+        const reader = readers[Math.floor(random() * readers.length)]
+        const next = Math.min(100, roundTo(reader.notifiedProgress + random() * 25))
+        for (const c of comments) {
+          if (c.userId !== reader.userId && unlockedByProgress(c.position, reader.notifiedProgress, next)) claim(reader.userId, c.id, next, c.position, "reading on")
+        }
+        reader.notifiedProgress = next
+      }
+    }
+    for (const r of readers) {
+      for (const c of comments) {
+        if (c.userId === r.userId) continue
+        const times = claims.get(`${r.userId}:${c.id}`) ?? 0
+        const reached = r.notifiedProgress >= c.position
+        check(`fuzz ${run}: ${r.userId} told about comment ${c.id} ${times} times`, times === (reached ? 1 : 0), { notified: r.notifiedProgress, position: c.position })
+      }
+    }
   }
 }
 
