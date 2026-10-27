@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
-import { BookOpen, Feather, ThumbsDown, ThumbsUp, X } from "lucide-react-native";
+import { BookOpen, Crown, Feather, ThumbsDown, ThumbsUp, X } from "lucide-react-native";
 import { formatPercent } from "@bookmark/shared/buddyReads";
 import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { AiLabel } from "@/components/ui/AiLabel";
@@ -124,7 +124,7 @@ export function CatchMeUp({ bookId }: { bookId: string }) {
   if (plusOnly) actions = actions.filter((a) => kept(a.kind));
   const withPlus = lockedOut && view.kind === "idle" && (
     <Pressable accessibilityRole="link" onPress={() => router.push("/plus")} hitSlop={8} style={styles.row}>
-      <Sparkles size={14} color={colors.brandText} />
+      <Crown size={14} color={colors.brandText} />
       <Text variant="label" style={{ fontSize: 13 }}>{FEATURE_COPY.recaps.title}</Text>
     </Pressable>
   );

@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react'
 import axios from 'axios'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { BookOpen, Loader2, Feather, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { BookOpen, Crown, Loader2, Feather, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { fetcher, swrOptions } from '@/lib/fetcher'
 import { FEATURE_COPY, UPGRADE_URL, isUpgradeRequired } from '@/lib/entitlements'
 import type { AllowanceStatus } from '@/lib/ai/usage'
@@ -131,7 +131,7 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
   const withPlus = lockedOut && view.kind === 'idle' && (
     <p className="text-xs text-muted-foreground">
       <Link href={UPGRADE_URL} className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline">
-        <Sparkles size={12} aria-hidden />{FEATURE_COPY.recaps.title}
+        <Crown size={12} aria-hidden />{FEATURE_COPY.recaps.title}
       </Link>
     </p>
   )
