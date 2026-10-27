@@ -4,6 +4,7 @@ import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import ReviewText from '../feed/ReviewText'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
+import { pillClass } from '../books/ShelfToolbar'
 import AuthorLink from '@/app/components/AuthorLink'
 import BookDetailsButton from '../books/BookDetailsButton'
 import ReportReviewButton from '../books/ReportReviewButton'
@@ -70,16 +71,10 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
           </li>
         ))}
       </ul>
+      {/* More in place at the foot; "See all" in the heading opens every one. */}
       {left > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          <button type="button" onClick={() => setShown((n) => n + MORE)} className="font-medium underline underline-offset-4 hover:text-muted-foreground">
-            Show {Math.min(MORE, left)} more
-          </button>
-          {left > MORE && (
-            <button type="button" onClick={() => setShown(reviewed.length)} className="text-muted-foreground underline underline-offset-4 hover:text-foreground">
-              See all {reviewed.length.toLocaleString('en-GB')}
-            </button>
-          )}
+        <div className="mt-4 flex justify-center">
+          <button type="button" onClick={() => setShown((n) => n + MORE)} className={pillClass}>Show more</button>
         </div>
       )}
     </ShelfSection>

@@ -108,8 +108,9 @@ const SeriesTracker: FC = () => {
   const { data, mutate } = useSWR<{ series: SeriesTrack[] }>(SERIES_TRACKER_KEY, fetcher, swrOptions)
   const { books } = useBooks()
   const [tab, setTab] = useState<Tab>('nextUp')
-  // Two rows of covers (or a handful of series) until "See all", so lists and authors below stay close.
-  const [all, setAll] = useState(false)
+  // Two rows of covers (or a handful of series) at first, so lists and authors below stay close. "Show
+  // more" at the foot opens the next lot in place; "See all" in the heading opens the rest.
+  const [count, setCount] = useState<number | null>(null)
 
   // A book moved between shelves changes what's next.
   useEffect(() => { if (books) void mutate() }, [books, mutate])
@@ -118,11 +119,13 @@ const SeriesTracker: FC = () => {
   const groups = trackerGroups(data.series)
   const shown = groups[tab]
   const cap = tab === 'nextUp' ? SHELF_PREVIEW : 6
-  const visible = all ? shown : shown.slice(0, cap)
+  const limit = count ?? cap
+  const visible = shown.slice(0, limit)
+  const more = shown.length > limit
 
   return (
     <ShelfSection id="series-tracker" title="Series" count={data.series.length}
-      action={!all && shown.length > cap ? <SeeAllLink onClick={() => setAll(true)} /> : undefined}>
+      action={more ? <SeeAllLink onClick={() => setCount(shown.length)} /> : undefined}>
       {data.series.length === 0 ? (
         <p className="text-sm text-muted-foreground">Start a book in a series, or follow one from a book&apos;s page, and you&apos;ll see what&apos;s next here.</p>
       ) : (
@@ -136,7 +139,7 @@ const SeriesTracker: FC = () => {
                 id={`series-tab-${t.id}`}
                 aria-selected={tab === t.id}
                 aria-controls="series-panel"
-                onClick={() => { setTab(t.id); setAll(false) }}
+                onClick={() => { setTab(t.id); setCount(null) }}
                 className={cn(
                   "h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   tab === t.id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
@@ -156,9 +159,9 @@ const SeriesTracker: FC = () => {
             )}
             {shown.length > cap && (
               <div className="mt-6 flex justify-center">
-                <button type="button" onClick={() => setAll((v) => !v)} className={pillClass}>
-                  {all ? "Show fewer" : `See all ${shown.length}`}
-                </button>
+                {more
+                  ? <button type="button" onClick={() => setCount(limit + cap)} className={pillClass}>Show more</button>
+                  : <button type="button" onClick={() => setCount(null)} className={pillClass}>Show fewer</button>}
               </div>
             )}
           </div>
