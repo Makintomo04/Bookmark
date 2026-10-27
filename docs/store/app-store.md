@@ -37,9 +37,11 @@ where comments wait until you've caught up.
 > Medals and reading streaks, if you like a challenge.
 >
 > Bookmark Plus supports an independent, ad-free app, and lets you host as many reading circles as you
-> like and set page and monthly goals. AI features are opt-in, always labelled, and only ever do what you
-> ask: Ask the shelf finds books by mood, and Catch me up recaps the story so far when you come back to a
-> book. Your stats, your import and the circles friends invite you to are never behind Plus.
+> like, set page and monthly goals, use Ask the shelf more often, and get Catch me up, which recaps the
+> story so far when you come back to a book. A free account gets 3 Ask the shelf searches a month to try.
+> AI features start off on a free account and come on with Plus, and you can switch them off any time in
+> Settings. They're always labelled, and only ever do what you ask. Your stats, your import and the
+> circles friends invite you to are never behind Plus.
 
 **Keywords** (100 max, comma separated). Never other apps' names: Apple rejects them (guideline 2.3.7).
 reading tracker,book club,reading log,books,reading journal,tbr,buddy read,audiobook,reading goal

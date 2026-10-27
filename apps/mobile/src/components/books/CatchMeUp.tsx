@@ -14,6 +14,8 @@ import { useTheme } from "@/lib/theme";
 // "Catch me up" on the book page, as on the web (components/books/CatchMeUp.tsx): a short AI recap of
 // the story so far, or of the earlier books in a series. A prompt card when the reader is coming back
 // to the book, otherwise one quiet action. Nothing when recaps are off or the book can't be recapped.
+// Catch me up comes with Plus (free allowance 0): a free reader gets one quiet line pointing at the
+// Plus screen instead of a button that would only fail, and can still open recaps they kept.
 
 // On every recap, whatever its kind.
 const RECAP_LABEL = "Written by AI from what's known about this book. May be imperfect. Only you see this.";
@@ -57,8 +59,11 @@ const promptText = (resume: ResumeOption | null, series: SeriesOption | null) =>
   return "";
 };
 
+// A free allowance of 0 means the feature comes with Plus.
+const withPlusOnly = (a: AllowanceStatus) => !a.isPlus && a.allowance === 0;
+
 const allowanceText = (a: AllowanceStatus) =>
-  a.left === null ? null
+  a.left === null || withPlusOnly(a) ? null
     : a.isPlus ? `${a.left} of ${a.allowance} recaps left this month (fair use)`
     : `${a.left} of ${a.allowance} free recaps left this month`;
 
@@ -107,13 +112,27 @@ export function CatchMeUp({ bookId }: { bookId: string }) {
     api.patch(key, { recapId: view.recap.id, vote: value }).then(() => mutate(), () => setVote(before));
   };
 
-  const actions: { kind: RecapKind; label: string }[] = [];
+  const plusOnly = withPlusOnly(allowance);
+  let actions: { kind: RecapKind; label: string }[] = [];
   if (resume) actions.push({ kind: "RESUME", label: resume.recap?.confident ? "Show my recap" : "Catch me up" });
   if (series) actions.push({ kind: "SERIES", label: series.recap?.confident ? `Show recap of ${seriesBooksText(series)}` : `Recap ${seriesBooksText(series)}` });
   // The prompt leads with the kind that triggered it.
   if (!resume?.prompt && series?.prompt) actions.reverse();
+  // Without Plus, only kept recaps open.
+  const kept = (kind: RecapKind) => (kind === "RESUME" ? resume?.recap : series?.recap);
+  const lockedOut = plusOnly && actions.some((a) => !kept(a.kind));
+  if (plusOnly) actions = actions.filter((a) => kept(a.kind));
+  const withPlus = lockedOut && view.kind === "idle" && (
+    <Pressable accessibilityRole="link" onPress={() => router.push("/plus")} hitSlop={8} style={styles.row}>
+      <Sparkles size={14} color={colors.brandText} />
+      <Text variant="label" style={{ fontSize: 13 }}>{FEATURE_COPY.recaps.title}</Text>
+    </Pressable>
+  );
 
-  const prompting = !dismissed && !!(resume?.prompt || series?.prompt);
+  // The prompt card only offers what the reader can open.
+  const openResume = plusOnly && !resume?.recap ? null : resume;
+  const openSeries = plusOnly && !series?.recap ? null : series;
+  const prompting = !dismissed && !!(openResume?.prompt || openSeries?.prompt);
   const busy = view.kind === "loading";
   const left = allowanceText(allowance);
 
@@ -191,10 +210,11 @@ export function CatchMeUp({ bookId }: { bookId: string }) {
           <View style={[styles.badge, { backgroundColor: colors.muted }]}><Sparkles size={16} color={colors.brandText} /></View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text variant="label">Catch me up</Text>
-            <Text variant="muted">{promptText(resume, series)}</Text>
+            <Text variant="muted">{promptText(openResume, openSeries)}</Text>
           </View>
         </View>
         {buttons}
+        {withPlus}
         {unavailable}
         {available && left && <Text variant="small">{left}. Opening a recap again is free.</Text>}
       </View>
@@ -206,6 +226,7 @@ export function CatchMeUp({ bookId }: { bookId: string }) {
     <View accessibilityLabel="Catch me up" style={[{ gap: 12 }, boxed && [styles.card, { borderColor: colors.border }]]}>
       {view.kind === "idle" ? buttons : body}
       {view.kind !== "idle" && view.kind !== "recap" && view.kind !== "loading" && buttons}
+      {withPlus}
       {view.kind === "idle" && unavailable}
     </View>
   );

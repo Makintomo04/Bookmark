@@ -154,7 +154,7 @@ export default function AskTheShelf() {
       <Screen>
         <Text variant="display">Ask the shelf</Text>
         <Text variant="muted">Describe the read you{"’"}re after in your own words. AI turns it into a search of Bookmark{"’"}s catalog; books loved by people you follow come first.</Text>
-        <Notice message="AI features are off. Turn them on to use Ask the shelf and Catch me up recaps. AI only runs when you ask it to, is always labelled, and is never about you. You can turn it off again in settings." />
+        <Notice message="AI features are off. Turn them on to use Ask the shelf, and Catch me up recaps with Plus. AI only runs when you ask it to, is always labelled, and is never about you. You can turn it off again in settings." />
         <Button title="Turn on AI features" loading={turningOn} onPress={turnOn} />
         {error && <Notice tone="error" message={error} />}
       </Screen>

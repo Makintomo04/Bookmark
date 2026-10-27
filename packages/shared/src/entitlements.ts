@@ -22,12 +22,12 @@ export const FOUNDING = {
   cap: 1000,
 } as const;
 
-// Monthly allowances for the AI slices that come later (mood search, recaps). Counted per calendar
-// month. Plus has a stated fair-use ceiling, never "unlimited": raising a cap later reads as a gift,
+// Monthly allowances for the AI features (Ask the shelf, Catch me up). Counted per calendar
+// month. A free allowance of 0 means the feature comes with Plus; only null means unlimited. Plus has a stated fair-use ceiling, never "unlimited": raising a cap later reads as a gift,
 // capping an unlimited promise reads as a betrayal. Metering goes through allowanceLeft().
 export const MONTHLY_ALLOWANCES = {
-  askShelfSearches: { free: 5, plus: 100 },
-  recaps: { free: 3, plus: 30 },
+  askShelfSearches: { free: 3, plus: 100 },
+  recaps: { free: 0, plus: 30 },
 } as const satisfies Record<string, { free: number; plus: number | null }>;
 
 export type AllowanceKey = keyof typeof MONTHLY_ALLOWANCES;
@@ -140,12 +140,12 @@ export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string
     message: "Pick other designs for your Wrap cards. The standard monthly card and your year-end Wrapped stay free.",
   },
   askShelfSearches: {
-    title: "Ask the shelf, without limits",
+    title: "More Ask the shelf searches",
     message: `Free accounts get ${MONTHLY_ALLOWANCES.askShelfSearches.free} mood searches a month. Plus raises it to ${MONTHLY_ALLOWANCES.askShelfSearches.plus}.`,
   },
   recaps: {
-    title: "Catch me up more often",
-    message: `Free accounts get ${MONTHLY_ALLOWANCES.recaps.free} recaps a month. Plus raises it to ${MONTHLY_ALLOWANCES.recaps.plus}.`,
+    title: "Catch me up comes with Plus",
+    message: `Plus recaps the story so far when you come back to a book: up to ${MONTHLY_ALLOWANCES.recaps.plus} a month.`,
   },
 };
 

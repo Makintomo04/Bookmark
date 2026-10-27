@@ -13,6 +13,7 @@ import {
   type CatalogCandidate, type CatalogSource, type FriendSignal, type ShelfEntry, type ShelfIntent,
 } from "@/lib/askShelf";
 import { aggregateTags } from "@/lib/workTags";
+import { MONTHLY_ALLOWANCES } from "@/lib/entitlements";
 
 // ---- Fixtures ------------------------------------------------------------------------------------
 
@@ -276,24 +277,25 @@ test("a request that isn't about books searches nothing and makes no second call
 const freeAccount = usageAccountOf({ plan: "FREE", timeZone: "Europe/London" });
 const plusAccount = usageAccountOf({ plan: "PLUS", timeZone: "Europe/London" });
 const NOW = new Date("2026-10-22T12:00:00Z");
+const FREE_SEARCHES = MONTHLY_ALLOWANCES.askShelfSearches.free;
 
 test("concurrent searches at the limit: only one spends the last search", async () => {
   const store = memoryUsageStore();
-  // Four of five used.
-  store.rows.set(`u1|askShelfSearches|2026-10`, 4);
+  // All but one used.
+  store.rows.set(`u1|askShelfSearches|2026-10`, FREE_SEARCHES - 1);
   const attempts = await Promise.all(
     Array.from({ length: 10 }, () => consumeAllowance("u1", "askShelfSearches", { store, account: freeAccount, now: NOW })),
   );
   assert.equal(attempts.filter((a) => a.ok).length, 1);
   assert.ok(attempts.filter((a) => !a.ok).every((a) => !a.ok && a.reason === "allowance"));
-  assert.equal(store.rows.get(`u1|askShelfSearches|2026-10`), 5);
+  assert.equal(store.rows.get(`u1|askShelfSearches|2026-10`), FREE_SEARCHES);
   // The refused ones didn't touch the daily count.
   assert.equal(store.rows.get(`u1|${DAILY_FEATURE}|2026-10-22`), 1);
 
   // From zero, twenty at once: exactly the allowance gets through.
   const fresh = memoryUsageStore();
   const burst = await Promise.all(Array.from({ length: 20 }, () => consumeAllowance("u2", "askShelfSearches", { store: fresh, account: freeAccount, now: NOW })));
-  assert.equal(burst.filter((a) => a.ok).length, 5);
+  assert.equal(burst.filter((a) => a.ok).length, FREE_SEARCHES);
   const status = await allowanceStatus("u2", "askShelfSearches", { store: fresh, account: freeAccount, now: NOW });
   assert.equal(status.left, 0);
 });
@@ -317,7 +319,7 @@ test("a refund gives back both counts, once", async () => {
   const spent = await consumeAllowance("u4", "askShelfSearches", { store, account: freeAccount, now: NOW });
   assert.ok(spent.ok);
   if (!spent.ok) return;
-  assert.equal(spent.left, 4);
+  assert.equal(spent.left, FREE_SEARCHES - 1);
   await spent.refund();
   await spent.refund();
   assert.equal(store.rows.get(`u4|askShelfSearches|2026-10`), 0);
