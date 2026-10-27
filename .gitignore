@@ -8,6 +8,10 @@ node_modules/
 
 # testing
 **/coverage
+# Playwright (apps/web/e2e): captured mail, traces and reports
+**/e2e/.outbox/
+**/test-results/
+**/playwright-report/
 
 # next.js
 **/.next/

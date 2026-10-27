@@ -6,8 +6,12 @@
 // Everything else comes from .env.local; only the database name in DATABASE_URL is swapped, so the
 // same Atlas cluster and login are used. EMAIL_SERVER_* is dropped so mail goes to a disposable
 // Ethereal inbox (lib/mailer.ts logs a preview link) and never reaches a real address.
+//
+// Without .env.local (CI), DATABASE_URL and the rest come from the environment instead. Variables named
+// in WITH_TEST_DB_BLANK (comma-separated) are blanked, which is how the end-to-end tests switch off
+// Stripe, AI and the other paid services (playwright.config.ts).
 import { spawn } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 
 const TEST_DB = "bookmark-test"
 // The port the wrapped `next dev` binds (its -p/--port), so NEXTAUTH_URL matches when two checkouts
@@ -27,10 +31,10 @@ function readEnvFile(path) {
   return env
 }
 
-const fileEnv = readEnvFile(".env.local")
-const url = fileEnv.DATABASE_URL
+const fileEnv = existsSync(".env.local") ? readEnvFile(".env.local") : {}
+const url = fileEnv.DATABASE_URL || process.env.DATABASE_URL
 if (!url) {
-  console.error("with-test-db: DATABASE_URL is missing from .env.local")
+  console.error("with-test-db: DATABASE_URL is missing from .env.local and the environment")
   process.exit(1)
 }
 // mongodb[+srv]://user:pass@host/<database>?options
@@ -50,7 +54,8 @@ const env = {
   NEXT_DIST_DIR: ".next-test",
 }
 // Blank rather than deleted: Next.js fills in any variable that's unset from .env.local again.
-for (const key of ["EMAIL_SERVER_HOST", "EMAIL_SERVER_PORT", "EMAIL_SERVER_USER", "EMAIL_SERVER_PASSWORD"]) env[key] = ""
+const blank = (process.env.WITH_TEST_DB_BLANK ?? "").split(",").map((k) => k.trim()).filter(Boolean)
+for (const key of ["EMAIL_SERVER_HOST", "EMAIL_SERVER_PORT", "EMAIL_SERVER_USER", "EMAIL_SERVER_PASSWORD", ...blank]) env[key] = ""
 
 const [command, ...args] = process.argv.slice(2)
 if (!command) {

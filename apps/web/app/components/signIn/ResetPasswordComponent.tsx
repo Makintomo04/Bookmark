@@ -9,6 +9,7 @@ import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import { notify } from '@/lib/notify'
 import axios from 'axios'
 import { signIn } from 'next-auth/react'
+import { mutate } from 'swr'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PASSWORD_MAX, PASSWORD_MIN } from '@/lib/authSchemas'
 import { afterSignInPath } from '@/lib/callbackUrl'
@@ -43,6 +44,8 @@ const ResetPasswordComponent = () => {
     // They've just proved the inbox and typed the new password, so sign straight in.
     const res = await signIn("credentials", { redirect: false, email, password: data.password }).catch(() => null)
     notify.success("Password updated")
+    // Replace the signed-out /api/user answer cached from this page before moving on.
+    if (res?.ok) await mutate("/api/user")
     router.push(res?.ok ? afterSignInPath(null) : `/signin?email=${encodeURIComponent(email)}`)
   }
 

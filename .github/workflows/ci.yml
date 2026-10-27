@@ -31,3 +31,44 @@ jobs:
       # reports without blocking for now. Make it blocking once `pnpm audit --prod` is clean.
       - run: pnpm audit --prod --audit-level=high
         continue-on-error: true
+
+  # End-to-end smoke tests (apps/web/e2e, BOO-57): sign-up to a reading circle, the spoiler unlock and a
+  # Goodreads import, at phone width and on desktop, plus axe checks. `next dev` runs against a throwaway
+  # MongoDB replica set in Docker (Prisma needs a replica set). Mail is captured to a folder and the
+  # Stripe, AI, Hardcover and upload keys are left blank (playwright.config.ts).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: mongodb://127.0.0.1:27017/bookmark-test?replicaSet=rs0&directConnection=true
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Start MongoDB (single-node replica set)
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval "db.adminCommand('ping')" && break; sleep 2; done
+          docker exec mongo mongosh --quiet --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: '127.0.0.1:27017'}]})"
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval "db.hello().isWritablePrimary" | grep -q true && break; sleep 2; done
+      # Session secrets for this run only.
+      - run: |
+          echo "SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "NEXTAUTH_JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @bookmark/web exec prisma generate
+      - run: pnpm --filter @bookmark/web db:test:push
+      - run: pnpm --filter @bookmark/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @bookmark/web test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7

@@ -110,9 +110,11 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
           <button
             type="button"
             onClick={openProgress}
-            aria-label={`Update progress for ${title}, ${position}, ${progress}%`}
             className="group mt-auto -mx-2 -mb-2 p-2 rounded-md text-left transition hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
+            {/* Added to the visible counts rather than replacing them (an aria-label would), so voice
+                control users can say what they see (WCAG 2.5.3). */}
+            <span className="sr-only">Update progress for {title}: </span>
             {counts}
             <div className="flex items-center gap-3">
               {bar}
