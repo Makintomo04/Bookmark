@@ -110,7 +110,7 @@ export const WorkTagsSummary: FC<{ tags: TagAggregate | undefined, className?: s
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       <MoodChips moods={tags.moods} readers={tags.readers} />
-      <SpiceLine spice={tags.spice} />
+      {tags.spiceApplies && <SpiceLine spice={tags.spice} />}
       <ContentWarnings warnings={tags.warnings} readers={tags.readers} />
     </div>
   )
@@ -123,7 +123,7 @@ interface ReaderTagsEditorProps {
   onChange: (next: ReaderTagsInput) => void
   disabled?: boolean
   accent?: string
-  // Spice is only asked of a reader who finished the book.
+  // Spice is only asked of a reader who finished a book it applies to (spiceAskable in lib/workTags.ts).
   canReportSpice?: boolean
 }
 

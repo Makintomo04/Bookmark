@@ -4,7 +4,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { QUICK_ADDS, formatMinutes, formatStoppedAt, progressScale } from "@bookmark/shared/progress";
-import type { SpiceLevel, TagAggregate } from "@bookmark/shared/workTags";
+import { spiceAskable, type SpiceLevel, type TagAggregate } from "@bookmark/shared/workTags";
 import { positionLabel } from "@bookmark/shared/series";
 import { AuthorNames } from "@/components/authors/AuthorNames";
 import { BookCover } from "@/components/books/BookCover";
@@ -100,8 +100,8 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const isClosed = status === "COMPLETED" || status === "DNF";
   const ratingChanged = rating !== (book.rating ?? 0);
   const reviewChanged = review !== (book.review ?? "") || reviewSpoiler !== !!book.reviewSpoiler || reviewPrivate !== !!book.reviewPrivate;
-  // Spice is only asked of a reader who finished the book (the server holds the same line).
-  const canReportSpice = status === "COMPLETED" || finished;
+  // Spice is only asked of a reader who finished a book it applies to (the server holds the same line).
+  const canReportSpice = (status === "COMPLETED" || finished) && spiceAskable(tags, tags?.mine?.warnings ?? []);
   const spiceChanged = canReportSpice && spice !== (tags?.mine?.spice ?? null);
   const hasChanges = isActive ? delta !== 0 || finished || stopping : isClosed ? ratingChanged || reviewChanged || spiceChanged : false;
   const canSave = !saving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges);
@@ -230,7 +230,7 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
       {(isActive || status === "NOT_STARTED") && !finished && !stopping && <CatchMeUp bookId={book.id} />}
 
       {/* What other readers say, for anyone who hasn't given their own answer yet. */}
-      {!isClosed && !finished && !stopping && <SpiceLine spice={tags?.spice} />}
+      {!isClosed && !finished && !stopping && tags?.spiceApplies && <SpiceLine spice={tags.spice} />}
 
       {status === "NOT_STARTED" && (
         showStartPage ? (

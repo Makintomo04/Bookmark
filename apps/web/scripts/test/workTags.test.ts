@@ -4,7 +4,7 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/workTags.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MOODS, MOODS_MAX, MOOD_FLOOR_READERS, aggregateTags, shownMoods, moodsFromStoryGraph, parseWarnings, readerTagsSchema, spiceMedian } from "@/lib/workTags";
+import { MOODS, MOODS_MAX, MOOD_FLOOR_READERS, aggregateTags, shownMoods, moodsFromStoryGraph, parseWarnings, readerTagsSchema, spiceAskable, spiceApplies, spiceMedian } from "@/lib/workTags";
 import { hostingAllowance, inheritedAllowance } from "@/lib/buddyReads";
 
 test("the mood set is StoryGraph's twelve", () => {
@@ -128,4 +128,32 @@ test("circles handed on have their own cap: five on free, none on Plus", () => {
   assert.match(full.message ?? "", /five active circles handed on to you/);
   assert.equal(inheritedAllowance(50, "plus").allowed, true);
   assert.equal(inheritedAllowance(50, "plus").limit, null);
+});
+
+test("spice applies to romance, romantasy and books flagged for sexual content, not to everything", () => {
+  assert.ok(spiceApplies({ subjects: ["Fiction", "Love stories"] }, []));
+  assert.ok(spiceApplies({ subjects: ["Romantasy"] }, []));
+  // Haunting Adeline: dark romance shelved among thriller and horror.
+  assert.ok(spiceApplies({ subjects: ["Dark Romance", "Stalker", "Thriller", "Horror"] }, []));
+  assert.ok(spiceApplies({ subjects: ["fiction, romance, contemporary"] }, []));
+  assert.ok(spiceApplies({ subjects: ["Historical fiction"], genres: ["Romance"] }, []), "a reader's genre counts");
+  assert.ok(spiceApplies({ subjects: [], genres: [null, "Thriller", "Dark romance"] }, []), "a work Open Library left bare");
+  assert.ok(spiceApplies({ subjects: ["Fantasy", "Dragons"] }, [{ topic: "Sexual content" }]), "romantasy filed as fantasy");
+  assert.ok(!spiceApplies({ subjects: ["Science fiction", "Space opera"], genres: ["Sci-Fi"] }, [{ topic: "Violence" }]));
+  assert.ok(!spiceApplies({ subjects: ["Cooking"] }, []));
+  assert.ok(!spiceApplies(undefined, []));
+
+  const rows = (warnings: { topic: string, level: string }[]) => [{ userId: "a", moods: ["DARK"], warnings }];
+  assert.equal(aggregateTags(rows([]), null, { subjects: ["Thrillers"] }).spiceApplies, false);
+  assert.equal(aggregateTags(rows([{ topic: "Sexual content", level: "MODERATE" }]), null, { subjects: ["Thrillers"] }).spiceApplies, true);
+  assert.equal(aggregateTags(rows([]), null, { subjects: ["Romance"] }).spiceApplies, true);
+});
+
+test("a reader is asked for spice on a book it applies to, or one they've already given it for", () => {
+  const thriller = aggregateTags([{ userId: "a", moods: ["TENSE"], warnings: [] }], "a", { subjects: ["Thrillers"] });
+  assert.equal(spiceAskable(thriller, []), false);
+  assert.equal(spiceAskable(thriller, [{ topic: "Sexual content" }]), true, "flagging it in the same review");
+  const reported = aggregateTags([{ userId: "a", moods: [], warnings: [], spice: 2 }], "a", { subjects: ["Thrillers"] });
+  assert.equal(spiceAskable(reported, []), true, "so they can clear an earlier answer");
+  assert.equal(spiceAskable(undefined, []), false);
 });
