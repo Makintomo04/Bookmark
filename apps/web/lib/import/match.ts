@@ -251,7 +251,9 @@ export async function matchRows(
   await runPool(needTitle, opts.concurrency ?? 6, opts.deadline, async (i) => {
     const byIsbn = asMatch(matches.get(i));
     try {
-      const { match: byTitle, candidates } = await searchTitle(rows[i], fetchImpl);
+      // One retry: Open Library drops the odd request under load, and for a pasted list a failed lookup
+      // is a book left out (lib/import/job.ts), not one added as typed.
+      const { match: byTitle, candidates } = await searchTitle(rows[i], fetchImpl).catch(() => searchTitle(rows[i], fetchImpl));
       if (byTitle) {
         byTitle.confidence = 1;
         // The ISBN points at another book: the title hit is the match, and the ISBN stays out of the catalog.

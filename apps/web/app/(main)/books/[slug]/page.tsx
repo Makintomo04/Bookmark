@@ -22,7 +22,7 @@ import { BOOK_LISTS_SHOWN } from '@/lib/bookListRules'
 import { isFollowingSeries } from '@/lib/seriesFollows'
 import { seriesKey } from '@/lib/series'
 import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
-import { bookHref, bookSlug, normaliseWorkKey } from '@/lib/workKey'
+import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
 
 interface PageProps {
   params: { slug: string }
@@ -53,16 +53,16 @@ const seriesLabel = (series: { name: string, position: number | null }) =>
   series.position != null ? `${series.name} #${series.position}` : series.name
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const workKey = normaliseWorkKey(slugOf(params.slug))
-  const data = workKey ? await bookPageData(workKey) : null
-  if (!workKey || !data) return { title: "Book not found", robots: { index: false } }
+  const bookKey = bookKeyOfSlug(slugOf(params.slug))
+  const data = bookKey ? await bookPageData(bookKey) : null
+  if (!data) return { title: "Book not found", robots: { index: false } }
 
   const { book } = data
   const title = `${book.title} by ${book.author}`
   const description = data.description
     ? summaryOf(data.description)
     : `What readers think of ${book.title} by ${book.author}, on Bookmark.`
-  const url = bookHref({ workKey, title: book.title })!
+  const url = bookHref(book)!
   const images = book.coverUrl ? [{ url: book.coverUrl, alt: `Cover of ${book.title}` }] : undefined
   return {
     title,
@@ -74,27 +74,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 // A book's own page: everything book details shows, with room for the description, the Bookmark
-// rating and every review the viewer may read. Keyed by the Open Library work key; the title in the
-// address is cosmetic, and a stale or missing one redirects to the current.
+// rating and every review the viewer may read. Keyed by the Open Library work key, or the catalogue
+// Work's id for a book Open Library lacks (lib/bookPage.ts); the title in the address is cosmetic, and a
+// stale or missing one redirects to the current.
 const Page = async ({ params }: PageProps) => {
   const slug = slugOf(params.slug)
-  const workKey = normaliseWorkKey(slug)
-  if (!workKey) notFound()
-  const data = await bookPageData(workKey)
+  const bookKey = bookKeyOfSlug(slug)
+  if (!bookKey) notFound()
+  const data = await bookPageData(bookKey)
   if (!data) notFound()
-  if (slug !== bookSlug(workKey, data.book.title)) redirect(bookHref({ workKey, title: data.book.title })!)
+  if (slug !== bookSlug(data.key, data.book.title)) redirect(bookHref(data.book)!)
 
   const viewer = await getCurrentUser()
-  const { book, series, genres } = data
+  const { book, series, genres, key } = data
   const [rating, reviews, followingSeries, onLists] = await Promise.all([
-    ratingSummaryForWork(workKey),
-    reviewsForWork(workKey, viewer?.id ?? null),
+    ratingSummaryForWork(key),
+    reviewsForWork(key, viewer?.id ?? null),
     viewer && series ? isFollowingSeries(viewer.id, seriesKey(series.name, series.author)) : false,
     // One more than shown, so "See all" only appears when there's more to see.
-    listsWithBook(workKey, viewer, BOOK_LISTS_SHOWN + 1),
+    listsWithBook(book.workKey, viewer, BOOK_LISTS_SHOWN + 1),
   ])
   const lists = onLists.slice(0, BOOK_LISTS_SHOWN)
-  const href = bookHref({ workKey, title: book.title })!
+  const href = bookHref(book)!
   const meta = [book.year && `First published ${book.year}`, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")
 
   return (
@@ -142,7 +143,7 @@ const Page = async ({ params }: PageProps) => {
 
             <div className="flex flex-col gap-8 empty:hidden">
               <RatingSummary summary={rating} />
-              <BookPageReaders book={book} />
+              <BookPageReaders book={book} bookKey={key} />
             </div>
 
             <section aria-labelledby="about-heading" className="flex flex-col gap-4">
@@ -163,7 +164,7 @@ const Page = async ({ params }: PageProps) => {
               )}
             </section>
 
-            <BookReviews workKey={workKey} initial={reviews} headingClassName={sectionHeading} />
+            <BookReviews bookKey={key} initial={reviews} headingClassName={sectionHeading} />
 
             {lists.length > 0 && (
               <section aria-labelledby="lists-heading" className="flex flex-col gap-4">
@@ -188,15 +189,17 @@ const Page = async ({ params }: PageProps) => {
                 {data.editionCount ? <><dt className="text-muted-foreground">Editions</dt><dd>{data.editionCount.toLocaleString('en-GB')}</dd></> : null}
               </dl>
               <div className="flex flex-col items-start gap-3">
-                <a
-                  href={`https://openlibrary.org/works/${workKey}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                >
-                  View on Open Library<ExternalLink size={13} aria-hidden />
-                </a>
-                <BookProblemReport workKey={workKey} />
+                {book.workKey && (
+                  <a
+                    href={`https://openlibrary.org/works/${book.workKey}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    View on Open Library<ExternalLink size={13} aria-hidden />
+                  </a>
+                )}
+                <BookProblemReport workKey={book.workKey} workId={data.workId} />
               </div>
             </section>
           </div>

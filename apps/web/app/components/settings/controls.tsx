@@ -1,6 +1,8 @@
 "use client"
 import { FC } from 'react'
+import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { GENRES } from '@/lib/genres'
 import type { Option } from '@bookmark/shared/settingsCopy'
 
 // The options and hints live in packages/shared, so the mobile app's settings say the same.
@@ -54,4 +56,29 @@ export const Toggle: FC<{ label: string; hint: string; checked: boolean; onChang
       <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-background shadow transition-transform", checked && "translate-x-5")} />
     </span>
   </button>
+)
+
+// Favourite genres as toggling pills, shared by onboarding and Settings.
+export const GenreChips: FC<{ value: string[]; onChange: (value: string[]) => void; disabled: boolean; labelledBy: string }> = ({ value, onChange, disabled, labelledBy }) => (
+  <div role="group" aria-labelledby={labelledBy} className="flex flex-wrap gap-2">
+    {GENRES.map((genre) => {
+      const on = value.includes(genre.slug)
+      return (
+        <button
+          key={genre.slug}
+          type="button"
+          aria-pressed={on}
+          disabled={disabled}
+          onClick={() => onChange(on ? value.filter((g) => g !== genre.slug) : [...value, genre.slug])}
+          className={cn(
+            "inline-flex h-8 items-center gap-1 rounded-full border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+            on ? "border-brand-fill bg-brand-fill text-white" : "border-neutral-300 bg-background hover:border-brand dark:border-neutral-700"
+          )}
+        >
+          {on && <Check size={14} aria-hidden />}
+          {genre.label}
+        </button>
+      )
+    })}
+  </div>
 )

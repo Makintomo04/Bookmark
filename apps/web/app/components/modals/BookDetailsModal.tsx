@@ -18,14 +18,17 @@ import useBookDescription from '@/app/hooks/useBookDescription'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useListEditorModal from '@/app/hooks/useListEditorModal'
 import AuthorLink from '@/app/components/AuthorLink'
-import { bookHref } from '@/lib/workKey'
+import { bookHref, bookKeyOf } from '@/lib/workKey'
 import BookProblemReport from '../books/BookProblemReport'
 
-// A closer look at an Open Library book from Discover or a list, before deciding to shelve it.
+// A closer look at a book from Discover, search or a list, before deciding to shelve it. A book Open
+// Library lacks (a Hardcover hit) has a page once it's in the catalogue, i.e. once someone has shelved
+// it; until then there's no page to link to, and opening details doesn't file it.
 const BookDetailsModal: FC = () => {
   const { isOpen, book, reason, onClose } = useBookDetailsModal()
-  const { description, isLoading } = useBookDescription(isOpen ? book?.workKey : null, isOpen ? book?.description : null, book)
-  const { tags } = useWorkTags({ workKey: isOpen ? book?.workKey : null })
+  const bookKey = book ? bookKeyOf(book) : null
+  const { description, isLoading } = useBookDescription(isOpen ? bookKey : null, isOpen ? book?.description : null, book)
+  const { tags } = useWorkTags({ bookKey: isOpen ? bookKey : null })
   const pageHref = book ? bookHref(book) : null
 
   // The shelf and list buttons can hand off to their own modals; step aside rather than stack.
@@ -66,18 +69,18 @@ const BookDetailsModal: FC = () => {
             <AddToListButton book={book} />
           </div>
         </div>
-        <ReaderCounts workKey={book.workKey} />
+        <ReaderCounts bookKey={bookKey} />
         {/* What it feels like and what's in it, from readers who finished it. Warnings stay folded until tapped. */}
         <WorkTagsSummary tags={tags} />
         {/* People first: the curator who sent the reader here, then anyone they follow who picked it. */}
         {reason && <CuratorNote variant="full" reason={reason} />}
         <PickedByFollowing book={book} />
-        {book.workKey && !isLoading && !description ? (
+        {bookKey && !isLoading && !description ? (
           <p className="text-sm text-muted-foreground">We don&apos;t have a description for this book yet.</p>
         ) : (
           <BookBlurb description={description} isLoading={isLoading} />
         )}
-        {book.workKey && <BookProblemReport key={book.workKey} workKey={book.workKey} />}
+        {bookKey && <BookProblemReport key={bookKey} workKey={book.workKey} workId={book.workKey ? null : book.pageWorkId} />}
       </div>
     </div>
   ) : undefined

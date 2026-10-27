@@ -7,13 +7,14 @@ import { normaliseWorkKey } from "@/lib/workKey";
 import { isShareableCover } from "@/lib/uploadedImages";
 import { uploadersOf } from "@/lib/uploads";
 import { parseImport } from "./formats";
+import { readList } from "./text";
 import { matchRows } from "./match";
 import { llmAvailable, pickWithModel } from "./llmMatch";
 import { ShelfIndex, buildRecords, findDuplicates, newObjectId, shelfKey, type BookInsert, type NoteInsert, type ReadInsert } from "./records";
 import {
   type Decision, type Matches, type UncertainRow, applyModelOutcome, decide, modelPending, pendingForModel, uncertainRows, undatedFinished,
 } from "./review";
-import { type FileNotes, type ImportMatch, type ImportRow, type ImportSource, type MatchEntry, asMatch, effectiveMatch, isUncertain, isbnsFor } from "./types";
+import { type FileNotes, type ImportMatch, type ImportRow, type ImportSource, type MatchEntry, type ParsedImport, asMatch, effectiveMatch, isUncertain, isbnsFor } from "./types";
 
 // The server half of an import: each exported step does a bounded amount of work and returns the
 // job's new view, and the /import page calls the next step until the job is done. Every step is safe
@@ -50,6 +51,8 @@ export interface ImportResult {
   lastYear: number | null;
   // Imported without an Open Library match; the summary offers to fix them.
   unmatched: { bookId: string; title: string; author: string }[];
+  // A pasted list only: books the search couldn't find, left off the shelf. Listed so the reader can copy them.
+  leftOut?: { title: string; author: string }[];
   medals: ImportMedal[];
   // Finished books whose file had no finish date: kept undated, not dated today.
   undatedFinished: number;
@@ -77,6 +80,9 @@ const json = (value: unknown) => value as Prisma.InputJsonValue;
 // A row is matched if Open Library found it (and the reader hasn't been left to check the match), or it
 // arrived with a work key (Bookmark's own export).
 const isMatched = (row: ImportRow, entry: MatchEntry | undefined) => !!(row.workKey || effectiveMatch(entry));
+
+// A pasted list's books come only from the search: a row without a match is left out, never added as typed.
+const leavesOutUnmatched = (source: ImportSource) => source === "list";
 
 async function loadShelf(userId: string) {
   return prisma.book.findMany({ where: { userId }, select: { title: true, author: true, workKey: true } });
@@ -164,7 +170,8 @@ export async function viewJob(job: ImportJob): Promise<ImportJobView> {
       if (samples.duplicates.length < 8) samples.duplicates.push(`${row.title} · ${row.author}`);
       return;
     }
-    byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
+    // A pasted list's shelves count only the books that will be added.
+    if (!leavesOutUnmatched(base.source) || isMatched(row, matches[i])) byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
     if (isMatched(row, matches[i])) matched++;
     // Uncertain matches are listed in `uncertain`, not counted here, until the reader decides.
     else if (isUncertain(asMatch(matches[i]))) return;
@@ -174,9 +181,11 @@ export async function viewJob(job: ImportJob): Promise<ImportJobView> {
     }
   });
 
+  // For a pasted list, rows without a match (and unsure matches left unchecked) won't be added.
+  const leavingOut = leavesOutUnmatched(base.source) ? rows.filter((row, i) => !dupes[i] && !isMatched(row, matches[i])).length : 0;
   return {
     ...base,
-    toImport: dupes.filter((d) => !d).length,
+    toImport: dupes.filter((d) => !d).length - leavingOut,
     matched,
     unmatched,
     byStatus,
@@ -191,8 +200,20 @@ export async function viewJob(job: ImportJob): Promise<ImportJobView> {
 
 // ---- Upload ------------------------------------------------------------------------------
 
-export async function createJob(userId: string, csvText: string, fileName: string | null) {
-  const parsed = parseImport(csvText);
+// A CSV export: the format is detected from its columns.
+export const createJob = (userId: string, csvText: string, fileName: string | null) => saveJob(userId, parseImport(csvText), fileName);
+
+// A pasted list or plain text file (lib/import/text.ts). The model reads it here, before the job exists.
+export async function createListJob(userId: string, text: string, opts: { fileName: string | null; defaultStatus?: Status; useAi: boolean }) {
+  // Without the reader's say-so, the rules read the list and no model is asked.
+  const parsed = await readList(text, { defaultStatus: opts.defaultStatus, ...(!opts.useAi && { ask: null }) });
+  if (parsed.rows.length === 0) {
+    throw new ImportInputError("We couldn't find any books in that list. Put each book on its own line, with the author after it if you have it.");
+  }
+  return saveJob(userId, { ...parsed, notes: { ...parsed.notes, listReadBy: parsed.readBy } }, opts.fileName);
+}
+
+async function saveJob(userId: string, parsed: ParsedImport, fileName: string | null) {
   if (parsed.rows.length === 0) throw new ImportInputError("That file has no books in it.");
   if (parsed.rows.length > MAX_ROWS) {
     throw new ImportInputError(`That file has ${parsed.rows.length.toLocaleString("en-GB")} books; the limit is ${MAX_ROWS.toLocaleString("en-GB")} per import.`);
@@ -371,6 +392,10 @@ export async function importStep(job: ImportJob) {
     const row = rows[i];
     // An uncertain match the reader never checked files as typed, never under the doubtful work.
     const match = effectiveMatch(matches[i]);
+    if (leavesOutUnmatched(source) && !isMatched(row, match)) {
+      (result.leftOut ??= []).push({ title: row.title, author: row.author });
+      continue;
+    }
     const bookId = job.bookIds[i];
     const records = buildRecords(row, match, { userId: job.userId, bookId, now, source, catalog: filed.get(i) ?? null });
 

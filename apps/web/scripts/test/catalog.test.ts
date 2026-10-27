@@ -106,6 +106,19 @@ test("a book nobody could match is filed by title and author, the way sameBook()
   assert.equal(a.matched, false);
   assert.equal(a.work.openLibraryKey, null);
   assert.ok(a.work.key.startsWith("title:"));
+  assert.equal(a.work.hardcoverId, null, "a hand-typed book has no Hardcover id, so no book page");
+});
+
+test("a Hardcover hit keeps its Hardcover id on the work, filling in one a hand-typed copy filed first", async () => {
+  const store = new MemoryCatalogStore();
+  const typed = await resolveOne({ title: "Gilded Rose", author: "Emma Hamm", pages: 300 }, { store });
+  assert.equal(typed.work.hardcoverId, null);
+  const hit = await resolveOne({ title: "Gilded Rose", author: "Emma Hamm", pages: 300, hardcoverId: "123" }, { store });
+  assert.equal(hit.work.id, typed.work.id);
+  assert.equal(hit.work.hardcoverId, "123");
+  const fresh = await resolveOne({ title: "Another Hit", author: "Someone", hardcoverId: "456" }, { store });
+  assert.equal(fresh.work.hardcoverId, "456");
+  assert.equal(fresh.work.openLibraryKey, null);
 });
 
 test("a batch with repeats creates each work and edition once", async () => {

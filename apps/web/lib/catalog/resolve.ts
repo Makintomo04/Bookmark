@@ -22,6 +22,7 @@ export interface WorkRecord {
   id: string;
   key: string;
   openLibraryKey: string | null;
+  hardcoverId?: string | null;
   title: string;
   authors: string[];
   authorKeys: string[];
@@ -57,6 +58,8 @@ export interface CatalogInput {
   editionKey?: string | null;
   isbn13?: string | null;
   isbn10?: string | null;
+  // Hardcover's id for the book, when it came from a Hardcover search hit.
+  hardcoverId?: string | null;
   title: string;
   author?: string | null;
   authors?: string[] | null;
@@ -192,6 +195,7 @@ function workRow(item: Item): WorkRecord {
     id: newObjectId(),
     key: workKeyFor(item),
     openLibraryKey: item.workKey,
+    hardcoverId: clean(input.hardcoverId),
     title: clean(facts?.title) ?? input.title.trim(),
     authors: cleanList(facts?.authors?.length ? facts.authors : authorsOf(input)),
     authorKeys: cleanList(facts?.authorKeys?.length ? facts.authorKeys : input.authorKeys),

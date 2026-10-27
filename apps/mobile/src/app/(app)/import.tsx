@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, Share, StyleSheet, Switch, View } from "react-native";
+import useSWR from "swr";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
@@ -18,6 +19,9 @@ import { useTheme } from "@/lib/theme";
 // Import (the web's /import): a Goodreads, StoryGraph or Bookmark CSV goes up, the server matches it on
 // Open Library one step at a time while this screen drives it, the reader checks a preview, then the
 // books are added. Leaving pauses the import; coming back carries on.
+//
+// A pasted list (a notes app) goes up as text instead. The server reads it (with AI if the reader ticks it),
+// and books search can't find are left out rather than added as typed.
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -30,7 +34,7 @@ const SHELVES: { status: Status; label: string }[] = [
   { status: "DNF", label: "Did not finish" },
   { status: "NOT_INTERESTED", label: "Will not read" },
 ];
-const SOURCE_LABEL: Record<string, string> = { goodreads: "Goodreads", storygraph: "StoryGraph", bookmark: "Bookmark" };
+const SOURCE_LABEL: Record<string, string> = { goodreads: "Goodreads", storygraph: "StoryGraph", bookmark: "Bookmark", list: "Your list" };
 const FORMAT_LABEL: Record<string, string> = { AUDIOBOOK: "Audiobook", EBOOK: "Ebook", HARDCOVER: "Hardcover", PAPERBACK: "Paperback" };
 
 const fmt = (n: number) => n.toLocaleString("en-GB");
@@ -45,7 +49,9 @@ type FileNotes = {
   dayFirst: boolean;
   unreadableDateCount: number;
   unreadableDates: { value: string; line: number }[];
+  listReadBy?: "model" | "rules" | "mixed";
 };
+type ListUpload = { text: string; defaultStatus: "NOT_STARTED" | "COMPLETED"; useAi: boolean };
 type ImportResult = {
   created: number;
   duplicates: number;
@@ -55,6 +61,7 @@ type ImportResult = {
   unmatched: { bookId: string; title: string; author: string }[];
   undatedFinished: number;
   file?: FileNotes | null;
+  leftOut?: { title: string; author: string }[];
 };
 type Job = {
   id: string;
@@ -86,6 +93,8 @@ export default function Import() {
   const [job, setJob] = useState<Job | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Kept here, not in the paste box, so "Change the list" brings the reader back to their text.
+  const [draft, setDraft] = useState("");
   const runId = useRef(0);
 
   // Repeats one step until the job leaves `whileStatus`. Network blips are retried a few times; a 4xx stops.
@@ -152,6 +161,17 @@ export default function Import() {
     }
   };
 
+  const uploadList = async (list: ListUpload) => {
+    setError(null);
+    try {
+      const created = await api.post<Job>("/api/import", list);
+      setJob(created);
+      if (created.status === "matching") void drive(created, "match", "matching");
+    } catch (err) {
+      setError(message(err, "Couldn't read that list."));
+    }
+  };
+
   const confirm = async () => {
     if (!job) return;
     try {
@@ -186,7 +206,7 @@ export default function Import() {
           {(job?.status === "matching" || job?.status === "importing") && <Button title="Carry on" variant="outline" onPress={resume} />}
         </View>
       )}
-      {!job || job.status === "cancelled" ? <UploadStep onPick={upload} />
+      {!job || job.status === "cancelled" ? <UploadStep onPick={upload} onList={uploadList} draft={draft} onDraft={setDraft} />
         : job.status === "matching" ? (
           job.checking > 0 && job.looked >= job.total
             ? <ProgressStep title="Checking the unsure ones" detail={`${plural(job.checking, "title")} left to check against Open Library's suggestions`} value={job.total - job.checking} max={job.total} job={job} />
@@ -207,7 +227,7 @@ const HOW_TO: { source: string; steps: string; href?: string }[] = [
   { source: "Bookmark", steps: "An export from Bookmark itself (More → Your data → Export books) imports exactly as it left." },
 ];
 
-function UploadStep({ onPick }: { onPick: () => Promise<void> }) {
+function UploadStep({ onPick, onList, draft, onDraft }: { onPick: () => Promise<void>; onList: (list: ListUpload) => Promise<void>; draft: string; onDraft: (text: string) => void }) {
   const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
   const take = async () => {
@@ -254,7 +274,76 @@ function UploadStep({ onPick }: { onPick: () => Promise<void> }) {
           </View>
         ))}
       </View>
+
+      <PasteList text={draft} setText={onDraft} onSubmit={onList} disabled={busy} />
     </>
+  );
+}
+
+const PASTE_EXAMPLE = "Read 2024\n- Fourth Wing by Rebecca Yarros\n- Babel - R. F. Kuang\n\nTBR\n- Iron Flame";
+
+// A list from a notes app: one book a line. The AI switch starts as the reader's AI setting.
+function PasteList({ text, setText, onSubmit, disabled }: { text: string; setText: (text: string) => void; onSubmit: (list: ListUpload) => Promise<void>; disabled: boolean }) {
+  const { colors } = useTheme();
+  const { data: ai } = useSWR<{ available: boolean; enabled: boolean }>("/api/discover/ask");
+  const [defaultStatus, setDefaultStatus] = useState<ListUpload["defaultStatus"]>("NOT_STARTED");
+  const [useAi, setUseAi] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const aiOn = !!ai?.available && (useAi ?? ai.enabled);
+  const lines = text.split(/\r?\n/).filter((l) => /\p{L}/u.test(l)).length;
+
+  const submit = async () => {
+    if (busy || lines === 0) return;
+    setBusy(true);
+    try { await onSubmit({ text, defaultStatus, useAi: aiOn }); } finally { setBusy(false); }
+  };
+
+  return (
+    <View style={[styles.box, { borderColor: colors.border, gap: 14 }]}>
+      <View style={{ gap: 4 }}>
+        <Text variant="title">Or paste a list</Text>
+        <Text variant="muted">
+          Keep your books in a notes app? Paste the list here, one book a line. Authors help but aren't needed, and headings like
+          "Read" or "TBR" put the books under them on that shelf. We find each book with search, and any we can't find are left out.
+        </Text>
+      </View>
+      <TextField
+        label="Your list"
+        value={text}
+        onChangeText={setText}
+        placeholder={PASTE_EXAMPLE}
+        multiline
+        autoCorrect={false}
+        autoCapitalize="none"
+        style={{ minHeight: 160, textAlignVertical: "top" }}
+      />
+      <View style={{ gap: 8 }}>
+        <Text variant="label">Books without a shelf go to</Text>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {([["NOT_STARTED", "Want to read"], ["COMPLETED", "Finished"]] as const).map(([value, label]) => (
+            <Button key={value} title={label} variant={defaultStatus === value ? "primary" : "outline"} onPress={() => setDefaultStatus(value)} accessibilityState={{ selected: defaultStatus === value }} />
+          ))}
+        </View>
+      </View>
+      {ai?.available && (
+        <View style={styles.row}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text variant="label">Use AI to pick out the books</Text>
+              <Sparkles size={13} color={colors.brand} />
+            </View>
+            <Text variant="small">Better with messy lists: it skips notes to self and copies each title and author out of its line, word for word. It never adds a book that isn't in your list.</Text>
+          </View>
+          <Switch value={aiOn} onValueChange={setUseAi} accessibilityLabel="Use AI to pick out the books" />
+        </View>
+      )}
+      <Button
+        title={busy ? "Reading your list…" : lines > 0 ? `Find these ${plural(lines, "line")}` : "Find these books"}
+        loading={busy}
+        disabled={disabled || lines === 0}
+        onPress={() => void submit()}
+      />
+    </View>
   );
 }
 
@@ -281,7 +370,7 @@ function ProgressStep({ title, detail, value, max, job }: { title: string; detai
       <ProgressBar value={value} max={max} />
       <Text variant="muted">{detail}</Text>
       {job && job.looked > 0 && (
-        <Text>{plural(job.matched, "match", "matches")} so far{job.unmatched > 0 ? `, ${fmt(job.unmatched)} to check later` : ""}.</Text>
+        <Text>{plural(job.matched, "match", "matches")} so far{job.unmatched > 0 ? `, ${fmt(job.unmatched)} ${job.source === "list" ? "not found" : "to check later"}` : ""}.</Text>
       )}
       <Text variant="small">Keep Bookmark open while this runs. Leaving pauses the import; come back to carry on.</Text>
     </View>
@@ -345,11 +434,13 @@ function PreviewStep({ job, onConfirm, onCancel, onChange }: { job: Job; onConfi
   const [busy, setBusy] = useState(false);
   const duplicates = job.duplicates.shelf + job.duplicates.file;
   const unsure = job.uncertain.length;
+  const isList = job.source === "list";
+  const readByAi = job.notes?.listReadBy === "model" || job.notes?.listReadBy === "mixed";
 
   return (
     <View style={{ gap: 20 }}>
       <View style={{ gap: 4 }}>
-        <Text variant="muted">{SOURCE_LABEL[job.source] ?? job.source} export{job.fileName ? ` · ${job.fileName}` : ""}</Text>
+        <Text variant="muted">{isList ? SOURCE_LABEL.list : `${SOURCE_LABEL[job.source] ?? job.source} export`}{job.fileName ? ` · ${job.fileName}` : ""}{readByAi ? " · read with AI" : ""}</Text>
         <Text variant="display">Ready to import {plural(job.toImport, "book")}</Text>
       </View>
 
@@ -368,12 +459,19 @@ function PreviewStep({ job, onConfirm, onCancel, onChange }: { job: Job; onConfi
         </Note>
         {unsure > 0 && (
           <Note icon={<Sparkles size={18} color="#d97706" />}>
-            <Text style={{ fontWeight: "700" }}>{fmt(unsure)}</Text> {unsure === 1 ? "match" : "matches"} to check below. Any you don't check {unsure === 1 ? "is" : "are"} added as typed.
+            <Text style={{ fontWeight: "700" }}>{fmt(unsure)}</Text> {unsure === 1 ? "match" : "matches"} to check below. Any you don't check {unsure === 1 ? "is" : "are"} {isList ? "left out" : "added as typed"}.
           </Note>
         )}
         {job.unmatched > 0 && (
           <Note icon={<Search size={18} color="#d97706" />} detail={job.samples.unmatched.length ? `${job.samples.unmatched.join("; ")}${job.unmatched > job.samples.unmatched.length ? "…" : ""}` : undefined}>
-            <Text style={{ fontWeight: "700" }}>{fmt(job.unmatched)}</Text> without a match. They're still imported, and you can match them afterwards.
+            <Text style={{ fontWeight: "700" }}>{fmt(job.unmatched)}</Text>{isList
+              ? " we couldn't find. They'll be left out, and you'll get the list to copy afterwards."
+              : " without a match. They're still imported, and you can match them afterwards."}
+          </Note>
+        )}
+        {readByAi && (
+          <Note icon={<Sparkles size={18} color={colors.brand} />}>
+            AI picked the books out of your list, copying each title from its line. Every match comes from search, not from the AI.
           </Note>
         )}
         {duplicates > 0 && (
@@ -383,7 +481,7 @@ function PreviewStep({ job, onConfirm, onCancel, onChange }: { job: Job; onConfi
         )}
       </View>
 
-      <FileNotesList notes={job.notes} undatedFinished={job.undatedFinished} />
+      <FileNotesList notes={job.notes} undatedFinished={isList ? 0 : job.undatedFinished} />
 
       {unsure > 0 && <ReviewList job={job} onChange={onChange} />}
 
@@ -396,7 +494,7 @@ function PreviewStep({ job, onConfirm, onCancel, onChange }: { job: Job; onConfi
           disabled={job.toImport === 0}
           onPress={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}
         />
-        <Button title="Choose a different file" variant="outline" onPress={onCancel} />
+        <Button title={isList ? "Change the list" : "Choose a different file"} variant="outline" onPress={onCancel} />
       </View>
     </View>
   );
@@ -413,12 +511,12 @@ function ReviewList({ job, onChange }: { job: Job; onChange: (job: Job) => void 
     <View style={{ gap: 12 }}>
       <View style={{ gap: 4 }}>
         <Text variant="title">{plural(rows.length, "match", "matches")} to check</Text>
-        <Text variant="muted">Open Library wasn't sure about these. Confirm the suggestion, pick another, or add the book as it is in your file.</Text>
+        <Text variant="muted">Open Library wasn't sure about these. Confirm the suggestion, pick another, or {job.source === "list" ? "leave the book out" : "add the book as it is in your file"}.</Text>
       </View>
       <View style={[styles.list, { borderColor: colors.border }]}>
         {rows.slice(0, shown).map((row, i) => (
           <View key={row.index} style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
-            <ReviewRow jobId={job.id} row={row} onChange={onChange} />
+            <ReviewRow jobId={job.id} row={row} onChange={onChange} isList={job.source === "list"} />
           </View>
         ))}
       </View>
@@ -433,7 +531,7 @@ function CoverThumb({ url, width = 56 }: { url: string | null; width?: number })
   return url ? <Image source={{ uri: url.replace(/-L\.jpg$/, "-M.jpg") }} style={style} contentFit="cover" accessibilityIgnoresInvertColors /> : <View style={style} />;
 }
 
-function ReviewRow({ jobId, row, onChange }: { jobId: string; row: UncertainRow; onChange: (job: Job) => void }) {
+function ReviewRow({ jobId, row, onChange, isList }: { jobId: string; row: UncertainRow; onChange: (job: Job) => void; isList: boolean }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -459,7 +557,7 @@ function ReviewRow({ jobId, row, onChange }: { jobId: string; row: UncertainRow;
         <CoverThumb url={row.pick.coverUrl} />
         <View style={{ flex: 1, gap: 8 }}>
           <View>
-            <Text variant="small" style={{ letterSpacing: 1 }}>IN YOUR FILE</Text>
+            <Text variant="small" style={{ letterSpacing: 1 }}>IN YOUR {isList ? "LIST" : "FILE"}</Text>
             <Text variant="label">{row.title}</Text>
             {yours ? <Text variant="muted">{yours}</Text> : null}
           </View>
@@ -474,7 +572,7 @@ function ReviewRow({ jobId, row, onChange }: { jobId: string; row: UncertainRow;
       <View style={styles.actions}>
         <Button title="That's right" disabled={busy} onPress={() => void send({ choice: "accept" })} />
         <Button title="Pick another" variant="outline" disabled={busy} onPress={() => setOpen((o) => !o)} accessibilityState={{ expanded: open }} />
-        <Button title="Add as typed" variant="ghost" disabled={busy} onPress={() => void send({ choice: "typed" })} />
+        <Button title={isList ? "Leave it out" : "Add as typed"} variant="ghost" disabled={busy} onPress={() => void send({ choice: "typed" })} />
       </View>
       {open && <WorkSearch initialQuery={`${row.title} ${row.author === "Unknown" ? "" : row.author}`.trim()} others={row.others} busy={busy} onPick={(c) => void send({ choice: "pick", candidate: c })} />}
     </View>
@@ -593,9 +691,11 @@ function SummaryStep({ job, onChange, onAnother }: { job: Job; onChange: (job: J
         </View>
       )}
 
-      <FileNotesList notes={result.file ?? null} undatedFinished={result.undatedFinished} />
+      <FileNotesList notes={result.file ?? null} undatedFinished={job.source === "list" ? 0 : result.undatedFinished} />
 
       {result.unmatched.length > 0 && <UnmatchedList job={job} onChange={onChange} />}
+
+      {(result.leftOut?.length ?? 0) > 0 && <LeftOutList books={result.leftOut!} />}
 
       {job.coversToCheck > 0 && (
         <View style={styles.row}>
@@ -604,7 +704,7 @@ function SummaryStep({ job, onChange, onAnother }: { job: Job; onChange: (job: J
         </View>
       )}
 
-      <Button title="Import another file" variant="outline" onPress={onAnother} />
+      <Button title={job.source === "list" ? "Import another list" : "Import another file"} variant="outline" onPress={onAnother} />
     </View>
   );
 }
@@ -634,6 +734,30 @@ function useCovers(job: Job, onChange: (job: Job) => void) {
     })();
     return () => { alive = false; };
   }, [job.id, pending]);
+}
+
+// A pasted list only: the books search couldn't find, left off the shelf. The share sheet copies them.
+function LeftOutList({ books }: { books: { title: string; author: string }[] }) {
+  const { colors } = useTheme();
+  const [shown, setShown] = useState(10);
+  const asLine = (b: { title: string; author: string }) => (b.author === "Unknown" ? b.title : `${b.title} by ${b.author}`);
+  return (
+    <View style={{ gap: 12 }}>
+      <View style={{ gap: 4 }}>
+        <Text variant="title">{plural(books.length, "book")} we couldn't find</Text>
+        <Text variant="muted">These weren't added. Copy them to add by hand, or fix a spelling and paste them in again.</Text>
+      </View>
+      <View style={[styles.list, { borderColor: colors.border }]}>
+        {books.slice(0, shown).map((b, i) => (
+          <View key={i} style={[{ padding: 12 }, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+            <Text>{asLine(b)}</Text>
+          </View>
+        ))}
+      </View>
+      {books.length > shown && <Button title="Show more" variant="ghost" onPress={() => setShown((n) => n + 50)} />}
+      <Button title="Copy or share the list" variant="outline" onPress={() => void Share.share({ message: books.map(asLine).join("\n") })} />
+    </View>
+  );
 }
 
 function UnmatchedList({ job, onChange }: { job: Job; onChange: (job: Job) => void }) {

@@ -7,7 +7,7 @@ import ListCard from '@/app/components/discover/ListCard'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { bookPageData } from '@/lib/bookPage'
 import { listsWithBook } from '@/lib/bookLists'
-import { bookHref, bookSlug, normaliseWorkKey } from '@/lib/workKey'
+import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
 
 interface PageProps {
   params: { slug: string }
@@ -22,13 +22,13 @@ const slugOf = (param: string) => {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const workKey = normaliseWorkKey(slugOf(params.slug))
-  const data = workKey ? await bookPageData(workKey) : null
-  if (!workKey || !data) return { title: "Book not found", robots: { index: false } }
+  const bookKey = bookKeyOfSlug(slugOf(params.slug))
+  const data = bookKey ? await bookPageData(bookKey) : null
+  if (!data) return { title: "Book not found", robots: { index: false } }
   return {
     title: `Lists with ${data.book.title}`,
     description: `Readers' lists on Bookmark with ${data.book.title} by ${data.book.author} on them.`,
-    alternates: { canonical: `${bookHref({ workKey, title: data.book.title })}/lists` },
+    alternates: { canonical: `${bookHref(data.book)}/lists` },
   }
 }
 
@@ -36,14 +36,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // order: editors' choices, then the most remixed (lib/bookListRules.ts).
 const Page = async ({ params }: PageProps) => {
   const slug = slugOf(params.slug)
-  const workKey = normaliseWorkKey(slug)
-  if (!workKey) notFound()
-  const data = await bookPageData(workKey)
+  const bookKey = bookKeyOfSlug(slug)
+  if (!bookKey) notFound()
+  const data = await bookPageData(bookKey)
   if (!data) notFound()
-  const href = bookHref({ workKey, title: data.book.title })!
-  if (slug !== bookSlug(workKey, data.book.title)) redirect(`${href}/lists`)
+  const href = bookHref(data.book)!
+  if (slug !== bookSlug(data.key, data.book.title)) redirect(`${href}/lists`)
 
-  const lists = await listsWithBook(workKey, await getCurrentUser())
+  const lists = await listsWithBook(data.book.workKey, await getCurrentUser())
 
   return (
     <div className="mt-6 sm:mt-8">

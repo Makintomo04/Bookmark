@@ -6,7 +6,7 @@ import useUser from "@/app/hooks/useUser"
 import { privacyOf, type PrivacySettings } from "@/lib/privacyRules"
 import { preferencesOf, type CommunityPreferences } from "@/lib/preferences"
 
-export type Settings = PrivacySettings & CommunityPreferences & { favGenres: string[] }
+export type Settings = PrivacySettings & CommunityPreferences & { favGenres: string[]; hideShelfPicks: boolean }
 
 // The reader's privacy and community settings, each saved as soon as it changes (PATCH /api/user/privacy).
 // Optimistic: the control moves straight away and rolls back if the save fails.
@@ -16,7 +16,7 @@ export default function useSettings() {
   const [pending, setPending] = useState<keyof Settings | null>(null)
 
   const settings: Settings | null = user
-    ? { ...privacyOf(user), ...preferencesOf(user), favGenres: user.favGenres ?? [] }
+    ? { ...privacyOf(user), ...preferencesOf(user), favGenres: user.favGenres ?? [], hideShelfPicks: user.hideShelfPicks ?? false }
     : null
 
   const save = <K extends keyof Settings>(key: K, value: Settings[K]) => {
@@ -28,6 +28,7 @@ export default function useSettings() {
         mutate({ ...user, ...res.data }, { revalidate: false })
         // Your own profile payload (counts, reviews) depends on these.
         mutateAll((k) => typeof k === "string" && k.startsWith("/api/users/") && !k.includes("/search"))
+        if (key === "favGenres") mutateAll("/api/discover/for-you")
       })
       .catch(() => {
         mutate(user, { revalidate: false })

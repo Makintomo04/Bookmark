@@ -5,30 +5,63 @@ import { findOnHardcover, hardcoverConfigured, searchHardcover } from "./hardcov
 import { needsFallback, needsTopUp, normaliseQuery, queryTokens, rankShelfRows, toppedUp, withFallback } from "./bookSearchRules"
 import { isShareableCover } from "./uploadedImages"
 import { uploadersOf } from "./uploads"
+import { sharedBookWhere } from "./privacy"
+import { hasPageWhere } from "./workPages"
 
 // Enough readers' copies to rank by popularity without reading the whole collection.
 const SHELF_SCAN = 300
 // Open Library's results for a query barely change; six hours keeps repeat searches instant.
 const CATALOGUE_TTL = 6 * 60 * 60
 
-// Books already on someone's shelf, matched across title and author ("piranesi clarke"). Only books with
-// an Open Library work key: hand-typed ones may be private notes, and nothing about who shelved it leaves here.
+// Books already on someone's shelf, matched across title and author ("piranesi clarke"). Books with an Open
+// Library work key, and books without one whose catalogue Work has a page (one added from Hardcover,
+// lib/workPages.ts). Hand-typed ones may be private notes, so they never show, and nothing about who
+// shelved a book leaves here.
 export async function searchShelves(query: string, limit: number): Promise<DiscoverBook[]> {
   const tokens = queryTokens(query)
   if (tokens.length === 0) return []
-  const rows = await prisma.book.findMany({
-    where: {
-      workKey: { not: null },
-      AND: tokens.map((t) => ({
-        OR: [
-          { title: { contains: t, mode: "insensitive" as const } },
-          { author: { contains: t, mode: "insensitive" as const } },
-        ],
-      })),
-    },
-    select: { workKey: true, title: true, author: true, pages: true, coverImage: true },
-    take: SHELF_SCAN,
-  })
+  const matches = tokens.map((t) => ({
+    OR: [
+      { title: { contains: t, mode: "insensitive" as const } },
+      { author: { contains: t, mode: "insensitive" as const } },
+    ],
+  }))
+  const [keyed, keyless] = await Promise.all([
+    prisma.book.findMany({
+      where: { workKey: { not: null }, AND: matches },
+      select: { workKey: true, title: true, author: true, pages: true, coverImage: true },
+      take: SHELF_SCAN,
+    }),
+    // Only shared copies: a private one shouldn't even say a matching work exists.
+    prisma.book.findMany({
+      where: { workKey: null, workId: { not: null }, AND: [...matches, sharedBookWhere] },
+      select: { workId: true, pages: true, coverImage: true },
+      take: SHELF_SCAN,
+    }),
+  ])
+  // A keyless copy shows as its catalogue Work, not as the reader typed or edited it.
+  const works = keyless.length
+    ? await prisma.work.findMany({
+        where: { id: { in: Array.from(new Set(keyless.map((r) => r.workId!))) }, ...hasPageWhere },
+        select: { id: true, openLibraryKey: true, title: true, authors: true, coverUrl: true },
+      })
+    : []
+  const workById = new Map(works.map((w) => [w.id, w]))
+  const rows = [
+    ...keyed,
+    ...keyless.flatMap((r) => {
+      const work = workById.get(r.workId!)
+      if (!work) return []
+      return [{
+        workKey: work.openLibraryKey,
+        pageWorkId: work.id,
+        title: work.title,
+        author: work.authors[0] ?? "Unknown",
+        pages: r.pages,
+        coverImage: work.coverUrl ?? r.coverImage,
+      }]
+    }),
+  ]
   // Results are shared, so a cover readers uploaded for their own copies is left out (lib/uploads.ts).
   const uploaders = await uploadersOf(rows.map((r) => r.coverImage))
   const shareable = uploaders.size ? rows.map((r) => (isShareableCover(r.coverImage, uploaders, null) ? r : { ...r, coverImage: "" })) : rows
@@ -65,7 +98,7 @@ export async function searchCatalogue(query: string, limit: number) {
   } catch (err) {
     // Throwing tells the search route Open Library is down, unless Hardcover can answer instead.
     const standIn = hardcoverConfigured() ? await hardcover() : null
-    if (standIn?.length) return standIn
+    if (standIn?.length) return withPages(standIn)
     throw err
   }
   if (!hardcoverConfigured()) return openLibrary
@@ -74,7 +107,18 @@ export async function searchCatalogue(query: string, limit: number) {
   // The same Hardcover search both adds the books Open Library missed and fills in the ones it left thin.
   const extra = (await hardcover()) ?? []
   const filled = toppedUp(openLibrary, extra)
-  return fallback ? withFallback(filled, extra, limit) : filled
+  return fallback ? withPages(withFallback(filled, extra, limit)) : filled
+}
+
+// A Hardcover hit someone has already shelved is in the catalogue under its Hardcover id, so it can link
+// to its book page. One that isn't has no page yet: looking at it doesn't file it.
+async function withPages(books: DiscoverBook[]): Promise<DiscoverBook[]> {
+  const ids = books.flatMap((b) => (!b.workKey && b.hardcoverId ? [b.hardcoverId] : []))
+  if (ids.length === 0) return books
+  const works = await prisma.work.findMany({ where: { hardcoverId: { in: ids } }, select: { id: true, hardcoverId: true } })
+    .catch(() => [])
+  const byHardcoverId = new Map(works.map((w) => [w.hardcoverId, w.id]))
+  return books.map((b) => (b.hardcoverId && byHardcoverId.has(b.hardcoverId) ? { ...b, pageWorkId: byHardcoverId.get(b.hardcoverId) } : b))
 }
 
 // Cached for a week like Open Library's work records. A failure throws, so it isn't cached.

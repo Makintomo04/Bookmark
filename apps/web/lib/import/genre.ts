@@ -6,6 +6,8 @@
 
 const RULES: [label: string, pattern: RegExp][] = [
   ["Graphic Novels", /graphic[\s_-]*novel|comics?\b|manga/],
+  // Before Fantasy, Horror and Romance: dark romance often carries "dark fantasy" and horror tags too.
+  ["Dark Romance", /dark[\s_-]*romance/],
   ["Historical Fiction", /historical[\s_-]*(fiction|novel|romance)/],
   ["Sci-Fi", /sci[\s_-]*fi|science[\s_-]*fiction|scifi|cyberpunk|space[\s_-]*opera|dystopi/],
   ["Fantasy", /fantasy|fae\b|dragons?/],

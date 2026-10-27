@@ -34,6 +34,16 @@ test("rankShelfRows groups readers' copies, drops hand-typed books and ranks tit
   assert.equal(ranked[0].pages, 412);
 });
 
+test("rankShelfRows keeps books without a work key whose catalogue work has a page, grouped by it", () => {
+  const rows = [
+    row(null, "Gilded Rose", { pageWorkId: "w1" }), row(null, "Gilded Rose", { pageWorkId: "w1" }),
+    row(null, "Gilded notes"),
+    row("OL1W", "Gilded"),
+  ];
+  const ranked = rankShelfRows(rows, "gilded rose", 6);
+  assert.deepEqual(ranked.map((b) => [b.workKey, b.pageWorkId]), [[null, "w1"], ["OL1W", undefined]]);
+});
+
 test("mergeResults leads with shelf books, caps them at half and drops duplicates", () => {
   const local = [book("OL1W"), book("OL2W"), book("OL3W"), book("OL4W")].map((b) => ({ ...b, year: undefined }));
   const remote = [book("OL9W"), book("OL1W"), book("OL8W"), book("OL7W")];
@@ -78,6 +88,14 @@ test("mergeResults drops a Hardcover result for a book a shelf already shows", (
   assert.equal(merged[0].workKey, "OL1W");
 });
 
+test("mergeResults shows one card when a shelf and Open Library hold a book as different works", () => {
+  const local = [book("OL1W", "United States history"), book("OL2W", "United States History")].map((b) => ({ ...b, pages: 400 }));
+  const remote = [{ ...book("OL3W", "United States History"), pages: 1264 }, { ...book("OL4W", "United States History"), author: "Someone Else" }];
+  const merged = mergeResults(local, remote, 6);
+  assert.deepEqual(merged.map((b) => b.workKey), ["OL1W", "OL4W"]);
+  assert.equal(merged[0].year, 2020);
+});
+
 test("hardcoverBook maps a search hit and skips ones without a title or author", () => {
   const mapped = hardcoverBook({
     id: 1, title: " Caged ", author_names: ["", "Bernadette Blackthorn"], image: { url: "https://assets.hardcover.app/c.jpg" },
@@ -86,6 +104,7 @@ test("hardcoverBook maps a search hit and skips ones without a title or author",
   assert.deepEqual(mapped, {
     workKey: null, title: "Caged", author: "Bernadette Blackthorn", pages: null, coverUrl: "https://assets.hardcover.app/c.jpg",
     year: 2026, editionKey: null, isbn13: "9781234567897", isbn10: "123456789X", authorKey: null, description: "A blurb.", source: "hardcover",
+    hardcoverId: "1",
   });
   assert.equal(hardcoverBook({ title: "No author" }), null);
   assert.equal(hardcoverBook({ author_names: ["Someone"] }), null);

@@ -22,11 +22,12 @@ const bodySchema = z.object({
   favGenres: z.array(z.string()).max(GENRES.length)
     .refine((slugs) => slugs.every((s) => GENRES.some((g) => g.slug === s)), "Unknown genre")
     .transform((slugs) => Array.from(new Set(slugs))),
+  hideShelfPicks: z.boolean(),
 }).partial().strict();
 
-type Stored = Parameters<typeof privacyOf>[0] & Parameters<typeof preferencesOf>[0] & { favGenres: string[] };
+type Stored = Parameters<typeof privacyOf>[0] & Parameters<typeof preferencesOf>[0] & { favGenres: string[]; hideShelfPicks: boolean | null };
 
-const settingsOf = (user: Stored) => ({ ...privacyOf(user), ...preferencesOf(user), favGenres: user.favGenres });
+const settingsOf = (user: Stored) => ({ ...privacyOf(user), ...preferencesOf(user), favGenres: user.favGenres, hideShelfPicks: user.hideShelfPicks ?? false });
 
 export async function GET() {
   const { user: currentUser, response } = await requireUser();
@@ -46,7 +47,7 @@ export async function PATCH(req: Request) {
   const user = await prisma.user.update({
     where: { id: currentUser.id },
     data: parsed.data,
-    select: { ...privacySelect, ...preferencesSelect, favGenres: true },
+    select: { ...privacySelect, ...preferencesSelect, favGenres: true, hideShelfPicks: true },
   });
   return NextResponse.json(settingsOf(user));
 }
