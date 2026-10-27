@@ -1,5 +1,6 @@
 "use client"
 import { FC, useEffect, useRef, useState } from 'react'
+import InitialAvatar, { avatarColour } from '../profile/InitialAvatar'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import { Bell } from "lucide-react"
@@ -152,8 +153,11 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           <div key={n.id} className="flex flex-col">
             <DropdownMenuItem asChild className="items-center gap-3 p-2 rounded-md cursor-pointer">
               <Link href={notificationHref(n)} onClick={() => { followedLink.current = true }}>
-                <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: n.actor.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(n.actor.username, booksReadOf(n.actor))) }}>
-                  {n.actor.image && <Image src={n.actor.image} alt="" fill sizes="36px" className="object-cover"/>}
+                <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: avatarColour(n.actor.favColour), ...tierRingStyle(booksReadFor(n.actor.username, booksReadOf(n.actor))) }}>
+                  {/* No photo: their initial on their colour, as avatars show it everywhere else. */}
+                  {n.actor.image
+                    ? <Image src={n.actor.image} alt="" fill sizes="36px" className="object-cover"/>
+                    : <InitialAvatar username={n.actor.username} favColour={n.actor.favColour} label="" />}
                 </div>
                 <div className="min-w-0">
                   {n.type === "COMMENTS_UNLOCKED" ? (
