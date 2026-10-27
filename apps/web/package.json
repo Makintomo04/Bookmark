@@ -20,7 +20,9 @@
     "dev:test:3031": "node scripts/with-test-db.mjs pnpm exec next dev -p 3031",
     "test:import:broken": "node --import ./scripts/test/register.mjs --test scripts/test/import-broken.test.ts",
     "test:import:text": "node --import ./scripts/test/register.mjs --test scripts/test/import-text.test.ts",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "backfill:covers": "node --env-file=.env.local scripts/backfill-hardcover-covers.ts",
+    "backfill:covers:prod": "node --env-file=.env.prod.local scripts/backfill-hardcover-covers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
