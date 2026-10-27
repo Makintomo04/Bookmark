@@ -54,6 +54,7 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
     authorKey: null,
     description: doc.description?.trim().slice(0, DESCRIPTION_MAX) || null,
     source: "hardcover",
+    hardcoverId: doc.id != null && String(doc.id).trim() ? String(doc.id).trim() : null,
   }
 }
 

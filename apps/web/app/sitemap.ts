@@ -4,6 +4,7 @@ import { GENRES } from '@/lib/genres'
 import { publicProfileWhere, sharedBookWhere } from '@/lib/privacy'
 import { siteUrl } from '@/lib/siteUrl'
 import { bookHref } from '@/lib/workKey'
+import { hasPageWhere } from '@/lib/workPages'
 
 // Lists users and lists from the database: refresh hourly instead of freezing it at build time.
 export const revalidate = 3600
@@ -41,10 +42,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       orderBy: { updatedAt: 'desc' },
       take: 1000,
     }),
-    // Book pages worth a crawl: books with an Open Library key that at least one reader has reviewed.
+    // Book pages worth a crawl: books with a page (lib/workPages.ts) that at least one reader has reviewed.
     prisma.work.findMany({
-      where: { openLibraryKey: { not: null }, books: { some: { review: { not: null }, ...sharedBookWhere } } },
-      select: { openLibraryKey: true, title: true, updatedAt: true },
+      where: { ...hasPageWhere, books: { some: { review: { not: null }, ...sharedBookWhere } } },
+      select: { id: true, openLibraryKey: true, title: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
       take: 1000,
     }),
@@ -67,7 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   const bookRoutes: MetadataRoute.Sitemap = reviewedWorks.map((w) => ({
-    url: `${siteUrl}${bookHref({ workKey: w.openLibraryKey, title: w.title })}`,
+    url: `${siteUrl}${bookHref({ workKey: w.openLibraryKey, pageWorkId: w.id, title: w.title })}`,
     lastModified: w.updatedAt,
     changeFrequency: 'weekly',
     priority: 0.6,

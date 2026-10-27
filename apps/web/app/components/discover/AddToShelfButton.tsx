@@ -118,6 +118,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
       editionKey: book.editionKey ?? undefined,
       isbn13: book.isbn13 ?? undefined,
       isbn10: book.isbn10 ?? undefined,
+      hardcoverId: book.hardcoverId ?? undefined,
       description: book.description ?? undefined,
       status,
     }).then(({ data: saved }) => {

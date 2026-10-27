@@ -34,7 +34,7 @@ import { spiceAskable, type ReaderTagsInput } from '@/lib/workTags'
 import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../books/WorkTags'
 import AuthorLink from '@/app/components/AuthorLink'
 import Link from 'next/link'
-import { bookHref } from '@/lib/workKey'
+import { bookHref, bookKeyOf } from '@/lib/workKey'
 
 const PACE_MIN_DAYS = 7
 
@@ -81,7 +81,7 @@ const BookUpdateModal: FC = () => {
   // The blurb is for a book you haven't read yet. The reader's own copy may carry one; otherwise ask the catalog.
   const wantsBlurb = isOpen && (book?.status === "NOT_STARTED" || book?.status === "NOT_INTERESTED")
   const { description: catalogDescription, isLoading: blurbLoading } =
-    useBookDescription(wantsBlurb && !book?.description ? book?.workKey : null)
+    useBookDescription(wantsBlurb && !book?.description && book ? bookKeyOf(book) : null)
 
   const [pageInput, setPageInput] = useState("0")
   // Moods, spice and content warnings, tagged along with the review.
@@ -160,7 +160,8 @@ const BookUpdateModal: FC = () => {
   const canSave = !isSaving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges)
 
   const close = () => onClose(book.id)
-  // Its book page, when it's matched to an Open Library work.
+  // Its book page, when it's matched to an Open Library work or to a catalogue work that has a page (the
+  // shelf API sets pageWorkId then, lib/workPages.ts).
   const pageHref = bookHref(book)
 
   const setPage = (n: number) => setPageInput(String(clamp(n, pages)))

@@ -62,6 +62,7 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string }> = ({ boo
       editionKey: book.editionKey ?? undefined,
       isbn13: book.isbn13 ?? undefined,
       isbn10: book.isbn10 ?? undefined,
+      hardcoverId: book.hardcoverId ?? undefined,
       status: "NOT_STARTED",
     }).then(({ data: saved }) => {
       mutate()

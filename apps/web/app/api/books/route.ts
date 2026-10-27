@@ -6,6 +6,7 @@ import { earnMomentFor } from "@/lib/earnMomentServer";
 import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
 import { shareableCover } from "@/lib/uploads";
 import { normaliseWorkKey } from "@/lib/workKey";
+import { workIdsWithPages } from "@/lib/workPages";
 import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
 import { RATING_ERROR, ratingSchema, readFromBook } from "@/lib/readHistory";
 import { EditionFormat, Status } from "@prisma/client";
@@ -48,9 +49,12 @@ const recommenders = recommenderIds.length > 0
   ? await prisma.user.findMany({ where: { id: { in: recommenderIds } }, select: { id: true, username: true } })
   : []
 const usernameById = new Map(recommenders.map((u) => [u.id, u.username]))
+// A book without an Open Library key links to its page by catalogue Work id, when the work has one (bookHref).
+const withPages = await workIdsWithPages(books.map((b) => (b.workKey ? null : b.workId)))
 return NextResponse.json(books.map((b) => {
   const username = b.recommendedById ? usernameById.get(b.recommendedById) : null
-  return { ...b, recommendedBy: username ? `@${username}` : b.recommendedByName ?? null }
+  const pageWorkId = !b.workKey && b.workId && withPages.has(b.workId) ? b.workId : null
+  return { ...b, recommendedBy: username ? `@${username}` : b.recommendedByName ?? null, pageWorkId }
 }))
 }
 export async function POST(req:Request, res:Response) {
@@ -59,7 +63,7 @@ const { user: currentUser, response } = await requireUser();
 if (response) return response;
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, format, audioMinutes, isPrivate } = body
+  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, rating, genre, workKey, description, editionKey, isbn13, isbn10, hardcoverId, format, audioMinutes, isPrivate } = body
 
 if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {
   return NextResponse.json({ error: "Title and author are required" }, { status: 400 })
@@ -103,6 +107,8 @@ const catalog = await linkCatalog(
     editionKey: optionalText.safeParse(editionKey).success ? str(editionKey) : null,
     isbn13: optionalText.safeParse(isbn13).success ? str(isbn13) : null,
     isbn10: optionalText.safeParse(isbn10).success ? str(isbn10) : null,
+    // Hardcover's ids are numbers; anything else isn't one of its hits.
+    hardcoverId: typeof hardcoverId === "string" && /^\d{1,12}$/.test(hardcoverId) ? hardcoverId : null,
     title: title.trim(),
     author: author.trim(),
     pages: givenPages > 0 ? givenPages : null,

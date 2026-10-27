@@ -15,9 +15,9 @@ export * from "./workReviewRules"
 const RATINGS_MAX = 20000
 const REVIEWS_MAX = 500
 
-export async function ratingSummaryForWork(workKey: string): Promise<RatingSummary | null> {
+export async function ratingSummaryForWork(bookKey: string): Promise<RatingSummary | null> {
   const rows = await prisma.book.findMany({
-    where: { rating: { gt: 0 }, AND: [await copiesOfWork(workKey), sharedBookWhere] },
+    where: { rating: { gt: 0 }, AND: [await copiesOfWork(bookKey), sharedBookWhere] },
     orderBy: { createdAt: "desc" },
     take: RATINGS_MAX,
     select: { userId: true, rating: true },
@@ -25,8 +25,9 @@ export async function ratingSummaryForWork(workKey: string): Promise<RatingSumma
   return summariseRatings(rows)
 }
 
-export async function reviewsForWork(workKey: string, viewerId: string | null, offset = 0): Promise<WorkReviewsPage> {
-  const copies = await copiesOfWork(workKey)
+// `bookKey`: an Open Library work key or a catalogue Work id (copiesOfWork).
+export async function reviewsForWork(bookKey: string, viewerId: string | null, offset = 0): Promise<WorkReviewsPage> {
+  const copies = await copiesOfWork(bookKey)
   // The viewer's own review shows even on a private copy; everyone else's only on shared ones.
   const visibleCopies = viewerId ? { OR: [sharedBookWhere, { userId: viewerId }] } : sharedBookWhere
   const books = await prisma.book.findMany({

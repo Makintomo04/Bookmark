@@ -39,9 +39,9 @@ const ReviewItem: FC<{ review: WorkReview }> = ({ review }) => {
 
 // A book page's reviews. The first page comes from the server; it refreshes when the reader saves a
 // review of their own (refreshAfterBookChange), and later pages load on request.
-const BookReviews: FC<{ workKey: string, initial: WorkReviewsPage, headingClassName?: string }> = ({ workKey, initial, headingClassName = "text-xl font-bold" }) => {
+const BookReviews: FC<{ bookKey: string, initial: WorkReviewsPage, headingClassName?: string }> = ({ bookKey, initial, headingClassName = "text-xl font-bold" }) => {
   const { data: first = initial } = useSWR<WorkReviewsPage>(
-    `/api/books/reviews?workKey=${encodeURIComponent(workKey)}`,
+    `/api/books/reviews?workKey=${encodeURIComponent(bookKey)}`,
     fetcher,
     { ...swrOptions, fallbackData: initial, revalidateOnMount: false },
   )
@@ -60,7 +60,7 @@ const BookReviews: FC<{ workKey: string, initial: WorkReviewsPage, headingClassN
     if (nextOffset === null) return
     setIsLoading(true)
     setFailed(false)
-    axios.get<WorkReviewsPage>(`/api/books/reviews?workKey=${encodeURIComponent(workKey)}&offset=${nextOffset}`)
+    axios.get<WorkReviewsPage>(`/api/books/reviews?workKey=${encodeURIComponent(bookKey)}&offset=${nextOffset}`)
       .then((res) => {
         setMore((current) => [...current, ...res.data.reviews])
         setNextOffset(res.data.nextOffset)

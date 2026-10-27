@@ -8,11 +8,11 @@ import PickedByFollowing from '../lists/PickedByFollowing'
 
 // The book page's view of other readers that depends on who's looking: how many are reading it, moods
 // and warnings, and anyone the viewer follows who picked it. Each part renders nothing when empty.
-const BookPageReaders: FC<{ book: DiscoverBook }> = ({ book }) => {
-  const { tags } = useWorkTags({ workKey: book.workKey })
+const BookPageReaders: FC<{ book: DiscoverBook, bookKey: string }> = ({ book, bookKey }) => {
+  const { tags } = useWorkTags({ bookKey })
   return (
     <div className="flex flex-col gap-6 empty:hidden">
-      <ReaderCounts workKey={book.workKey} />
+      <ReaderCounts bookKey={bookKey} />
       <WorkTagsSummary tags={tags} />
       <PickedByFollowing book={book} />
     </div>

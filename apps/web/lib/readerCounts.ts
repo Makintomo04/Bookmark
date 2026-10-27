@@ -2,6 +2,8 @@ import type { Prisma } from "@prisma/client"
 import prisma from "./db"
 import { booksReadCount } from "./readerTier"
 import { blockedUserIds, canView, privacyOf, privacySelect, sharedBookWhere, type Viewable } from "./privacy"
+import { hasPageWhere } from "./workPages"
+import { normaliseWorkKey } from "./workKey"
 import type { Curator } from "./listRules"
 import { FACES_SHOWN, followedFirst, tallyReaders, type ReaderCounts } from "./readerCountRules"
 
@@ -19,15 +21,26 @@ const ROWS_MAX = 20000
 const emptyCounts = (): ReaderCounts => ({ reading: { count: 0, people: [] }, wantToRead: { count: 0, people: [] } })
 
 // Every reader's copy of a work: filed under it in the catalog, or not yet filed but carrying its
-// Open Library key. Shared with the book page's ratings and reviews (lib/workReviews.ts).
-export async function copiesOfWork(workKey: string): Promise<Prisma.BookWhereInput> {
-  const work = await prisma.work.findFirst({ where: { openLibraryKey: workKey }, select: { id: true } })
-  return { OR: work ? [{ workId: work.id }, { workKey }] : [{ workKey }] }
+// Open Library key. Shared with the book page's ratings and reviews (lib/workReviews.ts). `bookKey` is
+// the Open Library work key or, for a book Open Library lacks, the catalogue Work id (normaliseBookKey);
+// only a work with a book page counts, so a hand-typed book's id finds nothing.
+export async function copiesOfWork(bookKey: string): Promise<Prisma.BookWhereInput> {
+  const olKey = normaliseWorkKey(bookKey)
+  const work = await prisma.work.findFirst({
+    where: olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere },
+    select: { id: true, openLibraryKey: true },
+  })
+  const workKey = olKey ?? work?.openLibraryKey
+  const or: Prisma.BookWhereInput[] = []
+  if (work) or.push({ workId: work.id })
+  if (workKey) or.push({ workKey })
+  // No work and no key: match nothing.
+  return or.length ? { OR: or } : { id: { in: [] } }
 }
 
-export async function readerCountsForWork(workKey: string, viewerId: string | null): Promise<ReaderCounts> {
+export async function readerCountsForWork(bookKey: string, viewerId: string | null): Promise<ReaderCounts> {
   const rows = await prisma.book.findMany({
-    where: { status: { in: ["STARTED", "NOT_STARTED"] }, AND: [await copiesOfWork(workKey), sharedBookWhere] },
+    where: { status: { in: ["STARTED", "NOT_STARTED"] }, AND: [await copiesOfWork(bookKey), sharedBookWhere] },
     orderBy: { createdAt: "desc" },
     take: ROWS_MAX,
     select: { userId: true, status: true },

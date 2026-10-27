@@ -3,14 +3,23 @@ import prisma from "./db"
 import { workCover, workDescription, worksByKeys, type DiscoverBook } from "./openLibrary"
 import { GENRES, type Genre } from "./genres"
 import { genresFromSubjects } from "./import/genre"
+import { normaliseWorkKey } from "./workKey"
+import { hasPageWhere } from "./workPages"
 
 // What a book page (app/(main)/books/[slug]) shows about the book itself. The shared catalog's Work
 // comes first, since it's already cached and holds series; a book nobody on Bookmark has shelved yet
 // falls back to Open Library. Cached per request, so the metadata and the page share one lookup.
+//
+// A book Open Library doesn't have is addressed by its catalogue Work's id instead (bookHref), and only
+// when the Work came from Hardcover (lib/workPages.ts).
 
 const GENRES_SHOWN = 4
 
 export interface BookPageData {
+  // What the page is addressed by: the Open Library work key, else the catalogue Work's id.
+  key: string
+  // The catalogue Work, when there is one (a book nobody has shelved yet comes from Open Library alone).
+  workId: string | null
   book: DiscoverBook
   description: string | null
   genres: Genre[]
@@ -24,25 +33,33 @@ export interface BookPageData {
 const genresOf = (subjects: string[]) =>
   genresFromSubjects(subjects).flatMap((label) => GENRES.filter((g) => g.label === label)).slice(0, GENRES_SHOWN)
 
-export const bookPageData = cache(async (workKey: string): Promise<BookPageData | null> => {
+// `bookKey` is an Open Library work key or a catalogue Work id (normaliseBookKey). A Work that has since
+// been matched to Open Library comes back keyed by its work key, so its page redirects there.
+export const bookPageData = cache(async (bookKey: string): Promise<BookPageData | null> => {
+  const olKey = normaliseWorkKey(bookKey)
   const work = await prisma.work.findFirst({
-    where: { openLibraryKey: workKey },
+    where: olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere },
     select: {
+      id: true, openLibraryKey: true,
       title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
       coverUrl: true, firstPublishYear: true, olEditionCount: true,
       editions: { select: { pages: true, coverUrl: true }, take: 20 },
     },
   })
 
+  const workKey = olKey ?? work?.openLibraryKey ?? null
   if (work) {
     const pages = work.editions.flatMap((e) => (e.pages ? [e.pages] : [])).sort((a, b) => a - b)
     // Not every catalog work has its own cover yet: an edition's will do, else Open Library's.
     const coverUrl = work.coverUrl
       ?? work.editions.find((e) => e.coverUrl)?.coverUrl
-      ?? await workCover(workKey).catch(() => null)
+      ?? (workKey ? await workCover(workKey).catch(() => null) : null)
     return {
+      key: workKey ?? work.id,
+      workId: work.id,
       book: {
         workKey,
+        pageWorkId: work.id,
         title: work.title,
         author: work.authors[0] ?? "Unknown",
         pages: pages.length ? pages[Math.floor(pages.length / 2)] : null,
@@ -50,13 +67,14 @@ export const bookPageData = cache(async (workKey: string): Promise<BookPageData 
         year: work.firstPublishYear,
         authorKey: work.authorKeys[0] ?? null,
       },
-      description: work.description ?? await workDescription(workKey).catch(() => null),
+      description: work.description ?? (workKey ? await workDescription(workKey).catch(() => null) : null),
       genres: genresOf(work.subjects),
       series: work.seriesName && work.authors[0] ? { name: work.seriesName, author: work.authors[0], position: work.seriesPosition } : null,
       editionCount: work.olEditionCount,
     }
   }
 
+  if (!workKey) return null
   const [found, description] = await Promise.all([
     worksByKeys([workKey]).catch(() => new Map()),
     workDescription(workKey).catch(() => null),
@@ -64,6 +82,8 @@ export const bookPageData = cache(async (workKey: string): Promise<BookPageData 
   const ol = found.get(workKey)
   if (!ol?.title) return null
   return {
+    key: workKey,
+    workId: null,
     book: {
       workKey,
       title: ol.title,

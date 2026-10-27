@@ -21,6 +21,8 @@ export function queryTokens(query: string) {
 
 export interface ShelfRow {
   workKey: string | null
+  // A book without a work key whose catalogue Work has a page (lib/workPages.ts): copies group by it instead.
+  pageWorkId?: string | null
   title: string
   author: string
   pages: number
@@ -30,23 +32,26 @@ export interface ShelfRow {
 const fold = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()
 
 // Readers' copies of the same work collapse into one result, ranked by how well the title matches and then
-// by how many readers have it. Pages and cover come from the copy most readers agree on.
+// by how many readers have it. Pages and cover come from the copy most readers agree on. A copy with
+// neither a work key nor a page (typed in by hand) is left out.
 export function rankShelfRows(rows: ShelfRow[], query: string, limit: number): DiscoverBook[] {
   const q = fold(query)
   const byWork = new Map<string, ShelfRow[]>()
   for (const row of rows) {
-    if (!row.workKey) continue
-    const group = byWork.get(row.workKey)
+    const key = row.workKey ?? (row.pageWorkId ? `work:${row.pageWorkId}` : null)
+    if (!key) continue
+    const group = byWork.get(key)
     if (group) group.push(row)
-    else byWork.set(row.workKey, [row])
+    else byWork.set(key, [row])
   }
 
-  const scored = Array.from(byWork, ([workKey, copies]) => {
+  const scored = Array.from(byWork.values(), (copies) => {
     const first = copies[0]
     const title = fold(first.title)
     const match = title === q ? 3 : title.startsWith(q) ? 2 : title.includes(q) ? 1 : 0
     const book: DiscoverBook = {
-      workKey,
+      workKey: first.workKey,
+      ...(first.workKey ? {} : { pageWorkId: first.pageWorkId }),
       title: first.title,
       author: first.author,
       pages: mostCommon(copies.map((c) => c.pages).filter((p) => p > 0)),
