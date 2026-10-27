@@ -111,13 +111,14 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
       </div>
 
       <div className="px-4 sm:px-8">
-        <div className="-mt-10 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4">
+        <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4">
           {onAvatarClick ? (
             <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
               {avatar}
             </button>
           ) : avatar}
-          {actions && <div className="flex min-w-0 items-center gap-2 pb-1">{actions}</div>}
+          {/* On a phone the buttons are shorter, so beside the smaller avatar they clear the banner by 12px. */}
+          {actions && <div className="flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8">{actions}</div>}
         </div>
 
         <div className="mt-3 sm:mt-4">
