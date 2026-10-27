@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Input } from '../ui/input'
 import { PasswordInput } from '../ui/password-input'
 import { signIn } from 'next-auth/react'
+import { mutate } from 'swr'
 import Image from 'next/image'
 import Link from 'next/link'
 import SignInWithOAuthButton, { appleSignInShown } from './SignInWithOAuthButton'
@@ -84,6 +85,8 @@ const SignInComponent =  () => {
         password: data.password,
       })
       if(res?.ok){
+        // Replace the signed-out /api/user answer cached from this page before moving on.
+        await mutate("/api/user")
         router.push(afterSignInPath(callbackPath))
       }
       else if(res?.error === EMAIL_NOT_VERIFIED){

@@ -47,3 +47,13 @@ uploads the Playwright report when a run fails.
   clipboard. A real phone's user agent opens the share sheet instead, and Playwright can't drive that.
 - The import's Open Library matching is live. Unmatched rows are still imported as typed, so the
   shelf checks hold either way. A slow Open Library only slows the test down.
+
+## Found while building it (fixed in this PR)
+
+- **Signed in, but onboarding said "Sign in to see your account".** Confirming the email, password
+  sign-in and resetting a password each navigate client-side. The signed-out `/api/user` answer stayed
+  in SWR's cache, so `/new-user` stayed on the signed-out state until the tab regained focus. Each now
+  refetches `/api/user` before moving on.
+- **Axe (serious, WCAG 2.5.3)**: the Currently reading card's progress button had an `aria-label`
+  that hid its visible "Page x of y · n%". The extra context is now screen-reader-only text added to
+  the visible counts.

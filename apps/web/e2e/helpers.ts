@@ -44,7 +44,8 @@ async function verifyLinkFor(email: string) {
     const files = readdirSync(OUTBOX_DIR, { withFileTypes: true }).filter((f) => f.isFile()).map((f) => f.name).sort()
     for (const file of files.reverse()) {
       const message = JSON.parse(readFileSync(path.join(OUTBOX_DIR, file), "utf8"))
-      const to: string[] = message.envelope?.to ?? []
+      // nodemailer's JSON transport: { to: [{ address, name }], text, html, ... }
+      const to = (message.to ?? []).map((r: { address?: string }) => r.address)
       const match = typeof message.text === "string" && message.text.match(/https?:\/\/\S+\/verify-email\?\S+/)
       if (to.includes(email) && match) {
         link = match[0]
@@ -142,7 +143,7 @@ export async function expectAccessible(page: Page, testInfo: TestInfo, name: str
   await testInfo.attach(`axe-${name}.json`, { body: JSON.stringify(results.violations, null, 2), contentType: "application/json" })
   const blocking = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical")
   expect(
-    blocking.map((v) => `${v.id} (${v.impact}): ${v.help}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 5).join(", ")}`),
+    blocking.map((v) => `${v.id} (${v.impact}): ${v.help}: ${v.nodes.slice(0, 5).map((n) => n.html.slice(0, 160)).join(" | ")}`),
     `axe on ${name}`,
   ).toEqual([])
 }

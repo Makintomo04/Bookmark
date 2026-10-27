@@ -26,7 +26,7 @@ test("a small Goodreads CSV lands on the right shelves", async ({ browser }, tes
 
   await page.getByRole("link", { name: "Go to my shelves" }).click()
   await page.waitForURL(`**/u/${reader.username}`)
-  const shelf = (id: string) => page.locator(`#${id}`)
+  const shelf = (id: string) => page.locator(`section[aria-labelledby="${id}"]`)
   await expect(shelf("shelf-finished")).toContainText("Hobbit")
   await expect(shelf("shelf-finished")).toContainText("Dune")
   await expect(shelf("shelf-dnf")).toContainText("Infinite Jest")
