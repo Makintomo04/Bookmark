@@ -33,13 +33,14 @@ export const BookFallback: FC<BookFallbackProps> = ({ title, author, colour, var
         // Top padding keeps the title clear of the action buttons laid over the cover.
         <div className="relative flex h-full flex-col justify-between py-[10%] pl-[16%] pr-[9%] pt-12">
           <div>
-            <p className="font-display font-semibold leading-[1.15] break-words line-clamp-5 text-[clamp(10px,12cqw,22px)]">{title}</p>
+            {/* line-clamp hides overflow, and Literata's descenders (g, y, p) drop below a 1.15 line: the padding keeps their tails. */}
+            <p className="font-display font-semibold leading-[1.15] pb-[0.2em] break-words line-clamp-5 text-[clamp(10px,12cqw,22px)]">{title}</p>
             <div className="mt-[8%] h-px w-1/4 opacity-50" style={{ background: ink }} />
           </div>
           {author && <p className="font-medium opacity-80 line-clamp-2 text-[clamp(8px,7.5cqw,13px)]">{author}</p>}
         </div>
       ) : variant === 'thumb' && (
-        <p className="relative py-[10%] pl-[14%] pr-[6%] font-display font-semibold leading-tight break-words line-clamp-5 text-[clamp(7px,15cqw,13px)]">{title}</p>
+        <p className="relative py-[10%] pl-[14%] pr-[6%] font-display font-semibold leading-snug break-words line-clamp-5 text-[clamp(7px,15cqw,13px)]">{title}</p>
       )}
     </div>
   )
