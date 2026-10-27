@@ -1,10 +1,11 @@
-// Book search rules: query tokens, ranking shelf copies, merging with Open Library and the Hardcover fallback.
+// Book search rules: query tokens, ranking shelf copies, merging with Open Library, and the Hardcover
+// fallback and top-up.
 // No database.
 //
 //   node --import ./scripts/test/register.mjs --test scripts/test/bookSearch.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergeResults, needsFallback, normaliseQuery, queryTokens, rankShelfRows, withFallback, type ShelfRow } from "@/lib/bookSearchRules";
+import { mergeResults, needsFallback, needsTopUp, normaliseQuery, queryTokens, rankShelfRows, toppedUp, withFallback, type ShelfRow } from "@/lib/bookSearchRules";
 import { hardcoverBook } from "@/lib/hardcover";
 import type { DiscoverBook } from "@/lib/openLibrary";
 
@@ -88,4 +89,29 @@ test("hardcoverBook maps a search hit and skips ones without a title or author",
   });
   assert.equal(hardcoverBook({ title: "No author" }), null);
   assert.equal(hardcoverBook({ author_names: ["Someone"] }), null);
+});
+
+test("hardcoverBook tidies a doubled space in an author's name", () => {
+  assert.equal(hardcoverBook({ title: "Serial Killer Games", author_names: ["Kate  Posey"] })?.author, "Kate Posey");
+});
+
+test("needsTopUp asks Hardcover when the book searched for has no cover or page count", () => {
+  const thin = { ...book("OL42428428W", "Serial Killer Games"), author: "Kate Posey", pages: 384 };
+  assert.equal(needsTopUp([thin], "serial killer games"), true);
+  assert.equal(needsTopUp([{ ...thin, coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg" }], "serial killer games"), false);
+  // A thin near miss isn't worth a request.
+  assert.equal(needsTopUp([{ ...book("OL1W", "Serial Killers"), author: "Someone" }], "serial killer games"), false);
+});
+
+test("toppedUp fills a thin Open Library result from the same book on Hardcover, keeping Open Library's own facts", () => {
+  const thin = { ...book("OL42428428W", "Serial Killer Games"), author: "Kate Posey", pages: 384, year: 2025 };
+  const full = { ...book("OL2W", "Dune"), coverUrl: "https://covers.openlibrary.org/b/id/2-L.jpg", pages: 600 };
+  const [filled, untouched] = toppedUp([thin, full], [
+    hc("Dune", "Someone", { coverUrl: "https://assets.hardcover.app/dune.jpg" }),
+    hc("Serial Killer Games", "Kate Posey", { coverUrl: "https://assets.hardcover.app/skg.jpg", pages: 380, year: 2024, description: "A blurb." }),
+  ]);
+  assert.deepEqual(filled, { ...thin, coverUrl: "https://assets.hardcover.app/skg.jpg", description: "A blurb." });
+  assert.equal(untouched, full);
+  // No match on Hardcover: left as it was.
+  assert.deepEqual(toppedUp([thin], [hc("Other Book", "Kate Posey")]), [thin]);
 });

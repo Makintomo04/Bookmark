@@ -1,4 +1,5 @@
 import { DESCRIPTION_MAX, type DiscoverBook } from "./openLibrary"
+import { sameBook } from "./bookSearchRules"
 
 // Hardcover's catalogue, the fallback when Open Library has nothing for a search: it covers the indie and
 // Kindle-only books Open Library misses. Server-only: the token is a personal access token with the
@@ -39,8 +40,9 @@ const pickIsbns = (isbns?: string[]) => ({
 // One search hit as Bookmark's search results take it. No Open Library work key: the catalog files the
 // book by ISBN, or by title and author (lib/catalog/resolve.ts).
 export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
-  const title = doc.title?.trim()
-  const author = doc.author_names?.find((a) => a?.trim())?.trim()
+  const title = doc.title?.trim().replace(/\s+/g, " ")
+  // Some names come through with a doubled space ("Kate  Posey").
+  const author = doc.author_names?.find((a) => a?.trim())?.trim().replace(/\s+/g, " ")
   if (!title || !author) return null
   return {
     workKey: null,
@@ -55,6 +57,13 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
     description: doc.description?.trim().slice(0, DESCRIPTION_MAX) || null,
     source: "hardcover",
   }
+}
+
+// One book's Hardcover record, found by title and author, for filling in what Open Library lacks (a
+// blurb, a cover). Null when Hardcover has nothing that's the same book. Throws like searchHardcover.
+export async function findOnHardcover(title: string, author: string): Promise<DiscoverBook | null> {
+  const hits = await searchHardcover(`${title} ${author}`, 5)
+  return sameBook({ title, author }, hits) ?? null
 }
 
 // Throws on any failure (no token, rate limited, expired token, timeout) so a failed search isn't cached.

@@ -1,8 +1,8 @@
 import { unstable_cache } from "next/cache"
 import prisma from "@/lib/db"
 import { searchBooks, type DiscoverBook } from "./openLibrary"
-import { hardcoverConfigured, searchHardcover } from "./hardcover"
-import { needsFallback, normaliseQuery, queryTokens, rankShelfRows, withFallback } from "./bookSearchRules"
+import { findOnHardcover, hardcoverConfigured, searchHardcover } from "./hardcover"
+import { needsFallback, needsTopUp, normaliseQuery, queryTokens, rankShelfRows, toppedUp, withFallback } from "./bookSearchRules"
 import { isShareableCover } from "./uploadedImages"
 import { uploadersOf } from "./uploads"
 
@@ -50,7 +50,8 @@ const cachedHardcover = unstable_cache(
 )
 
 // Open Library first. When it has nothing, or nothing that matches every word, Hardcover fills in: it has
-// the indie and Kindle-only books Open Library misses, and stands in when Open Library is down. Hardcover
+// the indie and Kindle-only books Open Library misses, and stands in when Open Library is down. When Open
+// Library has the book but no cover or page count, Hardcover's record fills the gaps. Hardcover
 // failing (or no token set) never fails the search; it just isn't added.
 export async function searchCatalogue(query: string, limit: number) {
   const q = normaliseQuery(query)
@@ -67,6 +68,28 @@ export async function searchCatalogue(query: string, limit: number) {
     if (standIn?.length) return standIn
     throw err
   }
-  if (!hardcoverConfigured() || !needsFallback(openLibrary, q)) return openLibrary
-  return withFallback(openLibrary, (await hardcover()) ?? [], limit)
+  if (!hardcoverConfigured()) return openLibrary
+  const fallback = needsFallback(openLibrary, q)
+  if (!fallback && !needsTopUp(openLibrary, q)) return openLibrary
+  // The same Hardcover search both adds the books Open Library missed and fills in the ones it left thin.
+  const extra = (await hardcover()) ?? []
+  const filled = toppedUp(openLibrary, extra)
+  return fallback ? withFallback(filled, extra, limit) : filled
+}
+
+// Cached for a week like Open Library's work records. A failure throws, so it isn't cached.
+const cachedRecord = unstable_cache(
+  (title: string, author: string) => findOnHardcover(title, author),
+  ["hardcover-book"],
+  { revalidate: 7 * 24 * 60 * 60 },
+)
+
+// One book's Hardcover record, for a blurb or cover Open Library doesn't have (the details route, book
+// pages). Null when there's no token, no match, or Hardcover fails.
+export const hardcoverRecord = async (title: string, author: string) => {
+  if (!hardcoverConfigured() || !title.trim() || !author.trim() || author === "Unknown") return null
+  return cachedRecord(title.trim(), author.trim()).catch((err) => {
+    console.warn("Hardcover lookup failed", err instanceof Error ? err.message : err)
+    return null
+  })
 }

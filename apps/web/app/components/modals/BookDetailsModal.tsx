@@ -24,7 +24,7 @@ import BookProblemReport from '../books/BookProblemReport'
 // A closer look at an Open Library book from Discover or a list, before deciding to shelve it.
 const BookDetailsModal: FC = () => {
   const { isOpen, book, reason, onClose } = useBookDetailsModal()
-  const { description, isLoading } = useBookDescription(isOpen ? book?.workKey : null, isOpen ? book?.description : null)
+  const { description, isLoading } = useBookDescription(isOpen ? book?.workKey : null, isOpen ? book?.description : null, book)
   const { tags } = useWorkTags({ workKey: isOpen ? book?.workKey : null })
   const pageHref = book ? bookHref(book) : null
 

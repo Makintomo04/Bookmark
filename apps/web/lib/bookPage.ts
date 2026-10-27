@@ -3,10 +3,13 @@ import prisma from "./db"
 import { workCover, workDescription, worksByKeys, type DiscoverBook } from "./openLibrary"
 import { GENRES, type Genre } from "./genres"
 import { genresFromSubjects } from "./import/genre"
+import { hardcoverRecord } from "./bookSearch"
+import { topUp } from "./bookSearchRules"
 
 // What a book page (app/(main)/books/[slug]) shows about the book itself. The shared catalog's Work
 // comes first, since it's already cached and holds series; a book nobody on Bookmark has shelved yet
-// falls back to Open Library. Cached per request, so the metadata and the page share one lookup.
+// falls back to Open Library. A cover, blurb or page count neither has comes from Hardcover. Cached per
+// request, so the metadata and the page share one lookup.
 
 const GENRES_SHOWN = 4
 
@@ -25,6 +28,14 @@ const genresOf = (subjects: string[]) =>
   genresFromSubjects(subjects).flatMap((label) => GENRES.filter((g) => g.label === label)).slice(0, GENRES_SHOWN)
 
 export const bookPageData = cache(async (workKey: string): Promise<BookPageData | null> => {
+  const data = await catalogOrOpenLibrary(workKey)
+  if (!data || (data.book.coverUrl && data.description && data.book.pages)) return data
+  const found = await hardcoverRecord(data.book.title, data.book.author)
+  if (!found) return data
+  return { ...data, book: topUp(data.book, found), description: data.description || found.description || null }
+})
+
+async function catalogOrOpenLibrary(workKey: string): Promise<BookPageData | null> {
   const work = await prisma.work.findFirst({
     where: { openLibraryKey: workKey },
     select: {
@@ -78,4 +89,4 @@ export const bookPageData = cache(async (workKey: string): Promise<BookPageData 
     series: null,
     editionCount: null,
   }
-})
+}

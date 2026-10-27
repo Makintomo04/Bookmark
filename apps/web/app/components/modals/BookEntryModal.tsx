@@ -85,7 +85,7 @@ const BookEntryModal: FC = () => {
   const [published, setPublished] = useState<number | null>(null)
   // A Hardcover hit brings its own blurb; it has no Open Library work to fetch one from.
   const [givenBlurb, setGivenBlurb] = useState<string | null>(null)
-  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null)
+  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null, { title, author })
 
   const resetAll = () => {
     reset(defaultValues)
