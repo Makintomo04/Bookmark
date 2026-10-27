@@ -80,6 +80,13 @@ test("model answers: invented titles and authors are dropped, the rest kept", ()
     { n: 6, kind: "book", title: "Book Lovers", author: null, shelf: "read" },
   ]);
   assert.deepEqual(readLines({ nonsense: true }, lines), []);
+  // DNF needs the word in the line; a struck-through title is ticked off, not abandoned.
+  const marked = [{ n: 1, text: "~~The Midnight Library~~" }, { n: 2, text: "Babel" }, { n: 3, text: "Circe (dnf)" }];
+  const shelves = readLines(
+    { lines: marked.map((l) => ({ n: l.n, kind: "book", title: l.text.replace(/~~| \(dnf\)/g, ""), author: null, shelf: "dnf" })) },
+    marked,
+  ).map((r) => (r.kind === "book" ? r.shelf : null));
+  assert.deepEqual(shelves, ["read", null, "dnf"]);
 });
 
 test("readList: the fixture by the rules alone", async () => {

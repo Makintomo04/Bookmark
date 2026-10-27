@@ -155,7 +155,7 @@ export function readLineByRules(line: ListLine): LineReading | null {
 
 const SYSTEM = `You read a reader's own list of books, pasted from a notes app, and say which lines are books.
 
-You get numbered lines. For each line that names a book, return its number, the title and the author exactly as written in that line, and the shelf if the line itself marks one (a tick or checkbox, "DNF", "reading", "finished", strikethrough). For each line that is a heading over a group of books ("Read in 2024", "TBR", "Fantasy"), return it as a heading, with the shelf it implies or null.
+You get numbered lines. For each line that names a book, return its number, the title and the author exactly as written in that line, and the shelf if the line itself marks one: a tick, a ticked checkbox or ~~strikethrough~~ means "read"; the words "DNF", "reading" or "finished" mean what they say. For each line that is a heading over a group of books ("Read in 2024", "TBR", "Fantasy"), return it as a heading, with the shelf it implies or null.
 
 Rules:
 - Copy the title and author from the line, character for character, minus bullets, numbering, ratings, emoji and notes. Never correct, complete, expand or translate them, and never add an author that isn't written in the line.
@@ -202,7 +202,10 @@ export function readLines(raw: unknown, lines: ListLine[]): LineReading[] {
     const r = item as { n?: unknown; kind?: unknown; title?: unknown; author?: unknown; shelf?: unknown };
     const line = typeof r.n === "number" ? byN.get(r.n) : undefined;
     if (!line || seen.has(line.n)) continue;
-    const shelf = typeof r.shelf === "string" && SHELVES.has(r.shelf) ? (r.shelf as ListShelf) : null;
+    let shelf = typeof r.shelf === "string" && SHELVES.has(r.shelf) ? (r.shelf as ListShelf) : null;
+    // DNF and paused only when the line says so: the model reads a struck-through title as abandoned,
+    // where lists mostly mean ticked off.
+    if ((shelf === "dnf" || shelf === "paused") && shelfFromWords(line.text) !== shelf) shelf = /~~.+~~/.test(line.text) ? "read" : null;
     if (r.kind === "heading") {
       seen.add(line.n);
       out.push({ n: line.n, kind: "heading", shelf });
