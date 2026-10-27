@@ -12,10 +12,11 @@
 // Safe to re-run: only copies still without a cover are picked up.
 import { register } from "node:module";
 import { PrismaClient } from "@prisma/client";
+import type { DiscoverBook } from "../lib/openLibrary.ts";
 
-// lib/hardcover.ts imports without file extensions; the test loader's hooks resolve them.
+// lib/hardcover.ts imports without file extensions; the test loader's hooks resolve them, so it's
+// loaded after they're registered.
 register("./test/alias-hooks.mjs", import.meta.url);
-const { findOnHardcover, hardcoverConfigured } = await import("../lib/hardcover.ts");
 
 const prisma = new PrismaClient();
 const dryRun = process.argv.includes("--dry-run");
@@ -25,6 +26,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const keyOf = (b: { title: string; author: string }) => `${b.title.trim().toLowerCase()}|${b.author.trim().toLowerCase()}`;
 
 async function main() {
+  const { findOnHardcover, hardcoverConfigured } = await import("../lib/hardcover.ts");
   if (!hardcoverConfigured()) throw new Error("HARDCOVER_API_TOKEN is not set");
   const books = await prisma.book.findMany({
     where: { coverImage: "" },
@@ -42,9 +44,9 @@ async function main() {
   let filled = 0;
   let missing = 0;
   let failed = 0;
-  for (const copies of byBook.values()) {
+  for (const copies of Array.from(byBook.values())) {
     const { title, author } = copies[0];
-    let found: Awaited<ReturnType<typeof findOnHardcover>> = null;
+    let found: DiscoverBook | null = null;
     try {
       found = await findOnHardcover(title, author);
     } catch (err) {
@@ -68,7 +70,7 @@ async function main() {
         data: { coverImage: found.coverUrl, ...(!copy.description && found.description && { description: found.description }) },
       });
     }
-    const workIds = Array.from(new Set(copies.flatMap((c) => (c.workId ? [c.workId] : []))));
+    const workIds = Array.from(new Set(copies.flatMap((c): string[] => (c.workId ? [c.workId] : []))));
     if (workIds.length) {
       await prisma.work.updateMany({ where: { id: { in: workIds }, coverUrl: null }, data: { coverUrl: found.coverUrl } });
       if (found.description) {
