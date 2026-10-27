@@ -7,8 +7,8 @@ import { supportEmail } from "@/lib/support";
 // evidence. Never throws: a report is saved whether or not the alert goes out.
 
 export interface ReportAlert {
-  // "list" or "comment" (a reading-circle comment).
-  kind: "list" | "comment";
+  // "list", "comment" (a reading-circle comment) or "review" (a reader's review, on their copy of a book).
+  kind: "list" | "comment" | "review";
   // The reported item's id.
   id: string;
   reason: string;
@@ -23,13 +23,15 @@ export interface ReportAlert {
 
 const EXCERPT_MAX = 2000;
 
+const KIND_NOUNS: Record<ReportAlert["kind"], string> = { list: "a list", comment: "a reading-circle comment", review: "a review" };
+
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 export function reportAlertMessage(alert: ReportAlert) {
   const url = `${siteUrl}${alert.path}`;
   const excerpt = (alert.excerpt ?? "").slice(0, EXCERPT_MAX);
   const lines = [
-    `A reader reported a ${alert.kind === "list" ? "list" : "reading-circle comment"}.`,
+    `A reader reported ${KIND_NOUNS[alert.kind]}.`,
     `Reason: ${alert.reason}`,
     `Item: ${alert.kind} ${alert.id}`,
     `Reported by user ${alert.reporterId}${alert.authorId ? `; written by user ${alert.authorId}` : ""}`,

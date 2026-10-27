@@ -1,6 +1,6 @@
 import prisma from "./db"
 import { booksReadCount } from "./readerTier"
-import { blockedUserIds, privacyOf, privacySelect, sharedBookWhere, visibleReview } from "./privacy"
+import { blockedUserIds, countedRatingWhere, privacyOf, privacySelect, sharedBookWhere, visibleReview } from "./privacy"
 import { copiesOfWork } from "./readerCounts"
 import { staffBadgeOf, staffBadgeSelect } from "./staffBadge"
 import { REVIEWS_PAGE, orderReviews, summariseRatings, type RatingSummary, type WorkReviewsPage } from "./workReviewRules"
@@ -17,7 +17,7 @@ const REVIEWS_MAX = 500
 
 export async function ratingSummaryForWork(bookKey: string): Promise<RatingSummary | null> {
   const rows = await prisma.book.findMany({
-    where: { rating: { gt: 0 }, AND: [await copiesOfWork(bookKey), sharedBookWhere] },
+    where: { rating: { gt: 0 }, AND: [await copiesOfWork(bookKey), sharedBookWhere, countedRatingWhere] },
     orderBy: { createdAt: "desc" },
     take: RATINGS_MAX,
     select: { userId: true, rating: true },
@@ -34,7 +34,7 @@ export async function reviewsForWork(bookKey: string, viewerId: string | null, o
     where: { review: { not: null }, AND: [copies, visibleCopies] },
     orderBy: { createdAt: "desc" },
     take: REVIEWS_MAX,
-    select: { id: true, userId: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, completedAt: true, createdAt: true },
+    select: { id: true, userId: true, rating: true, ratingHiddenAt: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, completedAt: true, createdAt: true },
   })
 
   const authorIds = Array.from(new Set(books.map((b) => b.userId)))
@@ -71,10 +71,12 @@ export async function reviewsForWork(bookKey: string, viewerId: string | null, o
         id: book.id,
         person: { username: user.username, image: user.image, favColour: user.favColour, _count: user._count },
         staffBadge: staffBadgeOf(user),
-        rating: book.rating,
+        // A rating staff took out of the average isn't shown beside the review either, except to its reader.
+        rating: book.ratingHiddenAt && !relation.isSelf ? null : book.rating,
         review: visible.review,
         reviewSpoiler: visible.reviewSpoiler,
         reviewHidden: visible.reviewHidden,
+        reviewRemoved: visible.reviewRemoved,
         isMine: relation.isSelf,
         at: (book.completedAt ?? book.createdAt).toISOString(),
       },

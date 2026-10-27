@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-
 import { router } from "expo-router";
 import useSWR, { mutate as revalidate } from "swr";
 import { getAchievementTitle } from "@bookmark/shared/achievements-catalog";
+import { reviewHiddenMessage } from "@bookmark/shared/reviewReports";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
@@ -46,6 +47,8 @@ function copyOf(n: Notification) {
 // Where tapping goes. Achievements stay put.
 function pathOf(n: Notification): string | null {
   if (n.type === "ACHIEVEMENT_EARNED") return null;
+  // Your own copy, where you can still read the review.
+  if (n.type === "REVIEW_HIDDEN") return n.book ? `/book/${n.book.id}` : null;
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`;
   if (n.buddyRead) return `/circles/${n.buddyRead.id}`;
   return `/u/${encodeURIComponent(n.actor.username)}`;
@@ -115,6 +118,8 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
       ? n.buddyRead?.status === "ARCHIVED"
         ? `The host of ${n.buddyRead?.title ?? "a reading circle"} closed their account. It's yours now, archived until you have room to reopen it.`
         : `You're now hosting ${n.buddyRead?.title ?? "a reading circle"}: its host closed their account.`
+      // Moderation, so nobody is named: not the reporter, not the librarian.
+      : n.type === "REVIEW_HIDDEN" ? reviewHiddenMessage(n.book?.title ?? null)
       : null;
 
   return (

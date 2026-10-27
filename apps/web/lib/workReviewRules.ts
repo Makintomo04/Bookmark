@@ -23,6 +23,8 @@ export interface WorkReview {
   reviewSpoiler: boolean
   // Only the viewer's own review can be one only they see.
   reviewHidden: boolean
+  // Only ever on the viewer's own review: staff took it down after a report.
+  reviewRemoved: boolean
   isMine: boolean
   at: string
 }

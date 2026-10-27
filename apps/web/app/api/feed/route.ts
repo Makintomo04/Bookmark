@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     take: FEED_OVERFETCH,
     include: {
       user: { select: { username: true, image: true, favColour: true, ...booksReadCount, ...privacySelect } },
-      book: { select: { title: true, author: true, coverImage: true, cardColour: true, rating: true, status: true, review: true, reviewSpoiler: true, reviewPrivate: true, isPrivate: true } },
+      book: { select: { title: true, author: true, coverImage: true, cardColour: true, rating: true, status: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, isPrivate: true } },
     },
   })
 
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     if (!canView(relation, privacy, "activity")) return []
     if (!book) return [{ ...activity, user: publicUser, book: null }]
 
-    const { status, review, reviewSpoiler, reviewPrivate, isPrivate, ...publicBook } = book
+    const { status, review, reviewSpoiler, reviewPrivate, reviewHiddenAt, isPrivate, ...publicBook } = book
     // A private book posts nothing, including what it posted before it was made private.
     if (isPrivate) return []
     // Adding to Want to read is a peek at that shelf.
@@ -58,9 +58,9 @@ export async function GET(req: Request) {
 
     if (activity.type !== "REVIEWED_BOOK") return [{ ...activity, user: publicUser, book: publicBook }]
     // A review the viewer can't read isn't announced at all.
-    const shown = visibleReview({ review, reviewSpoiler, reviewPrivate }, relation, privacy)
+    const shown = visibleReview({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt }, relation, privacy)
     if (!shown.review) return []
-    return [{ ...activity, user: publicUser, book: { ...publicBook, review: shown.review, reviewSpoiler: shown.reviewSpoiler } }]
+    return [{ ...activity, user: publicUser, book: { ...publicBook, id: activity.bookId, review: shown.review, reviewSpoiler: shown.reviewSpoiler } }]
   })
 
   return NextResponse.json(visible.slice(0, FEED_SIZE))

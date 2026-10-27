@@ -7,6 +7,7 @@ import { fetcher, swrOptions } from '@/lib/fetcher'
 import type { WorkReview, WorkReviewsPage } from '@/lib/workReviewRules'
 import StarRating from '../StarRating'
 import ReviewText from '../feed/ReviewText'
+import ReportReviewButton from './ReportReviewButton'
 import { CuratorAvatar } from '../lists/CuratorNote'
 import { StaffBadge, secondaryButtonClass } from '../profile-head/ProfileHeader'
 
@@ -31,7 +32,8 @@ const ReviewItem: FC<{ review: WorkReview }> = ({ review }) => {
           <span className="text-muted-foreground"> · {dateOf(review.at)}</span>
         </p>
         {review.rating ? <StarRating value={review.rating} readOnly size={14} label="Rating" className="mt-1" /> : null}
-        <ReviewText review={review.review} spoiler={review.reviewSpoiler} hidden={review.reviewHidden} className="mt-2 max-w-2xl" />
+        <ReviewText review={review.review} spoiler={review.reviewSpoiler} hidden={review.reviewHidden} removed={review.reviewRemoved} className="mt-2 max-w-2xl" />
+        {!review.isMine && <ReportReviewButton bookId={review.id} className="mt-2" />}
       </div>
     </li>
   )
@@ -49,6 +51,12 @@ const BookReviews: FC<{ bookKey: string, initial: WorkReviewsPage, headingClassN
   const [nextOffset, setNextOffset] = useState(first.nextOffset)
   const [isLoading, setIsLoading] = useState(false)
   const [failed, setFailed] = useState(false)
+
+  // A link straight to the reviews (a hidden review's notification) lands here. The page shows a loading
+  // screen first, so the router's own jump to #reviews-heading finds nothing; do it once the section is in.
+  useEffect(() => {
+    if (window.location.hash === '#reviews-heading') document.getElementById('reviews-heading')?.scrollIntoView()
+  }, [])
 
   // A refreshed first page starts the list over.
   useEffect(() => {
