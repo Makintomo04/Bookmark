@@ -96,8 +96,9 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
   const preset = bannerPresetOf(shownBanner)
+  const plus = !!(badge || supporter)
   const avatar = (
-    <TierAvatar image={image} username={username} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} className="w-24 sm:w-28" />
+    <TierAvatar image={image} username={username} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} square={plus} className="w-24 sm:w-28" />
   )
 
   return (
@@ -111,7 +112,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
       <div className="px-4 sm:px-8">
         <div className="-mt-12 sm:-mt-14 flex items-end justify-between gap-4">
           {onAvatarClick ? (
-            <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className="block rounded-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
               {avatar}
             </button>
           ) : avatar}
@@ -121,8 +122,14 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
         <div className="mt-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="page-title break-words">{username}</h1>
-            {staffBadge && <StaffBadge kind={staffBadge} />}
-            {badge ? <SupporterBadge kind={badge} /> : supporter && <SupporterBadge founding={founding} />}
+            {(staffBadge || badge || supporter) && (
+              // Centring on the line box leaves the pills riding high beside Literata's lowercase,
+              // so drop them to the middle of the name's x-height.
+              <div className="flex flex-wrap items-center gap-2 translate-y-1">
+                {staffBadge && <StaffBadge kind={staffBadge} />}
+                {badge ? <SupporterBadge kind={badge} /> : supporter && <SupporterBadge founding={founding} />}
+              </div>
+            )}
           </div>
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
