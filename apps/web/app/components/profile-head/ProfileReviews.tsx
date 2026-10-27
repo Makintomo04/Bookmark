@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import ReviewText from '../feed/ReviewText'
-import { ShelfSection } from '../books/shelf'
+import { SeeAllLink, ShelfSection } from '../books/shelf'
 import AuthorLink from '@/app/components/AuthorLink'
 import BookDetailsButton from '../books/BookDetailsButton'
 import ReportReviewButton from '../books/ReportReviewButton'
@@ -50,7 +50,8 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
   const left = reviewed.length - shown
 
   return (
-    <ShelfSection id="profile-reviews" title={title} count={reviewed.length}>
+    <ShelfSection id="profile-reviews" title={title} count={reviewed.length}
+      action={left > 0 ? <SeeAllLink onClick={() => setShown(reviewed.length)} /> : undefined}>
       <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
         {reviewed.slice(0, shown).map((book) => (
           <li key={book.id} className="flex gap-4 py-5 first:pt-0">

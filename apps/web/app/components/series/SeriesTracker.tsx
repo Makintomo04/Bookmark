@@ -9,7 +9,7 @@ import { positionLabel, progressLabel, trackerGroups, type SeriesEntry, type Ser
 import useBooks from '@/app/hooks/useBooks'
 import BookCover from '../cards/BookCover'
 import AddToShelfButton from '../discover/AddToShelfButton'
-import { SHELF_PREVIEW, ShelfSection, coverGridClass } from '../books/shelf'
+import { SHELF_PREVIEW, SeeAllLink, ShelfSection, coverGridClass } from '../books/shelf'
 import { pillClass } from '../books/ShelfToolbar'
 import AuthorLink from '@/app/components/AuthorLink'
 import { SERIES_TRACKER_KEY } from './FollowSeriesButton'
@@ -121,7 +121,8 @@ const SeriesTracker: FC = () => {
   const visible = all ? shown : shown.slice(0, cap)
 
   return (
-    <ShelfSection id="series-tracker" title="Series" count={data.series.length}>
+    <ShelfSection id="series-tracker" title="Series" count={data.series.length}
+      action={!all && shown.length > cap ? <SeeAllLink onClick={() => setAll(true)} /> : undefined}>
       {data.series.length === 0 ? (
         <p className="text-sm text-muted-foreground">Start a book in a series, or follow one from a book&apos;s page, and you&apos;ll see what&apos;s next here.</p>
       ) : (

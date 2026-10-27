@@ -10,7 +10,7 @@ import useViewMode from '@/app/hooks/useViewMode'
 import BookCoverCard from '../cards/BookCoverCard'
 import CompactBookCard from '../cards/CompactBookCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
-import { SHELF_PREVIEW, ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from './shelf'
+import { SHELF_PREVIEW, SeeAllLink, ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from './shelf'
 import BulkBar from './BulkBar'
 import ShelfToolbar, { pillClass } from './ShelfToolbar'
 import GrowingList from './GrowingList'
@@ -241,7 +241,8 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) 
 
       {/* Empty shelves are hidden. Long ones show a preview; "See all" opens the shelf's own page. */}
       {coverShelves.map(({ key, items }) => (
-        <ShelfSection key={key} id={`shelf-${key}`} title={SHELF_TITLE[key]} count={items.length} action={selectAll(items)}>
+        <ShelfSection key={key} id={`shelf-${key}`} title={SHELF_TITLE[key]} count={items.length}
+          action={selecting ? selectAll(items) : items.length > SHELF_PREVIEW && seeAllHref(key) ? <SeeAllLink href={seeAllHref(key)!} /> : undefined}>
           {shelf(items.slice(0, SHELF_PREVIEW))}
           {items.length > SHELF_PREVIEW && (
             <div className="mt-6 flex justify-center">
