@@ -1,6 +1,6 @@
 "use client"
 import { CSSProperties, FC, useEffect, useMemo, useRef, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Book } from '@prisma/client'
 import { LayoutGrid, Grid3x3, Check, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -47,10 +47,9 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
   })
   const stopSelecting = () => { setSelecting(false); setPicked(new Set()) }
 
-  // Search, sort and filter live in the URL, so /stats and Ask the shelf can link to a filtered shelf and
-  // the back button undoes a "See all". `written` is the last query this grid put there itself, so typing
-  // a trailing space isn't trimmed away by the round trip.
-  const router = useRouter()
+  // Search, sort and filter live in the URL, so /stats and Ask the shelf can link to a filtered shelf and a
+  // reload keeps them. `written` is the last query this grid put there itself, so its own writes aren't read
+  // back as a new link (which would trim a trailing space mid-typing).
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const urlKey = searchParams?.toString() ?? ""
@@ -69,7 +68,10 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false }) => {
     const timer = setTimeout(() => {
       written.current = next
       const path = pathname ?? '/'
-      router.replace(next ? `${path}?${next}` : path, { scroll: false })
+      // In place, not router.replace: that refetches the whole profile from the server on every change,
+      // and a slow one landing after a later change put the old filter back (picking "Any year" undone).
+      // Next keeps useSearchParams in step with history.replaceState.
+      window.history.replaceState(window.history.state, '', next ? `${path}?${next}` : path)
     }, 250)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
