@@ -3,6 +3,7 @@ import { authorBooks, authorRecord, searchAuthors, type DiscoverBook } from "@/l
 import { authorSlug, creditIncludes, isLinkableAuthor, slugWords } from "@/lib/authorNames"
 import { sameBook } from "@/lib/workKey"
 import { cleanBookList } from "@/lib/bookListCleanup"
+import { isThin, toppedUpByTitle } from "@/lib/bookSearchRules"
 
 // Author pages (/authors/<slug>). The slug comes from the name on a reader's copy; Open Library's author
 // key, when a record matches the slug exactly, is what the book list (and, later, following) hangs off.
@@ -69,9 +70,20 @@ export async function authorBooksPage(author: Author, offset = 0): Promise<Autho
   const fromOpenLibrary = author.key ? found.books : found.books.filter((b) => creditIncludes(b.author, author.slug))
   const extra = catalog.filter((c) => !fromOpenLibrary.some((b) => sameBook(b, c)))
   const all = cleanBookList([...fromOpenLibrary, ...extra])
-  const books = all.slice(offset, offset + AUTHOR_PAGE_SIZE)
+  const books = await filledIn(all.slice(offset, offset + AUTHOR_PAGE_SIZE), catalog, author)
   const nextOffset = offset + AUTHOR_PAGE_SIZE < all.length ? offset + AUTHOR_PAGE_SIZE : null
   return { books, nextOffset, failed: found.failed, total: found.failed ? null : all.length }
+}
+
+// Open Library often lists a book with no cover or page count (Kate Posey's Serial Killer Games). Our
+// catalogue fills what it can for free, since its Works carry Hardcover covers readers' copies brought in;
+// Hardcover's own list of the author's books fills the rest, one cached lookup per author a day.
+async function filledIn(books: DiscoverBook[], catalog: DiscoverBook[], author: Author): Promise<DiscoverBook[]> {
+  const fromCatalog = toppedUpByTitle(books, catalog)
+  if (!fromCatalog.some(isThin)) return fromCatalog
+  // Loaded here rather than at the top: it brings in Next's cache, which the bio tests can't load.
+  const { hardcoverAuthorBooksOrNone } = await import("@/lib/bookSearch")
+  return toppedUpByTitle(fromCatalog, await hardcoverAuthorBooksOrNone(author.slug, author.name))
 }
 
 // ---- About the author -------------------------------------------------------------------------

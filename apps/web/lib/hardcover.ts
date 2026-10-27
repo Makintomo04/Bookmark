@@ -67,8 +67,9 @@ export async function findOnHardcover(title: string, author: string): Promise<Di
   return sameBook({ title, author }, hits) ?? null
 }
 
-// Throws on any failure (no token, rate limited, expired token, timeout) so a failed search isn't cached.
-export async function searchHardcover(query: string, limit = 6): Promise<DiscoverBook[]> {
+// One GraphQL request. Throws on any failure (no token, rate limited, expired token, timeout) so a
+// failed answer isn't cached.
+async function hardcoverQuery(query: string, variables: Record<string, unknown>) {
   const token = process.env.HARDCOVER_API_TOKEN?.trim()
   if (!token) throw new Error("HARDCOVER_API_TOKEN is not set")
   const res = await fetch(ENDPOINT, {
@@ -78,16 +79,62 @@ export async function searchHardcover(query: string, limit = 6): Promise<Discove
       authorization: authorization(token),
       "user-agent": "Bookmark book search (fallback for Open Library)",
     },
-    body: JSON.stringify({ query: SEARCH, variables: { query, perPage: limit } }),
+    body: JSON.stringify({ query, variables }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",
   })
-  if (!res.ok) throw new Error(`Hardcover search failed: ${res.status}`)
+  if (!res.ok) throw new Error(`Hardcover request failed: ${res.status}`)
   const data = await res.json()
-  if (data?.errors?.length) throw new Error(`Hardcover search failed: ${JSON.stringify(data.errors).slice(0, 200)}`)
-  const hits = (data?.data?.search?.results?.hits ?? []) as { document?: HardcoverDoc }[]
+  if (data?.errors?.length) throw new Error(`Hardcover request failed: ${JSON.stringify(data.errors).slice(0, 200)}`)
+  return data?.data
+}
+
+export async function searchHardcover(query: string, limit = 6): Promise<DiscoverBook[]> {
+  const data = await hardcoverQuery(SEARCH, { query, perPage: limit })
+  const hits = (data?.search?.results?.hits ?? []) as { document?: HardcoverDoc }[]
   return hits.flatMap((hit) => {
     const book = hit.document ? hardcoverBook(hit.document) : null
     return book ? [book] : []
+  })
+}
+
+const AUTHOR_BY_SLUG = `query AuthorBySlug($slug: String!) {
+  authors(where: { slug: { _eq: $slug } }, limit: 1) { id }
+}`
+
+const AUTHOR_SEARCH = `query AuthorSearch($query: String!) {
+  search(query: $query, query_type: "Author", per_page: 5, page: 1) { results }
+}`
+
+const AUTHOR_BOOKS = `query AuthorBooks($id: Int!, $limit: Int!) {
+  authors(where: { id: { _eq: $id } }, limit: 1) {
+    contributions(limit: $limit, order_by: { book: { users_count: desc } }) {
+      book { id title pages release_year description image { url } }
+    }
+  }
+}`
+
+// The most-read books before the long tail of duplicate records and translations.
+const AUTHOR_BOOKS_MAX = 150
+
+const squashName = (name: string) => name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]/g, "")
+
+// One author's books on Hardcover, most read first, for filling in the covers and blurbs Open Library's
+// list of them lacks (lib/authors.ts). Found by Hardcover's slug for the author, which is usually
+// Bookmark's ("kate-posey"), else by searching the name. Each book is credited to `name`, so it matches
+// the author page's list. Empty when Hardcover doesn't know the author. Throws like searchHardcover.
+export async function hardcoverAuthorBooks(slug: string, name: string): Promise<DiscoverBook[]> {
+  let id: unknown = (await hardcoverQuery(AUTHOR_BY_SLUG, { slug }))?.authors?.[0]?.id
+  if (id == null) {
+    const hits = ((await hardcoverQuery(AUTHOR_SEARCH, { query: name }))?.search?.results?.hits ?? []) as { document?: { id?: string | number, name?: string } }[]
+    id = hits.find((h) => h.document?.name && squashName(h.document.name) === squashName(name))?.document?.id
+  }
+  const authorId = Number(id)
+  if (!Number.isInteger(authorId)) return []
+  const data = await hardcoverQuery(AUTHOR_BOOKS, { id: authorId, limit: AUTHOR_BOOKS_MAX })
+  const contributions = (data?.authors?.[0]?.contributions ?? []) as { book?: HardcoverDoc | null }[]
+  return contributions.flatMap(({ book }) => {
+    const mapped = book ? hardcoverBook({ ...book, author_names: [name] }) : null
+    return mapped ? [mapped] : []
   })
 }

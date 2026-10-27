@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache"
 import prisma from "@/lib/db"
 import { searchBooks, type DiscoverBook } from "./openLibrary"
-import { findOnHardcover, hardcoverConfigured, searchHardcover } from "./hardcover"
+import { findOnHardcover, hardcoverAuthorBooks, hardcoverConfigured, searchHardcover } from "./hardcover"
 import { needsFallback, needsTopUp, normaliseQuery, queryTokens, rankShelfRows, toppedUp, withFallback } from "./bookSearchRules"
 import { isShareableCover } from "./uploadedImages"
 import { uploadersOf } from "./uploads"
@@ -135,5 +135,22 @@ export const hardcoverRecord = async (title: string, author: string) => {
   return cachedRecord(title.trim(), author.trim()).catch((err) => {
     console.warn("Hardcover lookup failed", err instanceof Error ? err.message : err)
     return null
+  })
+}
+
+// An author's books on Hardcover rarely change; a day, like Open Library's list of them.
+const cachedAuthorBooks = unstable_cache(
+  (slug: string, name: string) => hardcoverAuthorBooks(slug, name),
+  ["hardcover-author-books"],
+  { revalidate: 24 * 60 * 60 },
+)
+
+// An author's books on Hardcover, for filling in their author page (lib/authors.ts). Empty when there's
+// no token, Hardcover doesn't know the author, or it fails.
+export const hardcoverAuthorBooksOrNone = async (slug: string, name: string) => {
+  if (!hardcoverConfigured() || !slug || !name.trim()) return []
+  return cachedAuthorBooks(slug, name.trim()).catch((err) => {
+    console.warn("Hardcover author lookup failed", err instanceof Error ? err.message : err)
+    return []
   })
 }
