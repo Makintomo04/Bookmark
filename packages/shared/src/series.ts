@@ -38,6 +38,8 @@ export interface SeriesWork {
   coverUrl: string | null;
   seriesName: string;
   seriesPosition: number | null;
+  // Set on a work filed from Hardcover, which has a book page by its id when it has no work key.
+  hardcoverId?: string | null;
 }
 
 // The reader's copy of one of those works.
@@ -54,6 +56,8 @@ export interface SeriesShelfBook {
 export interface SeriesEntry {
   workId: string;
   workKey: string | null;
+  // The work id its book page goes by when it has no work key (bookHref), else null.
+  pageWorkId: string | null;
   title: string;
   author: string;
   coverUrl: string | null;
@@ -90,7 +94,7 @@ const STARTED_STATUSES: ShelfStatus[] = ["STARTED", "COMPLETED", "PAUSED", "DNF"
 // Several catalog works can claim one position (two editions nobody merged): keep the one on the reader's
 // shelf, else one linked to Open Library, else one with a cover.
 function pickWork(a: SeriesWork, b: SeriesWork, shelf: Map<string, SeriesShelfBook>) {
-  const score = (w: SeriesWork) => (shelf.has(w.id) ? 4 : 0) + (w.workKey ? 2 : 0) + (w.coverUrl ? 1 : 0);
+  const score = (w: SeriesWork) => (shelf.has(w.id) ? 4 : 0) + (w.workKey || w.hardcoverId ? 2 : 0) + (w.coverUrl ? 1 : 0);
   return score(b) > score(a) ? b : a;
 }
 
@@ -125,6 +129,7 @@ export function buildTrack(
       return {
         workId: w.id,
         workKey: w.workKey,
+        pageWorkId: !w.workKey && w.hardcoverId ? w.id : null,
         title: w.title,
         author: w.authors[0] ?? series.author,
         coverUrl: book?.coverImage || w.coverUrl,
@@ -176,6 +181,27 @@ export function trackerGroups(tracks: SeriesTrack[]): SeriesTrackerGroups {
     nextUp: recent.filter((t) => t.next && (t.started || t.following)),
     unfinished: recent.filter((t) => t.started && !t.finished),
   };
+}
+
+// "In this series" on a book's page (web book page, app book screen).
+
+// "Book 2 of The Empyrean", or "Part of The Empyrean" when the place isn't known.
+export const seriesPlaceLabel = (name: string, position: number | null) =>
+  position === null ? `Part of ${name}` : `${positionLabel(position)} of ${name}`;
+
+// Whether an entry is the page's own book: its work, or its place, since the series may list another
+// copy of the book there.
+export const isPageBook = (entry: SeriesEntry, page: { workId: string | null; position: number | null }) =>
+  entry.workId === page.workId || (page.position !== null && entry.position === page.position);
+
+// Where one book stands for the reader: the page's own book, then their shelf, then what they'd read next.
+export function entryState(entry: SeriesEntry, track: SeriesTrack, isHere: boolean) {
+  if (isHere) return "This book";
+  if (entry.read) return "Read";
+  if (entry.status === "STARTED") return "Reading";
+  if (track.started && track.next?.workId === entry.workId) return "Up next";
+  if (entry.status === "NOT_STARTED") return "Want to read";
+  return null;
 }
 
 // "2 of 5 read". When only some books are in the catalog the total is what we know of.

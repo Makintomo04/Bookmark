@@ -411,6 +411,9 @@ model Work {
   seriesName String?
   // 1, 2, 2.5…
   seriesPosition Float?
+  // When Hardcover was last asked for the work's series (lib/seriesFill.ts), so a standalone isn't asked
+  // about every time someone shelves it.
+  seriesCheckedAt DateTime?
   coverUrl String?
   firstPublishYear Int?
   // Fields a librarian corrected (title, authors, description, coverUrl). lib/catalog never overwrites them.

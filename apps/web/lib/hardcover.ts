@@ -1,5 +1,7 @@
 import { DESCRIPTION_MAX, type DiscoverBook } from "./openLibrary"
 import { sameBook } from "./bookSearchRules"
+import { titleKey } from "./bookListCleanup"
+import { authorSlug } from "./authorNames"
 
 // Hardcover's catalogue, the fallback when Open Library has nothing for a search: it covers the indie and
 // Kindle-only books Open Library misses. Server-only: the token is a personal access token with the
@@ -25,6 +27,8 @@ interface HardcoverDoc {
   pages?: number | null
   isbns?: string[]
   description?: string | null
+  // The series Hardcover shows the book under. A box set has collection: true.
+  featured_series?: { position?: number | null, collection?: boolean, series?: { id?: number, name?: string } | null } | null
 }
 
 export const hardcoverConfigured = () => !!process.env.HARDCOVER_API_TOKEN?.trim()
@@ -96,6 +100,110 @@ export async function searchHardcover(query: string, limit = 6): Promise<Discove
     const book = hit.document ? hardcoverBook(hit.document) : null
     return book ? [book] : []
   })
+}
+
+export interface HardcoverSeries {
+  id: number
+  name: string
+  // 1, 2, 2.5. Null when Hardcover lists the book in the series without a place.
+  position: number | null
+}
+
+// Search ranks a short title badly ("Dune" by Frank Herbert isn't in its top five), so the series lookup
+// also asks for books with exactly that title, and sorts the search by readers. It searches the title on
+// its own too: "The Hobbit J. R. R. Tolkien" misses the book that "The Hobbit" finds first.
+const SERIES_OF = `query SeriesOf($query: String!, $title: String!, $titles: [String!]!) {
+  search(query: $query, query_type: "Book", per_page: 10, page: 1, sort: "users_count:desc") { results }
+  byTitle: search(query: $title, query_type: "Book", per_page: 10, page: 1, sort: "users_count:desc") { results }
+  books(where: { title: { _in: $titles }, canonical_id: { _is_null: true } }, order_by: { users_count: desc }, limit: 10) {
+    id title users_count
+    contributions(limit: 3) { author { name } }
+    featured_book_series { position compilation series { id name } }
+  }
+}`
+
+// "Mistborn: The Final Empire" and "The Hobbit, or There and Back Again" are "Mistborn" and "The Hobbit".
+const mainTitle = (title: string) => titleKey(title.split(/\s*[:(]|,\s/)[0])
+// The other half of a colon title: "Mistborn: The Final Empire" is also "The Final Empire".
+const subtitle = (title: string) => (title.includes(":") ? titleKey(title.slice(title.indexOf(":") + 1).split(/\s*\(/)[0]) : null)
+// An audiobook or serial split into parts ("The Final Empire (2 of 3)", "Part 1 of 2 [Dramatized
+// Adaptation]") sits between the real books at 1.2 or 1.1; it's never the book itself.
+const isPartWork = (title: string) => /\(\s*(?:part\s*)?\d+\s*of\s*\d+\s*\)|\bpart\s+\d+\s+of\s+\d+|dramati[sz]ed/i.test(title)
+
+interface SeriesCandidate {
+  title: string
+  authors: string[]
+  readers: number
+  featured: { position?: number | null, collection?: boolean, series?: { id?: number, name?: string } | null } | null | undefined
+}
+
+// The series a book is in, from the most-read Hardcover book by the same author with the same title (or
+// main title). Null when Hardcover doesn't have the book or has it as a standalone. A box set's series is
+// passed over: it isn't the book's place.
+export async function hardcoverSeriesOf(title: string, author: string): Promise<HardcoverSeries | null> {
+  const data = await hardcoverQuery(SERIES_OF, { query: `${title} ${author}`, title, titles: [title] })
+  type Row = { title?: string, users_count?: number | null, contributions?: { author?: { name?: string } | null }[], featured_book_series?: { position?: number | null, compilation?: boolean | null, series?: { id?: number, name?: string } | null } | null }
+  const candidates: SeriesCandidate[] = [
+    ...([...(data?.search?.results?.hits ?? []), ...(data?.byTitle?.results?.hits ?? [])] as { document?: HardcoverDoc & { users_count?: number | null } }[]).flatMap(({ document: doc }) =>
+      doc ? [{ title: doc.title ?? "", authors: doc.author_names ?? [], readers: doc.users_count ?? 0, featured: doc.featured_series }] : []),
+    ...((data?.books ?? []) as Row[]).map((b) => ({
+      title: b.title ?? "",
+      authors: (b.contributions ?? []).flatMap((c) => (c.author?.name ? [c.author.name] : [])),
+      readers: b.users_count ?? 0,
+      featured: b.featured_book_series && { ...b.featured_book_series, collection: !!b.featured_book_series.compilation },
+    })),
+  ]
+  const who = authorSlug(author)
+  const what = mainTitle(title)
+  const sameTitle = (c: SeriesCandidate) =>
+    titleKey(c.title) === titleKey(title) || mainTitle(c.title) === what || subtitle(c.title) === titleKey(title)
+  const best = candidates
+    .filter((c) => c.authors.some((a) => authorSlug(a) === who) && !isPartWork(c.title) && sameTitle(c))
+    .sort((a, b) => b.readers - a.readers)[0]
+  const featured = best?.featured
+  if (!featured?.series?.name?.trim() || featured.series.id == null || featured.collection) return null
+  const position = typeof featured.position === "number" && Number.isFinite(featured.position) ? featured.position : null
+  return { id: Number(featured.series.id), name: featured.series.name.trim(), position }
+}
+
+// Every edition and translation of a book sits in book_series at its place; canonical_id is null only on
+// the book itself, and the most-read one at a place is the one readers know.
+const SERIES_BOOKS = `query SeriesBooks($id: Int!) {
+  series(where: { id: { _eq: $id } }, limit: 1) {
+    book_series(
+      where: { compilation: { _eq: false }, position: { _is_null: false }, book: { canonical_id: { _is_null: true } } }
+      order_by: { position: asc }
+      limit: 300
+    ) { position book { id title pages release_year release_date users_count description image { url } } }
+  }
+}`
+
+export interface HardcoverSeriesBook extends DiscoverBook {
+  position: number
+}
+
+// The main books of a series in order, one per whole-numbered place (Book 1, Book 2…), for the series
+// tracker's "next". Novellas, part-works and dramatised editions at 1.1 or 2.5 are left out; a reader who
+// shelves one still sees it, from their own copy's series. So are books announced but not out yet
+// (Hardcover lists Ghostbloods 1 to 3 in The Mistborn Saga for 2028 on): the tracker's "next" is one you
+// can read. Each is credited to `author`, the name the series goes by on Bookmark. Throws like searchHardcover.
+export async function hardcoverSeriesBooks(seriesId: number, author: string, today = new Date()): Promise<HardcoverSeriesBook[]> {
+  type Row = { position?: number | null, book?: (HardcoverDoc & { users_count?: number | null, release_date?: string | null }) | null }
+  const data = await hardcoverQuery(SERIES_BOOKS, { id: seriesId })
+  const now = today.toISOString().slice(0, 10)
+  const best = new Map<number, NonNullable<Row["book"]>>()
+  for (const { position, book } of (data?.series?.[0]?.book_series ?? []) as Row[]) {
+    if (!book || typeof position !== "number" || !Number.isInteger(position) || position < 1) continue
+    if (book.release_date && book.release_date > now) continue
+    const had = best.get(position)
+    if (!had || (book.users_count ?? 0) > (had.users_count ?? 0)) best.set(position, book)
+  }
+  return Array.from(best.entries())
+    .sort(([a], [b]) => a - b)
+    .flatMap(([position, book]) => {
+      const mapped = hardcoverBook({ ...book, author_names: [author] })
+      return mapped ? [{ ...mapped, position }] : []
+    })
 }
 
 const AUTHOR_BY_SLUG = `query AuthorBySlug($slug: String!) {

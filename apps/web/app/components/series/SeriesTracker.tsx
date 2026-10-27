@@ -26,14 +26,14 @@ const EMPTY: Record<Tab, string> = {
 }
 
 const EntryLink: FC<{ entry: SeriesEntry, className?: string, children: ReactNode }> = ({ entry, className, children }) => {
-  const href = bookHref({ workKey: entry.workKey, title: entry.title })
+  const href = bookHref({ workKey: entry.workKey, pageWorkId: entry.pageWorkId, title: entry.title })
   return href ? <Link href={href} className={cn("hover:underline underline-offset-2", className)}>{children}</Link> : <span className={className}>{children}</span>
 }
 
 // The next book of one series: its cover, where it sits, and a way onto the shelf.
 const NextCard: FC<{ track: SeriesTrack }> = ({ track }) => {
   const entry = track.next!
-  const href = bookHref({ workKey: entry.workKey, title: entry.title })
+  const href = bookHref({ workKey: entry.workKey, pageWorkId: entry.pageWorkId, title: entry.title })
   const cover = <BookCover book={{ title: entry.title, author: entry.author, coverImage: entry.coverUrl || "", cardColour: null }} sizes="(min-width: 1280px) 180px, (min-width: 640px) 25vw, 45vw" />
   return (
     <li className="flex flex-col gap-2 min-w-0">
