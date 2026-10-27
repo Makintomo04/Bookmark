@@ -1,7 +1,7 @@
 import { FC, ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bookmark, Library, Sparkles } from 'lucide-react'
+import { Bookmark, Crown, Library } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
 import { bannerPresetOf, resolveBanner } from '@/lib/banners'
@@ -74,7 +74,7 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
     title={BADGE[kind].title}
     className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2.5 py-0.5 align-middle text-xs font-semibold text-brand-fill dark:text-brand transition hover:bg-brand/15"
   >
-    <Sparkles size={12} aria-hidden /> {BADGE[kind].label}
+    <Crown size={12} aria-hidden /> {BADGE[kind].label}
   </Link>
 )
 

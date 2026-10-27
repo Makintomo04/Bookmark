@@ -2,7 +2,7 @@
 import { FC, useEffect, useState } from 'react'
 import axios from 'axios'
 import useSWR from 'swr'
-import { BookOpen, Loader2, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { BookOpen, Loader2, Feather, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { fetcher, swrOptions } from '@/lib/fetcher'
 import { isUpgradeRequired } from '@/lib/entitlements'
 import type { AllowanceStatus } from '@/lib/ai/usage'
@@ -194,7 +194,7 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
         i === 0 && prompting
           ? (
             <Button key={a.kind} size="sm" style={{ background: accent, color: accentInk }} onClick={() => ask(a.kind)} disabled={busy}>
-              <Sparkles size={14} className="mr-1.5" aria-hidden />{a.label}
+              <Feather size={14} className="mr-1.5" aria-hidden />{a.label}
             </Button>
           )
           : (
@@ -217,7 +217,7 @@ const CatchMeUp: FC<{ bookId: string, accent: string, accentInk: string }> = ({ 
         </button>
         <div className="flex items-start gap-3 pr-8">
           <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">
-            <Sparkles size={16} aria-hidden />
+            <Feather size={16} aria-hidden />
           </span>
           <div>
             <p className="text-sm font-semibold">Catch me up</p>

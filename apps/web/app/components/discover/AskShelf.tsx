@@ -1,7 +1,7 @@
 "use client"
 import { FC, FormEvent, useEffect, useState } from 'react'
 import axios from 'axios'
-import { BookCheck, ListPlus, Loader2, Sparkles, Star, AlertTriangle, Users } from 'lucide-react'
+import { BookCheck, ListPlus, Loader2, Feather, Star, AlertTriangle, Users } from 'lucide-react'
 import { apiError, notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { isUpgradeRequired } from '@/lib/entitlements'
@@ -29,7 +29,7 @@ const formatRating = (rating: number) => (Number.isInteger(rating) ? String(rati
 // Marks every piece of text the model wrote. The strategy's rule: AI is always labelled.
 export const AiLabel: FC<{ className?: string }> = ({ className }) => (
   <span className={cn("inline-flex items-center gap-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand", className)}>
-    <Sparkles size={10} aria-hidden />AI
+    <Feather size={10} aria-hidden />AI
   </span>
 )
 
@@ -198,13 +198,13 @@ const TurnOnAi: FC<{ onEnabled: () => void }> = ({ onEnabled }) => {
   }
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6 max-w-2xl">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100 dark:bg-neutral-900"><Sparkles size={18} aria-hidden /></span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100 dark:bg-neutral-900"><Feather size={18} aria-hidden /></span>
       <div className="min-w-0 flex-1">
         <p className="font-medium">AI features are off.</p>
         <p className="mt-0.5 text-sm text-muted-foreground">Turn them on to use Ask the shelf and Catch me up recaps. AI only runs when you ask it to, is always labelled, and is never about you. You can turn it off again in settings.</p>
       </div>
       <button type="button" onClick={turnOn} disabled={saving} className={primaryButtonClass}>
-        {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Sparkles size={16} aria-hidden />}
+        {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Feather size={16} aria-hidden />}
         Turn on AI features
       </button>
     </div>
@@ -244,7 +244,7 @@ const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, ini
   if (!available) {
     return (
       <div className="flex items-start gap-3 rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100 dark:bg-neutral-900"><Sparkles size={18} aria-hidden /></span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100 dark:bg-neutral-900"><Feather size={18} aria-hidden /></span>
         <div>
           <p className="font-medium">Search isn&apos;t available right now.</p>
           <p className="mt-0.5 text-sm text-muted-foreground">Ask the shelf is switched off at the moment. Your searches this month aren&apos;t affected. Browse genres and lists on Discover in the meantime.</p>
@@ -326,7 +326,7 @@ const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, ini
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground" aria-live="polite">{allowanceText(status)}</p>
           <button type="submit" disabled={isSearching || outOfSearches || query.trim().length < 3} className={primaryButtonClass}>
-            {isSearching ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Sparkles size={16} aria-hidden />}
+            {isSearching ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Feather size={16} aria-hidden />}
             {isSearching ? "Searching…" : "Ask"}
           </button>
         </div>

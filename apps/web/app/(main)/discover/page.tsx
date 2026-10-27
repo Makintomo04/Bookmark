@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, Feather } from 'lucide-react'
 import Container from '@/app/components/Container'
 import DiscoverSearch from '@/app/components/discover/DiscoverSearch'
 import GenreTile from '@/app/components/discover/GenreTile'
@@ -49,7 +49,7 @@ const AskShelfEntry = () => (
     href="/discover/ask"
     className="group flex items-center gap-4 rounded-2xl border border-neutral-300 dark:border-neutral-700 p-5 transition hover:bg-neutral-50 dark:hover:bg-neutral-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
   >
-    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand/10 text-brand"><Sparkles size={20} aria-hidden /></span>
+    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand/10 text-brand"><Feather size={20} aria-hidden /></span>
     <span className="min-w-0 flex-1">
       <span className="flex flex-wrap items-center gap-2">
         <span className="font-semibold">Ask the shelf</span>

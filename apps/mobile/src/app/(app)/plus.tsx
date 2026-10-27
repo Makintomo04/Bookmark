@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Platform, StyleSheet, View } from "react-native";
 import useSWR from "swr";
 import * as WebBrowser from "expo-web-browser";
-import { Check, Sparkles } from "lucide-react-native";
+import { Check, Crown } from "lucide-react-native";
 import { FOUNDING, isIndefiniteComp } from "@bookmark/shared/entitlements";
 import { FREE, FREE_SOON, PLUS, PLUS_SOON } from "@bookmark/shared/plusFeatures";
 import { Button } from "@/components/ui/Button";
@@ -63,7 +63,7 @@ export default function PlusScreen() {
     <Screen edges={["left", "right"]}>
       <View style={{ alignItems: "center", gap: 12 }}>
         <View style={[styles.pill, { backgroundColor: colors.muted }]}>
-          <Sparkles size={14} color={colors.brandText} />
+          <Crown size={14} color={colors.brandText} />
           <Text variant="label" style={{ color: colors.brandText }}>Bookmark Plus</Text>
         </View>
         <Text variant="hero" style={{ textAlign: "center" }}>All your stats are free.</Text>
@@ -250,7 +250,7 @@ function Column({ title, features, soon, highlight }: { title: string; features:
   return (
     <View style={[styles.card, { borderColor: colors.border }]}>
       <View style={[styles.row, { justifyContent: "flex-start", gap: 8 }]}>
-        {highlight && <Sparkles size={18} color={colors.brandText} />}
+        {highlight && <Crown size={18} color={colors.brandText} />}
         <Text variant="title" accessibilityRole="header">{title}</Text>
       </View>
       {features.map((f, i) => (
