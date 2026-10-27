@@ -4,9 +4,14 @@
 // with no blurb takes Hardcover's too, and the catalogue Work takes both where it has neither. Nothing that
 // already has a cover or blurb changes.
 //
-//   node --env-file=.env.local scripts/backfill-hardcover-covers.ts --dry-run    # list, save nothing
-//   node --env-file=.env.local scripts/backfill-hardcover-covers.ts              # fill them in
+//   pnpm backfill:covers --dry-run          # the dev database (.env.local): list, save nothing
+//   pnpm backfill:covers                    # fill them in
+//   pnpm backfill:covers:prod --dry-run     # production, from .env.prod.local
+//   pnpm backfill:covers:prod
 //   node scripts/with-test-db.mjs node scripts/backfill-hardcover-covers.ts      # the test database
+//
+// .env.prod.local holds production's DATABASE_URL and HARDCOVER_API_TOKEN (gitignored, like every
+// .env*.local). Not .env.production.local: Next.js would load that into local production builds.
 //
 // Needs HARDCOVER_API_TOKEN. One Hardcover search per distinct book, paced under its 60-a-minute limit.
 // Safe to re-run: only copies still without a cover are picked up.
@@ -28,6 +33,9 @@ const keyOf = (b: { title: string; author: string }) => `${b.title.trim().toLowe
 async function main() {
   const { findOnHardcover, hardcoverConfigured } = await import("../lib/hardcover.ts");
   if (!hardcoverConfigured()) throw new Error("HARDCOVER_API_TOKEN is not set");
+  // Which database, without the credentials, so a run against the wrong one is plain before it saves.
+  const database = process.env.DATABASE_URL?.match(/@([^/?]+)\/([^?]*)/)
+  console.log(`Database: ${database ? `${database[2] || "(default)"} on ${database[1]}` : "unknown"}`);
   const books = await prisma.book.findMany({
     where: { coverImage: "" },
     select: { id: true, title: true, author: true, description: true, workId: true },
