@@ -1,14 +1,8 @@
 "use client"
 import { FC, useEffect, useRef, useState } from 'react'
-import InitialAvatar, { avatarColour } from '../profile/InitialAvatar'
-import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
-import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import { Bell } from "lucide-react"
-import Image from 'next/image'
 import Link from 'next/link'
-import moment from 'moment'
 import axios from 'axios'
-import { mutate as revalidate } from 'swr'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,38 +10,13 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import useNotifications from '@/app/hooks/useNotifications'
-import { getAchievementTitle } from '@/lib/achievements-catalog'
 import { notify } from '@/lib/notify'
-import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
-import { reviewHiddenMessage } from '@/lib/reviewReports'
+import {
+  NotificationAvatar, NotificationText, notificationCopy, notificationHref, useNotificationActions, type NotificationLike,
+} from '../notifications/NotificationParts'
 
 interface NotificationBellProps {
 
-}
-
-type NotificationLike = { type: string; achievementKey?: string | null; count?: number | null; buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null; book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null; actor: { username: string } }
-
-const notificationCopy = (n: NotificationLike) => {
-  const others = (n.count ?? 1) - 1
-  const book = n.buddyRead?.title ?? "a book"
-  switch (n.type) {
-    case "NEW_FOLLOWER": return "started following you"
-    case "ACHIEVEMENT_EARNED": return `reached the "${getAchievementTitle(n.achievementKey ?? "")}" milestone`
-    case "BUDDY_READ_INVITE": return `invited you to read ${book} together`
-    case "BOOK_RECOMMENDED": return `thinks you'd like ${n.book?.title ?? "a book"}`
-    case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your reading circle for ${book}`
-    case "BUDDY_READ_HOSTED": return `handed you the reading circle for ${book}. You're the host now`
-    case "FOLLOW_REQUEST": return "asked to follow you"
-    default: return "did something"
-  }
-}
-
-const notificationHref = (n: NotificationLike) => {
-  if (n.type === "ACHIEVEMENT_EARNED") return "/achievements"
-  if (n.type === "REVIEW_HIDDEN" && n.book?.href) return `${n.book.href}#reviews-heading`
-  if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`
-  if (n.buddyRead) return `/circles/${n.buddyRead.id}`
-  return `/u/${encodeURIComponent(n.actor.username)}`
 }
 
 // The kinds that also get a toast when they arrive: other people's doing, at a moment the reader can't
@@ -61,7 +30,6 @@ const toastCopy = (n: NotificationLike) =>
 
 const NotificationBell: FC<NotificationBellProps> = ({}) => {
   const { notifications, unreadCount, isLoading, isError, mutate } = useNotifications()
-  const booksReadFor = useBooksReadFor()
   const [open, setOpen] = useState(false)
   // Ids already accounted for. Null until the first load, which only records what's there, so a page
   // load never replays old notifications as toasts.
@@ -69,29 +37,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
   // Set when a row's link is followed, so closing the menu doesn't hand focus back to the bell: that scrolls
   // the page to the top and undoes a link to part of a page (a hidden review's #reviews-heading).
   const followedLink = useRef(false)
-
-  // Adds a recommended book to Want to read. Its own menu item, beside the row's link rather than inside it.
-  const addRecommended = (id: string) => {
-    axios.post(`/api/recommendations/${id}`).then(({ data }) => {
-      notify.success(data.added ? "Added to Want to read" : "Already on your shelf")
-      refreshAfterBookChange()
-    }).catch((err) => {
-      notify.error((axios.isAxiosError(err) && err.response?.data?.error) || "Couldn't add that book")
-    })
-  }
-
-  // Answers a follow request from the bell; Settings → Privacy lists them all as well.
-  const answerRequest = (username: string, action: "accept" | "decline") => {
-    axios.post(`/api/follow-requests/from/${encodeURIComponent(username)}`, { action }).then(({ data }) => {
-      if (data.accepted) notify.success(`${username} can now see your profile.`)
-    }).catch((err) => {
-      notify.error((axios.isAxiosError(err) && err.response?.data?.error) || "Couldn't answer that request. Try again.")
-    }).finally(() => {
-      mutate()
-      // The list on your profile and in Settings.
-      revalidate('/api/follow-requests')
-    })
-  }
+  const { addRecommended, answerRequest } = useNotificationActions(() => mutate())
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
@@ -139,7 +85,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-80 max-h-96 overflow-y-auto"
+        className="w-80 max-h-96 overflow-y-auto pb-0"
         onCloseAutoFocus={(e) => {
           if (!followedLink.current) return
           followedLink.current = false
@@ -153,38 +99,8 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           <div key={n.id} className="flex flex-col">
             <DropdownMenuItem asChild className="items-center gap-3 p-2 rounded-md cursor-pointer">
               <Link href={notificationHref(n)} onClick={() => { followedLink.current = true }}>
-                <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: avatarColour(n.actor.favColour), ...tierRingStyle(booksReadFor(n.actor.username, booksReadOf(n.actor))) }}>
-                  {/* No photo: their initial on their colour, as avatars show it everywhere else. */}
-                  {n.actor.image
-                    ? <Image src={n.actor.image} alt="" fill sizes="36px" className="object-cover"/>
-                    : <InitialAvatar username={n.actor.username} favColour={n.actor.favColour} label="" />}
-                </div>
-                <div className="min-w-0">
-                  {n.type === "COMMENTS_UNLOCKED" ? (
-                    // Not one person's doing: "3 comments to read in Dune", reached or newly posted.
-                    <p className="text-sm truncate">{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} to read in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
-                  ) : n.type === "REVIEW_HIDDEN" ? (
-                    // Moderation, so nobody is named: not the reporter, not the librarian.
-                    // Never cut short: the last line is how to appeal.
-                    <p className="text-sm">{reviewHiddenMessage(n.book?.title ?? null)}</p>
-                  ) : n.type === "BUDDY_READ_HOST_INHERITED" ? (
-                    // The old host closed their account, so there's nobody to name.
-                    <p className="text-sm line-clamp-2">
-                      {n.buddyRead?.status === "ARCHIVED"
-                        ? <>The host of <span className="font-semibold">{n.buddyRead?.title ?? "a reading circle"}</span> closed their account. It&apos;s yours now, archived until you have room to reopen it.</>
-                        : <>You&apos;re now hosting <span className="font-semibold">{n.buddyRead?.title ?? "a reading circle"}</span>: its host closed their account.</>}
-                    </p>
-                  ) : (
-                    <p className="text-sm truncate"><span className="font-semibold">{n.actor.username}</span> {notificationCopy(n)}</p>
-                  )}
-                  {n.type === "BOOK_RECOMMENDED" && n.message && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 italic">&ldquo;{n.message}&rdquo;</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">{moment(n.createdAt).fromNow()}</p>
-                  {n.type === "BOOK_RECOMMENDED" && n.book?.onShelf && (
-                    <p className="mt-1 text-xs text-muted-foreground">On your shelf</p>
-                  )}
-                </div>
+                <NotificationAvatar actor={n.actor} />
+                <NotificationText n={n} />
               </Link>
             </DropdownMenuItem>
             {/* Actions are menu items of their own, so arrow keys reach them and no button sits inside a link. */}
@@ -207,6 +123,12 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
             )}
           </div>
         ))}
+        {/* Pinned to the foot of the menu however far it's scrolled: every notification, on its own page. */}
+        <div className="sticky bottom-0 -mx-1 mt-1 border-t border-border bg-popover p-1">
+          <DropdownMenuItem asChild className="justify-center rounded-md py-2 text-sm font-medium cursor-pointer">
+            <Link href="/notifications" onClick={() => { followedLink.current = true }}>See all notifications</Link>
+          </DropdownMenuItem>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   )
