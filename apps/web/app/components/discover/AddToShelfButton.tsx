@@ -13,13 +13,16 @@ import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useMoveToFinishedModal from '@/app/hooks/useMoveToFinishedModal'
+import useFavourite from '@/app/hooks/useFavourite'
 import { moveBook, reshelveBook } from '../books/ShelfMenuItems'
+import { removeBookWithUndo } from '../books/removeBookWithUndo'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 
@@ -53,6 +56,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
   const { books, mutate } = useBooks()
   const bookEntryModal = useBookEntryModal()
   const moveToFinished = useMoveToFinishedModal()
+  const { mutate: mutateFav } = useFavourite()
   const [isAdding, setIsAdding] = useState(false)
 
   if (!user?.id) {
@@ -96,6 +100,11 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
               {s.status === current && <Check size={14} aria-label="Current shelf" />}
             </DropdownMenuItem>
           ))}
+          {/* Takes it off every shelf, for a book shelved by mistake. Undo is in the toast. */}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => removeBookWithUndo(onShelf, mutate, mutateFav)} className="cursor-pointer text-danger focus:text-danger">
+            Remove from shelf
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )
