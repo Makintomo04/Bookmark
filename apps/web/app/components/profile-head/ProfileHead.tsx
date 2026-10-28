@@ -7,13 +7,13 @@ import { Plus } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import useBooks from '@/app/hooks/useBooks'
-import useFavourite from '@/app/hooks/useFavourite'
 import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import { Skeleton } from '../ui/skeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
+import { reviewedBooks } from '@/lib/reviewedBooks'
 import ReadingGoalWidget from './ReadingGoalWidget'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
@@ -29,7 +29,6 @@ const ProfileHead: FC = () => {
   const { user, isError, isLoading, mutate: mutateUser } = useUser()
   const booksReadFor = useBooksReadFor()
   const { books } = useBooks()
-  const { favourites } = useFavourite()
   const { achievements, isLoading: achievementsLoading } = useAchievements()
   const { profile } = usePublicProfile(user?.username ?? "")
   const bookEntryModal = useBookEntryModal()
@@ -64,6 +63,10 @@ const ProfileHead: FC = () => {
   const following = profile?.followingCount ?? 0
   // Calm social: with counts hidden, even the owner just gets the links to the lists.
   const hideCounts = !!user.hideFollowCounts
+  // Your reviews: finished books with one, as your reviews section and page count them. Until the shelf
+  // loads, the server's copy of your profile.
+  const shelf = (books as Book[] | undefined) ?? (profile?.books as unknown as Book[] | undefined) ?? []
+  const reviews = reviewedBooks(shelf.filter((b) => b.status === "COMPLETED").map((b) => ({ ...b, completedAt: b.completedAt ? String(b.completedAt) : null }))).length
 
   return (
     <>
@@ -79,9 +82,9 @@ const ProfileHead: FC = () => {
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
+          { value: reviews, label: plural(reviews, "review"), href: `/u/${encodeURIComponent(user.username)}/reviews` },
           { value: hideCounts ? null : followers, label: hideCounts ? "Followers" : plural(followers, "follower"), followList: { username: user.username, kind: "followers" } },
           { value: hideCounts ? null : following, label: hideCounts ? "Following" : "following", followList: { username: user.username, kind: "following" } },
-          { value: favourites.length, label: plural(favourites.length, "favourite"), href: "/favourites" },
           { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
         ]}
         actions={

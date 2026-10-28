@@ -41,7 +41,7 @@ const OwnReviews: FC = () => {
   const reviewed = (books as Book[])
     .filter((b) => b.status === "COMPLETED")
     .map((b) => ({ ...b, completedAt: b.completedAt ? String(b.completedAt) : null, ...visibleReview(b, SELF, privacy) }))
-  return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" />
+  return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" href={`/u/${encodeURIComponent(user.username)}/reviews`} />
 }
 
 // Your favourites, newest first, from your own shelf so a bookmark tapped anywhere shows straight away.

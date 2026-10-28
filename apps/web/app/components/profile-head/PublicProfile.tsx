@@ -7,6 +7,7 @@ import FollowButton from './FollowButton'
 import ShareProfileButton from './ShareProfileButton'
 import ProfileMenu from './ProfileMenu'
 import ProfileReviews from './ProfileReviews'
+import { reviewedBooks } from '@/lib/reviewedBooks'
 import { cn } from '@/lib/utils'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books/shelf'
@@ -32,6 +33,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
   // Re-reads sit under Currently reading but still count as read.
   const completedCount = profile.books.filter(isFinishedBook).length
   const achievementCount = profile.achievements.length
+  const reviewCount = reviewedBooks(profile.books).length
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`
 
   const actions = (
@@ -66,6 +68,8 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         actions={actions}
         stats={[
           { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },
+          // Only reviews this viewer may read arrive, so none (or all hidden) leaves the stat out.
+          ...(reviewCount > 0 ? [{ value: reviewCount, label: reviewCount === 1 ? "review" : "reviews", href: `/u/${encodeURIComponent(profile.username)}/reviews` }] : []),
           ...followStats,
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
@@ -89,7 +93,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
             {wantToRead.length > 0 && (
               <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
             )}
-            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport />
+            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
           </>
         )}
         <ProfileLists username={profile.username} isSelf={false} />
