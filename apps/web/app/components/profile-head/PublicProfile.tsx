@@ -73,7 +73,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
       />
       <div className="mt-8">
         {viewer && <BooksInCommon username={profile.username} accentColour={profile.favColour} />}
-        <FavouritesRow books={profile.favourites as unknown as Book[]} href={`/u/${encodeURIComponent(profile.username)}/favourites`} accentColour={profile.favColour} readOnly />
+        <FavouritesRow books={profile.favourites as unknown as Book[]} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly />
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (

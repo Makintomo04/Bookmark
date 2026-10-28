@@ -53,7 +53,7 @@ const OwnFavourites: FC = () => {
   if (!user || !Array.isArray(books)) return null
   const byId = new Map((books as Book[]).map((b) => [b.id, b]))
   const favs = (favourites as string[]).slice().reverse().flatMap((id) => byId.get(id) ?? [])
-  return <FavouritesRow books={favs} href="/favourites" accentColour={user.favColour} hintWhenEmpty={books.length > 0} />
+  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} />
 }
 
 // The authors you follow, from your own list so an unfollow elsewhere shows on the next visit.
