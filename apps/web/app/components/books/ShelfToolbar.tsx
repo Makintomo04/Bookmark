@@ -91,7 +91,9 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
     query.addEventListener("change", update)
     return () => query.removeEventListener("change", update)
   }, [])
-  const placeholder = narrow ? "Search" : filter.shelf ? `Search ${SHELF_TITLE[filter.shelf]} by title, author or tag` : "Search your shelf by title, author or tag"
+  // Tags are the reader's own: someone else's shelf has none to search.
+  const by = options.tags.length > 0 ? "title, author or tag" : "title or author"
+  const placeholder = narrow ? "Search" : filter.shelf ? `Search ${SHELF_TITLE[filter.shelf]} by ${by}` : `Search your shelf by ${by}`
 
   return (
     <div className="mb-6 flex flex-col gap-3">

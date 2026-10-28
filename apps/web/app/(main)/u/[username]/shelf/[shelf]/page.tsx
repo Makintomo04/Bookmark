@@ -70,7 +70,7 @@ export default async function Page({ params }: PageProps) {
           ? <OwnerShelf shelf={shelf} />
           : books.length > 0
             // The cards take a Book; the public payload is the subset of it they read.
-            ? <PublicShelf books={JSON.parse(JSON.stringify(books)) as Book[]} accentColour={profile.favColour} />
+            ? <PublicShelf books={JSON.parse(JSON.stringify(books)) as Book[]} shelf={shelf} accentColour={profile.favColour} />
             : <p className="text-sm text-muted-foreground">Nothing on this shelf yet.</p>}
       </>
     )
