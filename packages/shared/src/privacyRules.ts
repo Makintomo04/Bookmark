@@ -9,6 +9,7 @@ export interface PrivacySettings {
   reviewVisibility: ReviewVisibility;
   hideWantToRead: boolean;
   hideFollowCounts: boolean;
+  hideFavourites: boolean;
   // A librarian hiding their badge (staffBadge.ts). Only offered to librarians.
   hideStaffBadge: boolean;
 }
@@ -19,6 +20,7 @@ export const privacySelect = {
   reviewVisibility: true,
   hideWantToRead: true,
   hideFollowCounts: true,
+  hideFavourites: true,
   hideStaffBadge: true,
 } as const;
 
@@ -27,6 +29,7 @@ type StoredPrivacy = {
   reviewVisibility?: ReviewVisibility | null;
   hideWantToRead?: boolean | null;
   hideFollowCounts?: boolean | null;
+  hideFavourites?: boolean | null;
   hideStaffBadge?: boolean | null;
 };
 
@@ -37,6 +40,7 @@ export function privacyOf(user: StoredPrivacy): PrivacySettings {
     reviewVisibility: user.reviewVisibility ?? "EVERYONE",
     hideWantToRead: user.hideWantToRead ?? false,
     hideFollowCounts: user.hideFollowCounts ?? false,
+    hideFavourites: user.hideFavourites ?? false,
     hideStaffBadge: user.hideStaffBadge ?? false,
   };
 }
@@ -61,7 +65,9 @@ export type Viewable =
   // Their reviews, before each review's own private flag.
   | "reviews"
   // Follower and following counts, and the lists behind them.
-  | "followCounts";
+  | "followCounts"
+  // The favourites row on their profile.
+  | "favourites";
 
 function audienceAllows(audience: "everyone" | "followers" | "nobody", relation: Relation) {
   return audience === "everyone" || (audience === "followers" && relation.isFollower);
@@ -85,6 +91,8 @@ export function canView(relation: Relation, owner: PrivacySettings, what: Viewab
       return profile && !owner.hideWantToRead;
     case "followCounts":
       return profile && !owner.hideFollowCounts;
+    case "favourites":
+      return profile && !owner.hideFavourites;
     case "reviews":
       return profile && audienceAllows(
         owner.reviewVisibility === "EVERYONE" ? "everyone" : owner.reviewVisibility === "FOLLOWERS" ? "followers" : "nobody",
