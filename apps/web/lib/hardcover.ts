@@ -174,7 +174,7 @@ const SERIES_BOOKS = `query SeriesBooks($id: Int!) {
       where: { compilation: { _eq: false }, position: { _is_null: false }, book: { canonical_id: { _is_null: true } } }
       order_by: { position: asc }
       limit: 300
-    ) { position book { id title pages release_year release_date users_count description image { url } } }
+    ) { position book { id title pages release_year release_date users_count description image { url } contributions(limit: 3) { author { name } } } }
   }
 }`
 
@@ -186,15 +186,20 @@ export interface HardcoverSeriesBook extends DiscoverBook {
 // tracker's "next". Novellas, part-works and dramatised editions at 1.1 or 2.5 are left out; a reader who
 // shelves one still sees it, from their own copy's series. So are books announced but not out yet
 // (Hardcover lists Ghostbloods 1 to 3 in The Mistborn Saga for 2028 on): the tracker's "next" is one you
-// can read. Each is credited to `author`, the name the series goes by on Bookmark. Throws like searchHardcover.
+// can read. Only `author`'s own books are kept: a publisher's series by many writers (Canongate's The
+// Myths: Atwood, Winterson, Ali Smith) isn't one author's run, and filing its books under one name would
+// misattribute them. Each is credited to `author`, the name the series goes by on Bookmark. Throws like
+// searchHardcover.
 export async function hardcoverSeriesBooks(seriesId: number, author: string, today = new Date()): Promise<HardcoverSeriesBook[]> {
-  type Row = { position?: number | null, book?: (HardcoverDoc & { users_count?: number | null, release_date?: string | null }) | null }
+  type Row = { position?: number | null, book?: (HardcoverDoc & { users_count?: number | null, release_date?: string | null, contributions?: { author?: { name?: string } | null }[] }) | null }
   const data = await hardcoverQuery(SERIES_BOOKS, { id: seriesId })
   const now = today.toISOString().slice(0, 10)
+  const who = authorSlug(author)
   const best = new Map<number, NonNullable<Row["book"]>>()
   for (const { position, book } of (data?.series?.[0]?.book_series ?? []) as Row[]) {
     if (!book || typeof position !== "number" || !Number.isInteger(position) || position < 1) continue
     if (book.release_date && book.release_date > now) continue
+    if (!(book.contributions ?? []).some((c) => c.author?.name && authorSlug(c.author.name) === who)) continue
     const had = best.get(position)
     if (!had || (book.users_count ?? 0) > (had.users_count ?? 0)) best.set(position, book)
   }
