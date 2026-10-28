@@ -4,6 +4,7 @@ import { authorSlug, creditIncludes, isLinkableAuthor, slugWords } from "@/lib/a
 import { sameBook } from "@/lib/workKey"
 import { cleanBookList } from "@/lib/bookListCleanup"
 import { isThin, toppedUpByTitle } from "@/lib/bookSearchRules"
+import { withCatalogueFixesOrAsIs } from "@/lib/curatedBooks"
 
 // Author pages (/authors/<slug>). The slug comes from the name on a reader's copy; Open Library's author
 // key, when a record matches the slug exactly, is what the book list (and, later, following) hangs off.
@@ -70,7 +71,8 @@ export async function authorBooksPage(author: Author, offset = 0): Promise<Autho
   const fromOpenLibrary = author.key ? found.books : found.books.filter((b) => creditIncludes(b.author, author.slug))
   const extra = catalog.filter((c) => !fromOpenLibrary.some((b) => sameBook(b, c)))
   const all = cleanBookList([...fromOpenLibrary, ...extra])
-  const books = await filledIn(all.slice(offset, offset + AUTHOR_PAGE_SIZE), catalog, author)
+  // A librarian's fix (title, author, cover) wins over Open Library's own, as on book pages.
+  const books = await withCatalogueFixesOrAsIs(await filledIn(all.slice(offset, offset + AUTHOR_PAGE_SIZE), catalog, author))
   const nextOffset = offset + AUTHOR_PAGE_SIZE < all.length ? offset + AUTHOR_PAGE_SIZE : null
   return { books, nextOffset, failed: found.failed, total: found.failed ? null : all.length }
 }

@@ -8,12 +8,20 @@ import { workKeyOfQuery } from '@/lib/workKey'
 import { Button } from '../ui/button'
 import { cardClass, fieldClass, staffSend } from './staffApi'
 
-type Saved = { work: StaffWork, copies: { books: number, listItems: number } }
+type Saved = { work: StaffWork, copies: { books: number, listItems: number, circles: number } }
 
-const copiesLine = ({ books, listItems }: Saved['copies']) =>
-  books || listItems
-    ? `Saved. Updated ${books} ${books === 1 ? "reader's copy" : "readers' copies"}${listItems ? ` and ${listItems} list ${listItems === 1 ? 'entry' : 'entries'}` : ''} that still showed the old version.`
-    : 'Saved. No readers had the old version on their shelves.'
+const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+const copiesLine = ({ books, listItems, circles }: Saved['copies']) => {
+  const parts = [
+    books ? counted(books, "reader's copy", "readers' copies") : null,
+    listItems ? counted(listItems, 'list entry', 'list entries') : null,
+    circles ? counted(circles, 'reading circle', 'reading circles') : null,
+  ].filter((p): p is string => !!p)
+  if (!parts.length) return 'Saved. No readers had the old version on their shelves.'
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0]
+  return `Saved. Updated ${list} that still showed the old version.`
+}
 
 // Correct a book in the shared catalogue: its title, authors, description and cover, and each edition's
 // pages and cover. Readers who set their own keep theirs (lib/catalogueFixRules.ts).
