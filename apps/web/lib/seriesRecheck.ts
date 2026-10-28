@@ -30,7 +30,7 @@ const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
 // Per Hardcover request: 30 a minute, half its limit.
 const PACE_MS = 2000
-// Hardcover requests a run may spend: 24 runs a day is at most 1,440 of its 5,000 a day.
+// Hardcover requests a run may spend: 24 runs a day is at most 1,440 of its 50,000 a day.
 export const RUN_REQUESTS = 60
 const LOOKUP_REQUESTS = 4
 const STARTED = ["STARTED", "COMPLETED", "PAUSED"] as const

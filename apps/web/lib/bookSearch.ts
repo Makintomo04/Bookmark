@@ -75,7 +75,7 @@ const cachedCatalogue = unstable_cache(
   { revalidate: CATALOGUE_TTL },
 )
 
-// Hardcover's results barely change either, and its free plan allows 5,000 requests a day.
+// Hardcover's results barely change either, and its plan allows 50,000 requests a day.
 const cachedHardcover = unstable_cache(
   (query: string, limit: number) => searchHardcover(query, limit),
   ["hardcover-search"],
