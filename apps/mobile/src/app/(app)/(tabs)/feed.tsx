@@ -18,9 +18,10 @@ import { useTheme } from "@/lib/theme";
 // What the people you follow are reading (the web's /feed): started, finished, rated and reviewed.
 export default function Feed() {
   const { colors, fonts } = useTheme();
-  const { data, error, isLoading, mutate } = useSWR<Activity[]>("/api/feed");
+  // The first page only; paging back is still to do here.
+  const { data, error, isLoading, mutate } = useSWR<{ activities: Activity[]; hasMore: boolean }>("/api/feed");
   const [refreshing, setRefreshing] = useState(false);
-  const activities = (data ?? []).filter((a) => a.book);
+  const activities = (data?.activities ?? []).filter((a) => a.book);
 
   const refresh = async () => {
     setRefreshing(true);

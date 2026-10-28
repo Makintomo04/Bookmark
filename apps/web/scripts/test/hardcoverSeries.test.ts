@@ -16,6 +16,9 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
+// A Hardcover book's credits.
+const by = (...names: string[]) => ({ contributions: names.map((name) => ({ author: { name } })) });
+
 const stormlight = { id: 997, name: "The Stormlight Archive" };
 
 const hits = (...documents: object[]) => ({ results: { hits: documents.map((document) => ({ document })) } });
@@ -100,12 +103,12 @@ test("hardcoverSeriesBooks keeps one most-read book per whole-numbered place, cr
   answer({
     series: [{
       book_series: [
-        { position: 1, book: { id: 3033573, title: "Fourth Wing", users_count: 0 } },
-        { position: 1, book: { id: 714600, title: "Fourth Wing", users_count: 8209, pages: 517, release_year: 2023, image: { url: "https://assets.hardcover.app/fw.jpg" } } },
-        { position: 1.1, book: { id: 2898212, title: "Fourth Wing (Part 1 of 2) [Dramatized Adaptation]", users_count: 73 } },
-        { position: 3, book: { id: 3, title: "Onyx Storm", users_count: 4000 } },
-        { position: 2, book: { id: 2, title: "Iron Flame", users_count: 5000 } },
-        { position: 0, book: { id: 9, title: "Prequel guide", users_count: 10 } },
+        { position: 1, book: { id: 3033573, title: "Fourth Wing", users_count: 0, ...by("Rebecca Yarros") } },
+        { position: 1, book: { id: 714600, title: "Fourth Wing", users_count: 8209, pages: 517, release_year: 2023, image: { url: "https://assets.hardcover.app/fw.jpg" }, ...by("Rebecca Yarros") } },
+        { position: 1.1, book: { id: 2898212, title: "Fourth Wing (Part 1 of 2) [Dramatized Adaptation]", users_count: 73, ...by("Rebecca Yarros") } },
+        { position: 3, book: { id: 3, title: "Onyx Storm", users_count: 4000, ...by("Rebecca Yarros") } },
+        { position: 2, book: { id: 2, title: "Iron Flame", users_count: 5000, ...by("Rebecca Yarros") } },
+        { position: 0, book: { id: 9, title: "Prequel guide", users_count: 10, ...by("Rebecca Yarros") } },
       ],
     }],
   });
@@ -123,12 +126,27 @@ test("hardcoverSeriesBooks leaves out books announced but not out yet", async ()
   answer({
     series: [{
       book_series: [
-        { position: 7, book: { id: 7, title: "The Lost Metal", users_count: 3378, release_date: "2022-01-01" } },
-        { position: 8, book: { id: 8, title: "Ghostbloods 1", users_count: 157, release_date: "2028-12-01" } },
-        { position: 9, book: { id: 9, title: "Undated", users_count: 5, release_date: null } },
+        { position: 7, book: { id: 7, title: "The Lost Metal", users_count: 3378, release_date: "2022-01-01", ...by("Brandon Sanderson") } },
+        { position: 8, book: { id: 8, title: "Ghostbloods 1", users_count: 157, release_date: "2028-12-01", ...by("Brandon Sanderson") } },
+        { position: 9, book: { id: 9, title: "Undated", users_count: 5, release_date: null, ...by("Brandon Sanderson") } },
       ],
     }],
   });
   const books = await hardcoverSeriesBooks(5452, "Brandon Sanderson", new Date("2026-10-27"));
   assert.deepEqual(books.map((b) => b.title), ["The Lost Metal", "Undated"]);
+});
+
+test("hardcoverSeriesBooks keeps only the author's own books from a series by many writers", async () => {
+  answer({
+    series: [{
+      book_series: [
+        { position: 1, book: { id: 1, title: "A Short History of Myth", users_count: 900, ...by("Karen Armstrong") } },
+        { position: 2, book: { id: 2, title: "The Penelopiad", users_count: 5000, ...by("Margaret Atwood") } },
+        { position: 8, book: { id: 8, title: "Girl Meets Boy", users_count: 700, ...by("Ali Smith") } },
+        { position: 9, book: { id: 9, title: "Uncredited", users_count: 5 } },
+      ],
+    }],
+  });
+  const books = await hardcoverSeriesBooks(1, "Ali Smith");
+  assert.deepEqual(books.map((b) => [b.position, b.title]), [[8, "Girl Meets Boy"]]);
 });

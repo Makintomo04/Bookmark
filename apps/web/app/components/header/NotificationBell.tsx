@@ -14,6 +14,7 @@ import { notify } from '@/lib/notify'
 import {
   NotificationLead, NotificationText, notificationCopy, notificationHref, useNotificationActions, type NotificationLike,
 } from '../notifications/NotificationParts'
+import { feedTabHref } from '@/lib/feedTabs'
 
 interface NotificationBellProps {
 
@@ -99,7 +100,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           <div key={n.id} className="flex flex-col">
             <DropdownMenuItem asChild className="items-center gap-3 p-2 rounded-md cursor-pointer">
               <Link href={notificationHref(n)} onClick={() => { followedLink.current = true }}>
-                <NotificationLead n={n} />
+                <NotificationLead n={n} size="sm" />
                 <NotificationText n={n} />
               </Link>
             </DropdownMenuItem>
@@ -123,10 +124,10 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
             )}
           </div>
         ))}
-        {/* Pinned to the foot of the menu however far it's scrolled: every notification, on its own page. */}
+        {/* Pinned to the foot of the menu however far it's scrolled: every notification, on the feed page's tab. */}
         <div className="sticky bottom-0 -mx-1 mt-1 border-t border-border bg-popover p-1">
           <DropdownMenuItem asChild className="justify-center rounded-md py-2 text-sm font-medium cursor-pointer">
-            <Link href="/notifications" onClick={() => { followedLink.current = true }}>See all notifications</Link>
+            <Link href={feedTabHref("notifications")} onClick={() => { followedLink.current = true }}>See all notifications</Link>
           </DropdownMenuItem>
         </div>
       </DropdownMenuContent>

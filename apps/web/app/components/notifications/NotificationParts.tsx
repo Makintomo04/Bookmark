@@ -1,20 +1,18 @@
 "use client"
 import { FC } from 'react'
-import Image from 'next/image'
 import moment from 'moment'
 import axios from 'axios'
 import { mutate as revalidate } from 'swr'
-import InitialAvatar, { avatarColour } from '../profile/InitialAvatar'
-import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
-import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import { getAchievementTitle } from '@/lib/achievements-catalog'
 import { notify } from '@/lib/notify'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { reviewHiddenMessage } from '@/lib/reviewReports'
 import { seriesNewsText } from '@/lib/series'
 import BookCover from '../cards/BookCover'
+import { ActorAvatar } from '../feed/FeedRow'
 
-// One notification as /api/notifications sends it, shared by the bell's menu and /notifications.
+// One notification as /api/notifications sends it, shared by the bell's menu and the feed page's
+// Notifications tab. The avatar is the feed's ActorAvatar (NotificationLead).
 
 export type NotificationLike = {
   id?: string
@@ -55,23 +53,12 @@ export const notificationHref = (n: NotificationLike) => {
   return `/u/${encodeURIComponent(n.actor.username)}`
 }
 
-// Whoever it's from: their photo, or their initial on their colour, inside their tier ring.
-export const NotificationAvatar: FC<{ actor: NotificationLike["actor"] }> = ({ actor }) => {
-  const booksReadFor = useBooksReadFor()
-  return (
-    <div className="h-9 w-9 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: avatarColour(actor.favColour), ...tierRingStyle(booksReadFor(actor.username, booksReadOf(actor as Parameters<typeof booksReadOf>[0]))) }}>
-      {actor.image
-        ? <Image src={actor.image} alt="" fill sizes="36px" className="object-cover"/>
-        : <InitialAvatar username={actor.username} favColour={actor.favColour} label="" />}
-    </div>
-  )
-}
-
-// Beside the words: the new book's cover for a new book in a series (nobody did it), else whoever it's from.
-export const NotificationLead: FC<{ n: NotificationLike }> = ({ n }) => n.type === "NEW_IN_SERIES" ? (
+// Beside the words: the new book's cover for a new book in a series (nobody did it), else whoever it's
+// from. `size` as ActorAvatar's.
+export const NotificationLead: FC<{ n: NotificationLike; size?: "sm" | "md" }> = ({ n, size = "md" }) => n.type === "NEW_IN_SERIES" ? (
   <BookCover book={{ title: n.work?.title ?? "", author: "", coverImage: n.work?.coverUrl ?? "", cardColour: null }}
-    variant="thumb" sizes="36px" className="w-9 shrink-0 rounded-sm" />
-) : <NotificationAvatar actor={n.actor} />
+    variant="thumb" sizes={size === "sm" ? "36px" : "40px"} className={size === "sm" ? "w-9 shrink-0 rounded-sm" : "w-10 shrink-0 rounded-sm"} />
+) : <ActorAvatar actor={n.actor} size={size} />
 
 // What happened and when. `full` lets the line wrap (the page) instead of cutting it short (the menu).
 export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ n, full = false }) => {
