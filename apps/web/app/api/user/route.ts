@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { User } from "@prisma/client";
-import { BIO_MAX, isAllowedImageUrl, isHexColour, normaliseUsername, usernameProblem } from "@/lib/profile";
+import { BIO_MAX, displayNameProblem, isAllowedImageUrl, isHexColour, normaliseDisplayName, normaliseUsername, usernameProblem } from "@/lib/profile";
 import { isStorableBanner } from "@/lib/banners";
 import { SubscriptionCancelError, deleteAccount } from "@/lib/accountDeletion";
 import { deleteAccountUploads } from "@/lib/uploadedImagesServer";
@@ -48,6 +48,15 @@ const usernameError = usernameChanged ? usernameProblem(username) : null;
 if (usernameError) {
   return NextResponse.json({ error: usernameError }, { status: 400 });
 }
+// Optional: left out keeps what's there, empty clears it (the username shows again).
+if (body.displayName != null && typeof body.displayName !== "string") {
+  return NextResponse.json({ error: "Invalid display name." }, { status: 400 });
+}
+const displayName = body.displayName === undefined ? undefined : normaliseDisplayName(body.displayName ?? "");
+const displayNameError = displayName ? displayNameProblem(displayName) : null;
+if (displayNameError) {
+  return NextResponse.json({ error: displayNameError }, { status: 400 });
+}
 if (bio != null && typeof bio !== "string") {
   return NextResponse.json({ error: "Invalid bio." }, { status: 400 });
 }
@@ -70,6 +79,9 @@ const updatedData:Record<string,string | null> = {
 // Check for changed fields and update data accordingly
 if (usernameChanged) {
   updatedData["username"] = username;
+}
+if (displayName !== undefined && (displayName || null) !== (currentUser.displayName ?? null)) {
+  updatedData["displayName"] = displayName || null;
 }
 if (imageSrc !== currentUser.image) {
   updatedData["image"] = imageSrc ?? null;

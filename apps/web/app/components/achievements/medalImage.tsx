@@ -40,6 +40,8 @@ function icon(key: string, sizePx: number) {
 
 interface MedalImageInput {
   username: string
+  // Shown in place of the username when set; the address under it stays the username.
+  displayName?: string | null
   achievement: AchievementDefinition
   milestone: Milestone
 }
@@ -47,11 +49,11 @@ interface MedalImageInput {
 export async function medalOgImage(input: MedalImageInput) {
   const { achievement, milestone } = input
   const colour = getMedalColour(achievement.key)
-  const username = clip(input.username, 22)
+  const username = clip(input.displayName || input.username, 22)
   const rung = achievement.describe(milestone.value)
   const detail = `${achievement.title} · ${rung}`
   const footer = `${username} on Bookmark`
-  const profileUrl = `${siteHost}/u/${username}`
+  const profileUrl = `${siteHost}/u/${clip(input.username, 22)}`
 
   const text = ['Bookmark', 'MEDAL EARNED', milestone.title, detail, footer, profileUrl].join('') + '0123456789·…'
   const [regular, semibold, black] = await Promise.all([interFont(400, text), interFont(600, text), interFont(800, text)])

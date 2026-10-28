@@ -76,7 +76,7 @@ export default function SettingsScreen() {
       {error && <Notice tone="error" message={error} />}
 
       <Card title="Profile">
-        <Text variant="muted">Your name, photo, colour and banner.</Text>
+        <Text variant="muted">Your display name, username, photo, colour and banner.</Text>
         <Button title="Edit profile" variant="outline" onPress={() => router.push("/profile/edit")} />
       </Card>
 

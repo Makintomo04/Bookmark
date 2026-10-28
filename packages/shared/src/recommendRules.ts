@@ -6,6 +6,7 @@ export const RECOMMEND_MESSAGE_MAX = 280;
 
 export interface RecommendFriend {
   username: string;
+  displayName?: string | null;
   image: string | null;
   favColour: string | null;
   // They already have this book on a shelf, so sending it would be noise.

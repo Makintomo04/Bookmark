@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
@@ -85,11 +86,11 @@ function MemberRow({ member }: { member: CircleMember }) {
   const { colors } = useTheme();
   const colour = member.favColour || DEFAULT_COLOUR;
   return (
-    <View style={styles.memberRow} accessible accessibilityLabel={`${member.isYou ? "You" : member.username ?? "A reader"}, ${formatPercent(member.progress)}`}>
+    <View style={styles.memberRow} accessible accessibilityLabel={`${member.isYou ? "You" : readerName(member) || "A reader"}, ${formatPercent(member.progress)}`}>
       <Avatar image={member.image} name={member.username} colour={member.favColour} size={32} />
       <View style={{ flex: 1, gap: 4 }}>
         <View style={styles.between}>
-          <Text style={{ fontSize: 15 }}>{member.isYou ? "You" : member.username ? `@${member.username}` : "A reader"}{member.isHost ? " · host" : ""}</Text>
+          <Text style={{ fontSize: 15 }}>{member.isYou ? "You" : readerName(member) || "A reader"}{member.isHost ? " · host" : ""}</Text>
           <Text variant="small">{member.finishedAt ? "Finished" : formatPercent(member.progress)}</Text>
         </View>
         <View style={[styles.track, { backgroundColor: colors.muted }]}>
@@ -158,7 +159,7 @@ function Comment({ circleId, comment, isHost, onReply, onChange, nested }: { cir
   }
 
   const where = comment.chapterLabel || (comment.pageLabel ? `Page ${comment.pageLabel}` : null) || `At ${formatPercent(comment.position)}`;
-  const name = comment.deleted ? null : comment.formerMember ? "Former member" : comment.author?.username ? `@${comment.author.username}` : "A reader";
+  const name = comment.deleted ? null : comment.formerMember ? "Former member" : comment.author?.username ? readerName(comment.author) : "A reader";
 
   const react = async (emoji: string) => {
     await api.post(`/api/buddy-reads/${circleId}/comments/${comment.id}/reactions`, { emoji }).catch(() => {});

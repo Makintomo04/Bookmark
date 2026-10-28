@@ -1,5 +1,6 @@
 "use client"
 import { FC, useEffect, useRef } from 'react'
+import { readerName } from '@/lib/profile'
 import axios from 'axios'
 import useSWRInfinite from 'swr/infinite'
 import { mutate as revalidate } from 'swr'
@@ -62,10 +63,10 @@ const NotificationsList: FC = () => {
     if (n.type === "FOLLOW_REQUEST") {
       return (
         <>
-          <button type="button" onClick={() => answerRequest(n.actor.username, "accept")} aria-label={`Accept ${n.actor.username}'s request`} className={cn(buttonClass, "bg-foreground text-background hover:opacity-90")}>
+          <button type="button" onClick={() => answerRequest(n.actor.username, "accept")} aria-label={`Accept ${readerName(n.actor)}'s request`} className={cn(buttonClass, "bg-foreground text-background hover:opacity-90")}>
             Accept
           </button>
-          <button type="button" onClick={() => answerRequest(n.actor.username, "decline")} aria-label={`Decline ${n.actor.username}'s request`} className={cn(buttonClass, "border border-border hover:bg-neutral-100 dark:hover:bg-neutral-900")}>
+          <button type="button" onClick={() => answerRequest(n.actor.username, "decline")} aria-label={`Decline ${readerName(n.actor)}'s request`} className={cn(buttonClass, "border border-border hover:bg-neutral-100 dark:hover:bg-neutral-900")}>
             Decline
           </button>
         </>

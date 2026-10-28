@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR, { mutate as revalidate } from "swr";
@@ -93,7 +94,7 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
     setBusy(true);
     try {
       const result = await answerFollowRequest(n.actor.username, action);
-      if (result.accepted) setNote(`${n.actor.username} can now see your profile.`);
+      if (result.accepted) setNote(`${readerName(n.actor)} can now see your profile.`);
       onChange();
     } catch (e) {
       setNote(e instanceof ApiError ? e.message : "Couldn't answer that request. Try again.");
@@ -132,7 +133,7 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
       <Pressable accessibilityRole={path ? "link" : "text"} disabled={!path} onPress={() => path && router.push(path as never)} style={styles.main}>
         <Avatar image={n.actor.image} name={n.actor.username} colour={n.actor.favColour} size={36} />
         <View style={{ flex: 1, gap: 2 }}>
-          {text ? <Text>{text}</Text> : <Text><Text style={{ fontFamily: fonts.sansSemibold }}>{n.actor.username}</Text> {copyOf(n)}</Text>}
+          {text ? <Text>{text}</Text> : <Text><Text style={{ fontFamily: fonts.sansSemibold }}>{readerName(n.actor)}</Text>{n.actor.displayName ? <Text variant="small"> @{n.actor.username}</Text> : null} {copyOf(n)}</Text>}
           {n.type === "BOOK_RECOMMENDED" && n.message ? <Text variant="muted" style={{ fontStyle: "italic" }}>{"“"}{n.message}{"”"}</Text> : null}
           <Text variant="small">{timeAgo(n.createdAt)}{n.type === "BOOK_RECOMMENDED" && n.book?.onShelf ? " · on your shelf" : ""}</Text>
         </View>

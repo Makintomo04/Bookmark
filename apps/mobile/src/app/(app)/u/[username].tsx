@@ -4,7 +4,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { Ellipsis, Lock } from "lucide-react-native";
 import { progressWhole } from "@bookmark/shared/progress";
-import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
 import { StarRating } from "@/components/books/StarRating";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
@@ -43,6 +43,7 @@ type PublicBook = {
 
 type Profile = {
   username: string;
+  displayName?: string | null;
   image: string | null;
   favColour: string | null;
   staffBadge?: StaffBadgeKind | null;
@@ -86,9 +87,9 @@ export default function ReaderProfile() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: profile.username }} />
+      <Stack.Screen options={{ title: readerName(profile) }} />
       <ProfileHeader
-        user={{ id: profile.username, name: null, username: profile.username, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
+        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
         staffBadge={profile.staffBadge}
         medals={profile.restricted ? undefined : { earned: profile.achievements ?? [], onPress: openAchievements }}
       />
@@ -119,7 +120,7 @@ function Actions({ profile, onChange }: { profile: Profile; onChange: () => void
     setNote(null);
     try {
       const result = await toggleFollow(profile.username);
-      if (result.requested) setNote(`Asked to follow ${profile.username}. You'll see their profile once they accept.`);
+      if (result.requested) setNote(`Asked to follow ${readerName(profile)}. You'll see their profile once they accept.`);
       onChange();
     } catch (e) {
       setNote(e instanceof ApiError ? e.message : "Couldn't do that. Try again.");
@@ -160,10 +161,10 @@ function Actions({ profile, onChange }: { profile: Profile; onChange: () => void
           <Ellipsis size={20} color={colors.foreground} />
         </Pressable>
       </View>
-      {menu && !confirmBlock && <Button title={`Block ${profile.username}`} variant="ghost" onPress={() => setConfirmBlock(true)} />}
+      {menu && !confirmBlock && <Button title={`Block ${readerName(profile)}`} variant="ghost" onPress={() => setConfirmBlock(true)} />}
       {confirmBlock && (
         <View style={{ gap: 6 }}>
-          <Text>Block {profile.username}? You won{"’"}t see each other{"’"}s profiles, activity or comments, and any follow between you ends. They aren{"’"}t told.</Text>
+          <Text>Block {readerName(profile)}? You won{"’"}t see each other{"’"}s profiles, activity or comments, and any follow between you ends. They aren{"’"}t told.</Text>
           <View style={styles.row}>
             <Button title="Block" variant="outline" loading={busy} onPress={() => block(true)} />
             <Button title="Cancel" variant="ghost" disabled={busy} onPress={() => setConfirmBlock(false)} />
@@ -181,7 +182,7 @@ function Restricted({ profile }: { profile: Profile }) {
   if (profile.restricted === "blockedByViewer") {
     return (
       <View style={{ gap: 10 }}>
-        <Text>You blocked {profile.username}.</Text>
+        <Text>You blocked {readerName(profile)}.</Text>
         <Button
           title="Unblock"
           variant="outline"
@@ -199,7 +200,7 @@ function Restricted({ profile }: { profile: Profile }) {
     <View style={styles.locked}>
       <Lock size={18} color={colors.mutedForeground} />
       <Text variant="muted" style={{ flex: 1 }}>
-        {profile.restricted === "followers" ? `${profile.username} shares their shelf with followers. Ask to follow to see it.` : `${profile.username} keeps their shelf private.`}
+        {profile.restricted === "followers" ? `${readerName(profile)} shares their shelf with followers. Ask to follow to see it.` : `${readerName(profile)} keeps their shelf private.`}
       </Text>
     </View>
   );

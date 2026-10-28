@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   const wrapped = await getWrapped(user.id, period.year, period.month, { sharedOnly: true })
   const stamp = `${period.year}-${String(period.month + 1).padStart(2, '0')}`
   return wrappedStoryImage(
-    { wrapped, username: user.username, favColour: user.favColour },
+    { wrapped, username: user.username, displayName: user.displayName, favColour: user.favColour },
     {
       'Content-Disposition': `attachment; filename="bookmark-wrap-${stamp}.png"`,
       'Cache-Control': 'private, max-age=300',

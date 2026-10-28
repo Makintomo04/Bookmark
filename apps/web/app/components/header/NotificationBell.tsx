@@ -1,5 +1,6 @@
 "use client"
 import { FC, useEffect, useRef, useState } from 'react'
+import { readerName } from '@/lib/profile'
 import { Bell } from "lucide-react"
 import Link from 'next/link'
 import axios from 'axios'
@@ -27,7 +28,7 @@ const TOASTED = new Set(["NEW_FOLLOWER", "FOLLOW_REQUEST", "BUDDY_READ_INVITE", 
 const toastCopy = (n: NotificationLike) =>
   n.type === "BUDDY_READ_HOST_INHERITED"
     ? `You're now hosting ${n.buddyRead?.title ?? "a reading circle"}`
-    : `${n.actor.username} ${notificationCopy(n)}`
+    : `${readerName(n.actor)} ${notificationCopy(n)}`
 
 const NotificationBell: FC<NotificationBellProps> = ({}) => {
   const { notifications, unreadCount, isLoading, isError, mutate } = useNotifications()
@@ -114,10 +115,10 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
             )}
             {n.type === "FOLLOW_REQUEST" && (
               <div className="flex gap-2 pl-14 pb-2">
-                <DropdownMenuItem onSelect={() => answerRequest(n.actor.username, "accept")} className={`${actionClass} bg-foreground text-background focus:bg-foreground focus:text-background focus:opacity-90`} aria-label={`Accept ${n.actor.username}'s request`}>
+                <DropdownMenuItem onSelect={() => answerRequest(n.actor.username, "accept")} className={`${actionClass} bg-foreground text-background focus:bg-foreground focus:text-background focus:opacity-90`} aria-label={`Accept ${readerName(n.actor)}'s request`}>
                   Accept
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => answerRequest(n.actor.username, "decline")} className={`${actionClass} border border-border`} aria-label={`Decline ${n.actor.username}'s request`}>
+                <DropdownMenuItem onSelect={() => answerRequest(n.actor.username, "decline")} className={`${actionClass} border border-border`} aria-label={`Decline ${readerName(n.actor)}'s request`}>
                   Decline
                 </DropdownMenuItem>
               </div>

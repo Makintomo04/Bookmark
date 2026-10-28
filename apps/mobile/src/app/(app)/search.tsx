@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { Avatar } from "@/components/profile/Avatar";
@@ -35,7 +36,7 @@ export default function SearchReaders() {
 
   return (
     <Screen scroll={false}>
-      <TextField label="Find readers" value={query} onChangeText={setQuery} placeholder="Search by username" autoCapitalize="none" autoCorrect={false} autoFocus />
+      <TextField label="Find readers" value={query} onChangeText={setQuery} placeholder="Search by name or username" autoCapitalize="none" autoCorrect={false} autoFocus />
       {searching && <ActivityIndicator color={colors.mutedForeground} />}
       <FlatList
         data={results}
@@ -50,7 +51,7 @@ export default function SearchReaders() {
           >
             <Avatar image={item.image} name={item.username} colour={item.favColour} size={40} />
             <View style={{ flex: 1 }}>
-              <Text>{item.username}{item.isFollowing ? <Text variant="small"> · following</Text> : null}</Text>
+              <Text>{readerName(item)}{item.displayName ? <Text variant="small"> @{item.username}</Text> : null}{item.isFollowing ? <Text variant="small"> · following</Text> : null}</Text>
               {item.bio ? <Text variant="small" numberOfLines={1}>{item.bio}</Text> : null}
             </View>
           </Pressable>

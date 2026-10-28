@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import Container from '@/app/components/Container'
@@ -22,9 +23,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const invite = await loadInvite(params.code)
   if (!invite) return { title: "Reading circle", robots: { index: false } }
   const { buddyRead, host, members } = invite
-  const title = `Read ${buddyRead.title} with ${host?.username ?? "friends"}`
+  const hostName = host ? readerName(host) : null
+  const title = `Read ${buddyRead.title} with ${hostName || "friends"}`
   const others = members.length - 1
-  const description = `${host?.username ?? "A reader"} is reading ${buddyRead.title} by ${buddyRead.author}${others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}. Join the reading circle on Bookmark: track progress together, with comments that stay hidden until you reach them.`
+  const description = `${hostName || "A reader"} is reading ${buddyRead.title} by ${buddyRead.author}${others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}. Join the reading circle on Bookmark: track progress together, with comments that stay hidden until you reach them.`
   return {
     title,
     description,
@@ -71,7 +73,7 @@ const Page = async ({ params }: PageProps) => {
               ))}
             </div>
             <p className="max-w-md">
-              <span className="font-semibold">{host?.username ?? "A reader"}</span> invited you to read along
+              <span className="font-semibold">{(host && readerName(host)) || "A reader"}</span> invited you to read along
               {members.length > 1 ? ` with ${members.length - 1} ${members.length - 1 === 1 ? "other" : "others"}` : ""}.
             </p>
             <p className="max-w-md text-sm text-muted-foreground">

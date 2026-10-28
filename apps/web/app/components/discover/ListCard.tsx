@@ -1,4 +1,5 @@
 import { FC } from 'react'
+import { readerName } from '@/lib/profile'
 import Image from 'next/image'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -37,7 +38,7 @@ const ListCard: FC<{ list: ListSummary, className?: string, hideOwner?: boolean 
     <div className="min-w-0">
       <p className="font-semibold leading-snug line-clamp-2 group-hover:underline underline-offset-4">{list.title}</p>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-        {list.isPick ? <PickBadge /> : !hideOwner && <span className="truncate">by {list.owner.username}</span>}
+        {list.isPick ? <PickBadge /> : !hideOwner && <span className="truncate">by {readerName(list.owner)}</span>}
         {(list.isPick || !hideOwner) && <span aria-hidden>·</span>}
         {list.chosenAt && !list.isPick && <><ChoiceBadge /><span aria-hidden>·</span></>}
         <span className="whitespace-nowrap">{plural(list.itemCount, "book")}</span>

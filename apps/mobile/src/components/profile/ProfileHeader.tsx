@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { bannerPresetOf, resolveBanner } from "@bookmark/shared/banners";
-import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
 import { STAFF_BADGE, type StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { Avatar } from "@/components/profile/Avatar";
 import { MedalShowcase } from "@/components/achievements/MedalShowcase";
@@ -13,6 +13,8 @@ export interface ProfileUser {
   id: string;
   name: string | null;
   username: string | null;
+  // Set by the reader; the username heads the profile when unset.
+  displayName?: string | null;
   image: string | null;
   banner: string | null;
   bio: string | null;
@@ -41,7 +43,7 @@ export function ProfileHeader({ user, staffBadge, medals }: {
       <View style={styles.identity}>
         <Avatar image={user.image} name={user.username ?? user.name} colour={colour} size={84} ring />
         <View style={{ gap: 2 }}>
-          <Text variant="display">{user.name || user.username}</Text>
+          <Text variant="display">{readerName(user)}</Text>
           {staffBadge && <StaffBadge kind={staffBadge} />}
           {user.username && <Text variant="muted">@{user.username}{booksRead !== undefined ? ` · ${booksRead.toLocaleString("en-GB")} ${booksRead === 1 ? "book" : "books"} read` : ""}</Text>}
         </View>

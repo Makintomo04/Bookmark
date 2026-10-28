@@ -11,6 +11,7 @@ export const OWN_LISTS_MAX = 50
 // A reader shown next to a recommendation: avatar, accent colour and tier ring.
 export interface Curator {
   username: string | null
+  displayName?: string | null
   image: string | null
   favColour: string | null
   _count?: { books?: number }
