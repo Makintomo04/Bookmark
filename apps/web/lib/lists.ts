@@ -381,11 +381,12 @@ export async function followedPeople(viewerId: string) {
 
   const users = await prisma.user.findMany({
     where: { id: { in: ids } },
-    select: { id: true, ...ownerSelect, ...privacySelect },
+    select: { id: true, ...ownerSelect, ...privacySelect, ...staffBadgeSelect },
   })
-  for (const { id, username, displayName, image, favColour, _count, ...stored } of users) {
+  for (const { id, username, displayName, image, favColour, _count, role, isStaff, ...stored } of users) {
     const privacy = privacyOf(stored)
-    if (canView(FOLLOWER, privacy, "profile")) people.set(id, { username, displayName, image, favColour, _count, privacy })
+    const staffBadge = staffBadgeOf({ role, isStaff, hideStaffBadge: stored.hideStaffBadge })
+    if (canView(FOLLOWER, privacy, "profile")) people.set(id, { username, displayName, image, favColour, _count, staffBadge, privacy })
   }
   return { followsAnyone: true, people }
 }

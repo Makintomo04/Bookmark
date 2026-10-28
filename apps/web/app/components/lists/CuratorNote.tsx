@@ -6,6 +6,7 @@ import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { cn } from '@/lib/utils'
 import InitialAvatar from '@/app/components/profile/InitialAvatar'
 import type { Curator, Reason } from '@/lib/listRules'
+import StaffSeal from '../profile-head/StaffSeal'
 
 export const DEFAULT_ACCENT = "#D92D2D"
 export const accentOf = (person: Curator) => person.favColour || DEFAULT_ACCENT
@@ -45,7 +46,11 @@ const CuratorNote: FC<CuratorNoteProps> = ({ reason, variant = "card", label = "
         <CuratorAvatar person={reason.by} size={full ? 28 : 18} />
         <span className={cn("min-w-0 truncate", full ? "text-sm" : "text-[11px]")}>
           {handle ? (
-            <Link href={`/u/${handle}`} className="font-semibold hover:underline underline-offset-2">{name}</Link>
+            <>
+              <Link href={`/u/${handle}`} className="font-semibold hover:underline underline-offset-2">{name}</Link>
+              {/* Only marks the role: the caption is cut short when long, which would clip its explanation. */}
+              {reason.by.staffBadge && <StaffSeal kind={reason.by.staffBadge} size={full ? 16 : 13} pressable={false} className={cn("ml-1", full ? "align-[-3px]" : "align-[-2px]")} />}
+            </>
           ) : (
             <span className="font-semibold">A reader</span>
           )}

@@ -8,6 +8,7 @@ import { BookCover } from "@/components/books/BookCover";
 import { GenrePicks } from "@/components/discover/GenrePicks";
 import { ListCard } from "@/components/discover/ListCard";
 import { Avatar } from "@/components/profile/Avatar";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -137,6 +138,8 @@ function PickCard({ pick }: { pick: FollowingPick }) {
       <Text numberOfLines={2} style={{ fontSize: 14 }}>{pick.book.title}</Text>
       <View style={styles.pickWho}>
         <Avatar image={pick.person.image} name={pick.person.username} colour={pick.person.favColour} size={16} />
+        {/* The card is pressable, so the seal only marks the role. */}
+        {pick.person.staffBadge ? <StaffSeal kind={pick.person.staffBadge} size={14} pressable={false} /> : null}
         {pick.list ? <ListOrdered size={12} color={colors.mutedForeground} /> : <Star size={12} color={colors.mutedForeground} />}
         <Text variant="small" numberOfLines={1} style={{ flex: 1 }}>{pick.list ? pick.list.title : `Rated ${pick.rating ?? ""}`}</Text>
       </View>

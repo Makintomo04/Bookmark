@@ -1,6 +1,8 @@
 "use client"
 import { FC, useEffect, useRef, useState } from 'react'
 import ReaderName from '@/app/components/profile/ReaderName'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
+import type { StaffBadgeKind } from '@/lib/staffBadge'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import Image from 'next/image'
@@ -26,6 +28,7 @@ type Mode = SearchMode
 interface SearchUser {
   username: string
   displayName?: string | null
+  staffBadge?: StaffBadgeKind | null
   image: string | null
   favColour: string | null
   bio: string | null
@@ -209,7 +212,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
                         : <InitialAvatar username={person.username} favColour={person.favColour} />}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-medium"><ReaderName reader={person} /></p>
+                      {/* Inside the profile link, so the seal only marks the role. */}
+                      <p className="truncate font-medium"><ReaderName reader={person} badge={person.staffBadge && <StaffSeal kind={person.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} /></p>
                       {person.bio && <p className="truncate text-xs text-muted-foreground">{person.bio}</p>}
                     </div>
                   </Link>

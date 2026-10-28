@@ -5,10 +5,20 @@ import { ListOrdered, Star, Users } from 'lucide-react'
 import { followingPicks, type FollowingPick } from '@/lib/lists'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import { CuratorAvatar } from '../lists/CuratorNote'
+import StaffSeal from '../profile-head/StaffSeal'
 import DiscoverBookCard from './DiscoverBookCard'
 
 
 // Who picked it and where, under the card. The reason itself is the card's CuratorNote.
+// The seal only marks the role here: the line is cut short when long, which would clip its explanation.
+const Who: FC<{ pick: FollowingPick }> = ({ pick }) => (
+  <>
+    {readerName(pick.person)}
+    {pick.person.staffBadge && <StaffSeal kind={pick.person.staffBadge} size={13} pressable={false} className="ml-0.5 align-[-2px]" />}
+    {" · "}
+  </>
+)
+
 const PickContext: FC<{ pick: FollowingPick }> = ({ pick }) => (
   <p className="flex items-center gap-1.5 min-w-0 text-[11px] text-muted-foreground">
     {!pick.reason && <CuratorAvatar person={pick.person} size={16} />}
@@ -16,14 +26,14 @@ const PickContext: FC<{ pick: FollowingPick }> = ({ pick }) => (
       <>
         <ListOrdered size={12} aria-hidden className="shrink-0" />
         <span className="truncate">
-          {!pick.reason && <>{readerName(pick.person)} · </>}
+          {!pick.reason && <Who pick={pick} />}
           <Link href={`/lists/${pick.list.id}`} className="hover:underline underline-offset-2">{pick.list.title}</Link>
         </span>
       </>
     ) : (
       <>
         <Star size={12} aria-hidden className="shrink-0 fill-current" />
-        <span className="truncate">{!pick.reason && <>{readerName(pick.person)} · </>}Rated {String(pick.rating ?? 0)}</span>
+        <span className="truncate">{!pick.reason && <Who pick={pick} />}Rated {String(pick.rating ?? 0)}</span>
       </>
     )}
   </p>
