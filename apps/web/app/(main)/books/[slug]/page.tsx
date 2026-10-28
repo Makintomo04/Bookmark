@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ChevronLeft, ExternalLink } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import Container from '@/app/components/Container'
 import BookCover from '@/app/components/cards/BookCover'
 import AuthorLink from '@/app/components/AuthorLink'
@@ -9,6 +9,7 @@ import AddToShelfButton from '@/app/components/discover/AddToShelfButton'
 import AddToListButton from '@/app/components/discover/AddToListButton'
 import StartCircleButton from '@/app/components/buddy-reads/StartCircleButton'
 import BookBlurb from '@/app/components/books/BookBlurb'
+import SendToFriendButton from '@/app/components/books/SendToFriendButton'
 import BookPageReaders from '@/app/components/books/BookPageReaders'
 import RatingSummary from '@/app/components/books/RatingSummary'
 import BookReviews from '@/app/components/books/BookReviews'
@@ -125,6 +126,7 @@ const Page = async ({ params }: PageProps) => {
               <div className="mt-6 flex flex-wrap items-center gap-1.5">
                 <AddToShelfButton book={book} />
                 <StartCircleButton book={book} />
+                <SendToFriendButton book={book} bookKey={key} />
                 <AddToListButton book={book} />
               </div>
             </header>
@@ -190,16 +192,6 @@ const Page = async ({ params }: PageProps) => {
                 {data.editionCount ? <><dt className="text-muted-foreground">Editions</dt><dd>{data.editionCount.toLocaleString('en-GB')}</dd></> : null}
               </dl>
               <div className="flex flex-col items-start gap-3">
-                {book.workKey && (
-                  <a
-                    href={`https://openlibrary.org/works/${book.workKey}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                  >
-                    View on Open Library<ExternalLink size={13} aria-hidden />
-                  </a>
-                )}
                 <BookProblemReport workKey={book.workKey} workId={data.workId} />
               </div>
             </section>
