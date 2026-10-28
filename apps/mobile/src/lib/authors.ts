@@ -6,9 +6,14 @@ import type { AuthorSeries } from "@/lib/series";
 
 // Author pages and following authors (the web's /authors/<slug> and lib/authorFollows.ts).
 
+// An author's website or social account (the web's lib/authorLinks.ts).
+export type AuthorLinkKind = "website" | "instagram" | "x" | "tiktok" | "bluesky";
+export interface AuthorLink { kind: AuthorLinkKind; url: string; label: string }
+
 export interface AuthorPage {
   author: { slug: string; name: string; key: string | null };
-  about?: { photoUrl: string | null; bio: string[] };
+  // links is missing from servers older than author links.
+  about?: { photoUrl: string | null; bio: string[]; links?: AuthorLink[] };
   canFollow?: boolean;
   isFollowing?: boolean;
   // Their series in our catalog, on the first page.
