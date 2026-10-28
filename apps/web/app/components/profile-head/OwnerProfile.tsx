@@ -10,7 +10,7 @@ import { notify } from '@/lib/notify'
 import ProfileHead from './ProfileHead'
 import ProfileReviews from './ProfileReviews'
 import BookList from '../books/BookList'
-import FavouritesRow from './FavouritesRow'
+import FavouritesRow, { FavouritesRowSkeleton } from './FavouritesRow'
 import useFavourite from '@/app/hooks/useFavourite'
 import { useOwnerLists } from '@/app/hooks/useLists'
 import ProfileLists from '../discover/ProfileLists'
@@ -52,7 +52,13 @@ const OwnShowcase: FC<{ username: string }> = ({ username }) => {
   const { books } = useBooks()
   const { favourites } = useFavourite()
   const { lists } = useOwnerLists(username)
-  if (!user || !Array.isArray(books)) return null
+  if (!user) return null
+  // Your favourite ids come with the page but the books behind them don't, so hold their place. With no
+  // favourites, your lists don't need the shelf and can show straight away.
+  if (!Array.isArray(books)) {
+    if ((favourites as string[]).length > 0) return <FavouritesRowSkeleton />
+    return lists.length > 0 ? <div className="mb-12"><ProfileLists username={username} isSelf flush /></div> : null
+  }
   const byId = new Map((books as Book[]).map((b) => [b.id, b]))
   const favs = (favourites as string[]).slice().reverse().flatMap((id) => byId.get(id) ?? [])
 
