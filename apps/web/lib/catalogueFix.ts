@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import { DESCRIPTION_MAX } from "@/lib/openLibrary";
-import { mirrorCover } from "@/lib/covers";
+import { copyCoverToUploadThing, isOpenLibraryCoverUrl, mirrorCover } from "@/lib/covers";
 import { uploadersOf } from "@/lib/uploads";
 import { uploadThingKey } from "@/lib/uploadedImages";
 import { logStaffAction } from "@/lib/staffLog";
@@ -71,12 +71,20 @@ export async function addWorkFromOpenLibrary(actor: Actor, key: string): Promise
   return { ok: true, value: (await findStaffWork(work.id))! };
 }
 
-// A cover for the catalogue: never a reader's upload (lib/uploads.ts), and Open Library covers are copied
-// to our own storage the way every other catalogue cover is.
+// A cover for the catalogue: never a reader's upload (lib/uploads.ts), and copied to our own storage.
+// Book pages only load images from the hosts in next.config.mjs, so a cover left on a publisher's or
+// a shop's site would save but never show.
 async function catalogueCoverFrom(url: string | null | undefined) {
   if (!url) return { ok: true as const, url: url ?? null };
   if ((await uploadersOf([url])).size) return { ok: false as const, error: "That cover is a reader's own upload, so it can't go in the shared catalogue." };
-  return { ok: true as const, url: await mirrorCover(url) };
+  if (isOpenLibraryCoverUrl(url)) return { ok: true as const, url: await mirrorCover(url) };
+  if (uploadThingKey(url)) return { ok: true as const, url };
+  try {
+    return { ok: true as const, url: await copyCoverToUploadThing(url) };
+  } catch (err) {
+    console.warn(`Couldn't copy cover ${url}:`, err instanceof Error ? err.message : err);
+    return { ok: false as const, error: "Couldn't fetch an image from that link. Use the image's own address (right-click the cover, Copy image address)." };
+  }
 }
 
 // Book rows on the work (or edition), list items on the Open Library work key. A work-wide fix skips
