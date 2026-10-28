@@ -78,7 +78,7 @@ export default async function Page({ params }: PageProps) {
 
   return (
     <div className="mt-8 sm:mt-12 pb-24">
-      <Container><div className="px-4 sm:px-8">{content}</div></Container>
+      <Container>{content}</Container>
     </div>
   )
 }

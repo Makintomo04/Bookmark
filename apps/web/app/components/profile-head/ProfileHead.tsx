@@ -40,8 +40,8 @@ const ProfileHead: FC = () => {
     return (
       <div>
         <Skeleton className="h-20 sm:h-28 w-full rounded-2xl" />
-        <div className="px-4 sm:px-8">
-          <Skeleton className="-mt-12 sm:-mt-14 size-24 sm:size-28 rounded-[32px] border-4 border-background" />
+        <div>
+          <div className="pl-4 sm:pl-8"><Skeleton className="-mt-12 sm:-mt-14 size-24 sm:size-28 rounded-[32px] border-4 border-background" /></div>
           <Skeleton className="mt-4 h-8 w-48" />
           <Skeleton className="mt-3 h-4 w-72" />
         </div>

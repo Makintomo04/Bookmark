@@ -28,8 +28,8 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
   return (
     <div className="w-full">
       <div className="h-20 sm:h-28 rounded-2xl" style={{ background: accent }} />
-      <div className="px-4 sm:px-8">
-        <div className="-mt-12 sm:-mt-14 flex items-end justify-between gap-4">
+      <div>
+        <div className="-mt-12 sm:-mt-14 flex items-end justify-between gap-4 pl-4 sm:pl-8">
           {/* No tier frame: it would give away how many books they've read. */}
           <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${profile.username}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
           {viewer && <div className="pb-1"><ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} /></div>}

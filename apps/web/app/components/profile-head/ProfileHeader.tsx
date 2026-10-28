@@ -110,8 +110,10 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
           : <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
       </div>
 
-      <div className="px-4 sm:px-8">
-        <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4">
+      {/* Everything lines up with the page's edges, like the header's logo and the banner. The avatar alone sits
+          in a little, clear of the banner's rounded corner. */}
+      <div>
+        <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4 pl-4 sm:pl-8">
           {onAvatarClick ? (
             <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
               {avatar}

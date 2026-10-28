@@ -70,7 +70,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
       />
-      <div className="mt-8 px-4 sm:px-8">
+      <div className="mt-8">
         {viewer && <BooksInCommon username={profile.username} accentColour={profile.favColour} />}
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
