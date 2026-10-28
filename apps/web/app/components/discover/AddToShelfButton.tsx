@@ -155,7 +155,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
         onClick={() => addTo("NOT_STARTED")}
         disabled={isAdding}
         aria-label={`Add ${book.title} to Want to read`}
-        className={cn(base, "h-[30px] rounded-r-none pl-3.5 pr-2.5 whitespace-nowrap hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
+        className={cn(base, "h-[30px] rounded-r-none pl-3 pr-2 whitespace-nowrap hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
       >
         {isAdding && <Loader2 size={14} className="animate-spin" aria-hidden />}
         {isAdding ? "Adding…" : "Want to read"}
@@ -164,7 +164,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
         <DropdownMenuTrigger
           disabled={isAdding}
           aria-label={`Choose a shelf for ${book.title}`}
-          className={cn(base, "h-[30px] rounded-l-none px-1.5 border-l border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
+          className={cn(base, "h-[30px] rounded-l-none px-1 border-l border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
         >
           <ChevronDown size={14} aria-hidden />
         </DropdownMenuTrigger>

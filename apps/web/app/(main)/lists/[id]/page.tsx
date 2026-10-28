@@ -108,7 +108,7 @@ const Page = async ({ params }: PageProps) => {
             {items.map((item) => (
               <li key={item.id} className="flex">
                 {/* No reason: the notes have their own section below, so neither the card nor its details repeat them. */}
-                <DiscoverBookCard rank={item.rank} book={item.book} />
+                <DiscoverBookCard rank={item.rank} actions={false} book={item.book} />
               </li>
             ))}
           </ol>
