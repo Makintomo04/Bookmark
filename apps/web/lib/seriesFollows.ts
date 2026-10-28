@@ -172,3 +172,10 @@ export async function authorSeries(author: Author, userId: string | null): Promi
     : new Set<string>()
   return list.map((s) => ({ ...s, isFollowing: following.has(s.key) }))
 }
+
+// The series a series page is for (/authors/<author>/series/<name>, seriesHref): one of the author's series
+// in the catalog, or null when they have none by that name.
+export async function authorSeriesBySlug(author: Author, slug: string, userId: string | null): Promise<AuthorSeries | null> {
+  const key = `${slug}|${author.slug}`
+  return (await authorSeries(author, userId)).find((s) => s.key === key) ?? null
+}

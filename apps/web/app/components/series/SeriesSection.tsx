@@ -2,7 +2,7 @@ import { FC } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { bookHref } from '@/lib/workKey'
-import { entryState, isPageBook, positionLabel, progressLabel, seriesPlaceLabel, type SeriesTrack } from '@/lib/series'
+import { entryState, isPageBook, positionLabel, progressLabel, seriesHref, seriesPlaceLabel, type SeriesTrack } from '@/lib/series'
 import BookCover from '../cards/BookCover'
 import FollowSeriesButton from './FollowSeriesButton'
 import SeriesRow from './SeriesRow'
@@ -36,7 +36,7 @@ const SeriesSection: FC<SeriesSectionProps> = ({ track, workId, position, signed
         <div className="min-w-0">
           <h2 id={SERIES_SECTION_ID} className={headingClassName}>In this series</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {track.name}{progress && <> · <span className="tabular-nums">{track.finished ? "All read" : progress}</span></>}
+            <Link href={seriesHref(track.name, track.author)} className="hover:text-foreground hover:underline underline-offset-2">{track.name}</Link>{progress && <> · <span className="tabular-nums">{track.finished ? "All read" : progress}</span></>}
           </p>
         </div>
         <FollowSeriesButton

@@ -13,7 +13,14 @@ const squash = (s: string) => s.normalize("NFKD").toLowerCase().replace(/[^a-z0-
 // "the-stormlight-archive|brandon-sanderson". Case, accents and punctuation aside, so "The Stormlight
 // Archive" and "Stormlight Archive, The" don't collide but "the stormlight archive" and "The Stormlight
 // Archive" do.
-export const seriesKey = (name: string, author: string) => `${squash(name).replace(/ /g, "-")}|${authorSlug(author)}`;
+export const seriesKey = (name: string, author: string) => `${seriesSlug(name)}|${authorSlug(author)}`;
+
+// The name half of the key: "the-stormlight-archive".
+export const seriesSlug = (name: string) => squash(name).replace(/ /g, "-");
+
+// The series' page on the web, under its first author: "/authors/brandon-sanderson/series/the-stormlight-archive".
+export const seriesHref = (name: string, author: string) =>
+  `/authors/${encodeURIComponent(authorSlug(author))}/series/${seriesSlug(name)}`;
 
 export const sameSeriesName = (a: string, b: string) => squash(a) === squash(b);
 
