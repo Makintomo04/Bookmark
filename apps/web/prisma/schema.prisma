@@ -285,7 +285,8 @@ model SeriesFollow {
 }
 
 // A series as Hardcover knows it, for spotting new books (lib/seriesNews.ts). Written when a work's series
-// is filled (lib/seriesFill.ts) and re-asked about weekly by the cron (app/api/cron/series).
+// is filled (lib/seriesFill.ts), or by the cron (app/api/cron/series) once someone follows or reads a
+// series filled before; the cron re-asks about it weekly.
 model SeriesCheck {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   // lib/series.ts seriesKey: the series' name and author, as SeriesFollow keys it.
@@ -293,7 +294,8 @@ model SeriesCheck {
   // As the catalogue spells it (Work.seriesName), and the author it's credited to.
   name String
   author String
-  hardcoverSeriesId Int
+  // Null when Hardcover didn't know the series; it's looked up again at the next weekly check.
+  hardcoverSeriesId Int?
   // The furthest whole-numbered book seen so far. A released book past it is new.
   highestPosition Float?
   checkedAt DateTime

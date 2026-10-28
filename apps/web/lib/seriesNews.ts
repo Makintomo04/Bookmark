@@ -97,16 +97,23 @@ export async function announceSeriesBooks(series: SeriesId, after: number): Prom
 }
 
 // Remembers what Hardcover said about a series, keeping the furthest book ever seen, and tells readers
-// about any books past what was known before. Never told on the series' first sighting.
-export async function recordSeriesCheck(series: SeriesId, hardcoverSeriesId: number, positions: (number | null | undefined)[], checkedAt = new Date()) {
+// about any books past what was known before. Never told on the series' first sighting, or with `announce`
+// off (a series Hardcover has only just found, whose "new" books may be years old). A null id is a series
+// Hardcover doesn't know, recorded from the catalogue's books so the cron can look it up again.
+export async function recordSeriesCheck(
+  series: SeriesId,
+  hardcoverSeriesId: number | null,
+  positions: (number | null | undefined)[],
+  { checkedAt = new Date(), announce = true }: { checkedAt?: Date, announce?: boolean } = {},
+) {
   const before = await prisma.seriesCheck.findUnique({ where: { seriesKey: series.key }, select: { highestPosition: true } })
   const seen = highestPosition(positions)
   const highest = before?.highestPosition != null && (seen == null || before.highestPosition > seen) ? before.highestPosition : seen
   await prisma.seriesCheck.upsert({
     where: { seriesKey: series.key },
     create: { seriesKey: series.key, name: series.name, author: series.author, hardcoverSeriesId, highestPosition: highest, checkedAt },
-    update: { hardcoverSeriesId, highestPosition: highest, checkedAt },
+    update: { ...(hardcoverSeriesId != null && { hardcoverSeriesId }), highestPosition: highest, checkedAt },
   })
-  if (before?.highestPosition == null || highest == null || highest <= before.highestPosition) return 0
+  if (!announce || before?.highestPosition == null || highest == null || highest <= before.highestPosition) return 0
   return announceSeriesBooks(series, before.highestPosition)
 }

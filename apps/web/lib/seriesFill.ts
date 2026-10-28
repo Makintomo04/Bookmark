@@ -58,7 +58,7 @@ export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> 
     },
   })
   try {
-    await recordSeriesCheck({ key: seriesKey(name, author), name, author }, found.id, [...companions.map((b) => b.position), found.position], checkedAt)
+    await recordSeriesCheck({ key: seriesKey(name, author), name, author }, found.id, [...companions.map((b) => b.position), found.position], { checkedAt })
   } catch (err) {
     // The work has its series either way; the next fill or re-check of the series records it.
     console.warn(`series: couldn't record series "${name}":`, err instanceof Error ? err.message : err)
