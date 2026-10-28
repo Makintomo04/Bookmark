@@ -55,6 +55,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
     <div className="w-full">
       <ProfileHeader
         username={profile.username}
+        displayName={profile.displayName}
         booksRead={completedCount}
         bio={profile.bio}
         image={profile.image}

@@ -43,6 +43,7 @@ async function loadProfileRecord(username: string) {
     select: {
       id: true,
       username: true,
+      displayName: true,
       bio: true,
       image: true,
       banner: true,
@@ -74,6 +75,8 @@ type ProfileRecord = NonNullable<Awaited<ReturnType<typeof loadProfileRecord>>>;
 // What a profile shows when the viewer can't see it: enough to say whose it is, nothing about their reading.
 export interface RestrictedProfile {
   username: string;
+  // Set by the reader; the username shows when unset (readerName in lib/profile.ts).
+  displayName: string | null;
   image: string | null;
   favColour: string | null;
   // Shown even on a private profile, so a real staff account can be told from someone pretending.
@@ -123,6 +126,7 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     }));
   return {
     username: record.username,
+    displayName: record.displayName,
     bio: record.bio,
     image: record.image,
     // A reader who hasn't chosen a banner gets the preset seeded from their id, same as they see themselves.
@@ -178,6 +182,7 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
     reason,
     profile: {
       username: record.username,
+      displayName: record.displayName,
       image: reason === "unavailable" ? null : record.image,
       favColour: reason === "unavailable" ? null : record.favColour,
       staffBadge: reason === "unavailable" ? null : staffBadgeOf(record),
@@ -201,6 +206,7 @@ export async function getAchievementsView(username: string, viewerId: string | n
     ...view,
     achievements: {
       username: profile.username,
+      displayName: profile.displayName,
       // The shelf's count, as their profile and tier frame show it: private books aren't in it.
       booksRead: readingCounts(profile.books).booksRead,
       ladders: ladders(profile.achievements, stats),

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
@@ -113,7 +114,7 @@ function InviteRow({ invite, onChange }: { invite: CircleInvite; onChange: () =>
         <BookCover book={{ title: invite.buddyRead.title, author: invite.buddyRead.author, coverImage: invite.buddyRead.coverImage, cardColour: invite.buddyRead.cardColour }} width={44} />
         <View style={{ flex: 1 }}>
           <Text numberOfLines={2}>{invite.buddyRead.title}</Text>
-          <Text variant="small">{invite.inviter.username ? `@${invite.inviter.username}` : "A reader"} asked you to read along</Text>
+          <Text variant="small">{readerName(invite.inviter) || "A reader"} asked you to read along</Text>
         </View>
       </View>
       {error && <Text variant="small" style={{ color: colors.danger }}>{error}</Text>}

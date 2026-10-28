@@ -72,6 +72,7 @@ const ProfileHead: FC = () => {
     <>
       <ProfileHeader
         username={user.username}
+        displayName={user.displayName}
         booksRead={booksReadFor(user.username, booksRead)}
         bio={user.bio}
         image={user.image}

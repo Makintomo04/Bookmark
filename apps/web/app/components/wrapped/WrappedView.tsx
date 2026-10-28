@@ -15,6 +15,8 @@ const fmt = (n: number) => n.toLocaleString('en-GB')
 interface WrappedViewProps {
   wrapped: WrappedData
   username: string
+  // What to call them: their display name, or the username. Links use the username.
+  name?: string
   // The reader's favourite colour as #rrggbb.
   accent: string
   own: boolean
@@ -74,9 +76,9 @@ const BookFeature: FC<{ book: WrappedData['longestBook']; accent: string; childr
     </div>
   ) : null
 
-const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, accent, own, years }) => {
-  const voice: copy.Voice = { own, name: username }
-  const title = own ? `Your ${w.year} in books` : `${username}'s ${w.year} in books`
+const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, name = username, accent, own, years }) => {
+  const voice: copy.Voice = { own, name }
+  const title = own ? `Your ${w.year} in books` : `${name}'s ${w.year} in books`
   const shareUrl = `/u/${encodeURIComponent(username)}/wrapped/${w.year}`
   const otherYears = years.filter((y) => y !== w.year)
   const yearLinks = otherYears.length > 0 && (
@@ -100,7 +102,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, accent, own, 
               ? w.isCurrentYear
                 ? `No finished books dated ${w.year} yet. Finish one and this starts filling in.`
                 : `No finished books dated ${w.year}. If you read them somewhere else, bring them over and this fills in.`
-              : `${username} hasn't finished a book dated ${w.year} on Bookmark.`}
+              : `${name} hasn't finished a book dated ${w.year} on Bookmark.`}
           </Line>
           {own && (
             <div className="mt-8 flex flex-wrap gap-3">
@@ -176,7 +178,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, accent, own, 
 
       {w.topRated && (
         <Card tone="accent" accent={accent} label="Top-rated book">
-          <Kicker>{own ? 'Your favourite' : `${username}'s favourite`}</Kicker>
+          <Kicker>{own ? 'Your favourite' : `${name}'s favourite`}</Kicker>
           <BookFeature book={w.topRated} accent={accent}>
             <p className="mt-3"><Stars rating={w.topRated.rating} /></p>
           </BookFeature>

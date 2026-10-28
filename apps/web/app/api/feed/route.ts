@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
     take: batch + 1,
     include: {
-      user: { select: { username: true, image: true, favColour: true, ...booksReadCount, ...privacySelect } },
+      user: { select: { username: true, displayName: true, image: true, favColour: true, ...booksReadCount, ...privacySelect } },
       book: { select: { title: true, author: true, coverImage: true, cardColour: true, rating: true, status: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, isPrivate: true } },
     },
   })
@@ -54,8 +54,8 @@ export async function GET(req: Request) {
 
   // The row as ActivityFeedItem reads it, or null when the viewer may not see it.
   const visibleRow = ({ user, book, ...activity }: (typeof rows)[number]): Record<string, unknown> | null => {
-    const { username, image, favColour, _count, ...stored } = user
-    const publicUser = { username, image, favColour, _count }
+    const { username, displayName, image, favColour, _count, ...stored } = user
+    const publicUser = { username, displayName, image, favColour, _count }
     const privacy = privacyOf(stored)
     if (!canView(relation, privacy, "activity")) return null
     if (!book) return { ...activity, user: publicUser, book: null }

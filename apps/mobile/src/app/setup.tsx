@@ -6,7 +6,7 @@ import { BookOpen, ChevronRight, Target, Upload, UsersRound } from "lucide-react
 import { bannerPresetValue, defaultBannerPreset, type BannerPresetId } from "@bookmark/shared/banners";
 import { GENRES } from "@bookmark/shared/genres";
 import { GOAL_BOOKS_MAX } from "@bookmark/shared/goals";
-import { DEFAULT_COLOUR, normaliseUsername, suggestUsername, usernameProblem } from "@bookmark/shared/profile";
+import { DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, readerName, suggestUsername, usernameProblem } from "@bookmark/shared/profile";
 import { PROFILE_HINT, PROFILE_OPTIONS } from "@bookmark/shared/settingsCopy";
 import type { ProfileVisibility } from "@bookmark/shared/enums";
 import { BannerPicker, ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
@@ -75,6 +75,7 @@ function Progress({ step }: { step: Step }) {
 function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
   const { colors, radii } = useTheme();
   const [username, setUsername] = useState(() => suggestUsername(me));
+  const [displayName, setDisplayName] = useState("");
   const [colour, setColour] = useState(DEFAULT_COLOUR);
   const [banner, setBanner] = useState<BannerPresetId>(() => defaultBannerPreset(me.id));
   // Google and Apple accounts may arrive with a picture; start from it.
@@ -84,14 +85,16 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
   const name = normaliseUsername(username);
   const problem = name ? usernameProblem(name) : null;
   const availability = useUsernameAvailability(username);
+  const displayNameError = displayNameProblem(normaliseDisplayName(displayName));
 
   const save = async () => {
     if (problem) return setError(problem);
     if (availability === "taken") return setError("That username is already taken.");
+    if (displayNameError) return setError(displayNameError);
     setSaving(true);
     setError(null);
     try {
-      await api.post("/api/new-user", { username: name, color: colour, imageSrc: image || undefined, bannerSrc: bannerPresetValue(banner) });
+      await api.post("/api/new-user", { username: name, displayName: normaliseDisplayName(displayName) || undefined, color: colour, imageSrc: image || undefined, bannerSrc: bannerPresetValue(banner) });
       onDone();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't save your profile. Check your connection and try again.");
@@ -114,6 +117,10 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
       <View style={{ gap: 6 }}>
         <TextField label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} error={error ?? problem} />
         {!error && !problem && <Text variant="small" style={availability === "taken" && { color: colors.danger }}>{usernameHint(name, availability)}</Text>}
+      </View>
+      <View style={{ gap: 6 }}>
+        <TextField label="Display name · optional" value={displayName} onChangeText={(t) => setDisplayName(t.slice(0, DISPLAY_NAME_MAX))} autoCapitalize="words" error={displayNameError} />
+        <Text variant="small">Heads your profile, with your username under it. Skip it to go by your username.</Text>
       </View>
 
       <ColourPicker value={colour} onChange={setColour} />
@@ -179,7 +186,7 @@ function StartStep() {
   const refreshUser = useAuth((s) => s.refreshUser);
   const setPendingPath = useAuth((s) => s.setPendingPath);
   const username = useAuth((s) => s.user?.username);
-  const { data: me } = useSWR<{ username: string | null }>("/api/user");
+  const { data: me } = useSWR<{ username: string | null; displayName?: string | null }>("/api/user");
   const [leaving, setLeaving] = useState(false);
 
   // Onboarding is done: the root layout moves on to the app, which then opens where the reader chose.
@@ -192,7 +199,7 @@ function StartStep() {
   return (
     <View style={styles.step}>
       <View style={styles.intro}>
-        <Text variant="display" style={styles.center}>Welcome, {me?.username ?? username}</Text>
+        <Text variant="display" style={styles.center}>Welcome, {me ? readerName(me) : username}</Text>
         <Text variant="muted" style={styles.center}>Your profile is ready. Start a circle with friends, or put a few books on your shelf.</Text>
       </View>
       <Option icon={UsersRound} title="Start a reading circle" description="Pick a book, share one link, and talk about it as you go." onPress={() => finish("/add-book?shelf=STARTED&startCircle=1")} />

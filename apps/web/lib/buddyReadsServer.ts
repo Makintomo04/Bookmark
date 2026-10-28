@@ -88,7 +88,7 @@ export async function newInviteCode() {
   throw new Error("Couldn't make a unique invite code")
 }
 
-const userSelect = { id: true, username: true, image: true, favColour: true, ...booksReadCount } as const
+const userSelect = { id: true, username: true, displayName: true, image: true, favColour: true, ...booksReadCount } as const
 
 type ProgressBook = Pick<Book, "id" | "status" | "currentPage" | "pages" | "progressUnit" | "currentMinute" | "audioMinutes">
 const progressBookSelect = { id: true, ...progressSelect } as const
@@ -176,7 +176,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const pastWriterIds = Array.from(new Set(rows.map((r) => r.userId).filter((id) => !userById.has(id))))
   const [pastWriters, blocked] = await Promise.all([
     pastWriterIds.length > 0
-      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, image: true, favColour: true } })
+      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, displayName: true, image: true, favColour: true } })
       : Promise.resolve([]),
     blockedAmong(viewerId, [...memberRows.map((m) => m.userId), ...pastWriterIds]),
   ])
@@ -189,6 +189,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
     return [{
       userId: m.userId,
       username: user.username,
+      displayName: user.displayName,
       image: user.image,
       favColour: user.favColour,
       booksRead: booksReadOf(user),
@@ -200,12 +201,12 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
     }]
   })
 
-  const authors: CommentAuthors = new Map(members.map((m) => [m.userId, { username: m.username, image: m.image, favColour: m.favColour }]))
+  const authors: CommentAuthors = new Map(members.map((m) => [m.userId, { username: m.username, displayName: m.displayName, image: m.image, favColour: m.favColour }]))
   const pastWriterById = new Map(pastWriters.map((u) => [u.id, u]))
   for (const id of pastWriterIds) {
     if (blocked.has(id)) continue
     const u = pastWriterById.get(id)
-    authors.set(id, u ? { username: u.username, image: u.image, favColour: u.favColour } : null)
+    authors.set(id, u ? { username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour } : null)
   }
   // The lock runs here, on the server: bodies past the viewer's progress never leave this function.
   const comments = serializeComments(rows, { userId: viewerId, progress }, authors)
@@ -244,7 +245,7 @@ export async function loadInvite(code: string) {
   const userById = new Map(users.map((u) => [u.id, u]))
   const members = memberRows.flatMap((m) => {
     const u = userById.get(m.userId)
-    return u ? [{ userId: u.id, username: u.username, image: u.image, favColour: u.favColour, booksRead: booksReadOf(u) }] : []
+    return u ? [{ userId: u.id, username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, booksRead: booksReadOf(u) }] : []
   })
   const host = members.find((m) => m.userId === buddyRead.hostId) ?? null
   return { buddyRead, host, members }

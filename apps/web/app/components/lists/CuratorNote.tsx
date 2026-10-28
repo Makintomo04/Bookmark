@@ -1,4 +1,5 @@
 import { FC } from 'react'
+import { readerName } from '@/lib/profile'
 import Image from 'next/image'
 import Link from 'next/link'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
@@ -33,7 +34,8 @@ interface CuratorNoteProps {
 const CuratorNote: FC<CuratorNoteProps> = ({ reason, variant = "card", label = "Why you'd like it", className }) => {
   const accent = accentOf(reason.by)
   const full = variant === "full"
-  const name = reason.by.username
+  const handle = reason.by.username
+  const name = readerName(reason.by)
   return (
     <figure
       className={cn("relative rounded-lg border-l-[3px] bg-neutral-50 dark:bg-neutral-900/60", full ? "p-4" : "px-2.5 py-2", className)}
@@ -42,8 +44,8 @@ const CuratorNote: FC<CuratorNoteProps> = ({ reason, variant = "card", label = "
       <figcaption className={cn("flex items-center gap-1.5 min-w-0", full ? "mb-2" : "mb-1")}>
         <CuratorAvatar person={reason.by} size={full ? 28 : 18} />
         <span className={cn("min-w-0 truncate", full ? "text-sm" : "text-[11px]")}>
-          {name ? (
-            <Link href={`/u/${name}`} className="font-semibold hover:underline underline-offset-2">{name}</Link>
+          {handle ? (
+            <Link href={`/u/${handle}`} className="font-semibold hover:underline underline-offset-2">{name}</Link>
           ) : (
             <span className="font-semibold">A reader</span>
           )}

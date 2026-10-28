@@ -1,4 +1,5 @@
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
+import { readerName } from "@bookmark/shared/profile";
 import { router } from "expo-router";
 import useSWR from "swr";
 import { ChevronRight, ListOrdered, Search, Feather, Star, UserRound } from "lucide-react-native";
@@ -128,7 +129,7 @@ function PickCard({ pick }: { pick: FollowingPick }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${pick.book.title} by ${pick.book.author}, picked by ${pick.person.username ?? "a reader"}. Add it.`}
+      accessibilityLabel={`${pick.book.title} by ${pick.book.author}, picked by ${readerName(pick.person) || "a reader"}. Add it.`}
       onPress={() => addBook(pick.book)}
       style={[styles.pick, { borderRadius: radii.lg, borderColor: colors.border }]}
     >

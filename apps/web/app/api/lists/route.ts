@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handleOf } from "@/lib/handle";
 import { can } from "@/lib/roles";
 import prisma from "@/lib/db";
 import getCurrentUser from "@/app/actions/getCurrentUser";
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
     featured: searchParams.get("featured") === "1",
     reported: searchParams.get("reported") === "1",
     genre: searchParams.get("genre") || undefined,
-    owner: searchParams.get("owner") || undefined,
+    owner: handleOf(searchParams.get("owner")) || undefined,
     limit: Number(searchParams.get("limit")) || undefined,
   }, viewer);
   return NextResponse.json(lists);

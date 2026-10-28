@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from "react-native";
+import { readerName } from "@bookmark/shared/profile";
 import { router } from "expo-router";
 import { BookCover } from "@/components/books/BookCover";
 import { Text } from "@/components/ui/Text";
@@ -11,7 +12,7 @@ export function ListCard({ list, width = 220 }: { list: ListSummary; width?: num
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`${list.title}, ${list.itemCount} ${list.itemCount === 1 ? "book" : "books"}${list.isPick ? ", a Bookmark pick" : list.owner.username ? `, by ${list.owner.username}` : ""}`}
+      accessibilityLabel={`${list.title}, ${list.itemCount} ${list.itemCount === 1 ? "book" : "books"}${list.isPick ? ", a Bookmark pick" : list.owner.username ? `, by ${readerName(list.owner)}` : ""}`}
       onPress={() => router.push(`/lists/${list.id}`)}
       style={({ pressed }) => [styles.card, { width, borderRadius: radii.lg, borderColor: colors.border, backgroundColor: pressed ? colors.muted : colors.card }]}
     >
@@ -21,7 +22,7 @@ export function ListCard({ list, width = 220 }: { list: ListSummary; width?: num
         ))}
       </View>
       <Text numberOfLines={2} style={{ fontSize: 15 }}>{list.title}</Text>
-      <Text variant="small" numberOfLines={1}>{list.isPick ? "Bookmark pick" : list.owner.username ? `by ${list.owner.username}` : "A reader's list"} · {list.itemCount} {list.itemCount === 1 ? "book" : "books"}</Text>
+      <Text variant="small" numberOfLines={1}>{list.isPick ? "Bookmark pick" : list.owner.username ? `by ${readerName(list.owner)}` : "A reader's list"} · {list.itemCount} {list.itemCount === 1 ? "book" : "books"}</Text>
     </Pressable>
   );
 }

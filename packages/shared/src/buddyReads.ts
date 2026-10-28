@@ -152,7 +152,7 @@ export type CommentRow = {
   reactions: { userId: string, emoji: string }[]
 }
 
-export type CommentAuthor = { username: string | null, image: string | null, favColour: string | null }
+export type CommentAuthor = { username: string | null, displayName?: string | null, image: string | null, favColour: string | null }
 
 export type Viewer = { userId: string, progress: number }
 

@@ -1,5 +1,6 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
+import ReaderName from '@/app/components/profile/ReaderName'
 import Image from 'next/image'
 import { Check } from 'lucide-react'
 import axios from 'axios'
@@ -65,7 +66,7 @@ const RecommendModal: FC = () => {
                     {f.image && <Image src={f.image} alt="" fill className="object-cover" />}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium truncate">{f.username}</span>
+                    <span className="block text-sm font-medium truncate"><ReaderName reader={f} /></span>
                     {f.hasBook && <span className="block text-xs text-muted-foreground">Already has it</span>}
                   </span>
                   <span aria-hidden className={cn("h-5 w-5 rounded-md border flex-shrink-0 flex items-center justify-center", on && "bg-foreground border-foreground text-background")}>

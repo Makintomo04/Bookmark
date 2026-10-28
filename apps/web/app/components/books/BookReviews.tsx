@@ -1,5 +1,6 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import axios from 'axios'
 import useSWR from 'swr'
@@ -14,11 +15,12 @@ import { StaffBadge, secondaryButtonClass } from '../profile-head/ProfileHeader'
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 
 const ReviewItem: FC<{ review: WorkReview }> = ({ review }) => {
-  const name = review.person.username
+  const handle = review.person.username
+  const name = readerName(review.person)
   return (
     <li className="flex gap-3 py-5 first:pt-0">
-      {name ? (
-        <Link href={`/u/${name}`} aria-hidden tabIndex={-1} className="shrink-0">
+      {handle ? (
+        <Link href={`/u/${handle}`} aria-hidden tabIndex={-1} className="shrink-0">
           <CuratorAvatar person={review.person} size={36} />
         </Link>
       ) : (
@@ -26,7 +28,7 @@ const ReviewItem: FC<{ review: WorkReview }> = ({ review }) => {
       )}
       <div className="min-w-0 flex-1">
         <p className="text-sm">
-          {name ? <Link href={`/u/${name}`} className="font-semibold hover:underline underline-offset-2">{name}</Link> : <span className="font-semibold">A reader</span>}
+          {handle ? <Link href={`/u/${handle}`} className="font-semibold hover:underline underline-offset-2">{name}</Link> : <span className="font-semibold">A reader</span>}
           {review.staffBadge && <StaffBadge kind={review.staffBadge} className="ml-2" />}
           {review.isMine && <span className="text-muted-foreground"> · You</span>}
           <span className="text-muted-foreground"> · {dateOf(review.at)}</span>

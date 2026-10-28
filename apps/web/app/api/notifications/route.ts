@@ -28,7 +28,7 @@ export async function GET(req: Request) {
       // One extra says whether there's another page.
       take: limit + 1,
       include: {
-        actor: { select: { username: true, image: true, favColour: true, ...booksReadCount } },
+        actor: { select: { username: true, displayName: true, image: true, favColour: true, ...booksReadCount } },
       },
     }),
     prisma.notification.count({ where: { ...shown, read: false } }),

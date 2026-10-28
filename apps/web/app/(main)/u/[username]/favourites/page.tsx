@@ -1,4 +1,6 @@
 import { Metadata } from 'next'
+import { handleOf, profileHandle } from '@/lib/handle'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
@@ -15,16 +17,16 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const data = await getPublicProfile(params.username)
+  const data = await getPublicProfile(handleOf(params.username))
   if (!data) return { title: "Reader not found", robots: { index: false } }
-  return { title: `${data.profile.username}'s favourites`, robots: { index: false } }
+  return { title: `${readerName(data.profile)}'s favourites`, robots: { index: false } }
 }
 
 // Every favourite of another reader, where their profile's favourites row says "See all". Same privacy as
 // the row (lib/publicProfile.ts): hidden favourites and private books never arrive. Your own are at /favourites.
 export default async function Page({ params }: PageProps) {
   const viewer = await getCurrentUser()
-  const data = await getProfileView(params.username, viewer?.id)
+  const data = await getProfileView(profileHandle(params.username, "/favourites"), viewer?.id)
   if (!data) notFound()
   if (data.access === "full" && data.relation.isSelf) redirect('/favourites')
 
@@ -43,10 +45,10 @@ export default async function Page({ params }: PageProps) {
     content = (
       <>
         <Link href={`/u/${encodeURIComponent(profile.username)}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground">
-          <ChevronLeft size={16} aria-hidden />{profile.username}
+          <ChevronLeft size={16} aria-hidden />{readerName(profile)}
         </Link>
         <h1 className="page-title mt-2 mb-8 break-words">
-          {profile.username}&rsquo;s favourites
+          {readerName(profile)}&rsquo;s favourites
           <span className="ml-3 text-lg font-normal text-muted-foreground tabular-nums">{profile.favourites.length.toLocaleString('en-GB')}</span>
         </h1>
         {profile.favourites.length > 0
