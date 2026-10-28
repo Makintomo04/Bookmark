@@ -42,9 +42,12 @@ const username = typeof body.username === "string" ? normaliseUsername(body.user
 if (username === null) {
   return NextResponse.json({ error: "Choose a username." }, { status: 400 });
 }
-// Checked only when it changes, so an older name that predates these rules can still be kept.
-const usernameChanged = username !== currentUser.username?.toLowerCase();
-const usernameError = usernameChanged ? usernameProblem(username) : null;
+// A change of case alone is still saved, so an account from before usernames were normalised comes
+// into line the first time its profile is edited. The rules are checked only for a different name,
+// so an older name that predates them can still be kept.
+const usernameChanged = username !== currentUser.username;
+const usernameRenamed = username !== currentUser.username?.toLowerCase();
+const usernameError = usernameRenamed ? usernameProblem(username) : null;
 if (usernameError) {
   return NextResponse.json({ error: usernameError }, { status: 400 });
 }

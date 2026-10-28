@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/apiAuth";
+import { findUserByUsername } from "@/lib/userLookup";
 import { handleOf } from "@/lib/handle";
 import prisma from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
@@ -19,10 +20,7 @@ export async function POST(
   const limit = rateLimit(`follow:${currentUser.id}`, 60, 60 * 60 * 1000);
   if (!limit.ok) return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429 });
 
-  const targetUser = await prisma.user.findUnique({
-    where: { username: handleOf(params.username) },
-    select: { id: true, profileVisibility: true },
-  });
+  const targetUser = await findUserByUsername(handleOf(params.username), { id: true, profileVisibility: true });
   if (!targetUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }

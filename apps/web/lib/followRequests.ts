@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { findUserByUsername } from "@/lib/userLookup";
 import prisma from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 import { blockedUserIds } from "@/lib/privacy";
@@ -121,7 +122,7 @@ export async function respondToRequest(ownerId: string, requestId: string, accep
 
 // The same, from the bell, which knows the requester rather than the request.
 export async function respondToRequestFrom(ownerId: string, requesterUsername: string, accept: boolean): Promise<RequestResponse> {
-  const requester = await prisma.user.findUnique({ where: { username: requesterUsername }, select: { id: true } });
+  const requester = await findUserByUsername(requesterUsername, { id: true });
   const request = requester && await prisma.followRequest.findUnique({ where: { requesterId_targetId: { requesterId: requester.id, targetId: ownerId } }, select: { id: true } });
   if (!request) {
     // Already answered (here or in another tab) or withdrawn: tidy the bell and say so.

@@ -1,4 +1,5 @@
 import { booksReadCount } from "@/lib/readerTier";
+import { usernameEquals } from "@/lib/userLookup"
 import { Prisma } from "@prisma/client"
 import prisma from "./db"
 import { GENRES } from "./genres"
@@ -68,7 +69,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
       ...(filters.genre ? [{ genres: { has: filters.genre } }] : []),
       ...(filters.workKey ? [{ items: { some: { workKey: filters.workKey } } }] : []),
       ...(filters.featured ? [{ featuredFrom: { lte: now }, featuredUntil: { gte: now } }] : []),
-      ...(filters.owner ? [{ owner: { username: filters.owner } }] : []),
+      ...(filters.owner ? [{ owner: { username: usernameEquals(filters.owner) } }] : []),
       ...(filters.reported ? [{ reports: { some: {} } }] : []),
       ...(filters.chosen ? [{ chosenAt: { not: null } }] : []),
       ...(filters.quality ? [{

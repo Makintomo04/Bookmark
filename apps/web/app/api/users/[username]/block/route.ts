@@ -1,11 +1,12 @@
 import { requireUser } from "@/lib/apiAuth";
+import { findUserByUsername } from "@/lib/userLookup";
 import { handleOf } from "@/lib/handle";
 import prisma from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 
 async function findTarget(username: string) {
-  return prisma.user.findUnique({ where: { username }, select: { id: true } });
+  return findUserByUsername(username, { id: true });
 }
 
 // Block: they can't follow you or see your profile, reviews or activity, and you both drop out of

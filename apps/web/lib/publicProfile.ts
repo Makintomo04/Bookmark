@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { findUserByUsername } from "@/lib/userLookup";
 import prisma from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { QUEST_MEDAL_PREFIX } from "@/lib/achievements-catalog";
@@ -38,9 +39,7 @@ const publicBookSelect = {
 async function loadProfileRecord(username: string) {
   if (!username) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { username },
-    select: {
+  const user = await findUserByUsername(username, {
       id: true,
       username: true,
       displayName: true,
@@ -62,7 +61,6 @@ async function loadProfileRecord(username: string) {
       authorFollows: { orderBy: { name: "asc" }, select: { name: true, slug: true } },
       // Oldest first, as they were added; the profile shows the newest first.
       favouriteIds: true,
-    },
   });
   if (!user?.username) return null;
   return { ...user, username: user.username };

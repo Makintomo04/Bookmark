@@ -27,7 +27,9 @@
     "backfill:series": "node --env-file=.env.local scripts/backfill-series.ts",
     "backfill:series:prod": "node --env-file=.env.prod.local scripts/backfill-series.ts",
     "backfill:series-checks": "node --env-file=.env.local scripts/backfill-series-checks.ts",
-    "backfill:series-checks:prod": "node --env-file=.env.prod.local scripts/backfill-series-checks.ts"
+    "backfill:series-checks:prod": "node --env-file=.env.prod.local scripts/backfill-series-checks.ts",
+    "usernames:lowercase": "node --env-file=.env.local scripts/lowercase-usernames.ts",
+    "usernames:lowercase:prod": "node --env-file=.env.prod.local scripts/lowercase-usernames.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
