@@ -14,7 +14,6 @@ import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books
 import CappedShelf from './CappedShelf'
 import ProfileShowcase from './ProfileShowcase'
 import { shelfPageHref } from '@/lib/shelfFilter'
-import ProfileLists from '../discover/ProfileLists'
 import ProfileAuthors from './ProfileAuthors'
 import { isFinishedBook } from '@/lib/readerTier'
 
@@ -75,7 +74,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         ]}
       />
       <div className="mt-8">
-        <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} accentColour={profile.favColour} signedIn={!!viewer} />
+        <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} />
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (
@@ -96,7 +95,6 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
             <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
           </>
         )}
-        <ProfileLists username={profile.username} isSelf={false} />
         <div className="mt-12"><ProfileAuthors authors={profile.followedAuthors} /></div>
       </div>
     </div>
