@@ -86,10 +86,10 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
             {finished.length > 0 && (
               <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
             )}
-            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport />
             {wantToRead.length > 0 && (
               <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
             )}
+            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport />
           </>
         )}
         <ProfileLists username={profile.username} isSelf={false} />
