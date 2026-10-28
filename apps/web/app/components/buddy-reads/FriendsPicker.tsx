@@ -10,6 +10,7 @@ import type { FriendPerson } from '@/lib/friends'
 import { cn } from '@/lib/utils'
 import InitialAvatar from '../profile/InitialAvatar'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface FriendsPickerProps {
   buddyReadId: string
@@ -86,7 +87,10 @@ const FriendsPicker: FC<FriendsPickerProps> = ({ buddyReadId, memberUsernames, r
                     ? <Image src={friend.image} alt="" fill sizes="32px" className="object-cover" />
                     : <InitialAvatar username={friend.username} favColour={friend.favColour} label="" />}
                 </span>
-                <span className="min-w-0 flex-1 truncate font-medium">{friend.username}</span>
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {friend.username}
+                  {friend.staffBadge && <StaffSeal kind={friend.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />}
+                </span>
                 {here
                   ? <span className="text-xs text-muted-foreground">Already here</span>
                   : (

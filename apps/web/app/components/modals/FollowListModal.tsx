@@ -19,6 +19,7 @@ import Loader from '../Loader'
 import useUser from '@/app/hooks/useUser'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useFollowListModal from '@/app/hooks/useFollowListModal'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface FollowPage {
   users: FollowListUser[]
@@ -110,7 +111,7 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
                     : <InitialAvatar username={person.username} favColour={person.favColour} />}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-medium"><ReaderName reader={person} />{person.isSelf && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>}</p>
+                  <p className="truncate font-medium"><ReaderName reader={person} badge={person.staffBadge && <StaffSeal kind={person.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} />{person.isSelf && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>}</p>
                   {person.bio && <p className="truncate text-xs text-muted-foreground">{person.bio}</p>}
                 </div>
               </Link>

@@ -8,6 +8,7 @@ import type { BuddyReadView } from '@/lib/buddyReadsServer'
 import Modal from '../modals/Modal'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 import MemberAvatar from './MemberAvatar'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface HandOverDialogProps {
   isOpen: boolean
@@ -54,7 +55,7 @@ const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId,
           <label key={m.userId} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 has-[:checked]:border-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
             <input type="radio" name="new-host" value={m.userId} aria-label={readerName(m) || "Reader"} checked={chosen === m.userId} onChange={() => setChosen(m.userId)} className="sr-only" />
             <MemberAvatar username={m.username} image={m.image} favColour={m.favColour} size={32} />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium"><ReaderName reader={m} /></span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium"><ReaderName reader={m} badge={m.staffBadge && <StaffSeal kind={m.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />} /></span>
             {i === 0 && <span className="shrink-0 text-xs text-muted-foreground">Here longest</span>}
           </label>
         ))}

@@ -104,7 +104,7 @@ function MemberRow({ member }: { member: CircleMember }) {
       <Avatar image={member.image} name={member.username} colour={member.favColour} size={32} />
       <View style={{ flex: 1, gap: 4 }}>
         <View style={styles.between}>
-          <Text style={{ fontSize: 15 }}>{member.isYou ? "You" : readerName(member) || "A reader"}{member.isHost ? " · host" : ""}</Text>
+          <Text style={{ fontSize: 15 }}>{member.isYou ? "You" : readerName(member) || "A reader"}{!member.isYou && member.staffBadge ? <StaffSeal kind={member.staffBadge} size={16} pressable={false} style={styles.seal} /> : null}{member.isHost ? " · host" : ""}</Text>
           <Text variant="small">{member.finishedAt ? "Finished" : formatPercent(member.progress)}</Text>
         </View>
         <View style={[styles.track, { backgroundColor: colors.muted }]}>
@@ -396,6 +396,8 @@ function LeaveButton({ circleId, userId }: { circleId: string; userId: string })
 }
 
 const styles = StyleSheet.create({
+  // Inline in a line of text, so lifted a touch to sit on its middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 2 }] },
   bookRow: { flexDirection: "row", gap: 16, alignItems: "flex-start" },
   between: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   memberRow: { flexDirection: "row", gap: 12, alignItems: "center" },

@@ -11,6 +11,7 @@ import { notify, apiError } from '@/lib/notify'
 import type { PendingFollowRequest } from '@/lib/followRequests'
 import InitialAvatar from '../profile/InitialAvatar'
 import { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 // The owner's pending follow requests (profiles that aren't public approve each follower). Renders
 // nothing when there are none, so it can sit at the top of the profile and in Settings.
@@ -53,7 +54,7 @@ const FollowRequests: FC<{ className?: string }> = ({ className }) => {
                       ? <Image src={request.requester.image} alt="" fill sizes="40px" className="object-cover" />
                       : <InitialAvatar username={request.requester.username} favColour={request.requester.favColour} />}
                   </span>
-                  <span className="truncate font-medium"><ReaderName reader={request.requester} /></span>
+                  <span className="truncate font-medium"><ReaderName reader={request.requester} badge={request.requester.staffBadge && <StaffSeal kind={request.requester.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} /></span>
                 </Link>
                 <div className="flex gap-2">
                   <button type="button" disabled={busy === request.id} onClick={() => respond(request, 'accept')} className={primaryButtonClass} aria-label={`Accept ${name}'s request`}>

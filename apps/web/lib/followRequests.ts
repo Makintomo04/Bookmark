@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 import { blockedUserIds } from "@/lib/privacy";
 import { needsFollowApproval } from "@/lib/followRules";
+import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
 
 export { needsFollowApproval };
 
@@ -64,7 +65,7 @@ export async function hasRequested(viewerId: string, targetId: string) {
 export interface PendingFollowRequest {
   id: string;
   createdAt: string;
-  requester: { username: string | null; displayName: string | null; image: string | null; favColour: string | null };
+  requester: { username: string | null; displayName: string | null; image: string | null; favColour: string | null; staffBadge: StaffBadgeKind | null };
 }
 
 // The owner's pending requests, newest first. Requests from readers either side has since blocked are
@@ -77,14 +78,14 @@ export async function pendingRequestsFor(ownerId: string, take = 50): Promise<Pe
   const visible = requests.filter((r) => !blocked.includes(r.requesterId));
   const users = await prisma.user.findMany({
     where: { id: { in: visible.map((r) => r.requesterId) } },
-    select: { id: true, username: true, displayName: true, image: true, favColour: true },
+    select: { id: true, username: true, displayName: true, image: true, favColour: true, ...staffBadgeSelect },
   });
   const byId = new Map(users.map((u) => [u.id, u]));
   return visible.flatMap((r) => {
     const user = byId.get(r.requesterId);
     // A requester whose account is gone.
     if (!user) return [];
-    return [{ id: r.id, createdAt: r.createdAt.toISOString(), requester: { username: user.username, displayName: user.displayName, image: user.image, favColour: user.favColour } }];
+    return [{ id: r.id, createdAt: r.createdAt.toISOString(), requester: { username: user.username, displayName: user.displayName, image: user.image, favColour: user.favColour, staffBadge: staffBadgeOf(user) } }];
   });
 }
 

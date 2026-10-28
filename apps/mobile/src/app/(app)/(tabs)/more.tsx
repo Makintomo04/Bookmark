@@ -8,10 +8,16 @@ import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { useAuth } from "@/lib/auth";
 import { webUrl } from "@/lib/config";
+import useSWR from "swr";
+import { staffBadgeOf } from "@bookmark/shared/staffBadge";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 
 // The rest of the web's user menu: your reading, then the account (settings, Plus, import), and the legal pages.
 export default function More() {
   const { user, signOut } = useAuth();
+  // The session keeps only who you are; /api/user (cached by the profile tab) has your role.
+  const { data: me } = useSWR<{ role?: string | null; isStaff?: boolean | null; hideStaffBadge?: boolean | null }>("/api/user");
+  const ownSeal = staffBadgeOf(me);
 
   return (
     <Screen>
@@ -27,7 +33,10 @@ export default function More() {
 
       <View style={styles.section}>
         <Text variant="title">Account</Text>
-        <Text variant="muted">Signed in as {user?.username ? `@${user.username}` : user?.email}</Text>
+        <View style={styles.signedIn}>
+          <Text variant="muted">Signed in as {user?.username ? `@${user.username}` : user?.email}</Text>
+          {ownSeal && <StaffSeal kind={ownSeal} size={18} />}
+        </View>
         <Button title="Settings" variant="outline" onPress={() => router.push("/settings" as never)} />
         <Button title="Bookmark Plus" variant="outline" onPress={() => router.push("/plus" as never)} />
         <Button title="Import from Goodreads or StoryGraph" variant="outline" onPress={() => router.push("/import" as never)} />
@@ -45,6 +54,7 @@ export default function More() {
 }
 
 const styles = StyleSheet.create({
+  signedIn: { flexDirection: "row", alignItems: "center", gap: 6 },
   section: { gap: 10 },
   links: { flexDirection: "row", gap: 12 },
 });

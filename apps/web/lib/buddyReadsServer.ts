@@ -193,6 +193,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       displayName: user.displayName,
       image: user.image,
       favColour: user.favColour,
+      staffBadge: staffBadgeOf(user),
       booksRead: booksReadOf(user),
       progress: circleProgress(book && book.userId === m.userId ? progressPercent(book) : 0, m.notifiedProgress),
       isHost: m.userId === buddyRead.hostId,
@@ -243,11 +244,11 @@ export async function loadInvite(code: string) {
   const buddyRead = await prisma.buddyRead.findUnique({ where: { inviteCode: code } })
   if (!buddyRead || buddyRead.status === "ARCHIVED") return null
   const memberRows = await prisma.buddyReadMember.findMany({ where: { buddyReadId: buddyRead.id }, orderBy: { joinedAt: "asc" }, select: { userId: true } })
-  const users = await prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: userSelect })
+  const users = await prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect } })
   const userById = new Map(users.map((u) => [u.id, u]))
   const members = memberRows.flatMap((m) => {
     const u = userById.get(m.userId)
-    return u ? [{ userId: u.id, username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, booksRead: booksReadOf(u) }] : []
+    return u ? [{ userId: u.id, username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u), booksRead: booksReadOf(u) }] : []
   })
   const host = members.find((m) => m.userId === buddyRead.hostId) ?? null
   return { buddyRead, host, members }

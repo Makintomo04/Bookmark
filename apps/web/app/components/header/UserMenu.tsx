@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 import { isWrappedSeason } from '@/lib/wrappedSeason'
 import { tierPreviewEnabled } from '@/app/hooks/useTierPreview'
 import { isStaffRole } from '@/lib/roles'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
+import { staffBadgeOf } from '@/lib/staffBadge'
 interface UserMenuProps {
 
 }
@@ -41,6 +43,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
   const close = () => setShowMenu(false)
 
   const {user, isLoading} = useUser()
+  const ownSeal = staffBadgeOf(user)
   const booksReadFor = useBooksReadFor()
   // From 1 December, in the reader's own calendar. Set after mount, so the server's clock (UTC) never disagrees with the browser's at hydration.
   const [wrappedYear, setWrappedYear] = useState<number | null>(null)
@@ -114,7 +117,8 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
               {/* Same place as Home: your own profile. */}
               <Link href="/" onClick={close} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-neutral-100 dark:hover:bg-neutral-800">
                 {avatar("h-11 w-11 md:h-9 md:w-9")}
-                <p className="min-w-0 flex-1 font-semibold truncate"><ReaderName reader={user} /></p>
+                {/* Inside the link to your profile, so the seal only marks your role. */}
+                <p className="min-w-0 flex-1 font-semibold truncate"><ReaderName reader={user} badge={ownSeal && <StaffSeal kind={ownSeal} size={18} pressable={false} className="ml-1 align-[-4px]" />} /></p>
               </Link>
               <button type="button" aria-label="Close menu" onClick={close} className="p-2 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition rounded-full md:hidden">
                 <X size={20} aria-hidden />

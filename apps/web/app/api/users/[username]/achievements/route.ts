@@ -16,7 +16,7 @@ export async function GET(
   }
   if (view.access === "restricted") {
     // Like the profile route: whose it is and why it's hidden, nothing about their reading.
-    return NextResponse.json({ username: view.profile.username, displayName: view.profile.displayName, restricted: view.reason, booksRead: null, ladders: [], isSelf: false });
+    return NextResponse.json({ username: view.profile.username, displayName: view.profile.displayName, staffBadge: view.profile.staffBadge, restricted: view.reason, booksRead: null, ladders: [], isSelf: false });
   }
   return NextResponse.json({ ...view.achievements, restricted: null, isSelf: view.relation.isSelf });
 }

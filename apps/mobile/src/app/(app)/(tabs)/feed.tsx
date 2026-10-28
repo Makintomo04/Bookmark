@@ -15,6 +15,7 @@ import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
 import { ACTIVITY_COPY, timeAgo, type Activity } from "@/lib/social";
 import { useTheme } from "@/lib/theme";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 
 // What the people you follow are reading (the web's /feed): started, finished, rated and reviewed.
 export default function Feed() {
@@ -71,7 +72,7 @@ export default function Feed() {
               </Pressable>
               <View style={{ flex: 1, gap: 6 }}>
                 <Text>
-                  <Text style={{ fontFamily: fonts.sansSemibold }} onPress={() => router.push(`/u/${item.user.username}`)}>{readerName(item.user)}</Text>{item.user.displayName ? <Text variant="small"> @{item.user.username}</Text> : null}{" "}
+                  <Text style={{ fontFamily: fonts.sansSemibold }} onPress={() => router.push(`/u/${item.user.username}`)}>{readerName(item.user)}</Text>{item.user.staffBadge ? <StaffSeal kind={item.user.staffBadge} size={16} pressable={false} style={styles.seal} /> : null}{item.user.displayName ? <Text variant="small"> @{item.user.username}</Text> : null}{" "}
                   {ACTIVITY_COPY[item.type](book.title)}
                 </Text>
                 <Text variant="small">by {book.author} · {timeAgo(item.createdAt)}</Text>
@@ -89,6 +90,8 @@ export default function Feed() {
 }
 
 const styles = StyleSheet.create({
+  // Inline in a line of text, so lifted a touch to sit on its middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 2 }] },
   fill: { flex: 1 },
   content: { width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

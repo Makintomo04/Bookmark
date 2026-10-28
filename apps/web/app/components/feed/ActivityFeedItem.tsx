@@ -9,12 +9,14 @@ import ReviewText from './ReviewText'
 import ReportReviewButton from '../books/ReportReviewButton'
 import AuthorLink from '@/app/components/AuthorLink'
 import { ActorAvatar, FeedRow } from './FeedRow'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
+import type { StaffBadgeKind } from '@/lib/staffBadge'
 
 export interface ActivityFeedItemData {
   id: string
   type: "ADDED_BOOK" | "STARTED_BOOK" | "COMPLETED_BOOK" | "DNF_BOOK" | "RATED_BOOK" | "REVIEWED_BOOK"
   createdAt: string
-  user: { username: string, displayName?: string | null, image: string | null, favColour: string | null, _count?: { books?: number } }
+  user: { username: string, displayName?: string | null, image: string | null, favColour: string | null, _count?: { books?: number }, staffBadge?: StaffBadgeKind | null }
   // review and reviewSpoiler come only on REVIEWED_BOOK, and only when the viewer may read it.
   // `id` is the reader's copy (Activity.bookId), for reporting a review.
   book: { id?: string | null, title: string, author: string, coverImage: string | null, cardColour: string | null, rating: number | null, review?: string | null, reviewSpoiler?: boolean } | null
@@ -58,6 +60,7 @@ const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
       <div className="min-w-0 flex-1">
         <p className="text-sm">
           <Link href={profile} className="font-semibold hover:underline"><ReaderName reader={activity.user} /></Link>
+          {activity.user.staffBadge && <StaffSeal kind={activity.user.staffBadge} name={readerName(activity.user)} size={18} className="ml-1 align-[-4px]" />}
           {" "}{typeCopy[activity.type](activity.book.title)}
           {activity.type === "RATED_BOOK" && activity.book.rating ? ` (${activity.book.rating}★)` : ""}
         </p>
