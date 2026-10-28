@@ -25,7 +25,9 @@ export async function GET(req: Request) {
   const author = params.get("author")?.slice(0, 200) ?? "";
 
   try {
-    const work = await prisma.work.findFirst({ where: { openLibraryKey: workKey }, select: { description: true } }).catch(() => null);
+    const work = await prisma.work.findFirst({ where: { openLibraryKey: workKey }, select: { description: true, curatedFields: true } }).catch(() => null);
+    // A librarian's description stands, even an empty one (they cleared a wrong blurb).
+    if (work?.curatedFields.includes("description")) return NextResponse.json({ description: work.description });
     const description = (work?.description || null)
       ?? await workDescription(workKey).catch(() => null)
       ?? (await hardcoverRecord(title, author))?.description

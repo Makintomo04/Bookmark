@@ -104,9 +104,11 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean, text: string } | null>(null)
 
+  const formOf = (w: StaffWork) => ({ title: w.title, authors: w.authors.join(', '), description: w.description ?? '', coverUrl: w.coverUrl ?? '' })
+  // Filled once. Saving an edition reloads the work too, and that mustn't wipe what's being typed here.
   useEffect(() => {
-    if (work) setForm({ title: work.title, authors: work.authors.join(', '), description: work.description ?? '', coverUrl: work.coverUrl ?? '' })
-  }, [work])
+    if (work && !form) setForm(formOf(work))
+  }, [work, form])
 
   if (error) return <p className="text-sm text-destructive">{error.message}</p>
   if (!work || !form) return <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />
@@ -123,6 +125,7 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
     try {
       const saved = await staffSend<Saved>(`/api/staff/works/${id}`, 'PATCH', body)
       await mutate(saved.work, { revalidate: false })
+      setForm(formOf(saved.work))
       setMessage({ ok: true, text: copiesLine(saved.copies) })
       setReason('')
     } catch (e) {

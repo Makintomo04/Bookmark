@@ -26,6 +26,8 @@ export interface BookPageData {
   workId: string | null
   book: DiscoverBook
   description: string | null
+  // A librarian set the description (or cleared a wrong one), so nothing else fills it in.
+  descriptionFixed?: boolean
   genres: Genre[]
   // Credited to the work's first author, the half of the series' identity a name alone doesn't give.
   series: { name: string, author: string, position: number | null } | null
@@ -44,7 +46,7 @@ export const bookPageData = cache(async (bookKey: string): Promise<BookPageData 
   if (!data || (data.book.coverUrl && data.description && data.book.pages)) return data
   const found = await hardcoverRecord(data.book.title, data.book.author)
   if (!found) return data
-  return { ...data, book: topUp(data.book, found), description: data.description || found.description || null }
+  return { ...data, book: topUp(data.book, found), description: data.descriptionFixed ? data.description : data.description || found.description || null }
 })
 
 async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | null> {
@@ -81,7 +83,9 @@ async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | nul
         year: work.firstPublishYear,
         authorKey: work.authorKeys[0] ?? null,
       },
-      description: work.description ?? (workKey ? await workDescription(workKey).catch(() => null) : null),
+      description: work.curatedFields.includes("description") ? work.description
+        : work.description ?? (workKey ? await workDescription(workKey).catch(() => null) : null),
+      descriptionFixed: work.curatedFields.includes("description"),
       genres: genresOf(work.subjects),
       series: work.seriesName && work.authors[0] ? { name: work.seriesName, author: work.authors[0], position: work.seriesPosition } : null,
       editionCount: work.olEditionCount,
