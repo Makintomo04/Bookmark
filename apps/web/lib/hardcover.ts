@@ -27,6 +27,9 @@ interface HardcoverDoc {
   pages?: number | null
   isbns?: string[]
   description?: string | null
+  // The publisher's one-line pitch Hardcover shows above the description. Book records have it; search
+  // documents don't.
+  headline?: string | null
   // The series Hardcover shows the book under. A box set has collection: true.
   featured_series?: { position?: number | null, collection?: boolean, series?: { id?: number, name?: string } | null } | null
 }
@@ -40,6 +43,14 @@ const pickIsbns = (isbns?: string[]) => ({
   isbn13: isbns?.find((i) => /^\d{13}$/.test(i)) ?? null,
   isbn10: isbns?.find((i) => /^\d{9}[\dX]$/.test(i)) ?? null,
 })
+
+// The blurb as Hardcover's book page shows it: the headline, then the description.
+export function hardcoverBlurb(headline?: string | null, description?: string | null) {
+  const head = headline?.trim()
+  const body = description?.trim()
+  const blurb = head && body && !body.startsWith(head) ? `${head}\n\n${body}` : body || head
+  return blurb?.slice(0, DESCRIPTION_MAX) || null
+}
 
 // One search hit as Bookmark's search results take it. No Open Library work key: the catalog files the
 // book by ISBN, or by title and author (lib/catalog/resolve.ts).
@@ -58,7 +69,7 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
     editionKey: null,
     ...pickIsbns(doc.isbns),
     authorKey: null,
-    description: doc.description?.trim().slice(0, DESCRIPTION_MAX) || null,
+    description: hardcoverBlurb(doc.headline, doc.description),
     source: "hardcover",
     hardcoverId: doc.id != null && String(doc.id).trim() ? String(doc.id).trim() : null,
   }
@@ -68,8 +79,16 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
 // blurb, a cover). Null when Hardcover has nothing that's the same book. Throws like searchHardcover.
 export async function findOnHardcover(title: string, author: string): Promise<DiscoverBook | null> {
   const hits = await searchHardcover(`${title} ${author}`, 5)
-  return sameBook({ title, author }, hits) ?? null
+  const found = sameBook({ title, author }, hits)
+  if (!found?.hardcoverId) return found ?? null
+  // Search documents leave the headline out, so it's one more small request; without it, the blurb is
+  // just the description.
+  const record = await hardcoverQuery(HEADLINE, { id: Number(found.hardcoverId) }).catch(() => null)
+  const headline = (record?.books?.[0] as { headline?: string | null } | undefined)?.headline
+  return headline ? { ...found, description: hardcoverBlurb(headline, found.description) } : found
 }
+
+const HEADLINE = `query Headline($id: Int!) { books(where: { id: { _eq: $id } }) { headline } }`
 
 // One GraphQL request. Throws on any failure (no token, rate limited, expired token, timeout) so a
 // failed answer isn't cached.
@@ -174,7 +193,7 @@ const SERIES_BOOKS = `query SeriesBooks($id: Int!) {
       where: { compilation: { _eq: false }, position: { _is_null: false }, book: { canonical_id: { _is_null: true } } }
       order_by: { position: asc }
       limit: 300
-    ) { position book { id title pages release_year release_date users_count description image { url } contributions(limit: 3) { author { name } } } }
+    ) { position book { id title pages release_year release_date users_count description headline image { url } contributions(limit: 3) { author { name } } } }
   }
 }`
 
@@ -222,7 +241,7 @@ const AUTHOR_SEARCH = `query AuthorSearch($query: String!) {
 const AUTHOR_BOOKS = `query AuthorBooks($id: Int!, $limit: Int!) {
   authors(where: { id: { _eq: $id } }, limit: 1) {
     contributions(limit: $limit, order_by: { book: { users_count: desc } }) {
-      book { id title pages release_year description image { url } }
+      book { id title pages release_year description headline image { url } }
     }
   }
 }`

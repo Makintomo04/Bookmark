@@ -130,7 +130,8 @@ async function withPages(books: DiscoverBook[]): Promise<DiscoverBook[]> {
 // Cached for a week like Open Library's work records. A failure throws, so it isn't cached.
 const cachedRecord = unstable_cache(
   (title: string, author: string) => findOnHardcover(title, author),
-  ["hardcover-book"],
+  // v2: blurbs gained Hardcover's headline, so records cached without it are dropped.
+  ["hardcover-book-v2"],
   { revalidate: 7 * 24 * 60 * 60 },
 )
 

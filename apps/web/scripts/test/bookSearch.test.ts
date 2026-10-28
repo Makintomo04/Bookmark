@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mergeResults, needsFallback, needsTopUp, normaliseQuery, queryTokens, rankShelfRows, toppedUp, toppedUpByTitle, withFallback, type ShelfRow } from "@/lib/bookSearchRules";
-import { hardcoverBook } from "@/lib/hardcover";
+import { hardcoverBlurb, hardcoverBook } from "@/lib/hardcover";
 import type { DiscoverBook } from "@/lib/openLibrary";
 
 const row = (workKey: string | null, title: string, extra: Partial<ShelfRow> = {}): ShelfRow =>
@@ -158,4 +158,14 @@ test("toppedUpByTitle fills an author's thin books by title, preferring a match 
   assert.equal(filled.workKey, "OL42428428W");
   assert.equal(filled.description, "A blurb.");
   assert.equal(untouched, full);
+});
+
+test("Hardcover's headline goes above its description, as on its book page", () => {
+  const headline = "The heart-pounding adult debut from Adalyn Grace.";
+  assert.equal(hardcoverBlurb(headline, "Aurelie was born to serve."), `${headline}\n\nAurelie was born to serve.`);
+  assert.equal(hardcoverBlurb(headline, `${headline} More.`), `${headline} More.`, "not twice when the description already opens with it");
+  assert.equal(hardcoverBlurb(null, "  Just this. "), "Just this.");
+  assert.equal(hardcoverBlurb(headline, null), headline);
+  assert.equal(hardcoverBlurb(" ", ""), null);
+  assert.equal(hardcoverBook({ id: 1, title: "T", author_names: ["A"], headline, description: "Body." })?.description, `${headline}\n\nBody.`);
 });
