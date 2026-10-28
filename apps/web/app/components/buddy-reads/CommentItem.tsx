@@ -11,6 +11,7 @@ import { BUDDY_READ_EMOJI, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, t
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 import MemberAvatar from './MemberAvatar'
+import StaffSeal from '../profile-head/StaffSeal'
 import CommentComposer from './CommentComposer'
 
 interface CommentItemProps {
@@ -101,6 +102,10 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
             {comment.formerMember
               ? <span className="font-semibold text-muted-foreground">Former member</span>
               : <Link href={`/u/${comment.author?.username}`} className="font-semibold hover:underline underline-offset-4">{comment.mine ? "You" : comment.author ? readerName(comment.author) : null}</Link>}
+            {/* Beside the link, not in it, so pressing it explains the role instead of opening the profile. */}
+            {!comment.formerMember && comment.author?.staffBadge && (
+              <StaffSeal kind={comment.author.staffBadge} name={comment.mine ? null : readerName(comment.author)} size={18} className="ml-1 align-[-4px]" />
+            )}
             <span className="text-muted-foreground"> · {moment(comment.createdAt).fromNow()}{comment.editedAt ? " · edited" : ""}</span>
             <br />
             <span className="text-xs text-muted-foreground tabular-nums">{where}</span>

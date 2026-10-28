@@ -15,6 +15,7 @@ import { FollowButton, ReportListButton } from '@/app/components/discover/ListBu
 import ListActions from '@/app/components/lists/ListActions'
 import RemixInfo from '@/app/components/lists/RemixInfo'
 import InitialAvatar from '@/app/components/profile/InitialAvatar'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { genreBySlug } from '@/lib/genres'
 import { findList, toEditableList } from '@/lib/lists'
@@ -83,7 +84,8 @@ const Page = async ({ params }: PageProps) => {
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Curated by</p>
-                <p className="truncate font-medium"><ReaderName reader={owner} /></p>
+                {/* Inside the curator's link, so the seal only marks the role. */}
+                <p className="truncate font-medium"><ReaderName reader={owner} badge={owner.staffBadge && <StaffSeal kind={owner.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} /></p>
               </div>
             </Link>
             {!list.isOwner && owner.username && <FollowButton username={owner.username} initialFollowing={list.isFollowing} />}

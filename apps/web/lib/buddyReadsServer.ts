@@ -11,6 +11,7 @@ import { awardNewAchievements } from "@/lib/achievements";
 import { catalogIds, linkCatalog } from "@/lib/catalog";
 import { readFromBook } from "@/lib/readHistory";
 import { booksReadCount, booksReadOf } from "@/lib/readerTier";
+import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { sameBook } from "@/lib/workKey";
 import { coverToShare } from "@/lib/uploads";
 import {
@@ -159,7 +160,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
 
   const memberRows = await prisma.buddyReadMember.findMany({ where: { buddyReadId }, orderBy: { joinedAt: "asc" } })
   const [users, books] = await Promise.all([
-    prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: userSelect }),
+    prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect } }),
     prisma.book.findMany({ where: { id: { in: memberRows.map((m) => m.bookId) } }, select: { ...progressBookSelect, userId: true } }),
   ])
   const userById = new Map(users.map((u) => [u.id, u]))
@@ -176,7 +177,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const pastWriterIds = Array.from(new Set(rows.map((r) => r.userId).filter((id) => !userById.has(id))))
   const [pastWriters, blocked] = await Promise.all([
     pastWriterIds.length > 0
-      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, displayName: true, image: true, favColour: true } })
+      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, displayName: true, image: true, favColour: true, ...staffBadgeSelect } })
       : Promise.resolve([]),
     blockedAmong(viewerId, [...memberRows.map((m) => m.userId), ...pastWriterIds]),
   ])
@@ -201,12 +202,13 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
     }]
   })
 
-  const authors: CommentAuthors = new Map(members.map((m) => [m.userId, { username: m.username, displayName: m.displayName, image: m.image, favColour: m.favColour }]))
+  // Each writer's staff seal rides with their comments; the role fields it comes from stay here.
+  const authors: CommentAuthors = new Map(members.map((m) => [m.userId, { username: m.username, displayName: m.displayName, image: m.image, favColour: m.favColour, staffBadge: staffBadgeOf(userById.get(m.userId)) }]))
   const pastWriterById = new Map(pastWriters.map((u) => [u.id, u]))
   for (const id of pastWriterIds) {
     if (blocked.has(id)) continue
     const u = pastWriterById.get(id)
-    authors.set(id, u ? { username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour } : null)
+    authors.set(id, u ? { username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u) } : null)
   }
   // The lock runs here, on the server: bodies past the viewer's progress never leave this function.
   const comments = serializeComments(rows, { userId: viewerId, progress }, authors)

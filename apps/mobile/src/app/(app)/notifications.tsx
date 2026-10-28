@@ -6,7 +6,6 @@ import useSWR, { mutate as revalidate } from "swr";
 import { getAchievementTitle } from "@bookmark/shared/achievements-catalog";
 import { reviewHiddenMessage } from "@bookmark/shared/reviewReports";
 import { seriesNewsText } from "@bookmark/shared/series";
-import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
@@ -27,7 +26,7 @@ interface Notification {
   count: number | null;
   message: string | null;
   achievementKey: string | null;
-  actor: Person & { username: string; staffBadge?: StaffBadgeKind | null };
+  actor: Person & { username: string };
   buddyRead: { id: string; title: string; inviteCode: string; status?: string } | null;
   book: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null;
   // NEW_IN_SERIES: the new book.

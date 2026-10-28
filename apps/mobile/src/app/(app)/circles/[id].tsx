@@ -9,6 +9,7 @@ import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
 import { FriendsPicker } from "@/components/circles/FriendsPicker";
 import { Avatar } from "@/components/profile/Avatar";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Notice } from "@/components/ui/Notice";
@@ -184,6 +185,7 @@ function Comment({ circleId, comment, isHost, onReply, onChange, nested }: { cir
       <View style={styles.commentHead}>
         {!comment.deleted && <Avatar image={comment.author?.image} name={comment.author?.username} colour={comment.author?.favColour} size={24} />}
         <Text style={{ fontFamily: fonts.sansSemibold, fontSize: 14 }}>{name ?? "Comment removed"}</Text>
+        {!comment.deleted && !comment.formerMember && comment.author?.staffBadge ? <StaffSeal kind={comment.author.staffBadge} name={name} size={18} /> : null}
         <Text variant="small">· {where}{comment.editedAt ? " · edited" : ""}</Text>
         {!comment.deleted && (
           <Pressable accessibilityRole="button" accessibilityLabel="More actions" hitSlop={8} onPress={() => setMode(mode === "menu" ? "view" : "menu")} style={{ marginLeft: "auto" }}>

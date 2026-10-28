@@ -3,16 +3,20 @@ import { FC, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import confetti from 'canvas-confetti'
-import { Bookmark, Check, Library } from 'lucide-react'
+import { Check } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
 import { ROLE_WELCOME, roleToWelcome, type StaffRole } from '@/lib/roleWelcome'
 import Modal from '../modals/Modal'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
+import StaffSeal from '../profile-head/StaffSeal'
+import type { StaffBadgeKind } from '@/lib/staffBadge'
 
-// Each role's emblem, in the place a medal sits: the staff badge's icon on a metal of its own.
-const EMBLEM: Record<StaffRole, { icon: typeof Library; light: string; colour: string; shade: string }> = {
-  LIBRARIAN: { icon: Library, light: '#9FD8BC', colour: '#2F8A63', shade: '#174A35' },
-  ADMIN: { icon: Bookmark, light: '#FF9A8F', colour: '#F13C3C', shade: '#7A1414' },
+// Each role's emblem, in the place a medal sits: the staff seal they'll now wear (lib/staffBadge.ts), with
+// the seal's colour in the confetti. tick: the checklist's colour, deeper than the librarian's yellow so it
+// still shows on a light page.
+const EMBLEM: Record<StaffRole, { seal: StaffBadgeKind; light: string; colour: string; tick: string }> = {
+  LIBRARIAN: { seal: 'librarian', light: '#FBE39A', colour: '#F2C230', tick: '#B8860B' },
+  ADMIN: { seal: 'team', light: '#FF9A8F', colour: '#F13C3C', tick: '#F13C3C' },
 }
 
 // The same burst as a medal (achievements/EarnCelebration.tsx), in the emblem's colours. canvas-confetti
@@ -50,7 +54,6 @@ const RoleWelcome: FC = () => {
   if (!role) return null
   const welcome = ROLE_WELCOME[role]
   const emblem = EMBLEM[role]
-  const Icon = emblem.icon
 
   // Closed straight away; the server records the role it holds, so a failed save just shows it again next time.
   const close = () => {
@@ -63,13 +66,7 @@ const RoleWelcome: FC = () => {
 
   const body = (
     <div className="flex w-full flex-col items-center px-6 pb-6 text-center">
-      <div
-        aria-hidden
-        className="mb-5 flex size-20 items-center justify-center rounded-2xl text-white shadow-lg"
-        style={{ background: `linear-gradient(135deg, ${emblem.light}, ${emblem.colour} 45%, ${emblem.shade})` }}
-      >
-        <Icon size={36} strokeWidth={1.75} />
-      </div>
+      <StaffSeal kind={emblem.seal} size={80} shine pressable={false} className="mb-5" />
       <p className="text-2xl font-bold">{welcome.title}</p>
       <p className="mt-1 text-sm text-muted-foreground">{welcome.lede}</p>
 
@@ -78,7 +75,7 @@ const RoleWelcome: FC = () => {
         <ul className="mt-2 flex flex-col gap-2" aria-labelledby="role-duties">
           {welcome.duties.map((duty) => (
             <li key={duty} className="flex items-start gap-2.5 text-sm">
-              <Check size={16} aria-hidden className="mt-0.5 shrink-0" style={{ color: emblem.colour }} />
+              <Check size={16} aria-hidden className="mt-0.5 shrink-0" style={{ color: emblem.tick }} />
               <span>{duty}</span>
             </li>
           ))}
