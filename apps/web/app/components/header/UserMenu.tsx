@@ -19,18 +19,19 @@ interface UserMenuProps {
 
 }
 
-interface NavItem { href: string; label: string; icon: LucideIcon; inHeader?: boolean }
+// inHeader: the breakpoint from which the header bar shows this link itself (Header.tsx), so the menu stops.
+interface NavItem { href: string; label: string; icon: LucideIcon; inHeader?: "sm" | "md" }
 
 // The everyday places first, the occasional ones after a divider.
 const PRIMARY: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/feed", label: "Feed", icon: Rss },
-  { href: "/discover", label: "Discover", icon: Compass, inHeader: true },
-  { href: "/circles", label: "Reading circles", icon: Users, inHeader: true },
+  { href: "/discover", label: "Discover", icon: Compass, inHeader: "sm" },
+  { href: "/circles", label: "Reading circles", icon: Users, inHeader: "md" },
 ]
 const SECONDARY: NavItem[] = [
   { href: "/favourites", label: "Favourites", icon: Heart },
-  { href: "/stats", label: "Stats", icon: BarChart3, inHeader: true },
+  { href: "/stats", label: "Stats", icon: BarChart3, inHeader: "md" },
   { href: "/plus", label: "Bookmark Plus", icon: Crown },
 ]
 
@@ -82,7 +83,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
       return (
         <Link key={href} href={href} onClick={close} aria-current={active ? "page" : undefined}
           className={cn("flex items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm font-medium transition hover:bg-neutral-100 dark:hover:bg-neutral-800",
-            active && "bg-neutral-100 dark:bg-neutral-800", inHeader && "sm:hidden")}>
+            active && "bg-neutral-100 dark:bg-neutral-800", inHeader === "sm" ? "sm:hidden" : inHeader === "md" ? "md:hidden" : undefined)}>
           <Icon size={18} className="text-muted-foreground shrink-0" aria-hidden />
           {label}
         </Link>

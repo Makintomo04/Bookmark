@@ -5,19 +5,22 @@ import { notify, apiError } from '@/lib/notify'
 import { Check, Link2 } from 'lucide-react'
 import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
+import FriendsPicker from './FriendsPicker'
 
 interface InvitePanelProps {
   buddyReadId: string
   inviteCode: string
   memberCount: number
+  // Who's already reading along, so the friends picker can say so.
+  memberUsernames?: string[]
   // The host can swap the link for a new one, e.g. after it was shared too widely.
   isHost?: boolean
   onLinkReset?: () => void
 }
 
-// The link is the main way in (it unfurls with the cover and everyone's colours); a username invite
-// also lands in their notifications. Neither needs a follow.
-const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, isHost, onLinkReset }) => {
+// The link is the main way in (it unfurls with the cover and everyone's colours); a friend can be ticked
+// from the list, and anyone else invited by username: both land in their notifications. Neither needs a follow.
+const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset }) => {
   const [copied, setCopied] = useState(false)
   const [username, setUsername] = useState("")
   const [isSending, setIsSending] = useState(false)
@@ -78,6 +81,7 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
           {isResetting ? "Resetting…" : "Reset link"}
         </button>
       )}
+      <FriendsPicker buddyReadId={buddyReadId} memberUsernames={memberUsernames} room={BUDDY_READ_MAX_MEMBERS - memberCount} />
       <form onSubmit={(e) => { e.preventDefault(); invite() }} className="flex gap-2">
         <label htmlFor="invite-username" className="sr-only">Username</label>
         <input

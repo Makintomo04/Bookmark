@@ -81,19 +81,18 @@ function audienceAllows(audience: "everyone" | "followers" | "nobody", relation:
 }
 
 // Can someone with this relation to the owner see `what`? The owner always sees everything of theirs;
-// a block in either direction hides everything.
+// a block in either direction hides everything. A profile that isn't public is for followers the owner
+// approved (followRules.ts); PRIVATE is that plus hidden from search and out of followers' feeds.
 export function canView(relation: Relation, owner: PrivacySettings, what: Viewable): boolean {
   if (relation.isSelf) return true;
   if (relation.blocked) return false;
 
-  const profile = audienceAllows(
-    owner.profileVisibility === "PUBLIC" ? "everyone" : owner.profileVisibility === "FOLLOWERS" ? "followers" : "nobody",
-    relation,
-  );
+  const profile = audienceAllows(owner.profileVisibility === "PUBLIC" ? "everyone" : "followers", relation);
   switch (what) {
     case "profile":
-    case "activity":
       return profile;
+    case "activity":
+      return profile && owner.profileVisibility !== "PRIVATE";
     case "wantToRead":
       return profile && !owner.hideWantToRead;
     case "didNotFinish":
@@ -131,6 +130,6 @@ export function visibleReview(
   const removed = !!book.reviewHiddenAt;
   const allowed = relation.isSelf || (!book.reviewPrivate && !removed && canView(relation, owner, "reviews"));
   if (!text || !allowed) return { review: null, reviewSpoiler: false, reviewHidden: false, reviewRemoved: false };
-  const onlyOwner = !!book.reviewPrivate || removed || owner.reviewVisibility === "ONLY_ME" || owner.profileVisibility === "PRIVATE";
+  const onlyOwner = !!book.reviewPrivate || removed || owner.reviewVisibility === "ONLY_ME";
   return { review: text, reviewSpoiler: !!book.reviewSpoiler, reviewHidden: relation.isSelf && onlyOwner, reviewRemoved: relation.isSelf && removed };
 }

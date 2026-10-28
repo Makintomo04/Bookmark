@@ -4,6 +4,7 @@ import { readerName } from '@/lib/profile'
 import { notFound, redirect } from 'next/navigation'
 import { parseShelfParams, shelfPageHref } from '@/lib/shelfFilter'
 import { hasRequested, needsFollowApproval } from '@/lib/followRequests'
+import { followsBack, restrictedViewerFlags } from '@/lib/friends'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { currentBook, getProfileView, getPublicProfile, readingCounts, serializeProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
@@ -68,7 +69,7 @@ export default async function Page({ params, searchParams = {} }: PageProps) {
       <RestrictedProfile
         profile={data.profile}
         reason={data.reason}
-        viewer={viewer ? { isFollowing: data.relation.isFollower, requested: await hasRequested(viewer.id, data.userId) } : null}
+        viewer={viewer ? await restrictedViewerFlags(viewer.id, data.userId, data.relation) : null}
       />
     )
   } else if (viewer && data.relation.isSelf) {
@@ -95,6 +96,7 @@ export default async function Page({ params, searchParams = {} }: PageProps) {
           isFollowing: data.relation.isFollower,
           requested: !data.relation.isFollower && await hasRequested(viewer.id, data.userId),
           needsApproval: needsFollowApproval(data.privacy),
+          followsYou: await followsBack(viewer.id, data.userId),
         } : null}
       />
     )

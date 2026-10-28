@@ -24,8 +24,10 @@ test("a public profile's lists are visible to everyone, signed out included", ()
   assert.equal(canSeeListOf(list, ANONYMOUS, owner()), true);
 });
 
-test("a private profile's lists are hidden from everyone but the owner and staff", () => {
-  for (const viewer of [ANONYMOUS, STRANGER, FOLLOWER]) assert.equal(canSeeListOf(list, viewer, owner("PRIVATE")), false);
+test("a private profile's lists are for approved followers, the owner and staff", () => {
+  // Private is followers-only plus hidden from search and feeds (lib/privacyRules.ts).
+  for (const viewer of [ANONYMOUS, STRANGER]) assert.equal(canSeeListOf(list, viewer, owner("PRIVATE")), false);
+  assert.equal(canSeeListOf(list, FOLLOWER, owner("PRIVATE")), true);
   assert.equal(canSeeListOf(list, SELF, owner("PRIVATE")), true);
   assert.equal(canSeeListOf(list, STRANGER, owner("PRIVATE"), true), true);
 });
