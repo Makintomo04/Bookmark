@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Lock, Search, Users } from 'lucide-react'
 import Modal from './Modal'
@@ -57,6 +57,7 @@ const BookEntryModal: FC = () => {
   const router = useRouter()
   const bookEntryModal = useBookEntryModal()
   const [isLoading, setIsLoading] = useState(false)
+  const submitting = useRef(false)
   // Print by default; an audiobook logs minutes listened instead of pages.
   const [format, setFormat] = useState<FormatChoice>("PRINT")
   // "Start a circle for this book": after adding, go straight to the new-circle form with it chosen.
@@ -170,6 +171,10 @@ const BookEntryModal: FC = () => {
       notify.error("Enter the audiobook's running time")
       return
     }
+    // handleSubmit validates asynchronously, so a double-click (or Enter then a click) reaches here twice
+    // before isLoading has disabled the button. The ref is set at once.
+    if (submitting.current) return
+    submitting.current = true
     setIsLoading(true)
     axios.post("/api/books", {
       title: data.title,
@@ -199,7 +204,10 @@ const BookEntryModal: FC = () => {
       if (startCircle && saved?.id && shelf !== "COMPLETED") router.push(`/circles/new?bookId=${saved.id}`)
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't add that book. Try again."))
-    }).finally(() => setIsLoading(false))
+    }).finally(() => {
+      submitting.current = false
+      setIsLoading(false)
+    })
   }
 
   // Details are collapsed behind "Edit details"; open them if one of them is what's invalid.

@@ -14,6 +14,7 @@ import { EditionFormat, Status } from "@prisma/client";
 import { z } from "zod";
 import { parseAudioMinutes } from "@/lib/bookInput";
 import { fillWorkSeriesQuietly } from "@/lib/seriesFill";
+import { alreadyShelved, shelfCopies } from "@/lib/shelfCopy";
 
 const statusSchema = z.nativeEnum(Status)
 const optionalText = z.string().max(40).nullish()
@@ -118,6 +119,11 @@ if (startedAt && finishedAt && startedAt > finishedAt) {
 const finishedThisYearNow = isCompleted && !!finishedAt && finishedAt.getUTCFullYear() === now.getUTCFullYear()
 const isStopped = shelf === "DNF" || shelf === "PAUSED"
 
+// Already on the shelf (a second click on Want to read, or the same book searched for again): say where,
+// before asking Open Library anything.
+const [shelved] = await shelfCopies(currentUser.id, { title, author, workKey: typeof workKey === "string" ? workKey : null })
+if (shelved) return NextResponse.json(alreadyShelved(shelved), { status: 409 })
+
 const startMinute = runningTime ? Math.max(0, Math.min(runningTime, parseInt(currentMinute) || 0)) : 0
 // The shared catalog: the Work and Edition this copy is of. A search hit carries its work key and
 // usually an edition key or ISBN; a book typed in by hand is filed by title and author.
@@ -176,6 +182,13 @@ const book = await prisma.book.create({
     ...(isPrivate === true && { isPrivate: true }),
   }
 })
+// Two adds of one book at once both pass the check above (the catalogue lookup between takes seconds).
+// Each then looks again: the oldest copy stays, and any later one is taken back before it's logged.
+const [kept] = await shelfCopies(currentUser.id, book)
+if (kept && kept.id !== book.id) {
+  await prisma.book.delete({ where: { id: book.id } })
+  return NextResponse.json(alreadyShelved(kept), { status: 409 })
+}
 // The work's series, the first time anyone shelves it (lib/seriesFill.ts), while the rest is saved.
 const seriesFilled = fillWorkSeriesQuietly(book.workId)
 const firstRead = readFromBook(book)
