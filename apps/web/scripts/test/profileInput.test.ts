@@ -9,8 +9,8 @@ import { bookFieldsProblem } from "@/lib/bookInput";
 import { planLowercaseUsernames } from "@/lib/lowercaseUsernames";
 
 test("usernames are plain, lowercase and can't pass for Bookmark", () => {
-  for (const ok of ["reader1", "jane.doe", "book_worm-99", "ab"]) assert.equal(usernameProblem(ok), null, ok);
-  for (const bad of ["a", "x".repeat(USERNAME_MAX + 1), "../settings", "jane doe", "jane/doe", "jane?x", "jane#x", ".jane", "jane-", "Alice", "аlice", "📚reader"]) {
+  for (const ok of ["reader1", "jane.doe", "book_worm-99", "abc"]) assert.equal(usernameProblem(ok), null, ok);
+  for (const bad of ["a", "ab", "b🩶", "🩶🩶🩶", "x".repeat(USERNAME_MAX + 1), "../settings", "jane doe", "jane/doe", "jane?x", "jane#x", ".jane", "jane-", "Alice", "аlice", "📚reader"]) {
     assert.ok(usernameProblem(bad), `should refuse ${JSON.stringify(bad)}`);
   }
   assert.ok(usernameProblem("support"));
@@ -43,8 +43,23 @@ test("the lowercase-usernames script changes capitalised names and refuses colli
   ]);
   assert.deepEqual(changes, [{ id: "1", from: "Persona", to: "persona" }]);
   assert.deepEqual(collisions.map((c) => [c.username, c.accounts.map((a) => a.id)]), [["alice", ["3", "4"]], ["bob", ["5", "6"]]]);
-  // Nothing to do leaves both lists empty.
-  assert.deepEqual(planLowercaseUsernames([{ id: "1", username: "fine" }]), { changes: [], collisions: [] });
+  // Nothing to do leaves every list empty.
+  assert.deepEqual(planLowercaseUsernames([{ id: "1", username: "fine" }]), { changes: [], collisions: [], outdated: [] });
+});
+
+test("the script lists names from before the rules, and renames none of them", () => {
+  const { changes, outdated } = planLowercaseUsernames([
+    { id: "1", username: "b🩶" },
+    { id: "2", username: "jo" },
+    { id: "3", username: "Jane Doe" },
+    // A capital alone isn't a problem: lowercasing fixes it.
+    { id: "4", username: "Persona" },
+    { id: "5", username: "fine.reader" },
+  ]);
+  assert.deepEqual(outdated.map((o) => [o.id, o.username]), [["1", "b🩶"], ["2", "jo"], ["3", "Jane Doe"]]);
+  for (const o of outdated) assert.ok(o.problem, o.username);
+  // Only the capital is changed; "Jane Doe" -> "jane doe" would still break the rules, but lowering case is harmless.
+  assert.deepEqual(changes.map((c) => c.to), ["jane doe", "persona"]);
 });
 
 test("display names are trimmed, bounded, visible and can't pass for Bookmark", () => {

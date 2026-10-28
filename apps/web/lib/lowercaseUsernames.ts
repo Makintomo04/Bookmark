@@ -1,4 +1,4 @@
-import { normaliseUsername } from "@bookmark/shared/profile";
+import { normaliseUsername, usernameProblem } from "@bookmark/shared/profile";
 
 // Usernames are stored lowercase now (packages/shared/src/profile.ts), and every lookup lowercases what
 // it's given (lib/handle.ts). Accounts from before that may still hold capitals, so scripts/lowercase-usernames.ts
@@ -24,6 +24,14 @@ export interface UsernameCollision {
   accounts: { id: string; username: string }[];
 }
 
+// A name the current rules would refuse (emoji, spaces, too short), kept because it predates them.
+// Reported only: renaming changes someone's /u/ address, so it's a person's call, not the script's.
+export interface OutdatedUsername {
+  id: string;
+  username: string;
+  problem: string;
+}
+
 export function planLowercaseUsernames(users: StoredUsername[]) {
   const byLower = new Map<string, { id: string; username: string }[]>();
   for (const { id, username } of users) {
@@ -36,7 +44,11 @@ export function planLowercaseUsernames(users: StoredUsername[]) {
 
   const changes: UsernameChange[] = [];
   const collisions: UsernameCollision[] = [];
+  const outdated: OutdatedUsername[] = [];
   for (const [lower, accounts] of Array.from(byLower)) {
+    // Judged as it will be stored, so "Jane" isn't reported for its capital: lowercasing fixes that.
+    const problem = usernameProblem(lower);
+    if (problem) for (const a of accounts) outdated.push({ id: a.id, username: a.username, problem });
     if (accounts.length > 1) {
       collisions.push({ username: lower, accounts });
       continue;
@@ -44,5 +56,5 @@ export function planLowercaseUsernames(users: StoredUsername[]) {
     const [account] = accounts;
     if (account.username !== lower) changes.push({ id: account.id, from: account.username, to: lower });
   }
-  return { changes, collisions };
+  return { changes, collisions, outdated };
 }

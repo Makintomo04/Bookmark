@@ -22,8 +22,15 @@ const prisma = new PrismaClient();
 async function main() {
   // Mongo has no case-insensitive index to lean on, so read every username and plan in memory.
   const users = await prisma.user.findMany({ select: { id: true, username: true } });
-  const { changes, collisions } = planLowercaseUsernames(users);
+  const { changes, collisions, outdated } = planLowercaseUsernames(users);
 
+  // Names from before the username rules (an emoji, a space, under three characters). Never renamed here:
+  // it would move someone's /u/ address without asking. Listed so they can be followed up by hand.
+  if (outdated.length) {
+    console.log(`${outdated.length} username${outdated.length === 1 ? "" : "s"} from before the current rules (left as they are):`);
+    for (const o of outdated) console.log(`  ${o.id}: ${JSON.stringify(o.username)}: ${o.problem}`);
+    console.log("");
+  }
   for (const c of collisions) {
     console.log(`collision: "${c.username}" would belong to ${c.accounts.map((a) => `${a.id} (${a.username})`).join(", ")}; left as they are`);
   }
