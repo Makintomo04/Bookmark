@@ -19,11 +19,15 @@ interface FavouritesRowProps {
   readOnly?: boolean
   // Your own, with none yet: say how to add them instead of showing nothing.
   hintWhenEmpty?: boolean
+  // Beside Books in common (ProfileShowcase): four covers from lg up, where it gets half the width.
+  half?: boolean
 }
 
 // Two more columns than the shelf grid at each width (4 on a phone up to 8), so favourites read as a
 // showcase of small covers rather than another shelf.
 const favouritesGridClass = "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-x-3 sm:gap-x-4 gap-y-4"
+// The same, but four from lg up, in half the width beside Books in common.
+const favouritesHalfGridClass = "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-4"
 
 // One favourite: the cover and its title, nothing else. Opens the book as a shelf card would.
 const FavouriteTile: FC<{ book: Book, readOnly: boolean }> = ({ book, readOnly }) => {
@@ -47,9 +51,10 @@ const FavouriteTile: FC<{ book: Book, readOnly: boolean }> = ({ book, readOnly }
 
 // The books that say most about a reader, in one row of small covers near the top of their profile, then
 // "See all".
-const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, hintWhenEmpty = false }) => {
-  // The shelf grid's columns plus two, to match favouritesGridClass at each width.
-  const columns = useShelfPreview() / 2 + 2
+const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, hintWhenEmpty = false, half = false }) => {
+  // The shelf grid's columns plus two, to match favouritesGridClass at each width; four in half a wide screen.
+  const preview = useShelfPreview()
+  const columns = half && preview >= 10 ? 4 : preview / 2 + 2
   if (books.length === 0) {
     if (!hintWhenEmpty) return null
     return (
@@ -60,10 +65,10 @@ const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, 
     )
   }
   return (
-    <div className="mb-12">
+    <div className={half ? undefined : "mb-12"}>
       <ShelfSection id="profile-favourites" title="Favourites" count={books.length}
         action={books.length > columns ? <SeeAllLink href={href} /> : undefined}>
-        <div className={favouritesGridClass}>
+        <div className={half ? favouritesHalfGridClass : favouritesGridClass}>
           {books.slice(0, columns).map((book) => <FavouriteTile key={book.id} book={book} readOnly={readOnly} />)}
         </div>
       </ShelfSection>

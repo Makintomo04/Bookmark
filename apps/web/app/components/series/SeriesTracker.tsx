@@ -125,14 +125,15 @@ const SeriesTracker: FC = () => {
   const visible = shown.slice(0, limit)
   const more = shown.length > limit
 
+  // Named for what it's for: the series you've started, and what to read next in each.
   return (
-    <ShelfSection id="series-tracker" title="Series" count={data.series.length}
+    <ShelfSection id="series-tracker" title="Continue your series" count={data.series.length}
       action={more ? <SeeAllLink onClick={() => setCount(shown.length)} /> : undefined}>
       {data.series.length === 0 ? (
         <p className="text-sm text-muted-foreground">Start a book in a series, or follow one from a book&apos;s page, and you&apos;ll see what&apos;s next here.</p>
       ) : (
         <>
-          <div role="tablist" aria-label="Series" className="mb-6 inline-flex rounded-full border border-neutral-300 dark:border-neutral-700 p-0.5">
+          <div role="tablist" aria-label="Your series" className="mb-6 inline-flex rounded-full border border-neutral-300 dark:border-neutral-700 p-0.5">
             {TABS.map((t) => (
               <button
                 key={t.id}

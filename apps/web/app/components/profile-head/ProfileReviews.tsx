@@ -8,6 +8,7 @@ import { pillClass } from '../books/ShelfToolbar'
 import AuthorLink from '@/app/components/AuthorLink'
 import BookDetailsButton from '../books/BookDetailsButton'
 import ReportReviewButton from '../books/ReportReviewButton'
+import { reviewedBooks } from '@/lib/reviewedBooks'
 
 export interface ReviewedBook {
   id: string
@@ -33,26 +34,26 @@ interface ProfileReviewsProps {
   title?: string
   // Someone else's profile: each review gets a Report button.
   canReport?: boolean
+  // The reader's reviews page: the heading's "See all" goes there. Without it (on that page), "See all"
+  // opens every review in place.
+  href?: string
+  // The reviews page, whose own title already heads the list: no section heading, just the reviews.
+  bare?: boolean
 }
-
-const time = (date: string | null) => (date ? new Date(date).getTime() : 0)
 
 // The newest few show straight away; a reader with hundreds of reviews pages through the rest.
 const FIRST = 5
 const MORE = 20
 
 // The reviews on a profile, newest finish first. Renders nothing when there are none to show.
-const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false }) => {
+const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false, href, bare = false }) => {
   const [shown, setShown] = useState(FIRST)
-  const reviewed = books
-    .filter((b): b is ReviewedBook & { review: string } => !!b.review)
-    .sort((a, b) => time(b.completedAt) - time(a.completedAt))
+  const reviewed = reviewedBooks(books)
   if (reviewed.length === 0) return null
   const left = reviewed.length - shown
 
-  return (
-    <ShelfSection id="profile-reviews" title={title} count={reviewed.length}
-      action={left > 0 ? <SeeAllLink onClick={() => setShown(reviewed.length)} /> : undefined}>
+  const list = (
+    <>
       <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
         {reviewed.slice(0, shown).map((book) => (
           <li key={book.id} className="flex gap-4 py-5 first:pt-0">
@@ -77,6 +78,13 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
           <button type="button" onClick={() => setShown((n) => n + MORE)} className={pillClass}>Show more</button>
         </div>
       )}
+    </>
+  )
+  if (bare) return list
+  return (
+    <ShelfSection id="profile-reviews" title={title} count={reviewed.length}
+      action={left > 0 ? (href ? <SeeAllLink href={href} /> : <SeeAllLink onClick={() => setShown(reviewed.length)} />) : undefined}>
+      {list}
     </ShelfSection>
   )
 }

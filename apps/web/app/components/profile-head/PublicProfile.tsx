@@ -7,14 +7,13 @@ import FollowButton from './FollowButton'
 import ShareProfileButton from './ShareProfileButton'
 import ProfileMenu from './ProfileMenu'
 import ProfileReviews from './ProfileReviews'
-import BooksInCommon from './BooksInCommon'
+import { reviewedBooks } from '@/lib/reviewedBooks'
 import { cn } from '@/lib/utils'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books/shelf'
 import CappedShelf from './CappedShelf'
-import FavouritesRow from './FavouritesRow'
+import ProfileShowcase from './ProfileShowcase'
 import { shelfPageHref } from '@/lib/shelfFilter'
-import ProfileLists from '../discover/ProfileLists'
 import ProfileAuthors from './ProfileAuthors'
 import { isFinishedBook } from '@/lib/readerTier'
 
@@ -33,6 +32,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
   // Re-reads sit under Currently reading but still count as read.
   const completedCount = profile.books.filter(isFinishedBook).length
   const achievementCount = profile.achievements.length
+  const reviewCount = reviewedBooks(profile.books).length
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`
 
   const actions = (
@@ -67,13 +67,14 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         actions={actions}
         stats={[
           { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },
+          // Only reviews this viewer may read arrive, so none (or all hidden) leaves the stat out.
+          ...(reviewCount > 0 ? [{ value: reviewCount, label: reviewCount === 1 ? "review" : "reviews", href: `/u/${encodeURIComponent(profile.username)}/reviews` }] : []),
           ...followStats,
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
       />
       <div className="mt-8">
-        {viewer && <BooksInCommon username={profile.username} accentColour={profile.favColour} />}
-        <FavouritesRow books={profile.favourites as unknown as Book[]} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly />
+        <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} />
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (
@@ -88,13 +89,12 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
             {finished.length > 0 && (
               <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
             )}
-            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport />
             {wantToRead.length > 0 && (
               <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
             )}
+            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
           </>
         )}
-        <ProfileLists username={profile.username} isSelf={false} />
         <div className="mt-12"><ProfileAuthors authors={profile.followedAuthors} /></div>
       </div>
     </div>
