@@ -26,11 +26,10 @@ export async function GET(req: Request) {
 
   try {
     const work = await prisma.work.findFirst({ where: { openLibraryKey: workKey }, select: { description: true } }).catch(() => null);
-    const description = (work?.description || null)
-      ?? await workDescription(workKey).catch(() => null)
-      ?? (await hardcoverRecord(title, author))?.description
-      ?? null;
-    return NextResponse.json({ description }, {
+    const own = (work?.description || null) ?? await workDescription(workKey).catch(() => null);
+    const hardcover = own ? null : await hardcoverRecord(title, author);
+    const description = own ?? hardcover?.description ?? null;
+    return NextResponse.json({ description, headline: hardcover?.headline ?? null }, {
       headers: { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" },
     });
   } catch {

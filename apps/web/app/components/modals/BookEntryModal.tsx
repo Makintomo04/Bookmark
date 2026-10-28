@@ -88,7 +88,7 @@ const BookEntryModal: FC = () => {
   const [givenBlurb, setGivenBlurb] = useState<string | null>(null)
   // And its Hardcover id, which files it in the catalogue so it gets a book page.
   const [hardcoverId, setHardcoverId] = useState<string | null>(null)
-  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null, { title, author })
+  const { description, headline, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null, { title, author })
 
   const resetAll = () => {
     reset(defaultValues)
@@ -257,7 +257,7 @@ const BookEntryModal: FC = () => {
         </div>
       </div>
 
-      <BookBlurb description={description} isLoading={isDescriptionLoading} />
+      <BookBlurb description={description} headline={headline} isLoading={isDescriptionLoading} />
 
       <FormatPicker value={format} onChange={chooseFormat} disabled={isLoading} />
 

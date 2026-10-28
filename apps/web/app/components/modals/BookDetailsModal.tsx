@@ -43,7 +43,7 @@ const ReviewsLink: FC<{ bookKey: string; href: string; onNavigate: () => void }>
 const BookDetailsModal: FC = () => {
   const { isOpen, book, reason, onClose } = useBookDetailsModal()
   const bookKey = book ? bookKeyOf(book) : null
-  const { description, isLoading } = useBookDescription(isOpen ? bookKey : null, isOpen ? book?.description : null, book)
+  const { description, headline: fetchedHeadline, isLoading } = useBookDescription(isOpen ? bookKey : null, isOpen ? book?.description : null, book)
   const { tags } = useWorkTags({ bookKey: isOpen ? bookKey : null })
   const pageHref = book ? bookHref(book) : null
 
@@ -91,7 +91,7 @@ const BookDetailsModal: FC = () => {
         {bookKey && !isLoading && !description ? (
           <p className="text-sm text-muted-foreground">We don&apos;t have a description for this book yet.</p>
         ) : (
-          <BookBlurb description={description} isLoading={isLoading} />
+          <BookBlurb description={description} headline={fetchedHeadline ?? book?.headline} isLoading={isLoading} />
         )}
         {bookKey && <BookProblemReport key={bookKey} workKey={book.workKey} workId={book.workKey ? null : book.pageWorkId} />}
       </div>

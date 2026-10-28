@@ -103,7 +103,7 @@ test("hardcoverBook maps a search hit and skips ones without a title or author",
   });
   assert.deepEqual(mapped, {
     workKey: null, title: "Caged", author: "Bernadette Blackthorn", pages: null, coverUrl: "https://assets.hardcover.app/c.jpg",
-    year: 2026, editionKey: null, isbn13: "9781234567897", isbn10: "123456789X", authorKey: null, description: "A blurb.", source: "hardcover",
+    year: 2026, editionKey: null, isbn13: "9781234567897", isbn10: "123456789X", authorKey: null, description: "A blurb.", headline: null, source: "hardcover",
     hardcoverId: "1",
   });
   assert.equal(hardcoverBook({ title: "No author" }), null);

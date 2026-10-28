@@ -26,6 +26,8 @@ export interface BookPageData {
   workId: string | null
   book: DiscoverBook
   description: string | null
+  // Set when the description is Hardcover's and opens with its headline.
+  headline?: string | null
   genres: Genre[]
   // Credited to the work's first author, the half of the series' identity a name alone doesn't give.
   series: { name: string, author: string, position: number | null } | null
@@ -44,7 +46,12 @@ export const bookPageData = cache(async (bookKey: string): Promise<BookPageData 
   if (!data || (data.book.coverUrl && data.description && data.book.pages)) return data
   const found = await hardcoverRecord(data.book.title, data.book.author)
   if (!found) return data
-  return { ...data, book: topUp(data.book, found), description: data.description || found.description || null }
+  return {
+    ...data,
+    book: topUp(data.book, found),
+    description: data.description || found.description || null,
+    headline: data.description ? null : found.headline ?? null,
+  }
 })
 
 async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | null> {

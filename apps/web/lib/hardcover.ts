@@ -70,6 +70,7 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
     ...pickIsbns(doc.isbns),
     authorKey: null,
     description: hardcoverBlurb(doc.headline, doc.description),
+    headline: doc.headline?.trim() || null,
     source: "hardcover",
     hardcoverId: doc.id != null && String(doc.id).trim() ? String(doc.id).trim() : null,
   }
@@ -85,7 +86,7 @@ export async function findOnHardcover(title: string, author: string): Promise<Di
   // just the description.
   const record = await hardcoverQuery(HEADLINE, { id: Number(found.hardcoverId) }).catch(() => null)
   const headline = (record?.books?.[0] as { headline?: string | null } | undefined)?.headline
-  return headline ? { ...found, description: hardcoverBlurb(headline, found.description) } : found
+  return headline ? { ...found, description: hardcoverBlurb(headline, found.description), headline: headline.trim() } : found
 }
 
 const HEADLINE = `query Headline($id: Int!) { books(where: { id: { _eq: $id } }) { headline } }`

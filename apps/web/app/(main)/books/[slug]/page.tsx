@@ -150,7 +150,7 @@ const Page = async ({ params }: PageProps) => {
             <section aria-labelledby="about-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="about-heading" className={sectionHeading}>About this book</h2>
               {data.description
-                ? <BookBlurb description={data.description} isLoading={false} hideHeading className="max-w-2xl" />
+                ? <BookBlurb description={data.description} headline={data.headline} isLoading={false} hideHeading className="max-w-2xl" />
                 : <p className="text-sm text-muted-foreground">We don&apos;t have a description for this book yet.</p>}
               {genres.length > 0 && (
                 <ul aria-label="Genres" className="flex flex-wrap gap-1.5">
