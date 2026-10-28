@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { normaliseUsername } from "@/lib/profile";
+
+// A malformed escape in the address isn't worth a 500: it's left as it is and the page says not found.
+const safeDecode = (segment: string) => { try { return decodeURIComponent(segment); } catch { return segment; } };
 
 export async function middleware(request:NextRequest){
+ // Profiles live at a lowercase address (lib/handle.ts): /u/Persona goes to /u/persona for good, so share
+ // links and search engines see one address per reader. Nothing else here applies to /u/: profiles are public.
+ if (request.nextUrl.pathname.startsWith("/u/")) {
+   const [, , segment, ...rest] = request.nextUrl.pathname.split("/");
+   const handle = normaliseUsername(safeDecode(segment));
+   if (segment && handle !== safeDecode(segment)) {
+     const url = request.nextUrl.clone();
+     url.pathname = ["", "u", encodeURIComponent(handle), ...rest].join("/");
+     return NextResponse.redirect(url, 308);
+   }
+   return NextResponse.next();
+ }
  const token = await getToken({
    req: request,
    secret: process.env.NEXTAUTH_JWT_SECRET,
@@ -30,5 +46,6 @@ export const config = {
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  "/u/:path*",
 ],
 }

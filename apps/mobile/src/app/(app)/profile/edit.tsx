@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import useSWR, { mutate } from "swr";
 import { Image } from "expo-image";
 import { bannerPresetOf, bannerPresetValue, resolveBanner, type BannerPresetId } from "@bookmark/shared/banners";
-import { BIO_MAX, DEFAULT_COLOUR, normaliseUsername, usernameProblem } from "@bookmark/shared/profile";
+import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, usernameProblem } from "@bookmark/shared/profile";
 import { BannerPattern } from "@/components/profile/BannerPattern";
 import { BannerPicker, ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
 import type { ProfileUser } from "@/components/profile/ProfileHeader";
@@ -30,6 +30,7 @@ function ProfileForm({ user }: { user: ProfileUser }) {
   const { colors, radii } = useTheme();
   const refreshUser = useAuth((s) => s.refreshUser);
   const [username, setUsername] = useState(user.username ?? "");
+  const [displayName, setDisplayName] = useState(user.displayName ?? "");
   const [bio, setBio] = useState(user.bio ?? "");
   const [colour, setColour] = useState(user.favColour || DEFAULT_COLOUR);
   const [image, setImage] = useState<string | null>(user.image || null);
@@ -42,14 +43,16 @@ function ProfileForm({ user }: { user: ProfileUser }) {
   const name = normaliseUsername(username);
   const problem = name ? usernameProblem(name) : "Choose a username.";
   const availability = useUsernameAvailability(username, user.username);
+  const displayNameError = displayNameProblem(normaliseDisplayName(displayName));
 
   const save = async () => {
     if (problem && name !== user.username?.toLowerCase()) return setError(problem);
     if (availability === "taken") return setError("That username is already taken.");
+    if (displayNameError) return setError(displayNameError);
     setSaving(true);
     setError(null);
     try {
-      await api.post("/api/user", { username: name, bio, color: colour, imageSrc: image, bannerSrc: banner });
+      await api.post("/api/user", { username: name, displayName: normaliseDisplayName(displayName), bio, color: colour, imageSrc: image, bannerSrc: banner });
       await mutate("/api/user");
       await refreshUser();
       goBack();
@@ -66,6 +69,10 @@ function ProfileForm({ user }: { user: ProfileUser }) {
       </View>
       <PhotoPicker image={image} name={name} colour={colour} onChange={setImage} />
       {error && <Notice tone="error" message={error} />}
+      <View style={{ gap: 6 }}>
+        <TextField label="Display name · optional" value={displayName} onChangeText={(t) => setDisplayName(t.slice(0, DISPLAY_NAME_MAX))} autoCapitalize="words" error={displayNameError} />
+        <Text variant="small">Heads your profile, with your username under it. Leave it empty to go by your username.</Text>
+      </View>
       <View style={{ gap: 6 }}>
         <TextField label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
         <Text variant="small" style={availability === "taken" && { color: colors.danger }}>{usernameHint(name, availability)}</Text>

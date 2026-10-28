@@ -1,5 +1,6 @@
 "use client"
 import { FC } from 'react'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { Users } from 'lucide-react'
@@ -57,8 +58,8 @@ const PickedByFollowing: FC<{ book: DiscoverBook }> = ({ book }) => {
 
   const { picks } = data
   const withReasons = picks.filter((p) => p.reason).slice(0, REASONS_SHOWN)
-  const names = picks.slice(0, NAMES_SHOWN).map((p) => p.person.username).filter(Boolean)
-  const others = picks.length - names.length
+  const named = picks.slice(0, NAMES_SHOWN).map((p) => p.person).filter((p) => p.username)
+  const others = picks.length - named.length
 
   return (
     <section aria-labelledby="picked-by-heading" className="flex flex-col gap-3">
@@ -70,10 +71,10 @@ const PickedByFollowing: FC<{ book: DiscoverBook }> = ({ book }) => {
         </div>
         <p id="picked-by-heading" className="min-w-0 text-sm">
           <span className="text-muted-foreground">Picked by </span>
-          {names.map((name, i) => (
-            <span key={name}>
-              {i > 0 && (i === names.length - 1 && others === 0 ? " and " : ", ")}
-              <Link href={`/u/${name}`} className="font-medium hover:underline underline-offset-2">{name}</Link>
+          {named.map((person, i) => (
+            <span key={person.username}>
+              {i > 0 && (i === named.length - 1 && others === 0 ? " and " : ", ")}
+              <Link href={`/u/${person.username}`} className="font-medium hover:underline underline-offset-2">{readerName(person)}</Link>
             </span>
           ))}
           {others > 0 && <span className="text-muted-foreground"> and {others} {others === 1 ? "other" : "others"} you follow</span>}

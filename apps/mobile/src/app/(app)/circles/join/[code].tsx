@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
@@ -17,7 +18,7 @@ import { useTheme } from "@/lib/theme";
 
 type Invite = {
   buddyRead: { title: string; author: string; coverImage: string | null; cardColour: string | null };
-  host: { username: string | null } | null;
+  host: { username: string | null; displayName?: string | null } | null;
   members: { username: string | null; image: string | null; favColour: string | null }[];
   full: boolean;
   viewer: { isMember: boolean; buddyReadId: string | null; removed: boolean; removedMessage: string | null };
@@ -69,7 +70,7 @@ export default function JoinCircle() {
           {data.members.slice(0, 8).map((m, i) => <Avatar key={i} image={m.image} name={m.username} colour={m.favColour} size={36} ring />)}
         </View>
         <Text style={{ textAlign: "center" }}>
-          {data.host?.username ?? "A reader"} invited you to read along{others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}.
+          {(data.host && readerName(data.host)) || "A reader"} invited you to read along{others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}.
         </Text>
         <Text variant="muted" style={{ textAlign: "center" }}>
           Everyone{"’"}s progress in one place, in any edition or on audio. Comments are pinned to where they were written and stay locked until you get there.

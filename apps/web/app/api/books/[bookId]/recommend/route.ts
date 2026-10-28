@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handleOf } from "@/lib/handle";
 import { z } from "zod";
 import prisma from "@/lib/db";
 import { createNotifications } from "@/lib/notifications";
@@ -40,7 +41,7 @@ export async function POST(req: Request, { params }: { params: { bookId: string 
   const limit = rateLimit(`book-recommend:${currentUser.id}`, 30, 60 * 60 * 1000);
   if (!limit.ok) return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429 });
 
-  const usernames = Array.from(new Set(parsed.data.usernames.map((u) => u.replace(/^@/, ""))));
+  const usernames = Array.from(new Set(parsed.data.usernames.map((u) => handleOf(u.replace(/^@/, "")))));
   const [friendIds, recipients] = await Promise.all([
     mutualFollowIds(currentUser.id),
     prisma.user.findMany({ where: { username: { in: usernames } }, select: { id: true } }),

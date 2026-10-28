@@ -1,7 +1,7 @@
 "use client"
 import useBookEntryModal from '@/app/hooks/useBookEntryModal';
 import useUser from '@/app/hooks/useUser';
-import { FC, ReactNode } from 'react'
+import { FC } from 'react'
 import Loader from '../Loader';
 import { Book } from '@prisma/client';
 import useBooks from '@/app/hooks/useBooks';
@@ -12,12 +12,7 @@ import { primaryButtonClass, secondaryButtonClass } from '../profile-head/Profil
 import BookGrid from './BookGrid';
 import FetchErrorState from '../FetchErrorState';
 
-interface BookListProps {
-  // Passed through to BookGrid, under its toolbar.
-  belowToolbar?: ReactNode
-}
-
-const BookList: FC<BookListProps> = ({ belowToolbar }) => {
+const BookList: FC = () => {
   const {books,isLoading:isLoadingBooks,isError:isErrorBooks,mutate:mutateBooks} = useBooks();
   const {user,isLoading,isError} = useUser();
   const bookEntryModal = useBookEntryModal()
@@ -57,7 +52,7 @@ if(sortedBooks?.length === 0) return (
     </div>
   </div>
   )
-  return <BookGrid books={sortedBooks ?? []} belowToolbar={belowToolbar}/>
+  return <BookGrid books={sortedBooks ?? []}/>
 }
 
 export default BookList

@@ -1,5 +1,6 @@
 "use client"
 import { FC } from 'react'
+import ReaderName from '@/app/components/profile/ReaderName'
 import moment from 'moment'
 import axios from 'axios'
 import { mutate as revalidate } from 'swr'
@@ -26,7 +27,7 @@ export type NotificationLike = {
   book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null
   // NEW_IN_SERIES: the new book.
   work?: { title: string; coverUrl: string | null; seriesName: string | null; seriesPosition: number | null; href: string | null } | null
-  actor: { username: string; image?: string | null; favColour?: string | null }
+  actor: { username: string; displayName?: string | null; image?: string | null; favColour?: string | null }
 }
 
 export const notificationCopy = (n: NotificationLike) => {
@@ -84,7 +85,7 @@ export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ 
             : <>You&apos;re now hosting <span className="font-semibold">{n.buddyRead?.title ?? "a reading circle"}</span>: its host closed their account.</>}
         </p>
       ) : (
-        <p className={`text-sm ${oneLine}`}><span className="font-semibold">{n.actor.username}</span> {notificationCopy(n)}</p>
+        <p className={`text-sm ${oneLine}`}><ReaderName reader={n.actor} className="font-semibold" /> {notificationCopy(n)}</p>
       )}
       {n.type === "BOOK_RECOMMENDED" && n.message && (
         <p className={`text-xs text-muted-foreground italic ${full ? "" : "line-clamp-2"}`}>&ldquo;{n.message}&rdquo;</p>

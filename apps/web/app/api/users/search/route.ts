@@ -19,12 +19,12 @@ export async function GET(req: Request) {
   const users = await prisma.user.findMany({
     where: {
       AND: [
-        { username: { contains: query, mode: "insensitive" } },
+        { OR: [{ username: { contains: query, mode: "insensitive" } }, { displayName: { contains: query, mode: "insensitive" } }] },
         { id: { notIn: [currentUser.id, ...blocked] } },
         searchableProfileWhere,
       ],
     },
-    select: { id: true, username: true, image: true, favColour: true, bio: true, ...booksReadCount, ...privacySelect },
+    select: { id: true, username: true, displayName: true, image: true, favColour: true, bio: true, ...booksReadCount, ...privacySelect },
     take: 8,
   });
 
@@ -39,11 +39,11 @@ export async function GET(req: Request) {
 
   // A followers-only reader shows up so they can be followed, but their bio and count stay with their followers.
   return NextResponse.json(
-    users.map(({ id, username, image, favColour, bio, _count, ...privacy }) => {
+    users.map(({ id, username, displayName, image, favColour, bio, _count, ...privacy }) => {
       const isFollowing = followingIds.has(id);
       const relation = { isSelf: false, isFollower: isFollowing, blocked: null };
       const open = canView(relation, privacyOf(privacy), "profile");
-      return { username, image, favColour, bio: open ? bio : null, ...(open ? { _count } : {}), isFollowing };
+      return { username, displayName, image, favColour, bio: open ? bio : null, ...(open ? { _count } : {}), isFollowing };
     })
   );
 }

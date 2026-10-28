@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handleOf } from "@/lib/handle";
 import { z } from "zod";
 import { requireUser } from "@/lib/apiAuth";
 import { respondToRequestFrom } from "@/lib/followRequests";
@@ -13,7 +14,7 @@ export async function POST(req: Request, { params }: { params: { username: strin
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose accept or decline." }, { status: 400 });
 
-  const result = await respondToRequestFrom(user.id, params.username, parsed.data.action === "accept");
+  const result = await respondToRequestFrom(user.id, handleOf(params.username), parsed.data.action === "accept");
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json({ accepted: result.accepted });
 }

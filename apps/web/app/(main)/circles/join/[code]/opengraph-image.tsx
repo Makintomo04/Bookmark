@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { readerName } from '@/lib/profile'
 import { loadInvite } from '@/lib/buddyReadsServer'
 import { readableInk, toHex } from '@/lib/colour'
 import { siteUrl } from '@/lib/siteUrl'
@@ -70,7 +71,7 @@ export default async function Image({ params }: { params: { code: string } }) {
   const coverColour = toHex(buddyRead.cardColour ?? '') ?? accent
   const title = clip(buddyRead.title, 60)
   const author = clip(buddyRead.author, 40)
-  const hostName = clip(host?.username ?? 'A reader', 24)
+  const hostName = clip((host && readerName(host)) || 'A reader', 24)
   const others = members.length - 1
   const line = others > 0 ? `and ${others} ${others === 1 ? 'other' : 'others'} are reading together` : 'is starting a reading circle'
   const footer = `${siteHost} · Comments stay hidden until you reach them`

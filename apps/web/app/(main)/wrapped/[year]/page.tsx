@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { readerName } from '@/lib/profile'
 import { notFound, redirect } from 'next/navigation'
 import Container from '@/app/components/Container'
 import getCurrentUser from '@/app/actions/getCurrentUser'
@@ -28,7 +29,7 @@ export default async function Page({ params }: PageProps) {
   return (
     <div className={`mt-6 sm:mt-10 ${ACCENT_SCOPE}`} style={accentVars(accent)}>
       <Container className="max-w-4xl">
-        <WrappedView wrapped={wrapped} username={user.username} accent={accent.base} own years={years} />
+        <WrappedView wrapped={wrapped} username={user.username} name={readerName(user)} accent={accent.base} own years={years} />
       </Container>
     </div>
   )

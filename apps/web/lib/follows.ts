@@ -7,6 +7,7 @@ export type FollowListKind = "followers" | "following";
 
 export interface FollowListUser {
   username: string;
+  displayName: string | null;
   image: string | null;
   favColour: string | null;
   bio: string | null;
@@ -17,7 +18,7 @@ export interface FollowListUser {
 
 export const FOLLOW_PAGE_SIZE = 30;
 
-const userSelect = { id: true, username: true, image: true, favColour: true, bio: true, ...booksReadCount };
+const userSelect = { id: true, username: true, displayName: true, image: true, favColour: true, bio: true, ...booksReadCount };
 
 // Public, like the profile it belongs to. The viewer only changes the isFollowing/isSelf flags.
 // Pages are newest-first and keyed by the Follow row id so a follow landing mid-scroll doesn't shift pages.

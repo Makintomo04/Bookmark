@@ -17,7 +17,7 @@ export type CircleSummary = {
   startsAt: string;
   isHost: boolean;
   myProgress: number;
-  members: { userId: string; username: string | null; image: string | null; favColour: string | null; progress: number }[];
+  members: { userId: string; username: string | null; displayName?: string | null; image: string | null; favColour: string | null; progress: number }[];
 };
 
 export type Hosting = { allowed: boolean; active: number; limit: number | null; plan: "free" | "plus"; upgrade: boolean; message: string | null };
@@ -25,7 +25,7 @@ export type Hosting = { allowed: boolean; active: number; limit: number | null; 
 export type CircleInvite = {
   id: string;
   createdAt: string;
-  inviter: { username: string | null; image: string | null; favColour: string | null };
+  inviter: { username: string | null; displayName?: string | null; image: string | null; favColour: string | null };
   buddyRead: { id: string; title: string; author: string; coverImage: string | null; cardColour: string | null; inviteCode: string };
 };
 
@@ -34,6 +34,7 @@ export type CircleList = { buddyReads: CircleSummary[]; hosting: Hosting | null;
 export type CircleMember = {
   userId: string;
   username: string | null;
+  displayName?: string | null;
   image: string | null;
   favColour: string | null;
   booksRead: number;

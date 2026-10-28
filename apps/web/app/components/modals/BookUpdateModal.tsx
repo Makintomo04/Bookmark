@@ -94,6 +94,9 @@ const BookUpdateModal: FC = () => {
   const [pageInput, setPageInput] = useState("0")
   // Kindle readers type a percent instead of a page; pageInput then holds the percent (0-100).
   const [inPercent, setInPercent] = useState(false)
+  // The last switch of mode: what was typed before it and what it showed after, so switching straight
+  // back restores the exact page rather than one rebuilt from a rounded percent (32 → 10% → 33).
+  const [beforeSwitch, setBeforeSwitch] = useState<{ was: number, shown: number } | null>(null)
   // Moods, spice and content warnings, tagged along with the review.
   const [tags, setTags] = useState<ReaderTagsInput>(EMPTY_TAGS)
   const [finished, setFinished] = useState(false)
@@ -124,6 +127,7 @@ const BookUpdateModal: FC = () => {
   useEffect(() => {
     if (!isOpen || !book) return
     setInPercent(entersPercent(book))
+    setBeforeSwitch(null)
     setPageInput(String(entersPercent(book) ? Math.round(progressPercent(book)) : progressScale(book).current))
     setFinished(false)
     setFinishOn(defaultFinishDates())
@@ -191,10 +195,13 @@ const BookUpdateModal: FC = () => {
 
   const setPage = (n: number) => setPageInput(String(clamp(n, max)))
 
-  // Switching keeps the reader's place: 111 of 300 becomes 37%, and back.
+  // Switching keeps the reader's place: 111 of 300 becomes 37%, and back. Untouched since the last
+  // switch, it goes back to exactly what was there.
   const changeMode = (toPercent: boolean) => {
     if (toPercent === inPercent) return
-    setPageInput(String(toPercent ? progress : page))
+    const next = beforeSwitch && value === beforeSwitch.shown ? beforeSwitch.was : toPercent ? progress : page
+    setBeforeSwitch({ was: value, shown: next })
+    setPageInput(String(next))
     setInPercent(toPercent)
   }
 

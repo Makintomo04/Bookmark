@@ -9,6 +9,7 @@ import AuthorLink from '@/app/components/AuthorLink'
 import BookDetailsButton from '../books/BookDetailsButton'
 import ReportReviewButton from '../books/ReportReviewButton'
 import { reviewedBooks } from '@/lib/reviewedBooks'
+import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 
 export interface ReviewedBook {
   id: string
@@ -39,6 +40,8 @@ interface ProfileReviewsProps {
   href?: string
   // The reviews page, whose own title already heads the list: no section heading, just the reviews.
   bare?: boolean
+  // Your own profile: the section folds up from its heading, and stays folded.
+  collapsible?: boolean
 }
 
 // The newest few show straight away; a reader with hundreds of reviews pages through the rest.
@@ -46,8 +49,9 @@ const FIRST = 5
 const MORE = 20
 
 // The reviews on a profile, newest finish first. Renders nothing when there are none to show.
-const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false, href, bare = false }) => {
+const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false, href, bare = false, collapsible = false }) => {
   const [shown, setShown] = useState(FIRST)
+  const collapse = useCollapsedSections()
   const reviewed = reviewedBooks(books)
   if (reviewed.length === 0) return null
   const left = reviewed.length - shown
@@ -82,7 +86,7 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
   )
   if (bare) return list
   return (
-    <ShelfSection id="profile-reviews" title={title} count={reviewed.length}
+    <ShelfSection id="profile-reviews" title={title} count={reviewed.length} {...(collapsible ? collapse("profile-reviews") : {})}
       action={left > 0 ? (href ? <SeeAllLink href={href} /> : <SeeAllLink onClick={() => setShown(reviewed.length)} />) : undefined}>
       {list}
     </ShelfSection>

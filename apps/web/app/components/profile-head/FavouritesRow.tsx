@@ -5,6 +5,7 @@ import { Bookmark } from 'lucide-react'
 import BookCover from '../cards/BookCover'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
 import useShelfPreview from '@/app/hooks/useShelfPreview'
+import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import { discoverBookOf } from '@/lib/openLibrary'
@@ -21,6 +22,8 @@ interface FavouritesRowProps {
   hintWhenEmpty?: boolean
   // Beside Books in common (ProfileShowcase): four covers from lg up, where it gets half the width.
   half?: boolean
+  // Your own profile: the section folds up from its heading, and stays folded.
+  collapsible?: boolean
 }
 
 // Two more columns than the shelf grid at each width (4 on a phone up to 8), so favourites read as a
@@ -51,9 +54,10 @@ const FavouriteTile: FC<{ book: Book, readOnly: boolean }> = ({ book, readOnly }
 
 // The books that say most about a reader, in one row of small covers near the top of their profile, then
 // "See all".
-const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, hintWhenEmpty = false, half = false }) => {
+const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, hintWhenEmpty = false, half = false, collapsible = false }) => {
   // The shelf grid's columns plus two, to match favouritesGridClass at each width; four in half a wide screen.
   const preview = useShelfPreview()
+  const collapse = useCollapsedSections()
   const columns = half && preview >= 10 ? 4 : preview / 2 + 2
   if (books.length === 0) {
     if (!hintWhenEmpty) return null
@@ -66,7 +70,7 @@ const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, 
   }
   return (
     <div className={half ? undefined : "mb-12"}>
-      <ShelfSection id="profile-favourites" title="Favourites" count={books.length}
+      <ShelfSection id="profile-favourites" title="Favourites" count={books.length} {...(collapsible ? collapse("profile-favourites") : {})}
         action={books.length > columns ? <SeeAllLink href={href} /> : undefined}>
         <div className={half ? favouritesHalfGridClass : favouritesGridClass}>
           {books.slice(0, columns).map((book) => <FavouriteTile key={book.id} book={book} readOnly={readOnly} />)}

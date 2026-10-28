@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -65,12 +66,12 @@ export default function Feed() {
           const book = item.book!;
           return (
             <View style={styles.item}>
-              <Pressable accessibilityRole="link" accessibilityLabel={`${item.user.username}'s profile`} onPress={() => router.push(`/u/${item.user.username}`)}>
+              <Pressable accessibilityRole="link" accessibilityLabel={`${readerName(item.user)}'s profile`} onPress={() => router.push(`/u/${item.user.username}`)}>
                 <Avatar image={item.user.image} name={item.user.username} colour={item.user.favColour} size={40} />
               </Pressable>
               <View style={{ flex: 1, gap: 6 }}>
                 <Text>
-                  <Text style={{ fontFamily: fonts.sansSemibold }} onPress={() => router.push(`/u/${item.user.username}`)}>{item.user.username}</Text>{" "}
+                  <Text style={{ fontFamily: fonts.sansSemibold }} onPress={() => router.push(`/u/${item.user.username}`)}>{readerName(item.user)}</Text>{item.user.displayName ? <Text variant="small"> @{item.user.username}</Text> : null}{" "}
                   {ACTIVITY_COPY[item.type](book.title)}
                 </Text>
                 <Text variant="small">by {book.author} · {timeAgo(item.createdAt)}</Text>

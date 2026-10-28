@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
 import useViewMode from '@/app/hooks/useViewMode'
 import useShelfPreview from '@/app/hooks/useShelfPreview'
+import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import BookCoverCard from '../cards/BookCoverCard'
 import CompactBookCard from '../cards/CompactBookCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
@@ -29,17 +30,19 @@ interface BookGridProps {
   flat?: boolean
   // A shelf's own page (/u/<username>/shelf/<slug>): that shelf only, searched, sorted and filtered.
   shelf?: ShelfKey
-  // Under the toolbar: the profile's links to its other sections.
-  belowToolbar?: ReactNode
 }
 
-const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, belowToolbar }) => {
+const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf }) => {
   const [mounted, setMounted] = useState(false)
   // Two rows of covers on this screen, for each shelf's preview.
   const preview = useShelfPreview()
   const { viewMode, setViewMode } = useViewMode()
   const { user } = useUser()
   const accent = user?.favColour ?? null
+  // On your profile each shelf folds up and stays that way. A shelf's own page (and the flat grid) is
+  // one shelf, which stays open.
+  const collapse = useCollapsedSections()
+  const folding = (key: ShelfKey) => (flat || onlyShelf ? {} : collapse(`shelf-${key}`))
   // Select mode: cards become checkboxes and BulkBar acts on the picked ones. No cap here: BulkBar sends
   // big selections in batches.
   const [selecting, setSelecting] = useState(false)
@@ -208,7 +211,6 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, be
     return (
       <div ref={top} className="w-full scroll-mt-24">
         {toolbar}
-        {belowToolbar}
         <section id="profile-shelf" aria-labelledby="shelf-results">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4 min-h-10">
             <h2 id="shelf-results" className="text-lg font-semibold tabular-nums">{title}</h2>
@@ -228,12 +230,11 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, be
   return (
     <div ref={top} className="w-full scroll-mt-24">
       {toolbar}
-      {belowToolbar}
       {/* Wrapped so the first shelf is a first child and skips ShelfSection's top margin. */}
       <div id="profile-shelf">
       {/* With nothing on the go, the section only shows while the shelf is new: for a reader with a full
           shelf it would push the first cover below the fold. */}
-      {(reading.length > 0 || coverShelves.length === 0) && <ShelfSection id="shelf-reading" title="Currently reading" count={reading.length}>
+      {(reading.length > 0 || coverShelves.length === 0) && <ShelfSection id="shelf-reading" title="Currently reading" count={reading.length} {...folding("reading")}>
         {reading.length > 0 ? (
           <div className={cn("grid grid-cols-1 gap-4", readingGridCols(reading.length))}>
             {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={accent} isReread={isRereading(book, finished)} />)}
@@ -251,7 +252,7 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, be
 
       {/* Empty shelves are hidden. Long ones show a preview; "See all" opens the shelf's own page. */}
       {coverShelves.map(({ key, items }) => (
-        <ShelfSection key={key} id={`shelf-${key}`} title={SHELF_TITLE[key]} count={items.length}
+        <ShelfSection key={key} id={`shelf-${key}`} title={SHELF_TITLE[key]} count={items.length} {...folding(key)}
           action={selecting ? selectAll(items) : items.length > preview && seeAllHref(key) ? <SeeAllLink href={seeAllHref(key)!} /> : undefined}>
           {shelf(items.slice(0, activeMode === 'comfortable' ? preview : SHELF_ROWS_COMPACT))}
           {items.length > (activeMode === 'comfortable' ? preview : SHELF_ROWS_COMPACT) && (

@@ -22,8 +22,8 @@ export async function GET(req: Request) {
   const removed = !!viewer && !isMember && (await wasRemoved(buddyRead.id, viewer.id));
   return NextResponse.json({
     buddyRead: { title: buddyRead.title, author: buddyRead.author, coverImage: buddyRead.coverImage, cardColour: buddyRead.cardColour },
-    host: host && { username: host.username },
-    members: members.map((m) => ({ username: m.username, image: m.image, favColour: m.favColour })),
+    host: host && { username: host.username, displayName: host.displayName },
+    members: members.map((m) => ({ username: m.username, displayName: m.displayName, image: m.image, favColour: m.favColour })),
     full: members.length >= BUDDY_READ_MAX_MEMBERS,
     viewer: { isMember, buddyReadId: isMember ? buddyRead.id : null, removed, removedMessage: removed ? REMOVED_MESSAGE : null },
   });

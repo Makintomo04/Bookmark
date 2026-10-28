@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handleOf } from "@/lib/handle";
 import { z } from "zod";
 import prisma from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
@@ -27,7 +28,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const limit = rateLimit(`buddy-read-invite:${currentUser.id}`, 30, 60 * 60 * 1000);
   if (!limit.ok) return buddyReadError(tooManyRequestsMessage, 429);
 
-  const invitee = await prisma.user.findUnique({ where: { username: parsed.data.username.replace(/^@/, "") }, select: { id: true, ...preferencesSelect } });
+  const invitee = await prisma.user.findUnique({ where: { username: handleOf(parsed.data.username.replace(/^@/, "")) }, select: { id: true, ...preferencesSelect } });
   // Blocked readers look the same as unknown ones.
   if (!invitee || (await isBlockedEitherWay(currentUser.id, invitee.id)) || (await isBlockedEitherWay(buddyRead.hostId, invitee.id))) {
     return buddyReadError("No reader with that username.", 404);

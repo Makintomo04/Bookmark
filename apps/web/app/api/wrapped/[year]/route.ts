@@ -11,7 +11,7 @@ export async function GET(req: Request, { params }: { params: { year: string } }
   const viewer = await getCurrentUser();
   const username = new URL(req.url).searchParams.get("username");
 
-  let owner: { id: string; username: string | null; favColour: string | null } | null;
+  let owner: { id: string; username: string | null; displayName?: string | null; favColour: string | null } | null;
   if (username) {
     owner = await getWrappedOwner(username);
     if (!owner) return NextResponse.json({ error: "Wrapped not found" }, { status: 404 });
@@ -20,11 +20,11 @@ export async function GET(req: Request, { params }: { params: { year: string } }
     }
   } else {
     if (!viewer) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
-    owner = { id: viewer.id, username: viewer.username, favColour: viewer.favColour };
+    owner = { id: viewer.id, username: viewer.username, displayName: viewer.displayName, favColour: viewer.favColour };
   }
 
   // Private books are the owner's alone, so anyone else sees the year without them.
   const sharedOnly = viewer?.id !== owner.id;
   const [wrapped, years] = await Promise.all([getWrapped(owner.id, year, null, { sharedOnly }), getWrappedYears(owner.id, { sharedOnly })]);
-  return NextResponse.json({ year, wrapped, years, owner: { username: owner.username, accent: owner.favColour ?? null }, own: viewer?.id === owner.id });
+  return NextResponse.json({ year, wrapped, years, owner: { username: owner.username, displayName: owner.displayName ?? null, accent: owner.favColour ?? null }, own: viewer?.id === owner.id });
 }

@@ -1,5 +1,6 @@
 "use client"
 import { FC, useEffect, useRef, useState } from 'react'
+import ReaderName from '@/app/components/profile/ReaderName'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import Image from 'next/image'
@@ -24,6 +25,7 @@ type Mode = SearchMode
 
 interface SearchUser {
   username: string
+  displayName?: string | null
   image: string | null
   favColour: string | null
   bio: string | null
@@ -207,7 +209,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
                         : <InitialAvatar username={person.username} favColour={person.favColour} />}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-medium">{person.username}</p>
+                      <p className="truncate font-medium"><ReaderName reader={person} /></p>
                       {person.bio && <p className="truncate text-xs text-muted-foreground">{person.bio}</p>}
                     </div>
                   </Link>
@@ -241,7 +243,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") rememberSearch() }}
-            placeholder={mode === "books" ? "Search by title or author" : "Search readers by username"}
+            placeholder={mode === "books" ? "Search by title or author" : "Search readers by name or username"}
             aria-label={mode === "books" ? "Search for books" : "Search for readers"}
             autoComplete="off"
             className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-11 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-search-cancel-button]:hidden"

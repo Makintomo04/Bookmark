@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 
 // Readers and what they do: the feed, notifications, profiles, following and blocking.
 
-export type Person = { username: string | null; image: string | null; favColour: string | null };
+export type Person = { username: string | null; displayName?: string | null; image: string | null; favColour: string | null };
 
 export type ActivityType = "ADDED_BOOK" | "STARTED_BOOK" | "COMPLETED_BOOK" | "DNF_BOOK" | "RATED_BOOK" | "REVIEWED_BOOK";
 

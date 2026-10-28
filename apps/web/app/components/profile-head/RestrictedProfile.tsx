@@ -3,6 +3,7 @@ import { BLEED } from '../Container'
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
 import type { RestrictedProfile as RestrictedProfileData, RestrictedReason } from '@/lib/publicProfile'
+import { readerName } from '@/lib/profile'
 import { StaffBadge, primaryButtonClass } from './ProfileHeader'
 import TierAvatar from './TierAvatar'
 import FollowButton from './FollowButton'
@@ -26,6 +27,7 @@ const COPY: Record<RestrictedProfileProps["reason"], { title: string; body: stri
 const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer }) => {
   const accent = profile.favColour || "#F13C3C"
   const copy = COPY[reason]
+  const name = readerName(profile)
 
   return (
     <div className="w-full">
@@ -33,13 +35,14 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
       <div>
         <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-4">
           {/* No tier frame: it would give away how many books they've read. */}
-          <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${profile.username}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
+          <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${name}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
           {viewer && <div className="pb-1"><ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} /></div>}
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="page-title break-words">{profile.username}</h1>
+          <h1 className="page-title break-words">{name}</h1>
           {profile.staffBadge && <StaffBadge kind={profile.staffBadge} />}
         </div>
+        {profile.displayName && <p className="mt-0.5 text-sm text-muted-foreground break-all">@{profile.username}</p>}
 
         <div className="mt-10 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 p-6">
           <Lock size={20} className="text-muted-foreground" aria-hidden />

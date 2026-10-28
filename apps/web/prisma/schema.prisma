@@ -89,6 +89,9 @@ model User {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String?   
   username      String?   @unique @default(cuid())
+  // Shown in place of the username on their profile, cards and feed rows (packages/shared/src/profile.ts has the
+  // rules). Unset shows the username.
+  displayName   String?
   email         String?   @unique
   emailVerified DateTime?
   // IANA zone (e.g. "Europe/London") reported by the browser; reading-streak days roll over at its midnight.
@@ -104,6 +107,8 @@ model User {
   favGenres String[] @db.String
   // Hid the genre picks ("Somewhere to start") on their own shelf (it still shows on Discover). Unset reads as shown.
   hideShelfPicks Boolean?
+  // Sections of their own profile they've folded up, by id (lib/profileSections.ts). Unset reads as none.
+  collapsedSections String[] @db.String
   favouriteIds String[] @db.String
   books Book[]
   accounts      Account[]
@@ -139,6 +144,8 @@ model User {
   profileVisibility ProfileVisibility?
   reviewVisibility  ReviewVisibility?
   hideWantToRead    Boolean?
+  // Keep "stopped reading" out of followers' feeds. The Did not finish shelf itself never shows to others.
+  hideDidNotFinish  Boolean?
   hideFollowCounts  Boolean?
   // Keep favourites off the profile for everyone else. Unset shows them (privacyRules.ts).
   hideFavourites    Boolean?

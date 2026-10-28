@@ -1,4 +1,6 @@
 import { Metadata } from 'next'
+import { readerName } from '@/lib/profile'
+import ReaderName from '@/app/components/profile/ReaderName'
 import Image from 'next/image'
 import Link from 'next/link'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
@@ -26,7 +28,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!list) return {}
   return {
     title: list.title,
-    description: list.description || `${list.items.length} books, curated ${list.isPick ? "by the Bookmark team" : `by ${list.owner.username}`}.`,
+    description: list.description || `${list.items.length} books, curated ${list.isPick ? "by the Bookmark team" : `by ${readerName(list.owner)}`}.`,
   }
 }
 
@@ -81,7 +83,7 @@ const Page = async ({ params }: PageProps) => {
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Curated by</p>
-                <p className="truncate font-medium">{owner.username}</p>
+                <p className="truncate font-medium"><ReaderName reader={owner} /></p>
               </div>
             </Link>
             {!list.isOwner && owner.username && <FollowButton username={owner.username} initialFollowing={list.isFollowing} />}

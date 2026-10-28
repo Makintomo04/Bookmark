@@ -11,7 +11,7 @@ import Modal from './Modal'
 import { Button } from '../ui/button'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
-import { BIO_MAX, DEFAULT_COLOUR, normaliseUsername, usernameProblem } from '@/lib/profile'
+import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, usernameProblem } from '@/lib/profile'
 import { bannerPresetOf, bannerPresetValue, isBannerPresetValue, resolveBanner } from '@/lib/banners'
 import BannerPattern from '../profile/BannerPattern'
 import BannerPresetPicker from '../profile/BannerPresetPicker'
@@ -23,6 +23,7 @@ import ColourSwatches from '../profile/ColourSwatches'
 
 type ProfileForm = {
   username: string
+  displayName: string
   bio: string
   imageSrc: string
   bannerSrc: string
@@ -42,7 +43,7 @@ const EditProfileModal: FC = () => {
   const bannerInput = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors, isDirty } } = useForm<ProfileForm>({
-    defaultValues: { username: "", bio: "", imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR },
+    defaultValues: { username: "", displayName: "", bio: "", imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR },
   })
 
   const setField = (name: keyof ProfileForm, value: string) =>
@@ -58,6 +59,7 @@ const EditProfileModal: FC = () => {
     if (!isOpen || !user) return
     reset({
       username: user.username ?? "",
+      displayName: user.displayName ?? "",
       bio: user.bio ?? "",
       imageSrc: user.image ?? "",
       bannerSrc: user.banner ?? "",
@@ -67,7 +69,7 @@ const EditProfileModal: FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user?.id, reset])
 
-  const [username, bio, imageSrc, bannerSrc, colour] = watch(["username", "bio", "imageSrc", "bannerSrc", "color"])
+  const [username, displayName, bio, imageSrc, bannerSrc, colour] = watch(["username", "displayName", "bio", "imageSrc", "bannerSrc", "color"])
   const accent = colour || DEFAULT_COLOUR
   const accentInk = readableInk(accent)
   const avatarSrc = avatar.preview || imageSrc
@@ -84,7 +86,7 @@ const EditProfileModal: FC = () => {
   const onSubmit = async (profile: ProfileForm) => {
     setIsSaving(true)
     try {
-      const res = await axios.post("/api/user", { ...profile, username: normaliseUsername(profile.username), imageSrc: profile.imageSrc || null, bannerSrc: profile.bannerSrc || null })
+      const res = await axios.post("/api/user", { ...profile, username: normaliseUsername(profile.username), displayName: normaliseDisplayName(profile.displayName), imageSrc: profile.imageSrc || null, bannerSrc: profile.bannerSrc || null })
       // Revalidated: the POST reply lacks the counts GET adds (books read and the like).
       if (res.data?.id) mutate(res.data)
       onClose()
@@ -180,6 +182,28 @@ const EditProfileModal: FC = () => {
 
   const fields = (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <label htmlFor="displayName" className="text-sm font-medium">Display name <span className="font-normal text-muted-foreground">· optional</span></label>
+          <span className={cn("text-xs tabular-nums", (displayName?.length ?? 0) > DISPLAY_NAME_MAX ? "text-danger" : "text-muted-foreground")} aria-live="polite">
+            {displayName?.length ?? 0}/{DISPLAY_NAME_MAX}
+          </span>
+        </div>
+        <input
+          id="displayName"
+          autoComplete="name"
+          disabled={isSaving}
+          placeholder={user?.username ?? ""}
+          aria-invalid={!!errors.displayName}
+          aria-describedby="display-name-hint"
+          className={cn(fieldClass, "h-10", errors.displayName ? "border-danger" : "border-input")}
+          {...register("displayName", { validate: (v) => displayNameProblem(normaliseDisplayName(v)) ?? true })}
+        />
+        {errors.displayName
+          ? <p id="display-name-hint" role="alert" className="text-sm text-danger">{errors.displayName.message}</p>
+          : <p id="display-name-hint" className="text-xs text-muted-foreground">Heads your profile and your activity, with your username under it. Leave it empty to go by your username.</p>}
+      </div>
+
       <div className="flex flex-col gap-2">
         <label htmlFor="username" className="text-sm font-medium">Username</label>
         <input

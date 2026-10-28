@@ -18,7 +18,7 @@ type Viewer = { id: string, role?: string | null, isStaff?: boolean, username?: 
 // Picks, featuring, hiding and editing anyone's list (packages/shared/src/roles.ts).
 const curates = (viewer: Viewer | undefined) => can(viewer, "lists.curate")
 
-const ownerSelect = { username: true, image: true, favColour: true, ...booksReadCount } as const
+const ownerSelect = { username: true, displayName: true, image: true, favColour: true, ...booksReadCount } as const
 
 // What a viewer may see: public, unhidden lists, plus their own. Staff see everything.
 const visibleTo = (viewer: Viewer): Prisma.ListWhereInput =>
@@ -377,9 +377,9 @@ export async function followedPeople(viewerId: string) {
     where: { id: { in: ids } },
     select: { id: true, ...ownerSelect, ...privacySelect },
   })
-  for (const { id, username, image, favColour, _count, ...stored } of users) {
+  for (const { id, username, displayName, image, favColour, _count, ...stored } of users) {
     const privacy = privacyOf(stored)
-    if (canView(FOLLOWER, privacy, "profile")) people.set(id, { username, image, favColour, _count, privacy })
+    if (canView(FOLLOWER, privacy, "profile")) people.set(id, { username, displayName, image, favColour, _count, privacy })
   }
   return { followsAnyone: true, people }
 }

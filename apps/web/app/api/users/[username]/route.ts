@@ -1,4 +1,5 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
+import { handleOf } from "@/lib/handle";
 import { getProfileView } from "@/lib/publicProfile";
 import { hasRequested } from "@/lib/followRequests";
 import { followsBack } from "@/lib/friends";
@@ -11,7 +12,7 @@ export async function GET(
   // Viewable by anyone, signed in or not, as far as the owner's privacy settings allow.
   // getProfileView applies them; this route only adds the viewer-specific flags.
   const currentUser = await getCurrentUser();
-  const view = await getProfileView(params.username, currentUser?.id);
+  const view = await getProfileView(handleOf(params.username), currentUser?.id);
 
   if (!view || (view.access === "restricted" && view.reason === "unavailable")) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });

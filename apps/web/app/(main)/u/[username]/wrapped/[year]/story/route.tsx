@@ -1,4 +1,5 @@
 import getCurrentUser from '@/app/actions/getCurrentUser'
+import { handleOf } from '@/lib/handle'
 import { getWrapped, getWrappedOwner, isWrappedPublic, parseWrappedYear } from '@/lib/stats'
 import { wrappedStoryImage } from '@/app/components/wrapped/wrappedImage'
 
@@ -10,7 +11,7 @@ export const maxDuration = 30
 // while the Wrapped is public.
 export async function GET(_req: Request, { params }: { params: { username: string; year: string } }) {
   const year = parseWrappedYear(params.year)
-  const owner = year ? await getWrappedOwner(params.username) : null
+  const owner = year ? await getWrappedOwner(handleOf(params.username)) : null
   if (!year || !owner) return new Response('Not found', { status: 404 })
   if (!(await isWrappedPublic(owner))) {
     const viewer = await getCurrentUser()
@@ -20,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: { username: strin
   // A story image is made to be posted, so private books stay out of it even for the owner.
   const wrapped = await getWrapped(owner.id, year, null, { sharedOnly: true })
   return wrappedStoryImage(
-    { wrapped, username: owner.username, favColour: owner.favColour },
+    { wrapped, username: owner.username, displayName: owner.displayName, favColour: owner.favColour },
     {
       'Content-Disposition': `attachment; filename="bookmark-wrapped-${year}.png"`,
       // It changes as the reader finishes books, so don't let a cache hold it for long.
