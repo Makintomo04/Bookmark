@@ -2,8 +2,10 @@
 // (packages/shared/src/profile.ts). Every lookup lowercases what it's given (lib/handle.ts), so an
 // account whose stored name is "Persona" can't be reached at /u/persona until this has run.
 //
-//   node --env-file=.env.local scripts/lowercase-usernames.ts           # prints the plan, changes nothing
-//   node --env-file=.env.local scripts/lowercase-usernames.ts --apply   # writes it
+//   pnpm usernames:lowercase                  # the dev database (.env.local): prints the plan, changes nothing
+//   pnpm usernames:lowercase --apply          # writes it
+//   pnpm usernames:lowercase:prod             # production (.env.prod.local), dry run first
+//   pnpm usernames:lowercase:prod --apply
 //   node scripts/with-test-db.mjs node scripts/lowercase-usernames.ts --apply
 //
 // Refuses to touch an account whose lowercase name another account already holds, or would also take
