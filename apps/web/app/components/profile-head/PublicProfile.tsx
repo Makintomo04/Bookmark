@@ -7,12 +7,11 @@ import FollowButton from './FollowButton'
 import ShareProfileButton from './ShareProfileButton'
 import ProfileMenu from './ProfileMenu'
 import ProfileReviews from './ProfileReviews'
-import BooksInCommon from './BooksInCommon'
 import { cn } from '@/lib/utils'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books/shelf'
 import CappedShelf from './CappedShelf'
-import FavouritesRow from './FavouritesRow'
+import ProfileShowcase from './ProfileShowcase'
 import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileLists from '../discover/ProfileLists'
 import ProfileAuthors from './ProfileAuthors'
@@ -72,8 +71,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         ]}
       />
       <div className="mt-8">
-        {viewer && <BooksInCommon username={profile.username} accentColour={profile.favColour} />}
-        <FavouritesRow books={profile.favourites as unknown as Book[]} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly />
+        <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} accentColour={profile.favColour} signedIn={!!viewer} />
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (
