@@ -23,6 +23,8 @@ export interface DiscoverBook {
   // Optional, from Hardcover results only (lib/hardcover.ts): they have no Open Library work to fetch a
   // blurb from, so the search hit carries it.
   description?: string | null
+  // Hardcover's one-line pitch, which `description` opens with; BookBlurb shows it in bold.
+  headline?: string | null
   source?: "hardcover"
   hardcoverId?: string | null
   // Optional: the catalogue Work a book without a work key has its page under (bookHref), set only when

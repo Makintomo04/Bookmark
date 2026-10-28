@@ -5,6 +5,8 @@ import { Skeleton } from '../ui/skeleton'
 
 interface BookBlurbProps {
   description: string | null
+  // Hardcover's one-line pitch. Shown in bold when the description opens with it.
+  headline?: string | null
   isLoading: boolean
   // The book page gives the section its own heading.
   hideHeading?: boolean
@@ -13,7 +15,7 @@ interface BookBlurbProps {
 
 // "About this book", clamped to a few lines with a toggle when it runs long.
 // Renders nothing when there's no blurb, so books Open Library knows little about aren't cluttered.
-const BookBlurb: FC<BookBlurbProps> = ({ description, isLoading, hideHeading = false, className }) => {
+const BookBlurb: FC<BookBlurbProps> = ({ description, headline, isLoading, hideHeading = false, className }) => {
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
   const textRef = useRef<HTMLParagraphElement>(null)
@@ -42,7 +44,9 @@ const BookBlurb: FC<BookBlurbProps> = ({ description, isLoading, hideHeading = f
             ref={textRef}
             className={cn(!hideHeading && "mt-1.5", "text-sm leading-relaxed text-muted-foreground whitespace-pre-line", !expanded && "line-clamp-4")}
           >
-            {description}
+            {headline && description?.startsWith(headline)
+              ? <><strong className="font-semibold text-foreground">{headline}</strong>{description.slice(headline.length)}</>
+              : description}
           </p>
           {(overflows || expanded) && (
             <button

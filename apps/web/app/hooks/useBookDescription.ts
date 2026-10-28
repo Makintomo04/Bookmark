@@ -1,6 +1,6 @@
 import useSWR from "swr"
 
-const fetcher = (url: string) => fetch(url).then(r => r.ok ? r.json() : { description: null })
+const fetcher = (url: string) => fetch(url).then(r => r.ok ? r.json() : { description: null, headline: null })
 
 const detailsUrl = (bookKey: string, book?: { title?: string | null, author?: string | null } | null) => {
   const params = new URLSearchParams({ workKey: bookKey })
@@ -20,7 +20,7 @@ export default function useBookDescription(
   given?: string | null,
   book?: { title?: string | null, author?: string | null } | null,
 ) {
-  const { data, isLoading } = useSWR<{ description: string | null }>(
+  const { data, isLoading } = useSWR<{ description: string | null, headline?: string | null }>(
     bookKey && !given ? detailsUrl(bookKey, book) : null,
     fetcher,
     { revalidateOnFocus: false }
@@ -28,6 +28,8 @@ export default function useBookDescription(
 
   return {
     description: given || (data?.description ?? null),
+    // Only for a blurb fetched here; one the book carries comes with its own (DiscoverBook.headline).
+    headline: given ? null : data?.headline ?? null,
     isLoading: !given && isLoading,
   }
 }

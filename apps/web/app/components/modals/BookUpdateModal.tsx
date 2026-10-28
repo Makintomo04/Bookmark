@@ -86,7 +86,7 @@ const BookUpdateModal: FC = () => {
   const { tags: workTags, mutate: tagsMutate } = useWorkTags({ bookId: isOpen ? book?.id : null })
   // The blurb is for a book you haven't read yet. The reader's own copy may carry one; otherwise ask the catalog.
   const wantsBlurb = isOpen && (book?.status === "NOT_STARTED" || book?.status === "NOT_INTERESTED")
-  const { description: catalogDescription, isLoading: blurbLoading } =
+  const { description: catalogDescription, headline: catalogHeadline, isLoading: blurbLoading } =
     useBookDescription(wantsBlurb && !book?.description && book ? bookKeyOf(book) : null, null, book)
   // The shelf list leaves blurbs out (api/books), so a blurb the reader's own copy carries loads here.
   const { data: stored, isLoading: storedLoading } = useSWR<{ description: string | null }>(wantsBlurb && book && !book.description ? `/api/books/${book.id}` : null, fetcher, swrOptions)
@@ -589,7 +589,7 @@ const BookUpdateModal: FC = () => {
   const blurb = wantsBlurb && (
     status === "NOT_INTERESTED" && book.workKey && !blurbLoading && !description
       ? <p className="text-sm text-muted-foreground">We don&apos;t have a description for this book yet.</p>
-      : <BookBlurb description={description} isLoading={!description && (blurbLoading || storedLoading)} />
+      : <BookBlurb description={description} headline={catalogHeadline} isLoading={!description && (blurbLoading || storedLoading)} />
   )
 
   const body = (
