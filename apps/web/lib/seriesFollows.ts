@@ -2,6 +2,8 @@ import type { Prisma } from "@prisma/client"
 import prisma from "@/lib/db"
 import type { Author } from "@/lib/authors"
 import { authorSlug } from "@/lib/authorNames"
+import { hasPageWhere } from "@/lib/workPages"
+import { normaliseWorkKey } from "@/lib/workKey"
 import { buildTrack, sameSeriesName, seriesKey, type SeriesShelfBook, type SeriesTrack, type SeriesWork } from "@/lib/series"
 
 // Following a series, and the series tracker on the reader's shelf (the rules are in
@@ -142,6 +144,20 @@ export async function seriesForBook(userId: string, bookId: string) {
   if (!ref) return null
   const track = await seriesOnPage(ref, userId)
   return { ...ref, workId: book.workId, position: work.seriesPosition, isFollowing: track.following, track }
+}
+
+// The series of a book from its key (the Open Library work key, or the catalogue Work id for a book Open
+// Library lacks), with its books marked for the viewer: book details' "In this series". Null when the
+// catalog has no series for it.
+export async function seriesForWork(bookKey: string, userId: string | null) {
+  const olKey = normaliseWorkKey(bookKey)
+  const work = await prisma.work.findFirst({
+    where: olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere },
+    select: { id: true, seriesName: true, seriesPosition: true, authors: true },
+  })
+  const ref = work && seriesOf(work)
+  if (!ref) return null
+  return { workId: work.id, position: work.seriesPosition, track: await seriesOnPage(ref, userId) }
 }
 
 export interface AuthorSeries extends SeriesRef {
