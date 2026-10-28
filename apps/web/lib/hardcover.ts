@@ -8,7 +8,7 @@ import { authorSlug } from "./authorNames"
 // read:catalog scope (hardcover.app/account/api). Books only, never readers' data, which Hardcover's
 // terms keep off commercial products. Docs: docs.hardcover.app/api/guides/searching
 //
-// Free plan: 5,000 requests a day, 60 a minute, so lib/bookSearch.ts only asks when Open Library falls short.
+// Supporter plan: 50,000 requests a day, 60 a minute, so lib/bookSearch.ts only asks when Open Library falls short.
 
 const ENDPOINT = "https://api.hardcover.app/v1/graphql"
 // Hardcover cuts search off at 2s on its side; leave room for the round trip.
