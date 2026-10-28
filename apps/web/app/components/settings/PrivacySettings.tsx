@@ -34,6 +34,13 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           disabled={busy}
         />
         <Toggle
+          label="Keep Did not finish to myself"
+          hint="Nobody else sees that shelf anyway. This also keeps “stopped reading” out of your followers' feeds."
+          checked={settings.hideDidNotFinish}
+          onChange={(v) => save("hideDidNotFinish", v)}
+          disabled={busy}
+        />
+        <Toggle
           label="Hide follower and following counts"
           hint="No numbers on your profile, for you or anyone else, and your connection lists stay private."
           checked={settings.hideFollowCounts}

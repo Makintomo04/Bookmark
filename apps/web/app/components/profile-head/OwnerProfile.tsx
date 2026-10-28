@@ -10,7 +10,6 @@ import { notify } from '@/lib/notify'
 import ProfileHead from './ProfileHead'
 import ProfileReviews from './ProfileReviews'
 import BookList from '../books/BookList'
-import ProfileJumpLinks from './ProfileJumpLinks'
 import FavouritesRow from './FavouritesRow'
 import useFavourite from '@/app/hooks/useFavourite'
 import { useOwnerLists } from '@/app/hooks/useLists'
@@ -42,7 +41,7 @@ const OwnReviews: FC = () => {
   const reviewed = (books as Book[])
     .filter((b) => b.status === "COMPLETED")
     .map((b) => ({ ...b, completedAt: b.completedAt ? String(b.completedAt) : null, ...visibleReview(b, SELF, privacy) }))
-  return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" href={`/u/${encodeURIComponent(user.username)}/reviews`} />
+  return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" href={`/u/${encodeURIComponent(user.username)}/reviews`} collapsible />
 }
 
 // Your favourites and your lists, side by side from lg up when you have both (as others see on your
@@ -60,13 +59,13 @@ const OwnShowcase: FC<{ username: string }> = ({ username }) => {
   if (favs.length > 0 && lists.length > 0) {
     return (
       <div className="mb-12 grid gap-12 lg:grid-cols-2 lg:gap-10">
-        <FavouritesRow books={favs} href="/favourites" half />
+        <FavouritesRow books={favs} href="/favourites" half collapsible />
         <div><ProfileLists username={username} isSelf half /></div>
       </div>
     )
   }
   if (lists.length > 0) return <div className="mb-12"><ProfileLists username={username} isSelf flush /></div>
-  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} />
+  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} collapsible />
 }
 
 // With no lists yet, "Make your first list" stays down the page rather than pushing the shelf down; once
@@ -111,7 +110,7 @@ const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
       <FollowRequests className="mb-10" />
       <NewShelfPicks />
       <OwnShowcase username={username} />
-      <BookList belowToolbar={<ProfileJumpLinks />} />
+      <BookList />
       <div className="mt-12"><SeriesTracker /></div>
       <OwnReviews />
       <OwnListsPrompt username={username} />
