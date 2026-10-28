@@ -99,12 +99,14 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         <ArrowLeft size={14} aria-hidden /> Reading circles
       </Link>
 
-      <header className="flex gap-5">
+      {/* From sm up the cover spans both rows, so the button sits on its bottom edge (a long title just grows the
+          first row). On a phone the button takes its own row under the cover instead of hanging past it. */}
+      <header className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-4 sm:grid-rows-[1fr_auto]">
         <BookCover
           book={{ title: buddyRead.title, author: buddyRead.author, coverImage: buddyRead.coverImage ?? "", cardColour: buddyRead.cardColour }}
           variant="thumb"
-          sizes="112px"
-          className="w-20 sm:w-28 shrink-0 self-start shadow-sm"
+          sizes="144px"
+          className="w-24 sm:w-36 self-start shadow-sm sm:row-span-2"
         />
         <div className="min-w-0 flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -115,11 +117,11 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
           <p className="text-sm text-muted-foreground" suppressHydrationWarning>
             {notStarted ? `Starts ${moment(buddyRead.startsAt).format("D MMMM")}` : `Started ${moment(buddyRead.startsAt).format("D MMMM YYYY")}`}
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={updateProgress} className={primaryButtonClass}>
-              Update my progress · {formatPercent(viewer.progress)}
-            </button>
-          </div>
+        </div>
+        <div className="col-span-2 sm:col-span-1 sm:col-start-2 flex flex-wrap gap-2">
+          <button type="button" onClick={updateProgress} className={primaryButtonClass}>
+            Update my progress · {formatPercent(viewer.progress)}
+          </button>
         </div>
       </header>
 
