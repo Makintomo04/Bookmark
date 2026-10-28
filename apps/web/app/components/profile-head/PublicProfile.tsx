@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books/shelf'
 import CappedShelf from './CappedShelf'
+import FavouritesRow from './FavouritesRow'
 import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileLists from '../discover/ProfileLists'
 import ProfileAuthors from './ProfileAuthors'
@@ -70,8 +71,9 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
       />
-      <div className="mt-8 px-4 sm:px-8">
+      <div className="mt-8">
         {viewer && <BooksInCommon username={profile.username} accentColour={profile.favColour} />}
+        <FavouritesRow books={profile.favourites as unknown as Book[]} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly />
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (

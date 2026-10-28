@@ -28,7 +28,7 @@ const Page = async () => {
   return (
     <div className="pt-4 pb-24 min-h-[calc(100vh_-_180px)] bg-background">
       <Container>
-        <div className="mx-auto max-w-3xl px-4 sm:px-8">
+        <div className="max-w-3xl">
           <Link href="/stats" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft size={14} aria-hidden />Reading stats
           </Link>

@@ -11,6 +11,8 @@ import ProfileHead from './ProfileHead'
 import ProfileReviews from './ProfileReviews'
 import BookList from '../books/BookList'
 import ProfileJumpLinks from './ProfileJumpLinks'
+import FavouritesRow from './FavouritesRow'
+import useFavourite from '@/app/hooks/useFavourite'
 import ProfileLists from '../discover/ProfileLists'
 import GenrePicks from '../discover/GenrePicks'
 import { GENRE_PICKS_SHELF_LIMIT } from '@/lib/genres'
@@ -40,6 +42,18 @@ const OwnReviews: FC = () => {
     .filter((b) => b.status === "COMPLETED")
     .map((b) => ({ ...b, completedAt: b.completedAt ? String(b.completedAt) : null, ...visibleReview(b, SELF, privacy) }))
   return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" />
+}
+
+// Your favourites, newest first, from your own shelf so a bookmark tapped anywhere shows straight away.
+// With none yet (and a shelf to pick from), a line on how to add them.
+const OwnFavourites: FC = () => {
+  const { user } = useUser()
+  const { books } = useBooks()
+  const { favourites } = useFavourite()
+  if (!user || !Array.isArray(books)) return null
+  const byId = new Map((books as Book[]).map((b) => [b.id, b]))
+  const favs = (favourites as string[]).slice().reverse().flatMap((id) => byId.get(id) ?? [])
+  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} />
 }
 
 // The authors you follow, from your own list so an unfollow elsewhere shows on the next visit.
@@ -72,9 +86,10 @@ const NewShelfPicks: FC = () => {
 const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
   <SWRConfig value={{ fallback }}>
     <ProfileHead />
-    <div className="mt-6 sm:mt-8 px-4 sm:px-8">
+    <div className="mt-6 sm:mt-8">
       <FollowRequests className="mb-10" />
       <NewShelfPicks />
+      <OwnFavourites />
       <BookList belowToolbar={<ProfileJumpLinks />} />
       <div className="mt-12"><SeriesTracker /></div>
       <OwnReviews />

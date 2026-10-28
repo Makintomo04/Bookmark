@@ -63,3 +63,14 @@ test("only moving on in a book or finishing it counts as a reading day", () => {
   }
   assert.deepEqual(progressTriggers({ ...base, action: "rate", rated: true }), ["rating"]);
 });
+
+test("favourites show to whoever can see the profile, unless the reader hides them", async () => {
+  const { canView, privacyOf } = await import("@/lib/privacyRules");
+  const stranger = { isSelf: false, isFollower: false, blocked: null };
+  const self = { isSelf: true, isFollower: false, blocked: null };
+  assert.equal(canView(stranger, privacyOf({}), "favourites"), true);
+  assert.equal(canView(stranger, privacyOf({ hideFavourites: true }), "favourites"), false);
+  assert.equal(canView(self, privacyOf({ hideFavourites: true }), "favourites"), true);
+  assert.equal(canView(stranger, privacyOf({ profileVisibility: "PRIVATE" }), "favourites"), false);
+  assert.equal(canView({ ...stranger, blocked: "byOwner" as const }, privacyOf({}), "favourites"), false);
+});

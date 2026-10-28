@@ -40,6 +40,13 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           onChange={(v) => save("hideFollowCounts", v)}
           disabled={busy}
         />
+        <Toggle
+          label="Hide my favourites"
+          hint="The row of favourite books on your profile shows only to you. Private books never show there either way."
+          checked={settings.hideFavourites}
+          onChange={(v) => save("hideFavourites", v)}
+          disabled={busy}
+        />
         {/* The team's badge always shows, so only librarians get the choice. */}
         {roleOf(user) === "LIBRARIAN" && (
           <Toggle

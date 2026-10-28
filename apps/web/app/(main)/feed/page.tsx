@@ -20,7 +20,7 @@ export default async function Page({ searchParams }: { searchParams: { tab?: str
   return (
     <div className="mt-8 sm:mt-12 pb-24">
       <Container>
-        <div className="mx-auto max-w-2xl px-4 sm:px-8">
+        <div className="max-w-2xl">
           <h1 className="page-title mb-6">Feed</h1>
           <FeedTabs tab={tab} />
         </div>

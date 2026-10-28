@@ -13,6 +13,7 @@ const SECTIONS = [
 // Clears the sticky site header when jumping.
 const HEADER_OFFSET = 88
 
+// The row is pulled out by the links' own padding, so their text lines up with the page's edge.
 // A row of links under the shelf toolbar to each section of your profile, so lists and authors are one tap
 // away however long the shelf above them is. Only sections on the page get a link: they load on their
 // own, so it looks again as the page fills in.
@@ -43,7 +44,7 @@ const ProfileJumpLinks: FC = () => {
   const links = SECTIONS.filter((s) => present.has(s.id))
   if (links.length < 2) return null
   return (
-    <nav aria-label="Sections of your profile" className="-mx-2 sm:-mx-1 -mt-2 mb-6 flex sm:gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav aria-label="Sections of your profile" className="-mx-2.5 sm:-mx-3 -mt-2 mb-6 flex sm:gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {links.map((s) => (
         <a key={s.id} href={`#${s.id}`} onClick={(e) => jump(e, s.id)}
           className="inline-flex h-8 shrink-0 items-center rounded-full px-2.5 sm:px-3 text-sm text-muted-foreground transition hover:bg-neutral-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-900">
