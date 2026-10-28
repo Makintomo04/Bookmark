@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import Container from '@/app/components/Container'
@@ -11,20 +12,23 @@ import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
 import { REMOVED_MESSAGE, loadInvite, wasRemoved } from '@/lib/buddyReadsServer'
 import prisma from '@/lib/db'
 import AuthorLink from '@/app/components/AuthorLink'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
-  params: { code: string }
+  params: Promise<{ code: string }>
 }
 
 // The invite link is the acquisition loop, so it unfurls nicely: book, host, and who's in (see opengraph-image).
 // Nothing past the cover is shown here: no progress and no comments.
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const invite = await loadInvite(params.code)
   if (!invite) return { title: "Reading circle", robots: { index: false } }
   const { buddyRead, host, members } = invite
-  const title = `Read ${buddyRead.title} with ${host?.username ?? "friends"}`
+  const hostName = host ? readerName(host) : null
+  const title = `Read ${buddyRead.title} with ${hostName || "friends"}`
   const others = members.length - 1
-  const description = `${host?.username ?? "A reader"} is reading ${buddyRead.title} by ${buddyRead.author}${others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}. Join the reading circle on Bookmark: track progress together, with comments that stay hidden until you reach them.`
+  const description = `${hostName || "A reader"} is reading ${buddyRead.title} by ${buddyRead.author}${others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}. Join the reading circle on Bookmark: track progress together, with comments that stay hidden until you reach them.`
   return {
     title,
     description,
@@ -34,7 +38,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const [viewer, invite] = await Promise.all([getCurrentUser(), loadInvite(params.code)])
   if (!invite) notFound()
   const { buddyRead, host, members } = invite
@@ -71,7 +76,9 @@ const Page = async ({ params }: PageProps) => {
               ))}
             </div>
             <p className="max-w-md">
-              <span className="font-semibold">{host?.username ?? "A reader"}</span> invited you to read along
+              <span className="font-semibold">{(host && readerName(host)) || "A reader"}</span>
+              {host?.staffBadge && <StaffSeal kind={host.staffBadge} name={readerName(host)} size={18} className="ml-1 align-[-4px]" />}
+              {" "}invited you to read along
               {members.length > 1 ? ` with ${members.length - 1} ${members.length - 1 === 1 ? "other" : "others"}` : ""}.
             </p>
             <p className="max-w-md text-sm text-muted-foreground">

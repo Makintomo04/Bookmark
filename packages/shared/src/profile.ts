@@ -1,5 +1,7 @@
 // Shared by the Edit Profile form, onboarding and /api/user so the limits can't drift apart.
-export const USERNAME_MIN = 2
+// Three, so a /u/ address is a name rather than an initial. Names from before a rule was added can be kept
+// (see /api/user); a new or changed one has to meet them all.
+export const USERNAME_MIN = 3
 export const USERNAME_MAX = 30
 export const BIO_MAX = 300
 
@@ -60,4 +62,38 @@ export function isAllowedImageUrl(value: unknown): value is string {
   } catch {
     return false
   }
+}
+
+// A display name is what heads a profile, a feed row or a search result when the reader sets one, with
+// @username beneath; the username stays the address. Free-form (any script, spaces, capitals), trimmed,
+// with no hidden characters, and never passing for the Bookmark team any more than a username may.
+export const DISPLAY_NAME_MAX = 40
+
+// Trimmed, with runs of whitespace collapsed. Empty means "no display name": the username shows instead.
+export function normaliseDisplayName(input: string) {
+  return input.replace(/\s+/g, ' ').trim()
+}
+
+// Control characters, zero-width and bidi characters: invisible on the page, so a name could look like
+// someone else's or hide something in it.
+// eslint-disable-next-line no-control-regex
+const HIDDEN_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]/
+
+// Why a (normalised) display name can't be used, or null when it can. Empty is fine: it's optional.
+export function displayNameProblem(name: string): string | null {
+  if (!name) return null
+  if (name.length > DISPLAY_NAME_MAX) return `Display names are up to ${DISPLAY_NAME_MAX} characters.`
+  if (HIDDEN_CHARACTERS.test(name)) return "Display names can't include hidden characters."
+  // Spaces, punctuation and case are ignored, so "Book Mark Support" and "the-Admin" are caught too.
+  const joined = name.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (RESERVED_USERNAMES.has(joined)) return 'That display name is reserved. Try another.'
+  const word = RESERVED_WORDS.find((w) => joined.includes(w))
+  if (word) return `Display names can't include "${word}", so nobody can pass for the Bookmark team. Try another.`
+  return null
+}
+
+// What to call a reader: their display name when they've set one, else their username. Pass-through for
+// records from before display names existed.
+export function readerName(reader: { displayName?: string | null; username?: string | null }) {
+  return reader.displayName || reader.username || ''
 }

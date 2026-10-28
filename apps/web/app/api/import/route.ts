@@ -30,7 +30,7 @@ const uploadSchema = z.object({
 
 const listSchema = z.object({
   text: z
-    .string({ required_error: "Paste your list first.", invalid_type_error: "Paste your list first." })
+    .string({ error: "Paste your list first." })
     .refine((t) => t.trim().length > 0, "Paste your list first.")
     .refine((t) => new TextEncoder().encode(t).length <= MAX_LIST_BYTES, "That list is too long for one import. Split it in two."),
   // The shelf for books the list doesn't put on one.

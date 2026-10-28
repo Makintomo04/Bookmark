@@ -7,7 +7,9 @@ import { normaliseBookKey, normaliseWorkKey } from "@/lib/workKey";
 
 // Public, like search: it proxies Open Library (and Hardcover), and Discover works signed out. A
 // catalogue Work id (a book Open Library lacks) gets the catalogue's blurb, for works that have a book
-// page. Given the book's title and author, a work Open Library has no blurb for takes Hardcover's.
+// page. An Open Library work takes the catalogue's blurb first too (a librarian's, or one filled in when
+// it was shelved), as its book page does; then Open Library's; then, given the book's title and author,
+// Hardcover's.
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   const bookKey = normaliseBookKey(params.get("workKey"));
@@ -23,10 +25,11 @@ export async function GET(req: Request) {
   const author = params.get("author")?.slice(0, 200) ?? "";
 
   try {
-    const description = await workDescription(workKey).catch(() => null)
-      ?? (await hardcoverRecord(title, author))?.description
-      ?? null;
-    return NextResponse.json({ description }, {
+    const work = await prisma.work.findFirst({ where: { openLibraryKey: workKey }, select: { description: true } }).catch(() => null);
+    const own = (work?.description || null) ?? await workDescription(workKey).catch(() => null);
+    const hardcover = own ? null : await hardcoverRecord(title, author);
+    const description = own ?? hardcover?.description ?? null;
+    return NextResponse.json({ description, headline: hardcover?.headline ?? null }, {
       headers: { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" },
     });
   } catch {

@@ -121,7 +121,7 @@ const GenrePicks: FC<{ placement: 'shelf' | 'discover', className?: string, onHi
             className={cn(
               // The card fills its slot's width, so every cover is the same size whatever its title, and its
               // height (flex stretch), so the buttons line up across the row.
-              "flex shrink-0 snap-start [&>*]:w-full",
+              "flex shrink-0 snap-start",
               // Two and a bit on phones, so the row shows it scrolls; then the shelf's 3/4/5/6 columns.
               "basis-[42%] sm:basis-[calc((100%-2*1.25rem)/3)] md:basis-[calc((100%-3*1.25rem)/4)] lg:basis-[calc((100%-4*1.25rem)/5)] xl:basis-[calc((100%-5*1.25rem)/6)]"
             )}

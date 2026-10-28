@@ -1,11 +1,12 @@
 "use client"
-import { FC } from 'react'
+import { FC, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useOwnerLists } from '@/app/hooks/useLists'
 import useListEditorModal, { emptyList } from '@/app/hooks/useListEditorModal'
 import useUser from '@/app/hooks/useUser'
+import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import { preferencesOf } from '@/lib/preferences'
-import { ShelfSection } from '../books/shelf'
+import { SeeAllLink, ShelfSection } from '../books/shelf'
 import { Skeleton } from '../ui/skeleton'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import ListCard from './ListCard'
@@ -14,17 +15,27 @@ import FetchErrorState from '../FetchErrorState'
 interface ProfileListsProps {
   username: string
   isSelf: boolean
+  // Beside favourites near the top of someone's profile (ProfileShowcase): no top margin, two lists to a
+  // row, and the first two until "See all" opens the rest in place.
+  half?: boolean
+  // At the top of a profile, where the section above sets the spacing: no top margin of its own.
+  flush?: boolean
 }
 
-const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf }) => {
+// Lists shown in half a row before "See all".
+const HALF_SHOWN = 2
+
+const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, flush = false }) => {
   const { lists, isLoading, isError, mutate } = useOwnerLists(username)
+  const [all, setAll] = useState(false)
   const { onOpen } = useListEditorModal()
   const { user } = useUser()
+  const collapse = useCollapsedSections()
 
   if (isLoading) {
     return (
-      <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
+      <div className={half ? "grid grid-cols-2 gap-5" : "mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"}>
+        {(half ? [0, 1] : [0, 1, 2, 3]).map((i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
       </div>
     )
   }
@@ -41,9 +52,14 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf }) => {
     </button>
   )
 
+  const shown = half && !all ? lists.slice(0, HALF_SHOWN) : lists
+  const action = isSelf && lists.length > 0 ? newList
+    : half && !all && lists.length > HALF_SHOWN ? <SeeAllLink onClick={() => setAll(true)} />
+    : undefined
+
   return (
-    <div className="mt-12">
-      <ShelfSection id="profile-lists" title="Lists" count={lists.length} action={isSelf && lists.length > 0 ? newList : undefined}>
+    <div className={half || flush ? undefined : "mt-12"}>
+      <ShelfSection id="profile-lists" title="Lists" count={lists.length} action={action} {...(isSelf ? collapse("profile-lists") : {})}>
         {lists.length === 0 ? (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
             <div>
@@ -53,8 +69,8 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf }) => {
             <div className="shrink-0">{newList}</div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8">
-            {lists.map((list) => <ListCard key={list.id} list={list} hideOwner />)}
+          <div className={half ? "grid grid-cols-2 gap-x-5 gap-y-8" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8"}>
+            {shown.map((list) => <ListCard key={list.id} list={list} hideOwner />)}
           </div>
         )}
       </ShelfSection>

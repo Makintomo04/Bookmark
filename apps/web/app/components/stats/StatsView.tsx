@@ -1,16 +1,18 @@
 import { FC, ReactNode } from 'react'
 import Link from 'next/link'
-import { BookOpen, BookOpenText, Flame, Headphones, Repeat, Ruler, Star, Undo2 } from 'lucide-react'
+import { BookOpen, BookOpenText, Flame, Headphones, Repeat, Ruler, Star, Timer, Undo2 } from 'lucide-react'
 import type { ReadingStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 import { formatPace } from '@/lib/goals'
 import { ratingGlyphs } from '@bookmark/shared/rating'
 import { ColumnChart, Datum, RankedBars } from './Charts'
-import { authorHref, authorNames, isLinkableAuthor } from '@/lib/authorNames'
+import { shelfParams, type ShelfFilter } from '@/lib/shelfFilter'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const fmt = (n: number) => n.toLocaleString('en-GB')
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`
+// The reader's shelf filtered to the books behind a bar (app/(main)/shelf redirects to their profile).
+const shelfHref = (filter: Partial<ShelfFilter>) => `/shelf?${shelfParams(filter)}`
 
 interface StatsViewProps {
   stats: ReadingStats
@@ -34,14 +36,16 @@ const Section: FC<{ title: string; children: ReactNode; className?: string; acti
   </section>
 )
 
-const Tile: FC<{ icon: ReactNode; label: string; value: string; note?: string }> = ({ icon, label, value, note }) => (
+const Tile: FC<{ icon: ReactNode; label: string; value: string; note?: string; noteHref?: string }> = ({ icon, label, value, note, noteHref }) => (
   <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
     <div className="flex items-center gap-2 text-sm text-muted-foreground">
       <span aria-hidden className="text-[color:var(--accent-text)]">{icon}</span>
       {label}
     </div>
     <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight">{value}</p>
-    {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
+    {note && (noteHref
+      ? <Link href={noteHref} className="mt-1 block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">{note}</Link>
+      : <p className="mt-1 text-xs text-muted-foreground">{note}</p>)}
   </div>
 )
 
@@ -79,13 +83,17 @@ const GoalLine: FC<{ label: string; value: string; met: boolean }> = ({ label, v
 
 const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, monthlyCards }) => {
   const months = stats.months[year] ?? []
-  const monthBooks: Datum[] = months.map((m, i) => ({ label: MONTHS[i].slice(0, 3), short: MONTHS[i][0], value: m.books, detail: `${plural(m.books, 'book')} · ${plural(m.pages, 'page')}` }))
+  const monthBooks: Datum[] = months.map((m, i) => ({ label: MONTHS[i].slice(0, 3), short: MONTHS[i][0], value: m.books, detail: `${plural(m.books, 'book')} · ${plural(m.pages, 'page')}`, href: shelfHref({ year, month: i + 1, sort: 'finished' }) }))
   const monthPages: Datum[] = months.map((m, i) => ({ label: MONTHS[i].slice(0, 3), short: MONTHS[i][0], value: m.pages, detail: plural(m.pages, 'page') }))
   // The last ten years keep the year charts readable; older years are still in the year picker.
   const recentYears = stats.years.slice(-10)
-  const yearBooks: Datum[] = recentYears.map((y) => ({ label: String(y.year), short: `’${String(y.year).slice(2)}`, value: y.books, detail: `${plural(y.books, 'book')} · ${plural(y.pages, 'page')}` }))
+  const yearBooks: Datum[] = recentYears.map((y) => ({ label: String(y.year), short: `’${String(y.year).slice(2)}`, value: y.books, detail: `${plural(y.books, 'book')} · ${plural(y.pages, 'page')}`, href: shelfHref({ year: y.year, sort: 'finished' }) }))
   const yearPages: Datum[] = recentYears.map((y) => ({ label: String(y.year), short: `’${String(y.year).slice(2)}`, value: y.pages, detail: plural(y.pages, 'page') }))
-  const ratingData: Datum[] = stats.ratings.map((r) => ({ label: ratingGlyphs(r.rating), name: `${ratingGlyphs(r.rating)} ${r.rating === 1 ? 'star' : 'stars'}`, value: r.count, detail: plural(r.count, 'book') }))
+  const ratingData: Datum[] = stats.ratings.map((r) => ({ label: ratingGlyphs(r.rating), name: `${ratingGlyphs(r.rating)} ${r.rating === 1 ? 'star' : 'stars'}`, value: r.count, detail: plural(r.count, 'book'), href: shelfHref({ rating: r.rating }) }))
+  const decadeData: Datum[] = stats.decades.map((d) => ({ label: `${d.decade}s`, short: `’${String(d.decade).slice(2)}`, value: d.count, detail: plural(d.count, 'book') }))
+  const lengthData: Datum[] = stats.lengths.map((l) => ({ label: l.label, value: l.count, detail: plural(l.count, 'book') }))
+  const listenData: Datum[] = stats.listenLengths.map((l) => ({ label: l.label, value: l.count, detail: plural(l.count, 'audiobook') }))
+  const days = stats.daysToFinish
 
   const yearPicker = stats.years.length > 1 && (
     <nav aria-label="Year" className="flex flex-wrap gap-1">
@@ -110,7 +118,7 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Tile icon={<BookOpen size={16} />} label="Books read" value={fmt(stats.booksRead)} note={stats.undatedFinishes ? `${plural(stats.undatedFinishes, 'finish', 'finishes')} without a date` : undefined} />
+        <Tile icon={<BookOpen size={16} />} label="Books read" value={fmt(stats.booksRead)} note={stats.undatedFinishes ? `${plural(stats.undatedFinishes, 'finish', 'finishes')} without a date` : undefined} noteHref={stats.undatedFinishes ? '/stats/undated' : undefined} />
         <Tile icon={<BookOpenText size={16} />} label="Pages read" value={fmt(stats.pagesRead)} note="across every finished read" />
         {stats.minutesListened > 0 && (
           <Tile icon={<Headphones size={16} />} label="Hours listened" value={fmt(Math.round(stats.minutesListened / 60))} note="of audiobooks finished" />
@@ -182,12 +190,37 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
           {stats.ratedBooks ? <ColumnChart data={ratingData} label="Books per star rating" unit="books" /> : <Quiet>Rate a book (quarter stars welcome) and your spread shows up here.</Quiet>}
         </Section>
         <Section title="Top genres">
-          {stats.genres.length ? <RankedBars data={stats.genres.map((g) => ({ label: g.name, value: g.count, detail: plural(g.count, 'book') }))} label="Genres you read most" unit="books" /> : <Quiet>Books you finish with a genre will be counted here.</Quiet>}
+          {stats.genres.length ? <RankedBars data={stats.genres.map((g) => ({ label: g.name, value: g.count, detail: plural(g.count, 'book'), href: shelfHref({ shelf: 'finished', genre: g.name }) }))} label="Genres you read most" unit="books" /> : <Quiet>Books you finish with a genre will be counted here.</Quiet>}
         </Section>
         <Section title="Top authors">
-          {stats.authors.length ? <RankedBars data={stats.authors.map((a) => ({ label: a.name, value: a.count, detail: plural(a.count, 'book'), href: authorNames(a.name).length === 1 && isLinkableAuthor(a.name) ? authorHref(a.name) : undefined }))} label="Authors you read most" unit="books" /> : <Quiet>Your most-read authors will show up here.</Quiet>}
+          {stats.authors.length ? <RankedBars data={stats.authors.map((a) => ({ label: a.name, value: a.count, detail: plural(a.count, 'book'), href: shelfHref({ shelf: 'finished', author: a.name }) }))} label="Authors you read most" unit="books" /> : <Quiet>Your most-read authors will show up here.</Quiet>}
         </Section>
       </div>
+
+      {(decadeData.length > 0 || stats.lengths.some((l) => l.count > 0) || days || stats.mostReread) && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Section title="How long">
+            {stats.lengths.some((l) => l.count > 0) ? <ColumnChart data={lengthData} label="Books finished by page count" unit="books" /> : <Quiet>Books with a page count will be sorted by length here.</Quiet>}
+            {stats.listenLengths.some((l) => l.count > 0) && (
+              <div className="mt-8">
+                <h3 className="mb-3 text-sm font-medium text-muted-foreground">Audiobooks</h3>
+                <ColumnChart data={listenData} label="Audiobooks finished by running time" unit="audiobooks" />
+              </div>
+            )}
+          </Section>
+          <Section title="When they were written">
+            {decadeData.length ? <ColumnChart data={decadeData} label="Books finished by decade first published" unit="books" /> : <Quiet>Books we know the publication year of will be counted by decade here.</Quiet>}
+          </Section>
+          {(days || stats.mostReread) && (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:col-span-2 lg:grid-cols-4">
+              {days && <Tile icon={<Timer size={16} />} label="Days to finish" value={fmt(days.average)} note={`on average, across ${plural(days.reads, 'dated read')}`} />}
+              {days && <Tile icon={<Timer size={16} />} label="Quickest read" value={plural(days.fastest.days, 'day')} note={days.fastest.book.title} />}
+              {days && <Tile icon={<Timer size={16} />} label="Slowest read" value={plural(days.slowest.days, 'day')} note={days.slowest.book.title} />}
+              {stats.mostReread && <Tile icon={<Repeat size={16} />} label="Most re-read" value={`${fmt(stats.mostReread.times)}×`} note={stats.mostReread.book.title} />}
+            </div>
+          )}
+        </div>
+      )}
 
       <Section title="Reading goals">
         {stats.goals.length ? (

@@ -1,5 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
+import { readerName } from '@/lib/profile'
+import ReaderName from '@/app/components/profile/ReaderName'
 import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import Image from 'next/image'
@@ -17,6 +19,7 @@ import Loader from '../Loader'
 import useUser from '@/app/hooks/useUser'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useFollowListModal from '@/app/hooks/useFollowListModal'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface FollowPage {
   users: FollowListUser[]
@@ -108,7 +111,7 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
                     : <InitialAvatar username={person.username} favColour={person.favColour} />}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{person.username}{person.isSelf && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>}</p>
+                  <p className="truncate font-medium"><ReaderName reader={person} badge={person.staffBadge && <StaffSeal kind={person.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} />{person.isSelf && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>}</p>
                   {person.bio && <p className="truncate text-xs text-muted-foreground">{person.bio}</p>}
                 </div>
               </Link>
@@ -119,7 +122,7 @@ const FollowList: FC<{ username: string, kind: FollowListKind, onNavigate: () =>
                     type="button"
                     disabled={busy === person.username}
                     onClick={() => handleRemove(person.username)}
-                    aria-label={`Remove ${person.username} from your followers`}
+                    aria-label={`Remove ${readerName(person)} from your followers`}
                     className="h-8 px-3 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                   >
                     Remove
@@ -197,7 +200,7 @@ const FollowListModal: FC = () => {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={username}
+      title={profile ? readerName(profile) : username}
       body={bodyContent}
       compact
     />

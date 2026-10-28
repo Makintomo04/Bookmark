@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
+import { AuthorLinks } from "@/components/authors/AuthorLinks";
 import { BookCover } from "@/components/books/BookCover";
 import { FollowSeries } from "@/components/series/FollowSeries";
 import { Button } from "@/components/ui/Button";
@@ -46,6 +47,7 @@ export default function Author() {
           </View>
         </View>
       )}
+      <AuthorLinks name={author.name} links={about?.links ?? []} />
       {data.series && data.series.length > 0 && (
         <View style={{ gap: 12 }}>
           <Text variant="title">Series</Text>

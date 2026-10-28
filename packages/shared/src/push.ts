@@ -1,16 +1,20 @@
 // Push notifications for the mobile app: which notifications are sent as pushes, grouped the way the
 // app's settings let a reader switch them off (User.pushOff), and the words they carry.
 //
-// What's pushed is the social side, the things that bring someone back to a reading circle or a friend.
+// What's pushed is the social side, the things that bring someone back to a reading circle or a friend,
+// and a new book in a series they read.
 // Achievements stay in the bell. No push ever carries what someone wrote (comments,
 // reviews, a recommendation's note): a lock screen is read over shoulders, and a comment's words are only
 // shown once the reader's progress has reached it.
+
+import { seriesNewsText } from "./series";
 
 export const PUSH_GROUPS = {
   circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED"],
   follows: ["NEW_FOLLOWER", "FOLLOW_REQUEST"],
   recommendations: ["BOOK_RECOMMENDED"],
   account: ["REVIEW_HIDDEN"],
+  series: ["NEW_IN_SERIES"],
 } as const;
 
 export type PushGroup = keyof typeof PUSH_GROUPS;
@@ -21,7 +25,12 @@ export const PUSH_GROUP_LABELS: Record<PushGroup, { title: string; description: 
   follows: { title: "Followers", description: "New followers and follow requests." },
   recommendations: { title: "Books from friends", description: "When a friend sends you a book." },
   account: { title: "Your account", description: "When the Bookmark team hides something you posted." },
+  series: { title: "New books in your series", description: "When a new book comes out in a series you follow or have started." },
 };
+
+// Pushed even though the reader is the notification's actor: nobody did it, so actorId is the reader
+// (lib/seriesNews.ts). Every other notification you're the actor of is something you did, and isn't pushed.
+export const pushedToSelf = (type: string) => type === "NEW_IN_SERIES";
 
 export const isPushGroup = (value: unknown): value is PushGroup => typeof value === "string" && value in PUSH_GROUPS;
 
@@ -39,6 +48,9 @@ export interface PushContext {
   bookTitle: string | null;
   buddyReadId: string | null;
   count: number | null;
+  // NEW_IN_SERIES: the new book's series and place (bookTitle is the book).
+  seriesName?: string | null;
+  seriesPosition?: number | null;
 }
 
 export interface PushContent {
@@ -78,6 +90,13 @@ export function pushContentFor(n: PushContext): PushContent | null {
     }
     case "BUDDY_READ_HOSTED":
       return { title: "You're the host now", body: `${who} handed you the reading circle for ${book(n.bookTitle)}.`, path: circlePath };
+    // The phone has no page for a book nobody's shelved, so this opens the list, which says which book.
+    case "NEW_IN_SERIES":
+      return {
+        title: "New in your series",
+        body: `${seriesNewsText({ title: n.bookTitle, seriesName: n.seriesName ?? null, position: n.seriesPosition ?? null, count: n.count })}.`,
+        path: "/notifications",
+      };
     case "REVIEW_HIDDEN":
       return { title: "Your review was hidden", body: `We've hidden your review of ${book(n.bookTitle)}. Only you can still see it.`, path: "/notifications" };
     default:

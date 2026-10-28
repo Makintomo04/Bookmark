@@ -1,7 +1,9 @@
 import prisma from "@/lib/db"
 import { resolveCatalogMany } from "@/lib/catalog"
 import { workMatchKey } from "@/lib/catalog/normalise"
-import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf } from "@/lib/hardcover"
+import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf, type HardcoverSeriesBook } from "@/lib/hardcover"
+import { seriesKey } from "@/lib/series"
+import { recordSeriesCheck } from "@/lib/seriesNews"
 
 // Gives catalogue works their series, from Hardcover. Open Library's search results carry no series, so a
 // book added from search was filed without one, and the series tracker, Follow series and Catch me up had
@@ -11,6 +13,9 @@ import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf } from "@/
 // Each work is asked about once (Work.seriesCheckedAt). Hardcover counts each top-level query field as a
 // request: four for a work in a series, three for a standalone. A failed request leaves the work unchecked,
 // so the next add or the backfill tries again.
+//
+// The series is remembered too (SeriesCheck), so the weekly re-check can spot books released later, and a
+// fill that finds books past what was known tells the series' readers (lib/seriesNews.ts).
 
 export type SeriesFillResult = "series" | "none" | "skipped"
 
@@ -40,7 +45,31 @@ export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> 
   // A series the work already had (from a Goodreads title, say) keeps its spelling, so its books stay together.
   const name = work.seriesName ?? found.name
   const companions = await hardcoverSeriesBooks(found.id, author)
+  const checkedAt = new Date()
+  // The work's own place is taken by the work, whatever Hardcover titles it ("Mistborn: The Final Empire").
+  await fileSeriesBooks(name, author, companions.filter((b) => b.position !== found.position), checkedAt)
 
+  await prisma.work.update({
+    where: { id: work.id },
+    data: {
+      seriesCheckedAt: checkedAt,
+      ...(!work.seriesName && { seriesName: name }),
+      ...(work.seriesPosition == null && found.position != null && { seriesPosition: found.position }),
+    },
+  })
+  try {
+    await recordSeriesCheck({ key: seriesKey(name, author), name, author }, found.id, [...companions.map((b) => b.position), found.position], { checkedAt })
+  } catch (err) {
+    // The work has its series either way; the next fill or re-check of the series records it.
+    console.warn(`series: couldn't record series "${name}":`, err instanceof Error ? err.message : err)
+  }
+  return "series"
+}
+
+// Gives a series' books their place: works already in the catalogue under a book's title and author take
+// the series, and the rest are filed (Hardcover works, with book pages). Used by the fill and by the weekly
+// re-check (lib/seriesRecheck.ts) for books released since.
+export async function fileSeriesBooks(name: string, author: string, companions: HardcoverSeriesBook[], checkedAt = new Date()) {
   // Works already in the catalogue under a companion's title and author take the series; the rest are filed.
   const keyed = companions.flatMap((b) => {
     const matchKey = workMatchKey(b.title, author)
@@ -61,14 +90,12 @@ export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> 
     if (key) byMatch.set(key, [...(byMatch.get(key) ?? []), w])
   }
   // A companion's series is now known, so it counts as checked and isn't asked about again.
-  const checkedAt = new Date()
   for (const { book, matchKey } of keyed) {
     for (const had of byMatch.get(matchKey) ?? []) {
       if (!had.seriesName && !seriesCurated(had)) await prisma.work.update({ where: { id: had.id }, data: { seriesName: name, seriesPosition: book.position, seriesCheckedAt: checkedAt } })
     }
   }
-  // The work's own place is taken by the work, whatever Hardcover titles it ("Mistborn: The Final Empire").
-  const missing = keyed.filter((k) => !byMatch.has(k.matchKey) && k.book.position !== found.position).map((k) => k.book)
+  const missing = keyed.filter((k) => !byMatch.has(k.matchKey)).map((k) => k.book)
   if (missing.length) {
     const filed = await resolveCatalogMany(missing.map((b) => ({
       hardcoverId: b.hardcoverId ?? null,
@@ -83,16 +110,6 @@ export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> 
     const ids = filed.filter((r) => r.work.seriesName === name).map((r) => r.work.id)
     if (ids.length) await prisma.work.updateMany({ where: { id: { in: ids } }, data: { seriesCheckedAt: checkedAt } })
   }
-
-  await prisma.work.update({
-    where: { id: work.id },
-    data: {
-      seriesCheckedAt: new Date(),
-      ...(!work.seriesName && { seriesName: name }),
-      ...(work.seriesPosition == null && found.position != null && { seriesPosition: found.position }),
-    },
-  })
-  return "series"
 }
 
 // For write paths that must not fail over it (adding a book): false and a warning instead of a throw.

@@ -5,14 +5,14 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { User } from "@prisma/client";
-import { BIO_MAX, isAllowedImageUrl, isHexColour, normaliseUsername, usernameProblem } from "@/lib/profile";
+import { BIO_MAX, displayNameProblem, isAllowedImageUrl, isHexColour, normaliseDisplayName, normaliseUsername, usernameProblem } from "@/lib/profile";
 import { isStorableBanner } from "@/lib/banners";
 import { SubscriptionCancelError, deleteAccount } from "@/lib/accountDeletion";
 import { deleteAccountUploads } from "@/lib/uploadedImagesServer";
 import { isStripeConfigured, stripeBillingApi } from "@/lib/stripe";
 import { deleteBuddyReadDataFor } from "@/lib/buddyReadsServer";
 import { revenueCatApi } from "@/lib/storeBilling";
-export async function GET (req:Request, res:Response) {
+export async function GET (req:Request) {
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
 
@@ -30,7 +30,7 @@ return NextResponse.json(sanitizeUser(user))
 
 
 }
-export async function POST (req:Request, res:Response) {
+export async function POST (req:Request) {
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
 const body = await req.json().catch(() => null);
@@ -43,11 +43,23 @@ const username = typeof body.username === "string" ? normaliseUsername(body.user
 if (username === null) {
   return NextResponse.json({ error: "Choose a username." }, { status: 400 });
 }
-// Checked only when it changes, so an older name that predates these rules can still be kept.
-const usernameChanged = username !== currentUser.username?.toLowerCase();
-const usernameError = usernameChanged ? usernameProblem(username) : null;
+// A change of case alone is still saved, so an account from before usernames were normalised comes
+// into line the first time its profile is edited. The rules are checked only for a different name,
+// so an older name that predates them can still be kept.
+const usernameChanged = username !== currentUser.username;
+const usernameRenamed = username !== currentUser.username?.toLowerCase();
+const usernameError = usernameRenamed ? usernameProblem(username) : null;
 if (usernameError) {
   return NextResponse.json({ error: usernameError }, { status: 400 });
+}
+// Optional: left out keeps what's there, empty clears it (the username shows again).
+if (body.displayName != null && typeof body.displayName !== "string") {
+  return NextResponse.json({ error: "Invalid display name." }, { status: 400 });
+}
+const displayName = body.displayName === undefined ? undefined : normaliseDisplayName(body.displayName ?? "");
+const displayNameError = displayName ? displayNameProblem(displayName) : null;
+if (displayNameError) {
+  return NextResponse.json({ error: displayNameError }, { status: 400 });
 }
 if (bio != null && typeof bio !== "string") {
   return NextResponse.json({ error: "Invalid bio." }, { status: 400 });
@@ -71,6 +83,9 @@ const updatedData:Record<string,string | null> = {
 // Check for changed fields and update data accordingly
 if (usernameChanged) {
   updatedData["username"] = username;
+}
+if (displayName !== undefined && (displayName || null) !== (currentUser.displayName ?? null)) {
+  updatedData["displayName"] = displayName || null;
 }
 if (imageSrc !== currentUser.image) {
   updatedData["image"] = imageSrc ?? null;

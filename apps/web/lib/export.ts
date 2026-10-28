@@ -46,6 +46,8 @@ type ExportBook = Pick<
   | "id" | "title" | "author" | "pages" | "currentPage" | "rating" | "review" | "timesRead"
   | "status" | "genre" | "createdAt" | "startedAt" | "completedAt" | "workKey" | "coverImage"
 > & {
+  // The reader's own tags. Optional for callers that build rows by hand.
+  tags?: string[];
   // The catalog edition the book is filed under (null until the backfill has run for it).
   edition?: { isbn10: string | null; isbn13: string | null } | null;
 };
@@ -67,7 +69,8 @@ export const CSV_COLUMNS: Column[] = [
   { header: "Number of Pages", value: (b) => b.pages ?? "" },
   { header: "Date Read", value: (b) => goodreadsDate(b.completedAt) },
   { header: "Date Added", value: (b) => goodreadsDate(b.createdAt) },
-  { header: "Bookshelves", value: (b, ctx) => (ctx.favouriteIds.has(b.id) ? "favourites" : "") },
+  // The reader's tags, plus "favourites", as Goodreads writes custom shelves: comma separated.
+  { header: "Bookshelves", value: (b, ctx) => [...(b.tags ?? []), ...(ctx.favouriteIds.has(b.id) ? ["favourites"] : [])].join(", ") },
   { header: "Exclusive Shelf", value: (b) => shelfForStatus(b.status) },
   { header: "My Review", value: (b) => b.review ?? "" },
   { header: "Read Count", value: (b) => b.timesRead ?? 0 },

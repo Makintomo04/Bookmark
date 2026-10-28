@@ -4,9 +4,10 @@ import { findStaffWork, fixWork } from "@/lib/catalogueFix";
 import { isObjectId } from "@/lib/staffUsers";
 import { jsonBody, staffAnswer } from "@/lib/staffRoute";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(_req: Request, props: Params) {
+  const params = await props.params;
   const { response } = await requirePermission("catalogue.edit");
   if (response) return response;
   const work = isObjectId(params.id) ? await findStaffWork(params.id) : null;
@@ -14,7 +15,8 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 // Body: any of { title, authors, description, coverUrl }, plus an optional { reason } for the log.
-export async function PATCH(req: Request, { params }: Params) {
+export async function PATCH(req: Request, props: Params) {
+  const params = await props.params;
   const { user, response } = await requirePermission("catalogue.edit");
   if (response) return response;
   const { reason, ...body } = await jsonBody(req);

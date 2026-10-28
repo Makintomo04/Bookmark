@@ -2,7 +2,8 @@ import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request, { params }: { params: { bookId: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
@@ -21,7 +22,8 @@ export async function GET(request: Request, { params }: { params: { bookId: stri
   return NextResponse.json(notes)
 }
 
-export async function POST(request: Request, { params }: { params: { bookId: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 

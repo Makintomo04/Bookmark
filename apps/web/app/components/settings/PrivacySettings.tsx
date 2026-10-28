@@ -34,17 +34,31 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           disabled={busy}
         />
         <Toggle
+          label="Keep Did not finish to myself"
+          hint="Nobody else sees that shelf anyway. This also keeps “stopped reading” out of your followers' feeds."
+          checked={settings.hideDidNotFinish}
+          onChange={(v) => save("hideDidNotFinish", v)}
+          disabled={busy}
+        />
+        <Toggle
           label="Hide follower and following counts"
           hint="No numbers on your profile, for you or anyone else, and your connection lists stay private."
           checked={settings.hideFollowCounts}
           onChange={(v) => save("hideFollowCounts", v)}
           disabled={busy}
         />
+        <Toggle
+          label="Hide my favourites"
+          hint="The row of favourite books on your profile shows only to you. Private books never show there either way."
+          checked={settings.hideFavourites}
+          onChange={(v) => save("hideFavourites", v)}
+          disabled={busy}
+        />
         {/* The team's badge always shows, so only librarians get the choice. */}
         {roleOf(user) === "LIBRARIAN" && (
           <Toggle
             label="Hide my Librarian badge"
-            hint="Your profile and reviews won't show that you're a librarian. Your librarian tools stay the same."
+            hint="Your profile, reviews, comments, lists and notifications won't show that you're a librarian. Your librarian tools stay the same."
             checked={settings.hideStaffBadge}
             onChange={(v) => save("hideStaffBadge", v)}
             disabled={busy}

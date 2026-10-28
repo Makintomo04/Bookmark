@@ -1,0 +1,21 @@
+{
+  "claims": {
+    "P856": [
+      { "rank": "normal", "mainsnak": { "snaktype": "value", "datavalue": { "value": "http://www.example-author.com/" } } }
+    ],
+    "P2003": [
+      { "rank": "normal", "mainsnak": { "snaktype": "value", "datavalue": { "value": "oldhandle" } } },
+      { "rank": "preferred", "mainsnak": { "snaktype": "value", "datavalue": { "value": "examplereads" } } }
+    ],
+    "P2002": [
+      { "rank": "normal", "mainsnak": { "snaktype": "value", "datavalue": { "value": "LeftTwitter" } }, "qualifiers": { "P582": [{}] } },
+      { "rank": "normal", "mainsnak": { "snaktype": "value", "datavalue": { "value": "ExampleAuthor" } } }
+    ],
+    "P7085": [
+      { "rank": "deprecated", "mainsnak": { "snaktype": "value", "datavalue": { "value": "wronghandle" } } }
+    ],
+    "P12361": [
+      { "rank": "normal", "mainsnak": { "snaktype": "value", "datavalue": { "value": "Example.bsky.social" } } }
+    ]
+  }
+}

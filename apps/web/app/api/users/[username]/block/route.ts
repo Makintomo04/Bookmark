@@ -1,22 +1,22 @@
 import { requireUser } from "@/lib/apiAuth";
+import { findUserByUsername } from "@/lib/userLookup";
+import { handleOf } from "@/lib/handle";
 import prisma from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 
 async function findTarget(username: string) {
-  return prisma.user.findUnique({ where: { username }, select: { id: true } });
+  return findUserByUsername(username, { id: true });
 }
 
 // Block: they can't follow you or see your profile, reviews or activity, and you both drop out of
 // each other's search. Existing follows in both directions are removed.
-export async function POST(
-  req: Request,
-  { params }: { params: { username: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
-  const target = await findTarget(params.username);
+  const target = await findTarget(handleOf(params.username));
   if (!target) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -59,14 +59,12 @@ export async function POST(
   return NextResponse.json({ isBlocked: true });
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: { username: string } }
-) {
+export async function DELETE(req: Request, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
-  const target = await findTarget(params.username);
+  const target = await findTarget(handleOf(params.username));
   if (!target) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }

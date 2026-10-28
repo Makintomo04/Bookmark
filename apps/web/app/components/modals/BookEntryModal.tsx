@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Lock, Search, Users } from 'lucide-react'
 import Modal from './Modal'
@@ -24,6 +24,7 @@ import useBookDescription from '@/app/hooks/useBookDescription'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { celebrate } from '@/app/hooks/useEarnMoment'
 import FormatPicker, { type FormatChoice, formatPayload } from '../books/FormatPicker'
+import FinishDates, { defaultFinishDates, finishDatesBody, finishDatesProblem, type FinishDatesValue } from '../books/FinishDates'
 
 type Shelf = "NOT_STARTED" | "STARTED" | "COMPLETED"
 
@@ -56,6 +57,7 @@ const BookEntryModal: FC = () => {
   const router = useRouter()
   const bookEntryModal = useBookEntryModal()
   const [isLoading, setIsLoading] = useState(false)
+  const submitting = useRef(false)
   // Print by default; an audiobook logs minutes listened instead of pages.
   const [format, setFormat] = useState<FormatChoice>("PRINT")
   // "Start a circle for this book": after adding, go straight to the new-circle form with it chosen.
@@ -67,7 +69,8 @@ const BookEntryModal: FC = () => {
   const [stage, setStage] = useState<"search" | "shelf">("search")
   const [isEditing, setIsEditing] = useState(false)
   const [shelf, setShelf] = useState<Shelf>("NOT_STARTED")
-  const [finishedThisYear, setFinishedThisYear] = useState(false)
+  // A finished book's dates: today by default, or the day picked, or undated.
+  const [finishDates, setFinishDates] = useState<FinishDatesValue>(defaultFinishDates)
   const [rating, setRating] = useState(0)
 
   const [query, setQuery] = useState("")
@@ -81,13 +84,12 @@ const BookEntryModal: FC = () => {
   const lengthText = isAudio
     ? runningTime > 0 && `${hours ? `${parseInt(hours)}h` : ""}${minutes ? ` ${parseInt(minutes)}m` : ""}`.trim()
     : pages && `${pages} pages`
-  const year = new Date().getFullYear()
   const [published, setPublished] = useState<number | null>(null)
   // A Hardcover hit brings its own blurb; it has no Open Library work to fetch one from.
   const [givenBlurb, setGivenBlurb] = useState<string | null>(null)
   // And its Hardcover id, which files it in the catalogue so it gets a book page.
   const [hardcoverId, setHardcoverId] = useState<string | null>(null)
-  const { description, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null, { title, author })
+  const { description, headline, isLoading: isDescriptionLoading } = useBookDescription(stage === "shelf" ? workKey : null, stage === "shelf" ? givenBlurb : null, { title, author })
 
   const resetAll = () => {
     reset(defaultValues)
@@ -97,7 +99,7 @@ const BookEntryModal: FC = () => {
     setStartCircle(false)
     setIsPrivate(false)
     setShelf("NOT_STARTED")
-    setFinishedThisYear(false)
+    setFinishDates(defaultFinishDates())
     setRating(0)
     setPublished(null)
     setGivenBlurb(null)
@@ -160,11 +162,19 @@ const BookEntryModal: FC = () => {
   }
 
   const onSubmit: SubmitHandler<FieldValues> = (data) => {
+    if (shelf === "COMPLETED" && finishDatesProblem(finishDates)) {
+      notify.error(finishDatesProblem(finishDates)!)
+      return
+    }
     if (isAudio && runningTime <= 0) {
       setIsEditing(true)
       notify.error("Enter the audiobook's running time")
       return
     }
+    // handleSubmit validates asynchronously, so a double-click (or Enter then a click) reaches here twice
+    // before isLoading has disabled the button. The ref is set at once.
+    if (submitting.current) return
+    submitting.current = true
     setIsLoading(true)
     axios.post("/api/books", {
       title: data.title,
@@ -182,7 +192,7 @@ const BookEntryModal: FC = () => {
       description: description || undefined,
       status: shelf,
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
-      finishedThisYear: shelf === "COMPLETED" ? finishedThisYear : undefined,
+      ...(shelf === "COMPLETED" && finishDatesBody(finishDates)),
       rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
       isPrivate: isPrivate || undefined,
     }).then(({ data: saved }) => {
@@ -194,7 +204,10 @@ const BookEntryModal: FC = () => {
       if (startCircle && saved?.id && shelf !== "COMPLETED") router.push(`/circles/new?bookId=${saved.id}`)
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't add that book. Try again."))
-    }).finally(() => setIsLoading(false))
+    }).finally(() => {
+      submitting.current = false
+      setIsLoading(false)
+    })
   }
 
   // Details are collapsed behind "Edit details"; open them if one of them is what's invalid.
@@ -252,7 +265,7 @@ const BookEntryModal: FC = () => {
         </div>
       </div>
 
-      <BookBlurb description={description} isLoading={isDescriptionLoading} />
+      <BookBlurb description={description} headline={headline} isLoading={isDescriptionLoading} />
 
       <FormatPicker value={format} onChange={chooseFormat} disabled={isLoading} />
 
@@ -396,27 +409,7 @@ const BookEntryModal: FC = () => {
 
       {shelf === "COMPLETED" && (
         <div className="flex flex-col gap-5">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={finishedThisYear}
-            onClick={() => setFinishedThisYear((v) => !v)}
-            className="flex items-start gap-3 text-left w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <span
-              className={cn(
-                "relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors",
-                !finishedThisYear && "bg-neutral-300 dark:bg-neutral-700"
-              )}
-              style={finishedThisYear ? { background: user?.favColour || "#7c3aed" } : undefined}
-            >
-              <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", finishedThisYear && "translate-x-5")} />
-            </span>
-            <span>
-              <span className="block text-sm font-medium">I finished this in {year}</span>
-              <span className="block text-sm text-muted-foreground">Counts toward your {year} reading goal.</span>
-            </span>
-          </button>
+          <FinishDates value={finishDates} onChange={setFinishDates} disabled={isLoading} withStart idPrefix="add-finish" />
           <div className="flex flex-col gap-2">
             <Label>Rating <span className="font-normal text-muted-foreground">· optional</span></Label>
             <StarRating value={rating} onChange={setRating} disabled={isLoading} />

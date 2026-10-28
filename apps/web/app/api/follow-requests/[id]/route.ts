@@ -6,7 +6,8 @@ import { respondToRequest } from "@/lib/followRequests";
 const bodySchema = z.object({ action: z.enum(["accept", "decline"]) }).strict();
 
 // Accept or decline a follow request sent to the signed-in reader.
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, response } = await requireUser();
   if (response) return response;
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));

@@ -8,7 +8,7 @@ import { authorSlug } from "./authorNames"
 // read:catalog scope (hardcover.app/account/api). Books only, never readers' data, which Hardcover's
 // terms keep off commercial products. Docs: docs.hardcover.app/api/guides/searching
 //
-// Free plan: 5,000 requests a day, 60 a minute, so lib/bookSearch.ts only asks when Open Library falls short.
+// Supporter plan: 50,000 requests a day, 60 a minute, so lib/bookSearch.ts only asks when Open Library falls short.
 
 const ENDPOINT = "https://api.hardcover.app/v1/graphql"
 // Hardcover cuts search off at 2s on its side; leave room for the round trip.
@@ -27,6 +27,9 @@ interface HardcoverDoc {
   pages?: number | null
   isbns?: string[]
   description?: string | null
+  // The publisher's one-line pitch Hardcover shows above the description. Book records have it; search
+  // documents don't.
+  headline?: string | null
   // The series Hardcover shows the book under. A box set has collection: true.
   featured_series?: { position?: number | null, collection?: boolean, series?: { id?: number, name?: string } | null } | null
 }
@@ -40,6 +43,14 @@ const pickIsbns = (isbns?: string[]) => ({
   isbn13: isbns?.find((i) => /^\d{13}$/.test(i)) ?? null,
   isbn10: isbns?.find((i) => /^\d{9}[\dX]$/.test(i)) ?? null,
 })
+
+// The blurb as Hardcover's book page shows it: the headline, then the description.
+export function hardcoverBlurb(headline?: string | null, description?: string | null) {
+  const head = headline?.trim()
+  const body = description?.trim()
+  const blurb = head && body && !body.startsWith(head) ? `${head}\n\n${body}` : body || head
+  return blurb?.slice(0, DESCRIPTION_MAX) || null
+}
 
 // One search hit as Bookmark's search results take it. No Open Library work key: the catalog files the
 // book by ISBN, or by title and author (lib/catalog/resolve.ts).
@@ -58,7 +69,8 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
     editionKey: null,
     ...pickIsbns(doc.isbns),
     authorKey: null,
-    description: doc.description?.trim().slice(0, DESCRIPTION_MAX) || null,
+    description: hardcoverBlurb(doc.headline, doc.description),
+    headline: doc.headline?.trim() || null,
     source: "hardcover",
     hardcoverId: doc.id != null && String(doc.id).trim() ? String(doc.id).trim() : null,
   }
@@ -68,8 +80,16 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
 // blurb, a cover). Null when Hardcover has nothing that's the same book. Throws like searchHardcover.
 export async function findOnHardcover(title: string, author: string): Promise<DiscoverBook | null> {
   const hits = await searchHardcover(`${title} ${author}`, 5)
-  return sameBook({ title, author }, hits) ?? null
+  const found = sameBook({ title, author }, hits)
+  if (!found?.hardcoverId) return found ?? null
+  // Search documents leave the headline out, so it's one more small request; without it, the blurb is
+  // just the description.
+  const record = await hardcoverQuery(HEADLINE, { id: Number(found.hardcoverId) }).catch(() => null)
+  const headline = (record?.books?.[0] as { headline?: string | null } | undefined)?.headline
+  return headline ? { ...found, description: hardcoverBlurb(headline, found.description), headline: headline.trim() } : found
 }
+
+const HEADLINE = `query Headline($id: Int!) { books(where: { id: { _eq: $id } }) { headline } }`
 
 // One GraphQL request. Throws on any failure (no token, rate limited, expired token, timeout) so a
 // failed answer isn't cached.
@@ -174,7 +194,7 @@ const SERIES_BOOKS = `query SeriesBooks($id: Int!) {
       where: { compilation: { _eq: false }, position: { _is_null: false }, book: { canonical_id: { _is_null: true } } }
       order_by: { position: asc }
       limit: 300
-    ) { position book { id title pages release_year release_date users_count description image { url } } }
+    ) { position book { id title pages release_year release_date users_count description headline image { url } contributions(limit: 3) { author { name } } } }
   }
 }`
 
@@ -186,15 +206,20 @@ export interface HardcoverSeriesBook extends DiscoverBook {
 // tracker's "next". Novellas, part-works and dramatised editions at 1.1 or 2.5 are left out; a reader who
 // shelves one still sees it, from their own copy's series. So are books announced but not out yet
 // (Hardcover lists Ghostbloods 1 to 3 in The Mistborn Saga for 2028 on): the tracker's "next" is one you
-// can read. Each is credited to `author`, the name the series goes by on Bookmark. Throws like searchHardcover.
+// can read. Only `author`'s own books are kept: a publisher's series by many writers (Canongate's The
+// Myths: Atwood, Winterson, Ali Smith) isn't one author's run, and filing its books under one name would
+// misattribute them. Each is credited to `author`, the name the series goes by on Bookmark. Throws like
+// searchHardcover.
 export async function hardcoverSeriesBooks(seriesId: number, author: string, today = new Date()): Promise<HardcoverSeriesBook[]> {
-  type Row = { position?: number | null, book?: (HardcoverDoc & { users_count?: number | null, release_date?: string | null }) | null }
+  type Row = { position?: number | null, book?: (HardcoverDoc & { users_count?: number | null, release_date?: string | null, contributions?: { author?: { name?: string } | null }[] }) | null }
   const data = await hardcoverQuery(SERIES_BOOKS, { id: seriesId })
   const now = today.toISOString().slice(0, 10)
+  const who = authorSlug(author)
   const best = new Map<number, NonNullable<Row["book"]>>()
   for (const { position, book } of (data?.series?.[0]?.book_series ?? []) as Row[]) {
     if (!book || typeof position !== "number" || !Number.isInteger(position) || position < 1) continue
     if (book.release_date && book.release_date > now) continue
+    if (!(book.contributions ?? []).some((c) => c.author?.name && authorSlug(c.author.name) === who)) continue
     const had = best.get(position)
     if (!had || (book.users_count ?? 0) > (had.users_count ?? 0)) best.set(position, book)
   }
@@ -217,7 +242,7 @@ const AUTHOR_SEARCH = `query AuthorSearch($query: String!) {
 const AUTHOR_BOOKS = `query AuthorBooks($id: Int!, $limit: Int!) {
   authors(where: { id: { _eq: $id } }, limit: 1) {
     contributions(limit: $limit, order_by: { book: { users_count: desc } }) {
-      book { id title pages release_year description image { url } }
+      book { id title pages release_year description headline image { url } }
     }
   }
 }`

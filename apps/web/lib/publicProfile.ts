@@ -1,5 +1,7 @@
 import { cache } from "react";
+import { findUserByUsername } from "@/lib/userLookup";
 import prisma from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { QUEST_MEDAL_PREFIX } from "@/lib/achievements-catalog";
 import { ladders } from "@bookmark/shared/medals";
 import { computeAchievementStats } from "@/lib/achievements";
@@ -11,11 +13,11 @@ import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staff
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
+// No blurb: a profile can carry hundreds of books, and a book's details load its blurb when opened.
 const publicBookSelect = {
   id: true,
   title: true,
   author: true,
-  description: true,
   coverImage: true,
   cardColour: true,
   status: true,
@@ -37,11 +39,10 @@ const publicBookSelect = {
 async function loadProfileRecord(username: string) {
   if (!username) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { username },
-    select: {
+  const user = await findUserByUsername(username, {
       id: true,
       username: true,
+      displayName: true,
       bio: true,
       image: true,
       banner: true,
@@ -58,7 +59,8 @@ async function loadProfileRecord(username: string) {
       _count: { select: { followers: true, following: true } },
       achievements: { where: { NOT: { key: { startsWith: QUEST_MEDAL_PREFIX } } }, select: { key: true, earnedAt: true } },
       authorFollows: { orderBy: { name: "asc" }, select: { name: true, slug: true } },
-    },
+      // Oldest first, as they were added; the profile shows the newest first.
+      favouriteIds: true,
   });
   if (!user?.username) return null;
   return { ...user, username: user.username };
@@ -71,6 +73,8 @@ type ProfileRecord = NonNullable<Awaited<ReturnType<typeof loadProfileRecord>>>;
 // What a profile shows when the viewer can't see it: enough to say whose it is, nothing about their reading.
 export interface RestrictedProfile {
   username: string;
+  // Set by the reader; the username shows when unset (readerName in lib/profile.ts).
+  displayName: string | null;
   image: string | null;
   favColour: string | null;
   // Shown even on a private profile, so a real staff account can be told from someone pretending.
@@ -89,7 +93,24 @@ export type RestrictedReason =
 
 // The central serializer: the profile as this viewer may see it. Private books, Want to read, reviews
 // and follow counts are filtered here, so callers can't forget a rule.
-function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings) {
+type FavouriteBook = Prisma.BookGetPayload<{ select: typeof publicBookSelect & { isPrivate: true } }>;
+
+// The reader's favourites as this viewer may see them, newest first: none when they hide them (or the
+// viewer can't see the profile), and never a private book except to its reader.
+async function favouritesForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings) {
+  if (!record.favouriteIds.length || !canView(relation, privacy, "favourites")) return [];
+  const books: FavouriteBook[] = await prisma.book.findMany({
+    where: { userId: record.id, id: { in: record.favouriteIds } },
+    select: { ...publicBookSelect, isPrivate: true },
+  });
+  const byId = new Map(books.map((b) => [b.id, b]));
+  return record.favouriteIds.slice().reverse()
+    .flatMap((id) => { const b = byId.get(id); return b ? [b] : []; })
+    .filter((b) => !b.isPrivate || relation.isSelf)
+    .map(({ isPrivate, ...book }) => ({ ...book, isPrivate: !!isPrivate }));
+}
+
+function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings, favourites: Awaited<ReturnType<typeof favouritesForViewer>> = []) {
   const showWantToRead = canView(relation, privacy, "wantToRead");
   const showCounts = canView(relation, privacy, "followCounts");
   const books = record.books
@@ -103,6 +124,7 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     }));
   return {
     username: record.username,
+    displayName: record.displayName,
     bio: record.bio,
     image: record.image,
     // A reader who hasn't chosen a banner gets the preset seeded from their id, same as they see themselves.
@@ -120,6 +142,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     // null when hidden. The owner always gets them; ProfileHead hides the numbers itself.
     followerCount: showCounts ? record._count.followers : null,
     followingCount: showCounts ? record._count.following : null,
+    // Newest first. Empty when hidden from this viewer.
+    favourites,
   };
 }
 
@@ -141,7 +165,8 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
   const relation = await getRelation(viewerId, userId);
 
   if (canView(relation, privacy, "profile")) {
-    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy) };
+    const favourites = await favouritesForViewer(record, relation, privacy);
+    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy, favourites) };
   }
   const reason: RestrictedReason = relation.blocked === "byOwner" ? "unavailable"
     : relation.blocked === "byViewer" ? "blockedByViewer"
@@ -155,6 +180,7 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
     reason,
     profile: {
       username: record.username,
+      displayName: record.displayName,
       image: reason === "unavailable" ? null : record.image,
       favColour: reason === "unavailable" ? null : record.favColour,
       staffBadge: reason === "unavailable" ? null : staffBadgeOf(record),
@@ -178,6 +204,8 @@ export async function getAchievementsView(username: string, viewerId: string | n
     ...view,
     achievements: {
       username: profile.username,
+      displayName: profile.displayName,
+      staffBadge: profile.staffBadge,
       // The shelf's count, as their profile and tier frame show it: private books aren't in it.
       booksRead: readingCounts(profile.books).booksRead,
       ladders: ladders(profile.achievements, stats),
@@ -207,9 +235,11 @@ export { topMedals } from "@bookmark/shared/medals";
 
 // Plain JSON for client components and the API: dates as ISO strings, as the API has always sent them.
 export function serializeProfile(profile: PublicProfileData) {
-  return JSON.parse(JSON.stringify(profile)) as Omit<PublicProfileData, "createdAt" | "books" | "achievements"> & {
+  type Dated<T> = Omit<T, "createdAt" | "startedAt" | "completedAt"> & { createdAt: string; startedAt: string | null; completedAt: string | null };
+  return JSON.parse(JSON.stringify(profile)) as Omit<PublicProfileData, "createdAt" | "books" | "achievements" | "favourites"> & {
     createdAt: string;
-    books: (Omit<PublicBook, "createdAt" | "startedAt" | "completedAt"> & { createdAt: string; startedAt: string | null; completedAt: string | null })[];
+    books: Dated<PublicBook>[];
+    favourites: Dated<PublicProfileData["favourites"][number]>[];
     achievements: { key: string; earnedAt: string }[];
   };
 }

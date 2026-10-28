@@ -18,6 +18,7 @@ export const REVIEW_OPTIONS: Option<ReviewVisibility>[] = [
 export const INVITE_OPTIONS: Option<BuddyReadInviteAudience>[] = [
   { value: "EVERYONE", label: "Anyone" },
   { value: "FOLLOWING", label: "People I follow" },
+  { value: "FRIENDS", label: "Friends" },
   { value: "NOBODY", label: "No one" },
 ];
 export const LIST_OPTIONS: Option<ListVisibility>[] = [
@@ -28,10 +29,11 @@ export const LIST_OPTIONS: Option<ListVisibility>[] = [
 export const PROFILE_HINT: Record<ProfileVisibility, string> = {
   PUBLIC: "Anyone can see your shelf, and your profile can show up in search engines.",
   FOLLOWERS: "Only followers you've approved see your shelf and activity. Others see your name and can ask to follow.",
-  PRIVATE: "Only you see your shelf. You're hidden from search, your activity stays out of feeds, and new followers need your approval.",
+  PRIVATE: "Only followers you approve see your shelf and reviews. You're hidden from search, and your activity stays out of feeds.",
 };
 export const INVITE_HINT: Record<BuddyReadInviteAudience, string> = {
   EVERYONE: "Any reader can invite you by username.",
   FOLLOWING: "Only readers you follow can invite you by username.",
+  FRIENDS: "Only friends, readers you follow who follow you back, can invite you by username.",
   NOBODY: "Nobody can invite you by username.",
 };

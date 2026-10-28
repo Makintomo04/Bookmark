@@ -1,5 +1,6 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
+import ReaderName from '@/app/components/profile/ReaderName'
 import Image from 'next/image'
 import { Check } from 'lucide-react'
 import axios from 'axios'
@@ -14,19 +15,22 @@ import { fetcher } from '@/lib/fetcher'
 import useUser from '@/app/hooks/useUser'
 import useRecommendModal from '@/app/hooks/useRecommendModal'
 import { RECOMMEND_MAX_FRIENDS, RECOMMEND_MESSAGE_MAX, type RecommendFriend } from '@/lib/recommendRules'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
-// Sends one of your books to friends (people you follow who follow you back) as a notification.
+// Sends a book (one of yours, or one from its page) to friends (people you follow who follow you back) as a notification.
 const RecommendModal: FC = () => {
   const { user } = useUser()
-  const { isOpen, bookId, bookTitle, onClose } = useRecommendModal()
-  const { data, isLoading } = useSWR<{ friends: RecommendFriend[] }>(isOpen && bookId ? `/api/books/${bookId}/recommend` : null, fetcher)
+  const { isOpen, bookId, bookKey, bookTitle, onClose } = useRecommendModal()
+  // Your copy, or the book page's catalogue entry when it isn't on your shelf.
+  const endpoint = bookId ? `/api/books/${bookId}/recommend` : bookKey ? `/api/book-pages/${encodeURIComponent(bookKey)}/recommend` : null
+  const { data, isLoading } = useSWR<{ friends: RecommendFriend[] }>(isOpen ? endpoint : null, fetcher)
   const [picked, setPicked] = useState<string[]>([])
   const [message, setMessage] = useState("")
   const [isSending, setIsSending] = useState(false)
 
   useEffect(() => {
     if (isOpen) { setPicked([]); setMessage("") }
-  }, [isOpen, bookId])
+  }, [isOpen, bookId, bookKey])
 
   const friends = data?.friends ?? []
   const toggle = (username: string) => setPicked((p) => (
@@ -34,9 +38,9 @@ const RecommendModal: FC = () => {
   ))
 
   const send = () => {
-    if (picked.length === 0 || isSending) return
+    if (!endpoint || picked.length === 0 || isSending) return
     setIsSending(true)
-    axios.post(`/api/books/${bookId}/recommend`, { usernames: picked, message: message.trim() || undefined }).then(({ data }) => {
+    axios.post(endpoint, { usernames: picked, message: message.trim() || undefined }).then(({ data }) => {
       notify.success(data.sent > 0 ? `Sent to ${data.sent} ${data.sent === 1 ? "friend" : "friends"}` : "You've already sent them this one")
       onClose()
     }).catch((err) => {
@@ -65,7 +69,7 @@ const RecommendModal: FC = () => {
                     {f.image && <Image src={f.image} alt="" fill className="object-cover" />}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium truncate">{f.username}</span>
+                    <span className="block text-sm font-medium truncate"><ReaderName reader={f} badge={f.staffBadge && <StaffSeal kind={f.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />} /></span>
                     {f.hasBook && <span className="block text-xs text-muted-foreground">Already has it</span>}
                   </span>
                   <span aria-hidden className={cn("h-5 w-5 rounded-md border flex-shrink-0 flex items-center justify-center", on && "bg-foreground border-foreground text-background")}>

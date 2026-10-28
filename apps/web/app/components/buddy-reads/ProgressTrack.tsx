@@ -1,10 +1,13 @@
 "use client"
 import { FC } from 'react'
+import { readerName } from '@/lib/profile'
+import ReaderName from '@/app/components/profile/ReaderName'
 import Link from 'next/link'
 import { X } from 'lucide-react'
 import { formatPercent, type BuddyReadSchedule } from '@/lib/buddyReads'
 import type { BuddyReadView } from '@/lib/buddyReadsServer'
 import MemberAvatar, { memberColour } from './MemberAvatar'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface ProgressTrackProps {
   members: BuddyReadView["members"]
@@ -35,14 +38,14 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
               </Link>
               <div className="min-w-0">
                 <p className="flex items-baseline gap-2 text-sm leading-tight">
-                  <span className="truncate font-medium">{m.isYou ? "You" : m.username}</span>
+                  <span className="truncate font-medium">{m.isYou ? "You" : <ReaderName reader={m} badge={m.staffBadge && <StaffSeal kind={m.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />} />}</span>
                   {m.isHost && <span className="shrink-0 text-xs text-muted-foreground">Host</span>}
                   {m.finishedAt && <span className="shrink-0 text-xs text-muted-foreground">Finished</span>}
                 </p>
                 <div
                   className="relative mt-1.5 h-2 rounded-full bg-neutral-200 dark:bg-neutral-800"
                   role="progressbar"
-                  aria-label={`${m.isYou ? "Your" : `${m.username}'s`} progress`}
+                  aria-label={`${m.isYou ? "Your" : `${readerName(m)}'s`} progress`}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={m.progress}
@@ -58,8 +61,8 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
                 {onRemove && !m.isYou && (
                   <button
                     type="button"
-                    onClick={() => onRemove(m.userId, m.username)}
-                    aria-label={`Remove ${m.username}`}
+                    onClick={() => onRemove(m.userId, readerName(m) || null)}
+                    aria-label={`Remove ${readerName(m)}`}
                     className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <X size={14} aria-hidden />

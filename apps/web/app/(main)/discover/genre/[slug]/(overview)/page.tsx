@@ -14,10 +14,11 @@ import { trendingSubjectBooks } from '@/lib/openLibrary'
 import { withCatalogueFixesOrAsIs } from '@/lib/curatedBooks'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
-export function generateMetadata({ params }: PageProps): Metadata {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const genre = genreBySlug(params.slug)
   if (!genre) return {}
   return {
@@ -33,7 +34,8 @@ const TrendingBooks = async ({ slug, subject }: { slug: string, subject: string 
   return <GenreBooks slug={slug} initial={books} />
 }
 
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const genre = genreBySlug(params.slug)
   if (!genre) notFound()
 

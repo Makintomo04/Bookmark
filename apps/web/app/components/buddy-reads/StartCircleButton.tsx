@@ -70,6 +70,13 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string }> = ({ boo
       copyCoverLater(saved?.id)
       go(saved.id)
     }).catch((err) => {
+      // Already on the shelf (the list here was stale): start the circle with that copy.
+      const existingId = err?.response?.status === 409 ? err.response.data?.bookId : null
+      if (existingId) {
+        mutate()
+        go(existingId)
+        return
+      }
       notify.error(apiError(err, "Couldn't add that book. Try again."), { retry: start })
       setIsWorking(false)
     })

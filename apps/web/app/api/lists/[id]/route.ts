@@ -6,9 +6,10 @@ import { requireUser } from "@/lib/apiAuth";
 import { carryOverItems, findList, parseListInput } from "@/lib/lists";
 import { withoutUploadedCovers } from "@/lib/uploads";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
-export async function GET(req: Request, { params }: Params) {
+export async function GET(req: Request, props: Params) {
+  const params = await props.params;
   const viewer = await getCurrentUser();
   const list = await findList(params.id, viewer);
   if (!list) {
@@ -17,7 +18,8 @@ export async function GET(req: Request, { params }: Params) {
   return NextResponse.json(list);
 }
 
-export async function PATCH(req: Request, { params }: Params) {
+export async function PATCH(req: Request, props: Params) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser("Sign in to edit this list.");
   if (response) return response;
   const list = await findList(params.id, currentUser);
@@ -42,7 +44,8 @@ export async function PATCH(req: Request, { params }: Params) {
   return NextResponse.json({ id: list.id });
 }
 
-export async function DELETE(req: Request, { params }: Params) {
+export async function DELETE(req: Request, props: Params) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser("Sign in to delete this list.");
   if (response) return response;
   const list = await findList(params.id, currentUser);

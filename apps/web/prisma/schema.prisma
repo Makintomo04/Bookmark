@@ -89,6 +89,9 @@ model User {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String?   
   username      String?   @unique @default(cuid())
+  // Shown in place of the username on their profile, cards and feed rows (packages/shared/src/profile.ts has the
+  // rules). Unset shows the username.
+  displayName   String?
   email         String?   @unique
   emailVerified DateTime?
   // IANA zone (e.g. "Europe/London") reported by the browser; reading-streak days roll over at its midnight.
@@ -104,6 +107,8 @@ model User {
   favGenres String[] @db.String
   // Hid the genre picks ("Somewhere to start") on their own shelf (it still shows on Discover). Unset reads as shown.
   hideShelfPicks Boolean?
+  // Sections of their own profile they've folded up, by id (lib/profileSections.ts). Unset reads as none.
+  collapsedSections String[] @db.String
   favouriteIds String[] @db.String
   books Book[]
   accounts      Account[]
@@ -139,7 +144,11 @@ model User {
   profileVisibility ProfileVisibility?
   reviewVisibility  ReviewVisibility?
   hideWantToRead    Boolean?
+  // Keep "stopped reading" out of followers' feeds. The Did not finish shelf itself never shows to others.
+  hideDidNotFinish  Boolean?
   hideFollowCounts  Boolean?
+  // Keep favourites off the profile for everyone else. Unset shows them (privacyRules.ts).
+  hideFavourites    Boolean?
   // A librarian hiding their Librarian badge (packages/shared/src/staffBadge.ts). The team's badge always shows.
   hideStaffBadge    Boolean?
   // Community preferences, optional for the same reason (EVERYONE, false, PRIVATE). See lib/preferences.ts.
@@ -213,6 +222,8 @@ enum BuddyReadInviteAudience {
   EVERYONE
   // Only readers they follow.
   FOLLOWING
+  // Only their friends: readers they follow who follow them back (lib/friends.ts).
+  FRIENDS
   NOBODY
 }
 
@@ -282,6 +293,31 @@ model SeriesFollow {
   @@index([seriesKey])
 }
 
+// A series as Hardcover knows it, for spotting new books (lib/seriesNews.ts). Written when a work's series
+// is filled (lib/seriesFill.ts), or by the cron (app/api/cron/series) once someone follows or reads a
+// series filled before; the cron re-asks about it weekly.
+model SeriesCheck {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // lib/series.ts seriesKey: the series' name and author, as SeriesFollow keys it.
+  seriesKey String @unique
+  // As the catalogue spells it (Work.seriesName), and the author it's credited to.
+  name String
+  author String
+  // Null when Hardcover didn't know the series; it's looked up again at the next weekly check.
+  hardcoverSeriesId Int?
+  // The furthest whole-numbered book seen so far. A released book past it is new.
+  highestPosition Float?
+  // Set when books past this place have come out and their readers are still being told: the cron tells
+  // them in batches (lib/seriesNews.ts), then clears it.
+  announceAfter Float?
+  checkedAt DateTime
+  createdAt DateTime @default(now())
+
+  // The cron takes the series asked about longest ago.
+  @@index([checkedAt])
+  @@index([announceAfter])
+}
+
 model ReadingGoal {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   userId String @db.ObjectId
@@ -316,8 +352,12 @@ model Book {
   cardColour String?
   status Status @default(NOT_STARTED)
   genre String?
-  // 0.5 to 5 in half-star steps.
+  // 0.25 to 5 in quarter-star steps (lib/readHistory.ts ratingSchema).
   rating Float?
+  // The reader's own filing labels ("owned", "kindle", "book-club-2023"), private to them. Imported from
+  // Goodreads shelves and StoryGraph tags, written back out as "Bookshelves". Not ReaderTags, which
+  // describe the work for everyone.
+  tags String[] @db.String
   review String?
   // The review gives the plot away: others see it collapsed behind a click-to-reveal.
   reviewSpoiler Boolean?
@@ -445,6 +485,8 @@ model Work {
   @@index([hardcoverId])
   @@index([authorKeys])
   @@index([matchKey])
+  // A series' books, for the series cron (lib/seriesRecheck.ts).
+  @@index([seriesName])
 }
 
 // ---- Moods and content warnings -----------------------------------------------------------
@@ -642,6 +684,8 @@ model Notification {
   count Int?
   // BOOK_RECOMMENDED: the sender's optional note. bookId is the sender's own copy of the book.
   message String?
+  // NEW_IN_SERIES: the catalogue Work that's new, the first of `count` new books in its series.
+  workId String? @db.ObjectId
   read Boolean @default(false)
   createdAt DateTime @default(now())
 
@@ -675,6 +719,9 @@ enum NotificationType {
   BOOK_RECOMMENDED
   // Staff hid your review after a report. actorId is you, so no librarian is named; bookId is your copy.
   REVIEW_HIDDEN
+  // A new book came out in a series you follow or have started (lib/seriesNews.ts). actorId is you, since
+  // nobody did it; workId is the new book, count how many came out at once.
+  NEW_IN_SERIES
 }
 
 model UserAchievement {

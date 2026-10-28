@@ -1,21 +1,22 @@
 "use client"
 import { FC } from 'react'
-import { booksReadOf, tierRingStyle } from '@/lib/readerTier'
-import { useBooksReadFor } from '@/app/hooks/useTierPreview'
-import Image from 'next/image'
+import { readerName } from '@/lib/profile'
+import ReaderName from '@/app/components/profile/ReaderName'
 import Link from 'next/link'
 import moment from 'moment'
 import { Check, BookOpen, BookPlus, BookUp, CircleSlash, Star } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import ReviewText from './ReviewText'
 import ReportReviewButton from '../books/ReportReviewButton'
 import AuthorLink from '@/app/components/AuthorLink'
+import { ActorAvatar, FeedRow } from './FeedRow'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
+import type { StaffBadgeKind } from '@/lib/staffBadge'
 
 export interface ActivityFeedItemData {
   id: string
   type: "ADDED_BOOK" | "STARTED_BOOK" | "COMPLETED_BOOK" | "DNF_BOOK" | "RATED_BOOK" | "REVIEWED_BOOK"
   createdAt: string
-  user: { username: string, image: string | null, favColour: string | null, _count?: { books?: number } }
+  user: { username: string, displayName?: string | null, image: string | null, favColour: string | null, _count?: { books?: number }, staffBadge?: StaffBadgeKind | null }
   // review and reviewSpoiler come only on REVIEWED_BOOK, and only when the viewer may read it.
   // `id` is the reader's copy (Activity.bookId), for reporting a review.
   book: { id?: string | null, title: string, author: string, coverImage: string | null, cardColour: string | null, rating: number | null, review?: string | null, reviewSpoiler?: boolean } | null
@@ -47,18 +48,19 @@ const renderTypeIcon = (type: ActivityFeedItemData["type"]) => {
 }
 
 const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
-  const booksReadFor = useBooksReadFor()
   if (!activity.book) return null
   const review = activity.type === "REVIEWED_BOOK" ? activity.book.review : null
+  const profile = `/u/${encodeURIComponent(activity.user.username)}`
 
   return (
-    <div className={cn("flex gap-3 p-3 rounded-lg border border-neutral-700", review ? "items-start" : "items-center")}>
-      <Link href={`/u/${activity.user.username}`} className="h-10 w-10 flex-shrink-0 rounded-full overflow-hidden relative" style={{ background: activity.user.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(activity.user.username, booksReadOf(activity.user))) }}>
-        {activity.user.image && <Image src={activity.user.image} alt="" fill className="object-cover" />}
+    <FeedRow align={review ? "start" : "center"}>
+      <Link href={profile} aria-label={`${readerName(activity.user)}'s profile`} className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <ActorAvatar actor={activity.user} />
       </Link>
       <div className="min-w-0 flex-1">
         <p className="text-sm">
-          <Link href={`/u/${activity.user.username}`} className="font-semibold hover:underline">{activity.user.username}</Link>
+          <Link href={profile} className="font-semibold hover:underline"><ReaderName reader={activity.user} /></Link>
+          {activity.user.staffBadge && <StaffSeal kind={activity.user.staffBadge} name={readerName(activity.user)} size={18} className="ml-1 align-[-4px]" />}
           {" "}{typeCopy[activity.type](activity.book.title)}
           {activity.type === "RATED_BOOK" && activity.book.rating ? ` (${activity.book.rating}★)` : ""}
         </p>
@@ -67,7 +69,7 @@ const ActivityFeedItem: FC<ActivityFeedItemProps> = ({ activity }) => {
         {review && activity.book.id && <ReportReviewButton bookId={activity.book.id} className="mt-2" />}
       </div>
       {renderTypeIcon(activity.type)}
-    </div>
+    </FeedRow>
   )
 }
 

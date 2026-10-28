@@ -13,13 +13,16 @@ import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useMoveToFinishedModal from '@/app/hooks/useMoveToFinishedModal'
+import useFavourite from '@/app/hooks/useFavourite'
 import { moveBook, reshelveBook } from '../books/ShelfMenuItems'
+import { removeBookWithUndo } from '../books/removeBookWithUndo'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 
@@ -53,6 +56,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
   const { books, mutate } = useBooks()
   const bookEntryModal = useBookEntryModal()
   const moveToFinished = useMoveToFinishedModal()
+  const { mutate: mutateFav } = useFavourite()
   const [isAdding, setIsAdding] = useState(false)
 
   if (!user?.id) {
@@ -96,6 +100,11 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
               {s.status === current && <Check size={14} aria-label="Current shelf" />}
             </DropdownMenuItem>
           ))}
+          {/* Takes it off every shelf, for a book shelved by mistake. Undo is in the toast. */}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => removeBookWithUndo(onShelf, mutate, mutateFav)} className="cursor-pointer text-danger focus:text-danger">
+            Remove from shelf
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )
@@ -123,12 +132,15 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
       status,
     }).then(({ data: saved }) => {
       notify.success(`Added to ${label}`, { action: { label: "View shelf", onClick: () => router.push("/") } })
-      mutate()
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
     }).catch((err) => {
-      notify.error(apiError(err, "Couldn't add that book. Try again."), { retry: () => addTo(status) })
-    }).finally(() => setIsAdding(false))
+      // Already there (added in another tab, or by a click this button missed): no retry, just the shelf.
+      if (err?.response?.status === 409) notify.info(apiError(err, "Already on your shelf"))
+      else notify.error(apiError(err, "Couldn't add that book. Try again."), { retry: () => addTo(status) })
+    // Stay disabled until the shelf has reloaded and this turns into the "on your shelf" menu: unlocked
+    // any sooner, it still says Want to read and another click adds a second copy.
+    }).finally(() => mutate().finally(() => setIsAdding(false)))
   }
 
   const chooseShelf = (status: Shelf) => {
@@ -143,7 +155,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
         onClick={() => addTo("NOT_STARTED")}
         disabled={isAdding}
         aria-label={`Add ${book.title} to Want to read`}
-        className={cn(base, "h-[30px] rounded-r-none pl-3.5 pr-2.5 whitespace-nowrap hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
+        className={cn(base, "h-[30px] rounded-r-none pl-3 pr-2 whitespace-nowrap hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
       >
         {isAdding && <Loader2 size={14} className="animate-spin" aria-hidden />}
         {isAdding ? "Adding…" : "Want to read"}
@@ -152,7 +164,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
         <DropdownMenuTrigger
           disabled={isAdding}
           aria-label={`Choose a shelf for ${book.title}`}
-          className={cn(base, "h-[30px] rounded-l-none px-1.5 border-l border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
+          className={cn(base, "h-[30px] rounded-l-none px-1 border-l border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
         >
           <ChevronDown size={14} aria-hidden />
         </DropdownMenuTrigger>

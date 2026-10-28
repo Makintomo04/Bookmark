@@ -1,9 +1,11 @@
 import { mutate } from "swr";
+import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { api } from "@/lib/api";
 
 // Readers and what they do: the feed, notifications, profiles, following and blocking.
 
-export type Person = { username: string | null; image: string | null; favColour: string | null };
+// staffBadge: their staff seal, where the server sends it (lists, comments, notifications).
+export type Person = { username: string | null; displayName?: string | null; image: string | null; favColour: string | null; staffBadge?: StaffBadgeKind | null };
 
 export type ActivityType = "ADDED_BOOK" | "STARTED_BOOK" | "COMPLETED_BOOK" | "DNF_BOOK" | "RATED_BOOK" | "REVIEWED_BOOK";
 

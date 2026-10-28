@@ -7,6 +7,7 @@ import { normaliseWorkKey } from "./workKey"
 import { hasPageWhere } from "./workPages"
 import { hardcoverRecord } from "./bookSearch"
 import { topUp } from "./bookSearchRules"
+import { librarianCover } from "./catalogueFixRules"
 
 // What a book page (app/(main)/books/[slug]) shows about the book itself. The shared catalog's Work
 // comes first, since it's already cached and holds series; a book nobody on Bookmark has shelved yet
@@ -25,6 +26,8 @@ export interface BookPageData {
   workId: string | null
   book: DiscoverBook
   description: string | null
+  // Set when the description is Hardcover's and opens with its headline.
+  headline?: string | null
   genres: Genre[]
   // Credited to the work's first author, the half of the series' identity a name alone doesn't give.
   series: { name: string, author: string, position: number | null } | null
@@ -43,7 +46,12 @@ export const bookPageData = cache(async (bookKey: string): Promise<BookPageData 
   if (!data || (data.book.coverUrl && data.description && data.book.pages)) return data
   const found = await hardcoverRecord(data.book.title, data.book.author)
   if (!found) return data
-  return { ...data, book: topUp(data.book, found), description: data.description || found.description || null }
+  return {
+    ...data,
+    book: topUp(data.book, found),
+    description: data.description || found.description || null,
+    headline: data.description ? null : found.headline ?? null,
+  }
 })
 
 async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | null> {
@@ -53,16 +61,18 @@ async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | nul
     select: {
       id: true, openLibraryKey: true,
       title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
-      coverUrl: true, firstPublishYear: true, olEditionCount: true,
-      editions: { select: { pages: true, coverUrl: true }, take: 20 },
+      coverUrl: true, firstPublishYear: true, olEditionCount: true, curatedFields: true,
+      editions: { select: { pages: true, coverUrl: true, curatedFields: true }, take: 20 },
     },
   })
 
   const workKey = olKey ?? work?.openLibraryKey ?? null
   if (work) {
     const pages = work.editions.flatMap((e) => (e.pages ? [e.pages] : [])).sort((a, b) => a - b)
-    // Not every catalog work has its own cover yet: an edition's will do, else Open Library's.
-    const coverUrl = work.coverUrl
+    // A librarian's cover first. Not every catalog work has its own cover yet: an edition's will do,
+    // else Open Library's.
+    const coverUrl = librarianCover(work, work.editions)
+      ?? work.coverUrl
       ?? work.editions.find((e) => e.coverUrl)?.coverUrl
       ?? (workKey ? await workCover(workKey).catch(() => null) : null)
     return {

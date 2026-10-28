@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
@@ -13,6 +14,7 @@ import { ApiError, api } from "@/lib/api";
 import { refreshAfterBookChange } from "@/lib/books";
 import type { CircleInvite, CircleList, CircleSummary } from "@/lib/circles";
 import { useTheme } from "@/lib/theme";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 
 // Your reading circles and the invites waiting for you (the web's /circles).
 export default function Circles() {
@@ -113,7 +115,7 @@ function InviteRow({ invite, onChange }: { invite: CircleInvite; onChange: () =>
         <BookCover book={{ title: invite.buddyRead.title, author: invite.buddyRead.author, coverImage: invite.buddyRead.coverImage, cardColour: invite.buddyRead.cardColour }} width={44} />
         <View style={{ flex: 1 }}>
           <Text numberOfLines={2}>{invite.buddyRead.title}</Text>
-          <Text variant="small">{invite.inviter.username ? `@${invite.inviter.username}` : "A reader"} asked you to read along</Text>
+          <Text variant="small">{readerName(invite.inviter) || "A reader"}{invite.inviter.staffBadge ? <StaffSeal kind={invite.inviter.staffBadge} size={14} pressable={false} style={styles.seal} /> : null} asked you to read along</Text>
         </View>
       </View>
       {error && <Text variant="small" style={{ color: colors.danger }}>{error}</Text>}
@@ -126,6 +128,8 @@ function InviteRow({ invite, onChange }: { invite: CircleInvite; onChange: () =>
 }
 
 const styles = StyleSheet.create({
+  // Inline in a line of text, so lifted a touch to sit on its middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 2 }] },
   row: { flexDirection: "row", gap: 12, padding: 12, borderWidth: 1, alignItems: "center" },
   avatars: { flexDirection: "row", gap: 4, marginTop: 2 },
 });

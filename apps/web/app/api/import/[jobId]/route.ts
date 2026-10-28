@@ -9,11 +9,12 @@ export const dynamic = "force-dynamic";
 // Steps stop starting new work after ~12s; covers can take ~20s each (in parallel). Well under this.
 export const maxDuration = 60;
 
-type Params = { params: { jobId: string } };
+type Params = { params: Promise<{ jobId: string }> };
 
 const notFound = () => NextResponse.json({ error: "That import doesn't exist." }, { status: 404 });
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(_req: Request, props: Params) {
+  const params = await props.params;
   const { user, response } = await requireUser();
   if (response) return response;
   const job = await findJob(user.id, params.jobId);
@@ -59,7 +60,8 @@ const actionSchema = z.discriminatedUnion("action", [
 ]);
 
 // POST /api/import/:jobId { action }: runs one bounded step and returns the job's new view.
-export async function POST(req: Request, { params }: Params) {
+export async function POST(req: Request, props: Params) {
+  const params = await props.params;
   const { user, response } = await requireUser();
   if (response) return response;
 
@@ -125,7 +127,8 @@ export async function POST(req: Request, { params }: Params) {
 }
 
 // DELETE /api/import/:jobId: abandons an import before it starts. Nothing was added to the shelf.
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(_req: Request, props: Params) {
+  const params = await props.params;
   const { user, response } = await requireUser();
   if (response) return response;
   const job = await findJob(user.id, params.jobId);

@@ -2,6 +2,7 @@
 // No database or "@/" imports here, so scripts/check-buddy-read-spoilers.ts can run it under plain Node.
 import { z } from "zod";
 import { roundPercent } from "./progress";
+import type { StaffBadgeKind } from "./staffBadge";
 
 export const BUDDY_READ_MAX_MEMBERS = 15
 export const COMMENT_MAX = 2000
@@ -152,7 +153,7 @@ export type CommentRow = {
   reactions: { userId: string, emoji: string }[]
 }
 
-export type CommentAuthor = { username: string | null, image: string | null, favColour: string | null }
+export type CommentAuthor = { username: string | null, displayName?: string | null, image: string | null, favColour: string | null, staffBadge?: StaffBadgeKind | null }
 
 export type Viewer = { userId: string, progress: number }
 

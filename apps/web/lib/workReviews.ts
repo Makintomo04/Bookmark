@@ -46,7 +46,7 @@ export async function reviewsForWork(bookKey: string, viewerId: string | null, o
     authorIds.length
       ? prisma.user.findMany({
           where: { id: { in: authorIds } },
-          select: { id: true, username: true, image: true, favColour: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect },
+          select: { id: true, username: true, displayName: true, image: true, favColour: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect },
         })
       : [],
   ])
@@ -69,7 +69,7 @@ export async function reviewsForWork(bookKey: string, viewerId: string | null, o
       at: book.completedAt ?? book.createdAt,
       review: {
         id: book.id,
-        person: { username: user.username, image: user.image, favColour: user.favColour, _count: user._count },
+        person: { username: user.username, displayName: user.displayName, image: user.image, favColour: user.favColour, _count: user._count },
         staffBadge: staffBadgeOf(user),
         // A rating staff took out of the average isn't shown beside the review either, except to its reader.
         rating: book.ratingHiddenAt && !relation.isSelf ? null : book.rating,

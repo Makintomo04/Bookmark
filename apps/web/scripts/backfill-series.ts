@@ -14,9 +14,9 @@
 // tags the series' other books, so later ones in it cost nothing.
 //
 // Needs HARDCOVER_API_TOKEN. Up to four Hardcover requests per work (each top-level query field counts),
-// paced under its 60-a-minute limit; its free plan allows 5,000 a day, shared with search and author
-// pages, so a run stops at a request budget (--budget, 3,000 by default, leaving 2,000 of the day for
-// search and author pages) and a large catalogue takes a run a day over several days.
+// paced under its 60-a-minute limit; our Supporter plan allows 50,000 a day, shared with search, author
+// pages and the series cron, so a run stops at a request budget (--budget, 40,000 by default and 45,000 at
+// most, leaving the rest of the day for those). At about 58 a minute, 40,000 takes around 12 hours.
 // Safe to re-run: a work is only asked about once (Work.seriesCheckedAt), and a failed one is retried.
 import { register } from "node:module";
 import { PrismaClient } from "@prisma/client";
@@ -32,8 +32,8 @@ const limitArg = process.argv.find((a) => a.startsWith("--limit="));
 const limit = limitArg ? Number(limitArg.slice("--limit=".length)) : Infinity;
 if (!(limit > 0)) throw new Error("--limit takes a positive number, as in --limit=1500");
 const budgetArg = process.argv.find((a) => a.startsWith("--budget="));
-const budget = budgetArg ? Number(budgetArg.slice("--budget=".length)) : 3000;
-if (!(budget > 0) || budget > 5000) throw new Error("--budget takes a number of requests up to Hardcover's 5,000 a day, as in --budget=2000");
+const budget = budgetArg ? Number(budgetArg.slice("--budget=".length)) : 40000;
+if (!(budget > 0) || budget > 45000) throw new Error("--budget takes a number of requests up to 45,000 of Hardcover's 50,000 a day, as in --budget=2000");
 // Hardcover counts each top-level field of a query as a request: a lookup is three (two searches and the
 // exact-title books) and a series' books one more, so four a work at most. A little over four seconds
 // keeps under its 60 a minute.

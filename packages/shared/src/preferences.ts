@@ -45,8 +45,19 @@ export function preferencesOf(user: StoredPreferences, now = new Date()): Commun
   };
 }
 
-// Can someone invite this reader to a reading circle? `inviteeFollowsInviter` only matters for FOLLOWING.
-export function acceptsBuddyReadInvite(invitee: CommunityPreferences, inviteeFollowsInviter: boolean): boolean {
-  if (invitee.buddyReadInvites === "EVERYONE") return true;
-  return invitee.buddyReadInvites === "FOLLOWING" && inviteeFollowsInviter;
+// How the inviter stands with the invitee, as far as invites care: `inviteeFollowsInviter` only matters
+// for FOLLOWING, `friends` (an accepted friendship, friendRules.ts) only for FRIENDS.
+export interface InviteRelation {
+  inviteeFollowsInviter: boolean;
+  friends: boolean;
+}
+
+// Can someone invite this reader to a reading circle by username? The invite link always works.
+export function acceptsBuddyReadInvite(invitee: CommunityPreferences, relation: InviteRelation): boolean {
+  switch (invitee.buddyReadInvites) {
+    case "EVERYONE": return true;
+    case "FOLLOWING": return relation.inviteeFollowsInviter;
+    case "FRIENDS": return relation.friends;
+    case "NOBODY": return false;
+  }
 }

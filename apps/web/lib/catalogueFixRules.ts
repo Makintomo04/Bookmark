@@ -10,6 +10,13 @@
 //     reader's own upload is kept (lib/uploads.ts); the caller filters those out.
 
 export const WORK_FIELDS = ["title", "authors", "description", "coverUrl"] as const
+
+type CoverRow = { coverUrl: string | null, curatedFields?: string[] }
+
+// The cover a librarian set: the work's, else one of these editions'. It beats every other source
+// (Open Library, Hardcover, a search hit's cover), which otherwise fill in a cover that's missing.
+export const librarianCover = (work: CoverRow, editions: CoverRow[]) =>
+  [work, ...editions].find((row) => row.coverUrl && row.curatedFields?.includes("coverUrl"))?.coverUrl ?? null
 export const EDITION_FIELDS = ["pages", "coverUrl"] as const
 export type WorkField = (typeof WORK_FIELDS)[number]
 export type EditionField = (typeof EDITION_FIELDS)[number]
@@ -103,35 +110,43 @@ export function changedFields<T extends object>(before: T, patch: Partial<T>): (
 }
 
 // One update: copies whose `field` still equals one of `from` take `to`. `from: "catalogue"` is any
-// value but a reader's own upload.
+// value but a reader's own upload; `from: "any"` is any value at all.
 export interface CopyUpdate {
-  model: "book" | "listItem"
-  field: "title" | "author" | "coverImage" | "coverUrl" | "pages"
-  from: (string | number)[] | "catalogue"
+  model: "book" | "listItem" | "circle"
+  field: "title" | "author" | "coverImage" | "coverUrl" | "pages" | "description"
+  from: (string | number)[] | "catalogue" | "any"
   to: string | number | null
 }
 
 // How readers' copies write a work's authors: Book.author and ListItem.author are one string.
 export const authorStrings = (authors: string[]) => Array.from(new Set([authors.join(", "), authors[0]].filter(Boolean)))
 
-// The copy updates for a work fix. Book rows are matched on workId, list items on the Open Library work
-// key, by the caller. A cleared field (no new value) isn't carried over: an empty cover beats none.
+// The copy updates for a work fix. Book rows are matched on workId, list items and reading circles on the
+// Open Library work key, by the caller. A cleared field (no new value) isn't carried over: an empty cover
+// beats none, and an empty description leaves readers the blurb they had. A reader can't write their
+// copy's description (it's whichever blurb was about when they shelved it), so a new one replaces all.
 export function workCopyUpdates(before: WorkValues, patch: Partial<WorkValues>): CopyUpdate[] {
   const out: CopyUpdate[] = []
   const changed = changedFields(before, patch)
   if (changed.includes("title") && patch.title && before.title) {
     out.push({ model: "book", field: "title", from: [before.title], to: patch.title })
     out.push({ model: "listItem", field: "title", from: [before.title], to: patch.title })
+    out.push({ model: "circle", field: "title", from: [before.title], to: patch.title })
   }
   if (changed.includes("authors") && patch.authors?.length && before.authors.length) {
     const from = authorStrings(before.authors)
     const to = patch.authors.join(", ")
     out.push({ model: "book", field: "author", from, to })
     out.push({ model: "listItem", field: "author", from, to })
+    out.push({ model: "circle", field: "author", from, to })
   }
   if (changed.includes("coverUrl") && patch.coverUrl) {
     out.push({ model: "book", field: "coverImage", from: "catalogue", to: patch.coverUrl })
     out.push({ model: "listItem", field: "coverUrl", from: "catalogue", to: patch.coverUrl })
+    out.push({ model: "circle", field: "coverImage", from: "catalogue", to: patch.coverUrl })
+  }
+  if (changed.includes("description") && patch.description) {
+    out.push({ model: "book", field: "description", from: "any", to: patch.description })
   }
   return out
 }

@@ -4,6 +4,9 @@ export function normaliseWorkKey(key?: string | null) {
   return match ? match[0] : null
 }
 
+// A search box's "OL45883W", "/works/OL45883W" or pasted openlibrary.org link: the work key. A title is never one.
+export const workKeyOfQuery = (query: string) => (/\s/.test(query.trim()) ? null : normaliseWorkKey(query.trim().toUpperCase()))
+
 const normalise = (s?: string | null) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")
 
 type Comparable = { workKey?: string | null, title: string, author: string }

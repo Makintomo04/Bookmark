@@ -20,10 +20,12 @@ async function setFollowing(slug: string, following: boolean) {
   return NextResponse.json({ isFollowing: following });
 }
 
-export async function PUT(_req: Request, { params }: { params: { slug: string } }) {
+export async function PUT(_req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   return setFollowing(params.slug, true);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { slug: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   return setFollowing(params.slug, false);
 }

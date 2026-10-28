@@ -7,20 +7,21 @@ import FollowButton from './FollowButton'
 import ShareProfileButton from './ShareProfileButton'
 import ProfileMenu from './ProfileMenu'
 import ProfileReviews from './ProfileReviews'
-import BooksInCommon from './BooksInCommon'
+import { reviewedBooks } from '@/lib/reviewedBooks'
 import { cn } from '@/lib/utils'
-import BookCoverCard from '../cards/BookCoverCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
-import { ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from '../books/shelf'
-import ProfileLists from '../discover/ProfileLists'
+import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books/shelf'
+import CappedShelf from './CappedShelf'
+import ProfileShowcase from './ProfileShowcase'
+import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileAuthors from './ProfileAuthors'
-import MedalShowcase from '../achievements/MedalShowcase'
 import { isFinishedBook } from '@/lib/readerTier'
 
 interface PublicProfileProps {
   profile: SerializedProfile
   // null when signed out.
-  viewer: { isFollowing: boolean; requested: boolean; needsApproval: boolean } | null
+  // followsYou: they follow the viewer, so the button can say "Follow back" or "Friends" (lib/followRules.ts).
+  viewer: { isFollowing: boolean; requested: boolean; needsApproval: boolean; followsYou: boolean } | null
 }
 
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
@@ -32,13 +33,14 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
   // Re-reads sit under Currently reading but still count as read.
   const completedCount = profile.books.filter(isFinishedBook).length
   const achievementCount = profile.achievements.length
+  const reviewCount = reviewedBooks(profile.books).length
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`
 
   const actions = (
     <>
       <ShareProfileButton username={profile.username} />
       {viewer
-        ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval={viewer.needsApproval} />
+        ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval={viewer.needsApproval} followsYou={viewer.followsYou} />
         : <Link href="/register" className={primaryButtonClass}>Sign up to follow</Link>}
       {viewer && <ProfileMenu username={profile.username} isBlocked={false} />}
     </>
@@ -54,6 +56,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
     <div className="w-full">
       <ProfileHeader
         username={profile.username}
+        displayName={profile.displayName}
         booksRead={completedCount}
         bio={profile.bio}
         image={profile.image}
@@ -66,14 +69,14 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
         actions={actions}
         stats={[
           { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },
+          // Only reviews this viewer may read arrive, so none (or all hidden) leaves the stat out.
+          ...(reviewCount > 0 ? [{ value: reviewCount, label: reviewCount === 1 ? "review" : "reviews", href: `/u/${encodeURIComponent(profile.username)}/reviews` }] : []),
           ...followStats,
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
-      >
-        <MedalShowcase earned={profile.achievements} href={achievementsHref} />
-      </ProfileHeader>
-      <div className="mt-12 px-4 sm:px-8">
-        {viewer && <BooksInCommon username={profile.username} accentColour={profile.favColour} />}
+      />
+      <div className="mt-8">
+        <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} />
         {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (
@@ -86,23 +89,14 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer }) => {
               </ShelfSection>
             )}
             {finished.length > 0 && (
-              <ShelfSection id="public-shelf-finished" title="Finished" count={finished.length}>
-                <div className={coverGridClass}>
-                  {finished.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
-                </div>
-              </ShelfSection>
+              <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
             )}
-            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport />
             {wantToRead.length > 0 && (
-              <ShelfSection id="public-shelf-want" title="Want to read" count={wantToRead.length}>
-                <div className={coverGridClass}>
-                  {wantToRead.map((book) => <BookCoverCard key={book.id} book={book} accentColour={profile.favColour} readOnly />)}
-                </div>
-              </ShelfSection>
+              <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
             )}
+            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
           </>
         )}
-        <ProfileLists username={profile.username} isSelf={false} />
         <div className="mt-12"><ProfileAuthors authors={profile.followedAuthors} /></div>
       </div>
     </div>

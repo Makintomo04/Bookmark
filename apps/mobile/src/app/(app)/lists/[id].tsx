@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { REPORT_REASONS } from "@bookmark/shared/listRules";
 import { BookCover } from "@/components/books/BookCover";
 import { Avatar } from "@/components/profile/Avatar";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Notice } from "@/components/ui/Notice";
@@ -58,7 +60,8 @@ export default function ListScreen() {
         {!list.isPick && list.owner.username && (
           <Pressable accessibilityRole="link" onPress={() => router.push(`/u/${encodeURIComponent(list.owner.username!)}`)} style={styles.owner}>
             <Avatar image={list.owner.image} name={list.owner.username} colour={list.owner.favColour} size={22} />
-            <Text variant="muted">by {list.owner.username}</Text>
+            <Text variant="muted">by {readerName(list.owner)}</Text>
+            {list.owner.staffBadge ? <StaffSeal kind={list.owner.staffBadge} size={18} pressable={false} /> : null}
           </Pressable>
         )}
         {list.forkedFrom?.list && <Text variant="small">Remixed from {list.forkedFrom.list.title}{list.forkedFrom.list.username ? ` by ${list.forkedFrom.list.username}` : ""}</Text>}

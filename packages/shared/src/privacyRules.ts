@@ -8,7 +8,10 @@ export interface PrivacySettings {
   profileVisibility: ProfileVisibility;
   reviewVisibility: ReviewVisibility;
   hideWantToRead: boolean;
+  // The Did not finish shelf never shows to others; this keeps "stopped reading" out of followers' feeds too.
+  hideDidNotFinish: boolean;
   hideFollowCounts: boolean;
+  hideFavourites: boolean;
   // A librarian hiding their badge (staffBadge.ts). Only offered to librarians.
   hideStaffBadge: boolean;
 }
@@ -18,7 +21,9 @@ export const privacySelect = {
   profileVisibility: true,
   reviewVisibility: true,
   hideWantToRead: true,
+  hideDidNotFinish: true,
   hideFollowCounts: true,
+  hideFavourites: true,
   hideStaffBadge: true,
 } as const;
 
@@ -26,7 +31,9 @@ type StoredPrivacy = {
   profileVisibility?: ProfileVisibility | null;
   reviewVisibility?: ReviewVisibility | null;
   hideWantToRead?: boolean | null;
+  hideDidNotFinish?: boolean | null;
   hideFollowCounts?: boolean | null;
+  hideFavourites?: boolean | null;
   hideStaffBadge?: boolean | null;
 };
 
@@ -36,7 +43,9 @@ export function privacyOf(user: StoredPrivacy): PrivacySettings {
     profileVisibility: user.profileVisibility ?? "PUBLIC",
     reviewVisibility: user.reviewVisibility ?? "EVERYONE",
     hideWantToRead: user.hideWantToRead ?? false,
+    hideDidNotFinish: user.hideDidNotFinish ?? false,
     hideFollowCounts: user.hideFollowCounts ?? false,
+    hideFavourites: user.hideFavourites ?? false,
     hideStaffBadge: user.hideStaffBadge ?? false,
   };
 }
@@ -58,33 +67,40 @@ export type Viewable =
   | "activity"
   // The Want to read shelf.
   | "wantToRead"
+  // That they stopped reading a book (the feed post). The shelf itself is always the reader's own.
+  | "didNotFinish"
   // Their reviews, before each review's own private flag.
   | "reviews"
   // Follower and following counts, and the lists behind them.
-  | "followCounts";
+  | "followCounts"
+  // The favourites row on their profile.
+  | "favourites";
 
 function audienceAllows(audience: "everyone" | "followers" | "nobody", relation: Relation) {
   return audience === "everyone" || (audience === "followers" && relation.isFollower);
 }
 
 // Can someone with this relation to the owner see `what`? The owner always sees everything of theirs;
-// a block in either direction hides everything.
+// a block in either direction hides everything. A profile that isn't public is for followers the owner
+// approved (followRules.ts); PRIVATE is that plus hidden from search and out of followers' feeds.
 export function canView(relation: Relation, owner: PrivacySettings, what: Viewable): boolean {
   if (relation.isSelf) return true;
   if (relation.blocked) return false;
 
-  const profile = audienceAllows(
-    owner.profileVisibility === "PUBLIC" ? "everyone" : owner.profileVisibility === "FOLLOWERS" ? "followers" : "nobody",
-    relation,
-  );
+  const profile = audienceAllows(owner.profileVisibility === "PUBLIC" ? "everyone" : "followers", relation);
   switch (what) {
     case "profile":
-    case "activity":
       return profile;
+    case "activity":
+      return profile && owner.profileVisibility !== "PRIVATE";
     case "wantToRead":
       return profile && !owner.hideWantToRead;
+    case "didNotFinish":
+      return profile && !owner.hideDidNotFinish;
     case "followCounts":
       return profile && !owner.hideFollowCounts;
+    case "favourites":
+      return profile && !owner.hideFavourites;
     case "reviews":
       return profile && audienceAllows(
         owner.reviewVisibility === "EVERYONE" ? "everyone" : owner.reviewVisibility === "FOLLOWERS" ? "followers" : "nobody",
@@ -114,6 +130,6 @@ export function visibleReview(
   const removed = !!book.reviewHiddenAt;
   const allowed = relation.isSelf || (!book.reviewPrivate && !removed && canView(relation, owner, "reviews"));
   if (!text || !allowed) return { review: null, reviewSpoiler: false, reviewHidden: false, reviewRemoved: false };
-  const onlyOwner = !!book.reviewPrivate || removed || owner.reviewVisibility === "ONLY_ME" || owner.profileVisibility === "PRIVATE";
+  const onlyOwner = !!book.reviewPrivate || removed || owner.reviewVisibility === "ONLY_ME";
   return { review: text, reviewSpoiler: !!book.reviewSpoiler, reviewHidden: relation.isSelf && onlyOwner, reviewRemoved: relation.isSelf && removed };
 }

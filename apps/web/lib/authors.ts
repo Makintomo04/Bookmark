@@ -4,6 +4,9 @@ import { authorSlug, creditIncludes, isLinkableAuthor, slugWords } from "@/lib/a
 import { sameBook } from "@/lib/workKey"
 import { cleanBookList } from "@/lib/bookListCleanup"
 import { isThin, toppedUpByTitle } from "@/lib/bookSearchRules"
+import { withCatalogueFixesOrAsIs } from "@/lib/curatedBooks"
+import { linksFromOpenLibrary, linksFromWikidata, mergeAuthorLinks, type AuthorLink } from "@/lib/authorLinks"
+import { wikidataEntity } from "@/lib/wikidata"
 
 // Author pages (/authors/<slug>). The slug comes from the name on a reader's copy; Open Library's author
 // key, when a record matches the slug exactly, is what the book list (and, later, following) hangs off.
@@ -70,7 +73,8 @@ export async function authorBooksPage(author: Author, offset = 0): Promise<Autho
   const fromOpenLibrary = author.key ? found.books : found.books.filter((b) => creditIncludes(b.author, author.slug))
   const extra = catalog.filter((c) => !fromOpenLibrary.some((b) => sameBook(b, c)))
   const all = cleanBookList([...fromOpenLibrary, ...extra])
-  const books = await filledIn(all.slice(offset, offset + AUTHOR_PAGE_SIZE), catalog, author)
+  // A librarian's fix (title, author, cover) wins over Open Library's own, as on book pages.
+  const books = await withCatalogueFixesOrAsIs(await filledIn(all.slice(offset, offset + AUTHOR_PAGE_SIZE), catalog, author))
   const nextOffset = offset + AUTHOR_PAGE_SIZE < all.length ? offset + AUTHOR_PAGE_SIZE : null
   return { books, nextOffset, failed: found.failed, total: found.failed ? null : all.length }
 }
@@ -92,6 +96,8 @@ export interface AuthorAbout {
   photoUrl: string | null
   // The bio as plain paragraphs, empty when there isn't one.
   bio: string[]
+  // Their website and social accounts, in display order; empty when we know of none.
+  links: AuthorLink[]
 }
 
 // Open Library bios are volunteer-edited text: Markdown emphasis and links, reference footnotes, Windows
@@ -110,13 +116,16 @@ export function cleanBio(raw: string | null | undefined): string[] {
     .filter((p) => p && !/^(source|sources|from wikipedia)\b[:.]?\s*$/i.test(p))
 }
 
-// Photo and bio. Without an Open Library key (or with Open Library down) there's neither. The book count
-// comes from the book list itself (AuthorBooksPage.total), so the two always agree.
+// Photo, bio and links. Without an Open Library key (or with Open Library down) there's none of them; with
+// Wikidata down, links fall back to Open Library's own. The book count comes from the book list itself
+// (AuthorBooksPage.total), so the two always agree.
 export async function authorAbout(author: Author): Promise<AuthorAbout> {
   const record = author.key ? await authorRecord(author.key).catch(() => null) : null
+  const entity = record?.wikidataId ? await wikidataEntity(record.wikidataId).catch(() => null) : null
   const photoId = record?.photoIds[0]
   return {
     photoUrl: photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg` : null,
     bio: cleanBio(record?.bio),
+    links: mergeAuthorLinks(linksFromWikidata(entity), linksFromOpenLibrary(record?.links)),
   }
 }

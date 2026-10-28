@@ -10,6 +10,9 @@ import { notify } from '@/lib/notify'
 import ProfileHead from './ProfileHead'
 import ProfileReviews from './ProfileReviews'
 import BookList from '../books/BookList'
+import FavouritesRow, { FavouritesRowSkeleton } from './FavouritesRow'
+import useFavourite from '@/app/hooks/useFavourite'
+import { useOwnerLists } from '@/app/hooks/useLists'
 import ProfileLists from '../discover/ProfileLists'
 import GenrePicks from '../discover/GenrePicks'
 import { GENRE_PICKS_SHELF_LIMIT } from '@/lib/genres'
@@ -38,7 +41,45 @@ const OwnReviews: FC = () => {
   const reviewed = (books as Book[])
     .filter((b) => b.status === "COMPLETED")
     .map((b) => ({ ...b, completedAt: b.completedAt ? String(b.completedAt) : null, ...visibleReview(b, SELF, privacy) }))
-  return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" />
+  return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" href={`/u/${encodeURIComponent(user.username)}/reviews`} collapsible />
+}
+
+// Your favourites and your lists, side by side from lg up when you have both (as others see on your
+// profile); one alone takes the full width. Favourites come from your own shelf, so a bookmark tapped
+// anywhere shows straight away. With no favourites yet (and a shelf to pick from), a line on how to add one.
+const OwnShowcase: FC<{ username: string }> = ({ username }) => {
+  const { user } = useUser()
+  const { books } = useBooks()
+  const { favourites } = useFavourite()
+  const { lists } = useOwnerLists(username)
+  if (!user) return null
+  // Your favourite ids come with the page but the books behind them don't, so hold their place. With no
+  // favourites, your lists don't need the shelf and can show straight away.
+  if (!Array.isArray(books)) {
+    if ((favourites as string[]).length > 0) return <FavouritesRowSkeleton />
+    return lists.length > 0 ? <div className="mb-12"><ProfileLists username={username} isSelf flush /></div> : null
+  }
+  const byId = new Map((books as Book[]).map((b) => [b.id, b]))
+  const favs = (favourites as string[]).slice().reverse().flatMap((id) => byId.get(id) ?? [])
+
+  if (favs.length > 0 && lists.length > 0) {
+    return (
+      <div className="mb-12 grid gap-12 lg:grid-cols-2 lg:gap-10">
+        <FavouritesRow books={favs} href="/favourites" half collapsible />
+        <div><ProfileLists username={username} isSelf half /></div>
+      </div>
+    )
+  }
+  if (lists.length > 0) return <div className="mb-12"><ProfileLists username={username} isSelf flush /></div>
+  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} collapsible />
+}
+
+// With no lists yet, "Make your first list" stays down the page rather than pushing the shelf down; once
+// you have one, your lists sit at the top beside your favourites (OwnShowcase).
+const OwnListsPrompt: FC<{ username: string }> = ({ username }) => {
+  const { lists, isLoading, isError } = useOwnerLists(username)
+  if (isLoading || (!isError && lists.length > 0)) return null
+  return <ProfileLists username={username} isSelf />
 }
 
 // The authors you follow, from your own list so an unfollow elsewhere shows on the next visit.
@@ -71,13 +112,14 @@ const NewShelfPicks: FC = () => {
 const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
   <SWRConfig value={{ fallback }}>
     <ProfileHead />
-    <div className="mt-12 px-4 sm:px-8">
+    <div className="mt-6 sm:mt-8">
       <FollowRequests className="mb-10" />
       <NewShelfPicks />
+      <OwnShowcase username={username} />
       <BookList />
       <div className="mt-12"><SeriesTracker /></div>
       <OwnReviews />
-      <ProfileLists username={username} isSelf />
+      <OwnListsPrompt username={username} />
       <OwnAuthors />
     </div>
   </SWRConfig>

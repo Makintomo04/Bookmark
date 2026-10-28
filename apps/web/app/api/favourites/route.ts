@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-export async function GET(req:Request, res:Response,) {
+export async function GET(req:Request) {
 
   const { user: currentUser, response } = await requireUser();
   if (response) return response;

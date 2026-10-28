@@ -5,9 +5,18 @@ import type { RatingSummary as Summary } from '@/lib/workReviewRules'
 const formatCount = (n: number) => n.toLocaleString('en-GB')
 
 // A book page's Bookmark rating: the average, how many readers it's from, and how their stars spread.
-// Renders nothing until someone has rated the book.
+// Before anyone has rated the book, empty stars and a line saying so, so its panel isn't a blank box.
 const RatingSummary: FC<{ summary: Summary | null }> = ({ summary }) => {
-  if (!summary) return null
+  if (!summary) return (
+    <section aria-labelledby="rating-heading" className="flex items-center gap-4">
+      <h2 id="rating-heading" className="sr-only">Rating on Bookmark</h2>
+      <StarRating value={0} readOnly size={28} label="No ratings yet" />
+      <div>
+        <p className="text-base font-medium">No ratings yet</p>
+        <p className="text-sm text-muted-foreground">Rate it when you finish it and yours will be the first.</p>
+      </div>
+    </section>
+  )
   const most = Math.max(...summary.stars)
 
   return (

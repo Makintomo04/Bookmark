@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  searchParams: { checkout?: string; currency?: string }
+  searchParams: Promise<{ checkout?: string; currency?: string }>
 }
 
 const CURRENCIES: PlusCurrency[] = ['USD', 'GBP', 'EUR']
@@ -22,12 +22,13 @@ const serialiseWindow = (w: { open: boolean; remaining: number; closesAt: Date |
 
 // The pricing page. Public: signed-out visitors see the same table and a sign-up button. Prices show in
 // the visitor's currency from Vercel's country header; ?currency=GBP shows another (for checking).
-export default async function Page({ searchParams }: PageProps) {
+export default async function Page(props: PageProps) {
+  const searchParams = await props.searchParams;
   const [user, founding] = await Promise.all([getCurrentUser(), currentFoundingStatus()])
   const status = user ? planStatusOf(user) : null
   const checkout = searchParams.checkout === 'success' || searchParams.checkout === 'cancelled' ? searchParams.checkout : null
   const asked = searchParams.currency?.toUpperCase() as PlusCurrency | undefined
-  const currency = asked && CURRENCIES.includes(asked) ? asked : currencyForCountry(headers().get('x-vercel-ip-country'))
+  const currency = asked && CURRENCIES.includes(asked) ? asked : currencyForCountry((await headers()).get('x-vercel-ip-country'))
 
   return (
     <div className="pt-10 sm:pt-16">

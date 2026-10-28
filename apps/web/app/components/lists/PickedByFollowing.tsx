@@ -1,5 +1,6 @@
 "use client"
 import { FC } from 'react'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { Users } from 'lucide-react'
@@ -28,8 +29,11 @@ const REASONS_SHOWN = 2
 const NAMES_SHOWN = 2
 
 
-const labelFor = (pick: Pick) =>
-  pick.list ? `on their list “${pick.list.title}”` : pick.rating ? `rated it ${String(pick.rating)}★` : "picked it"
+// Where the words come from: the list links through, closing the details on the way.
+const labelFor = (pick: Pick, onNavigate: () => void) =>
+  pick.list
+    ? <>on their list <Link href={`/lists/${pick.list.id}`} onClick={onNavigate} className="font-medium text-foreground hover:underline underline-offset-2">{pick.list.title}</Link></>
+    : pick.rating ? `rated it ${String(pick.rating)}★` : "picked it"
 
 // Book details: the people this reader follows who put the book on a public list or rated it 4+,
 // in their own words. A person, never a score, is the reason to read it.
@@ -57,8 +61,8 @@ const PickedByFollowing: FC<{ book: DiscoverBook }> = ({ book }) => {
 
   const { picks } = data
   const withReasons = picks.filter((p) => p.reason).slice(0, REASONS_SHOWN)
-  const names = picks.slice(0, NAMES_SHOWN).map((p) => p.person.username).filter(Boolean)
-  const others = picks.length - names.length
+  const named = picks.slice(0, NAMES_SHOWN).map((p) => p.person).filter((p) => p.username)
+  const others = picks.length - named.length
 
   return (
     <section aria-labelledby="picked-by-heading" className="flex flex-col gap-3">
@@ -70,10 +74,10 @@ const PickedByFollowing: FC<{ book: DiscoverBook }> = ({ book }) => {
         </div>
         <p id="picked-by-heading" className="min-w-0 text-sm">
           <span className="text-muted-foreground">Picked by </span>
-          {names.map((name, i) => (
-            <span key={name}>
-              {i > 0 && (i === names.length - 1 && others === 0 ? " and " : ", ")}
-              <Link href={`/u/${name}`} className="font-medium hover:underline underline-offset-2">{name}</Link>
+          {named.map((person, i) => (
+            <span key={person.username}>
+              {i > 0 && (i === named.length - 1 && others === 0 ? " and " : ", ")}
+              <Link href={`/u/${person.username}`} className="font-medium hover:underline underline-offset-2">{readerName(person)}</Link>
             </span>
           ))}
           {others > 0 && <span className="text-muted-foreground"> and {others} {others === 1 ? "other" : "others"} you follow</span>}
@@ -81,7 +85,7 @@ const PickedByFollowing: FC<{ book: DiscoverBook }> = ({ book }) => {
         </p>
       </div>
       {withReasons.map((pick, i) => (
-        <CuratorNote key={pick.person.username ?? i} variant="full" reason={{ text: pick.reason!, by: pick.person }} label={labelFor(pick)} />
+        <CuratorNote key={pick.person.username ?? i} variant="full" reason={{ text: pick.reason!, by: pick.person }} label={labelFor(pick, closeDetails)} />
       ))}
     </section>
   )

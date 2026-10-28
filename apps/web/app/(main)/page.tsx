@@ -9,7 +9,8 @@ export const metadata: Metadata = {
   title: { absolute: "Bookmark — Your reading and your friends, in one app" },
 };
 
-export default async function Home({ searchParams }: { searchParams: { callbackUrl?: string } }) {
+export default async function Home(props: { searchParams: Promise<{ callbackUrl?: string }> }) {
+  const searchParams = await props.searchParams;
   // A valid session whose account no longer exists comes back as null, so it
   // falls through to the landing page like any logged-out visitor.
   const user = await getCurrentUser();

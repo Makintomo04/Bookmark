@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR, { mutate as revalidate } from "swr";
 import { getAchievementTitle } from "@bookmark/shared/achievements-catalog";
 import { reviewHiddenMessage } from "@bookmark/shared/reviewReports";
+import { seriesNewsText } from "@bookmark/shared/series";
 import { Avatar } from "@/components/profile/Avatar";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { ApiError, api } from "@/lib/api";
@@ -26,6 +29,8 @@ interface Notification {
   actor: Person & { username: string };
   buddyRead: { id: string; title: string; inviteCode: string; status?: string } | null;
   book: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null;
+  // NEW_IN_SERIES: the new book.
+  work?: { title: string; seriesName: string | null; seriesPosition: number | null } | null;
 }
 
 // The web's notificationCopy, after the actor's name.
@@ -46,7 +51,8 @@ function copyOf(n: Notification) {
 
 // Where tapping goes. Achievements stay put.
 function pathOf(n: Notification): string | null {
-  if (n.type === "ACHIEVEMENT_EARNED") return null;
+  // The app has no page for a book nobody's shelved yet.
+  if (n.type === "ACHIEVEMENT_EARNED" || n.type === "NEW_IN_SERIES") return null;
   // Your own copy, where you can still read the review.
   if (n.type === "REVIEW_HIDDEN") return n.book ? `/book/${n.book.id}` : null;
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`;
@@ -89,7 +95,7 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
     setBusy(true);
     try {
       const result = await answerFollowRequest(n.actor.username, action);
-      if (result.accepted) setNote(`${n.actor.username} can now see your profile.`);
+      if (result.accepted) setNote(`${readerName(n.actor)} can now see your profile.`);
       onChange();
     } catch (e) {
       setNote(e instanceof ApiError ? e.message : "Couldn't answer that request. Try again.");
@@ -120,6 +126,7 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
         : `You're now hosting ${n.buddyRead?.title ?? "a reading circle"}: its host closed their account.`
       // Moderation, so nobody is named: not the reporter, not the librarian.
       : n.type === "REVIEW_HIDDEN" ? reviewHiddenMessage(n.book?.title ?? null)
+      : n.type === "NEW_IN_SERIES" ? seriesNewsText({ title: n.work?.title ?? null, seriesName: n.work?.seriesName ?? null, position: n.work?.seriesPosition ?? null, count: n.count })
       : null;
 
   return (
@@ -127,7 +134,14 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
       <Pressable accessibilityRole={path ? "link" : "text"} disabled={!path} onPress={() => path && router.push(path as never)} style={styles.main}>
         <Avatar image={n.actor.image} name={n.actor.username} colour={n.actor.favColour} size={36} />
         <View style={{ flex: 1, gap: 2 }}>
-          {text ? <Text>{text}</Text> : <Text><Text style={{ fontFamily: fonts.sansSemibold }}>{n.actor.username}</Text> {copyOf(n)}</Text>}
+          {text ? <Text>{text}</Text> : (
+            <Text>
+              <Text style={{ fontFamily: fonts.sansSemibold }}>{readerName(n.actor)}</Text>
+              {n.actor.staffBadge ? <StaffSeal kind={n.actor.staffBadge} size={18} pressable={false} style={styles.seal} /> : null}
+              {n.actor.displayName ? <Text variant="small"> @{n.actor.username}</Text> : null}
+              {" "}{copyOf(n)}
+            </Text>
+          )}
           {n.type === "BOOK_RECOMMENDED" && n.message ? <Text variant="muted" style={{ fontStyle: "italic" }}>{"“"}{n.message}{"”"}</Text> : null}
           <Text variant="small">{timeAgo(n.createdAt)}{n.type === "BOOK_RECOMMENDED" && n.book?.onShelf ? " · on your shelf" : ""}</Text>
         </View>
@@ -153,4 +167,6 @@ const styles = StyleSheet.create({
   main: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   actions: { flexDirection: "row", gap: 10, paddingLeft: 48 },
   separator: { height: StyleSheet.hairlineWidth },
+  // Inline in the text, so lifted a touch to sit on the name's middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 3 }] },
 });

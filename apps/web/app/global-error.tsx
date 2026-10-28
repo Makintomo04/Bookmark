@@ -55,7 +55,8 @@ export default function GlobalError({
           <h1>We lost your place</h1>
           <p>Bookmark ran into a problem and couldn&apos;t load. It&apos;s usually temporary, so trying again often fixes it.</p>
           <div className="actions">
-            {/* A full reload, since the root layout itself is what failed. */}
+            {/* A full reload, since the root layout itself is what failed. Link would navigate client-side. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/" className="btn secondary">Back to home</a>
             <button type="button" onClick={() => reset()} className="btn primary">Try again</button>
           </div>

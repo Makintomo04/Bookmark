@@ -6,6 +6,7 @@ import { circleProgress, createBuddyReadSchema, progressPercent } from "@/lib/bu
 import { buddyReadError, canHostAnotherCircle, hostingRefusal, isBlockedEitherWay, isObjectId, newInviteCode, parseBody } from "@/lib/buddyReadsServer";
 import { progressSelect, progressScale } from "@/lib/progress";
 import { coverToShare } from "@/lib/uploads";
+import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 
 // The reader's reading circles (newest first) with everyone's progress, and invites waiting for them.
 // ?bookId= narrows it to the reading circles that shelf book is in (the book modal's entry point).
@@ -34,7 +35,7 @@ export async function GET(req: Request) {
   ]);
   const userIds = Array.from(new Set([...allMembers.map((m) => m.userId), ...invites.map((i) => i.inviterId)]));
   const [users, books] = await Promise.all([
-    prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, username: true, image: true, favColour: true } }),
+    prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, username: true, displayName: true, image: true, favColour: true, ...staffBadgeSelect } }),
     prisma.book.findMany({ where: { id: { in: allMembers.map((m) => m.bookId) } }, select: { id: true, userId: true, ...progressSelect } }),
   ]);
   // Whether they may start another: the list page and the new-circle form say so before the server has to.
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
       .map((m) => {
         const u = userById.get(m.userId)!;
         const book = bookById.get(m.bookId);
-        return { userId: u.id, username: u.username, image: u.image, favColour: u.favColour, progress: circleProgress(book?.userId === u.id ? progressPercent(book) : 0, m.notifiedProgress) };
+        return { userId: u.id, username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u), progress: circleProgress(book?.userId === u.id ? progressPercent(book) : 0, m.notifiedProgress) };
       });
     return {
       id: buddyRead.id,
@@ -75,7 +76,7 @@ export async function GET(req: Request) {
       .map((i) => ({
         id: i.id,
         createdAt: i.createdAt.toISOString(),
-        inviter: { username: userById.get(i.inviterId)!.username, image: userById.get(i.inviterId)!.image, favColour: userById.get(i.inviterId)!.favColour },
+        inviter: { username: userById.get(i.inviterId)!.username, displayName: userById.get(i.inviterId)!.displayName, image: userById.get(i.inviterId)!.image, favColour: userById.get(i.inviterId)!.favColour, staffBadge: staffBadgeOf(userById.get(i.inviterId)) },
         buddyRead: { id: i.buddyRead.id, title: i.buddyRead.title, author: i.buddyRead.author, coverImage: i.buddyRead.coverImage, cardColour: i.buddyRead.cardColour, inviteCode: i.buddyRead.inviteCode },
       })),
   });

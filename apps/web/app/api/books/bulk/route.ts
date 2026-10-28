@@ -6,6 +6,7 @@ import { LIST_ITEMS_MAX } from "@/lib/lists";
 import { sameBook } from "@/lib/workKey";
 import { BULK_MAX } from "@/lib/bulkRules";
 import { withoutUploadedCovers } from "@/lib/uploads";
+import { TAGS_PER_BOOK, TAG_MAX_LENGTH, cleanTag, cleanTags } from "@/lib/shelfTags";
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i);
 const bodySchema = z.discriminatedUnion("action", [
@@ -18,6 +19,9 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("makePublic"), ids: z.array(objectId).min(1).max(BULK_MAX) }),
   z.object({ action: z.literal("addToList"), ids: z.array(objectId).min(1).max(BULK_MAX), listId: objectId }),
   z.object({ action: z.literal("remove"), ids: z.array(objectId).min(1).max(BULK_MAX) }),
+  // The reader's own tags (lib/shelfTags.ts), added to or taken off every selected book.
+  z.object({ action: z.literal("addTag"), ids: z.array(objectId).min(1).max(BULK_MAX), tag: z.string().min(1).max(TAG_MAX_LENGTH * 2) }),
+  z.object({ action: z.literal("removeTag"), ids: z.array(objectId).min(1).max(BULK_MAX), tag: z.string().min(1).max(TAG_MAX_LENGTH * 2) }),
 ]);
 
 // Applies one action to many of the reader's own books. Ids that aren't theirs are ignored. Bulk moves
@@ -79,6 +83,24 @@ export async function POST(req: Request) {
         });
       }
       return NextResponse.json({ added: adding.length, alreadyOnList: books.length - toAdd.length, overLimit: toAdd.length - adding.length });
+    }
+    case "addTag":
+    case "removeTag": {
+      const tag = cleanTag(body.tag);
+      if (!tag) return NextResponse.json({ error: "Enter a tag" }, { status: 400 });
+      const books = await prisma.book.findMany({ where: mine, select: { id: true, tags: true } });
+      const key = tag.toLowerCase();
+      let updated = 0;
+      let full = 0;
+      for (const book of books) {
+        const has = book.tags.some((t) => t.toLowerCase() === key);
+        if (body.action === "addTag" ? has : !has) continue;
+        if (body.action === "addTag" && book.tags.length >= TAGS_PER_BOOK) { full++; continue; }
+        const tags = body.action === "addTag" ? cleanTags([...book.tags, tag]) : book.tags.filter((t) => t.toLowerCase() !== key);
+        await prisma.book.update({ where: { id: book.id }, data: { tags } });
+        updated++;
+      }
+      return NextResponse.json({ updated, full, skipped: ids.length - updated - full });
     }
     case "remove": {
       // As the single delete does: favourites lose the removed books too.

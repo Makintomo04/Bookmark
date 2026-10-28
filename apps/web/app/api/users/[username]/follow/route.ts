@@ -1,4 +1,6 @@
 import { requireUser } from "@/lib/apiAuth";
+import { findUserByUsername } from "@/lib/userLookup";
+import { handleOf } from "@/lib/handle";
 import prisma from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 import { getRelation } from "@/lib/privacy";
@@ -8,20 +10,15 @@ import { NextResponse } from "next/server";
 
 // Follows, unfollows, asks to follow or withdraws a request, depending on where the two stand. A profile
 // that isn't public (Followers only or Private) approves each follower (lib/followRequests.ts).
-export async function POST(
-  req: Request,
-  { params }: { params: { username: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   // Follow and unfollow in a loop would otherwise fill someone's notifications.
   const limit = rateLimit(`follow:${currentUser.id}`, 60, 60 * 60 * 1000);
   if (!limit.ok) return NextResponse.json({ error: tooManyRequestsMessage }, { status: 429 });
 
-  const targetUser = await prisma.user.findUnique({
-    where: { username: params.username },
-    select: { id: true, profileVisibility: true },
-  });
+  const targetUser = await findUserByUsername(handleOf(params.username), { id: true, profileVisibility: true });
   if (!targetUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }

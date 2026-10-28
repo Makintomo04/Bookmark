@@ -13,9 +13,11 @@ interface FollowButtonProps {
   initialRequested?: boolean
   // Their profile isn't public, so following asks first (lib/followRules.ts).
   needsApproval?: boolean
+  // They follow the viewer: "Follow back", and "Friends" once both follow each other (lib/followRules.ts).
+  followsYou?: boolean
 }
 
-const FollowButton: FC<FollowButtonProps> = ({ username, initialFollowing, initialRequested = false, needsApproval = false }) => {
+const FollowButton: FC<FollowButtonProps> = ({ username, initialFollowing, initialRequested = false, needsApproval = false, followsYou = false }) => {
   const router = useRouter()
   const [isFollowing, setIsFollowing] = useState(initialFollowing)
   const [requested, setRequested] = useState(initialRequested)
@@ -44,10 +46,10 @@ const FollowButton: FC<FollowButtonProps> = ({ username, initialFollowing, initi
       disabled={isLoading}
       aria-pressed={isFollowing || requested}
       onClick={toggle}
-      title={requested ? "Withdraw your request" : undefined}
+      title={requested ? "Withdraw your request" : isFollowing && followsYou ? `Unfollow ${username}` : undefined}
       className={isFollowing || requested ? secondaryButtonClass : primaryButtonClass}
     >
-      {followButtonLabel({ isFollowing, requested, needsApproval })}
+      {followButtonLabel({ isFollowing, requested, needsApproval, followsYou })}
     </button>
   )
 }

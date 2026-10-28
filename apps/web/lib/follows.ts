@@ -1,28 +1,32 @@
 import { booksReadCount } from "@/lib/readerTier";
+import { findUserByUsername } from "@/lib/userLookup";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
+import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
 
 export type FollowListKind = "followers" | "following";
 
 export interface FollowListUser {
   username: string;
+  displayName: string | null;
   image: string | null;
   favColour: string | null;
   bio: string | null;
   isFollowing: boolean;
   isSelf: boolean;
   _count?: { books?: number };
+  staffBadge: StaffBadgeKind | null;
 }
 
 export const FOLLOW_PAGE_SIZE = 30;
 
-const userSelect = { id: true, username: true, image: true, favColour: true, bio: true, ...booksReadCount };
+const userSelect = { id: true, username: true, displayName: true, image: true, favColour: true, bio: true, ...booksReadCount, ...staffBadgeSelect };
 
 // Public, like the profile it belongs to. The viewer only changes the isFollowing/isSelf flags.
 // Pages are newest-first and keyed by the Follow row id so a follow landing mid-scroll doesn't shift pages.
 export async function getFollowList(req: Request, username: string, kind: FollowListKind) {
-  const profileUser = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+  const profileUser = await findUserByUsername(username, { id: true });
   if (!profileUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -53,8 +57,10 @@ export async function getFollowList(req: Request, username: string, kind: Follow
     : [];
   const followingIds = new Set(viewerFollows.map((f) => f.followingId));
 
-  const users: FollowListUser[] = people.map(({ id, username, ...rest }) => ({
+  // The role fields become the staff seal and go no further.
+  const users: FollowListUser[] = people.map(({ id, username, role, isStaff, hideStaffBadge, ...rest }) => ({
     ...rest,
+    staffBadge: staffBadgeOf({ role, isStaff, hideStaffBadge }),
     username: username ?? "",
     isFollowing: followingIds.has(id),
     isSelf: currentUser?.id === id,

@@ -3,12 +3,12 @@ import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
-export async function POST( request: Request,
-  { params }: { params: { bookId: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const bookId = params.bookId
-if(!bookId){
-  return NextResponse.json({ error: 'bookId is required' }, { status: 400 });
-}
+  if(!bookId){
+    return NextResponse.json({ error: 'bookId is required' }, { status: 400 });
+  }
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
@@ -28,9 +28,9 @@ if(!bookId){
       id:currentUser.id
     }
   })
-if(!user){
-  return NextResponse.json({ error: 'User Not Found' }, { status: 404 });
-}
+  if(!user){
+    return NextResponse.json({ error: 'User Not Found' }, { status: 404 });
+  }
   const updatedUser = await prisma.user.update({
     where:{
       id:currentUser.id

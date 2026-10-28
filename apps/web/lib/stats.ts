@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { findUserByUsername } from "@/lib/userLookup";
 import { goalProgress, monthlyPace, type GoalProgress } from "@/lib/goals";
 import { readLength } from "@/lib/progress";
 import prisma from "@/lib/db";
@@ -29,6 +30,10 @@ const STAR_STEPS = Array.from({ length: 10 }, (_, i) => (i + 1) / 2);
 interface Finish {
   book: BookSummary;
   outcome: "COMPLETED" | "DNF";
+  // When this read began, if it has a date: for days to finish.
+  startedAt: Date | null;
+  // The work's first publish year, from the catalogue.
+  published: number | null;
   year: number | null;
   month: number | null; // 0 to 11
   at: Date | null;
@@ -56,6 +61,8 @@ const bookSelect = {
   timesRead: true,
   completedAt: true,
   stoppedAt: true,
+  startedAt: true,
+  work: { select: { firstPublishYear: true } },
 } as const;
 
 // Four narrow queries, in parallel: the reader's zone, their books (no descriptions or reviews),
@@ -68,7 +75,7 @@ async function loadReadingData(userId: string, sharedOnly = false) {
     prisma.book.findMany({ where: sharedOnly ? { userId, ...sharedBookWhere } : { userId }, select: bookSelect }),
     prisma.bookRead.findMany({
       where: { userId, status: { in: ["COMPLETED", "DNF"] } },
-      select: { bookId: true, status: true, finishedAt: true, rating: true, pages: true, progressUnit: true, audioMinutes: true },
+      select: { bookId: true, status: true, startedAt: true, finishedAt: true, rating: true, pages: true, progressUnit: true, audioMinutes: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.readingGoal.findMany({ where: { userId, targetBooks: { gt: 0 } }, select: { year: true, targetBooks: true, targetPages: true, targetBooksPerMonth: true } }),
@@ -102,10 +109,11 @@ async function loadReadingData(userId: string, sharedOnly = false) {
       genre: b.genre,
     };
     summaries.set(b.id, book);
+    const published = b.work?.firstPublishYear ?? null;
     const own = readsByBook.get(b.id);
     if (own) {
       for (const r of own) {
-        finishes.push({ book, outcome: r.status as Finish["outcome"], at: r.finishedAt, ...place(r.finishedAt), rating: r.rating ?? b.rating, ...readLength(r, b) });
+        finishes.push({ book, outcome: r.status as Finish["outcome"], at: r.finishedAt, startedAt: r.startedAt, published, ...place(r.finishedAt), rating: r.rating ?? b.rating, ...readLength(r, b) });
       }
       continue;
     }
@@ -113,10 +121,11 @@ async function loadReadingData(userId: string, sharedOnly = false) {
     const length = readLength({}, b);
     const completed = Math.max(b.timesRead, b.status === "COMPLETED" ? 1 : 0);
     for (let i = 0; i < completed; i++) {
-      const at = i === completed - 1 ? b.completedAt : null;
-      finishes.push({ book, outcome: "COMPLETED", at, ...place(at), rating: b.rating, ...length });
+      const latest = i === completed - 1;
+      const at = latest ? b.completedAt : null;
+      finishes.push({ book, outcome: "COMPLETED", at, startedAt: latest && b.status === "COMPLETED" ? b.startedAt : null, published, ...place(at), rating: b.rating, ...length });
     }
-    if (b.status === "DNF") finishes.push({ book, outcome: "DNF", at: b.stoppedAt, ...place(b.stoppedAt), rating: b.rating, ...length });
+    if (b.status === "DNF") finishes.push({ book, outcome: "DNF", at: b.stoppedAt, startedAt: null, published, ...place(b.stoppedAt), rating: b.rating, ...length });
   }
 
   return {
@@ -168,6 +177,62 @@ function averageLength(books: BookSummary[]): number | null {
 }
 
 const emptyMonths = (): PeriodCount[] => Array.from({ length: 12 }, () => ({ books: 0, pages: 0 }));
+
+// Length buckets for the "How long" chart: pages for books read, hours for audiobooks. `min` is the
+// bucket's lower bound, so the chart can link each to a sorted shelf later.
+const PAGE_BUCKETS = [{ label: "Under 200", min: 0 }, { label: "200–299", min: 200 }, { label: "300–399", min: 300 }, { label: "400–499", min: 400 }, { label: "500+", min: 500 }];
+const HOUR_BUCKETS = [{ label: "Under 5h", min: 0 }, { label: "5–10h", min: 300 }, { label: "10–15h", min: 600 }, { label: "15h+", min: 900 }];
+
+function bucketed(values: number[], buckets: { label: string; min: number }[]) {
+  const counts = buckets.map((b) => ({ ...b, count: 0 }));
+  for (const v of values) {
+    for (let i = counts.length - 1; i >= 0; i--) {
+      if (v >= counts[i].min) { counts[i].count++; break; }
+    }
+  }
+  return counts;
+}
+
+const DAY = 86_400_000;
+
+// Days from start to finish, counting both: started and finished the same day is one day.
+const daysBetween = (start: Date, end: Date) => Math.max(1, Math.round((end.getTime() - start.getTime()) / DAY) + 1);
+
+// Decades, quickest and slowest reads, lengths and the most re-read book: the extra stats for big shelves.
+function shelfShape(completed: Finish[]) {
+  // One entry per book for the shape of the shelf (decades, lengths); every read for the timings.
+  const byBook = new Map<string, Finish>();
+  for (const f of completed) byBook.set(f.book.id, f);
+  const books = Array.from(byBook.values());
+
+  const decadeCounts = new Map<number, number>();
+  for (const f of books) {
+    if (!f.published || f.published < 1000) continue;
+    const decade = Math.floor(f.published / 10) * 10;
+    decadeCounts.set(decade, (decadeCounts.get(decade) ?? 0) + 1);
+  }
+  const decades = Array.from(decadeCounts, ([decade, count]) => ({ decade, count })).sort((a, b) => a.decade - b.decade);
+
+  const lengths = bucketed(books.filter((f) => f.pages > 0).map((f) => f.pages), PAGE_BUCKETS);
+  const listenLengths = bucketed(books.filter((f) => f.minutes > 0).map((f) => f.minutes), HOUR_BUCKETS);
+
+  const timed = completed
+    .filter((f) => f.startedAt && f.at && f.at.getTime() >= f.startedAt.getTime())
+    .map((f) => ({ book: f.book, days: daysBetween(f.startedAt!, f.at!) }));
+  const daysToFinish = timed.length ? {
+    reads: timed.length,
+    average: Math.round((timed.reduce((s, t) => s + t.days, 0) / timed.length) * 10) / 10,
+    fastest: timed.reduce((best, t) => (t.days < best.days ? t : best)),
+    slowest: timed.reduce((worst, t) => (t.days > worst.days ? t : worst)),
+  } : null;
+
+  const times = new Map<string, number>();
+  for (const f of completed) times.set(f.book.id, (times.get(f.book.id) ?? 0) + 1);
+  let mostReread: { book: BookSummary; times: number } | null = null;
+  for (const [id, n] of Array.from(times)) if (n > 1 && (!mostReread || n > mostReread.times)) mostReread = { book: byBook.get(id)!.book, times: n };
+
+  return { decades, lengths, listenLengths, daysToFinish, mostReread };
+}
 
 // ---- /stats -----------------------------------------------------------------------------------
 
@@ -250,6 +315,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
       })
       .sort((a, b) => b.year - a.year),
     streak,
+    ...shelfShape(completed),
   };
 }
 
@@ -381,7 +447,7 @@ export function isWrappedPublic(owner: { id: string }): Promise<boolean> {
 // always see their own). Shared by the page, its metadata and its images within one request.
 export const getWrappedOwner = cache(async (username: string) => {
   if (!username) return null;
-  const user = await prisma.user.findUnique({ where: { username }, select: { id: true, username: true, favColour: true, image: true } });
+  const user = await findUserByUsername(username, { id: true, username: true, displayName: true, favColour: true, image: true });
   if (!user?.username) return null;
   return { ...user, username: user.username };
 });

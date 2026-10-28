@@ -66,6 +66,16 @@ export interface ReadingStats {
   months: Record<number, PeriodCount[]>;
   goals: GoalResult[]; // newest first
   streak: number;
+  // Books finished, by the decade they were first published (catalogue's first publish year), oldest first.
+  // Books with no known year are left out.
+  decades: { decade: number; count: number }[];
+  // Books finished, by length: page buckets for books read, hour buckets for audiobooks listened to.
+  lengths: { label: string; min: number; count: number }[];
+  listenLengths: { label: string; min: number; count: number }[];
+  // Finished reads with both a start and a finish date: the average, quickest and slowest, in days.
+  daysToFinish: { reads: number; average: number; fastest: { book: BookSummary; days: number }; slowest: { book: BookSummary; days: number } } | null;
+  // The book finished most often, when one was finished more than once.
+  mostReread: { book: BookSummary; times: number } | null;
 }
 
 export interface WrappedMedal {

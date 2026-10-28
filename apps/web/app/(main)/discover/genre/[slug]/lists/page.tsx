@@ -9,10 +9,11 @@ import { genreBySlug } from '@/lib/genres'
 import { allGenreCommunityLists } from '@/lib/genreLists'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
-export function generateMetadata({ params }: PageProps): Metadata {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const genre = genreBySlug(params.slug)
   if (!genre) return {}
   return {
@@ -23,7 +24,8 @@ export function generateMetadata({ params }: PageProps): Metadata {
 
 // Every reader's public list in a genre, not just the few on the genre's page: editors' choices first,
 // then newest. lib/genreListRules.ts explains the genre page's picks.
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const genre = genreBySlug(params.slug)
   if (!genre) notFound()
 

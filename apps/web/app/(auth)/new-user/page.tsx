@@ -17,7 +17,7 @@ import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import { safeCallbackPath } from '@/lib/callbackUrl'
-import { DEFAULT_COLOUR, normaliseUsername, suggestUsername, usernameProblem } from '@/lib/profile'
+import { DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, suggestUsername, usernameProblem } from '@/lib/profile'
 import { BannerPresetId, defaultBannerPreset, bannerPresetValue } from '@/lib/banners'
 import BannerPattern from '@/app/components/profile/BannerPattern'
 import BannerPresetPicker from '@/app/components/profile/BannerPresetPicker'
@@ -27,7 +27,7 @@ import BannerPresetPicker from '@/app/components/profile/BannerPresetPicker'
 // rest are genuinely optional, and readers who arrived from somewhere (e.g. a reading circle invite) skip them
 // and go straight back there.
 
-type ProfileForm = { username: string; color: string; imageSrc: string; banner: BannerPresetId }
+type ProfileForm = { username: string; displayName: string; color: string; imageSrc: string; banner: BannerPresetId }
 type Availability = "idle" | "checking" | "available" | "taken"
 
 const fieldClass = "w-full h-10 rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
@@ -57,9 +57,9 @@ const Page = () => {
   const avatarInput = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors } } = useForm<ProfileForm>({
-    defaultValues: { username: "", color: DEFAULT_COLOUR, imageSrc: "", banner: "arches" },
+    defaultValues: { username: "", displayName: "", color: DEFAULT_COLOUR, imageSrc: "", banner: "arches" },
   })
-  const [username, colour, imageSrc, bannerPreset] = watch(["username", "color", "imageSrc", "banner"])
+  const [username, displayName, colour, imageSrc, bannerPreset] = watch(["username", "displayName", "color", "imageSrc", "banner"])
   const accent = colour || DEFAULT_COLOUR
   const avatar = useImageUpload((url) => setValue("imageSrc", url, { shouldDirty: true }))
 
@@ -76,7 +76,7 @@ const Page = () => {
     }
     // Google and GitHub accounts arrive with a name and photo; start from those.
     // The banner starts on the same preset they'd get by default, so saving it is a choice they can see.
-    reset({ username: suggestUsername(user), color: DEFAULT_COLOUR, imageSrc: user.image ?? "", banner: defaultBannerPreset(user.id) })
+    reset({ username: suggestUsername(user), displayName: "", color: DEFAULT_COLOUR, imageSrc: user.image ?? "", banner: defaultBannerPreset(user.id) })
     setReady(true)
   }, [user, router, reset])
 
@@ -104,7 +104,7 @@ const Page = () => {
     }
     setSaving(true)
     try {
-      const res = await axios.post("/api/new-user", { username: normaliseUsername(data.username), color: data.color, imageSrc: data.imageSrc || undefined, bannerSrc: bannerPresetValue(data.banner) })
+      const res = await axios.post("/api/new-user", { username: normaliseUsername(data.username), displayName: normaliseDisplayName(data.displayName) || undefined, color: data.color, imageSrc: data.imageSrc || undefined, bannerSrc: bannerPresetValue(data.banner) })
       mutate(res.data, { revalidate: false })
       if (nextPath) {
         router.push(nextPath)
@@ -114,8 +114,9 @@ const Page = () => {
       window.scrollTo(0, 0)
     } catch (err) {
       const message = axios.isAxiosError(err) && err.response?.data?.error || "Couldn't save your profile. Check your connection and try again."
-      if (axios.isAxiosError(err) && err.response?.data?.field === "username") {
-        setError("username", { type: "server", message }, { shouldFocus: true })
+      const field = axios.isAxiosError(err) ? err.response?.data?.field : null
+      if (field === "username" || field === "displayName") {
+        setError(field, { type: "server", message }, { shouldFocus: true })
       } else {
         notify.error(message)
       }
@@ -138,6 +139,8 @@ const Page = () => {
   }
 
   const savedName = normaliseUsername(username)
+  // What heads their profile: the display name when they give one, else the username.
+  const shownName = normaliseDisplayName(displayName) || savedName
   const profileHref = `/u/${encodeURIComponent(savedName)}`
   const initial = (savedName[0] ?? "?").toUpperCase()
   const avatarSrc = avatar.preview || imageSrc
@@ -187,7 +190,8 @@ const Page = () => {
             onChange={(e) => { avatar.upload(e.target.files?.[0]); e.target.value = "" }}
           />
           <div className="min-w-0 pb-0.5 leading-tight">
-            <p className="truncate font-semibold">{savedName || "your-name"}</p>
+            <p className="truncate font-semibold">{shownName || "your-name"}</p>
+            {shownName !== savedName && savedName && <p className="truncate text-xs text-muted-foreground">@{savedName}</p>}
             <div className="flex gap-3 text-xs text-muted-foreground">
               <button type="button" onClick={() => avatarInput.current?.click()} disabled={busy} className="font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-60">
                 {imageSrc ? "Change photo" : "Add a photo"}
@@ -224,6 +228,28 @@ const Page = () => {
       </div>
 
       <div className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <label htmlFor="displayName" className="text-sm font-medium">Display name <span className="font-normal text-muted-foreground">· optional</span></label>
+          <span className={cn("text-xs tabular-nums", (displayName?.length ?? 0) > DISPLAY_NAME_MAX ? "text-danger" : "text-muted-foreground")} aria-live="polite">
+            {displayName?.length ?? 0}/{DISPLAY_NAME_MAX}
+          </span>
+        </div>
+        <input
+          id="displayName"
+          autoComplete="name"
+          placeholder="e.g. Jane Reader"
+          disabled={saving}
+          aria-invalid={!!errors.displayName}
+          aria-describedby="display-name-hint"
+          className={cn(fieldClass, errors.displayName ? "border-danger" : "border-input")}
+          {...register("displayName", { validate: (v) => displayNameProblem(normaliseDisplayName(v)) ?? true })}
+        />
+        {errors.displayName
+          ? <p id="display-name-hint" role="alert" className="text-sm text-danger">{errors.displayName.message}</p>
+          : <p id="display-name-hint" className="text-xs text-muted-foreground">Heads your profile, with your username under it. Skip it to go by your username.</p>}
+      </div>
+
+      <div className="flex flex-col gap-2">
         <span id="colour-label" className="text-sm font-medium">Your colour</span>
         <p className="-mt-1 text-xs text-muted-foreground">Tints your banner, your avatar until you add a photo, and your buttons.</p>
         <div className="mt-1">
@@ -248,7 +274,7 @@ const Page = () => {
   const shelfStep = (
     <div className="flex flex-col gap-6">
       <div className="text-center">
-        <h1 className="page-title break-words">Welcome, {savedName}</h1>
+        <h1 className="page-title break-words">Welcome, {shownName}</h1>
         <p className="mt-2 text-sm text-muted-foreground">Your profile is ready. Start a circle with friends, or put a few books on your shelf.</p>
       </div>
       <div className="flex flex-col gap-3">

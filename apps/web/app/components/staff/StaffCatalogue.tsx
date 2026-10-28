@@ -4,15 +4,24 @@ import useSWR from 'swr'
 import { Loader2, Search } from 'lucide-react'
 import { fetcher } from '@/lib/fetcher'
 import type { StaffWork } from '@/lib/catalogueFix'
+import { workKeyOfQuery } from '@/lib/workKey'
 import { Button } from '../ui/button'
 import { cardClass, fieldClass, staffSend } from './staffApi'
 
-type Saved = { work: StaffWork, copies: { books: number, listItems: number } }
+type Saved = { work: StaffWork, copies: { books: number, listItems: number, circles: number } }
 
-const copiesLine = ({ books, listItems }: Saved['copies']) =>
-  books || listItems
-    ? `Saved. Updated ${books} ${books === 1 ? "reader's copy" : "readers' copies"}${listItems ? ` and ${listItems} list ${listItems === 1 ? 'entry' : 'entries'}` : ''} that still showed the old version.`
-    : 'Saved. No readers had the old version on their shelves.'
+const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+const copiesLine = ({ books, listItems, circles }: Saved['copies']) => {
+  const parts = [
+    books ? counted(books, "reader's copy", "readers' copies") : null,
+    listItems ? counted(listItems, 'list entry', 'list entries') : null,
+    circles ? counted(circles, 'reading circle', 'reading circles') : null,
+  ].filter((p): p is string => !!p)
+  if (!parts.length) return 'Saved. No readers had the old version on their shelves.'
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0]
+  return `Saved. Updated ${list} that still showed the old version.`
+}
 
 // Correct a book in the shared catalogue: its title, authors, description and cover, and each edition's
 // pages and cover. Readers who set their own keep theirs (lib/catalogueFixRules.ts).
@@ -25,6 +34,7 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
     return () => clearTimeout(t)
   }, [query])
   const { data: results, isLoading } = useSWR<StaffWork[]>(debounced.trim() ? `/api/staff/works?q=${encodeURIComponent(debounced)}` : null, fetcher, { keepPreviousData: true })
+  const olKey = workKeyOfQuery(debounced)
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,7 +50,9 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
       ) : (
         <>
           {isLoading && <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />}
-          {results && results.length === 0 && <p className="text-muted-foreground">Nothing in the catalogue matches that.</p>}
+          {results && results.length === 0 && (olKey
+            ? <AddFromOpenLibrary olKey={olKey} onAdded={setSelected} />
+            : <p className="text-muted-foreground">Nothing in the catalogue matches that.</p>)}
           <ul className="flex flex-col gap-2">
             {results?.map((w) => (
               <li key={w.id}>
@@ -62,6 +74,31 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
   )
 }
 
+// A book page can show a book from Open Library that no reader has shelved, so the catalogue has no row
+// for it yet. Filing it gives the librarian something to correct.
+const AddFromOpenLibrary = ({ olKey, onAdded }: { olKey: string, onAdded: (id: string) => void }) => {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const add = async () => {
+    setPending(true)
+    setError(null)
+    try {
+      onAdded((await staffSend<StaffWork>('/api/staff/works', 'POST', { openLibraryKey: olKey })).id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <div className={`${cardClass} flex flex-col gap-3`}>
+      <p className="text-sm text-muted-foreground">{olKey} isn&apos;t in the catalogue yet: nobody has shelved it, so its book page comes straight from Open Library. Add it to correct it.</p>
+      <Button size="sm" className="self-start" onClick={add} disabled={pending}>{pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Add from Open Library</Button>
+      {error && <p role="status" className="text-sm text-destructive">{error}</p>}
+    </div>
+  )
+}
+
 const Cover = ({ url, className }: { url: string | null, className: string }) => (
   // eslint-disable-next-line @next/next/no-img-element
   url ? <img src={url} alt="" className={`${className} shrink-0 rounded object-cover bg-neutral-100 dark:bg-neutral-800`} />
@@ -75,9 +112,11 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean, text: string } | null>(null)
 
+  const formOf = (w: StaffWork) => ({ title: w.title, authors: w.authors.join(', '), description: w.description ?? '', coverUrl: w.coverUrl ?? '' })
+  // Filled once. Saving an edition reloads the work too, and that mustn't wipe what's being typed here.
   useEffect(() => {
-    if (work) setForm({ title: work.title, authors: work.authors.join(', '), description: work.description ?? '', coverUrl: work.coverUrl ?? '' })
-  }, [work])
+    if (work && !form) setForm(formOf(work))
+  }, [work, form])
 
   if (error) return <p className="text-sm text-destructive">{error.message}</p>
   if (!work || !form) return <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />
@@ -94,6 +133,7 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
     try {
       const saved = await staffSend<Saved>(`/api/staff/works/${id}`, 'PATCH', body)
       await mutate(saved.work, { revalidate: false })
+      setForm(formOf(saved.work))
       setMessage({ ok: true, text: copiesLine(saved.copies) })
       setReason('')
     } catch (e) {

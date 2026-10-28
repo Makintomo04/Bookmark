@@ -4,7 +4,8 @@ import { isObjectId } from "@/lib/buddyReadsServer";
 import { acceptRecommendation } from "@/lib/recommendations";
 
 // The recipient adds a recommended book to Want to read.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   if (!isObjectId(params.id)) return NextResponse.json({ error: "That recommendation has gone." }, { status: 404 });

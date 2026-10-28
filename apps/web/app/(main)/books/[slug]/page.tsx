@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ChevronLeft, ExternalLink } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import Container from '@/app/components/Container'
 import BookCover from '@/app/components/cards/BookCover'
 import AuthorLink from '@/app/components/AuthorLink'
@@ -9,6 +9,7 @@ import AddToShelfButton from '@/app/components/discover/AddToShelfButton'
 import AddToListButton from '@/app/components/discover/AddToListButton'
 import StartCircleButton from '@/app/components/buddy-reads/StartCircleButton'
 import BookBlurb from '@/app/components/books/BookBlurb'
+import SendToFriendButton from '@/app/components/books/SendToFriendButton'
 import BookPageReaders from '@/app/components/books/BookPageReaders'
 import RatingSummary from '@/app/components/books/RatingSummary'
 import BookReviews from '@/app/components/books/BookReviews'
@@ -24,7 +25,7 @@ import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
 import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 const slugOf = (param: string) => {
@@ -39,6 +40,9 @@ const DESCRIPTION_MAX = 160
 
 // One heading style for every section on the page.
 const sectionHeading = "font-display text-xl font-semibold"
+// Each section below the title sits on a surface a step lighter than the page (darker on the light theme):
+// one quiet tone, no border or shadow, so the sections read as groups without becoming a stack of cards.
+const panel = "rounded-2xl bg-neutral-100/70 dark:bg-neutral-900/60 p-5 sm:p-6"
 
 const summaryOf = (text: string) => {
   const flat = text.replace(/\s+/g, " ").trim()
@@ -47,7 +51,8 @@ const summaryOf = (text: string) => {
   return `${cut.slice(0, cut.lastIndexOf(" ")) || cut}…`
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const bookKey = bookKeyOfSlug(slugOf(params.slug))
   const data = bookKey ? await bookPageData(bookKey) : null
   if (!data) return { title: "Book not found", robots: { index: false } }
@@ -72,7 +77,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // rating and every review the viewer may read. Keyed by the Open Library work key, or the catalogue
 // Work's id for a book Open Library lacks (lib/bookPage.ts); the title in the address is cosmetic, and a
 // stale or missing one redirects to the current.
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const slug = slugOf(params.slug)
   const bookKey = bookKeyOfSlug(slug)
   if (!bookKey) notFound()
@@ -110,10 +116,11 @@ const Page = async ({ params }: PageProps) => {
             />
           </div>
 
-          {/* Four groups, each with room around it: the book, what readers think, what it's about, and
-              the reviews and details. Inside a group things sit close; between groups, a clear break. */}
-          <div className="min-w-0 max-w-3xl flex flex-col gap-12 md:gap-14">
-            <header>
+          {/* The title block on the page itself, then each section on its own panel. Inside a panel things
+              sit close; the panels' edges do the separating, so the gaps between them stay small. */}
+          <div className="min-w-0 max-w-3xl flex flex-col gap-4 sm:gap-5">
+            {/* A little more room under the title block than between the panels. */}
+            <header className="mb-2 sm:mb-4">
               {series && <p className="mb-2"><SeriesEyebrow name={series.name} position={series.position} /></p>}
               <h1 className="page-title break-words">{book.title}</h1>
               <p className="mt-2 text-base"><AuthorLink author={book.author} /></p>
@@ -121,11 +128,13 @@ const Page = async ({ params }: PageProps) => {
               <div className="mt-6 flex flex-wrap items-center gap-1.5">
                 <AddToShelfButton book={book} />
                 <StartCircleButton book={book} />
+                <SendToFriendButton book={book} bookKey={key} />
                 <AddToListButton book={book} />
               </div>
             </header>
 
             {seriesTrack && (
+              <div className={panel}>
               <SeriesSection
                 track={seriesTrack}
                 workId={data.workId}
@@ -134,23 +143,24 @@ const Page = async ({ params }: PageProps) => {
                 returnTo={href}
                 headingClassName={sectionHeading}
               />
+              </div>
             )}
 
-            <div className="flex flex-col gap-8 empty:hidden">
+            <div className={`${panel} flex flex-col gap-8 empty:hidden`}>
               <RatingSummary summary={rating} />
               <BookPageReaders book={book} bookKey={key} />
             </div>
 
-            <section aria-labelledby="about-heading" className="flex flex-col gap-4">
+            <section aria-labelledby="about-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="about-heading" className={sectionHeading}>About this book</h2>
               {data.description
-                ? <BookBlurb description={data.description} isLoading={false} hideHeading className="max-w-2xl" />
+                ? <BookBlurb description={data.description} headline={data.headline} isLoading={false} hideHeading className="max-w-2xl" />
                 : <p className="text-sm text-muted-foreground">We don&apos;t have a description for this book yet.</p>}
               {genres.length > 0 && (
                 <ul aria-label="Genres" className="flex flex-wrap gap-1.5">
                   {genres.map((genre) => (
                     <li key={genre.slug}>
-                      <Link href={`/discover/genre/${genre.slug}`} className="inline-block rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-900">
+                      <Link href={`/discover/genre/${genre.slug}`} className="inline-block rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs font-medium hover:bg-neutral-200 dark:hover:bg-neutral-800">
                         {genre.label}
                       </Link>
                     </li>
@@ -159,10 +169,10 @@ const Page = async ({ params }: PageProps) => {
               )}
             </section>
 
-            <BookReviews bookKey={key} initial={reviews} headingClassName={sectionHeading} />
+            <div className={panel}><BookReviews bookKey={key} initial={reviews} headingClassName={sectionHeading} /></div>
 
             {lists.length > 0 && (
-              <section aria-labelledby="lists-heading" className="flex flex-col gap-4">
+              <section aria-labelledby="lists-heading" className={`${panel} flex flex-col gap-4`}>
                 <div className="flex items-baseline justify-between gap-4">
                   <h2 id="lists-heading" className={sectionHeading}>On readers&apos; lists</h2>
                   {onLists.length > BOOK_LISTS_SHOWN && (
@@ -176,7 +186,7 @@ const Page = async ({ params }: PageProps) => {
               </section>
             )}
 
-            <section aria-labelledby="details-heading" className="flex flex-col gap-4">
+            <section aria-labelledby="details-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="details-heading" className={sectionHeading}>Details</h2>
               <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-1.5 text-sm">
                 {book.year && <><dt className="text-muted-foreground">First published</dt><dd>{book.year}</dd></>}
@@ -184,16 +194,6 @@ const Page = async ({ params }: PageProps) => {
                 {data.editionCount ? <><dt className="text-muted-foreground">Editions</dt><dd>{data.editionCount.toLocaleString('en-GB')}</dd></> : null}
               </dl>
               <div className="flex flex-col items-start gap-3">
-                {book.workKey && (
-                  <a
-                    href={`https://openlibrary.org/works/${book.workKey}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                  >
-                    View on Open Library<ExternalLink size={13} aria-hidden />
-                  </a>
-                )}
                 <BookProblemReport workKey={book.workKey} workId={data.workId} />
               </div>
             </section>

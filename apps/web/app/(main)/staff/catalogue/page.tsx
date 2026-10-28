@@ -3,7 +3,8 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import StaffCatalogue from '@/app/components/staff/StaffCatalogue'
 import { can } from '@/lib/roles'
 
-const Page = async ({ searchParams }: { searchParams: { work?: string, q?: string } }) => {
+const Page = async (props: { searchParams: Promise<{ work?: string, q?: string }> }) => {
+  const searchParams = await props.searchParams;
   const user = await getCurrentUser()
   if (!can(user, 'catalogue.edit')) notFound()
   return <StaffCatalogue initialWorkId={searchParams.work ?? null} initialQuery={searchParams.q ?? ''} />

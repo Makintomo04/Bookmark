@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator } from "react-native";
+import { readerName } from "@bookmark/shared/profile";
+import { ActivityIndicator, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { AchievementDetail, MedalList, ReaderTierCard, type Achievement } from "@/app/(app)/achievements";
@@ -8,12 +9,16 @@ import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { StaffSeal } from "@/components/profile/StaffSeal";
+import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 
 // Another reader's tier and medals (the web's /u/<username>/achievements), read-only and without Up next.
 // The server applies their profile privacy: a restricted profile sends no medals at all.
 
 type ReaderAchievements = {
   username: string;
+  displayName?: string | null;
+  staffBadge?: StaffBadgeKind | null;
   restricted: null | "followers" | "private" | "blockedByViewer";
   booksRead: number | null;
   ladders: Achievement[];
@@ -22,7 +27,7 @@ type ReaderAchievements = {
 
 export default function ReaderAchievementsScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
-  const { colors } = useTheme();
+  const { colors, fonts } = useTheme();
   const { data, error, isLoading } = useSWR<ReaderAchievements>(`/api/users/${encodeURIComponent(username ?? "")}/achievements`);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -44,10 +49,18 @@ export default function ReaderAchievementsScreen() {
 
   return (
     <Screen edges={["left", "right"]}>
-      <Stack.Screen options={{ title: `${data.username}'s achievements` }} />
+      <Stack.Screen options={{
+        title: `${readerName(data)}'s achievements`,
+        headerTitle: data.staffBadge ? () => (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, maxWidth: 260 }}>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.sansSemibold, fontSize: 17, flexShrink: 1 }}>{readerName(data)}{"'"}s achievements</Text>
+            <StaffSeal kind={data.staffBadge!} name={readerName(data)} size={18} />
+          </View>
+        ) : undefined,
+      }} />
       {data.restricted || data.booksRead === null ? (
         <Text variant="muted">
-          {data.restricted === "followers" ? `${data.username} shares their achievements with followers.` : data.restricted === "blockedByViewer" ? `You blocked ${data.username}.` : `${data.username} keeps their profile private.`}
+          {data.restricted === "followers" ? `${readerName(data)} shares their achievements with followers.` : data.restricted === "blockedByViewer" ? `You blocked ${readerName(data)}.` : `${readerName(data)} keeps their profile private.`}
         </Text>
       ) : (
         <>

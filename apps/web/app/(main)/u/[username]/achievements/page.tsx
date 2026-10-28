@@ -1,26 +1,30 @@
 import { Metadata } from 'next'
+import { handleOf, profileHandle } from '@/lib/handle'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { hasRequested } from '@/lib/followRequests'
+import { restrictedViewerFlags } from '@/lib/friends'
 import { getAchievementsView, getPublicProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 import ReaderAchievementsView from './ReaderAchievementsView'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
-  params: { username: string }
+  params: Promise<{ username: string }>
 }
 
 // Built from the signed-out view, like the profile's: a followers-only or private profile gives away
 // nothing but its username, and isn't indexed.
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const data = await getPublicProfile(params.username)
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
+  const data = await getPublicProfile(handleOf(params.username))
   if (!data) return { title: "Reader not found", robots: { index: false } }
   const { username } = data.profile
   return {
-    title: `${username}'s achievements`,
+    title: `${readerName(data.profile)}'s achievements`,
     alternates: { canonical: `/u/${encodeURIComponent(username)}/achievements` },
     ...(data.access === "restricted" && { robots: { index: false } }),
   }
@@ -28,9 +32,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 // Another reader's tier and medals, read-only. Privacy is the profile's own (getAchievementsView):
 // whoever can't see their profile gets the restricted profile here too.
-export default async function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   const viewer = await getCurrentUser()
-  const data = await getAchievementsView(params.username, viewer?.id)
+  const data = await getAchievementsView(profileHandle(params.username, "/achievements"), viewer?.id)
   if (!data) notFound()
 
   if (data.access === "full" && data.relation.isSelf) redirect('/achievements')
@@ -44,16 +49,16 @@ export default async function Page({ params }: PageProps) {
       <RestrictedProfile
         profile={data.profile}
         reason={data.reason}
-        viewer={viewer ? { isFollowing: data.relation.isFollower, requested: await hasRequested(viewer.id, data.userId) } : null}
+        viewer={viewer ? await restrictedViewerFlags(viewer.id, data.userId, data.relation) : null}
       />
     )
   } else {
     content = (
       <>
         <Link href={profileHref} className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground">
-          <ChevronLeft size={16} aria-hidden />{data.profile.username}
+          <ChevronLeft size={16} aria-hidden />{readerName(data.profile)}
         </Link>
-        <h1 className="page-title mt-2 mb-8 break-words">{data.profile.username}&rsquo;s achievements</h1>
+        <h1 className="page-title mt-2 mb-8 break-words">{readerName(data.profile)}&rsquo;s achievements{data.profile.staffBadge && <StaffSeal kind={data.profile.staffBadge} name={readerName(data.profile)} size={26} className="ml-2 align-[-2px]" />}</h1>
         <ReaderAchievementsView data={data.achievements} />
       </>
     )

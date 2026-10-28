@@ -13,7 +13,14 @@ const squash = (s: string) => s.normalize("NFKD").toLowerCase().replace(/[^a-z0-
 // "the-stormlight-archive|brandon-sanderson". Case, accents and punctuation aside, so "The Stormlight
 // Archive" and "Stormlight Archive, The" don't collide but "the stormlight archive" and "The Stormlight
 // Archive" do.
-export const seriesKey = (name: string, author: string) => `${squash(name).replace(/ /g, "-")}|${authorSlug(author)}`;
+export const seriesKey = (name: string, author: string) => `${seriesSlug(name)}|${authorSlug(author)}`;
+
+// The name half of the key: "the-stormlight-archive".
+export const seriesSlug = (name: string) => squash(name).replace(/ /g, "-");
+
+// The series' page on the web, under its first author: "/authors/brandon-sanderson/series/the-stormlight-archive".
+export const seriesHref = (name: string, author: string) =>
+  `/authors/${encodeURIComponent(authorSlug(author))}/series/${seriesSlug(name)}`;
 
 export const sameSeriesName = (a: string, b: string) => squash(a) === squash(b);
 
@@ -28,6 +35,17 @@ export function comparePositions(a: number | null, b: number | null) {
 // "Book 3", "Book 2.5". A position that came through as 2.5000001 still reads cleanly.
 export const positionLabel = (position: number | null) =>
   position === null ? null : `Book ${Number(position.toFixed(2))}`;
+
+// A new book in a series the reader follows or has started (a NEW_IN_SERIES notification), in the bell, the
+// phone's list and its push: "The Alloy of Law is out: Book 4 of Mistborn", or "2 new books in Mistborn,
+// starting with The Alloy of Law".
+export function seriesNewsText(n: { title: string | null; seriesName: string | null; position: number | null; count: number | null }) {
+  const series = n.seriesName ?? "a series you're reading";
+  const title = n.title ?? "A new book";
+  const count = n.count ?? 1;
+  if (count > 1) return `${count} new books in ${series}, starting with ${title}`;
+  return n.position === null ? `${title} is out in ${series}` : `${title} is out: ${positionLabel(n.position)} of ${series}`;
+}
 
 // A catalog work in the series.
 export interface SeriesWork {

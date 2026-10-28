@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
@@ -8,6 +9,7 @@ import { Text } from "@/components/ui/Text";
 import { ApiError } from "@/lib/api";
 import { answerFollowRequest, type Person } from "@/lib/social";
 import { useTheme } from "@/lib/theme";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 
 type Request = { id: string; createdAt: string; requester: Person & { username: string } };
 
@@ -43,7 +45,7 @@ function RequestRow({ request, onDone }: { request: Request; onDone: () => void 
     <View style={{ gap: 8 }}>
       <Pressable accessibilityRole="link" onPress={() => router.push(`/u/${encodeURIComponent(username)}`)} style={styles.who}>
         <Avatar image={request.requester.image} name={username} colour={request.requester.favColour} size={32} />
-        <Text style={{ flex: 1 }}>{username} asked to follow you</Text>
+        <Text style={{ flex: 1 }}>{readerName(request.requester)}{request.requester.staffBadge ? <StaffSeal kind={request.requester.staffBadge} size={16} pressable={false} style={styles.seal} /> : null} asked to follow you</Text>
       </Pressable>
       <View style={styles.actions}>
         <View style={{ flex: 1 }}><Button title="Accept" loading={busy === "accept"} disabled={!!busy} onPress={() => answer("accept")} /></View>
@@ -55,6 +57,8 @@ function RequestRow({ request, onDone }: { request: Request; onDone: () => void 
 }
 
 const styles = StyleSheet.create({
+  // Inline in a line of text, so lifted a touch to sit on its middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 2 }] },
   box: { borderWidth: 1, padding: 16, gap: 14 },
   who: { flexDirection: "row", alignItems: "center", gap: 10 },
   actions: { flexDirection: "row", gap: 10 },

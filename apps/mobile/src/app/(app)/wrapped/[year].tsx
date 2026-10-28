@@ -1,4 +1,5 @@
 import { createContext, useContext, useId, type ComponentProps, type ReactNode } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, Pressable, Share, StyleSheet, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
@@ -23,7 +24,7 @@ import { useTheme } from "@/lib/theme";
 const fmt = (n: number) => n.toLocaleString("en-GB");
 const INK = "#0B0B0C";
 
-type WrappedResponse = { year: number; wrapped: WrappedData; years: number[]; owner: { username: string | null; accent: string | null }; own: boolean };
+type WrappedResponse = { year: number; wrapped: WrappedData; years: number[]; owner: { username: string | null; displayName?: string | null; accent: string | null }; own: boolean };
 type Tone = "accent" | "ink" | "paper";
 
 export default function Wrapped() {
@@ -43,7 +44,7 @@ export default function Wrapped() {
   }
 
   const { wrapped: w, own } = data;
-  const name = data.owner.username ?? "This reader";
+  const name = readerName(data.owner) || "This reader";
   const accent = data.owner.accent || DEFAULT_COLOUR;
   const voice: copy.Voice = { own, name };
   const title = own ? `Your ${w.year} in books` : `${name}'s ${w.year} in books`;

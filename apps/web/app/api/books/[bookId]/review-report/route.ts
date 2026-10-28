@@ -15,7 +15,8 @@ const notFound = () => NextResponse.json({ error: "Review not found" }, { status
 // reports: a fixed reason, one report per reader per review, reviewed by staff on /staff/reports.
 // Only a review the reader can see may be reported, so blocks either way, suspensions, private copies and
 // private reviews all come back as "not found", and so does your own.
-export async function POST(req: Request, { params }: { params: { bookId: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser("Sign in to report a review.");
   if (response) return response;
 

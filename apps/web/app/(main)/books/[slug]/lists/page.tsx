@@ -10,7 +10,7 @@ import { listsWithBook } from '@/lib/bookLists'
 import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 const slugOf = (param: string) => {
@@ -21,7 +21,8 @@ const slugOf = (param: string) => {
   }
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const bookKey = bookKeyOfSlug(slugOf(params.slug))
   const data = bookKey ? await bookPageData(bookKey) : null
   if (!data) return { title: "Book not found", robots: { index: false } }
@@ -34,7 +35,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 // Every reader's public list with this book on it, not just the few on the book's page, in the same
 // order: editors' choices, then the most remixed (lib/bookListRules.ts).
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const slug = slugOf(params.slug)
   const bookKey = bookKeyOfSlug(slug)
   if (!bookKey) notFound()

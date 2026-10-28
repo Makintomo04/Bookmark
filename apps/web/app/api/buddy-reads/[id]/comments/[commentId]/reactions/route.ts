@@ -7,7 +7,11 @@ import { canSeeComment, reactionSchema } from "@/lib/buddyReads";
 import { buddyReadError, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 
 // One tap toggles an emoji on a comment you can read.
-export async function POST(req: Request, { params }: { params: { id: string, commentId: string } }) {
+export async function POST(
+  req: Request,
+  props: { params: Promise<{ id: string, commentId: string }> }
+) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);

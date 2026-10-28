@@ -1,4 +1,5 @@
 import { booksReadCount } from "@/lib/readerTier";
+import { usernameEquals } from "@/lib/userLookup"
 import { Prisma } from "@prisma/client"
 import prisma from "./db"
 import { GENRES } from "./genres"
@@ -7,6 +8,7 @@ import { blockedUserIds, canView, canViewUser, countedRatingWhere, getRelation, 
 import { can } from "./roles"
 import { QUALITY_MIN_ACCOUNT_DAYS } from "./genreListRules"
 import { openReportWhere } from "./staffReports"
+import { staffBadgeOf, staffBadgeSelect } from "./staffBadge"
 import type { DiscoverBook } from "./openLibrary"
 import { withoutUploadedCovers } from "./uploads"
 import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
@@ -18,7 +20,11 @@ type Viewer = { id: string, role?: string | null, isStaff?: boolean, username?: 
 // Picks, featuring, hiding and editing anyone's list (packages/shared/src/roles.ts).
 const curates = (viewer: Viewer | undefined) => can(viewer, "lists.curate")
 
-const ownerSelect = { username: true, image: true, favColour: true, ...booksReadCount } as const
+const ownerSelect = { username: true, displayName: true, image: true, favColour: true, ...booksReadCount } as const
+// A curator's staff seal in place of the role fields it comes from: hideStaffBadge says someone is a
+// librarian, so none of them leave the server.
+const withSeal = <P extends { role: string | null, isStaff: boolean | null, hideStaffBadge: boolean | null }>({ role, isStaff, hideStaffBadge, ...person }: P) =>
+  ({ ...person, staffBadge: staffBadgeOf({ role, isStaff, hideStaffBadge }) })
 
 // What a viewer may see: public, unhidden lists, plus their own. Staff see everything.
 const visibleTo = (viewer: Viewer): Prisma.ListWhereInput =>
@@ -63,7 +69,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
       ...(filters.genre ? [{ genres: { has: filters.genre } }] : []),
       ...(filters.workKey ? [{ items: { some: { workKey: filters.workKey } } }] : []),
       ...(filters.featured ? [{ featuredFrom: { lte: now }, featuredUntil: { gte: now } }] : []),
-      ...(filters.owner ? [{ owner: { username: filters.owner } }] : []),
+      ...(filters.owner ? [{ owner: { username: usernameEquals(filters.owner) } }] : []),
       ...(filters.reported ? [{ reports: { some: {} } }] : []),
       ...(filters.chosen ? [{ chosenAt: { not: null } }] : []),
       ...(filters.quality ? [{
@@ -81,14 +87,14 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
     // Some may belong to profiles the viewer can't see, so ask for more than will be shown.
     take: curates(viewer) ? limit : limit * 2,
     include: {
-      owner: { select: { ...ownerSelect, ...privacySelect } },
+      owner: { select: { ...ownerSelect, ...privacySelect, ...staffBadgeSelect } },
       items: { orderBy: { position: "asc" }, take: 4, select: { title: true, author: true, coverUrl: true } },
       _count: { select: { items: true, reports: true } },
     },
   })
   const lists = (await visibleLists(found, viewer)).slice(0, limit)
-  return lists.map(({ _count, ownerId, owner: { profileVisibility, reviewVisibility, hideWantToRead, hideFollowCounts, hideStaffBadge, ...owner }, ...list }) => ({
-    owner,
+  return lists.map(({ _count, ownerId, owner: { profileVisibility, reviewVisibility, hideWantToRead, hideFollowCounts, hideFavourites, ...owner }, ...list }) => ({
+    owner: withSeal(owner),
     ...list,
     itemCount: _count.items,
     reportCount: curates(viewer) ? _count.reports : 0,
@@ -140,7 +146,7 @@ export async function findList(id: string, viewer: Viewer) {
   const list = await prisma.list.findFirst({
     where: { AND: [{ id }, visibleTo(viewer)] },
     include: {
-      owner: { select: { id: true, ...ownerSelect, ...privacySelect } },
+      owner: { select: { id: true, ...ownerSelect, ...privacySelect, ...staffBadgeSelect } },
       items: { orderBy: { position: "asc" } },
     },
   })
@@ -161,13 +167,14 @@ export async function findList(id: string, viewer: Viewer) {
     prisma.list.count({ where: { forkedFromId: list.id } }),
     list.forkedFromId ? findOrigin(list.forkedFromId, viewer) : null,
     noteAuthorIds.length
-      ? prisma.user.findMany({ where: { id: { in: noteAuthorIds } }, select: { id: true, ...ownerSelect } })
+      ? prisma.user.findMany({ where: { id: { in: noteAuthorIds } }, select: { id: true, ...ownerSelect, ...staffBadgeSelect } })
       : [],
     // Signed-out readers see the button and get sent to sign up; blocks and private profiles hide it.
     isCopyable && viewer ? canViewUser(viewer.id, list.ownerId) : isCopyable,
   ])
-  const { id: ownerId, profileVisibility, reviewVisibility, hideWantToRead, hideFollowCounts, hideStaffBadge, ...owner } = list.owner
-  const authors = new Map<string, Curator>(noteAuthors.map(({ id, ...author }) => [id, author]))
+  const { id: ownerId, profileVisibility, reviewVisibility, hideWantToRead, hideFollowCounts, hideFavourites, ...stored } = list.owner
+  const owner = withSeal(stored)
+  const authors = new Map<string, Curator>(noteAuthors.map(({ id, ...author }) => [id, withSeal(author)]))
   return {
     ...list,
     items: list.items.map((item) => ({
@@ -375,11 +382,12 @@ export async function followedPeople(viewerId: string) {
 
   const users = await prisma.user.findMany({
     where: { id: { in: ids } },
-    select: { id: true, ...ownerSelect, ...privacySelect },
+    select: { id: true, ...ownerSelect, ...privacySelect, ...staffBadgeSelect },
   })
-  for (const { id, username, image, favColour, _count, ...stored } of users) {
+  for (const { id, username, displayName, image, favColour, _count, role, isStaff, ...stored } of users) {
     const privacy = privacyOf(stored)
-    if (canView(FOLLOWER, privacy, "profile")) people.set(id, { username, image, favColour, _count, privacy })
+    const staffBadge = staffBadgeOf({ role, isStaff, hideStaffBadge: stored.hideStaffBadge })
+    if (canView(FOLLOWER, privacy, "profile")) people.set(id, { username, displayName, image, favColour, _count, staffBadge, privacy })
   }
   return { followsAnyone: true, people }
 }

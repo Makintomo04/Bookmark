@@ -20,6 +20,8 @@ interface ModalProps {
   size?: "default" | "sm";
   // No header: the body runs to the top edge (the medal celebration's colour band). The title stays, for screen readers.
   bare?: boolean;
+  // Beside the close button, e.g. book details' "Open book page".
+  headerAction?: React.ReactNode;
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
@@ -37,7 +39,7 @@ function lockPageScroll() {
   }
 }
 
-const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default",bare = false}) => {
+const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default",bare = false,headerAction}) => {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -141,9 +143,12 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         <div className="p-6 pb-0 shrink-0">
           <div className="flex justify-between items-center">
           <h2 id={titleId} className='text-3xl font-bold'>{title}</h2>
+          <div className="flex shrink-0 items-center gap-2">
+          {headerAction}
           <button type="button" aria-label="Close" className="p-2 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 cursor-pointer transition rounded-full" onClick={handleClose}>
           <X size={20} aria-hidden />
           </button>
+          </div>
           </div>
           <hr className='my-6 border-1 border-neutral-400/40'/>
         </div>

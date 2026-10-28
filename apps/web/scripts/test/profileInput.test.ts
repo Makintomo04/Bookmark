@@ -4,12 +4,13 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/profileInput.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { USERNAME_MAX, isAllowedImageUrl, isHexColour, normaliseUsername, suggestUsername, usernameProblem } from "@/lib/profile";
+import { DISPLAY_NAME_MAX, USERNAME_MAX, displayNameProblem, isAllowedImageUrl, isHexColour, normaliseDisplayName, normaliseUsername, readerName, suggestUsername, usernameProblem } from "@/lib/profile";
 import { bookFieldsProblem } from "@/lib/bookInput";
+import { planLowercaseUsernames } from "@/lib/lowercaseUsernames";
 
 test("usernames are plain, lowercase and can't pass for Bookmark", () => {
-  for (const ok of ["reader1", "jane.doe", "book_worm-99", "ab"]) assert.equal(usernameProblem(ok), null, ok);
-  for (const bad of ["a", "x".repeat(USERNAME_MAX + 1), "../settings", "jane doe", "jane/doe", "jane?x", "jane#x", ".jane", "jane-", "Alice", "аlice", "📚reader"]) {
+  for (const ok of ["reader1", "jane.doe", "book_worm-99", "abc"]) assert.equal(usernameProblem(ok), null, ok);
+  for (const bad of ["a", "ab", "b🩶", "🩶🩶🩶", "x".repeat(USERNAME_MAX + 1), "../settings", "jane doe", "jane/doe", "jane?x", "jane#x", ".jane", "jane-", "Alice", "аlice", "📚reader"]) {
     assert.ok(usernameProblem(bad), `should refuse ${JSON.stringify(bad)}`);
   }
   assert.ok(usernameProblem("support"));
@@ -24,6 +25,67 @@ test("usernames are plain, lowercase and can't pass for Bookmark", () => {
 test("usernames are compared and stored lowercase", () => {
   assert.equal(normaliseUsername("  Alice "), "alice");
   assert.equal(usernameProblem(normaliseUsername("Alice")), null);
+  // What a /u/ address or a username in a request body is lowercased to before it's looked up.
+  assert.equal(normaliseUsername("Persona"), normaliseUsername("persona"));
+  assert.equal(normaliseUsername("JANE.Doe"), "jane.doe");
+  assert.equal(normaliseUsername(""), "");
+});
+
+test("the lowercase-usernames script changes capitalised names and refuses collisions", () => {
+  const { changes, collisions } = planLowercaseUsernames([
+    { id: "1", username: "Persona" },
+    { id: "2", username: "already" },
+    { id: "3", username: "Alice" },
+    { id: "4", username: "alice" },
+    { id: "5", username: "BOB" },
+    { id: "6", username: "Bob" },
+    { id: "7", username: null },
+  ]);
+  assert.deepEqual(changes, [{ id: "1", from: "Persona", to: "persona" }]);
+  assert.deepEqual(collisions.map((c) => [c.username, c.accounts.map((a) => a.id)]), [["alice", ["3", "4"]], ["bob", ["5", "6"]]]);
+  // Nothing to do leaves every list empty.
+  assert.deepEqual(planLowercaseUsernames([{ id: "1", username: "fine" }]), { changes: [], collisions: [], outdated: [] });
+});
+
+test("the script lists names from before the rules, and renames none of them", () => {
+  const { changes, outdated } = planLowercaseUsernames([
+    { id: "1", username: "b🩶" },
+    { id: "2", username: "jo" },
+    { id: "3", username: "Jane Doe" },
+    // A capital alone isn't a problem: lowercasing fixes it.
+    { id: "4", username: "Persona" },
+    { id: "5", username: "fine.reader" },
+  ]);
+  assert.deepEqual(outdated.map((o) => [o.id, o.username]), [["1", "b🩶"], ["2", "jo"], ["3", "Jane Doe"]]);
+  for (const o of outdated) assert.ok(o.problem, o.username);
+  // Only the capital is changed; "Jane Doe" -> "jane doe" would still break the rules, but lowering case is harmless.
+  assert.deepEqual(changes.map((c) => c.to), ["jane doe", "persona"]);
+});
+
+test("display names are trimmed, bounded, visible and can't pass for Bookmark", () => {
+  assert.equal(normaliseDisplayName("  Jane   Reader "), "Jane Reader");
+  assert.equal(normaliseDisplayName("\n\tJane\n"), "Jane");
+  for (const ok of ["Jane Reader", "李华", "Zoë O'Brien-Smith", "📚 Jane", "x".repeat(DISPLAY_NAME_MAX), "Modern Reader", "Team Lead Jane"]) {
+    assert.equal(displayNameProblem(ok), null, ok);
+  }
+  // Optional: empty is "no display name", not a mistake.
+  assert.equal(displayNameProblem(""), null);
+  assert.ok(displayNameProblem("x".repeat(DISPLAY_NAME_MAX + 1)));
+  for (const hidden of ["Jane​Reader", "Jane‮Reader", "Jane\u0000", "Jane Reader"]) {
+    assert.ok(displayNameProblem(hidden), `should refuse ${JSON.stringify(hidden)}`);
+  }
+  // The same words a username may not contain, whatever the spacing, punctuation or case.
+  for (const bad of ["Bookmark Support", "Book Mark", "The ADMIN", "Staff - Jane", "Official Reads", "Librarian Jo", "Moderator", "Mod", "Team", "Help"]) {
+    assert.ok(displayNameProblem(bad), `should refuse ${JSON.stringify(bad)}`);
+  }
+});
+
+test("a reader goes by their display name, or their username until they set one", () => {
+  assert.equal(readerName({ username: "persona", displayName: "Persona Reads" }), "Persona Reads");
+  assert.equal(readerName({ username: "persona", displayName: null }), "persona");
+  assert.equal(readerName({ username: "persona" }), "persona");
+  assert.equal(readerName({ username: "persona", displayName: "" }), "persona");
+  assert.equal(readerName({ username: null }), "");
 });
 
 test("onboarding suggestions always meet the rules", () => {
