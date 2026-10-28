@@ -13,7 +13,8 @@ async function ownBook(bookId: string, userId: string) {
 }
 
 // The friends this book can be sent to.
-export async function GET(_req: Request, { params }: { params: { bookId: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const book = await ownBook(params.bookId, currentUser.id);
@@ -21,7 +22,8 @@ export async function GET(_req: Request, { params }: { params: { bookId: string 
   return NextResponse.json({ friends: await recommendFriends(currentUser.id, book) });
 }
 
-export async function POST(req: Request, { params }: { params: { bookId: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const book = await ownBook(params.bookId, currentUser.id);

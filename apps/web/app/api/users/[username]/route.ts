@@ -5,10 +5,8 @@ import { hasRequested } from "@/lib/followRequests";
 import { followsBack } from "@/lib/friends";
 import { NextResponse } from "next/server";
 
-export async function GET(
-  req: Request,
-  { params }: { params: { username: string } }
-) {
+export async function GET(req: Request, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   // Viewable by anyone, signed in or not, as far as the owner's privacy settings allow.
   // getProfileView applies them; this route only adds the viewer-specific flags.
   const currentUser = await getCurrentUser();

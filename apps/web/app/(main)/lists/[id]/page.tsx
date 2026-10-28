@@ -22,10 +22,11 @@ import { genreBySlug } from '@/lib/genres'
 import { findList, toEditableList } from '@/lib/lists'
 
 interface PageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const list = await findList(params.id, await getCurrentUser())
   if (!list) return {}
   return {
@@ -34,7 +35,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const viewer = await getCurrentUser()
   const list = await findList(params.id, viewer)
   if (!list) notFound()

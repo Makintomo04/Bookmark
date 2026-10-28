@@ -50,9 +50,9 @@ export interface AwardOptions {
 
 // The `tz` cookie set by the browser (VerifyEmailBanner), or the X-Time-Zone header the mobile app sends.
 // Only meaningful inside the signed-in user's own request, which is where awardNewAchievements runs.
-function requestTimeZone(): string | undefined {
+async function requestTimeZone(): Promise<string | undefined> {
   try {
-    const raw = cookies().get(TIME_ZONE_COOKIE)?.value ?? headers().get(TIME_ZONE_HEADER) ?? undefined;
+    const raw = (await cookies()).get(TIME_ZONE_COOKIE)?.value ?? (await headers()).get(TIME_ZONE_HEADER) ?? undefined;
     const zone = raw ? decodeURIComponent(raw) : undefined;
     return isValidTimeZone(zone) ? zone : undefined;
   } catch {
@@ -308,7 +308,7 @@ export async function syncAchievements(
   const isReading = triggers.some((t) => READING_TRIGGERS.has(t));
   let timeZone: string | undefined;
   if (isReading || unearned.has("STREAK")) {
-    const clientZone = isValidTimeZone(options.timeZone) ? options.timeZone : requestTimeZone();
+    const clientZone = isValidTimeZone(options.timeZone) ? options.timeZone : await requestTimeZone();
     timeZone = await resolveTimeZone(userId, clientZone);
   }
   if (isReading && timeZone) await recordReadingDay(userId, timeZone);

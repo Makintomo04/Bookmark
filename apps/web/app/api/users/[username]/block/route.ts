@@ -11,10 +11,8 @@ async function findTarget(username: string) {
 
 // Block: they can't follow you or see your profile, reviews or activity, and you both drop out of
 // each other's search. Existing follows in both directions are removed.
-export async function POST(
-  req: Request,
-  { params }: { params: { username: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
@@ -61,10 +59,8 @@ export async function POST(
   return NextResponse.json({ isBlocked: true });
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: { username: string } }
-) {
+export async function DELETE(req: Request, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 

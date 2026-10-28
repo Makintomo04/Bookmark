@@ -3,7 +3,8 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import StaffUsers from '@/app/components/staff/StaffUsers'
 import { can } from '@/lib/roles'
 
-const Page = async ({ searchParams }: { searchParams: { q?: string } }) => {
+const Page = async (props: { searchParams: Promise<{ q?: string }> }) => {
+  const searchParams = await props.searchParams;
   const user = await getCurrentUser()
   if (!user || !can(user, 'users.view')) notFound()
   return (

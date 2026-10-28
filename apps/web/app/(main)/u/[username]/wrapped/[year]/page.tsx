@@ -10,12 +10,13 @@ import WrappedView from '@/app/components/wrapped/WrappedView'
 import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/accent'
 
 interface PageProps {
-  params: { username: string; year: string }
+  params: Promise<{ username: string; year: string }>
 }
 
 const plural = (n: number, one: string) => `${n.toLocaleString('en-GB')} ${n === 1 ? one : `${one}s`}`
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const year = parseWrappedYear(params.year)
   const owner = year ? await getWrappedOwner(handleOf(params.username)) : null
   if (!year || !owner || !(await isWrappedPublic(owner))) return { title: 'Wrapped not found', robots: { index: false } }
@@ -38,7 +39,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   const year = parseWrappedYear(params.year)
   if (!year) notFound()
   const [owner, viewer] = await Promise.all([getWrappedOwner(profileHandle(params.username, `/wrapped/${params.year}`)), getCurrentUser()])

@@ -13,12 +13,13 @@ import ReaderAchievementsView from './ReaderAchievementsView'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
-  params: { username: string }
+  params: Promise<{ username: string }>
 }
 
 // Built from the signed-out view, like the profile's: a followers-only or private profile gives away
 // nothing but its username, and isn't indexed.
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const data = await getPublicProfile(handleOf(params.username))
   if (!data) return { title: "Reader not found", robots: { index: false } }
   const { username } = data.profile
@@ -31,7 +32,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 // Another reader's tier and medals, read-only. Privacy is the profile's own (getAchievementsView):
 // whoever can't see their profile gets the restricted profile here too.
-export default async function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   const viewer = await getCurrentUser()
   const data = await getAchievementsView(profileHandle(params.username, "/achievements"), viewer?.id)
   if (!data) notFound()

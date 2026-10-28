@@ -8,7 +8,8 @@ const bodySchema = z.object({ isPrivate: z.boolean() });
 
 // Makes one book private (only the reader sees it, on whatever shelf) or shares it again. Its past feed
 // posts follow along: the feed checks the book as it is now, not as it was when the post was made.
-export async function PUT(req: Request, { params }: { params: { bookId: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   if (!isObjectId(params.bookId)) return NextResponse.json({ error: "No Book Found" }, { status: 404 });

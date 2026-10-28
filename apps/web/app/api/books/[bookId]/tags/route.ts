@@ -9,7 +9,8 @@ const bodySchema = z.object({
 });
 
 // Replaces a book's personal tags. Owner only; tags never leave the reader's own shelf and export.
-export async function PUT(request: Request, { params }: { params: { bookId: string } }) {
+export async function PUT(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 

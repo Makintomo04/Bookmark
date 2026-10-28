@@ -16,7 +16,11 @@ async function getOwnedNote(bookId: string, noteId: string, currentUserId: strin
   return { note }
 }
 
-export async function PATCH(request: Request, { params }: { params: { bookId: string, noteId: string } }) {
+export async function PATCH(
+  request: Request,
+  props: { params: Promise<{ bookId: string, noteId: string }> }
+) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
@@ -36,7 +40,11 @@ export async function PATCH(request: Request, { params }: { params: { bookId: st
   return NextResponse.json(updated)
 }
 
-export async function DELETE(request: Request, { params }: { params: { bookId: string, noteId: string } }) {
+export async function DELETE(
+  request: Request,
+  props: { params: Promise<{ bookId: string, noteId: string }> }
+) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 

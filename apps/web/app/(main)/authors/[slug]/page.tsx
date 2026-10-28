@@ -14,7 +14,7 @@ import { canFollow, isFollowingAuthor } from '@/lib/authorFollows'
 import { authorSeries } from '@/lib/seriesFollows'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 const slugOf = (param: string) => {
@@ -25,7 +25,8 @@ const slugOf = (param: string) => {
   }
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const author = await findAuthor(slugOf(params.slug))
   if (!author) return {}
   return {
@@ -34,7 +35,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const slug = slugOf(params.slug)
   // A hand-typed or old link ("/authors/Colleen Hoover") goes to the one canonical address.
   if (authorSlug(slug) !== slug) redirect(authorHref(slug))

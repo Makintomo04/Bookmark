@@ -12,9 +12,9 @@ export async function getSession(){
 // The mobile app sends `Authorization: Bearer <access token>` (lib/mobileAuth.ts) instead of the web's
 // session cookie. A request that carries one is judged by it alone: a bad token is signed out, never
 // passed over for a cookie.
-function authorizationHeader() {
+async function authorizationHeader() {
   try {
-    return headers().get("authorization")
+    return (await headers()).get("authorization")
   } catch {
     // Outside a request (a script).
     return null
@@ -22,7 +22,7 @@ function authorizationHeader() {
 }
 
 async function findCurrentUser() {
-  const authorization = authorizationHeader()
+  const authorization = await authorizationHeader()
   if (authorization) {
     const userId = await bearerUserId(authorization)
     return userId ? prisma.user.findUnique({ where: { id: userId } }) : null

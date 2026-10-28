@@ -15,12 +15,13 @@ import AuthorLink from '@/app/components/AuthorLink'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
-  params: { code: string }
+  params: Promise<{ code: string }>
 }
 
 // The invite link is the acquisition loop, so it unfurls nicely: book, host, and who's in (see opengraph-image).
 // Nothing past the cover is shown here: no progress and no comments.
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const invite = await loadInvite(params.code)
   if (!invite) return { title: "Reading circle", robots: { index: false } }
   const { buddyRead, host, members } = invite
@@ -37,7 +38,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const [viewer, invite] = await Promise.all([getCurrentUser(), loadInvite(params.code)])
   if (!invite) notFound()
   const { buddyRead, host, members } = invite

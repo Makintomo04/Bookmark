@@ -3,7 +3,8 @@ import { genreBySlug } from "@/lib/genres";
 import { trendingSubjectBooks } from "@/lib/openLibrary";
 import { withCatalogueFixesOrAsIs } from "@/lib/curatedBooks";
 
-export async function GET(req: Request, { params }: { params: { slug: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const genre = genreBySlug(params.slug);
   if (!genre) {
     return NextResponse.json({ error: "Unknown genre" }, { status: 404 });

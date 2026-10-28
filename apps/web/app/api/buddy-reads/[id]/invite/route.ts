@@ -15,7 +15,8 @@ const inviteSchema = z.object({ username: z.string().trim().min(1, "Enter a user
 
 // Any member can invite a reader by username, if the reader's buddyReadInvites preference allows it.
 // The invite link works regardless: joining through it is the reader's own choice.
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);
@@ -66,7 +67,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 
 // The invitee declines.
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   if (!isObjectId(params.id)) return buddyReadError("Invite not found", 404);

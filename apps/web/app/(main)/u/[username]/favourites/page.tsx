@@ -14,10 +14,11 @@ import FavouritesGrid from '@/app/components/profile-head/FavouritesGrid'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
-  params: { username: string }
+  params: Promise<{ username: string }>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const data = await getPublicProfile(handleOf(params.username))
   if (!data) return { title: "Reader not found", robots: { index: false } }
   return { title: `${readerName(data.profile)}'s favourites`, robots: { index: false } }
@@ -25,7 +26,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 // Every favourite of another reader, where their profile's favourites row says "See all". Same privacy as
 // the row (lib/publicProfile.ts): hidden favourites and private books never arrive. Your own are at /favourites.
-export default async function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   const viewer = await getCurrentUser()
   const data = await getProfileView(profileHandle(params.username, "/favourites"), viewer?.id)
   if (!data) notFound()

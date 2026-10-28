@@ -25,7 +25,7 @@ import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
 import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 const slugOf = (param: string) => {
@@ -51,7 +51,8 @@ const summaryOf = (text: string) => {
   return `${cut.slice(0, cut.lastIndexOf(" ")) || cut}…`
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const bookKey = bookKeyOfSlug(slugOf(params.slug))
   const data = bookKey ? await bookPageData(bookKey) : null
   if (!data) return { title: "Book not found", robots: { index: false } }
@@ -76,7 +77,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // rating and every review the viewer may read. Keyed by the Open Library work key, or the catalogue
 // Work's id for a book Open Library lacks (lib/bookPage.ts); the title in the address is cosmetic, and a
 // stale or missing one redirects to the current.
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const slug = slugOf(params.slug)
   const bookKey = bookKeyOfSlug(slug)
   if (!bookKey) notFound()

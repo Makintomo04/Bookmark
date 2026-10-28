@@ -10,10 +10,8 @@ import { NextResponse } from "next/server";
 
 // Follows, unfollows, asks to follow or withdraws a request, depending on where the two stand. A profile
 // that isn't public (Followers only or Private) approves each follower (lib/followRequests.ts).
-export async function POST(
-  req: Request,
-  { params }: { params: { username: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   // Follow and unfollow in a loop would otherwise fill someone's notifications.

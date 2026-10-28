@@ -6,7 +6,7 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import { loadBuddyReadView, markCircleSeen } from '@/lib/buddyReadsServer'
 
 interface PageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 // Private to members, so the title is generic: no book title in a tab or history for a non-member to see.
@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 }
 
 // Rendered with the first load already spoiler-locked for this reader; the client then polls for updates.
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const viewer = await getCurrentUser()
   if (!viewer) redirect(`/signin?callbackUrl=${encodeURIComponent(`/circles/${params.id}`)}`)
   const view = await loadBuddyReadView(params.id, viewer.id)

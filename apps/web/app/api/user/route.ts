@@ -11,7 +11,7 @@ import { deleteAccountUploads } from "@/lib/uploadedImagesServer";
 import { isStripeConfigured, stripeBillingApi } from "@/lib/stripe";
 import { deleteBuddyReadDataFor } from "@/lib/buddyReadsServer";
 import { revenueCatApi } from "@/lib/storeBilling";
-export async function GET (req:Request, res:Response) {
+export async function GET (req:Request) {
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
 
@@ -29,7 +29,7 @@ return NextResponse.json(sanitizeUser(user))
 
 
 }
-export async function POST (req:Request, res:Response) {
+export async function POST (req:Request) {
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
 const body = await req.json().catch(() => null);

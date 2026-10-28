@@ -13,13 +13,14 @@ import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 
 interface PageProps {
-  params: { username: string }
-  searchParams?: Record<string, string | string[] | undefined>
+  params: Promise<{ username: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 // Metadata is what link unfurls and search engines see, so it's built from the signed-out view
 // whoever asks: a followers-only or private profile gives away nothing but its username.
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const data = await getPublicProfile(handleOf(params.username))
   // The page itself calls notFound(), which renders ./not-found.tsx; thrown from here it would skip that boundary.
   if (!data) return { title: "Reader not found", robots: { index: false } }
@@ -52,7 +53,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function Page({ params, searchParams = {} }: PageProps) {
+export default async function Page(props: PageProps) {
+  const searchParams = (await props.searchParams) ?? {};
+  const params = await props.params;
   // Links from before shelves had their own pages (?shelf=finished) go to the shelf's page.
   const one = (name: string) => { const v = searchParams[name]; return typeof v === 'string' ? v : null }
   const linked = parseShelfParams({ get: one })
@@ -94,7 +97,7 @@ export default async function Page({ params, searchParams = {} }: PageProps) {
         profile={serializeProfile(data.profile)}
         viewer={viewer ? {
           isFollowing: data.relation.isFollower,
-          requested: !data.relation.isFollower && await hasRequested(viewer.id, data.userId),
+          requested: !data.relation.isFollower && (await hasRequested(viewer.id, data.userId)),
           needsApproval: needsFollowApproval(data.privacy),
           followsYou: await followsBack(viewer.id, data.userId),
         } : null}

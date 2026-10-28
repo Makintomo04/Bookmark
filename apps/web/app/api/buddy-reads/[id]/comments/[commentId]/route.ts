@@ -12,7 +12,11 @@ async function findComment(buddyReadId: string, commentId: string) {
 
 // The author edits their words, or moves the comment earlier ("this is about chapter 3"). Never later:
 // that could hide something people have already read, or pin it past where the author is.
-export async function PATCH(req: Request, { params }: { params: { id: string, commentId: string } }) {
+export async function PATCH(
+  req: Request,
+  props: { params: Promise<{ id: string, commentId: string }> }
+) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);
@@ -45,7 +49,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string, co
 }
 
 // The author or the host removes a comment. It stays as an empty placeholder while it has replies.
-export async function DELETE(req: Request, { params }: { params: { id: string, commentId: string } }) {
+export async function DELETE(
+  req: Request,
+  props: { params: Promise<{ id: string, commentId: string }> }
+) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);

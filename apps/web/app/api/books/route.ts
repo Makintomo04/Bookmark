@@ -36,7 +36,7 @@ export const maxDuration = 30;
 
 // Covers are copied to UploadThing afterwards, by /api/books/[bookId]/cover.
 
-export async function GET(req:Request, res:Response) {
+export async function GET(req:Request) {
 
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
@@ -64,7 +64,7 @@ return NextResponse.json(books.map((b) => {
   return { ...b, recommendedBy: username ? `@${username}` : b.recommendedByName ?? null, pageWorkId }
 }))
 }
-export async function POST(req:Request, res:Response) {
+export async function POST(req:Request) {
 
 const { user: currentUser, response } = await requireUser();
 if (response) return response;

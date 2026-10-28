@@ -8,7 +8,11 @@ import { buddyReadError, isObjectId, parseBody, requireMembership } from "@/lib/
 import { alertReport } from "@/lib/reportAlerts";
 
 // Like list reports: a fixed reason, one report per reader per comment, reviewed by staff.
-export async function POST(req: Request, { params }: { params: { id: string, commentId: string } }) {
+export async function POST(
+  req: Request,
+  props: { params: Promise<{ id: string, commentId: string }> }
+) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser("Sign in to report a comment.");
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);

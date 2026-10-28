@@ -7,11 +7,11 @@ import { OPEN_READ_STATUSES, RATING_ERROR, optionalDaySchema, ratingInputSchema,
 import { readEntrySelect, resyncBookFromReads } from "@/lib/readSync";
 import type { Status } from "@prisma/client";
 
-type Params = { params: { bookId: string; readId: string } };
+type Params = { params: Promise<{ bookId: string; readId: string }> };
 
 const isOpen = (status: Status) => (OPEN_READ_STATUSES as readonly Status[]).includes(status);
 
-async function ownRead({ bookId, readId }: Params["params"], userId: string) {
+async function ownRead({ bookId, readId }: Awaited<Params["params"]>, userId: string) {
   if (!/^[a-f0-9]{24}$/i.test(readId)) return { error: NextResponse.json({ error: "No read found" }, { status: 404 }) };
   const read = await prisma.bookRead.findUnique({ where: { id: readId } });
   if (!read || read.bookId !== bookId) return { error: NextResponse.json({ error: "No read found" }, { status: 404 }) };
@@ -26,7 +26,8 @@ const editSchema = z.object({
 });
 
 // Fixes a read's dates or its rating. An open read only has a start date; its progress is logged as usual.
-export async function PATCH(request: Request, { params }: Params) {
+export async function PATCH(request: Request, props: Params) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const owned = await ownRead(params, currentUser.id);
@@ -78,7 +79,8 @@ export async function PATCH(request: Request, { params }: Params) {
 
 // Removes a read logged by mistake. The read in progress, and the only read behind a Finished or Did not
 // finish shelf, stay: moving the book to another shelf is how those are undone.
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: Request, props: Params) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const owned = await ownRead(params, currentUser.id);

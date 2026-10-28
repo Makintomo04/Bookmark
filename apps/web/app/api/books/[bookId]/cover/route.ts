@@ -7,7 +7,8 @@ import { NextResponse } from "next/server";
 // with its Open Library URL, rather than holding up the save. The client calls this without waiting.
 export const maxDuration = 30;
 
-export async function POST(_req: Request, { params }: { params: { bookId: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
