@@ -2,6 +2,8 @@ import type { Prisma } from "@prisma/client"
 import prisma from "@/lib/db"
 import type { Author } from "@/lib/authors"
 import { authorSlug } from "@/lib/authorNames"
+import { hasPageWhere } from "@/lib/workPages"
+import { normaliseWorkKey } from "@/lib/workKey"
 import { buildTrack, sameSeriesName, seriesKey, type SeriesShelfBook, type SeriesTrack, type SeriesWork } from "@/lib/series"
 
 // Following a series, and the series tracker on the reader's shelf (the rules are in
@@ -144,6 +146,20 @@ export async function seriesForBook(userId: string, bookId: string) {
   return { ...ref, workId: book.workId, position: work.seriesPosition, isFollowing: track.following, track }
 }
 
+// The series of a book from its key (the Open Library work key, or the catalogue Work id for a book Open
+// Library lacks), with its books marked for the viewer: book details' "In this series". Null when the
+// catalog has no series for it.
+export async function seriesForWork(bookKey: string, userId: string | null) {
+  const olKey = normaliseWorkKey(bookKey)
+  const work = await prisma.work.findFirst({
+    where: olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere },
+    select: { id: true, seriesName: true, seriesPosition: true, authors: true },
+  })
+  const ref = work && seriesOf(work)
+  if (!ref) return null
+  return { workId: work.id, position: work.seriesPosition, track: await seriesOnPage(ref, userId) }
+}
+
 export interface AuthorSeries extends SeriesRef {
   // Books of it in the catalog.
   count: number
@@ -171,4 +187,11 @@ export async function authorSeries(author: Author, userId: string | null): Promi
     ? new Set((await prisma.seriesFollow.findMany({ where: { userId, seriesKey: { in: list.map((s) => s.key) } }, select: { seriesKey: true } })).map((r) => r.seriesKey))
     : new Set<string>()
   return list.map((s) => ({ ...s, isFollowing: following.has(s.key) }))
+}
+
+// The series a series page is for (/authors/<author>/series/<name>, seriesHref): one of the author's series
+// in the catalog, or null when they have none by that name.
+export async function authorSeriesBySlug(author: Author, slug: string, userId: string | null): Promise<AuthorSeries | null> {
+  const key = `${slug}|${author.slug}`
+  return (await authorSeries(author, userId)).find((s) => s.key === key) ?? null
 }
