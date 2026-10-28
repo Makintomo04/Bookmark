@@ -8,6 +8,8 @@ export interface PrivacySettings {
   profileVisibility: ProfileVisibility;
   reviewVisibility: ReviewVisibility;
   hideWantToRead: boolean;
+  // The Did not finish shelf never shows to others; this keeps "stopped reading" out of followers' feeds too.
+  hideDidNotFinish: boolean;
   hideFollowCounts: boolean;
   hideFavourites: boolean;
   // A librarian hiding their badge (staffBadge.ts). Only offered to librarians.
@@ -19,6 +21,7 @@ export const privacySelect = {
   profileVisibility: true,
   reviewVisibility: true,
   hideWantToRead: true,
+  hideDidNotFinish: true,
   hideFollowCounts: true,
   hideFavourites: true,
   hideStaffBadge: true,
@@ -28,6 +31,7 @@ type StoredPrivacy = {
   profileVisibility?: ProfileVisibility | null;
   reviewVisibility?: ReviewVisibility | null;
   hideWantToRead?: boolean | null;
+  hideDidNotFinish?: boolean | null;
   hideFollowCounts?: boolean | null;
   hideFavourites?: boolean | null;
   hideStaffBadge?: boolean | null;
@@ -39,6 +43,7 @@ export function privacyOf(user: StoredPrivacy): PrivacySettings {
     profileVisibility: user.profileVisibility ?? "PUBLIC",
     reviewVisibility: user.reviewVisibility ?? "EVERYONE",
     hideWantToRead: user.hideWantToRead ?? false,
+    hideDidNotFinish: user.hideDidNotFinish ?? false,
     hideFollowCounts: user.hideFollowCounts ?? false,
     hideFavourites: user.hideFavourites ?? false,
     hideStaffBadge: user.hideStaffBadge ?? false,
@@ -62,6 +67,8 @@ export type Viewable =
   | "activity"
   // The Want to read shelf.
   | "wantToRead"
+  // That they stopped reading a book (the feed post). The shelf itself is always the reader's own.
+  | "didNotFinish"
   // Their reviews, before each review's own private flag.
   | "reviews"
   // Follower and following counts, and the lists behind them.
@@ -89,6 +96,8 @@ export function canView(relation: Relation, owner: PrivacySettings, what: Viewab
       return profile;
     case "wantToRead":
       return profile && !owner.hideWantToRead;
+    case "didNotFinish":
+      return profile && !owner.hideDidNotFinish;
     case "followCounts":
       return profile && !owner.hideFollowCounts;
     case "favourites":

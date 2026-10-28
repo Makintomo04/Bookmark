@@ -104,6 +104,8 @@ model User {
   favGenres String[] @db.String
   // Hid the genre picks ("Somewhere to start") on their own shelf (it still shows on Discover). Unset reads as shown.
   hideShelfPicks Boolean?
+  // Sections of their own profile they've folded up, by id (lib/profileSections.ts). Unset reads as none.
+  collapsedSections String[] @db.String
   favouriteIds String[] @db.String
   books Book[]
   accounts      Account[]
@@ -139,6 +141,8 @@ model User {
   profileVisibility ProfileVisibility?
   reviewVisibility  ReviewVisibility?
   hideWantToRead    Boolean?
+  // Keep "stopped reading" out of followers' feeds. The Did not finish shelf itself never shows to others.
+  hideDidNotFinish  Boolean?
   hideFollowCounts  Boolean?
   // Keep favourites off the profile for everyone else. Unset shows them (privacyRules.ts).
   hideFavourites    Boolean?

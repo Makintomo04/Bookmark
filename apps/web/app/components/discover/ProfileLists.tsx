@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react'
 import { useOwnerLists } from '@/app/hooks/useLists'
 import useListEditorModal, { emptyList } from '@/app/hooks/useListEditorModal'
 import useUser from '@/app/hooks/useUser'
+import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import { preferencesOf } from '@/lib/preferences'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
 import { Skeleton } from '../ui/skeleton'
@@ -29,6 +30,7 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
   const [all, setAll] = useState(false)
   const { onOpen } = useListEditorModal()
   const { user } = useUser()
+  const collapse = useCollapsedSections()
 
   if (isLoading) {
     return (
@@ -57,7 +59,7 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
 
   return (
     <div className={half || flush ? undefined : "mt-12"}>
-      <ShelfSection id="profile-lists" title="Lists" count={lists.length} action={action}>
+      <ShelfSection id="profile-lists" title="Lists" count={lists.length} action={action} {...(isSelf ? collapse("profile-lists") : {})}>
         {lists.length === 0 ? (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
             <div>

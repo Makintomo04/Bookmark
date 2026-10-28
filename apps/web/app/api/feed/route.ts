@@ -67,6 +67,8 @@ export async function GET(req: Request) {
     if (activity.type === "ADDED_BOOK" && status === "NOT_STARTED" && !canView(relation, privacy, "wantToRead")) return null
     // Will not read is the reader's own business, including books added to Want to read first.
     if (activity.type === "ADDED_BOOK" && status === "NOT_INTERESTED") return null
+    // Stopping a book is the reader's own business when they keep Did not finish to themselves.
+    if (activity.type === "DNF_BOOK" && !canView(relation, privacy, "didNotFinish")) return null
 
     if (activity.type !== "REVIEWED_BOOK") return { ...activity, user: publicUser, book: publicBook }
     // A review the viewer can't read isn't announced at all.

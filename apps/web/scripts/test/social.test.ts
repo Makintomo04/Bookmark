@@ -74,3 +74,13 @@ test("favourites show to whoever can see the profile, unless the reader hides th
   assert.equal(canView(stranger, privacyOf({ profileVisibility: "PRIVATE" }), "favourites"), false);
   assert.equal(canView({ ...stranger, blocked: "byOwner" as const }, privacyOf({}), "favourites"), false);
 });
+
+test("stopping a book is announced to followers unless the reader keeps Did not finish to themselves", async () => {
+  const { canView, privacyOf } = await import("@/lib/privacyRules");
+  const follower = { isSelf: false, isFollower: true, blocked: null };
+  const self = { isSelf: true, isFollower: false, blocked: null };
+  assert.equal(canView(follower, privacyOf({}), "didNotFinish"), true);
+  assert.equal(canView(follower, privacyOf({ hideDidNotFinish: true }), "didNotFinish"), false);
+  assert.equal(canView(self, privacyOf({ hideDidNotFinish: true }), "didNotFinish"), true);
+  assert.equal(canView(follower, privacyOf({ profileVisibility: "PRIVATE" }), "didNotFinish"), false);
+});

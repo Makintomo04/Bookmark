@@ -11,6 +11,7 @@ import BookCover from '../cards/BookCover'
 import AddToShelfButton from '../discover/AddToShelfButton'
 import { SeeAllLink, ShelfSection, coverGridClass } from '../books/shelf'
 import useShelfPreview from '@/app/hooks/useShelfPreview'
+import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import { pillClass } from '../books/ShelfToolbar'
 import AuthorLink from '@/app/components/AuthorLink'
 import { SERIES_TRACKER_KEY } from './FollowSeriesButton'
@@ -113,6 +114,7 @@ const SeriesTracker: FC = () => {
   // more" at the foot opens the next lot in place; "See all" in the heading opens the rest.
   const [count, setCount] = useState<number | null>(null)
   const preview = useShelfPreview()
+  const collapse = useCollapsedSections()
 
   // A book moved between shelves changes what's next.
   useEffect(() => { if (books) void mutate() }, [books, mutate])
@@ -127,7 +129,7 @@ const SeriesTracker: FC = () => {
 
   // Named for what it's for: the series you've started, and what to read next in each.
   return (
-    <ShelfSection id="series-tracker" title="Continue your series" count={data.series.length}
+    <ShelfSection id="series-tracker" title="Continue your series" count={data.series.length} {...collapse("series-tracker")}
       action={more ? <SeeAllLink onClick={() => setCount(shown.length)} /> : undefined}>
       {data.series.length === 0 ? (
         <p className="text-sm text-muted-foreground">Start a book in a series, or follow one from a book&apos;s page, and you&apos;ll see what&apos;s next here.</p>

@@ -1,6 +1,8 @@
+"use client"
 import { FC } from 'react'
 import Link from 'next/link'
 import { ShelfSection } from '../books/shelf'
+import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 
 interface ProfileAuthorsProps {
   authors: { name: string; slug: string }[]
@@ -10,9 +12,10 @@ interface ProfileAuthorsProps {
 
 // "Authors they follow" on a profile, each linking to the author's page (where Follow / Following is).
 const ProfileAuthors: FC<ProfileAuthorsProps> = ({ authors, isSelf = false }) => {
+  const collapse = useCollapsedSections()
   if (authors.length === 0 && !isSelf) return null
   return (
-    <ShelfSection id="profile-authors" title={isSelf ? "Authors you follow" : "Authors they follow"} count={authors.length}>
+    <ShelfSection id="profile-authors" title={isSelf ? "Authors you follow" : "Authors they follow"} count={authors.length} {...(isSelf ? collapse("profile-authors") : {})}>
       {authors.length === 0 ? (
         <p className="text-sm text-muted-foreground">Follow an author from their page and they&apos;ll show here.</p>
       ) : (

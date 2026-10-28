@@ -1,7 +1,8 @@
 import { FC, ReactNode } from 'react'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { Book } from '@prisma/client'
+import { cn } from '@/lib/utils'
 import { Status } from '@/lib/bookStatus'
 
 const time = (date: Date | string | null) => (date ? new Date(date).getTime() : 0)
@@ -56,15 +57,33 @@ export const SeeAllLink: FC<{ href?: string; onClick?: () => void }> = ({ href, 
     : <button type="button" onClick={onClick} className={className}>{label}</button>
 }
 
-export const ShelfSection: FC<{ id: string; title: string; count: number; action?: ReactNode; children: ReactNode }> = ({ id, title, count, action, children }) => (
-  <section aria-labelledby={id} className="mt-12 first:mt-0">
-    <div className="mb-5 flex items-center justify-between gap-4 min-h-10">
-      <h2 id={id} className="flex items-baseline gap-2 text-lg font-semibold">
-        {title}
-        <span className="text-sm font-normal text-muted-foreground tabular-nums">{count}</span>
-      </h2>
-      {action}
-    </div>
-    {children}
-  </section>
-)
+// A titled section of a profile or shelf page. Given `collapsed` and `onToggle` (your own profile, from
+// useCollapsedSections) the heading folds the body away and the chevron says so; the count stays, so a
+// folded shelf still says what's in it. The action ("See all", select all) belongs to the body and goes
+// with it.
+export const ShelfSection: FC<{ id: string; title: string; count: number; action?: ReactNode; collapsed?: boolean; onToggle?: () => void; children: ReactNode }> = ({ id, title, count, action, collapsed, onToggle, children }) => {
+  const collapsible = collapsed !== undefined && !!onToggle
+  const heading = (
+    <>
+      {title}
+      <span className="text-sm font-normal text-muted-foreground tabular-nums">{count}</span>
+    </>
+  )
+  return (
+    <section aria-labelledby={id} className="mt-12 first:mt-0">
+      <div className={cn("flex items-center justify-between gap-4 min-h-10", !collapsed && "mb-5")}>
+        <h2 id={id} className="flex items-baseline gap-2 text-lg font-semibold">
+          {collapsible ? (
+            <button type="button" aria-expanded={!collapsed} aria-controls={`${id}-body`} onClick={onToggle}
+              className="group -ml-1 inline-flex items-baseline gap-2 rounded-md px-1 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {heading}
+              <ChevronDown size={16} aria-hidden className={cn("self-center text-muted-foreground transition-transform group-hover:text-foreground", collapsed && "-rotate-90")} />
+            </button>
+          ) : heading}
+        </h2>
+        {!collapsed && action}
+      </div>
+      <div id={`${id}-body`} hidden={collapsed}>{!collapsed && children}</div>
+    </section>
+  )
+}

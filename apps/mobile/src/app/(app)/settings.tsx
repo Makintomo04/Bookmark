@@ -116,6 +116,7 @@ export default function SettingsScreen() {
         </View>
         <Segmented label="Who can read your reviews" options={REVIEW_OPTIONS} value={settings.reviewVisibility} onChange={(v) => void save("reviewVisibility", v)} disabled={busy} />
         <Toggle label="Hide my Want to read shelf" hint="Others won't see what's on your list, or when you add to it." value={settings.hideWantToRead} onChange={(v) => void save("hideWantToRead", v)} disabled={busy} />
+        <Toggle label="Keep Did not finish to myself" hint="Nobody else sees that shelf anyway. This also keeps “stopped reading” out of your followers' feeds." value={settings.hideDidNotFinish} onChange={(v) => void save("hideDidNotFinish", v)} disabled={busy} />
         <Toggle label="Hide follower and following counts" hint="No numbers on your profile, for you or anyone else, and your connection lists stay private." value={settings.hideFollowCounts} onChange={(v) => void save("hideFollowCounts", v)} disabled={busy} />
         {/* The team's badge always shows, so only librarians get the choice. */}
         {roleOf(user) === "LIBRARIAN" && (
