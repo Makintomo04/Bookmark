@@ -8,6 +8,9 @@ import { logStaffAction } from "@/lib/staffLog";
 import { staffFail, type StaffOutcome } from "@/lib/staffRoute";
 import { isObjectId } from "@/lib/staffUsers";
 import { workMatchKey } from "@/lib/catalog/normalise";
+import { openLibraryLookup } from "@/lib/catalog/lookup";
+import { resolveCatalog } from "@/lib/catalog";
+import { workKeyOfQuery } from "@/lib/workKey";
 import {
   changedFields,
   editionCopyUpdates,
@@ -49,8 +52,23 @@ export async function searchWorks(query: string, limit = 20): Promise<StaffWork[
       return prisma.work.findMany({ where: { id: { in: Array.from(new Set(editions.map((e) => e.workId))) } }, select: workSelect });
     }
   }
-  if (/^OL\d+W$/i.test(q)) return prisma.work.findMany({ where: { openLibraryKey: q.toUpperCase() }, select: workSelect, take: limit });
+  const olKey = workKeyOfQuery(q);
+  if (olKey) return prisma.work.findMany({ where: { openLibraryKey: olKey }, select: workSelect, take: limit });
   return prisma.work.findMany({ where: { title: { contains: escapeRegex(q), mode: "insensitive" } }, select: workSelect, take: limit });
+}
+
+// A book page can show a book straight from Open Library before any reader has shelved it, so it isn't
+// in the catalogue yet and there's nothing to correct. This files it, the way a reader adding it would.
+export async function addWorkFromOpenLibrary(actor: Actor, key: string): Promise<StaffOutcome<StaffWork>> {
+  const olKey = workKeyOfQuery(key);
+  if (!olKey) return staffFail(400, "That isn't an Open Library work id (like OL45883W).");
+  const existing = await prisma.work.findFirst({ where: { openLibraryKey: olKey }, select: { id: true } });
+  if (existing) return { ok: true, value: (await findStaffWork(existing.id))! };
+  const facts = await openLibraryLookup.work(olKey).catch(() => null);
+  if (!facts?.title) return staffFail(404, `Open Library doesn't have a book at ${olKey}.`);
+  const { work } = await resolveCatalog({ workKey: olKey, title: facts.title }, { lookup: true, describe: true });
+  await logStaffAction({ actorId: actor.id, action: "work.add", targetType: "work", targetId: work.id, after: { openLibraryKey: olKey, title: work.title } });
+  return { ok: true, value: (await findStaffWork(work.id))! };
 }
 
 // A cover for the catalogue: never a reader's upload (lib/uploads.ts), and Open Library covers are copied
