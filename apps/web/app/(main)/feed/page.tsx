@@ -1,18 +1,30 @@
+import { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import Container from '@/app/components/Container'
-import ActivityFeed from '@/app/components/feed/ActivityFeed'
-import { FC } from 'react'
+import getCurrentUser from '@/app/actions/getCurrentUser'
+import FeedTabs from '@/app/components/feed/FeedTabs'
+import { feedTabHref, parseFeedTab } from '@/lib/feedTabs'
 
-interface pageProps {
-
+export const metadata: Metadata = {
+  title: 'Feed',
+  robots: { index: false },
 }
 
-const Page: FC<pageProps> = ({}) => {
-  return <div className='mt-12'>
-    <Container>
-      <h1 className='page-title mb-6'>Feed</h1>
-      <ActivityFeed />
-    </Container>
-  </div>
-}
+// What the people you follow are reading, and, on its own tab, every notification (where the bell's menu
+// ends with "See all notifications"). /notifications redirects here with ?tab=notifications.
+export default async function Page({ searchParams }: { searchParams: { tab?: string } }) {
+  const tab = parseFeedTab(searchParams?.tab)
+  const user = await getCurrentUser()
+  if (!user) redirect(`/signin?callbackUrl=${encodeURIComponent(feedTabHref(tab))}`)
 
-export default Page
+  return (
+    <div className="mt-8 sm:mt-12 pb-24">
+      <Container>
+        <div className="mx-auto max-w-2xl px-4 sm:px-8">
+          <h1 className="page-title mb-6">Feed</h1>
+          <FeedTabs tab={tab} />
+        </div>
+      </Container>
+    </div>
+  )
+}
