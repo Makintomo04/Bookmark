@@ -45,11 +45,23 @@ export async function GET(req: Request) {
   const buddyReadById = new Map(buddyReads.map((b) => [b.id, b]))
   const withBuddyReads = notifications.map((n) => (n.buddyReadId ? { ...n, buddyRead: buddyReadById.get(n.buddyReadId) ?? null } : n))
 
-  // Recommendations name the sender's copy of the book, and say whether it's already on the reader's shelf.
-  const recommendedIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "BOOK_RECOMMENDED" && n.bookId ? [n.bookId] : []))))
-  const recommended = recommendedIds.length > 0
-    ? await prisma.book.findMany({ where: { id: { in: recommendedIds } }, select: { id: true, title: true, author: true, coverImage: true, workKey: true } })
-    : []
+  // Recommendations name the sender's copy of the book, or the catalogue Work when they sent it from its page
+  // without shelving it, and say whether it's already on the reader's shelf.
+  const isRecommended = (n: (typeof notifications)[number]) => n.type === "BOOK_RECOMMENDED"
+  const recommendedIds = Array.from(new Set(notifications.flatMap((n) => (isRecommended(n) && n.bookId ? [n.bookId] : []))))
+  const recommendedWorkIds = Array.from(new Set(notifications.flatMap((n) => (isRecommended(n) && !n.bookId && n.workId ? [n.workId] : []))))
+  const [copies, recommendedWorks] = await Promise.all([
+    recommendedIds.length > 0
+      ? prisma.book.findMany({ where: { id: { in: recommendedIds } }, select: { id: true, title: true, author: true, coverImage: true, workKey: true } })
+      : [],
+    recommendedWorkIds.length > 0
+      ? prisma.work.findMany({ where: { id: { in: recommendedWorkIds } }, select: { id: true, title: true, authors: true, coverUrl: true, openLibraryKey: true } })
+      : [],
+  ])
+  const recommended = [
+    ...copies,
+    ...recommendedWorks.map((w) => ({ id: w.id, title: w.title, author: w.authors[0] ?? "Unknown", coverImage: w.coverUrl ?? "", workKey: w.openLibraryKey })),
+  ]
   const mine = recommended.length > 0
     ? await prisma.book.findMany({
         where: { userId: currentUser.id, status: { not: "NOT_INTERESTED" }, OR: [{ workKey: { in: recommended.flatMap((b) => (b.workKey ? [b.workKey] : [])) } }, { title: { in: recommended.map((b) => b.title) } }] },
@@ -57,7 +69,11 @@ export async function GET(req: Request) {
       })
     : []
   const recommendedById = new Map(recommended.map(({ workKey, ...b }) => [b.id, { ...b, onShelf: mine.some((m) => sameBook(m, { ...b, workKey })) }]))
-  const withRecommendations = withBuddyReads.map((n) => (n.type === "BOOK_RECOMMENDED" ? { ...n, book: n.bookId ? recommendedById.get(n.bookId) ?? null : null } : n))
+  const withRecommendations = withBuddyReads.map((n) => {
+    if (!isRecommended(n)) return n
+    const id = n.bookId ?? n.workId
+    return { ...n, book: id ? recommendedById.get(id) ?? null : null }
+  })
 
   // A hidden review names the reader's own copy, and links to the book's page where they can see it.
   const hiddenIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "REVIEW_HIDDEN" && n.bookId ? [n.bookId] : []))))
