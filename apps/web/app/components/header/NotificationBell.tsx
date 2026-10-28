@@ -11,8 +11,9 @@ import {
 } from '../ui/dropdown-menu'
 import useNotifications from '@/app/hooks/useNotifications'
 import { notify } from '@/lib/notify'
-import { NotificationText, notificationCopy, notificationHref, useNotificationActions, type NotificationLike } from '../notifications/NotificationParts'
-import { ActorAvatar } from '../feed/FeedRow'
+import {
+  NotificationLead, NotificationText, notificationCopy, notificationHref, useNotificationActions, type NotificationLike,
+} from '../notifications/NotificationParts'
 import { feedTabHref } from '@/lib/feedTabs'
 
 interface NotificationBellProps {
@@ -99,7 +100,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           <div key={n.id} className="flex flex-col">
             <DropdownMenuItem asChild className="items-center gap-3 p-2 rounded-md cursor-pointer">
               <Link href={notificationHref(n)} onClick={() => { followedLink.current = true }}>
-                <ActorAvatar actor={n.actor} size="sm" />
+                <NotificationLead n={n} size="sm" />
                 <NotificationText n={n} />
               </Link>
             </DropdownMenuItem>

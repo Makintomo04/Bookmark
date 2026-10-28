@@ -7,9 +7,12 @@ import { getAchievementTitle } from '@/lib/achievements-catalog'
 import { notify } from '@/lib/notify'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { reviewHiddenMessage } from '@/lib/reviewReports'
+import { seriesNewsText } from '@/lib/series'
+import BookCover from '../cards/BookCover'
+import { ActorAvatar } from '../feed/FeedRow'
 
 // One notification as /api/notifications sends it, shared by the bell's menu and the feed page's
-// Notifications tab. The avatar is the feed's ActorAvatar.
+// Notifications tab. The avatar is the feed's ActorAvatar (NotificationLead).
 
 export type NotificationLike = {
   id?: string
@@ -21,6 +24,8 @@ export type NotificationLike = {
   count?: number | null
   buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null
   book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null
+  // NEW_IN_SERIES: the new book.
+  work?: { title: string; coverUrl: string | null; seriesName: string | null; seriesPosition: number | null; href: string | null } | null
   actor: { username: string; image?: string | null; favColour?: string | null }
 }
 
@@ -42,10 +47,18 @@ export const notificationCopy = (n: NotificationLike) => {
 export const notificationHref = (n: NotificationLike) => {
   if (n.type === "ACHIEVEMENT_EARNED") return "/achievements"
   if (n.type === "REVIEW_HIDDEN" && n.book?.href) return `${n.book.href}#reviews-heading`
+  if (n.type === "NEW_IN_SERIES") return n.work?.href ?? "/notifications"
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`
   if (n.buddyRead) return `/circles/${n.buddyRead.id}`
   return `/u/${encodeURIComponent(n.actor.username)}`
 }
+
+// Beside the words: the new book's cover for a new book in a series (nobody did it), else whoever it's
+// from. `size` as ActorAvatar's.
+export const NotificationLead: FC<{ n: NotificationLike; size?: "sm" | "md" }> = ({ n, size = "md" }) => n.type === "NEW_IN_SERIES" ? (
+  <BookCover book={{ title: n.work?.title ?? "", author: "", coverImage: n.work?.coverUrl ?? "", cardColour: null }}
+    variant="thumb" sizes={size === "sm" ? "36px" : "40px"} className={size === "sm" ? "w-9 shrink-0 rounded-sm" : "w-10 shrink-0 rounded-sm"} />
+) : <ActorAvatar actor={n.actor} size={size} />
 
 // What happened and when. `full` lets the line wrap (the page) instead of cutting it short (the menu).
 export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ n, full = false }) => {
@@ -55,6 +68,10 @@ export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ 
       {n.type === "COMMENTS_UNLOCKED" ? (
         // Not one person's doing: "3 comments to read in Dune", reached or newly posted.
         <p className={`text-sm ${oneLine}`}>{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} to read in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
+      ) : n.type === "NEW_IN_SERIES" ? (
+        <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>
+          {seriesNewsText({ title: n.work?.title ?? null, seriesName: n.work?.seriesName ?? null, position: n.work?.seriesPosition ?? null, count: n.count ?? null })}
+        </p>
       ) : n.type === "REVIEW_HIDDEN" ? (
         // Moderation, so nobody is named: not the reporter, not the librarian.
         // Never cut short: the last line is how to appeal.

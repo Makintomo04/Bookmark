@@ -25,7 +25,9 @@
     "backfill:covers": "node --env-file=.env.local scripts/backfill-hardcover-covers.ts",
     "backfill:covers:prod": "node --env-file=.env.prod.local scripts/backfill-hardcover-covers.ts",
     "backfill:series": "node --env-file=.env.local scripts/backfill-series.ts",
-    "backfill:series:prod": "node --env-file=.env.prod.local scripts/backfill-series.ts"
+    "backfill:series:prod": "node --env-file=.env.prod.local scripts/backfill-series.ts",
+    "backfill:series-checks": "node --env-file=.env.local scripts/backfill-series-checks.ts",
+    "backfill:series-checks:prod": "node --env-file=.env.prod.local scripts/backfill-series-checks.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

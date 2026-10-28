@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils'
 import Loader from '../Loader'
 import FetchErrorState from '../FetchErrorState'
 import { pillClass } from '../books/ShelfToolbar'
-import { ActorAvatar, FeedEmpty, FeedList, FeedRow } from '../feed/FeedRow'
-import { NotificationText, notificationHref, useNotificationActions, type NotificationLike } from './NotificationParts'
+import { FeedEmpty, FeedList, FeedRow } from '../feed/FeedRow'
+import { NotificationLead, NotificationText, notificationHref, useNotificationActions, type NotificationLike } from './NotificationParts'
 
 const PAGE = 30
 
@@ -48,7 +48,7 @@ const NotificationsList: FC = () => {
   const buttonClass = "h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
   if (all.length === 0) {
-    return <FeedEmpty>No notifications yet. Follows, recommendations, circle invites and medals show up here.</FeedEmpty>
+    return <FeedEmpty>No notifications yet. Follows, recommendations, circle invites, medals and new books in your series show up here.</FeedEmpty>
   }
 
   const actionsFor = (n: Page["notifications"][number]) => {
@@ -79,7 +79,7 @@ const NotificationsList: FC = () => {
       <FeedList>
         {all.map((n) => (
           <FeedRow key={n.id} href={notificationHref(n)} actions={actionsFor(n)}>
-            <ActorAvatar actor={n.actor} />
+            <NotificationLead n={n} />
             <NotificationText n={n} full />
             {!n.read && <span aria-label="New" className="ml-auto size-2 shrink-0 rounded-full bg-brand-fill" />}
           </FeedRow>
