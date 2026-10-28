@@ -2,14 +2,15 @@ import { FC, ReactNode } from 'react'
 import { BLEED } from '../Container'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bookmark, Crown, Library } from 'lucide-react'
+import { Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
 import { bannerPresetOf, resolveBanner } from '@/lib/banners'
 import type { SupporterBadgeKind } from '@/lib/supporter'
-import { STAFF_BADGE, type StaffBadgeKind } from '@/lib/staffBadge'
+import type { StaffBadgeKind } from '@/lib/staffBadge'
 import BannerPattern from '../profile/BannerPattern'
 import TierAvatar from './TierAvatar'
+import StaffSeal from './StaffSeal'
 import FollowListStat from './FollowListStat'
 
 // No "use client": the public profile renders this on the server. Only the owner's
@@ -43,7 +44,7 @@ interface ProfileHeaderProps {
   founding?: boolean
   // Which supporter badge, when the profile has one. Takes over from supporter/founding.
   badge?: SupporterBadgeKind | null
-  // "Bookmark team" or "Librarian" (lib/staffBadge.ts). Shown before any supporter badge.
+  // "Bookmark team" or "Librarian" (lib/staffBadge.ts): a seal on the avatar's corner.
   staffBadge?: StaffBadgeKind | null
 }
 
@@ -79,20 +80,6 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
   </Link>
 )
 
-// Quieter than the supporter badge: plain text and a hairline, no brand colour and no tick, so it reads
-// as who someone is rather than a status. Also beside names on reviews.
-export const StaffBadge: FC<{ kind: StaffBadgeKind; className?: string }> = ({ kind, className }) => {
-  const Icon = kind === "team" ? Bookmark : Library
-  return (
-    <span
-      title={STAFF_BADGE[kind].title}
-      className={cn("inline-flex shrink-0 items-center gap-1 rounded-full border border-neutral-300 dark:border-neutral-700 px-2 py-0.5 align-middle text-xs font-medium text-muted-foreground", className)}
-    >
-      <Icon size={12} aria-hidden /> {STAFF_BADGE[kind].label}
-    </span>
-  )
-}
-
 const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge }) => {
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
@@ -114,11 +101,15 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
 
       <div>
         <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4">
-          {onAvatarClick ? (
-            <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
-              {avatar}
-            </button>
-          ) : avatar}
+          {/* The seal sits beside the avatar's button, not in it, so it can be pressed on its own. */}
+          <div className="relative shrink-0">
+            {onAvatarClick ? (
+              <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
+                {avatar}
+              </button>
+            ) : avatar}
+            {staffBadge && <StaffSeal kind={staffBadge} name={username} size={30} cutOut shine className={cn("absolute", plus ? "-right-1.5 bottom-0.5" : "right-0 bottom-[6%]")} />}
+          </div>
           {/* On a phone the buttons are shorter, so beside the smaller avatar they clear the banner by 12px. */}
           {actions && <div className="flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8">{actions}</div>}
         </div>
@@ -126,11 +117,10 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
         <div className="mt-3 sm:mt-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="page-title break-words">{username}</h1>
-            {(staffBadge || badge || supporter) && (
+            {(badge || supporter) && (
               // Centring on the line box leaves the pills riding high beside Literata's lowercase,
               // so drop them to the middle of the name's x-height.
               <div className="flex flex-wrap items-center gap-2 translate-y-1">
-                {staffBadge && <StaffBadge kind={staffBadge} />}
                 {badge ? <SupporterBadge kind={badge} /> : supporter && <SupporterBadge founding={founding} />}
               </div>
             )}

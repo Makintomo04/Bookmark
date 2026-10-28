@@ -8,8 +8,10 @@ import { notify } from '@/lib/notify'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { reviewHiddenMessage } from '@/lib/reviewReports'
 import { seriesNewsText } from '@/lib/series'
+import type { StaffBadgeKind } from '@/lib/staffBadge'
 import BookCover from '../cards/BookCover'
 import { ActorAvatar } from '../feed/FeedRow'
+import StaffSeal from '../profile-head/StaffSeal'
 
 // One notification as /api/notifications sends it, shared by the bell's menu and the feed page's
 // Notifications tab. The avatar is the feed's ActorAvatar (NotificationLead).
@@ -26,7 +28,7 @@ export type NotificationLike = {
   book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null
   // NEW_IN_SERIES: the new book.
   work?: { title: string; coverUrl: string | null; seriesName: string | null; seriesPosition: number | null; href: string | null } | null
-  actor: { username: string; image?: string | null; favColour?: string | null }
+  actor: { username: string; image?: string | null; favColour?: string | null; staffBadge?: StaffBadgeKind | null }
 }
 
 export const notificationCopy = (n: NotificationLike) => {
@@ -84,7 +86,12 @@ export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ 
             : <>You&apos;re now hosting <span className="font-semibold">{n.buddyRead?.title ?? "a reading circle"}</span>: its host closed their account.</>}
         </p>
       ) : (
-        <p className={`text-sm ${oneLine}`}><span className="font-semibold">{n.actor.username}</span> {notificationCopy(n)}</p>
+        <p className={`text-sm ${oneLine}`}>
+          <span className="font-semibold">{n.actor.username}</span>
+          {/* The row is a link, so the seal only marks the role here; the profile's seal explains it. */}
+          {n.actor.staffBadge && <StaffSeal kind={n.actor.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />}
+          {" "}{notificationCopy(n)}
+        </p>
       )}
       {n.type === "BOOK_RECOMMENDED" && n.message && (
         <p className={`text-xs text-muted-foreground italic ${full ? "" : "line-clamp-2"}`}>&ldquo;{n.message}&rdquo;</p>

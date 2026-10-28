@@ -187,6 +187,17 @@ progress { color: black;width: 100%; }
   .loader-fill { animation-duration: 4s; }
 }
 
+/* The staff seal's sweep (profile-head/StaffSeal.tsx): once on arrival, hover or press, never on a loop,
+   which is the tier frames' shimmer below. Off the seal until it plays. */
+.staff-shine { transform: translateX(-36px); }
+@media (prefers-reduced-motion: no-preference) {
+  .staff-shine-once { animation: staff-shine 0.9s ease-out; }
+}
+@keyframes staff-shine {
+  from { transform: translateX(-36px); }
+  to { transform: translateX(36px); }
+}
+
 /* A band of light that sweeps across a gold, platinum or diamond avatar frame,
    then rests. The avatar sits on top, so only the frame shows it. */
 .tier-shimmer {

@@ -2,12 +2,12 @@ import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { bannerPresetOf, resolveBanner } from "@bookmark/shared/banners";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
-import { STAFF_BADGE, type StaffBadgeKind } from "@bookmark/shared/staffBadge";
+import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { Avatar } from "@/components/profile/Avatar";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 import { MedalShowcase } from "@/components/achievements/MedalShowcase";
 import { BannerPattern } from "@/components/profile/BannerPattern";
 import { Text } from "@/components/ui/Text";
-import { useTheme } from "@/lib/theme";
 
 export interface ProfileUser {
   id: string;
@@ -21,7 +21,7 @@ export interface ProfileUser {
 }
 
 // The top of a profile: banner, picture, name and bio (the web's ProfileHead, without its menus yet).
-// staffBadge: "Bookmark team" or "Librarian" beside the name (packages/shared/src/staffBadge.ts).
+// staffBadge: "Bookmark team" or "Librarian", a seal on the avatar's corner (packages/shared/src/staffBadge.ts).
 // medals: earned milestone keys for the top-three showcase, with where pressing it goes.
 export function ProfileHeader({ user, staffBadge, medals }: {
   user: ProfileUser;
@@ -39,10 +39,12 @@ export function ProfileHeader({ user, staffBadge, medals }: {
         {preset ? <BannerPattern preset={preset} colour={colour} /> : <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />}
       </View>
       <View style={styles.identity}>
-        <Avatar image={user.image} name={user.username ?? user.name} colour={colour} size={84} ring />
+        <View style={styles.avatar}>
+          <Avatar image={user.image} name={user.username ?? user.name} colour={colour} size={84} ring />
+          {staffBadge && <StaffSeal kind={staffBadge} name={user.username ?? user.name} size={28} cutOut shine style={styles.seal} />}
+        </View>
         <View style={{ gap: 2 }}>
           <Text variant="display">{user.name || user.username}</Text>
-          {staffBadge && <StaffBadge kind={staffBadge} />}
           {user.username && <Text variant="muted">@{user.username}{booksRead !== undefined ? ` · ${booksRead.toLocaleString("en-GB")} ${booksRead === 1 ? "book" : "books"} read` : ""}</Text>}
         </View>
         {user.bio ? <Text>{user.bio}</Text> : null}
@@ -52,18 +54,9 @@ export function ProfileHeader({ user, staffBadge, medals }: {
   );
 }
 
-// Quiet on purpose, like the web's: a hairline and muted text, no brand colour or tick.
-function StaffBadge({ kind }: { kind: StaffBadgeKind }) {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.badge, { borderColor: colors.border }]} accessibilityLabel={STAFF_BADGE[kind].title}>
-      <Text variant="small">{STAFF_BADGE[kind].label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   banner: { height: 132, overflow: "hidden", marginHorizontal: -16, marginTop: -24 },
   identity: { marginTop: -42, gap: 10 },
-  badge: { alignSelf: "flex-start", borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginVertical: 2 },
+  avatar: { alignSelf: "flex-start" },
+  seal: { position: "absolute", right: 0, bottom: 5 },
 });

@@ -2,6 +2,7 @@ import { booksReadCount } from "@/lib/readerTier";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { bookHref, sameBook } from "@/lib/workKey";
+import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { NextResponse } from "next/server";
 
 // The bell shows the newest 20. /notifications pages back through the rest with ?after=<the last one's id>,
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
       // One extra says whether there's another page.
       take: limit + 1,
       include: {
-        actor: { select: { username: true, image: true, favColour: true, ...booksReadCount } },
+        actor: { select: { username: true, image: true, favColour: true, ...booksReadCount, ...staffBadgeSelect } },
       },
     }),
     prisma.notification.count({ where: { ...shown, read: false } }),
@@ -81,7 +82,14 @@ export async function GET(req: Request) {
   }]))
   const withWorks = withHiddenReviews.map((n) => (n.type === "NEW_IN_SERIES" ? { ...n, work: n.workId ? workById.get(n.workId) ?? null : null } : n))
 
-  return NextResponse.json({ notifications: withWorks, unreadCount, hasMore })
+  // The actor's staff seal, if any, instead of the role fields it came from: hideStaffBadge says a librarian
+  // is one, so it never leaves the server.
+  const withSeals = withWorks.map(({ actor: { role, isStaff, hideStaffBadge, ...actor }, ...n }) => ({
+    ...n,
+    actor: { ...actor, staffBadge: staffBadgeOf({ role, isStaff, hideStaffBadge }) },
+  }))
+
+  return NextResponse.json({ notifications: withSeals, unreadCount, hasMore })
 }
 
 export async function PATCH(req: Request) {
