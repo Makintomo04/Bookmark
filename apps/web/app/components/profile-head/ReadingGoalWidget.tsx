@@ -47,19 +47,28 @@ const toneClass = {
 const extraValue = (raw: unknown) => (raw === "" || raw === undefined || raw === null ? null : Number(raw))
 
 // One thin bar under the yearly ring: the monthly pace (everyone) or the page goal (Plus).
-const ExtraGoal: FC<{ label: string; done: number; target: number; targetLabel?: string; colour: string }> = ({ label, done, target, targetLabel, colour }) => (
+// One thin bar beside the yearly ring: this month (everyone) or the page goal (Plus). Said in words, not as
+// "9 of 12": what's done above the bar, what's left (or that it's met) under it.
+const ExtraGoal: FC<{ label: string; done: string; value: number; target: number; note: string; colour: string }> = ({ label, done, value, target, note, colour }) => (
   <div>
     <div className="flex items-baseline justify-between gap-2 text-[11px] leading-none">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("tabular-nums", done >= target ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
-        {fmt(done)} of {targetLabel ?? fmt(target)}
-      </span>
+      <span className="font-medium">{label}</span>
+      <span className="tabular-nums text-muted-foreground">{done}</span>
     </div>
-    <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(done, target)} className="mt-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800">
-      <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.min(100, (done / target) * 100)}%`, background: colour }} />
+    <div role="progressbar" aria-label={`${label}: ${done}. ${note}`} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(value, target)} className="mt-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800">
+      <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.min(100, (value / target) * 100)}%`, background: colour }} />
     </div>
+    <p className={cn("mt-1 text-[11px] leading-none tabular-nums", value >= target ? "font-medium text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>{note}</p>
   </div>
 )
+
+// This month in words. The pace target is what each month needs from here to reach the year's goal; a Plus
+// reader's own monthly target is just that.
+const monthNote = (done: number, perMonth: number, custom: boolean, yearTarget: number) => {
+  const left = perMonth - done
+  if (custom) return left > 0 ? `${fmt(left)} more to hit your ${fmt(perMonth)}` : `Hit your ${fmt(perMonth)} this month`
+  return left > 0 ? `${fmt(left)} more to stay on track for ${fmt(yearTarget)}` : `On track for ${fmt(yearTarget)}`
+}
 
 const ReadingGoalWidget: FC = () => {
   const { user } = useUser()
@@ -206,16 +215,19 @@ const ReadingGoalWidget: FC = () => {
         <p className="truncate text-xs tabular-nums">
           <span className={toneClass[status.tone]}>{status.text}{status.toGo && <span className="hidden sm:inline"> · {status.toGo}</span>}</span>
           {monthGoal.perMonth > 0 && (
-            <span className="text-muted-foreground sm:hidden"> · {month.slice(0, 3)} {progress.thisMonth}/{monthGoal.perMonth}</span>
+            <span className="text-muted-foreground sm:hidden"> · {monthGoal.perMonth > progress.thisMonth ? `${fmt(monthGoal.perMonth - progress.thisMonth)} more this month` : "on track this month"}</span>
           )}
         </p>
       </div>
-      <div className="hidden sm:flex shrink-0 flex-col gap-1.5 w-44">
+      <div className="hidden sm:flex shrink-0 flex-col gap-2.5 w-52">
         {monthGoal.perMonth > 0 && (
-          <ExtraGoal label={month} done={progress.thisMonth} target={monthGoal.perMonth}
-            targetLabel={monthGoal.custom ? undefined : `${fmt(monthGoal.perMonth)} to stay on track`} colour={colour} />
+          <ExtraGoal label={month} done={`${fmt(progress.thisMonth)} read`} value={progress.thisMonth} target={monthGoal.perMonth}
+            note={monthNote(progress.thisMonth, monthGoal.perMonth, monthGoal.custom, target)} colour={colour} />
         )}
-        {pagesTarget ? <ExtraGoal label="Pages" done={progress.pages} target={pagesTarget} colour={colour} /> : null}
+        {pagesTarget ? (
+          <ExtraGoal label={`Pages in ${year}`} done={`${fmt(progress.pages)} read`} value={progress.pages} target={pagesTarget}
+            note={progress.pages >= pagesTarget ? `Reached your ${fmt(pagesTarget)}` : `${fmt(pagesTarget - progress.pages)} more to reach ${fmt(pagesTarget)}`} colour={colour} />
+        ) : null}
       </div>
       <button
         type="button"
