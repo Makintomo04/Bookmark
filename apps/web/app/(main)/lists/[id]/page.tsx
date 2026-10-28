@@ -100,6 +100,7 @@ const Page = async ({ params }: PageProps) => {
               <li key={item.id} className="flex">
                 <DiscoverBookCard
                   rank={i + 1}
+                  actions={false}
                   reason={item.note && item.curator ? { text: item.note, by: item.curator } : null}
                   book={{ workKey: item.workKey, title: item.title, author: item.author, coverUrl: item.coverUrl, pages: item.pages }}
                 />
