@@ -41,16 +41,16 @@ const BookDetailsModal: FC = () => {
   const body = book ? (
     <div className="w-full self-start px-6 pb-2 grid gap-6 sm:grid-cols-[160px_1fr]">
       {/* The way through to the book's page sits under its cover. */}
-      <div className="flex flex-col items-start gap-3">
+      <div className="flex flex-col items-start gap-2.5">
         <BookCover
           book={{ title: book.title, author: book.author, coverImage: book.coverUrl || "", cardColour: null }}
           sizes="160px"
           className="w-[120px] sm:w-[160px] shadow-sm"
         />
         {pageHref && (
-          <Link href={pageHref} onClick={onClose} className="w-[120px] sm:w-[160px] text-sm font-medium underline-offset-4 hover:underline">
-            {/* Wraps at the cover's width, so the arrow runs with the text rather than sitting apart. */}
-            See full page and reviews<ArrowRight size={14} aria-hidden className="ml-1 inline align-[-2px]" />
+          // Quiet, so it doesn't compete with the title: muted, a size down, and one line under the cover at any width.
+          <Link href={pageHref} onClick={onClose} className="whitespace-nowrap text-xs font-medium text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline">
+            Full page and reviews<ArrowRight size={12} aria-hidden className="ml-1 inline align-[-2px]" />
           </Link>
         )}
       </div>
