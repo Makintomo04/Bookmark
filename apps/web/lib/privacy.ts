@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { findUserByUsername } from "@/lib/userLookup";
 import type { Prisma, ProfileVisibility } from "@prisma/client";
 import prisma from "@/lib/db";
 import { ANONYMOUS, canView, privacyOf, privacySelect, type Relation, type Viewable } from "@/lib/privacyRules";
@@ -97,7 +98,7 @@ export async function canViewUser(viewerId: string | null | undefined, ownerId: 
 
 // canViewUser for a username. null when there's no such user.
 export async function canViewUsername(viewerId: string | null | undefined, username: string, what: Viewable = "profile") {
-  const owner = await prisma.user.findUnique({ where: { username }, select: { id: true, ...privacySelect } });
+  const owner = await findUserByUsername(username, { id: true, ...privacySelect });
   if (!owner) return null;
   return canView(await getRelation(viewerId, owner.id), privacyOf(owner), what);
 }

@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: { bookId: string 
   const usernames = Array.from(new Set(parsed.data.usernames.map((u) => handleOf(u.replace(/^@/, "")))));
   const [friendIds, recipients] = await Promise.all([
     mutualFollowIds(currentUser.id),
-    prisma.user.findMany({ where: { username: { in: usernames } }, select: { id: true } }),
+    prisma.user.findMany({ where: { username: { in: usernames, mode: "insensitive" } }, select: { id: true } }),
   ]);
   const friends = new Set(friendIds);
   const ids = recipients.map((r) => r.id).filter((id) => friends.has(id));

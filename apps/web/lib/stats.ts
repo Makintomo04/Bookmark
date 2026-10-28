@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { findUserByUsername } from "@/lib/userLookup";
 import { goalProgress, monthlyPace, type GoalProgress } from "@/lib/goals";
 import { readLength } from "@/lib/progress";
 import prisma from "@/lib/db";
@@ -446,7 +447,7 @@ export function isWrappedPublic(owner: { id: string }): Promise<boolean> {
 // always see their own). Shared by the page, its metadata and its images within one request.
 export const getWrappedOwner = cache(async (username: string) => {
   if (!username) return null;
-  const user = await prisma.user.findUnique({ where: { username }, select: { id: true, username: true, displayName: true, favColour: true, image: true } });
+  const user = await findUserByUsername(username, { id: true, username: true, displayName: true, favColour: true, image: true });
   if (!user?.username) return null;
   return { ...user, username: user.username };
 });

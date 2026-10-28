@@ -1,4 +1,5 @@
 import { booksReadCount } from "@/lib/readerTier";
+import { findUserByUsername } from "@/lib/userLookup";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
@@ -23,7 +24,7 @@ const userSelect = { id: true, username: true, displayName: true, image: true, f
 // Public, like the profile it belongs to. The viewer only changes the isFollowing/isSelf flags.
 // Pages are newest-first and keyed by the Follow row id so a follow landing mid-scroll doesn't shift pages.
 export async function getFollowList(req: Request, username: string, kind: FollowListKind) {
-  const profileUser = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+  const profileUser = await findUserByUsername(username, { id: true });
   if (!profileUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
