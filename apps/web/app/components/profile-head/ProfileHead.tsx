@@ -1,5 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
+import { BLEED } from '../Container'
 import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
 import { Plus } from 'lucide-react'
@@ -39,9 +40,9 @@ const ProfileHead: FC = () => {
   if (isLoading && !user) {
     return (
       <div>
-        <Skeleton className="h-20 sm:h-28 w-full rounded-2xl" />
+        <Skeleton className={`h-24 sm:h-44 sm:rounded-2xl ${BLEED}`} />
         <div>
-          <div className="pl-4 sm:pl-8"><Skeleton className="-mt-12 sm:-mt-14 size-24 sm:size-28 rounded-[32px] border-4 border-background" /></div>
+          <Skeleton className="-mt-9 sm:-mt-14 size-20 sm:size-28 rounded-[32px] border-4 border-background" />
           <Skeleton className="mt-4 h-8 w-48" />
           <Skeleton className="mt-3 h-4 w-72" />
         </div>

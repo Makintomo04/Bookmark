@@ -1,4 +1,5 @@
 import { FC } from 'react'
+import { BLEED } from '../Container'
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
 import type { RestrictedProfile as RestrictedProfileData, RestrictedReason } from '@/lib/publicProfile'
@@ -27,9 +28,9 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
 
   return (
     <div className="w-full">
-      <div className="h-20 sm:h-28 rounded-2xl" style={{ background: accent }} />
+      <div className={`h-24 sm:h-44 sm:rounded-2xl ${BLEED}`} style={{ background: accent }} />
       <div>
-        <div className="-mt-12 sm:-mt-14 flex items-end justify-between gap-4 pl-4 sm:pl-8">
+        <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-4">
           {/* No tier frame: it would give away how many books they've read. */}
           <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${profile.username}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
           {viewer && <div className="pb-1"><ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} /></div>}
