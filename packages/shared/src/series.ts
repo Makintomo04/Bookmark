@@ -29,6 +29,17 @@ export function comparePositions(a: number | null, b: number | null) {
 export const positionLabel = (position: number | null) =>
   position === null ? null : `Book ${Number(position.toFixed(2))}`;
 
+// A new book in a series the reader follows or has started (a NEW_IN_SERIES notification), in the bell, the
+// phone's list and its push: "The Alloy of Law is out: Book 4 of Mistborn", or "2 new books in Mistborn,
+// starting with The Alloy of Law".
+export function seriesNewsText(n: { title: string | null; seriesName: string | null; position: number | null; count: number | null }) {
+  const series = n.seriesName ?? "a series you're reading";
+  const title = n.title ?? "A new book";
+  const count = n.count ?? 1;
+  if (count > 1) return `${count} new books in ${series}, starting with ${title}`;
+  return n.position === null ? `${title} is out in ${series}` : `${title} is out: ${positionLabel(n.position)} of ${series}`;
+}
+
 // A catalog work in the series.
 export interface SeriesWork {
   id: string;

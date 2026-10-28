@@ -284,6 +284,25 @@ model SeriesFollow {
   @@index([seriesKey])
 }
 
+// A series as Hardcover knows it, for spotting new books (lib/seriesNews.ts). Written when a work's series
+// is filled (lib/seriesFill.ts) and re-asked about weekly by the cron (app/api/cron/series).
+model SeriesCheck {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // lib/series.ts seriesKey: the series' name and author, as SeriesFollow keys it.
+  seriesKey String @unique
+  // As the catalogue spells it (Work.seriesName), and the author it's credited to.
+  name String
+  author String
+  hardcoverSeriesId Int
+  // The furthest whole-numbered book seen so far. A released book past it is new.
+  highestPosition Float?
+  checkedAt DateTime
+  createdAt DateTime @default(now())
+
+  // The cron takes the series asked about longest ago.
+  @@index([checkedAt])
+}
+
 model ReadingGoal {
   id String @id @default(auto()) @map("_id") @db.ObjectId
   userId String @db.ObjectId
@@ -648,6 +667,8 @@ model Notification {
   count Int?
   // BOOK_RECOMMENDED: the sender's optional note. bookId is the sender's own copy of the book.
   message String?
+  // NEW_IN_SERIES: the catalogue Work that's new, the first of `count` new books in its series.
+  workId String? @db.ObjectId
   read Boolean @default(false)
   createdAt DateTime @default(now())
 
@@ -681,6 +702,9 @@ enum NotificationType {
   BOOK_RECOMMENDED
   // Staff hid your review after a report. actorId is you, so no librarian is named; bookId is your copy.
   REVIEW_HIDDEN
+  // A new book came out in a series you follow or have started (lib/seriesNews.ts). actorId is you, since
+  // nobody did it; workId is the new book, count how many came out at once.
+  NEW_IN_SERIES
 }
 
 model UserAchievement {

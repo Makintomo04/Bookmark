@@ -1,5 +1,5 @@
 import prisma from "@/lib/db";
-import { pushContentFor, pushGroupOf, type PushContent } from "@bookmark/shared/push";
+import { pushContentFor, pushGroupOf, pushedToSelf, type PushContent } from "@bookmark/shared/push";
 
 // Sends the push for new notifications to the recipients' phones, through Expo's push service. Which
 // notifications are pushed, and their words, are in packages/shared/src/push.ts. Called after the
@@ -17,6 +17,7 @@ export interface PushableNotification {
   bookId?: string | null;
   buddyReadId?: string | null;
   count?: number | null;
+  workId?: string | null;
 }
 
 interface ExpoMessage {
@@ -36,23 +37,29 @@ async function contentFor(rows: PushableNotification[]): Promise<Map<PushableNot
   const actorIds = Array.from(new Set(rows.map((r) => r.actorId)));
   const bookIds = Array.from(new Set(rows.flatMap((r) => (r.bookId ? [r.bookId] : []))));
   const circleIds = Array.from(new Set(rows.flatMap((r) => (r.buddyReadId ? [r.buddyReadId] : []))));
-  const [actors, books, circles] = await Promise.all([
+  const workIds = Array.from(new Set(rows.flatMap((r) => (r.workId ? [r.workId] : []))));
+  const [actors, books, circles, works] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, username: true } }),
     bookIds.length ? prisma.book.findMany({ where: { id: { in: bookIds } }, select: { id: true, title: true } }) : [],
     circleIds.length ? prisma.buddyRead.findMany({ where: { id: { in: circleIds } }, select: { id: true, title: true } }) : [],
+    workIds.length ? prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, seriesName: true, seriesPosition: true } }) : [],
   ]);
   const username = new Map(actors.map((a) => [a.id, a.username]));
   const bookTitle = new Map(books.map((b) => [b.id, b.title]));
   const circleTitle = new Map(circles.map((c) => [c.id, c.title]));
+  const workById = new Map(works.map((w) => [w.id, w]));
 
   const out = new Map<PushableNotification, PushContent>();
   for (const row of rows) {
+    const work = row.workId ? workById.get(row.workId) : undefined;
     const content = pushContentFor({
       type: row.type,
       actorUsername: username.get(row.actorId) ?? null,
-      bookTitle: (row.buddyReadId && circleTitle.get(row.buddyReadId)) || (row.bookId && bookTitle.get(row.bookId)) || null,
+      bookTitle: (row.buddyReadId && circleTitle.get(row.buddyReadId)) || (row.bookId && bookTitle.get(row.bookId)) || work?.title || null,
       buddyReadId: row.buddyReadId ?? null,
       count: row.count ?? null,
+      seriesName: work?.seriesName ?? null,
+      seriesPosition: work?.seriesPosition ?? null,
     });
     if (content) out.set(row, content);
   }
@@ -60,7 +67,7 @@ async function contentFor(rows: PushableNotification[]): Promise<Map<PushableNot
 }
 
 export async function sendPushes(rows: PushableNotification[]) {
-  const pushable = rows.filter((r) => pushGroupOf(r.type) && r.userId !== r.actorId);
+  const pushable = rows.filter((r) => pushGroupOf(r.type) && (r.userId !== r.actorId || pushedToSelf(r.type)));
   if (pushable.length === 0) return;
   try {
     const recipients = await prisma.user.findMany({

@@ -12,7 +12,7 @@ import {
 import useNotifications from '@/app/hooks/useNotifications'
 import { notify } from '@/lib/notify'
 import {
-  NotificationAvatar, NotificationText, notificationCopy, notificationHref, useNotificationActions, type NotificationLike,
+  NotificationLead, NotificationText, notificationCopy, notificationHref, useNotificationActions, type NotificationLike,
 } from '../notifications/NotificationParts'
 
 interface NotificationBellProps {
@@ -99,7 +99,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           <div key={n.id} className="flex flex-col">
             <DropdownMenuItem asChild className="items-center gap-3 p-2 rounded-md cursor-pointer">
               <Link href={notificationHref(n)} onClick={() => { followedLink.current = true }}>
-                <NotificationAvatar actor={n.actor} />
+                <NotificationLead n={n} />
                 <NotificationText n={n} />
               </Link>
             </DropdownMenuItem>

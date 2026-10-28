@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import Loader from '../Loader'
 import FetchErrorState from '../FetchErrorState'
 import { pillClass } from '../books/ShelfToolbar'
-import { NotificationAvatar, NotificationText, notificationHref, useNotificationActions, type NotificationLike } from './NotificationParts'
+import { NotificationLead, NotificationText, notificationHref, useNotificationActions, type NotificationLike } from './NotificationParts'
 
 const PAGE = 30
 
@@ -48,7 +48,7 @@ const NotificationsList: FC = () => {
   const buttonClass = "h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
   if (all.length === 0) {
-    return <p className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-6 text-center text-sm text-muted-foreground">No notifications yet. Follows, recommendations, circle invites and medals show up here.</p>
+    return <p className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-6 text-center text-sm text-muted-foreground">No notifications yet. Follows, recommendations, circle invites, medals and new books in your series show up here.</p>
   }
 
   return (
@@ -58,7 +58,7 @@ const NotificationsList: FC = () => {
           <li key={n.id} className="py-1">
             <Link href={notificationHref(n)}
               className="relative flex items-center gap-3 rounded-lg p-2 transition hover:bg-neutral-100 dark:hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <NotificationAvatar actor={n.actor} />
+              <NotificationLead n={n} />
               <NotificationText n={n} full />
               {!n.read && <span aria-label="New" className="ml-auto size-2 shrink-0 rounded-full bg-brand-fill" />}
             </Link>

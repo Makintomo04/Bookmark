@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import useSWR, { mutate as revalidate } from "swr";
 import { getAchievementTitle } from "@bookmark/shared/achievements-catalog";
 import { reviewHiddenMessage } from "@bookmark/shared/reviewReports";
+import { seriesNewsText } from "@bookmark/shared/series";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
@@ -26,6 +27,8 @@ interface Notification {
   actor: Person & { username: string };
   buddyRead: { id: string; title: string; inviteCode: string; status?: string } | null;
   book: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null;
+  // NEW_IN_SERIES: the new book.
+  work?: { title: string; seriesName: string | null; seriesPosition: number | null } | null;
 }
 
 // The web's notificationCopy, after the actor's name.
@@ -46,7 +49,8 @@ function copyOf(n: Notification) {
 
 // Where tapping goes. Achievements stay put.
 function pathOf(n: Notification): string | null {
-  if (n.type === "ACHIEVEMENT_EARNED") return null;
+  // The app has no page for a book nobody's shelved yet.
+  if (n.type === "ACHIEVEMENT_EARNED" || n.type === "NEW_IN_SERIES") return null;
   // Your own copy, where you can still read the review.
   if (n.type === "REVIEW_HIDDEN") return n.book ? `/book/${n.book.id}` : null;
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`;
@@ -120,6 +124,7 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
         : `You're now hosting ${n.buddyRead?.title ?? "a reading circle"}: its host closed their account.`
       // Moderation, so nobody is named: not the reporter, not the librarian.
       : n.type === "REVIEW_HIDDEN" ? reviewHiddenMessage(n.book?.title ?? null)
+      : n.type === "NEW_IN_SERIES" ? seriesNewsText({ title: n.work?.title ?? null, seriesName: n.work?.seriesName ?? null, position: n.work?.seriesPosition ?? null, count: n.count })
       : null;
 
   return (
