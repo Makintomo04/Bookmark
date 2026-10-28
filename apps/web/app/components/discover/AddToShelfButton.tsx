@@ -123,12 +123,15 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
       status,
     }).then(({ data: saved }) => {
       notify.success(`Added to ${label}`, { action: { label: "View shelf", onClick: () => router.push("/") } })
-      mutate()
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
     }).catch((err) => {
-      notify.error(apiError(err, "Couldn't add that book. Try again."), { retry: () => addTo(status) })
-    }).finally(() => setIsAdding(false))
+      // Already there (added in another tab, or by a click this button missed): no retry, just the shelf.
+      if (err?.response?.status === 409) notify.info(apiError(err, "Already on your shelf"))
+      else notify.error(apiError(err, "Couldn't add that book. Try again."), { retry: () => addTo(status) })
+    // Stay disabled until the shelf has reloaded and this turns into the "on your shelf" menu: unlocked
+    // any sooner, it still says Want to read and another click adds a second copy.
+    }).finally(() => mutate().finally(() => setIsAdding(false)))
   }
 
   const chooseShelf = (status: Shelf) => {
