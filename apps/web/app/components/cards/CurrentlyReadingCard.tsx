@@ -1,5 +1,6 @@
 "use client"
 import { FC, KeyboardEvent } from 'react'
+import Link from 'next/link'
 import moment from 'moment'
 import type { Book } from '@prisma/client'
 import { Pencil, Repeat2 } from 'lucide-react'
@@ -9,6 +10,7 @@ import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import { discoverBookOf } from '@/lib/openLibrary'
 import { cn } from '@/lib/utils'
+import { bookHref } from '@/lib/workKey'
 import BookCover from './BookCover'
 import BookActions from './BookActions'
 import PrivateBadge from '../books/PrivateBadge'
@@ -58,6 +60,10 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
     </div>
   )
 
+  // Its book page, when it's matched to a work that has one (the shelf API sets pageWorkId, lib/workPages.ts).
+  const pageHref = readOnly ? null : bookHref(book)
+  const cover = <BookCover book={book} variant="thumb" sizes="96px" className="w-auto h-auto min-w-20 sm:min-w-24 flex-shrink-0 self-stretch" />
+
   const counts = (
     <div className="flex items-baseline justify-between gap-2 text-sm mb-1.5">
       <span className="text-muted-foreground tabular-nums">{position}</span>
@@ -73,13 +79,26 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
         readOnly && "cursor-pointer transition hover:bg-neutral-200/70 dark:hover:bg-neutral-800/70 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       )}
     >
-      {/* Stretches with the card so a long title never leaves a gap under the cover. */}
-      <BookCover book={book} variant="thumb" sizes="96px" className="w-auto h-auto min-w-20 sm:min-w-24 flex-shrink-0 self-stretch" />
+      {/* Stretches with the card so a long title never leaves a gap under the cover. Your own cover opens
+          the book page; someone else's card opens its details as a whole. The title links there too, so
+          the cover is a mouse target only and keyboard and screen reader users get one link, not two. */}
+      {pageHref ? (
+        <Link
+          href={pageHref}
+          aria-hidden
+          tabIndex={-1}
+          className="flex flex-shrink-0 self-stretch rounded-md transition hover:opacity-90"
+        >
+          {cover}
+        </Link>
+      ) : cover}
 
       <div className="min-w-0 flex-1 flex flex-col">
         {/* Only the title shares a row with the actions; the details below get the column's full width. */}
         <div className="flex items-start justify-between gap-2">
-          <h3 title={title} className="min-w-0 font-semibold leading-snug line-clamp-2">{title}</h3>
+          <h3 title={title} className="min-w-0 font-semibold leading-snug line-clamp-2">
+            {pageHref ? <Link href={pageHref} className="rounded-sm hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">{title}</Link> : title}
+          </h3>
           <div className="flex items-center gap-1.5 flex-shrink-0 -mr-1.5 -mt-1">
             {isReread && (
               <span
