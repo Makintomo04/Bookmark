@@ -1,4 +1,6 @@
 import { ImageResponse } from 'next/og'
+import { handleOf } from '@/lib/handle'
+import { readerName } from '@/lib/profile'
 import { currentBook, getPublicProfile, readingCounts, topMedals } from '@/lib/publicProfile'
 import { getReaderTier } from '@/lib/readerTier'
 import { readableInk, shade, toHex } from '@/lib/colour'
@@ -77,7 +79,7 @@ function icon(key: string, sizePx: number) {
 
 export default async function Image({ params }: { params: { username: string } }) {
   // The signed-out view: a followers-only or private profile gets no card, so its reading never unfurls.
-  const data = await getPublicProfile(params.username)
+  const data = await getPublicProfile(handleOf(params.username))
   if (!data || data.access !== 'full') return new Response('Not found', { status: 404 })
 
   const { profile } = data
@@ -92,13 +94,14 @@ export default async function Image({ params }: { params: { username: string } }
   // The accent is also used as text on the dark card; lift dark accents so they stay legible.
   const accentText = readableInk(accent) === '#ffffff' ? shade(accent, 0.45) : accent
 
-  const username = clip(profile.username, 22)
+  const name = clip(readerName(profile), 22)
+  const handle = profile.displayName ? clip(`@${profile.username}`, 24) : null
   const yearLine = `${booksThisYear} ${booksThisYear === 1 ? 'book' : 'books'} read in ${year}`
-  const profileUrl = `${siteHost}/u/${username}`
+  const profileUrl = `${siteHost}/u/${clip(profile.username, 22)}`
   const bookTitle = reading ? clip(reading.title, 48) : ''
   const bookAuthor = reading ? clip(reading.author, 36) : ''
 
-  const text = ['Bookmark', 'CURRENTLY READING', 'reader', username, yearLine, bookTitle, bookAuthor, tier?.label ?? '', profileUrl, ...medals.flatMap((m) => [m.title, m.achievement]), profile.username.slice(0, 1).toUpperCase()].join('') + '0123456789·…'
+  const text = ['Bookmark', 'CURRENTLY READING', 'reader', name, handle ?? '', yearLine, bookTitle, bookAuthor, tier?.label ?? '', profileUrl, ...medals.flatMap((m) => [m.title, m.achievement]), readerName(profile).slice(0, 1).toUpperCase()].join('') + '0123456789·…'
   const [avatar, cover, regular, semibold, black] = await Promise.all([
     imageData(profile.image, siteOrigin),
     imageData(reading?.coverImage, siteOrigin),
@@ -149,12 +152,13 @@ export default async function Image({ params }: { params: { username: string } }
               <div style={{ display: 'flex', flex: 1, borderRadius: 48 - frame, overflow: 'hidden', background: accent, alignItems: 'center', justifyContent: 'center' }}>
                 {avatar
                   ? <img src={avatar} width={avatarSize - frame * 2} height={avatarSize - frame * 2} style={{ objectFit: 'cover' }} alt="" />
-                  : <span style={{ fontSize: 80, fontWeight: 800, color: readableInk(accent) }}>{profile.username.slice(0, 1).toUpperCase()}</span>}
+                  : <span style={{ fontSize: 80, fontWeight: 800, color: readableInk(accent) }}>{readerName(profile).slice(0, 1).toUpperCase()}</span>}
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <span style={{ fontSize: username.length > 14 ? 52 : 68, fontWeight: 800, letterSpacing: -2, lineHeight: 1 }}>{username}</span>
+              <span style={{ fontSize: name.length > 14 ? 52 : 68, fontWeight: 800, letterSpacing: -2, lineHeight: 1 }}>{name}</span>
+              {handle && <span style={{ fontSize: 26, color: MUTED, marginTop: -4 }}>{handle}</span>}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, fontSize: 30, color: MUTED }}>
                 <span style={{ color: accentText, fontWeight: 800, fontSize: 40 }}>{booksThisYear}</span>
                 <span>{`${booksThisYear === 1 ? 'book' : 'books'} read in ${year}`}</span>

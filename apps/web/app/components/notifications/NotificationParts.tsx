@@ -1,5 +1,6 @@
 "use client"
 import { FC } from 'react'
+import ReaderName from '@/app/components/profile/ReaderName'
 import moment from 'moment'
 import axios from 'axios'
 import { mutate as revalidate } from 'swr'
@@ -28,7 +29,7 @@ export type NotificationLike = {
   book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null
   // NEW_IN_SERIES: the new book.
   work?: { title: string; coverUrl: string | null; seriesName: string | null; seriesPosition: number | null; href: string | null } | null
-  actor: { username: string; image?: string | null; favColour?: string | null; staffBadge?: StaffBadgeKind | null }
+  actor: { username: string; displayName?: string | null; image?: string | null; favColour?: string | null; staffBadge?: StaffBadgeKind | null }
 }
 
 export const notificationCopy = (n: NotificationLike) => {
@@ -87,9 +88,8 @@ export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ 
         </p>
       ) : (
         <p className={`text-sm ${oneLine}`}>
-          <span className="font-semibold">{n.actor.username}</span>
           {/* The row is a link, so the seal only marks the role here; the profile's seal explains it. */}
-          {n.actor.staffBadge && <StaffSeal kind={n.actor.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />}
+          <ReaderName reader={n.actor} className="font-semibold" badge={n.actor.staffBadge && <StaffSeal kind={n.actor.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} />
           {" "}{notificationCopy(n)}
         </p>
       )}

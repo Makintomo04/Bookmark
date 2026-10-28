@@ -1,5 +1,7 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
+import { readerName } from '@/lib/profile'
+import ReaderName from '@/app/components/profile/ReaderName'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import type { BuddyReadView } from '@/lib/buddyReadsServer'
@@ -32,7 +34,8 @@ const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId,
     setBusy(true)
     axios.delete(`/api/buddy-reads/${buddyReadId}/members/${viewerId}?newHost=${chosen}`)
       .then(() => {
-        const name = members.find((m) => m.userId === chosen)?.username
+        const picked = members.find((m) => m.userId === chosen)
+        const name = picked ? readerName(picked) : null
         notify.success(`You've left. ${name ?? "They"} hosts the reading circle now.`)
         onLeft()
       })
@@ -49,9 +52,9 @@ const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId,
         <legend className="mb-2 text-sm font-medium">Who should host next?</legend>
         {members.map((m, i) => (
           <label key={m.userId} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-2 has-[:checked]:border-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
-            <input type="radio" name="new-host" value={m.userId} aria-label={m.username ?? "Reader"} checked={chosen === m.userId} onChange={() => setChosen(m.userId)} className="sr-only" />
+            <input type="radio" name="new-host" value={m.userId} aria-label={readerName(m) || "Reader"} checked={chosen === m.userId} onChange={() => setChosen(m.userId)} className="sr-only" />
             <MemberAvatar username={m.username} image={m.image} favColour={m.favColour} size={32} />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.username}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium"><ReaderName reader={m} /></span>
             {i === 0 && <span className="shrink-0 text-xs text-muted-foreground">Here longest</span>}
           </label>
         ))}

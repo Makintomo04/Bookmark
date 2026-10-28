@@ -1,7 +1,10 @@
 import { Metadata } from 'next'
+import { handleOf, profileHandle } from '@/lib/handle'
+import { readerName } from '@/lib/profile'
 import { notFound, redirect } from 'next/navigation'
 import { parseShelfParams, shelfPageHref } from '@/lib/shelfFilter'
 import { hasRequested, needsFollowApproval } from '@/lib/followRequests'
+import { followsBack, restrictedViewerFlags } from '@/lib/friends'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { currentBook, getProfileView, getPublicProfile, readingCounts, serializeProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
@@ -17,14 +20,15 @@ interface PageProps {
 // Metadata is what link unfurls and search engines see, so it's built from the signed-out view
 // whoever asks: a followers-only or private profile gives away nothing but its username.
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const data = await getPublicProfile(params.username)
+  const data = await getPublicProfile(handleOf(params.username))
   // The page itself calls notFound(), which renders ./not-found.tsx; thrown from here it would skip that boundary.
   if (!data) return { title: "Reader not found", robots: { index: false } }
 
   const url = `/u/${encodeURIComponent(data.profile.username)}`
+  const name = readerName(data.profile)
   if (data.access === "restricted") {
     return {
-      title: `${data.profile.username} on Bookmark`,
+      title: `${name} on Bookmark`,
       description: "This reader's profile isn't public.",
       robots: { index: false },
       alternates: { canonical: url },
@@ -34,9 +38,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { profile } = data
   const { booksRead } = readingCounts(profile.books)
   const reading = currentBook(profile.books)
-  const title = `${profile.username}'s reading`
+  const title = `${name}'s reading`
   const description = profile.bio?.trim()
-    || `${profile.username} has read ${booksRead} ${booksRead === 1 ? "book" : "books"} on Bookmark${reading ? ` and is reading ${reading.title} by ${reading.author}` : ""}.`
+    || `${name} has read ${booksRead} ${booksRead === 1 ? "book" : "books"} on Bookmark${reading ? ` and is reading ${reading.title} by ${reading.author}` : ""}.`
 
   // The share image comes from ./opengraph-image and ./twitter-image.
   return {
@@ -52,9 +56,9 @@ export default async function Page({ params, searchParams = {} }: PageProps) {
   // Links from before shelves had their own pages (?shelf=finished) go to the shelf's page.
   const one = (name: string) => { const v = searchParams[name]; return typeof v === 'string' ? v : null }
   const linked = parseShelfParams({ get: one })
-  if (linked.shelf) redirect(shelfPageHref(params.username, linked.shelf, linked))
+  if (linked.shelf) redirect(shelfPageHref(handleOf(params.username), linked.shelf, linked))
   const viewer = await getCurrentUser()
-  const data = await getProfileView(params.username, viewer?.id)
+  const data = await getProfileView(profileHandle(params.username), viewer?.id)
   if (!data) notFound()
 
   let content
@@ -65,7 +69,7 @@ export default async function Page({ params, searchParams = {} }: PageProps) {
       <RestrictedProfile
         profile={data.profile}
         reason={data.reason}
-        viewer={viewer ? { isFollowing: data.relation.isFollower, requested: await hasRequested(viewer.id, data.userId) } : null}
+        viewer={viewer ? await restrictedViewerFlags(viewer.id, data.userId, data.relation) : null}
       />
     )
   } else if (viewer && data.relation.isSelf) {
@@ -92,6 +96,7 @@ export default async function Page({ params, searchParams = {} }: PageProps) {
           isFollowing: data.relation.isFollower,
           requested: !data.relation.isFollower && await hasRequested(viewer.id, data.userId),
           needsApproval: needsFollowApproval(data.privacy),
+          followsYou: await followsBack(viewer.id, data.userId),
         } : null}
       />
     )

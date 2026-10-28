@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
@@ -14,6 +15,7 @@ import { useTheme } from "@/lib/theme";
 
 type ReaderAchievements = {
   username: string;
+  displayName?: string | null;
   restricted: null | "followers" | "private" | "blockedByViewer";
   booksRead: number | null;
   ladders: Achievement[];
@@ -44,10 +46,10 @@ export default function ReaderAchievementsScreen() {
 
   return (
     <Screen edges={["left", "right"]}>
-      <Stack.Screen options={{ title: `${data.username}'s achievements` }} />
+      <Stack.Screen options={{ title: `${readerName(data)}'s achievements` }} />
       {data.restricted || data.booksRead === null ? (
         <Text variant="muted">
-          {data.restricted === "followers" ? `${data.username} shares their achievements with followers.` : data.restricted === "blockedByViewer" ? `You blocked ${data.username}.` : `${data.username} keeps their profile private.`}
+          {data.restricted === "followers" ? `${readerName(data)} shares their achievements with followers.` : data.restricted === "blockedByViewer" ? `You blocked ${readerName(data)}.` : `${readerName(data)} keeps their profile private.`}
         </Text>
       ) : (
         <>

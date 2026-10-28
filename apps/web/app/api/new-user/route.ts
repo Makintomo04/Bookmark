@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { sanitizeUser } from "@/lib/sanitizeUser";
-import { BIO_MAX, DEFAULT_COLOUR, isAllowedImageUrl, isHexColour, normaliseUsername, usernameProblem } from "@/lib/profile";
+import { BIO_MAX, DEFAULT_COLOUR, displayNameProblem, isAllowedImageUrl, isHexColour, normaliseDisplayName, normaliseUsername, usernameProblem } from "@/lib/profile";
 import { isStorableBanner } from "@/lib/banners";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { Prisma } from "@prisma/client";
@@ -34,10 +34,14 @@ export async function POST(req: Request) {
   const username = typeof body?.username === "string" ? normaliseUsername(body.username) : "";
   const bio = typeof body?.bio === "string" ? body.bio.trim() : "";
   const color = typeof body?.color === "string" && body.color ? body.color : DEFAULT_COLOUR;
+  // Optional: most readers skip it at sign-up and the username heads their profile.
+  const displayName = typeof body?.displayName === "string" ? normaliseDisplayName(body.displayName) : "";
 
   // Onboarding sets the name the first time, so it always meets the rules (lib/profile.ts).
   const usernameError = usernameProblem(username);
   if (usernameError) return invalid(usernameError, "username");
+  const displayNameError = displayName ? displayNameProblem(displayName) : null;
+  if (displayNameError) return invalid(displayNameError, "displayName");
   if (!isHexColour(color)) return invalid("Pick a colour from the list or the picker.", "color");
   if (body?.imageSrc && !isAllowedImageUrl(body.imageSrc)) return invalid("That picture can't be used. Upload it instead.", "image");
   if (bio.length > BIO_MAX) {
@@ -58,6 +62,7 @@ export async function POST(req: Request) {
       where: { id: currentUser.id },
       data: {
         username,
+        ...(displayName ? { displayName } : {}),
         bio,
         favColour: color,
         // Skipped uploads leave what's there, so a Google or GitHub avatar isn't wiped.

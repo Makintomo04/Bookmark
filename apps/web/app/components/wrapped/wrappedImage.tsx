@@ -69,11 +69,13 @@ const fmt = (n: number) => n.toLocaleString('en-GB')
 interface ImageInput {
   wrapped: WrappedData
   username: string
+  // Shown in place of the username when set; the address stays the username.
+  displayName?: string | null
   favColour: string | null
 }
 
 // Everything both formats print, worked out once.
-function facts({ wrapped: w, username, favColour }: ImageInput) {
+function facts({ wrapped: w, username, displayName, favColour }: ImageInput) {
   const accent = toHex(favColour ?? '') ?? BRAND
   // The accent also sets text on the dark ground; lift dark accents so they stay legible.
   const accentText = readableInk(accent) === '#ffffff' ? shade(accent, 0.45) : accent
@@ -82,7 +84,8 @@ function facts({ wrapped: w, username, favColour }: ImageInput) {
   const monthly = w.month !== null
   const goalName = monthly ? 'monthly goal' : 'goal'
   const goal = w.goal ? (w.goal.met ? `${monthly ? 'Monthly goal' : 'Goal'} met: ${fmt(w.goal.completed)} of ${fmt(w.goal.target)}` : `${fmt(w.goal.completed)} of ${fmt(w.goal.target)} ${goalName}`) : null
-  const name = clip(username, 22)
+  const name = clip(displayName || username, 22)
+  const handle = clip(username, 22)
   return {
     accent,
     accentText,
@@ -94,7 +97,7 @@ function facts({ wrapped: w, username, favColour }: ImageInput) {
     kicker: monthly ? `${MONTHS[w.month!]} ${w.year}` : `${w.year} Wrapped`,
     title: monthly ? `${name}’s month in books` : `${name}’s year in books`,
     // There's no public page for a month, so its card points at the profile.
-    url: monthly ? `${siteHost}/u/${name}` : `${siteHost}/u/${name}/wrapped/${w.year}`,
+    url: monthly ? `${siteHost}/u/${handle}` : `${siteHost}/u/${handle}/wrapped/${w.year}`,
     favourite,
     favouriteTitle: favourite ? clip(favourite.title, 44) : '',
     favouriteAuthor: favourite ? clip(favourite.author, 34) : '',

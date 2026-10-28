@@ -8,6 +8,7 @@ import type { FollowListKind } from '@/lib/follows'
 import { bannerPresetOf, resolveBanner } from '@/lib/banners'
 import type { SupporterBadgeKind } from '@/lib/supporter'
 import type { StaffBadgeKind } from '@/lib/staffBadge'
+import { readerName } from '@/lib/profile'
 import BannerPattern from '../profile/BannerPattern'
 import TierAvatar from './TierAvatar'
 import StaffSeal from './StaffSeal'
@@ -27,6 +28,8 @@ export interface ProfileStat {
 
 interface ProfileHeaderProps {
   username: string
+  // Heads the profile when set, with @username under it; otherwise the username heads it.
+  displayName?: string | null
   bio?: string | null
   image?: string | null
   // An uploaded image URL or a "preset:<id>" pattern. Callers resolve the seeded default from the
@@ -80,13 +83,14 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
   </Link>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge }) => {
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge }) => {
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
   const preset = bannerPresetOf(shownBanner)
   const plus = !!(badge || supporter)
+  const name = readerName({ username, displayName })
   const avatar = (
-    <TierAvatar image={image} username={username} colour={accent} alt={`${username}'s avatar`} booksRead={booksRead} square={plus} className="w-20 sm:w-28" />
+    <TierAvatar image={image} username={username} colour={accent} alt={`${name}'s avatar`} booksRead={booksRead} square={plus} className="w-20 sm:w-28" />
   )
 
   return (
@@ -108,7 +112,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
                 {avatar}
               </button>
             ) : avatar}
-            {staffBadge && <StaffSeal kind={staffBadge} name={username} size={30} cutOut shine className={cn("absolute", plus ? "-right-1.5 bottom-0.5" : "right-0 bottom-[6%]")} />}
+            {staffBadge && <StaffSeal kind={staffBadge} name={name} size={30} cutOut shine className={cn("absolute", plus ? "-right-1.5 bottom-0.5" : "right-0 bottom-[6%]")} />}
           </div>
           {/* On a phone the buttons are shorter, so beside the smaller avatar they clear the banner by 12px. */}
           {actions && <div className="flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8">{actions}</div>}
@@ -116,7 +120,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
 
         <div className="mt-3 sm:mt-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="page-title break-words">{username}</h1>
+            <h1 className="page-title break-words">{name}</h1>
             {(badge || supporter) && (
               // Centring on the line box leaves the pills riding high beside Literata's lowercase,
               // so drop them to the middle of the name's x-height.
@@ -125,6 +129,8 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
               </div>
             )}
           </div>
+          {/* The handle, under a display name: it's the /u/ address and how friends find them. */}
+          {displayName && <p className="mt-0.5 text-sm text-muted-foreground break-all">@{username}</p>}
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
             {stats.map((stat) => <Stat key={stat.label} stat={stat} />)}

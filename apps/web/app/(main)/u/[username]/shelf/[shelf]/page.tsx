@@ -1,10 +1,12 @@
 import { Metadata } from 'next'
+import { handleOf, profileHandle } from '@/lib/handle'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { hasRequested } from '@/lib/followRequests'
+import { restrictedViewerFlags } from '@/lib/friends'
 import { getProfileView, getPublicProfile } from '@/lib/publicProfile'
 import { SHELF_SLUG, SHELF_STATUS, SHELF_TITLE, shelfFromSlug, sortBooks, type ShelfKey } from '@/lib/shelfFilter'
 import Container from '@/app/components/Container'
@@ -21,11 +23,11 @@ const PUBLIC_SHELVES: ShelfKey[] = ["reading", "finished", "want"]
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const shelf = shelfFromSlug(params.shelf)
-  const data = await getPublicProfile(params.username)
+  const data = await getPublicProfile(handleOf(params.username))
   if (!data || !shelf) return { title: "Shelf not found", robots: { index: false } }
   const { username } = data.profile
   return {
-    title: `${username}'s ${SHELF_TITLE[shelf]} shelf`,
+    title: `${readerName(data.profile)}'s ${SHELF_TITLE[shelf]} shelf`,
     alternates: { canonical: `/u/${encodeURIComponent(username)}/shelf/${SHELF_SLUG[shelf]}` },
     robots: { index: false },
   }
@@ -37,7 +39,7 @@ export default async function Page({ params }: PageProps) {
   const shelf = shelfFromSlug(params.shelf)
   if (!shelf) notFound()
   const viewer = await getCurrentUser()
-  const data = await getProfileView(params.username, viewer?.id)
+  const data = await getProfileView(profileHandle(params.username, `/shelf/${params.shelf}`), viewer?.id)
   if (!data) notFound()
 
   let content
@@ -47,7 +49,7 @@ export default async function Page({ params }: PageProps) {
       <RestrictedProfile
         profile={data.profile}
         reason={data.reason}
-        viewer={viewer ? { isFollowing: data.relation.isFollower, requested: await hasRequested(viewer.id, data.userId) } : null}
+        viewer={viewer ? await restrictedViewerFlags(viewer.id, data.userId, data.relation) : null}
       />
     )
   } else {
@@ -60,10 +62,10 @@ export default async function Page({ params }: PageProps) {
     content = (
       <>
         <Link href={profileHref} className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground">
-          <ChevronLeft size={16} aria-hidden />{isSelf ? "Your profile" : profile.username}
+          <ChevronLeft size={16} aria-hidden />{isSelf ? "Your profile" : readerName(profile)}
         </Link>
         <h1 className="page-title mt-2 mb-8 break-words">
-          {isSelf ? SHELF_TITLE[shelf] : `${profile.username}’s ${SHELF_TITLE[shelf]}`}
+          {isSelf ? SHELF_TITLE[shelf] : `${readerName(profile)}’s ${SHELF_TITLE[shelf]}`}
           {!isSelf && <span className="ml-3 text-lg font-normal text-muted-foreground tabular-nums">{books.length.toLocaleString('en-GB')}</span>}
         </h1>
         {isSelf

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
-import { Check, Ellipsis, Lock, Share2 } from "lucide-react-native";
-import { BUDDY_READ_EMOJI, BUDDY_READ_REFRESH_MS, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, type BuddyReadSchedule, type SerializedComment, type UnlockedComment } from "@bookmark/shared/buddyReads";
+import { Check, Ellipsis, Lock, Share2, UserPlus } from "lucide-react-native";
+import { BUDDY_READ_EMOJI, BUDDY_READ_MAX_MEMBERS, BUDDY_READ_REFRESH_MS, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, type BuddyReadSchedule, type SerializedComment, type UnlockedComment } from "@bookmark/shared/buddyReads";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
+import { FriendsPicker } from "@/components/circles/FriendsPicker";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -29,6 +31,7 @@ export default function CircleScreen() {
   const { colors } = useTheme();
   const { data: view, error, isLoading, mutate } = useSWR<CircleView>(`/api/buddy-reads/${id}`, { refreshInterval: BUDDY_READ_REFRESH_MS });
   const [replyTo, setReplyTo] = useState<UnlockedComment | null>(null);
+  const [pickingFriends, setPickingFriends] = useState(false);
 
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !view) {
@@ -58,7 +61,18 @@ export default function CircleScreen() {
       </View>
 
       {invite === "1" && members.length === 1 && <Notice message="Your circle is ready. Share the link so friends can join; anyone with it can read along." />}
-      <Button title="Invite friends" variant={members.length === 1 ? "primary" : "outline"} icon={<Share2 size={18} color={members.length === 1 ? colors.onBrand : colors.foreground} />} onPress={() => shareInvite(buddyRead.inviteCode, buddyRead.title)} />
+      <Button title="Share invite link" variant={members.length === 1 ? "primary" : "outline"} icon={<Share2 size={18} color={members.length === 1 ? colors.onBrand : colors.foreground} />} onPress={() => shareInvite(buddyRead.inviteCode, buddyRead.title)} />
+      {buddyRead.status !== "ARCHIVED" && members.length < BUDDY_READ_MAX_MEMBERS && (
+        <Button title="Invite friends" variant="outline" icon={<UserPlus size={18} color={colors.foreground} />} onPress={() => setPickingFriends(true)} />
+      )}
+      {pickingFriends && (
+        <FriendsPicker
+          circleId={buddyRead.id}
+          memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))}
+          room={BUDDY_READ_MAX_MEMBERS - members.length}
+          onClose={() => setPickingFriends(false)}
+        />
+      )}
 
       <View style={{ gap: 10 }}>
         <View style={styles.between}>
@@ -85,11 +99,11 @@ function MemberRow({ member }: { member: CircleMember }) {
   const { colors } = useTheme();
   const colour = member.favColour || DEFAULT_COLOUR;
   return (
-    <View style={styles.memberRow} accessible accessibilityLabel={`${member.isYou ? "You" : member.username ?? "A reader"}, ${formatPercent(member.progress)}`}>
+    <View style={styles.memberRow} accessible accessibilityLabel={`${member.isYou ? "You" : readerName(member) || "A reader"}, ${formatPercent(member.progress)}`}>
       <Avatar image={member.image} name={member.username} colour={member.favColour} size={32} />
       <View style={{ flex: 1, gap: 4 }}>
         <View style={styles.between}>
-          <Text style={{ fontSize: 15 }}>{member.isYou ? "You" : member.username ? `@${member.username}` : "A reader"}{member.isHost ? " · host" : ""}</Text>
+          <Text style={{ fontSize: 15 }}>{member.isYou ? "You" : readerName(member) || "A reader"}{member.isHost ? " · host" : ""}</Text>
           <Text variant="small">{member.finishedAt ? "Finished" : formatPercent(member.progress)}</Text>
         </View>
         <View style={[styles.track, { backgroundColor: colors.muted }]}>
@@ -158,7 +172,7 @@ function Comment({ circleId, comment, isHost, onReply, onChange, nested }: { cir
   }
 
   const where = comment.chapterLabel || (comment.pageLabel ? `Page ${comment.pageLabel}` : null) || `At ${formatPercent(comment.position)}`;
-  const name = comment.deleted ? null : comment.formerMember ? "Former member" : comment.author?.username ? `@${comment.author.username}` : "A reader";
+  const name = comment.deleted ? null : comment.formerMember ? "Former member" : comment.author?.username ? readerName(comment.author) : "A reader";
 
   const react = async (emoji: string) => {
     await api.post(`/api/buddy-reads/${circleId}/comments/${comment.id}/reactions`, { emoji }).catch(() => {});

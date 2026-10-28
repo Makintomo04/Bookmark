@@ -8,9 +8,18 @@ export function needsFollowApproval(target: { profileVisibility?: ProfileVisibil
   return (target.profileVisibility ?? "PUBLIC") !== "PUBLIC";
 }
 
-// The follow button's label for each state.
-export function followButtonLabel(state: { isFollowing: boolean; requested: boolean; needsApproval: boolean }) {
-  if (state.isFollowing) return "Following";
+// Friends are readers who follow each other: no second relationship to keep track of, and the same
+// meaning as sending a book (lib/recommendations.ts) and the FRIENDS reading circle invite audience.
+export function areFriends(state: { isFollowing: boolean; followsYou: boolean }) {
+  return state.isFollowing && state.followsYou;
+}
+
+// The follow button's label for each state. `followsYou` (they follow the viewer) turns "Following" into
+// "Friends" and "Follow" into "Follow back"; a profile that needs approval is still "Ask to follow".
+export function followButtonLabel(state: { isFollowing: boolean; requested: boolean; needsApproval: boolean; followsYou?: boolean }) {
+  const followsYou = state.followsYou ?? false;
+  if (state.isFollowing) return followsYou ? "Friends" : "Following";
   if (state.requested) return "Requested";
-  return state.needsApproval ? "Ask to follow" : "Follow";
+  if (state.needsApproval) return "Ask to follow";
+  return followsYou ? "Follow back" : "Follow";
 }

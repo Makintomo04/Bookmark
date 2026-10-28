@@ -1,9 +1,11 @@
 import { Metadata } from 'next'
+import { handleOf, profileHandle } from '@/lib/handle'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { hasRequested } from '@/lib/followRequests'
+import { restrictedViewerFlags } from '@/lib/friends'
 import { getProfileView, getPublicProfile, serializeProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
@@ -15,9 +17,9 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const data = await getPublicProfile(params.username)
+  const data = await getPublicProfile(handleOf(params.username))
   if (!data) return { title: "Reader not found", robots: { index: false } }
-  return { title: `${data.profile.username}'s reviews`, robots: { index: false } }
+  return { title: `${readerName(data.profile)}'s reviews`, robots: { index: false } }
 }
 
 // Every review a reader has written that the viewer may read, where the reviews stat under their name
@@ -25,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // a reader sees their own private reviews here, labelled as hidden from everyone else.
 export default async function Page({ params }: PageProps) {
   const viewer = await getCurrentUser()
-  const data = await getProfileView(params.username, viewer?.id)
+  const data = await getProfileView(profileHandle(params.username, "/reviews"), viewer?.id)
   if (!data) notFound()
 
   let content
@@ -35,7 +37,7 @@ export default async function Page({ params }: PageProps) {
       <RestrictedProfile
         profile={data.profile}
         reason={data.reason}
-        viewer={viewer ? { isFollowing: data.relation.isFollower, requested: await hasRequested(viewer.id, data.userId) } : null}
+        viewer={viewer ? await restrictedViewerFlags(viewer.id, data.userId, data.relation) : null}
       />
     )
   } else {
@@ -47,10 +49,10 @@ export default async function Page({ params }: PageProps) {
     content = (
       <>
         <Link href={`/u/${encodeURIComponent(profile.username)}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground">
-          <ChevronLeft size={16} aria-hidden />{isSelf ? "Your profile" : profile.username}
+          <ChevronLeft size={16} aria-hidden />{isSelf ? "Your profile" : readerName(profile)}
         </Link>
         <h1 className="page-title mt-2 mb-8 break-words">
-          {isSelf ? "Your reviews" : `${profile.username}’s reviews`}
+          {isSelf ? "Your reviews" : `${readerName(profile)}’s reviews`}
           <span className="ml-3 text-lg font-normal text-muted-foreground tabular-nums">{count.toLocaleString('en-GB')}</span>
         </h1>
         {count > 0

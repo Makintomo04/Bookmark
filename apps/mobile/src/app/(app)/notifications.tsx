@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR, { mutate as revalidate } from "swr";
@@ -95,7 +96,7 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
     setBusy(true);
     try {
       const result = await answerFollowRequest(n.actor.username, action);
-      if (result.accepted) setNote(`${n.actor.username} can now see your profile.`);
+      if (result.accepted) setNote(`${readerName(n.actor)} can now see your profile.`);
       onChange();
     } catch (e) {
       setNote(e instanceof ApiError ? e.message : "Couldn't answer that request. Try again.");
@@ -136,8 +137,9 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
         <View style={{ flex: 1, gap: 2 }}>
           {text ? <Text>{text}</Text> : (
             <Text>
-              <Text style={{ fontFamily: fonts.sansSemibold }}>{n.actor.username}</Text>
+              <Text style={{ fontFamily: fonts.sansSemibold }}>{readerName(n.actor)}</Text>
               {n.actor.staffBadge ? <StaffSeal kind={n.actor.staffBadge} size={18} pressable={false} style={styles.seal} /> : null}
+              {n.actor.displayName ? <Text variant="small"> @{n.actor.username}</Text> : null}
               {" "}{copyOf(n)}
             </Text>
           )}

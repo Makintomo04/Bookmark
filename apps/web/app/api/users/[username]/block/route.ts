@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/apiAuth";
+import { handleOf } from "@/lib/handle";
 import prisma from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
@@ -16,7 +17,7 @@ export async function POST(
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
-  const target = await findTarget(params.username);
+  const target = await findTarget(handleOf(params.username));
   if (!target) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -66,7 +67,7 @@ export async function DELETE(
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
-  const target = await findTarget(params.username);
+  const target = await findTarget(handleOf(params.username));
   if (!target) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }

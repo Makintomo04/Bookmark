@@ -1,5 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
@@ -46,7 +47,7 @@ const BuddyReadCard: FC<{ buddyRead: BuddyReadSummary }> = ({ buddyRead }) => {
           {sorted.map((m) => (
             <span
               key={m.userId}
-              title={`${m.username}: ${formatPercent(m.progress)}`}
+              title={`${readerName(m)}: ${formatPercent(m.progress)}`}
               className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${m.progress}%` }}
             >
@@ -119,7 +120,7 @@ const BuddyReadsList: FC = () => {
                 <BookCover book={cover(invite.buddyRead)} variant="thumb" sizes="48px" className="w-12 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium leading-snug line-clamp-2">{invite.buddyRead.title}</p>
-                  <p className="text-sm text-muted-foreground">{invite.inviter.username} invited you</p>
+                  <p className="text-sm text-muted-foreground">{readerName(invite.inviter)} invited you</p>
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => decline(invite.id, invite.buddyRead.id)} disabled={busyInvite === invite.id} className={secondaryButtonClass}>Not now</button>

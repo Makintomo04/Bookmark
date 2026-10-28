@@ -11,7 +11,7 @@ import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 // something small on the right (the kind of activity, a dot for a new notification). The bell's menu
 // uses the avatar too, a size down.
 
-export type Actor = { username: string; image?: string | null; favColour?: string | null; _count?: { books?: number } }
+export type Actor = { username: string; displayName?: string | null; image?: string | null; favColour?: string | null; _count?: { books?: number } }
 
 // Their photo, or their initial on their colour, inside their tier ring.
 export const ActorAvatar: FC<{ actor: Actor; size?: "sm" | "md" }> = ({ actor, size = "md" }) => {

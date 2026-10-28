@@ -1,4 +1,5 @@
 import { FC } from 'react'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import { ListOrdered, Star, Users } from 'lucide-react'
 import { followingPicks, type FollowingPick } from '@/lib/lists'
@@ -15,14 +16,14 @@ const PickContext: FC<{ pick: FollowingPick }> = ({ pick }) => (
       <>
         <ListOrdered size={12} aria-hidden className="shrink-0" />
         <span className="truncate">
-          {!pick.reason && <>{pick.person.username} · </>}
+          {!pick.reason && <>{readerName(pick.person)} · </>}
           <Link href={`/lists/${pick.list.id}`} className="hover:underline underline-offset-2">{pick.list.title}</Link>
         </span>
       </>
     ) : (
       <>
         <Star size={12} aria-hidden className="shrink-0 fill-current" />
-        <span className="truncate">{!pick.reason && <>{pick.person.username} · </>}Rated {String(pick.rating ?? 0)}</span>
+        <span className="truncate">{!pick.reason && <>{readerName(pick.person)} · </>}Rated {String(pick.rating ?? 0)}</span>
       </>
     )}
   </p>

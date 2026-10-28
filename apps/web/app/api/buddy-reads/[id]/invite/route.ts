@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { handleOf } from "@/lib/handle";
 import { z } from "zod";
 import prisma from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
@@ -7,6 +8,7 @@ import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { BUDDY_READ_MAX_MEMBERS } from "@/lib/buddyReads";
 import { acceptsBuddyReadInvite, preferencesOf, preferencesSelect } from "@/lib/preferences";
 import { buddyReadError, isBlockedEitherWay, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { areFriends } from "@/lib/friends";
 
 const inviteSchema = z.object({ username: z.string().trim().min(1, "Enter a username").max(60) });
 
@@ -26,17 +28,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const limit = rateLimit(`buddy-read-invite:${currentUser.id}`, 30, 60 * 60 * 1000);
   if (!limit.ok) return buddyReadError(tooManyRequestsMessage, 429);
 
-  const invitee = await prisma.user.findUnique({ where: { username: parsed.data.username.replace(/^@/, "") }, select: { id: true, ...preferencesSelect } });
+  const invitee = await prisma.user.findUnique({ where: { username: handleOf(parsed.data.username.replace(/^@/, "")) }, select: { id: true, ...preferencesSelect } });
   // Blocked readers look the same as unknown ones.
   if (!invitee || (await isBlockedEitherWay(currentUser.id, invitee.id)) || (await isBlockedEitherWay(buddyRead.hostId, invitee.id))) {
     return buddyReadError("No reader with that username.", 404);
   }
   if (invitee.id === currentUser.id) return buddyReadError("You're already here.", 400);
 
+  // Only the lookup their audience needs: a follow for FOLLOWING, follows both ways for FRIENDS.
   const preferences = preferencesOf(invitee);
-  const followsInviter = preferences.buddyReadInvites === "FOLLOWING"
+  const inviteeFollowsInviter = preferences.buddyReadInvites === "FOLLOWING"
     && !!(await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: invitee.id, followingId: currentUser.id } }, select: { id: true } }));
-  if (!acceptsBuddyReadInvite(preferences, followsInviter)) {
+  const friends = preferences.buddyReadInvites === "FRIENDS" && (await areFriends(invitee.id, currentUser.id));
+  if (!acceptsBuddyReadInvite(preferences, { inviteeFollowsInviter, friends })) {
     return buddyReadError("They aren't taking invites from you. Send them the invite link instead.", 403);
   }
 

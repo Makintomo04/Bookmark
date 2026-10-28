@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { bannerPresetOf, resolveBanner } from "@bookmark/shared/banners";
-import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
@@ -13,6 +13,8 @@ export interface ProfileUser {
   id: string;
   name: string | null;
   username: string | null;
+  // Set by the reader; the username heads the profile when unset.
+  displayName?: string | null;
   image: string | null;
   banner: string | null;
   bio: string | null;
@@ -41,10 +43,10 @@ export function ProfileHeader({ user, staffBadge, medals }: {
       <View style={styles.identity}>
         <View style={styles.avatar}>
           <Avatar image={user.image} name={user.username ?? user.name} colour={colour} size={84} ring />
-          {staffBadge && <StaffSeal kind={staffBadge} name={user.username ?? user.name} size={28} cutOut shine style={styles.seal} />}
+          {staffBadge && <StaffSeal kind={staffBadge} name={readerName(user)} size={28} cutOut shine style={styles.seal} />}
         </View>
         <View style={{ gap: 2 }}>
-          <Text variant="display">{user.name || user.username}</Text>
+          <Text variant="display">{readerName(user)}</Text>
           {user.username && <Text variant="muted">@{user.username}{booksRead !== undefined ? ` · ${booksRead.toLocaleString("en-GB")} ${booksRead === 1 ? "book" : "books"} read` : ""}</Text>}
         </View>
         {user.bio ? <Text>{user.bio}</Text> : null}

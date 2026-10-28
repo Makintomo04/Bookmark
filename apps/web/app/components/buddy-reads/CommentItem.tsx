@@ -1,5 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
+import { readerName } from '@/lib/profile'
 import Link from 'next/link'
 import axios from 'axios'
 import moment from 'moment'
@@ -99,7 +100,7 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
           <p className="min-w-0 text-sm leading-snug">
             {comment.formerMember
               ? <span className="font-semibold text-muted-foreground">Former member</span>
-              : <Link href={`/u/${comment.author?.username}`} className="font-semibold hover:underline underline-offset-4">{comment.mine ? "You" : comment.author?.username}</Link>}
+              : <Link href={`/u/${comment.author?.username}`} className="font-semibold hover:underline underline-offset-4">{comment.mine ? "You" : comment.author ? readerName(comment.author) : null}</Link>}
             <span className="text-muted-foreground"> · {moment(comment.createdAt).fromNow()}{comment.editedAt ? " · edited" : ""}</span>
             <br />
             <span className="text-xs text-muted-foreground tabular-nums">{where}</span>
