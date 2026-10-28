@@ -10,6 +10,13 @@
 //     reader's own upload is kept (lib/uploads.ts); the caller filters those out.
 
 export const WORK_FIELDS = ["title", "authors", "description", "coverUrl"] as const
+
+type CoverRow = { coverUrl: string | null, curatedFields?: string[] }
+
+// The cover a librarian set: the work's, else one of these editions'. It beats every other source
+// (Open Library, Hardcover, a search hit's cover), which otherwise fill in a cover that's missing.
+export const librarianCover = (work: CoverRow, editions: CoverRow[]) =>
+  [work, ...editions].find((row) => row.coverUrl && row.curatedFields?.includes("coverUrl"))?.coverUrl ?? null
 export const EDITION_FIELDS = ["pages", "coverUrl"] as const
 export type WorkField = (typeof WORK_FIELDS)[number]
 export type EditionField = (typeof EDITION_FIELDS)[number]

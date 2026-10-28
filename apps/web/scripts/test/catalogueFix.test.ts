@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  authorStrings, changedFields, editionCopyUpdates, mergeCurated, parseEditionFix, parseWorkFix, workCopyUpdates, type WorkValues,
+  authorStrings, changedFields, editionCopyUpdates, librarianCover, mergeCurated, parseEditionFix, parseWorkFix, workCopyUpdates, type WorkValues,
 } from "../../lib/catalogueFixRules.ts";
 import { resolveOne } from "../../lib/catalog/resolve.ts";
 import { MemoryCatalogStore } from "../../lib/catalog/memoryStore.ts";
@@ -65,4 +65,13 @@ test("the catalogue never refills a field a librarian corrected, even when it's 
   assert.equal(again.work.coverUrl, null);
   assert.equal(again.work.description, null);
   assert.deepEqual(again.work.subjects, ["Fiction"], "fields nobody corrected still fill in");
+});
+
+test("a librarian's cover beats every other cover", () => {
+  const hardcover = { coverUrl: "https://assets.hardcover.app/x.jpg", curatedFields: [] };
+  const fixed = { coverUrl: "https://utfs.io/f/fixed.jpg", curatedFields: ["coverUrl", "pages"] };
+  assert.equal(librarianCover(hardcover, [fixed]), fixed.coverUrl, "an edition's fix beats a filled-in work cover");
+  assert.equal(librarianCover({ ...fixed, coverUrl: "https://utfs.io/f/work.jpg" }, [fixed]), "https://utfs.io/f/work.jpg", "the work's own fix comes first");
+  assert.equal(librarianCover(hardcover, [{ coverUrl: null, curatedFields: ["coverUrl"] }]), null, "a cleared cover isn't one");
+  assert.equal(librarianCover(hardcover, []), null);
 });

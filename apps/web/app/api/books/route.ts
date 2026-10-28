@@ -4,7 +4,8 @@ import prisma from "@/lib/db";
 import { syncAchievements } from "@/lib/achievements";
 import { earnMomentFor } from "@/lib/earnMomentServer";
 import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
-import { shareableCover } from "@/lib/uploads";
+import { shareableCover, uploadersOf } from "@/lib/uploads";
+import { librarianCover } from "@/lib/catalogueFixRules";
 import { normaliseWorkKey } from "@/lib/workKey";
 import { workIdsWithPages } from "@/lib/workPages";
 import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
@@ -142,7 +143,11 @@ const totalPages = givenPages || (!isAudiobook && catalog?.edition.pages) || 0
 // Adding from someone else's list or pick can bring their uploaded cover along. Uploads stay on the
 // uploader's own copy (lib/uploads.ts), so this copy takes the catalogue's cover instead.
 const ownCover = await shareableCover(str(coverImgSrc), currentUser.id)
-const coverImage = ownCover ?? (coverImgSrc ? catalog?.edition.coverUrl ?? catalog?.work.coverUrl ?? "" : "")
+// A cover a librarian set beats the one the search hit carried (Open Library's or Hardcover's). Only the
+// reader's own upload beats that: what's left of ownCover after shareableCover is either theirs or no upload.
+const ownUpload = ownCover && (await uploadersOf([ownCover])).size ? ownCover : null
+const pinnedCover = catalog ? librarianCover(catalog.work, [catalog.edition]) : null
+const coverImage = ownUpload ?? pinnedCover ?? ownCover ?? (coverImgSrc ? catalog?.edition.coverUrl ?? catalog?.work.coverUrl ?? "" : "")
 const startPage = Math.max(0, Math.min(totalPages, parseInt(currentPage) || 0))
 const book = await prisma.book.create({
   data:{
