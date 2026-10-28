@@ -4,7 +4,7 @@ import { syncAchievements } from "@/lib/achievements";
 import { earnMomentFor } from "@/lib/earnMomentServer";
 import { progressTriggers } from "@/lib/achievementTriggers";
 import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
-import { OPEN_READ_STATUSES, RATING_ERROR, RESHELVE_TARGETS, ratingInputSchema, readFromBook, reshelvedFields } from "@/lib/readHistory";
+import { OPEN_READ_STATUSES, RATING_ERROR, RESHELVE_TARGETS, optionalDaySchema, ratingInputSchema, readFromBook, reshelvedFields } from "@/lib/readHistory";
 import { lengthSnapshot, progressScale } from "@/lib/progress";
 import { positionFromBody } from "@/lib/progressPayload";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
@@ -80,6 +80,10 @@ const bodySchema = z.object({
   // reshelve: the shelf the book should have gone on, and for Finished, whether it counts this year.
   to: z.enum(RESHELVE_TARGETS).optional(),
   finishedThisYear: z.boolean().optional(),
+  // complete, and reshelve to Finished: the days picked ("2024-03-01"), null for "I don't remember".
+  // complete defaults to today; reshelve falls back to finishedThisYear.
+  finishedOn: optionalDaySchema.optional(),
+  startedOn: optionalDaySchema.optional(),
   // Older clients sent flags instead of an action.
   isStarted: z.boolean().optional(),
   isComplete: z.boolean().optional(),
@@ -159,6 +163,15 @@ export async function POST(req: Request) {
 
   const now = new Date()
   const ratingForRead = rating !== undefined ? rating : book.rating
+  if (body.startedOn && body.finishedOn && body.startedOn > body.finishedOn) {
+    return NextResponse.json({ error: "The start date is after the finish date" }, { status: 400 })
+  }
+  // Finishing a book you're reading: today unless the reader picked the day (or said they don't remember).
+  const finishedAt = action === "complete" && body.finishedOn !== undefined ? body.finishedOn : now
+  // Whether the finish is this year's: what posts "finished" to followers and counts for the medal moment.
+  const finishedThisYear = action === "reshelve"
+    ? (body.finishedOn !== undefined ? !!body.finishedOn && body.finishedOn.getUTCFullYear() === now.getUTCFullYear() : !!body.finishedThisYear)
+    : !!finishedAt && finishedAt.getUTCFullYear() === now.getUTCFullYear()
 
   let updated: Book
   try {
@@ -178,9 +191,11 @@ export async function POST(req: Request) {
           break
         case "complete":
           // The read keeps the format and length it was read in, whatever the book is changed to later.
-          await updateOpenRead(tx, book, { status: "COMPLETED", finishedAt: now, rating: ratingForRead, ...lengthSnapshot(book), ...readAt(scale.total) })
+          // A finish picked before the day the book was started here: it was started earlier than logged.
+          const startFix = finishedAt && book.startedAt && finishedAt < book.startedAt ? { startedAt: finishedAt } : {}
+          await updateOpenRead(tx, book, { status: "COMPLETED", finishedAt, rating: ratingForRead, ...startFix, ...lengthSnapshot(book), ...readAt(scale.total) })
           // A finished book is 100% whatever was logged, so the percent is cleared with the read.
-          data = { status: "COMPLETED", completedAt: now, stoppedAt: null, currentPage: book.pages, currentPercent: null, timesRead: { increment: 1 }, ...(onMinutes && { currentMinute: scale.total }) }
+          data = { status: "COMPLETED", completedAt: finishedAt, ...startFix, stoppedAt: null, currentPage: book.pages, currentPercent: null, timesRead: { increment: 1 }, ...(onMinutes && { currentMinute: scale.total }) }
           break
         case "rate": {
           // The rating belongs to the read that just ended, as well as to the book.
@@ -234,7 +249,11 @@ export async function POST(req: Request) {
             orderBy: { createdAt: "desc" },
             select: { rating: true },
           })
-          const fields = reshelvedFields(book, to!, { now, finishedThisYear: !!body.finishedThisYear, rating, earlierRating: earlier?.rating ?? null })
+          const fields = reshelvedFields(book, to!, {
+            now, finishedThisYear: !!body.finishedThisYear, rating, earlierRating: earlier?.rating ?? null,
+            ...(body.finishedOn !== undefined && { finishedAt: body.finishedOn }),
+            ...(body.startedOn !== undefined && { startedAt: body.startedOn }),
+          })
           const read = readFromBook({ ...book, ...fields })
           if (read) await tx.bookRead.create({ data: read })
           data = { ...fields, ...(to === "STARTED" && { progressAt: now }) }
@@ -266,10 +285,11 @@ export async function POST(req: Request) {
     const post = wrongPost && await prisma.activity.findFirst({ where: { bookId: book.id, type: wrongPost }, orderBy: { createdAt: "desc" }, select: { id: true } })
     if (post) await prisma.activity.delete({ where: { id: post.id } })
     if (to === "STARTED") activities.push("STARTED_BOOK")
-    if (to === "COMPLETED" && body.finishedThisYear) activities.push("COMPLETED_BOOK")
+    if (to === "COMPLETED" && finishedThisYear) activities.push("COMPLETED_BOOK")
   }
   if (action === "start" || action === "restart") activities.push("STARTED_BOOK")
-  if (action === "complete") activities.push("COMPLETED_BOOK")
+  // A finish logged late for a past year is filed quietly, like adding an old read.
+  if (action === "complete" && finishedThisYear) activities.push("COMPLETED_BOOK")
   if (action === "dnf") activities.push("DNF_BOOK")
   if (rating && rating !== book.rating && updated.rating === rating) activities.push("RATED_BOOK")
   if (review !== undefined && review.trim().length > 0 && review !== book.review) activities.push("REVIEWED_BOOK")
@@ -286,6 +306,6 @@ export async function POST(req: Request) {
     }),
   })
   // What this save earned, sent back with the book so the app can celebrate it there and then.
-  const earnMoment = await earnMomentFor(currentUser, synced, { finished: action === "complete" || (action === "reshelve" && to === "COMPLETED" && !!body.finishedThisYear) })
+  const earnMoment = await earnMomentFor(currentUser, synced, { finished: (action === "complete" || (action === "reshelve" && to === "COMPLETED")) && finishedThisYear })
   return NextResponse.json({ ...updated, earnMoment })
 }

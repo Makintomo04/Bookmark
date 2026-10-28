@@ -36,6 +36,11 @@ import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../book
 import AuthorLink from '@/app/components/AuthorLink'
 import Link from 'next/link'
 import { bookHref, bookKeyOf } from '@/lib/workKey'
+import useSWR from 'swr'
+import { fetcher, swrOptions } from '@/lib/fetcher'
+import FinishDates, { defaultFinishDates, finishDatesProblem, type FinishDatesValue } from '../books/FinishDates'
+import ReadHistory from '../books/ReadHistory'
+import ShelfTagsEditor from '../books/ShelfTagsEditor'
 
 const PACE_MIN_DAYS = 7
 
@@ -83,6 +88,8 @@ const BookUpdateModal: FC = () => {
   const wantsBlurb = isOpen && (book?.status === "NOT_STARTED" || book?.status === "NOT_INTERESTED")
   const { description: catalogDescription, isLoading: blurbLoading } =
     useBookDescription(wantsBlurb && !book?.description && book ? bookKeyOf(book) : null, null, book)
+  // The shelf list leaves blurbs out (api/books), so a blurb the reader's own copy carries loads here.
+  const { data: stored, isLoading: storedLoading } = useSWR<{ description: string | null }>(wantsBlurb && book && !book.description ? `/api/books/${book.id}` : null, fetcher, swrOptions)
 
   const [pageInput, setPageInput] = useState("0")
   // Kindle readers type a percent instead of a page; pageInput then holds the percent (0-100).
@@ -90,6 +97,8 @@ const BookUpdateModal: FC = () => {
   // Moods, spice and content warnings, tagged along with the review.
   const [tags, setTags] = useState<ReaderTagsInput>(EMPTY_TAGS)
   const [finished, setFinished] = useState(false)
+  // The day a book being read was finished: today unless the reader logs it late.
+  const [finishOn, setFinishOn] = useState<FinishDatesValue>(defaultFinishDates)
   // Marking a book you're reading as did not finish. Like `finished`, it swaps in rating and review.
   const [stopping, setStopping] = useState(false)
   const [pageBeforeFinish, setPageBeforeFinish] = useState<number | null>(null)
@@ -117,6 +126,7 @@ const BookUpdateModal: FC = () => {
     setInPercent(entersPercent(book))
     setPageInput(String(entersPercent(book) ? Math.round(progressPercent(book)) : progressScale(book).current))
     setFinished(false)
+    setFinishOn(defaultFinishDates())
     setStopping(false)
     setPageBeforeFinish(null)
     setShowStartPage(false)
@@ -232,7 +242,7 @@ const BookUpdateModal: FC = () => {
       payload = { id: book.id, action: "start", ...place() }
       success = onMinutes ? "Started listening" : "Started reading"
     } else if (isActive && finished) {
-      payload = { id: book.id, action: "complete", ...ratingAndReviewPayload }
+      payload = { id: book.id, action: "complete", finishedOn: finishOn.unknown || !finishOn.finished ? null : finishOn.finished, ...ratingAndReviewPayload }
       success = "Marked as finished"
     } else if (isActive && stopping) {
       payload = { id: book.id, action: "dnf", ...place(), ...ratingAndReviewPayload }
@@ -517,34 +527,16 @@ const BookUpdateModal: FC = () => {
     </p>
   )
 
-  // Shown once there's more than the current read to look back on.
-  const history = (reads ?? []).slice().reverse()
-  const showHistory = history.length > 1 || (history.length === 1 && status === "NOT_STARTED")
-  const readRange = (start: string | null, end: string | null) =>
-    start && end ? `${formatDay(start)} – ${formatDay(end)}`
-      : start ? `Started ${formatDay(start)}`
-      : end ? formatDay(end)
-      : "No dates"
-  const readHistory = showHistory && (
-    <section aria-labelledby="read-history">
-      <h3 id="read-history" className="text-sm font-medium">Reading history</h3>
-      <ol className="mt-2 flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
-        {history.map((read) => (
-          <li key={read.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-            <div className="min-w-0">
-              <p className="font-medium">
-                {read.status === "COMPLETED" ? "Finished"
-                  : read.status === "DNF" ? `Did not finish${read.currentPercent != null ? ` · ${Math.round(read.currentPercent)}%` : read.stoppedAtMinute !== null ? ` · ${formatMinutes(read.stoppedAtMinute)}` : read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
-                  : read.status === "PAUSED" ? "Paused"
-                  : "Reading now"}
-              </p>
-              <p className="text-xs text-muted-foreground tabular-nums">{readRange(read.startedAt, read.finishedAt)}</p>
-            </div>
-            {read.rating ? <StarRating value={read.rating} readOnly size={14} label="Rating" className="shrink-0" /> : null}
-          </li>
-        ))}
-      </ol>
-    </section>
+  // Shown on a finished or abandoned book (so its dates can be fixed), and once there's more than the
+  // current read to look back on.
+  const history = reads ?? []
+  const showHistory = isClosed || history.length > 1 || (history.length === 1 && status === "NOT_STARTED")
+  const readHistory = showHistory && reads && (
+    <ReadHistory bookId={book.id} bookStatus={status} reads={reads} onChange={(next) => {
+      readsMutate(next, { revalidate: false })
+      booksMutate()
+      refreshAfterBookChange()
+    }} />
   )
 
   const ratingAndReview = (
@@ -585,12 +577,12 @@ const BookUpdateModal: FC = () => {
   )
 
   const recommendedBy = status === "NOT_STARTED" ? recommendedByOf(book) : null
-  const description = book.description || catalogDescription
+  const description = book.description || stored?.description || catalogDescription
   // Will not read has nothing else on this side, so say so rather than leave it blank.
   const blurb = wantsBlurb && (
     status === "NOT_INTERESTED" && book.workKey && !blurbLoading && !description
       ? <p className="text-sm text-muted-foreground">We don&apos;t have a description for this book yet.</p>
-      : <BookBlurb description={description} isLoading={!book.description && blurbLoading} />
+      : <BookBlurb description={description} isLoading={!description && (blurbLoading || storedLoading)} />
   )
 
   const body = (
@@ -639,9 +631,11 @@ const BookUpdateModal: FC = () => {
         {isActive && progressControl}
         {isActive && !stopping && finishedSwitch}
         {isActive && !finished && stopOptions}
+        {isActive && finished && <FinishDates value={finishOn} onChange={setFinishOn} disabled={isSaving} idPrefix="update-finish" />}
         {(isClosed || finished || stopping) && ratingAndReview}
         {otherReaders}
         {readHistory}
+        <ShelfTagsEditor bookId={book.id} tags={book.tags ?? []} />
         <BuddyReadEntry book={book} onNavigate={close} />
       </div>
     </div>

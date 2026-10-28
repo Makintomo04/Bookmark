@@ -1,4 +1,6 @@
 import { FC, ReactNode } from 'react'
+import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
 
@@ -37,7 +39,22 @@ export function readingGridCols(count: number) {
   return count % 3 === 0 || count > 4 ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2"
 }
 
+// Covers each shelf shows before "See all": two rows on a wide screen. Enough to recognise the shelf, and
+// short enough that the series tracker, reviews and lists below are a scroll or two away.
+export const SHELF_PREVIEW = 12
+
 export const coverGridClass = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-5 gap-y-8"
+
+// "See all ›" in a capped section's header, so the whole list is a tap away without scrolling past the
+// preview (the button under the preview, with the count, stays for whoever has). No count here: it's
+// already beside the heading. A link to a shelf's page, or a button that opens the rest in place.
+export const SeeAllLink: FC<{ href?: string; onClick?: () => void }> = ({ href, onClick }) => {
+  const className = "inline-flex shrink-0 items-center gap-0.5 rounded-md text-sm text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  const label = <>See all<ChevronRight size={15} aria-hidden /></>
+  return href
+    ? <Link href={href} className={className}>{label}</Link>
+    : <button type="button" onClick={onClick} className={className}>{label}</button>
+}
 
 export const ShelfSection: FC<{ id: string; title: string; count: number; action?: ReactNode; children: ReactNode }> = ({ id, title, count, action, children }) => (
   <section aria-labelledby={id} className="mt-12 first:mt-0">

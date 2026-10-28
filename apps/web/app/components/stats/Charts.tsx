@@ -15,7 +15,7 @@ export interface Datum {
   short?: string
   // A fuller name for the tooltip and table, when the axis label is terse ("4½" → "4½ stars").
   name?: string
-  // Ranked bars only: where the name links to, e.g. an author's page.
+  // Where the bar leads: the shelf filtered to these books (/shelf?…), or an author's page.
   href?: string
 }
 
@@ -69,10 +69,17 @@ export const ColumnChart: FC<ColumnChartProps> = ({ data, label, unit, className
                       {fmt(d.value)}
                     </span>
                   )}
-                  <div
-                    className={cn('w-full max-w-9 rounded-t-[4px] transition-opacity group-hover:opacity-80', d.value > 0 ? 'bg-[var(--accent)]' : 'bg-transparent')}
-                    style={{ height: d.value > 0 ? `max(2px, ${(d.value / top) * 100}%)` : 0 }}
-                  />
+                  {/* A bar with books behind it opens them. Out of the tab order: the table below has the same links. */}
+                  {d.href && d.value > 0 ? (
+                    <Link href={d.href} tabIndex={-1} className="flex h-full w-full items-end justify-center">
+                      <div className="w-full max-w-9 rounded-t-[4px] bg-[var(--accent)] transition-opacity group-hover:opacity-80" style={{ height: `max(2px, ${(d.value / top) * 100}%)` }} />
+                    </Link>
+                  ) : (
+                    <div
+                      className={cn('w-full max-w-9 rounded-t-[4px] transition-opacity group-hover:opacity-80', d.value > 0 ? 'bg-[var(--accent)]' : 'bg-transparent')}
+                      style={{ height: d.value > 0 ? `max(2px, ${(d.value / top) * 100}%)` : 0 }}
+                    />
+                  )}
                   <span className={cn("pointer-events-none absolute bottom-full z-10 mb-6 hidden whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs text-background shadow group-hover:block", anchor)}>
                     {tip}
                   </span>
@@ -131,7 +138,7 @@ const DataTable: FC<{ data: Datum[]; label: string; unit: string }> = ({ data, l
     <tbody>
       {data.map((d) => (
         <tr key={d.label}>
-          <th scope="row">{d.name ?? d.label}</th>
+          <th scope="row">{d.href && d.value > 0 ? <Link href={d.href}>{d.name ?? d.label}</Link> : d.name ?? d.label}</th>
           <td>{d.detail ?? `${fmt(d.value)} ${unit}`}</td>
         </tr>
       ))}

@@ -44,6 +44,9 @@ export interface ImportRow {
   // Goodreads "Private Notes".
   privateNotes: string | null;
   genre: string | null;
+  // The reader's own shelves (Goodreads "Bookshelves", StoryGraph "Tags"), kept as Book.tags.
+  // Optional so rows saved in an ImportJob before tags existed still load.
+  tags?: string[];
   favourite: boolean;
   addedAt: string | null;
   // Book.startedAt: the current read's start (or the latest read's, for a finished book).

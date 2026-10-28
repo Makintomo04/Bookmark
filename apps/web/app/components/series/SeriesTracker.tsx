@@ -9,7 +9,10 @@ import { positionLabel, progressLabel, trackerGroups, type SeriesEntry, type Ser
 import useBooks from '@/app/hooks/useBooks'
 import BookCover from '../cards/BookCover'
 import AddToShelfButton from '../discover/AddToShelfButton'
-import { ShelfSection, coverGridClass } from '../books/shelf'
+import { SeeAllLink, ShelfSection, coverGridClass } from '../books/shelf'
+import useShelfPreview from '@/app/hooks/useShelfPreview'
+import { pillClass } from '../books/ShelfToolbar'
+import AuthorLink from '@/app/components/AuthorLink'
 import { SERIES_TRACKER_KEY } from './FollowSeriesButton'
 
 type Tab = 'nextUp' | 'started' | 'unfinished'
@@ -30,21 +33,37 @@ const EntryLink: FC<{ entry: SeriesEntry, className?: string, children: ReactNod
   return href ? <Link href={href} className={cn("hover:underline underline-offset-2", className)}>{children}</Link> : <span className={className}>{children}</span>
 }
 
-// The next book of one series: its cover, where it sits, and a way onto the shelf.
+// The next book of one series, laid out like a cover on the shelf: the book number on the cover, then title,
+// author and series. The button sits at the foot of the card, so a row's buttons line up whatever the titles.
 const NextCard: FC<{ track: SeriesTrack }> = ({ track }) => {
   const entry = track.next!
   const href = bookHref({ workKey: entry.workKey, pageWorkId: entry.pageWorkId, title: entry.title })
-  const cover = <BookCover book={{ title: entry.title, author: entry.author, coverImage: entry.coverUrl || "", cardColour: null }} sizes="(min-width: 1280px) 180px, (min-width: 640px) 25vw, 45vw" />
+  const position = positionLabel(entry.position)
+  const cover = (
+    <div className="relative">
+      <BookCover book={{ title: entry.title, author: entry.author, coverImage: entry.coverUrl || "", cardColour: null }} sizes="(min-width: 1280px) 180px, (min-width: 640px) 25vw, 45vw" />
+      {position && (
+        <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+          {position}
+        </span>
+      )}
+    </div>
+  )
   return (
-    <li className="flex flex-col gap-2 min-w-0">
-      {href ? <Link href={href} tabIndex={-1} aria-hidden>{cover}</Link> : cover}
+    <li className="flex flex-col gap-3 min-w-0">
+      {href ? <Link href={href} tabIndex={-1} aria-hidden className="transition md:hover:-translate-y-0.5 md:hover:opacity-90">{cover}</Link> : cover}
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground truncate">{[positionLabel(entry.position), track.name].filter(Boolean).join(" · ")}</p>
-        <EntryLink entry={entry} className="block text-sm font-medium line-clamp-2">{entry.title}</EntryLink>
+        <EntryLink entry={entry} className="block text-[15px] font-semibold leading-snug line-clamp-2">
+          {position && <span className="sr-only">{position}: </span>}{entry.title}
+        </EntryLink>
+        <p className="mt-0.5 text-sm text-muted-foreground truncate"><AuthorLink author={entry.author} /></p>
+        <p title={track.name} className="mt-1 text-xs text-muted-foreground truncate">{track.name}</p>
       </div>
-      {entry.status === "STARTED"
-        ? <p className="text-xs font-medium">Reading now</p>
-        : <AddToShelfButton book={{ workKey: entry.workKey, title: entry.title, author: entry.author, pages: null, coverUrl: entry.coverUrl }} className="self-start" />}
+      <div className="mt-auto">
+        {entry.status === "STARTED"
+          ? <p className="text-xs font-medium">Reading now</p>
+          : <AddToShelfButton book={{ workKey: entry.workKey, title: entry.title, author: entry.author, pages: null, coverUrl: entry.coverUrl }} />}
+      </div>
     </li>
   )
 }
@@ -90,6 +109,10 @@ const SeriesTracker: FC = () => {
   const { data, mutate } = useSWR<{ series: SeriesTrack[] }>(SERIES_TRACKER_KEY, fetcher, swrOptions)
   const { books } = useBooks()
   const [tab, setTab] = useState<Tab>('nextUp')
+  // Two rows of covers (or a handful of series) at first, so lists and authors below stay close. "Show
+  // more" at the foot opens the next lot in place; "See all" in the heading opens the rest.
+  const [count, setCount] = useState<number | null>(null)
+  const preview = useShelfPreview()
 
   // A book moved between shelves changes what's next.
   useEffect(() => { if (books) void mutate() }, [books, mutate])
@@ -97,9 +120,14 @@ const SeriesTracker: FC = () => {
   if (!data) return null
   const groups = trackerGroups(data.series)
   const shown = groups[tab]
+  const cap = tab === 'nextUp' ? preview : 6
+  const limit = count ?? cap
+  const visible = shown.slice(0, limit)
+  const more = shown.length > limit
 
   return (
-    <ShelfSection id="series-tracker" title="Series" count={data.series.length}>
+    <ShelfSection id="series-tracker" title="Series" count={data.series.length}
+      action={more ? <SeeAllLink onClick={() => setCount(shown.length)} /> : undefined}>
       {data.series.length === 0 ? (
         <p className="text-sm text-muted-foreground">Start a book in a series, or follow one from a book&apos;s page, and you&apos;ll see what&apos;s next here.</p>
       ) : (
@@ -113,7 +141,7 @@ const SeriesTracker: FC = () => {
                 id={`series-tab-${t.id}`}
                 aria-selected={tab === t.id}
                 aria-controls="series-panel"
-                onClick={() => setTab(t.id)}
+                onClick={() => { setTab(t.id); setCount(null) }}
                 className={cn(
                   "h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   tab === t.id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
@@ -127,9 +155,16 @@ const SeriesTracker: FC = () => {
             {shown.length === 0 ? (
               <p className="text-sm text-muted-foreground">{EMPTY[tab]}</p>
             ) : tab === 'nextUp' ? (
-              <ul className={coverGridClass}>{shown.map((t) => <NextCard key={t.key} track={t} />)}</ul>
+              <ul className={coverGridClass}>{visible.map((t) => <NextCard key={t.key} track={t} />)}</ul>
             ) : (
-              <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 max-w-3xl">{shown.map((t) => <SeriesRow key={t.key} track={t} />)}</ul>
+              <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 max-w-3xl">{visible.map((t) => <SeriesRow key={t.key} track={t} />)}</ul>
+            )}
+            {shown.length > cap && (
+              <div className="mt-6 flex justify-center">
+                {more
+                  ? <button type="button" onClick={() => setCount(limit + cap)} className={pillClass}>Show more</button>
+                  : <button type="button" onClick={() => setCount(null)} className={pillClass}>Show fewer</button>}
+              </div>
             )}
           </div>
         </>

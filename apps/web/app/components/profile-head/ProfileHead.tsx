@@ -14,7 +14,6 @@ import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import { Skeleton } from '../ui/skeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
-import MedalShowcase from '../achievements/MedalShowcase'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
@@ -87,14 +86,16 @@ const ProfileHead: FC = () => {
         actions={
           <>
             <ShareProfileButton username={user.username} />
-            <button type="button" onClick={editProfileModal.onOpen} className={secondaryButtonClass}>Edit profile</button>
-            <button type="button" onClick={() => bookEntryModal.onOpen()} className={primaryButtonClass}>
-              <Plus size={16} aria-hidden />Add a book
+            <button type="button" onClick={editProfileModal.onOpen} className={`${secondaryButtonClass} max-sm:px-3`}>
+              <span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit profile</span>
+            </button>
+            <button type="button" onClick={() => bookEntryModal.onOpen()} className={`${primaryButtonClass} max-sm:px-3`}>
+              <Plus size={16} aria-hidden /><span className="sm:hidden">Add</span><span className="hidden sm:inline">Add a book</span>
             </button>
           </>
         }
       >
-        <MedalShowcase earned={earnedKeys} href="/achievements" />
+        {/* One slim line, so the first cover on the shelf is in view without scrolling, even on a phone. */}
         <ReadingGoalWidget />
       </ProfileHeader>
 

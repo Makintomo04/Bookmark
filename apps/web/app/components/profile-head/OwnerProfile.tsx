@@ -10,6 +10,7 @@ import { notify } from '@/lib/notify'
 import ProfileHead from './ProfileHead'
 import ProfileReviews from './ProfileReviews'
 import BookList from '../books/BookList'
+import ProfileJumpLinks from './ProfileJumpLinks'
 import ProfileLists from '../discover/ProfileLists'
 import GenrePicks from '../discover/GenrePicks'
 import { GENRE_PICKS_SHELF_LIMIT } from '@/lib/genres'
@@ -71,10 +72,10 @@ const NewShelfPicks: FC = () => {
 const OwnerProfile: FC<OwnerProfileProps> = ({ username, fallback }) => (
   <SWRConfig value={{ fallback }}>
     <ProfileHead />
-    <div className="mt-12 px-4 sm:px-8">
+    <div className="mt-6 sm:mt-8 px-4 sm:px-8">
       <FollowRequests className="mb-10" />
       <NewShelfPicks />
-      <BookList />
+      <BookList belowToolbar={<ProfileJumpLinks />} />
       <div className="mt-12"><SeriesTracker /></div>
       <OwnReviews />
       <ProfileLists username={username} isSelf />

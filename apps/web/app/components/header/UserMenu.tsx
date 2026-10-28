@@ -90,7 +90,8 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
 
     return (
       <>
-        <div className="flex gap-2 relative items-center">
+        {/* gap-3: room between the bell's badge and the avatar's ring. */}
+        <div className="flex gap-3 relative items-center">
             {wrappedYear && (
               <Link href={`/wrapped/${wrappedYear}`} className="hidden sm:inline-flex h-9 items-center px-3 rounded-full text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 Your {wrappedYear} Wrapped
@@ -98,8 +99,9 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             )}
             <NotificationBell/>
 
+        {/* mr-1: the tier ring is drawn 4px outside the avatar, so this keeps it inside the page's edge. */}
         <button type="button" aria-label="Open menu" aria-expanded={showMenu} onClick={()=>setShowMenu((state)=>!state)}
-          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
+          className="mr-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
           {avatar()}
         </button>
         {showMenu && <>

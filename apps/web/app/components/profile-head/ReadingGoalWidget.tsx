@@ -28,12 +28,13 @@ const yearFraction = (now: Date) => {
 
 const pace = (completed: number, target: number) => {
   const left = target - completed
-  if (left <= 0) return { text: completed > target ? `Goal smashed · ${completed - target} over` : "Goal reached", tone: "good" as const }
+  if (left <= 0) return { text: completed > target ? `Goal smashed · ${completed - target} over` : "Goal reached", toGo: null, tone: "good" as const }
   const diff = Math.round(completed - target * yearFraction(new Date()))
+  // "to go" is kept apart: a phone drops it to fit this month on the same line.
   const toGo = `${left} to go`
-  if (diff > 0) return { text: `${diff} ahead of pace · ${toGo}`, tone: "good" as const }
-  if (diff < 0) return { text: `${-diff} behind pace · ${toGo}`, tone: "behind" as const }
-  return { text: `On pace · ${toGo}`, tone: "neutral" as const }
+  if (diff > 0) return { text: `${diff} ahead of pace`, toGo, tone: "good" as const }
+  if (diff < 0) return { text: `${-diff} behind pace`, toGo, tone: "behind" as const }
+  return { text: "On pace", toGo, tone: "neutral" as const }
 }
 
 const toneClass = {
@@ -48,13 +49,13 @@ const extraValue = (raw: unknown) => (raw === "" || raw === undefined || raw ===
 // One thin bar under the yearly ring: the monthly pace (everyone) or the page goal (Plus).
 const ExtraGoal: FC<{ label: string; done: number; target: number; targetLabel?: string; colour: string }> = ({ label, done, target, targetLabel, colour }) => (
   <div>
-    <div className="flex items-baseline justify-between gap-3 text-xs">
+    <div className="flex items-baseline justify-between gap-2 text-[11px] leading-none">
       <span className="text-muted-foreground">{label}</span>
       <span className={cn("tabular-nums", done >= target ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
         {fmt(done)} of {targetLabel ?? fmt(target)}
       </span>
     </div>
-    <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(done, target)} className="mt-1 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800">
+    <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(done, target)} className="mt-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800">
       <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.min(100, (done / target) * 100)}%`, background: colour }} />
     </div>
   </div>
@@ -112,7 +113,7 @@ const ReadingGoalWidget: FC = () => {
 
   if (isEditing) {
     return (
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-5 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-4 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
         <label htmlFor="targetBooks" className="block text-sm font-medium">How many books do you want to read in {year}?</label>
         <div className="mt-2.5 flex flex-wrap items-start gap-2">
           <div className="w-20">
@@ -158,7 +159,7 @@ const ReadingGoalWidget: FC = () => {
       <button
         type="button"
         onClick={startEditing}
-        className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+        className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-neutral-400 dark:hover:border-neutral-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Target size={15} aria-hidden />
         Set a {year} reading goal
@@ -172,57 +173,59 @@ const ReadingGoalWidget: FC = () => {
   // target is a stat everyone gets: whole books this month to stay on track, or the Plus custom target.
   const pagesTarget = canExtra ? goal?.targetPages : null
   const monthGoal = monthTarget(goal, progress.books - progress.thisMonth, progress.month, canExtra)
+  const month = MONTHS[progress.month]
 
+  // One slim strip: the ring, the year in words, and this month (and pages, on Plus) as small bars on the
+  // right. On a phone the month drops into the second line instead.
   return (
-    <div className="mt-5 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3">
-      <div className="flex items-center gap-4">
-        <svg
-          role="progressbar"
-          aria-label={`${year} reading goal`}
-          aria-valuenow={completedThisYear}
-          aria-valuemin={0}
-          aria-valuemax={target}
-          viewBox="0 0 52 52"
-          className="shrink-0 -rotate-90"
-          width={52}
-          height={52}
-        >
-          <circle cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="5" className="stroke-neutral-200 dark:stroke-neutral-800" />
-          <circle
-            cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="5" strokeLinecap="round"
-            stroke={colour}
-            strokeDasharray={`${ratio * RING_LENGTH} ${RING_LENGTH}`}
-            className="transition-[stroke-dasharray] duration-700"
-          />
-          <text x="26" y="26" dy="0.35em" textAnchor="middle" transform="rotate(90 26 26)" className="fill-foreground text-[11px] font-semibold tabular-nums">
-            {Math.round(ratio * 100)}%
-          </text>
-        </svg>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium tabular-nums">{completedThisYear} of {target} books in {year}</p>
-          <p className={cn("mt-0.5 text-sm tabular-nums", toneClass[status.tone])}>{status.text}</p>
-        </div>
-        <button
-          type="button"
-          onClick={startEditing}
-          aria-label={`Edit ${year} reading goal`}
-          className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Pencil size={15} aria-hidden />
-        </button>
+    <section aria-label={`${year} reading goal`} className="mt-4 flex items-center gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 py-2 pl-2.5 pr-1.5">
+      <svg
+        role="progressbar"
+        aria-label={`${year} reading goal`}
+        aria-valuenow={completedThisYear}
+        aria-valuemin={0}
+        aria-valuemax={target}
+        viewBox="0 0 52 52"
+        className="shrink-0 -rotate-90"
+        width={36}
+        height={36}
+      >
+        <circle cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="6" className="stroke-neutral-200 dark:stroke-neutral-800" />
+        <circle
+          cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="6" strokeLinecap="round"
+          stroke={colour}
+          strokeDasharray={`${ratio * RING_LENGTH} ${RING_LENGTH}`}
+          className="transition-[stroke-dasharray] duration-700"
+        />
+        <text x="26" y="26" dy="0.35em" textAnchor="middle" transform="rotate(90 26 26)" className="fill-foreground text-[13px] font-semibold tabular-nums">
+          {Math.round(ratio * 100)}
+        </text>
+      </svg>
+      <div className="min-w-0 flex-1 leading-tight">
+        <p className="truncate text-sm font-medium tabular-nums">{completedThisYear} of {target} books in {year}</p>
+        <p className="truncate text-xs tabular-nums">
+          <span className={toneClass[status.tone]}>{status.text}{status.toGo && <span className="hidden sm:inline"> · {status.toGo}</span>}</span>
+          {monthGoal.perMonth > 0 && (
+            <span className="text-muted-foreground sm:hidden"> · {month.slice(0, 3)} {progress.thisMonth}/{monthGoal.perMonth}</span>
+          )}
+        </p>
       </div>
-      <div className="mt-3 flex flex-col gap-2.5 border-t border-neutral-200 dark:border-neutral-800 pt-3">
+      <div className="hidden sm:flex shrink-0 flex-col gap-1.5 w-44">
         {monthGoal.perMonth > 0 && (
-          <ExtraGoal
-            label={monthGoal.custom ? `Books in ${MONTHS[progress.month]}` : `Books in ${MONTHS[progress.month]} · to stay on track`}
-            done={progress.thisMonth}
-            target={monthGoal.perMonth}
-            colour={colour}
-          />
+          <ExtraGoal label={month} done={progress.thisMonth} target={monthGoal.perMonth}
+            targetLabel={monthGoal.custom ? undefined : `${fmt(monthGoal.perMonth)} to stay on track`} colour={colour} />
         )}
-        {pagesTarget ? <ExtraGoal label={`Pages in ${year}`} done={progress.pages} target={pagesTarget} colour={colour} /> : null}
+        {pagesTarget ? <ExtraGoal label="Pages" done={progress.pages} target={pagesTarget} colour={colour} /> : null}
       </div>
-    </div>
+      <button
+        type="button"
+        onClick={startEditing}
+        aria-label={`Edit ${year} reading goal`}
+        className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Pencil size={15} aria-hidden />
+      </button>
+    </section>
   )
 }
 

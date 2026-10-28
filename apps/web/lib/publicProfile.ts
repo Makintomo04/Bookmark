@@ -11,11 +11,11 @@ import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staff
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
+// No blurb: a profile can carry hundreds of books, and a book's details load its blurb when opened.
 const publicBookSelect = {
   id: true,
   title: true,
   author: true,
-  description: true,
   coverImage: true,
   cardColour: true,
   status: true,

@@ -21,6 +21,7 @@ export interface BookInsert {
   coverImage: string;
   status: Status;
   genre: string | null;
+  tags: string[];
   rating: number | null;
   review: string | null;
   timesRead: number;
@@ -105,6 +106,7 @@ export function buildRecords(
     coverImage: row.coverUrl ?? match?.coverUrl ?? "",
     status,
     genre: row.genre ?? match?.genre ?? null,
+    tags: row.tags ?? [],
     rating: row.rating,
     review,
     timesRead,

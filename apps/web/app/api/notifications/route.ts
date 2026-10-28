@@ -4,23 +4,37 @@ import prisma from "@/lib/db";
 import { bookHref, sameBook } from "@/lib/workKey";
 import { NextResponse } from "next/server";
 
+// The bell shows the newest 20. /notifications pages back through the rest with ?after=<the last one's id>,
+// up to 50 at a time. Ordered by date then id, so two made in the same moment never fall between pages.
+const PAGE = 20
+const PAGE_MAX = 50
+
 export async function GET(req: Request) {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
+  const params = new URL(req.url).searchParams
+  const limit = Math.min(PAGE_MAX, Math.max(1, Number(params.get("limit")) || PAGE))
+  const after = params.get("after")
+  const afterId = after && /^[a-f0-9]{24}$/i.test(after) ? after : null
+
   // Quests were cut before launch; any old quest-medal notifications are left out.
   const shown = { userId: currentUser.id, type: { not: "QUEST_COMPLETED" as const } }
-  const [notifications, unreadCount] = await Promise.all([
+  const [page, unreadCount] = await Promise.all([
     prisma.notification.findMany({
       where: shown,
-      orderBy: { createdAt: "desc" },
-      take: 20,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
+      // One extra says whether there's another page.
+      take: limit + 1,
       include: {
         actor: { select: { username: true, image: true, favColour: true, ...booksReadCount } },
       },
     }),
     prisma.notification.count({ where: { ...shown, read: false } }),
   ])
+  const hasMore = page.length > limit
+  const notifications = page.slice(0, limit)
 
   // Reading circle notifications name the book. buddyReadId is a plain id, so look the titles up in one go.
   const buddyReadIds = Array.from(new Set(notifications.flatMap((n) => (n.buddyReadId ? [n.buddyReadId] : []))))
@@ -52,7 +66,7 @@ export async function GET(req: Request) {
   const hiddenById = new Map(hiddenCopies.map(({ workKey, workId, ...b }) => [b.id, { ...b, onShelf: true, href: bookHref({ workKey, pageWorkId: workId, title: b.title }) }]))
   const withHiddenReviews = withRecommendations.map((n) => (n.type === "REVIEW_HIDDEN" ? { ...n, book: n.bookId ? hiddenById.get(n.bookId) ?? null : null } : n))
 
-  return NextResponse.json({ notifications: withHiddenReviews, unreadCount })
+  return NextResponse.json({ notifications: withHiddenReviews, unreadCount, hasMore })
 }
 
 export async function PATCH(req: Request) {
