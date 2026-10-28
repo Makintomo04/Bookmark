@@ -1,4 +1,5 @@
 import { FC, ReactNode } from 'react'
+import { BLEED } from '../Container'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Bookmark, Crown, Library } from 'lucide-react'
@@ -103,14 +104,15 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, bio, image, banner, c
 
   return (
     <header>
-      {/* Shorter on a phone, with the buttons beside the avatar, so the shelf's first cover is in view. */}
-      <div className="relative h-24 sm:h-44 overflow-hidden rounded-2xl" style={{ background: accent }}>
+      {/* Shorter on a phone, with the buttons beside the avatar, so the shelf's first cover is in view. The banner
+          reaches the page's outer edge (edge to edge on a phone); everything else sits on the inner line. */}
+      <div className={cn("relative h-24 sm:h-44 overflow-hidden sm:rounded-2xl", BLEED)} style={{ background: accent }}>
         {preset
           ? <BannerPattern preset={preset} colour={accent} />
           : <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
       </div>
 
-      <div className="px-4 sm:px-8">
+      <div>
         <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4">
           {onAvatarClick ? (
             <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>

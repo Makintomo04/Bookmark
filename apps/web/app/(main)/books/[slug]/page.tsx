@@ -39,6 +39,9 @@ const DESCRIPTION_MAX = 160
 
 // One heading style for every section on the page.
 const sectionHeading = "font-display text-xl font-semibold"
+// Each section below the title sits on a surface a step lighter than the page (darker on the light theme):
+// one quiet tone, no border or shadow, so the sections read as groups without becoming a stack of cards.
+const panel = "rounded-2xl bg-neutral-100/70 dark:bg-neutral-900/60 p-5 sm:p-6"
 
 const summaryOf = (text: string) => {
   const flat = text.replace(/\s+/g, " ").trim()
@@ -110,10 +113,11 @@ const Page = async ({ params }: PageProps) => {
             />
           </div>
 
-          {/* Four groups, each with room around it: the book, what readers think, what it's about, and
-              the reviews and details. Inside a group things sit close; between groups, a clear break. */}
-          <div className="min-w-0 max-w-3xl flex flex-col gap-12 md:gap-14">
-            <header>
+          {/* The title block on the page itself, then each section on its own panel. Inside a panel things
+              sit close; the panels' edges do the separating, so the gaps between them stay small. */}
+          <div className="min-w-0 max-w-3xl flex flex-col gap-4 sm:gap-5">
+            {/* A little more room under the title block than between the panels. */}
+            <header className="mb-2 sm:mb-4">
               {series && <p className="mb-2"><SeriesEyebrow name={series.name} position={series.position} /></p>}
               <h1 className="page-title break-words">{book.title}</h1>
               <p className="mt-2 text-base"><AuthorLink author={book.author} /></p>
@@ -126,6 +130,7 @@ const Page = async ({ params }: PageProps) => {
             </header>
 
             {seriesTrack && (
+              <div className={panel}>
               <SeriesSection
                 track={seriesTrack}
                 workId={data.workId}
@@ -134,14 +139,15 @@ const Page = async ({ params }: PageProps) => {
                 returnTo={href}
                 headingClassName={sectionHeading}
               />
+              </div>
             )}
 
-            <div className="flex flex-col gap-8 empty:hidden">
+            <div className={`${panel} flex flex-col gap-8 empty:hidden`}>
               <RatingSummary summary={rating} />
               <BookPageReaders book={book} bookKey={key} />
             </div>
 
-            <section aria-labelledby="about-heading" className="flex flex-col gap-4">
+            <section aria-labelledby="about-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="about-heading" className={sectionHeading}>About this book</h2>
               {data.description
                 ? <BookBlurb description={data.description} isLoading={false} hideHeading className="max-w-2xl" />
@@ -150,7 +156,7 @@ const Page = async ({ params }: PageProps) => {
                 <ul aria-label="Genres" className="flex flex-wrap gap-1.5">
                   {genres.map((genre) => (
                     <li key={genre.slug}>
-                      <Link href={`/discover/genre/${genre.slug}`} className="inline-block rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-900">
+                      <Link href={`/discover/genre/${genre.slug}`} className="inline-block rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs font-medium hover:bg-neutral-200 dark:hover:bg-neutral-800">
                         {genre.label}
                       </Link>
                     </li>
@@ -159,10 +165,10 @@ const Page = async ({ params }: PageProps) => {
               )}
             </section>
 
-            <BookReviews bookKey={key} initial={reviews} headingClassName={sectionHeading} />
+            <div className={panel}><BookReviews bookKey={key} initial={reviews} headingClassName={sectionHeading} /></div>
 
             {lists.length > 0 && (
-              <section aria-labelledby="lists-heading" className="flex flex-col gap-4">
+              <section aria-labelledby="lists-heading" className={`${panel} flex flex-col gap-4`}>
                 <div className="flex items-baseline justify-between gap-4">
                   <h2 id="lists-heading" className={sectionHeading}>On readers&apos; lists</h2>
                   {onLists.length > BOOK_LISTS_SHOWN && (
@@ -176,7 +182,7 @@ const Page = async ({ params }: PageProps) => {
               </section>
             )}
 
-            <section aria-labelledby="details-heading" className="flex flex-col gap-4">
+            <section aria-labelledby="details-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="details-heading" className={sectionHeading}>Details</h2>
               <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-1.5 text-sm">
                 {book.year && <><dt className="text-muted-foreground">First published</dt><dd>{book.year}</dd></>}

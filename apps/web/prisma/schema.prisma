@@ -140,6 +140,8 @@ model User {
   reviewVisibility  ReviewVisibility?
   hideWantToRead    Boolean?
   hideFollowCounts  Boolean?
+  // Keep favourites off the profile for everyone else. Unset shows them (privacyRules.ts).
+  hideFavourites    Boolean?
   // A librarian hiding their Librarian badge (packages/shared/src/staffBadge.ts). The team's badge always shows.
   hideStaffBadge    Boolean?
   // Community preferences, optional for the same reason (EVERYONE, false, PRIVATE). See lib/preferences.ts.

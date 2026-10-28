@@ -1,5 +1,6 @@
 import { cache } from "react";
 import prisma from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { QUEST_MEDAL_PREFIX } from "@/lib/achievements-catalog";
 import { ladders } from "@bookmark/shared/medals";
 import { computeAchievementStats } from "@/lib/achievements";
@@ -58,6 +59,8 @@ async function loadProfileRecord(username: string) {
       _count: { select: { followers: true, following: true } },
       achievements: { where: { NOT: { key: { startsWith: QUEST_MEDAL_PREFIX } } }, select: { key: true, earnedAt: true } },
       authorFollows: { orderBy: { name: "asc" }, select: { name: true, slug: true } },
+      // Oldest first, as they were added; the profile shows the newest first.
+      favouriteIds: true,
     },
   });
   if (!user?.username) return null;
@@ -89,7 +92,24 @@ export type RestrictedReason =
 
 // The central serializer: the profile as this viewer may see it. Private books, Want to read, reviews
 // and follow counts are filtered here, so callers can't forget a rule.
-function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings) {
+type FavouriteBook = Prisma.BookGetPayload<{ select: typeof publicBookSelect & { isPrivate: true } }>;
+
+// The reader's favourites as this viewer may see them, newest first: none when they hide them (or the
+// viewer can't see the profile), and never a private book except to its reader.
+async function favouritesForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings) {
+  if (!record.favouriteIds.length || !canView(relation, privacy, "favourites")) return [];
+  const books: FavouriteBook[] = await prisma.book.findMany({
+    where: { userId: record.id, id: { in: record.favouriteIds } },
+    select: { ...publicBookSelect, isPrivate: true },
+  });
+  const byId = new Map(books.map((b) => [b.id, b]));
+  return record.favouriteIds.slice().reverse()
+    .flatMap((id) => { const b = byId.get(id); return b ? [b] : []; })
+    .filter((b) => !b.isPrivate || relation.isSelf)
+    .map(({ isPrivate, ...book }) => ({ ...book, isPrivate: !!isPrivate }));
+}
+
+function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings, favourites: Awaited<ReturnType<typeof favouritesForViewer>> = []) {
   const showWantToRead = canView(relation, privacy, "wantToRead");
   const showCounts = canView(relation, privacy, "followCounts");
   const books = record.books
@@ -120,6 +140,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     // null when hidden. The owner always gets them; ProfileHead hides the numbers itself.
     followerCount: showCounts ? record._count.followers : null,
     followingCount: showCounts ? record._count.following : null,
+    // Newest first. Empty when hidden from this viewer.
+    favourites,
   };
 }
 
@@ -141,7 +163,8 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
   const relation = await getRelation(viewerId, userId);
 
   if (canView(relation, privacy, "profile")) {
-    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy) };
+    const favourites = await favouritesForViewer(record, relation, privacy);
+    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy, favourites) };
   }
   const reason: RestrictedReason = relation.blocked === "byOwner" ? "unavailable"
     : relation.blocked === "byViewer" ? "blockedByViewer"
@@ -207,9 +230,11 @@ export { topMedals } from "@bookmark/shared/medals";
 
 // Plain JSON for client components and the API: dates as ISO strings, as the API has always sent them.
 export function serializeProfile(profile: PublicProfileData) {
-  return JSON.parse(JSON.stringify(profile)) as Omit<PublicProfileData, "createdAt" | "books" | "achievements"> & {
+  type Dated<T> = Omit<T, "createdAt" | "startedAt" | "completedAt"> & { createdAt: string; startedAt: string | null; completedAt: string | null };
+  return JSON.parse(JSON.stringify(profile)) as Omit<PublicProfileData, "createdAt" | "books" | "achievements" | "favourites"> & {
     createdAt: string;
-    books: (Omit<PublicBook, "createdAt" | "startedAt" | "completedAt"> & { createdAt: string; startedAt: string | null; completedAt: string | null })[];
+    books: Dated<PublicBook>[];
+    favourites: Dated<PublicProfileData["favourites"][number]>[];
     achievements: { key: string; earnedAt: string }[];
   };
 }

@@ -10,8 +10,9 @@ export const metadata: Metadata = {
 const Page = () => {
   return (
     <div className="mt-8 sm:mt-12">
-      <Container className="max-w-5xl">
-        <BuddyReadsList />
+      {/* The page's own width, but on the same left edge as the header and every other app page. */}
+      <Container>
+        <div className="max-w-5xl"><BuddyReadsList /></div>
       </Container>
     </div>
   )
