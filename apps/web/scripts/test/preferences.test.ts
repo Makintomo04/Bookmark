@@ -34,9 +34,17 @@ test("AI features: opt-in on free, on by default on Plus, and a choice sticks", 
 });
 
 test("reading circle invites follow the invitee's audience", () => {
-  const as = (buddyReadInvites: "EVERYONE" | "FOLLOWING" | "NOBODY") => preferencesOf({ buddyReadInvites });
-  assert.equal(acceptsBuddyReadInvite(as("EVERYONE"), false), true);
-  assert.equal(acceptsBuddyReadInvite(as("FOLLOWING"), true), true);
-  assert.equal(acceptsBuddyReadInvite(as("FOLLOWING"), false), false);
-  assert.equal(acceptsBuddyReadInvite(as("NOBODY"), true), false);
+  const as = (buddyReadInvites: "EVERYONE" | "FOLLOWING" | "FRIENDS" | "NOBODY") => preferencesOf({ buddyReadInvites });
+  const stranger = { inviteeFollowsInviter: false, friends: false };
+  const followed = { inviteeFollowsInviter: true, friends: false };
+  // Friends follow each other, so a friend is also someone the invitee follows.
+  const friend = { inviteeFollowsInviter: true, friends: true };
+  assert.equal(acceptsBuddyReadInvite(as("EVERYONE"), stranger), true);
+  assert.equal(acceptsBuddyReadInvite(as("FOLLOWING"), followed), true);
+  assert.equal(acceptsBuddyReadInvite(as("FOLLOWING"), stranger), false);
+  assert.equal(acceptsBuddyReadInvite(as("FRIENDS"), friend), true);
+  // Following someone isn't being their friend: they have to follow back.
+  assert.equal(acceptsBuddyReadInvite(as("FRIENDS"), followed), false);
+  assert.equal(acceptsBuddyReadInvite(as("FRIENDS"), stranger), false);
+  assert.equal(acceptsBuddyReadInvite(as("NOBODY"), friend), false);
 });

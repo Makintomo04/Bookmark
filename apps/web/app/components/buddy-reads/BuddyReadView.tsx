@@ -137,7 +137,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         </div>
 
         <aside className="flex flex-col gap-8 lg:sticky lg:top-6 lg:self-start">
-          {!archived && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} isHost={viewer.isHost} onLinkReset={() => mutate()} />}
+          {!archived && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))} isHost={viewer.isHost} onLinkReset={() => mutate()} />}
           <section className="flex flex-col gap-2 text-sm">
             <h2 className="font-semibold">How it works</h2>
             <p className="text-muted-foreground">

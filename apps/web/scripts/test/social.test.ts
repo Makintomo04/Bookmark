@@ -3,7 +3,7 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/social.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { followButtonLabel, needsFollowApproval } from "@/lib/followRules";
+import { areFriends, followButtonLabel, needsFollowApproval } from "@/lib/followRules";
 import { alertReport, reportAlertMessage, type ReportAlert } from "@/lib/reportAlerts";
 import { progressTriggers } from "@/lib/achievementTriggers";
 
@@ -21,6 +21,38 @@ test("the follow button says where the two stand", () => {
   assert.equal(followButtonLabel({ isFollowing: false, requested: true, needsApproval: true }), "Requested");
   assert.equal(followButtonLabel({ isFollowing: false, requested: false, needsApproval: true }), "Ask to follow");
   assert.equal(followButtonLabel({ isFollowing: false, requested: false, needsApproval: false }), "Follow");
+});
+
+test("friends are readers who follow each other, and the button says so", () => {
+  assert.equal(areFriends({ isFollowing: true, followsYou: true }), true);
+  assert.equal(areFriends({ isFollowing: true, followsYou: false }), false);
+  assert.equal(areFriends({ isFollowing: false, followsYou: true }), false);
+  assert.equal(followButtonLabel({ isFollowing: true, requested: false, needsApproval: false, followsYou: true }), "Friends");
+  assert.equal(followButtonLabel({ isFollowing: false, requested: false, needsApproval: false, followsYou: true }), "Follow back");
+  // Following back someone whose profile needs approval still asks.
+  assert.equal(followButtonLabel({ isFollowing: false, requested: false, needsApproval: true, followsYou: true }), "Ask to follow");
+  assert.equal(followButtonLabel({ isFollowing: false, requested: true, needsApproval: true, followsYou: true }), "Requested");
+});
+
+test("a private profile is for approved followers, hidden from feeds", async () => {
+  const { canView, privacyOf, visibleReview } = await import("@/lib/privacyRules");
+  const stranger = { isSelf: false, isFollower: false, blocked: null };
+  const follower = { isSelf: false, isFollower: true, blocked: null };
+  const owner = { isSelf: true, isFollower: false, blocked: null };
+  const priv = privacyOf({ profileVisibility: "PRIVATE" });
+  assert.equal(canView(stranger, priv, "profile"), false);
+  assert.equal(canView(follower, priv, "profile"), true);
+  assert.equal(canView(follower, priv, "reviews"), true);
+  assert.equal(canView(follower, priv, "activity"), false);
+  assert.equal(canView({ ...follower, blocked: "byOwner" as const }, priv, "profile"), false);
+  // Followers only still shows activity to followers.
+  assert.equal(canView(follower, privacyOf({ profileVisibility: "FOLLOWERS" }), "activity"), true);
+  // A private reader's reviews follow their review setting, so the owner isn't told they're hidden.
+  const review = { review: "Loved it", reviewSpoiler: false, reviewPrivate: false };
+  assert.equal(visibleReview(review, owner, priv).reviewHidden, false);
+  assert.equal(visibleReview(review, follower, priv).review, "Loved it");
+  assert.equal(visibleReview(review, stranger, priv).review, null);
+  assert.equal(visibleReview(review, owner, privacyOf({ profileVisibility: "PRIVATE", reviewVisibility: "ONLY_ME" })).reviewHidden, true);
 });
 
 const ALERT: ReportAlert = {

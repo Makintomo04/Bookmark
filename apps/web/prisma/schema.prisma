@@ -215,6 +215,8 @@ enum BuddyReadInviteAudience {
   EVERYONE
   // Only readers they follow.
   FOLLOWING
+  // Only their friends: readers they follow who follow them back (lib/friends.ts).
+  FRIENDS
   NOBODY
 }
 

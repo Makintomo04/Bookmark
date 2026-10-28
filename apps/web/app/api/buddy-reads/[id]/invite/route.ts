@@ -7,6 +7,7 @@ import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { BUDDY_READ_MAX_MEMBERS } from "@/lib/buddyReads";
 import { acceptsBuddyReadInvite, preferencesOf, preferencesSelect } from "@/lib/preferences";
 import { buddyReadError, isBlockedEitherWay, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { areFriends } from "@/lib/friends";
 
 const inviteSchema = z.object({ username: z.string().trim().min(1, "Enter a username").max(60) });
 
@@ -33,10 +34,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
   if (invitee.id === currentUser.id) return buddyReadError("You're already here.", 400);
 
+  // Only the lookup their audience needs: a follow for FOLLOWING, follows both ways for FRIENDS.
   const preferences = preferencesOf(invitee);
-  const followsInviter = preferences.buddyReadInvites === "FOLLOWING"
+  const inviteeFollowsInviter = preferences.buddyReadInvites === "FOLLOWING"
     && !!(await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: invitee.id, followingId: currentUser.id } }, select: { id: true } }));
-  if (!acceptsBuddyReadInvite(preferences, followsInviter)) {
+  const friends = preferences.buddyReadInvites === "FRIENDS" && (await areFriends(invitee.id, currentUser.id));
+  if (!acceptsBuddyReadInvite(preferences, { inviteeFollowsInviter, friends })) {
     return buddyReadError("They aren't taking invites from you. Send them the invite link instead.", 403);
   }
 

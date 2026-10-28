@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Ellipsis, Lock } from "lucide-react-native";
 import { progressWhole } from "@bookmark/shared/progress";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { followButtonLabel } from "@bookmark/shared/followRules";
 import { BookCover } from "@/components/books/BookCover";
 import { StarRating } from "@/components/books/StarRating";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
@@ -57,6 +58,8 @@ type Profile = {
   restricted: null | "followers" | "private" | "blockedByViewer";
   isFollowing: boolean;
   requested: boolean;
+  // They follow you: "Follow back", and "Friends" once you follow each other (shared followRules.ts).
+  followsYou?: boolean;
   isSelf: boolean;
   isBlocked: boolean;
 };
@@ -143,7 +146,7 @@ function Actions({ profile, onChange }: { profile: Profile; onChange: () => void
   };
 
   if (profile.isBlocked) return null;
-  const followTitle = profile.isFollowing ? "Following" : profile.requested ? "Requested" : profile.restricted ? "Ask to follow" : "Follow";
+  const followTitle = followButtonLabel({ isFollowing: profile.isFollowing, requested: profile.requested, needsApproval: !!profile.restricted, followsYou: profile.followsYou ?? false });
   return (
     <View style={{ gap: 8 }}>
       <View style={styles.row}>
@@ -199,7 +202,7 @@ function Restricted({ profile }: { profile: Profile }) {
     <View style={styles.locked}>
       <Lock size={18} color={colors.mutedForeground} />
       <Text variant="muted" style={{ flex: 1 }}>
-        {profile.restricted === "followers" ? `${profile.username} shares their shelf with followers. Ask to follow to see it.` : `${profile.username} keeps their shelf private.`}
+        {profile.restricted === "followers" ? `${profile.username} shares their shelf with followers. Ask to follow to see it.` : `${profile.username} keeps their profile private. Ask to follow: if they accept, you'll see their shelf and reviews.`}
       </Text>
     </View>
   );

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { hasRequested } from '@/lib/followRequests'
+import { restrictedViewerFlags } from '@/lib/friends'
 import { getAchievementsView, getPublicProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
@@ -44,7 +44,7 @@ export default async function Page({ params }: PageProps) {
       <RestrictedProfile
         profile={data.profile}
         reason={data.reason}
-        viewer={viewer ? { isFollowing: data.relation.isFollower, requested: await hasRequested(viewer.id, data.userId) } : null}
+        viewer={viewer ? await restrictedViewerFlags(viewer.id, data.userId, data.relation) : null}
       />
     )
   } else {

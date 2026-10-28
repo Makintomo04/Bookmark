@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { hasRequested } from '@/lib/followRequests'
+import { restrictedViewerFlags } from '@/lib/friends'
 import { getProfileView, getPublicProfile } from '@/lib/publicProfile'
 import { SHELF_SLUG, SHELF_STATUS, SHELF_TITLE, shelfFromSlug, sortBooks, type ShelfKey } from '@/lib/shelfFilter'
 import Container from '@/app/components/Container'
@@ -47,7 +47,7 @@ export default async function Page({ params }: PageProps) {
       <RestrictedProfile
         profile={data.profile}
         reason={data.reason}
-        viewer={viewer ? { isFollowing: data.relation.isFollower, requested: await hasRequested(viewer.id, data.userId) } : null}
+        viewer={viewer ? await restrictedViewerFlags(viewer.id, data.userId, data.relation) : null}
       />
     )
   } else {
