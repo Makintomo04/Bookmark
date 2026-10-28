@@ -14,11 +14,12 @@ const Header: FC = () => {
           <Image src='/logo.svg' width={28} height={28} alt='' />
           <span className="font-bold text-2xl">Bookmark</span>
         </Link>
-        {/* The text links need a tablet-width screen (md) beside the wordmark: narrower than that they slid under it, so
-            the menu carries them instead. Tighter between tablet and laptop widths, so they stay on one line. */}
+        {/* Discover stays from sm: it is where to look a book up. Stats and Reading circles need a tablet-width screen (md):
+            narrower than that the three slid under the wordmark, so the menu carries them. Tighter between tablet and
+            laptop widths, so they stay on one line. */}
         <div className="flex items-center gap-2 md:gap-1 lg:gap-4">
           {/* The search icon says this is where to look a book up. */}
-          <Link href="/discover" className="hidden md:inline-flex h-9 items-center gap-1.5 px-2.5 lg:px-3 whitespace-nowrap rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Link href="/discover" className="hidden sm:inline-flex h-9 items-center gap-1.5 px-2.5 lg:px-3 whitespace-nowrap rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Search size={16} aria-hidden />
             Discover
           </Link>
