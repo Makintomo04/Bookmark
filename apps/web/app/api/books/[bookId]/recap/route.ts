@@ -31,7 +31,8 @@ const noStore = { "Cache-Control": "private, no-store" };
 const postSchema = z.object({ kind: z.enum(["RESUME", "SERIES"]) });
 const patchSchema = z.object({ recapId: z.string().refine(isObjectId), vote: z.enum(["UP", "DOWN"]).nullable() });
 
-export async function GET(_req: Request, { params }: { params: { bookId: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user, response } = await requireUser();
   if (response) return response;
   if (!isObjectId(params.bookId)) return NextResponse.json({ error: "Book not found" }, { status: 404 });
@@ -43,7 +44,8 @@ export async function GET(_req: Request, { params }: { params: { bookId: string 
   return NextResponse.json({ ...state, allowance }, { headers: noStore });
 }
 
-export async function POST(req: Request, { params }: { params: { bookId: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user, response } = await requireUser();
   if (response) return response;
   if (!isObjectId(params.bookId)) return NextResponse.json({ error: "Book not found" }, { status: 404 });
@@ -88,7 +90,8 @@ export async function POST(req: Request, { params }: { params: { bookId: string 
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { bookId: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user, response } = await requireUser();
   if (response) return response;
   if (!isObjectId(params.bookId)) return NextResponse.json({ error: "Book not found" }, { status: 404 });

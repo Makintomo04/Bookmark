@@ -9,7 +9,11 @@ export const maxDuration = 30
 
 // The 1080×1920 story image, as a download. The owner can always get theirs; anyone else only
 // while the Wrapped is public.
-export async function GET(_req: Request, { params }: { params: { username: string; year: string } }) {
+export async function GET(
+  _req: Request,
+  props: { params: Promise<{ username: string; year: string }> }
+) {
+  const params = await props.params;
   const year = parseWrappedYear(params.year)
   const owner = year ? await getWrappedOwner(handleOf(params.username)) : null
   if (!year || !owner) return new Response('Not found', { status: 404 })

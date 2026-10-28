@@ -7,10 +7,11 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  searchParams: { bookId?: string }
+  searchParams: Promise<{ bookId?: string }>
 }
 
-const Page = ({ searchParams }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const searchParams = await props.searchParams;
   return (
     <div className={PAGE_TOP}>
       {/* Wide: the form keeps its fields to the narrow column, and its button row spans the page. */}

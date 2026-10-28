@@ -14,10 +14,11 @@ import { reviewedBooks } from '@/lib/reviewedBooks'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
-  params: { username: string }
+  params: Promise<{ username: string }>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const data = await getPublicProfile(handleOf(params.username))
   if (!data) return { title: "Reader not found", robots: { index: false } }
   return { title: `${readerName(data.profile)}'s reviews`, robots: { index: false } }
@@ -26,7 +27,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // Every review a reader has written that the viewer may read, where the reviews stat under their name
 // leads. The profile payload has already applied their review privacy (lib/publicProfile.ts visibleReview);
 // a reader sees their own private reviews here, labelled as hidden from everyone else.
-export default async function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   const viewer = await getCurrentUser()
   const data = await getProfileView(profileHandle(params.username, "/reviews"), viewer?.id)
   if (!data) notFound()

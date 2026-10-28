@@ -2,10 +2,11 @@ import { requirePermission } from "@/lib/apiAuth";
 import { jsonBody, staffAnswer } from "@/lib/staffRoute";
 import { setRole } from "@/lib/staffUsers";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 // Body: { role: "READER" | "LIBRARIAN" | "ADMIN" }. Not on yourself or another admin (roles.ts canActOn).
-export async function PUT(req: Request, { params }: Params) {
+export async function PUT(req: Request, props: Params) {
+  const params = await props.params;
   const { user, response } = await requirePermission("roles.assign");
   if (response) return response;
   return staffAnswer(await setRole(user, params.id, await jsonBody(req)));

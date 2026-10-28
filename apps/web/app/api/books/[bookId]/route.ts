@@ -9,8 +9,8 @@ import { shareableCover } from "@/lib/uploads";
 
 // A new cover is copied to UploadThing afterwards, by ./cover.
 
-export async function GET( request: Request,
-  { params }: { params: { bookId: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const bookId = params.bookId
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
@@ -28,8 +28,8 @@ export async function GET( request: Request,
   }
   return NextResponse.json(book)
 }
-export async function PATCH( request: Request,
-  { params }: { params: { bookId: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const bookId = params.bookId
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
@@ -127,8 +127,8 @@ export async function PATCH( request: Request,
   })
   return NextResponse.json(updatedBook)
 }
-export async function DELETE( request: Request,
-  { params }: { params: { bookId: string } }) {
+export async function DELETE(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const bookId = params.bookId
 
   const { user: currentUser, response } = await requireUser();

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/apiAuth";
 import { copyList } from "@/lib/lists";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 // "Copy to my lists": makes a private remix of someone else's public list.
-export async function POST(req: Request, { params }: Params) {
+export async function POST(req: Request, props: Params) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser("Sign in to copy this list.");
   if (response) return response;
   const result = await copyList(params.id, currentUser);

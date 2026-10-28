@@ -12,7 +12,7 @@ import { progressLabel, seriesHref, seriesSlug } from '@/lib/series'
 import { authorSeriesBySlug, seriesOnPage } from '@/lib/seriesFollows'
 
 interface PageProps {
-  params: { slug: string, series: string }
+  params: Promise<{ slug: string, series: string }>
 }
 
 const decode = (param: string) => {
@@ -23,14 +23,15 @@ const decode = (param: string) => {
   }
 }
 
-async function findSeriesPage(params: PageProps['params'], userId: string | null) {
+async function findSeriesPage(params: Awaited<PageProps['params']>, userId: string | null) {
   const author = await findAuthor(decode(params.slug))
   if (!author) return null
   const series = await authorSeriesBySlug(author, decode(params.series), userId)
   return series && { author, series }
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const found = await findSeriesPage(params, null)
   if (!found) return {}
   const { name, author } = found.series
@@ -42,7 +43,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 // A series' own page, from its author's page: its books in reading order, each ready to shelve, and
 // Follow series. Open to everyone; signed in, it marks where the reader is.
-const Page = async ({ params }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const params = await props.params;
   const slug = decode(params.slug)
   const seriesParam = decode(params.series)
   // A hand-typed or old link goes to the one canonical address.

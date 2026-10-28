@@ -9,7 +9,8 @@ const bodySchema = z.object({ name: z.string().trim().max(RECOMMENDED_BY_MAX, `K
 
 // Sets who recommended a book as free text (a friend who isn't on Bookmark, a podcast, a shop). Typing over
 // a Bookmark recommender replaces them; an empty name clears it. Only the reader ever sees this.
-export async function PUT(req: Request, { params }: { params: { bookId: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   if (!isObjectId(params.bookId)) return NextResponse.json({ error: "No Book Found" }, { status: 404 });

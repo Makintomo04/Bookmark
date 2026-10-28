@@ -16,13 +16,14 @@ import PublicShelf from '@/app/components/profile-head/PublicShelf'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
-  params: { username: string; shelf: string }
+  params: Promise<{ username: string; shelf: string }>
 }
 
 // The shelves a profile shows to others (lib/publicProfile.ts loads only these). The rest are the owner's.
 const PUBLIC_SHELVES: ShelfKey[] = ["reading", "finished", "want"]
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const shelf = shelfFromSlug(params.shelf)
   const data = await getPublicProfile(handleOf(params.username))
   if (!data || !shelf) return { title: "Shelf not found", robots: { index: false } }
@@ -36,7 +37,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 // One shelf on its own page, where a profile's "See all" leads. The owner gets the shelf's search, sort,
 // filters and select mode; anyone else sees the shelf read-only, behind the profile's own privacy.
-export default async function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   const shelf = shelfFromSlug(params.shelf)
   if (!shelf) notFound()
   const viewer = await getCurrentUser()

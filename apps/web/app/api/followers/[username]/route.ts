@@ -6,7 +6,8 @@ import { removeFollower } from "@/lib/followRequests";
 
 // Removes `username` from the signed-in reader's followers. They aren't told; following again needs
 // approval if the profile isn't public.
-export async function DELETE(_req: Request, { params }: { params: { username: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ username: string }> }) {
+  const params = await props.params;
   const { user, response } = await requireUser();
   if (response) return response;
   const follower = await findUserByUsername(handleOf(params.username), { id: true });

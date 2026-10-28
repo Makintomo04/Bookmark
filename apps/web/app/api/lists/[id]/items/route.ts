@@ -4,10 +4,11 @@ import { requireUser } from "@/lib/apiAuth";
 import { LIST_ITEMS_MAX } from "@/lib/lists";
 import { normaliseWorkKey, sameBook } from "@/lib/workKey";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 // Appends one book to the end of a list the reader owns, so "Add to list" doesn't need the whole list.
-export async function POST(req: Request, { params }: Params) {
+export async function POST(req: Request, props: Params) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser("Sign in to add to a list.");
   if (response) return response;
   if (!/^[0-9a-f]{24}$/i.test(params.id)) {

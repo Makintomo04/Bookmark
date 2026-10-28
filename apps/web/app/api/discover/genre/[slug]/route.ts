@@ -7,7 +7,8 @@ import { withCatalogueFixesOrAsIs } from "@/lib/curatedBooks";
 
 // One genre's page (/discover/genre/<slug>) for the mobile app: team picks then readers' lists, and
 // what's trending in the genre on Open Library.
-export async function GET(_req: Request, { params }: { params: { slug: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const genre = genreBySlug(params.slug);
   if (!genre) return NextResponse.json({ error: "Genre not found" }, { status: 404 });
   const viewer = await getCurrentUser();

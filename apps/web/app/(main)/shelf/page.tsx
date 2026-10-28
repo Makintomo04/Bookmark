@@ -3,12 +3,13 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import { parseShelfParams, shelfPageHref, shelfParams } from '@/lib/shelfFilter'
 
 interface PageProps {
-  searchParams: Record<string, string | string[] | undefined>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 // A stable link to "your shelf, filtered": /stats and Ask the shelf link here without knowing the
 // reader's username. Only the shelf's own params carry over (lib/shelfFilter.ts).
-export default async function Page({ searchParams }: PageProps) {
+export default async function Page(props: PageProps) {
+  const searchParams = await props.searchParams;
   const filter = parseShelfParams({ get: (name) => {
     const v = searchParams[name]
     return typeof v === 'string' ? v : null

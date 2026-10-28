@@ -12,7 +12,8 @@ export const metadata: Metadata = {
 
 // What the people you follow are reading, and, on its own tab, every notification (where the bell's menu
 // ends with "See all notifications"). /notifications redirects here with ?tab=notifications.
-export default async function Page({ searchParams }: { searchParams: { tab?: string } }) {
+export default async function Page(props: { searchParams: Promise<{ tab?: string }> }) {
+  const searchParams = await props.searchParams;
   const tab = parseFeedTab(searchParams?.tab)
   const user = await getCurrentUser()
   if (!user) redirect(`/signin?callbackUrl=${encodeURIComponent(feedTabHref(tab))}`)

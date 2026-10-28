@@ -11,7 +11,7 @@ import { getProfileView } from '@/lib/publicProfile'
 import { primaryButtonClass, secondaryButtonClass } from '@/app/components/profile-head/ProfileHeader'
 
 interface PageProps {
-  params: { username: string; medal: string }
+  params: Promise<{ username: string; medal: string }>
 }
 
 // One medal a reader has earned, as a link unfurls to: the celebration's Share button points here.
@@ -23,7 +23,8 @@ async function loadMedal(username: string, slug: string, viewerId: string | null
   return medal ? { username: view.profile.username, name: readerName(view.profile), own: view.relation.isSelf, ...medal } : null
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   // Metadata is what crawlers read, so it answers as a signed-out visitor would.
   const data = await loadMedal(handleOf(params.username), params.medal, null)
   if (!data) return { title: 'Medal not found', robots: { index: false } }
@@ -44,7 +45,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   const viewer = await getCurrentUser()
   const data = await loadMedal(profileHandle(params.username, `/medals/${params.medal}`), params.medal, viewer?.id ?? null)
   if (!data) notFound()

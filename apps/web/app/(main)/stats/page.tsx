@@ -14,10 +14,11 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  searchParams: { year?: string }
+  searchParams: Promise<{ year?: string }>
 }
 
-const Page = async ({ searchParams }: PageProps) => {
+const Page = async (props: PageProps) => {
+  const searchParams = await props.searchParams;
   const user = await getCurrentUser()
   if (!user) redirect('/signin?callbackUrl=/stats')
 

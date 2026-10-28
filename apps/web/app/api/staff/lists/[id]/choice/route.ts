@@ -4,11 +4,12 @@ import { requirePermission } from "@/lib/apiAuth";
 import { logStaffAction } from "@/lib/staffLog";
 import { isObjectId } from "@/lib/staffUsers";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 // Editors' choice (lib/genreListRules.ts): puts a reader's public list at the front of its genres'
 // pages on Discover. POST chooses it, DELETE takes it off. Not for Bookmark Picks, which are the team's own.
-async function setChoice(req: Request, { params }: Params, chosen: boolean) {
+async function setChoice(req: Request, props: Params, chosen: boolean) {
+  const params = await props.params;
   const { user, response } = await requirePermission("lists.curate");
   if (response) return response;
   const list = isObjectId(params.id)

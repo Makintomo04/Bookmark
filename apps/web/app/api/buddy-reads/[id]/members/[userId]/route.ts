@@ -7,7 +7,8 @@ import { buddyReadError, canInheritAnotherCircle, handOverHosting, isObjectId, p
 // The host removes a member, or a member leaves. A host leaves by handing the circle to another member
 // (?newHost=<userId>); the only reader left can't leave, they archive it instead. Whoever leaves keeps
 // their comments, under their name. A removal sticks: the invite link won't let them back in.
-export async function DELETE(req: Request, { params }: { params: { id: string, userId: string } }) {
+export async function DELETE(req: Request, props: { params: Promise<{ id: string, userId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);
@@ -53,7 +54,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string, u
 
 // A member mutes or unmutes the circle for themselves: no comment notifications while muted, bell or
 // push. Invites, joins and hosting changes still arrive.
-export async function PATCH(req: Request, { params }: { params: { id: string, userId: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string, userId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   if (params.userId !== currentUser.id) return buddyReadError("You can only mute a reading circle for yourself.", 403);

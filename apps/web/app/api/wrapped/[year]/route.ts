@@ -5,7 +5,8 @@ import { getWrapped, getWrappedOwner, getWrappedYears, parseWrappedYear } from "
 
 // A year's Wrapped for the mobile app: your own, or ?username=<name> for someone else's, with the same
 // privacy check as /u/<username>/wrapped/<year>.
-export async function GET(req: Request, { params }: { params: { year: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ year: string }> }) {
+  const params = await props.params;
   const year = parseWrappedYear(params.year);
   if (!year) return NextResponse.json({ error: "There's no Wrapped for that year yet." }, { status: 404 });
   const viewer = await getCurrentUser();

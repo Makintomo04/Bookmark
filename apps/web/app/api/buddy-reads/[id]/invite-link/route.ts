@@ -6,7 +6,8 @@ import { buddyReadError, newInviteCode, requireMembership } from "@/lib/buddyRea
 
 // Host only: a new invite link. The old one stops working at once; everyone already in stays, and
 // invites sent by username still work (they look the code up when opened).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);

@@ -8,15 +8,17 @@ import WrappedView from '@/app/components/wrapped/WrappedView'
 import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/accent'
 
 interface PageProps {
-  params: { year: string }
+  params: Promise<{ year: string }>
 }
 
-export function generateMetadata({ params }: PageProps): Metadata {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   return { title: `Your ${params.year} Wrapped`, robots: { index: false } }
 }
 
 // The signed-in reader's own Wrapped. The shareable copy lives at /u/<username>/wrapped/<year>.
-export default async function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   const year = parseWrappedYear(params.year)
   if (!year) notFound()
   const user = await getCurrentUser()

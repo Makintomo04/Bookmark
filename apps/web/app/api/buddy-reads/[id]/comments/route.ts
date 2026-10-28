@@ -8,7 +8,8 @@ import { buddyReadError, isObjectId, notifyNewComment, parseBody, requireMembers
 // Posts a comment pinned to a point in the book: the author's progress, or lower if they say so.
 // A reply sits with its parent (or later), and you can only reply to what you can read. Members who've
 // already read that far are told about it (notifyNewComment).
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);

@@ -6,7 +6,8 @@ import { buddyReadError, canHostAnotherCircle, canInheritAnotherCircle, hostingR
 
 // The reading circle page polls this. Comments past the viewer's progress come back as locked stubs.
 // Having it open marks the circle's comment notifications read.
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
@@ -17,7 +18,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // Host only: the start date, the schedule, and finishing or archiving it.
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);

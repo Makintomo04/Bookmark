@@ -15,7 +15,8 @@ async function pageBook(param: string) {
 }
 
 // The friends this book can be sent to.
-export async function GET(_req: Request, { params }: { params: { bookKey: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ bookKey: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const data = await pageBook(params.bookKey);
@@ -23,7 +24,8 @@ export async function GET(_req: Request, { params }: { params: { bookKey: string
   return NextResponse.json({ friends: await recommendFriends(currentUser.id, data.book) });
 }
 
-export async function POST(req: Request, { params }: { params: { bookKey: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ bookKey: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 

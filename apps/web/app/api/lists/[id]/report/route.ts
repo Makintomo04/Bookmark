@@ -7,7 +7,8 @@ import { alertReport } from "@/lib/reportAlerts";
 import { Prisma } from "@prisma/client";
 
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser("Sign in to report a list.");
   if (response) return response;
   const list = await findList(params.id, currentUser);

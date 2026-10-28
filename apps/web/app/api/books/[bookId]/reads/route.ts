@@ -15,7 +15,8 @@ async function ownBook(bookId: string, userId: string) {
 }
 
 // A book's read history, oldest first. Owner only, like the book itself.
-export async function GET(request: Request, { params }: { params: { bookId: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const owned = await ownBook(params.bookId, currentUser.id);
@@ -39,7 +40,8 @@ const pastReadSchema = z.object({
 
 // Logs a past read: a re-read from years ago, or a finish the reader forgot to record. It goes into the
 // history at its dates, and the book's read count, dates and stats follow.
-export async function POST(request: Request, { params }: { params: { bookId: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ bookId: string }> }) {
+  const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const owned = await ownBook(params.bookId, currentUser.id);
