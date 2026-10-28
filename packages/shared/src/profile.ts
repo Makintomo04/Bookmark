@@ -1,5 +1,7 @@
 // Shared by the Edit Profile form, onboarding and /api/user so the limits can't drift apart.
-export const USERNAME_MIN = 2
+// Three, so a /u/ address is a name rather than an initial. Names from before a rule was added can be kept
+// (see /api/user); a new or changed one has to meet them all.
+export const USERNAME_MIN = 3
 export const USERNAME_MAX = 30
 export const BIO_MAX = 300
 
