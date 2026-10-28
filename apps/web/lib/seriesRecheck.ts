@@ -2,43 +2,55 @@ import prisma from "@/lib/db"
 import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf } from "@/lib/hardcover"
 import { seriesKey } from "@/lib/series"
 import { fileSeriesBooks } from "@/lib/seriesFill"
-import { recordSeriesCheck, type SeriesId } from "@/lib/seriesNews"
+import { highestPosition, recordSeriesCheck, sendSeriesNews, type SeriesId } from "@/lib/seriesNews"
 
-// The daily cron's work (app/api/cron/series), in two parts:
+// The hourly cron's work (app/api/cron/series), in three parts:
 //
-// 1. The weekly re-check: asks Hardcover again about series someone follows or has started, a week or more
-//    since they were last asked, files any book released since, and tells their readers (lib/seriesNews.ts).
-//    A fill only ever asks about a work once, so without this a book that comes out later would only reach
-//    the catalogue if someone happened to shelve it.
-// 2. Recording series nobody had recorded: a series whose books were filled before new-book notifications
-//    existed, or that nobody followed or read then, has no SeriesCheck, so the re-check doesn't know it.
-//    Once someone follows it or is reading it, it's recorded here (nobody is told: its books are the
-//    starting point).
+// 1. Queueing series nobody has recorded: once someone follows a series, or starts a book in it, it gets a
+//    SeriesCheck, due at once, from the catalogue's books alone. Only the last day's follows and reading
+//    are looked at, so this stays small however many readers there are; scripts/backfill-series-checks.ts
+//    queues the rest of history.
+// 2. The weekly re-check: asks Hardcover again about series someone follows or has started, a week or more
+//    since they were last asked, files any book released since, and queues it for its readers
+//    (lib/seriesNews.ts). A fill only ever asks about a work once, so without this a book that comes out
+//    later would only reach the catalogue if someone happened to shelve it. A series Hardcover hasn't known
+//    so far (a newly queued one, say) is looked up instead, and nobody is told: its books are the starting
+//    point.
+// 3. Telling readers about queued books, in batches, with the time left.
 //
-// A re-check costs one Hardcover request, a recording four. Both are paced under Hardcover's 60 a minute
-// and stop at a deadline, so a run fits in a serverless function; what's left goes first the next day.
+// A re-check costs one Hardcover request, a lookup four. A run spends at most RUN_REQUESTS, paced at half
+// Hardcover's 60 a minute so readers' searches still get through, and stops at a deadline so it ends
+// inside its function's time; what's left goes first the next hour.
 
 export const RECHECK_AFTER_DAYS = 7
-// Books read in this long are where newly started series are found. Followed series are found however
-// long ago they were followed. scripts/backfill-series-checks.ts records the rest of history.
-export const ACTIVE_DAYS = 7
-const DAY_MS = 24 * 60 * 60 * 1000
-// Per Hardcover request, a little over its 60 a minute.
-const PACE_MS = 1100
+// Follows and reading this recent are where new series are found. Longer than the hour between runs, so a
+// run that fails or is skipped loses nothing.
+export const ACTIVE_HOURS = 24
+const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
+// Per Hardcover request: 30 a minute, half its limit.
+const PACE_MS = 2000
+// Hardcover requests a run may spend: 24 runs a day is at most 1,440 of its 5,000 a day.
+export const RUN_REQUESTS = 60
 const LOOKUP_REQUESTS = 4
 const STARTED = ["STARTED", "COMPLETED", "PAUSED"] as const
 // A book that counts as reading the series: one being read, finished, on hold, or read before.
 const startedWhere = { OR: [{ status: { in: [...STARTED] } }, { timesRead: { gt: 0 } }] }
 
 export interface RecheckResult {
+  // Series recorded for the first time, to be looked up on Hardcover.
+  queued: number
   checked: number
   // Due, but nobody follows or has started them: put back a week without asking Hardcover.
   passedOver: number
-  newBooks: number
-  told: number
-  // Series recorded for the first time, and how many of those (or of re-checks) Hardcover didn't know.
-  recorded: number
+  // Lookups Hardcover didn't know the series for.
   notOnHardcover: number
+  newBooks: number
+  // Readers told, and series whose readers aren't all told yet (they carry on next run).
+  told: number
+  announcing: number
+  // Hardcover requests spent.
+  requests: number
   // Set when Hardcover failed and the run stopped early.
   stoppedBy?: string
 }
@@ -61,6 +73,9 @@ async function worksBySeries(names: string[]) {
   }
   return bySeries
 }
+
+const byPosition = <T extends { seriesPosition: number | null }>(works: T[]) =>
+  [...works].sort((a, b) => (a.seriesPosition ?? Infinity) - (b.seriesPosition ?? Infinity))
 
 // The series among `due` that someone follows or has a started book in.
 async function wantedKeys(due: { seriesKey: string, name: string }[]) {
@@ -89,10 +104,15 @@ export interface UnrecordedSeries extends SeriesId {
   works: { title: string, seriesPosition: number | null }[]
 }
 
-// Series someone follows, or has a started book in, with no SeriesCheck. `activeSince` narrows the started
-// ones to books started, finished or read on since then (the cron); without it, all of history (the backfill).
+// Series someone follows, or has a started book in, with no SeriesCheck. `activeSince` narrows them to
+// follows made, and books started, finished or read on, since then (the cron); without it, all of history
+// (the backfill).
 export async function unrecordedSeries({ activeSince }: { activeSince?: Date } = {}): Promise<UnrecordedSeries[]> {
-  const follows = await prisma.seriesFollow.findMany({ select: { seriesKey: true, name: true }, distinct: ["seriesKey"] })
+  const follows = await prisma.seriesFollow.findMany({
+    where: activeSince && { createdAt: { gte: activeSince } },
+    select: { seriesKey: true, name: true },
+    distinct: ["seriesKey"],
+  })
   const read = await prisma.book.findMany({
     where: {
       workId: { not: null },
@@ -114,15 +134,41 @@ export async function unrecordedSeries({ activeSince }: { activeSince?: Date } =
   const keys = Array.from(wanted).filter((key) => bySeries.has(key))
   const recorded = new Set((await prisma.seriesCheck.findMany({ where: { seriesKey: { in: keys } }, select: { seriesKey: true } })).map((c) => c.seriesKey))
   return keys.filter((key) => !recorded.has(key)).map((key) => {
-    const works = [...bySeries.get(key)!].sort((a, b) => (a.seriesPosition ?? Infinity) - (b.seriesPosition ?? Infinity))
+    const works = byPosition(bySeries.get(key)!)
     return { key, name: works[0].seriesName!, author: works[0].authors[0], works: works.map((w) => ({ title: w.title, seriesPosition: w.seriesPosition })) }
   })
 }
 
-// Records a series for the first time: Hardcover's id and the furthest book out, or, when Hardcover doesn't
-// know it, the catalogue's furthest book (looked up again at its weekly check). Nobody is told. Four
-// Hardcover requests; throws like lib/hardcover.ts. Returns whether Hardcover knew it.
-export async function recordExistingSeries(series: UnrecordedSeries, now = new Date()): Promise<boolean> {
+// Records series for the first time from the catalogue's books, due at once, so the re-check looks them up
+// on Hardcover. No Hardcover requests. Returns how many were recorded.
+export async function queueSeries(series: UnrecordedSeries[], now = new Date()): Promise<number> {
+  let queued = 0
+  for (const s of series) {
+    try {
+      await prisma.seriesCheck.create({
+        data: {
+          seriesKey: s.key,
+          name: s.name,
+          author: s.author,
+          hardcoverSeriesId: null,
+          highestPosition: highestPosition(s.works.map((w) => w.seriesPosition)),
+          // Due now, behind anything already overdue.
+          checkedAt: new Date(now.getTime() - RECHECK_AFTER_DAYS * DAY_MS),
+        },
+      })
+      queued++
+    } catch (err) {
+      // Recorded meanwhile, by a fill.
+      if ((err as { code?: string }).code !== "P2002") throw err
+    }
+  }
+  return queued
+}
+
+// Looks up a series Hardcover hasn't known so far: its id and the furthest book out, or the catalogue's
+// furthest book again when it still doesn't know it. Nobody is told. Four Hardcover requests; throws like
+// lib/hardcover.ts. Returns whether Hardcover knew it.
+export async function lookUpSeries(series: UnrecordedSeries, now = new Date()): Promise<boolean> {
   const catalogue = series.works.map((w) => w.seriesPosition)
   const found = await hardcoverSeriesOf(series.works[0].title, series.author)
   const books = found ? await hardcoverSeriesBooks(found.id, series.author, now) : []
@@ -130,28 +176,47 @@ export async function recordExistingSeries(series: UnrecordedSeries, now = new D
   return !!found
 }
 
-export async function recheckSeries({ limit = 40, now = new Date(), pace = PACE_MS, deadline = Date.now() + 50_000 }: {
-  limit?: number
+export async function recheckSeries({ now = new Date(), pace = PACE_MS, requests = RUN_REQUESTS, deadline = Date.now() + 150_000, sendBy = Date.now() + 260_000 }: {
   now?: Date
   pace?: number
-  // When to stop starting Hardcover requests (ms since the epoch), so the run ends inside its function's time.
+  // Hardcover requests to spend at most.
+  requests?: number
+  // When to stop starting Hardcover requests, and when to stop telling readers (ms since the epoch), so
+  // the run ends inside its function's time.
   deadline?: number
+  sendBy?: number
 } = {}): Promise<RecheckResult> {
-  const result: RecheckResult = { checked: 0, passedOver: 0, newBooks: 0, told: 0, recorded: 0, notOnHardcover: 0 }
-  if (!hardcoverConfigured()) return { ...result, stoppedBy: "HARDCOVER_API_TOKEN is not set" }
-  // Waits out the requests just made, then says whether there's time for `requests` more.
-  let spent = 0
-  const room = async (requests: number) => {
-    if (spent) await sleep(spent * pace)
-    spent = requests
-    return Date.now() + requests * pace < deadline
+  const result: RecheckResult = { queued: 0, checked: 0, passedOver: 0, notOnHardcover: 0, newBooks: 0, told: 0, announcing: 0, requests: 0 }
+
+  // 1. New series, from the last day's follows and reading.
+  result.queued = await queueSeries(await unrecordedSeries({ activeSince: new Date(now.getTime() - ACTIVE_HOURS * HOUR_MS) }), now)
+
+  // 2. The weekly re-check.
+  if (!hardcoverConfigured()) result.stoppedBy = "HARDCOVER_API_TOKEN is not set"
+  else await recheckDue(result, { now, pace, requests, deadline })
+
+  // 3. Telling readers.
+  Object.assign(result, await sendSeriesNews({ deadline: sendBy }))
+  return result
+}
+
+async function recheckDue(result: RecheckResult, { now, pace, requests, deadline }: { now: Date, pace: number, requests: number, deadline: number }) {
+  // Waits out the requests just made, then says whether the budget and the time allow `n` more.
+  let last = 0
+  const room = async (n: number) => {
+    if (result.requests + n > requests) return false
+    if (last) await sleep(last * pace)
+    last = n
+    if (Date.now() + n * pace >= deadline) return false
+    result.requests += n
+    return true
   }
 
-  // 1. The weekly re-check. More than the limit is taken, since some will be passed over.
+  // Each re-check is at least one request, and some are passed over, so more than the budget are taken.
   const due = await prisma.seriesCheck.findMany({
     where: { checkedAt: { lt: new Date(now.getTime() - RECHECK_AFTER_DAYS * DAY_MS) } },
     orderBy: { checkedAt: "asc" },
-    take: limit * 4,
+    take: requests * 4,
   })
   const wanted = due.length ? await wantedKeys(due) : new Set<string>()
   const passedOver = due.filter((s) => !wanted.has(s.seriesKey))
@@ -160,44 +225,34 @@ export async function recheckSeries({ limit = 40, now = new Date(), pace = PACE_
     result.passedOver = passedOver.length
   }
 
-  for (const series of due.filter((s) => wanted.has(s.seriesKey)).slice(0, limit)) {
+  for (const series of due.filter((s) => wanted.has(s.seriesKey))) {
     const id = { key: series.seriesKey, name: series.name, author: series.author }
     try {
       if (series.hardcoverSeriesId == null) {
-        // Hardcover didn't know it last time: look it up again, taking what it has as the starting point.
-        if (!(await room(LOOKUP_REQUESTS))) return result
+        // Hardcover hasn't known it so far: look it up, taking what it has as the starting point.
         const works = (await worksBySeries([series.name])).get(series.seriesKey)
-        if (!works?.length) continue
-        if (!(await recordExistingSeries({ ...id, works: [...works].sort((a, b) => (a.seriesPosition ?? Infinity) - (b.seriesPosition ?? Infinity)) }, now))) result.notOnHardcover++
+        if (!works?.length) {
+          // Its books have left the series (a librarian's fix, say): asked about again in a week.
+          await prisma.seriesCheck.update({ where: { id: series.id }, data: { checkedAt: now } })
+          continue
+        }
+        if (!(await room(LOOKUP_REQUESTS))) return
+        if (!(await lookUpSeries({ ...id, works: byPosition(works) }, now))) result.notOnHardcover++
       } else {
-        if (!(await room(1))) return result
+        if (!(await room(1))) return
         const books = await hardcoverSeriesBooks(series.hardcoverSeriesId, series.author, now)
         const known = series.highestPosition
         const fresh = known == null ? [] : books.filter((b) => b.position > known)
         if (fresh.length) await fileSeriesBooks(series.name, series.author, fresh, now)
         result.newBooks += fresh.length
-        result.told += await recordSeriesCheck(id, series.hardcoverSeriesId, books.map((b) => b.position), { checkedAt: now })
+        await recordSeriesCheck(id, series.hardcoverSeriesId, books.map((b) => b.position), { checkedAt: now })
       }
       result.checked++
     } catch (err) {
-      // Most likely Hardcover's limit: stop, and the series left are first in line tomorrow.
+      // Most likely Hardcover's limit: stop, and the series left are first in line next run.
       result.stoppedBy = err instanceof Error ? err.message : String(err)
       console.warn(`series recheck: stopped at "${series.name}":`, result.stoppedBy)
-      return result
+      return
     }
   }
-
-  // 2. Series someone has started following or reading that aren't recorded yet, with the time left.
-  for (const series of await unrecordedSeries({ activeSince: new Date(now.getTime() - ACTIVE_DAYS * DAY_MS) })) {
-    if (!(await room(LOOKUP_REQUESTS))) break
-    try {
-      if (!(await recordExistingSeries(series, now))) result.notOnHardcover++
-      result.recorded++
-    } catch (err) {
-      result.stoppedBy = err instanceof Error ? err.message : String(err)
-      console.warn(`series recheck: stopped recording "${series.name}":`, result.stoppedBy)
-      break
-    }
-  }
-  return result
 }

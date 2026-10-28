@@ -298,11 +298,15 @@ model SeriesCheck {
   hardcoverSeriesId Int?
   // The furthest whole-numbered book seen so far. A released book past it is new.
   highestPosition Float?
+  // Set when books past this place have come out and their readers are still being told: the cron tells
+  // them in batches (lib/seriesNews.ts), then clears it.
+  announceAfter Float?
   checkedAt DateTime
   createdAt DateTime @default(now())
 
   // The cron takes the series asked about longest ago.
   @@index([checkedAt])
+  @@index([announceAfter])
 }
 
 model ReadingGoal {
@@ -472,6 +476,8 @@ model Work {
   @@index([hardcoverId])
   @@index([authorKeys])
   @@index([matchKey])
+  // A series' books, for the series cron (lib/seriesRecheck.ts).
+  @@index([seriesName])
 }
 
 // ---- Moods and content warnings -----------------------------------------------------------

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { recheckSeries } from "@/lib/seriesRecheck";
 
-// Run daily by Vercel Cron (vercel.json): asks Hardcover about series due their weekly re-check and tells
-// readers about new books (lib/seriesRecheck.ts). Vercel sends CRON_SECRET as a bearer token; without the
-// secret set, the route refuses everyone.
+// Run hourly by Vercel Cron (vercel.json): records new series, asks Hardcover about series due their weekly
+// re-check, and tells readers about new books (lib/seriesRecheck.ts). Vercel sends CRON_SECRET as a bearer
+// token; without the secret set, the route refuses everyone.
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// The run stops asking Hardcover after 150 seconds and stops telling readers after 260 (recheckSeries).
+export const maxDuration = 300;
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();

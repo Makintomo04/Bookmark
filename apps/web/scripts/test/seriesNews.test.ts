@@ -4,7 +4,7 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/seriesNews.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { highestPosition, seriesNewsNotifications, type SeriesShelfRow } from "@/lib/seriesNews";
+import { announceFrom, highestPosition, seriesNewsNotifications, type SeriesShelfRow } from "@/lib/seriesNews";
 import { seriesNewsText } from "@/lib/series";
 import { pushContentFor, pushGroupOf, pushedToSelf } from "@bookmark/shared/push";
 
@@ -62,12 +62,34 @@ test("several new books make one notification, counted, naming the first", () =>
 test("a reader already told about a book isn't told again", () => {
   const rows = seriesNewsNotifications({ followers: ["ana", "ben"], shelf: [], newWorks: [BOOK_4], alreadyTold: new Set(["ana|w4"]) });
   assert.deepEqual(rows.map((r) => r.userId), ["ben"]);
+  // Told "2 new books, starting with book 4": book 5 was in that notification too.
+  const next = seriesNewsNotifications({ followers: ["ana"], shelf: [], newWorks: [BOOK_4, BOOK_5], alreadyTold: new Set(["ana|w4"]) });
+  assert.deepEqual(next, []);
 });
 
 test("the furthest book counts whole-numbered places only", () => {
   assert.equal(highestPosition([1, 2, 2.5, 3, null, undefined]), 3);
   assert.equal(highestPosition([0.5, null]), null);
   assert.equal(highestPosition([]), null);
+});
+
+test("readers are told about books past what Hardcover showed before, and never on a first sighting", () => {
+  const known = { hardcoverSeriesId: 7, highestPosition: 3, announceAfter: null };
+  assert.equal(announceFrom(known, 4), 3);
+  assert.equal(announceFrom(known, 3), null);
+  assert.equal(announceFrom(known, null), null);
+  // First sighting, or only the catalogue's books before: what Hardcover has may be years old.
+  assert.equal(announceFrom(null, 4), null);
+  assert.equal(announceFrom({ ...known, hardcoverSeriesId: null }, 4), null);
+  // A lookup with announcing off.
+  assert.equal(announceFrom(known, 4, false), null);
+});
+
+test("an announcement under way is kept until its readers are told", () => {
+  const telling = { hardcoverSeriesId: 7, highestPosition: 4, announceAfter: 3 };
+  assert.equal(announceFrom(telling, 4), 3);
+  assert.equal(announceFrom(telling, 5), 3);
+  assert.equal(announceFrom(telling, 5, false), 3);
 });
 
 test("the words name the book, its place and its series", () => {
