@@ -35,15 +35,18 @@ const CommonCover: FC<{ book: InCommonBook; accentColour?: string | null }> = ({
   )
 }
 
-const Group: FC<{ title: string; books: InCommonBook[]; expanded: boolean; collapsed: number; half: boolean; accentColour?: string | null }> = ({ title, books, expanded, collapsed, half, accentColour }) => {
+// `label` only when both groups show: then a small label tells them apart. With one, the section's
+// heading already says which it is.
+const Group: FC<{ label?: string; books: InCommonBook[]; expanded: boolean; collapsed: number; half: boolean; accentColour?: string | null }> = ({ label, books, expanded, collapsed, half, accentColour }) => {
   if (books.length === 0) return null
   const shown = expanded ? books : books.slice(0, collapsed)
   return (
     <div>
-      <h3 className="mb-3 flex items-baseline gap-2 text-sm font-medium">
-        {title}
-        <span className="text-xs font-normal text-muted-foreground tabular-nums">{books.length}</span>
-      </h3>
+      {label && (
+        <h3 className="mb-2 text-xs text-muted-foreground">
+          {label} <span className="tabular-nums">· {books.length}</span>
+        </h3>
+      )}
       <div className={cn("grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-x-3 sm:gap-x-4 gap-y-4", half && "lg:grid-cols-4")}>
         {shown.map((book) => <CommonCover key={book.workKey} book={book} accentColour={accentColour} />)}
       </div>
@@ -75,11 +78,15 @@ const BooksInCommon: FC<{ data: InCommon | undefined; accentColour?: string | nu
     </button>
   ) : undefined
 
+  // One heading: named for what's there when it's one kind, "Books in common" over both.
+  const both = read.length > 0 && wantToRead.length > 0
+  const title = both ? "Books in common" : read.length > 0 ? "Books you've both read" : "Books you both want to read"
+
   return (
-    <ShelfSection id="profile-in-common" title="Books in common" count={total} action={toggle}>
+    <ShelfSection id="profile-in-common" title={title} count={total} action={toggle}>
       <div className="flex flex-col gap-6">
-        <Group title="You've both read" books={read} expanded={expanded} collapsed={collapsed} half={half} accentColour={accentColour} />
-        <Group title="You both want to read" books={wantToRead} expanded={expanded} collapsed={collapsed} half={half} accentColour={accentColour} />
+        <Group label={both ? "You've both read" : undefined} books={read} expanded={expanded} collapsed={collapsed} half={half} accentColour={accentColour} />
+        <Group label={both ? "You both want to read" : undefined} books={wantToRead} expanded={expanded} collapsed={collapsed} half={half} accentColour={accentColour} />
       </div>
     </ShelfSection>
   )
