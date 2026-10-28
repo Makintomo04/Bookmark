@@ -4,7 +4,7 @@ import { FC, MouseEvent, useEffect, useState } from 'react'
 // The profile's sections, by the id on each one's heading (ShelfSection) or wrapper.
 const SECTIONS = [
   { id: "profile-shelf", label: "Shelf" },
-  { id: "series-tracker", label: "Series" },
+  { id: "series-tracker", label: "Continue" },
   { id: "profile-reviews", label: "Reviews" },
   { id: "profile-lists", label: "Lists" },
   { id: "profile-authors", label: "Authors" },
