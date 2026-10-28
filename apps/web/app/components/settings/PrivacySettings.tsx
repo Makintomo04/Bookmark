@@ -58,7 +58,7 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
         {roleOf(user) === "LIBRARIAN" && (
           <Toggle
             label="Hide my Librarian badge"
-            hint="Your profile and reviews won't show that you're a librarian. Your librarian tools stay the same."
+            hint="Your profile, reviews, comments, lists and notifications won't show that you're a librarian. Your librarian tools stay the same."
             checked={settings.hideStaffBadge}
             onChange={(v) => save("hideStaffBadge", v)}
             disabled={busy}

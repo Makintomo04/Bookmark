@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { Lock } from 'lucide-react'
 import type { RestrictedProfile as RestrictedProfileData, RestrictedReason } from '@/lib/publicProfile'
 import { readerName } from '@/lib/profile'
-import { StaffBadge, primaryButtonClass } from './ProfileHeader'
+import { primaryButtonClass } from './ProfileHeader'
+import StaffSeal from './StaffSeal'
 import TierAvatar from './TierAvatar'
 import FollowButton from './FollowButton'
 import ProfileMenu from './ProfileMenu'
@@ -35,12 +36,14 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
       <div>
         <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-4">
           {/* No tier frame: it would give away how many books they've read. */}
-          <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${name}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
+          <div className="relative shrink-0">
+            <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${name}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
+            {profile.staffBadge && <StaffSeal kind={profile.staffBadge} name={name} size={30} cutOut shine className="absolute right-0 bottom-[6%]" />}
+          </div>
           {viewer && <div className="pb-1"><ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} /></div>}
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="page-title break-words">{name}</h1>
-          {profile.staffBadge && <StaffBadge kind={profile.staffBadge} />}
         </div>
         {profile.displayName && <p className="mt-0.5 text-sm text-muted-foreground break-all">@{profile.username}</p>}
 

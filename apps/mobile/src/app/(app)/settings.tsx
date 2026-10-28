@@ -120,7 +120,7 @@ export default function SettingsScreen() {
         <Toggle label="Hide follower and following counts" hint="No numbers on your profile, for you or anyone else, and your connection lists stay private." value={settings.hideFollowCounts} onChange={(v) => void save("hideFollowCounts", v)} disabled={busy} />
         {/* The team's badge always shows, so only librarians get the choice. */}
         {roleOf(user) === "LIBRARIAN" && (
-          <Toggle label="Hide my Librarian badge" hint="Your profile and reviews won't show that you're a librarian. Your librarian tools stay the same." value={settings.hideStaffBadge} onChange={(v) => void save("hideStaffBadge", v)} disabled={busy} />
+          <Toggle label="Hide my Librarian badge" hint="Your profile, reviews, comments, lists and notifications won't show that you're a librarian. Your librarian tools stay the same." value={settings.hideStaffBadge} onChange={(v) => void save("hideStaffBadge", v)} disabled={busy} />
         )}
       </Card>
 

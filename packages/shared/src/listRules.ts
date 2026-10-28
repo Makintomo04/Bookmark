@@ -1,5 +1,6 @@
 // List limits and report reasons, shared by the API (lib/lists.ts) and the client. No database imports here.
 import { canView, type PrivacySettings, type Relation } from "./privacyRules"
+import type { StaffBadgeKind } from "./staffBadge"
 
 export const LIST_TITLE_MAX = 80
 export const LIST_DESCRIPTION_MAX = 500
@@ -15,6 +16,8 @@ export interface Curator {
   image: string | null
   favColour: string | null
   _count?: { books?: number }
+  // Their staff seal (staffBadge.ts), where the server looked it up.
+  staffBadge?: StaffBadgeKind | null
 }
 
 // "Why you'd like this": a person's reason for a book, from a list note or their review.

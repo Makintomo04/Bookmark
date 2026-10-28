@@ -7,6 +7,7 @@ import { getAchievementTitle } from "@bookmark/shared/achievements-catalog";
 import { reviewHiddenMessage } from "@bookmark/shared/reviewReports";
 import { seriesNewsText } from "@bookmark/shared/series";
 import { Avatar } from "@/components/profile/Avatar";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { ApiError, api } from "@/lib/api";
@@ -133,7 +134,14 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
       <Pressable accessibilityRole={path ? "link" : "text"} disabled={!path} onPress={() => path && router.push(path as never)} style={styles.main}>
         <Avatar image={n.actor.image} name={n.actor.username} colour={n.actor.favColour} size={36} />
         <View style={{ flex: 1, gap: 2 }}>
-          {text ? <Text>{text}</Text> : <Text><Text style={{ fontFamily: fonts.sansSemibold }}>{readerName(n.actor)}</Text>{n.actor.displayName ? <Text variant="small"> @{n.actor.username}</Text> : null} {copyOf(n)}</Text>}
+          {text ? <Text>{text}</Text> : (
+            <Text>
+              <Text style={{ fontFamily: fonts.sansSemibold }}>{readerName(n.actor)}</Text>
+              {n.actor.staffBadge ? <StaffSeal kind={n.actor.staffBadge} size={18} pressable={false} style={styles.seal} /> : null}
+              {n.actor.displayName ? <Text variant="small"> @{n.actor.username}</Text> : null}
+              {" "}{copyOf(n)}
+            </Text>
+          )}
           {n.type === "BOOK_RECOMMENDED" && n.message ? <Text variant="muted" style={{ fontStyle: "italic" }}>{"“"}{n.message}{"”"}</Text> : null}
           <Text variant="small">{timeAgo(n.createdAt)}{n.type === "BOOK_RECOMMENDED" && n.book?.onShelf ? " · on your shelf" : ""}</Text>
         </View>
@@ -159,4 +167,6 @@ const styles = StyleSheet.create({
   main: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   actions: { flexDirection: "row", gap: 10, paddingLeft: 48 },
   separator: { height: StyleSheet.hairlineWidth },
+  // Inline in the text, so lifted a touch to sit on the name's middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 3 }] },
 });

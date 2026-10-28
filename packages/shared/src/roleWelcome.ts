@@ -25,7 +25,7 @@ export const ROLE_WELCOME: Record<StaffRole, RoleWelcome> = {
       "Work the reports queue, and pass anything that needs a suspension to an admin.",
       "Look up readers' accounts when a report needs it.",
     ],
-    badge: "A Librarian badge now shows beside your name. You can hide it in Settings, under Privacy.",
+    badge: "A Librarian badge now shows on your profile picture and beside your name in reviews, comments, lists and notifications. You can hide it in Settings, under Privacy.",
   },
   ADMIN: {
     heading: "New role",
@@ -37,7 +37,7 @@ export const ROLE_WELCOME: Record<StaffRole, RoleWelcome> = {
       "Grant Plus, and make readers librarians or admins.",
       "Every staff action is kept in the staff log, so check it when something looks off.",
     ],
-    badge: "A Bookmark team badge now shows beside your name. It always shows, so readers can trust it.",
+    badge: "A Bookmark team badge now shows on your profile picture and beside your name in reviews, comments, lists and notifications. It always shows, so readers can trust it.",
   },
 };
 
