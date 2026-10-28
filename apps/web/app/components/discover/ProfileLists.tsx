@@ -17,12 +17,14 @@ interface ProfileListsProps {
   // Beside favourites near the top of someone's profile (ProfileShowcase): no top margin, two lists to a
   // row, and the first two until "See all" opens the rest in place.
   half?: boolean
+  // At the top of a profile, where the section above sets the spacing: no top margin of its own.
+  flush?: boolean
 }
 
 // Lists shown in half a row before "See all".
 const HALF_SHOWN = 2
 
-const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false }) => {
+const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, flush = false }) => {
   const { lists, isLoading, isError, mutate } = useOwnerLists(username)
   const [all, setAll] = useState(false)
   const { onOpen } = useListEditorModal()
@@ -54,7 +56,7 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false })
     : undefined
 
   return (
-    <div className={half ? undefined : "mt-12"}>
+    <div className={half || flush ? undefined : "mt-12"}>
       <ShelfSection id="profile-lists" title="Lists" count={lists.length} action={action}>
         {lists.length === 0 ? (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
