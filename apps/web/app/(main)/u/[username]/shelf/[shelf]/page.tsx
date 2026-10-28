@@ -13,6 +13,7 @@ import Container from '@/app/components/Container'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 import OwnerShelf from '@/app/components/books/OwnerShelf'
 import PublicShelf from '@/app/components/profile-head/PublicShelf'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
   params: { username: string; shelf: string }
@@ -66,6 +67,7 @@ export default async function Page({ params }: PageProps) {
         </Link>
         <h1 className="page-title mt-2 mb-8 break-words">
           {isSelf ? SHELF_TITLE[shelf] : `${readerName(profile)}’s ${SHELF_TITLE[shelf]}`}
+          {!isSelf && profile.staffBadge && <StaffSeal kind={profile.staffBadge} name={readerName(profile)} size={26} className="ml-2 align-[-2px]" />}
           {!isSelf && <span className="ml-3 text-lg font-normal text-muted-foreground tabular-nums">{books.length.toLocaleString('en-GB')}</span>}
         </h1>
         {isSelf

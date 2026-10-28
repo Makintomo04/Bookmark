@@ -12,6 +12,7 @@ import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
 import { REMOVED_MESSAGE, loadInvite, wasRemoved } from '@/lib/buddyReadsServer'
 import prisma from '@/lib/db'
 import AuthorLink from '@/app/components/AuthorLink'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
   params: { code: string }
@@ -73,7 +74,9 @@ const Page = async ({ params }: PageProps) => {
               ))}
             </div>
             <p className="max-w-md">
-              <span className="font-semibold">{(host && readerName(host)) || "A reader"}</span> invited you to read along
+              <span className="font-semibold">{(host && readerName(host)) || "A reader"}</span>
+              {host?.staffBadge && <StaffSeal kind={host.staffBadge} name={readerName(host)} size={18} className="ml-1 align-[-4px]" />}
+              {" "}invited you to read along
               {members.length > 1 ? ` with ${members.length - 1} ${members.length - 1 === 1 ? "other" : "others"}` : ""}.
             </p>
             <p className="max-w-md text-sm text-muted-foreground">

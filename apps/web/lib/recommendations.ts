@@ -5,6 +5,7 @@ import { sameBook } from "@/lib/workKey";
 import type { RecommendFriend } from "@/lib/recommendRules";
 import { coverToShare } from "@/lib/uploads";
 import { sharedBookWhere } from "@/lib/privacy";
+import { staffBadgeOf, staffBadgeSelect } from "./staffBadge";
 
 export { RECOMMEND_MAX_FRIENDS, RECOMMEND_MESSAGE_MAX, type RecommendFriend } from "@/lib/recommendRules";
 
@@ -31,7 +32,7 @@ export async function recommendFriends(userId: string, book: { title: string; au
   const ids = await mutualFollowIds(userId);
   if (ids.length === 0) return [];
   const [users, shelved] = await Promise.all([
-    prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, username: true, displayName: true, image: true, favColour: true } }),
+    prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, username: true, displayName: true, image: true, favColour: true, ...staffBadgeSelect } }),
     prisma.book.findMany({
       // A friend's private copy reads as not having it: sending it anyway is better than giving it away.
       where: { userId: { in: ids }, AND: [sharedBookWhere], OR: [...(book.workKey ? [{ workKey: book.workKey }] : []), { title: { equals: book.title, mode: "insensitive" as const } }] },
@@ -41,7 +42,7 @@ export async function recommendFriends(userId: string, book: { title: string; au
   const owners = new Set(shelved.filter((b) => sameBook(b, book)).map((b) => b.userId));
   return users
     .filter((u) => u.username)
-    .map((u) => ({ username: u.username!, displayName: u.displayName, image: u.image, favColour: u.favColour, hasBook: owners.has(u.id) }))
+    .map((u) => ({ username: u.username!, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u), hasBook: owners.has(u.id) }))
     .sort((a, b) => Number(a.hasBook) - Number(b.hasBook) || a.username.localeCompare(b.username));
 }
 

@@ -12,13 +12,15 @@ import { Text } from "@/components/ui/Text";
 import { ApiError, api } from "@/lib/api";
 import { refreshAfterBookChange } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
+import { StaffSeal } from "@/components/profile/StaffSeal";
+import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 
 // An invite link (https://<site>/circles/join/<code>, handed to the app): the book, who's in, and Join.
 // Members go straight to the circle, as on the web.
 
 type Invite = {
   buddyRead: { title: string; author: string; coverImage: string | null; cardColour: string | null };
-  host: { username: string | null; displayName?: string | null } | null;
+  host: { username: string | null; displayName?: string | null; staffBadge?: StaffBadgeKind | null } | null;
   members: { username: string | null; image: string | null; favColour: string | null }[];
   full: boolean;
   viewer: { isMember: boolean; buddyReadId: string | null; removed: boolean; removedMessage: string | null };
@@ -70,7 +72,7 @@ export default function JoinCircle() {
           {data.members.slice(0, 8).map((m, i) => <Avatar key={i} image={m.image} name={m.username} colour={m.favColour} size={36} ring />)}
         </View>
         <Text style={{ textAlign: "center" }}>
-          {(data.host && readerName(data.host)) || "A reader"} invited you to read along{others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}.
+          {(data.host && readerName(data.host)) || "A reader"}{data.host?.staffBadge ? <StaffSeal kind={data.host.staffBadge} size={16} pressable={false} style={styles.seal} /> : null} invited you to read along{others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}.
         </Text>
         <Text variant="muted" style={{ textAlign: "center" }}>
           Everyone{"’"}s progress in one place, in any edition or on audio. Comments are pinned to where they were written and stay locked until you get there.
@@ -92,6 +94,8 @@ export default function JoinCircle() {
 }
 
 const styles = StyleSheet.create({
+  // Inline in a line of text, so lifted a touch to sit on its middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 2 }] },
   center: { alignItems: "center", gap: 10 },
   avatars: { flexDirection: "row", gap: -8, marginVertical: 4 },
 });

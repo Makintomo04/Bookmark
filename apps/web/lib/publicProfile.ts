@@ -205,6 +205,7 @@ export async function getAchievementsView(username: string, viewerId: string | n
     achievements: {
       username: profile.username,
       displayName: profile.displayName,
+      staffBadge: profile.staffBadge,
       // The shelf's count, as their profile and tier frame show it: private books aren't in it.
       booksRead: readingCounts(profile.books).booksRead,
       ladders: ladders(profile.achievements, stats),

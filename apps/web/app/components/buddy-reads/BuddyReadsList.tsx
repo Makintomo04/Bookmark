@@ -13,6 +13,7 @@ import FetchErrorState from '../FetchErrorState'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 import MemberAvatar from './MemberAvatar'
 import UpgradePrompt from '../plus/UpgradePrompt'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 const cover = (b: { title: string, author: string, coverImage: string | null, cardColour: string | null }) =>
   ({ title: b.title, author: b.author, coverImage: b.coverImage ?? "", cardColour: b.cardColour })
@@ -120,7 +121,11 @@ const BuddyReadsList: FC = () => {
                 <BookCover book={cover(invite.buddyRead)} variant="thumb" sizes="48px" className="w-12 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium leading-snug line-clamp-2">{invite.buddyRead.title}</p>
-                  <p className="text-sm text-muted-foreground">{readerName(invite.inviter)} invited you</p>
+                  <p className="text-sm text-muted-foreground">
+                    {readerName(invite.inviter)}
+                    {invite.inviter.staffBadge && <StaffSeal kind={invite.inviter.staffBadge} name={readerName(invite.inviter)} size={16} className="ml-1 align-[-3px]" />}
+                    {" "}invited you
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => decline(invite.id, invite.buddyRead.id)} disabled={busyInvite === invite.id} className={secondaryButtonClass}>Not now</button>

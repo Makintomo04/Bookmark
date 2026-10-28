@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { blockedUserIds, canView, privacyOf, privacySelect, visibleReview, type Relation } from "@/lib/privacy";
 import { NextResponse } from "next/server";
+import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge"
 
 // What the people the reader follows are doing, newest first, a page at a time. The feed pages back with
 // ?after=<the cursor the last page sent>, up to 50 at a time. Ordered by date then id, so two posted in the
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
     ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
     take: batch + 1,
     include: {
-      user: { select: { username: true, displayName: true, image: true, favColour: true, ...booksReadCount, ...privacySelect } },
+      user: { select: { username: true, displayName: true, image: true, favColour: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect } },
       book: { select: { title: true, author: true, coverImage: true, cardColour: true, rating: true, status: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, isPrivate: true } },
     },
   })
@@ -54,8 +55,9 @@ export async function GET(req: Request) {
 
   // The row as ActivityFeedItem reads it, or null when the viewer may not see it.
   const visibleRow = ({ user, book, ...activity }: (typeof rows)[number]): Record<string, unknown> | null => {
-    const { username, displayName, image, favColour, _count, ...stored } = user
-    const publicUser = { username, displayName, image, favColour, _count }
+    const { username, displayName, image, favColour, _count, role, isStaff, ...stored } = user
+    // Their staff seal, never the role fields it comes from.
+    const publicUser = { username, displayName, image, favColour, _count, staffBadge: staffBadgeOf({ role, isStaff, hideStaffBadge: stored.hideStaffBadge }) }
     const privacy = privacyOf(stored)
     if (!canView(relation, privacy, "activity")) return null
     if (!book) return { ...activity, user: publicUser, book: null }

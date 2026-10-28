@@ -1,4 +1,5 @@
 // Client-safe pieces of book recommendations (lib/recommendations.ts holds the database side).
+import type { StaffBadgeKind } from "./staffBadge";
 
 // Most people a book can be sent to in one go, and the longest note that goes with it.
 export const RECOMMEND_MAX_FRIENDS = 10;
@@ -9,6 +10,7 @@ export interface RecommendFriend {
   displayName?: string | null;
   image: string | null;
   favColour: string | null;
+  staffBadge?: StaffBadgeKind | null;
   // They already have this book on a shelf, so sending it would be noise.
   hasBook: boolean;
 }

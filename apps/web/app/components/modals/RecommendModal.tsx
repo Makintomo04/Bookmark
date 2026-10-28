@@ -15,6 +15,7 @@ import { fetcher } from '@/lib/fetcher'
 import useUser from '@/app/hooks/useUser'
 import useRecommendModal from '@/app/hooks/useRecommendModal'
 import { RECOMMEND_MAX_FRIENDS, RECOMMEND_MESSAGE_MAX, type RecommendFriend } from '@/lib/recommendRules'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 // Sends one of your books to friends (people you follow who follow you back) as a notification.
 const RecommendModal: FC = () => {
@@ -66,7 +67,7 @@ const RecommendModal: FC = () => {
                     {f.image && <Image src={f.image} alt="" fill className="object-cover" />}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium truncate"><ReaderName reader={f} /></span>
+                    <span className="block text-sm font-medium truncate"><ReaderName reader={f} badge={f.staffBadge && <StaffSeal kind={f.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />} /></span>
                     {f.hasBook && <span className="block text-xs text-muted-foreground">Already has it</span>}
                   </span>
                   <span aria-hidden className={cn("h-5 w-5 rounded-md border flex-shrink-0 flex items-center justify-center", on && "bg-foreground border-foreground text-background")}>

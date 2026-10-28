@@ -3,6 +3,7 @@ import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { Avatar } from "@/components/profile/Avatar";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
@@ -51,7 +52,7 @@ export default function SearchReaders() {
           >
             <Avatar image={item.image} name={item.username} colour={item.favColour} size={40} />
             <View style={{ flex: 1 }}>
-              <Text>{readerName(item)}{item.displayName ? <Text variant="small"> @{item.username}</Text> : null}{item.isFollowing ? <Text variant="small"> · following</Text> : null}</Text>
+              <Text>{readerName(item)}{item.staffBadge ? <StaffSeal kind={item.staffBadge} size={16} pressable={false} style={styles.seal} /> : null}{item.displayName ? <Text variant="small"> @{item.username}</Text> : null}{item.isFollowing ? <Text variant="small"> · following</Text> : null}</Text>
               {item.bio ? <Text variant="small" numberOfLines={1}>{item.bio}</Text> : null}
             </View>
           </Pressable>
@@ -62,5 +63,7 @@ export default function SearchReaders() {
 }
 
 const styles = StyleSheet.create({
+  // Inline in the name's line, so lifted a touch to sit on its middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 2 }] },
   row: { flexDirection: "row", gap: 12, alignItems: "center", padding: 8 },
 });

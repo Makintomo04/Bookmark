@@ -11,6 +11,7 @@ import { getProfileView, getPublicProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 import FavouritesGrid from '@/app/components/profile-head/FavouritesGrid'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
   params: { username: string }
@@ -49,6 +50,7 @@ export default async function Page({ params }: PageProps) {
         </Link>
         <h1 className="page-title mt-2 mb-8 break-words">
           {readerName(profile)}&rsquo;s favourites
+          {profile.staffBadge && <StaffSeal kind={profile.staffBadge} name={readerName(profile)} size={26} className="ml-2 align-[-2px]" />}
           <span className="ml-3 text-lg font-normal text-muted-foreground tabular-nums">{profile.favourites.length.toLocaleString('en-GB')}</span>
         </h1>
         {profile.favourites.length > 0

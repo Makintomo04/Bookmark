@@ -10,6 +10,7 @@ import { getAchievementsView, getPublicProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 import ReaderAchievementsView from './ReaderAchievementsView'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
   params: { username: string }
@@ -55,7 +56,7 @@ export default async function Page({ params }: PageProps) {
         <Link href={profileHref} className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground">
           <ChevronLeft size={16} aria-hidden />{readerName(data.profile)}
         </Link>
-        <h1 className="page-title mt-2 mb-8 break-words">{readerName(data.profile)}&rsquo;s achievements</h1>
+        <h1 className="page-title mt-2 mb-8 break-words">{readerName(data.profile)}&rsquo;s achievements{data.profile.staffBadge && <StaffSeal kind={data.profile.staffBadge} name={readerName(data.profile)} size={26} className="ml-2 align-[-2px]" />}</h1>
         <ReaderAchievementsView data={data.achievements} />
       </>
     )

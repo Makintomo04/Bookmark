@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { hasRequested } from "@/lib/followRequests";
 import type { Relation } from "@/lib/privacyRules";
 import { mutualFollowIds } from "@/lib/recommendations";
+import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "./staffBadge";
 
 // Friends are readers who follow each other (packages/shared/src/followRules.ts areFriends): the same
 // meaning as sending a book (lib/recommendations.ts) and the FRIENDS reading circle invite audience.
@@ -38,6 +39,7 @@ export interface FriendPerson {
   username: string | null;
   image: string | null;
   favColour: string | null;
+  staffBadge: StaffBadgeKind | null;
 }
 
 // Everyone the reader is friends with, by username: the reading circle invite picker. Readers either side
@@ -47,7 +49,8 @@ export async function friendsOf(userId: string): Promise<(FriendPerson & { id: s
   if (ids.length === 0) return [];
   const users = await prisma.user.findMany({
     where: { id: { in: ids } },
-    select: { id: true, username: true, image: true, favColour: true },
+    select: { id: true, username: true, image: true, favColour: true, ...staffBadgeSelect },
   });
-  return users.sort((a, b) => (a.username ?? "").localeCompare(b.username ?? "", "en-GB", { sensitivity: "base" }));
+  // The role fields become the staff seal and go no further.
+  return users.map(({ role, isStaff, hideStaffBadge, ...u }) => ({ ...u, staffBadge: staffBadgeOf({ role, isStaff, hideStaffBadge }) })).sort((a, b) => (a.username ?? "").localeCompare(b.username ?? "", "en-GB", { sensitivity: "base" }));
 }

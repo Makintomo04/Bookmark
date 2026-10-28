@@ -9,6 +9,7 @@ import { Text } from "@/components/ui/Text";
 import { ApiError } from "@/lib/api";
 import { inviteToCircle, type Friend } from "@/lib/circles";
 import { useTheme } from "@/lib/theme";
+import { StaffSeal } from "@/components/profile/StaffSeal";
 
 interface FriendsPickerProps {
   circleId: string;
@@ -85,7 +86,7 @@ export function FriendsPicker({ circleId, memberUsernames, room, onClose }: Frie
               style={[styles.row, here && { opacity: 0.6 }]}
             >
               <Avatar image={friend.image} name={friend.username} colour={friend.favColour} size={36} />
-              <Text style={{ flex: 1 }} numberOfLines={1}>{friend.username}</Text>
+              <Text style={{ flex: 1 }} numberOfLines={1}>{friend.username}{friend.staffBadge ? <StaffSeal kind={friend.staffBadge} size={16} pressable={false} style={styles.seal} /> : null}</Text>
               {here
                 ? <Text variant="small">Already here</Text>
                 : (
@@ -111,6 +112,8 @@ export function FriendsPicker({ circleId, memberUsernames, room, onClose }: Frie
 }
 
 const styles = StyleSheet.create({
+  // Inline in a line of text, so lifted a touch to sit on its middle.
+  seal: { marginLeft: 4, transform: [{ translateY: 2 }] },
   row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 },
   tick: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
 });

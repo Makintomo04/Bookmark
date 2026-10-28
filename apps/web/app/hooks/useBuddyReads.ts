@@ -1,7 +1,8 @@
 import useSWR from "swr"
 import { fetcher, swrOptions } from "@/lib/fetcher"
+import type { StaffBadgeKind } from "@/lib/staffBadge"
 
-export type BuddyReadMemberSummary = { userId: string, username: string | null, displayName?: string | null, image: string | null, favColour: string | null, progress: number }
+export type BuddyReadMemberSummary = { userId: string, username: string | null, displayName?: string | null, image: string | null, favColour: string | null, staffBadge?: StaffBadgeKind | null, progress: number }
 
 export type BuddyReadSummary = {
   id: string
@@ -23,7 +24,7 @@ export type HostingSummary = { allowed: boolean, active: number, limit: number |
 export type BuddyReadInviteSummary = {
   id: string
   createdAt: string
-  inviter: { username: string | null, displayName?: string | null, image: string | null, favColour: string | null }
+  inviter: { username: string | null, displayName?: string | null, image: string | null, favColour: string | null, staffBadge?: StaffBadgeKind | null }
   buddyRead: { id: string, title: string, author: string, coverImage: string | null, cardColour: string | null, inviteCode: string }
 }
 

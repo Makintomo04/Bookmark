@@ -7,6 +7,7 @@ import { X } from 'lucide-react'
 import { formatPercent, type BuddyReadSchedule } from '@/lib/buddyReads'
 import type { BuddyReadView } from '@/lib/buddyReadsServer'
 import MemberAvatar, { memberColour } from './MemberAvatar'
+import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface ProgressTrackProps {
   members: BuddyReadView["members"]
@@ -37,7 +38,7 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
               </Link>
               <div className="min-w-0">
                 <p className="flex items-baseline gap-2 text-sm leading-tight">
-                  <span className="truncate font-medium">{m.isYou ? "You" : <ReaderName reader={m} />}</span>
+                  <span className="truncate font-medium">{m.isYou ? "You" : <ReaderName reader={m} badge={m.staffBadge && <StaffSeal kind={m.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />} />}</span>
                   {m.isHost && <span className="shrink-0 text-xs text-muted-foreground">Host</span>}
                   {m.finishedAt && <span className="shrink-0 text-xs text-muted-foreground">Finished</span>}
                 </p>
