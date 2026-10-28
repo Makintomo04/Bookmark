@@ -7,6 +7,7 @@ import { isShareableCover } from "./uploadedImages"
 import { uploadersOf } from "./uploads"
 import { sharedBookWhere } from "./privacy"
 import { hasPageWhere } from "./workPages"
+import { withCatalogueFixesOrAsIs } from "./curatedBooks"
 
 // Enough readers' copies to rank by popularity without reading the whole collection.
 const SHELF_SCAN = 300
@@ -85,8 +86,13 @@ const cachedHardcover = unstable_cache(
 // Open Library first. When it has nothing, or nothing that matches every word, Hardcover fills in: it has
 // the indie and Kindle-only books Open Library misses, and stands in when Open Library is down. When Open
 // Library has the book but no cover or page count, Hardcover's record fills the gaps. Hardcover
-// failing (or no token set) never fails the search; it just isn't added.
+// failing (or no token set) never fails the search; it just isn't added. A librarian's fix (title,
+// author, cover) wins over both, as on book pages.
 export async function searchCatalogue(query: string, limit: number) {
+  return withCatalogueFixesOrAsIs(await searchSources(query, limit))
+}
+
+async function searchSources(query: string, limit: number) {
   const q = normaliseQuery(query)
   const hardcover = () => cachedHardcover(q, limit).catch((err) => {
     console.warn("Hardcover search failed", err instanceof Error ? err.message : err)

@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  authorStrings, changedFields, editionCopyUpdates, mergeCurated, parseEditionFix, parseWorkFix, workCopyUpdates, type WorkValues,
+  authorStrings, changedFields, editionCopyUpdates, librarianCover, mergeCurated, parseEditionFix, parseWorkFix, workCopyUpdates, type WorkValues,
 } from "../../lib/catalogueFixRules.ts";
 import { resolveOne } from "../../lib/catalog/resolve.ts";
 import { MemoryCatalogStore } from "../../lib/catalog/memoryStore.ts";
@@ -39,19 +39,23 @@ test("readers' copies follow a fix only where they still show the old value", ()
   assert.deepEqual(updates, [
     { model: "book", field: "title", from: ["Dune"], to: "Dune (40th anniversary)" },
     { model: "listItem", field: "title", from: ["Dune"], to: "Dune (40th anniversary)" },
+    { model: "circle", field: "title", from: ["Dune"], to: "Dune (40th anniversary)" },
     { model: "book", field: "author", from: ["Frank Herbert"], to: "Frank Herbert, Brian Herbert" },
     { model: "listItem", field: "author", from: ["Frank Herbert"], to: "Frank Herbert, Brian Herbert" },
+    { model: "circle", field: "author", from: ["Frank Herbert"], to: "Frank Herbert, Brian Herbert" },
     // Any catalogue cover, since copies are mirrored under their own URL; the caller keeps readers' uploads.
     { model: "book", field: "coverImage", from: "catalogue", to: "https://utfs.io/f/new.jpg" },
     { model: "listItem", field: "coverUrl", from: "catalogue", to: "https://utfs.io/f/new.jpg" },
+    { model: "circle", field: "coverImage", from: "catalogue", to: "https://utfs.io/f/new.jpg" },
   ]);
   assert.deepEqual(authorStrings(["A", "B"]), ["A, B", "A"]);
 });
 
 test("a cleared field is not carried over, and text fields need the old value to match", () => {
   assert.deepEqual(workCopyUpdates(work, { coverUrl: null }), []);
-  assert.equal(workCopyUpdates({ ...work, coverUrl: null }, { coverUrl: "https://utfs.io/f/new.jpg" }).length, 2, "a missing cover is filled in everywhere");
-  assert.deepEqual(workCopyUpdates(work, { description: "Spice." }), [], "readers' copies keep their own descriptions");
+  assert.equal(workCopyUpdates({ ...work, coverUrl: null }, { coverUrl: "https://utfs.io/f/new.jpg" }).length, 3, "a missing cover is filled in everywhere");
+  assert.deepEqual(workCopyUpdates(work, { description: "Spice." }), [{ model: "book", field: "description", from: "any", to: "Spice." }], "a librarian's blurb replaces the one copies were shelved with");
+  assert.deepEqual(workCopyUpdates({ ...work, description: "Spice." }, { description: null }), [], "a cleared blurb leaves copies theirs");
   assert.deepEqual(editionCopyUpdates({ pages: 412, coverUrl: null }, { pages: 896 }), [{ model: "book", field: "pages", from: [412], to: 896 }]);
   assert.deepEqual(editionCopyUpdates({ pages: 412, coverUrl: null }, { pages: null }), []);
 });
@@ -65,4 +69,13 @@ test("the catalogue never refills a field a librarian corrected, even when it's 
   assert.equal(again.work.coverUrl, null);
   assert.equal(again.work.description, null);
   assert.deepEqual(again.work.subjects, ["Fiction"], "fields nobody corrected still fill in");
+});
+
+test("a librarian's cover beats every other cover", () => {
+  const hardcover = { coverUrl: "https://assets.hardcover.app/x.jpg", curatedFields: [] };
+  const fixed = { coverUrl: "https://utfs.io/f/fixed.jpg", curatedFields: ["coverUrl", "pages"] };
+  assert.equal(librarianCover(hardcover, [fixed]), fixed.coverUrl, "an edition's fix beats a filled-in work cover");
+  assert.equal(librarianCover({ ...fixed, coverUrl: "https://utfs.io/f/work.jpg" }, [fixed]), "https://utfs.io/f/work.jpg", "the work's own fix comes first");
+  assert.equal(librarianCover(hardcover, [{ coverUrl: null, curatedFields: ["coverUrl"] }]), null, "a cleared cover isn't one");
+  assert.equal(librarianCover(hardcover, []), null);
 });

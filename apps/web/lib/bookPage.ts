@@ -7,6 +7,7 @@ import { normaliseWorkKey } from "./workKey"
 import { hasPageWhere } from "./workPages"
 import { hardcoverRecord } from "./bookSearch"
 import { topUp } from "./bookSearchRules"
+import { librarianCover } from "./catalogueFixRules"
 
 // What a book page (app/(main)/books/[slug]) shows about the book itself. The shared catalog's Work
 // comes first, since it's already cached and holds series; a book nobody on Bookmark has shelved yet
@@ -53,16 +54,18 @@ async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | nul
     select: {
       id: true, openLibraryKey: true,
       title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
-      coverUrl: true, firstPublishYear: true, olEditionCount: true,
-      editions: { select: { pages: true, coverUrl: true }, take: 20 },
+      coverUrl: true, firstPublishYear: true, olEditionCount: true, curatedFields: true,
+      editions: { select: { pages: true, coverUrl: true, curatedFields: true }, take: 20 },
     },
   })
 
   const workKey = olKey ?? work?.openLibraryKey ?? null
   if (work) {
     const pages = work.editions.flatMap((e) => (e.pages ? [e.pages] : [])).sort((a, b) => a - b)
-    // Not every catalog work has its own cover yet: an edition's will do, else Open Library's.
-    const coverUrl = work.coverUrl
+    // A librarian's cover first. Not every catalog work has its own cover yet: an edition's will do,
+    // else Open Library's.
+    const coverUrl = librarianCover(work, work.editions)
+      ?? work.coverUrl
       ?? work.editions.find((e) => e.coverUrl)?.coverUrl
       ?? (workKey ? await workCover(workKey).catch(() => null) : null)
     return {
