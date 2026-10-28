@@ -23,6 +23,8 @@ const nextConfig = {
     return [
       { source: '/buddy-reads', destination: '/circles', permanent: true },
       { source: '/buddy-reads/:path*', destination: '/circles/:path*', permanent: true },
+      // Notifications moved onto the feed page as a tab.
+      { source: '/notifications', destination: '/feed?tab=notifications', permanent: true },
     ];
   },
   async headers() {
