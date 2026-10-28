@@ -3,6 +3,7 @@ import { FC } from 'react'
 import type { Book } from '@prisma/client'
 import { Bookmark } from 'lucide-react'
 import BookCover from '../cards/BookCover'
+import { Skeleton } from '../ui/skeleton'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
 import useShelfPreview from '@/app/hooks/useShelfPreview'
 import useCollapsedSections from '@/app/hooks/useCollapsedSections'
@@ -76,6 +77,23 @@ const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, 
           {books.slice(0, columns).map((book) => <FavouriteTile key={book.id} book={book} readOnly={readOnly} />)}
         </div>
       </ShelfSection>
+    </div>
+  )
+}
+
+// Your own favourites while the shelf they're drawn from loads: one row of small covers, or just the
+// heading if you've folded the section.
+export const FavouritesRowSkeleton: FC = () => {
+  const preview = useShelfPreview()
+  const { collapsed } = useCollapsedSections()("profile-favourites")
+  return (
+    <div className="mb-12" aria-busy="true" aria-label="Loading your favourites">
+      <div className={collapsed ? "flex min-h-10 items-center" : "mb-5 flex min-h-10 items-center"}><Skeleton className="h-6 w-32" /></div>
+      {!collapsed && (
+        <div className={favouritesGridClass}>
+          {Array.from({ length: preview / 2 + 2 }, (_, i) => <Skeleton key={i} className="aspect-[2/3]" />)}
+        </div>
+      )}
     </div>
   )
 }
