@@ -4,6 +4,7 @@ import useSWR from 'swr'
 import { Loader2, Search } from 'lucide-react'
 import { fetcher } from '@/lib/fetcher'
 import type { StaffWork } from '@/lib/catalogueFix'
+import { workKeyOfQuery } from '@/lib/workKey'
 import { Button } from '../ui/button'
 import { cardClass, fieldClass, staffSend } from './staffApi'
 
@@ -25,6 +26,7 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
     return () => clearTimeout(t)
   }, [query])
   const { data: results, isLoading } = useSWR<StaffWork[]>(debounced.trim() ? `/api/staff/works?q=${encodeURIComponent(debounced)}` : null, fetcher, { keepPreviousData: true })
+  const olKey = workKeyOfQuery(debounced)
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,7 +42,9 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
       ) : (
         <>
           {isLoading && <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />}
-          {results && results.length === 0 && <p className="text-muted-foreground">Nothing in the catalogue matches that.</p>}
+          {results && results.length === 0 && (olKey
+            ? <AddFromOpenLibrary olKey={olKey} onAdded={setSelected} />
+            : <p className="text-muted-foreground">Nothing in the catalogue matches that.</p>)}
           <ul className="flex flex-col gap-2">
             {results?.map((w) => (
               <li key={w.id}>
@@ -58,6 +62,31 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
           </ul>
         </>
       )}
+    </div>
+  )
+}
+
+// A book page can show a book from Open Library that no reader has shelved, so the catalogue has no row
+// for it yet. Filing it gives the librarian something to correct.
+const AddFromOpenLibrary = ({ olKey, onAdded }: { olKey: string, onAdded: (id: string) => void }) => {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const add = async () => {
+    setPending(true)
+    setError(null)
+    try {
+      onAdded((await staffSend<StaffWork>('/api/staff/works', 'POST', { openLibraryKey: olKey })).id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <div className={`${cardClass} flex flex-col gap-3`}>
+      <p className="text-sm text-muted-foreground">{olKey} isn&apos;t in the catalogue yet: nobody has shelved it, so its book page comes straight from Open Library. Add it to correct it.</p>
+      <Button size="sm" className="self-start" onClick={add} disabled={pending}>{pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Add from Open Library</Button>
+      {error && <p role="status" className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

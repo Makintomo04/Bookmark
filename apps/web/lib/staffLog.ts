@@ -10,6 +10,7 @@ export type StaffActionKind =
   | "plus.revoke"
   | "role.set"
   | "work.edit"
+  | "work.add"
   | "edition.edit"
   | "report.dismiss"
   | "report.hide"
@@ -44,6 +45,7 @@ export const STAFF_ACTION_LABELS: Record<StaffActionKind, string> = {
   "plus.revoke": "Removed free Plus",
   "role.set": "Changed role",
   "work.edit": "Edited book",
+  "work.add": "Added book from Open Library",
   "edition.edit": "Edited edition",
   "report.dismiss": "Dismissed report",
   "report.hide": "Took content down",
