@@ -25,18 +25,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
 let utapi: UTApi | undefined;
 
 export async function downloadCover(url: string) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+  // Some image hosts (Wikimedia, several shop CDNs) refuse a request that doesn't say who's asking.
+  const res = await fetch(url, { headers: { "user-agent": "Bookmark/1.0 (book cover copy)" }, signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`cover download failed with ${res.status}`);
   const type = res.headers.get("content-type") || "image/jpeg";
   if (!type.startsWith("image/")) throw new Error(`cover download returned ${type}`);
   const bytes = await withTimeout(res.arrayBuffer(), DOWNLOAD_TIMEOUT_MS, "cover download");
-  if (bytes.byteLength < MIN_COVER_BYTES) throw new Error("Open Library has no cover for this id");
+  if (bytes.byteLength < MIN_COVER_BYTES) throw new Error("no cover at that link");
 
-  const name = url.slice(OPEN_LIBRARY_COVER_PREFIX.length).replace(/[^a-z0-9.-]+/gi, "-");
+  const path = isOpenLibraryCoverUrl(url) ? url.slice(OPEN_LIBRARY_COVER_PREFIX.length) : new URL(url).pathname.split("/").pop() || "cover";
+  const name = path.replace(/[^a-z0-9.-]+/gi, "-");
   return new File([bytes], name, { type });
 }
 
-// Copies an Open Library cover into UploadThing and returns its utfs.io URL.
+// Copies a cover (Open Library's, or any https image a librarian picked) into UploadThing and returns its utfs.io URL.
 // Throws on any failure; callers decide what to fall back to.
 export async function copyCoverToUploadThing(url: string) {
   const file = await downloadCover(url);
