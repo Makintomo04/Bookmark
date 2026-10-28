@@ -82,7 +82,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
       return (
         <Link key={href} href={href} onClick={close} aria-current={active ? "page" : undefined}
           className={cn("flex items-center gap-3 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm font-medium transition hover:bg-neutral-100 dark:hover:bg-neutral-800",
-            active && "bg-neutral-100 dark:bg-neutral-800", inHeader && "sm:hidden")}>
+            active && "bg-neutral-100 dark:bg-neutral-800", inHeader && "md:hidden")}>
           <Icon size={18} className="text-muted-foreground shrink-0" aria-hidden />
           {label}
         </Link>
