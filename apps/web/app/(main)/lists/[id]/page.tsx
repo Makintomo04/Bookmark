@@ -14,6 +14,7 @@ import ChoiceButton from '@/app/components/lists/ChoiceButton'
 import { FollowButton, ReportListButton } from '@/app/components/discover/ListButtons'
 import ListActions from '@/app/components/lists/ListActions'
 import RemixInfo from '@/app/components/lists/RemixInfo'
+import ListNotes from '@/app/components/lists/ListNotes'
 import InitialAvatar from '@/app/components/profile/InitialAvatar'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 import getCurrentUser from '@/app/actions/getCurrentUser'
@@ -40,6 +41,14 @@ const Page = async ({ params }: PageProps) => {
 
   const owner = list.owner
   const genres = list.genres.map(genreBySlug).filter(Boolean)
+  const items = list.items.map((item, i) => ({
+    id: item.id,
+    rank: i + 1,
+    book: { workKey: item.workKey, title: item.title, author: item.author, coverUrl: item.coverUrl, pages: item.pages },
+    reason: item.note && item.curator ? { text: item.note, by: item.curator } : null,
+    borrowed: !!item.curator && item.curator !== owner,
+  }))
+  const notes = items.flatMap(({ rank, book, reason, borrowed }) => (reason ? [{ rank, book, reason, borrowed }] : []))
 
   return (
     <div className="mt-8 sm:mt-12">
@@ -92,22 +101,20 @@ const Page = async ({ params }: PageProps) => {
           </div>
         </header>
 
-        {list.items.length === 0 ? (
+        {items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-10 text-center text-muted-foreground">No books on this list yet.</p>
         ) : (
           <ol className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
-            {list.items.map((item, i) => (
+            {items.map((item) => (
               <li key={item.id} className="flex">
-                <DiscoverBookCard
-                  rank={i + 1}
-                  actions={false}
-                  reason={item.note && item.curator ? { text: item.note, by: item.curator } : null}
-                  book={{ workKey: item.workKey, title: item.title, author: item.author, coverUrl: item.coverUrl, pages: item.pages }}
-                />
+                {/* No reason: the notes have their own section below, so neither the card nor its details repeat them. */}
+                <DiscoverBookCard rank={item.rank} actions={false} book={item.book} />
               </li>
             ))}
           </ol>
         )}
+
+        <ListNotes notes={notes} />
 
         {!list.isOwner && !list.isPick && (
           <div className="border-t border-neutral-200 dark:border-neutral-800 pt-6">
