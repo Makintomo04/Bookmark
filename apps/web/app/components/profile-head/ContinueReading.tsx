@@ -12,6 +12,7 @@ import { discoverBookOf } from '@/lib/openLibrary'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useUser from '@/app/hooks/useUser'
 import BookCover from '../cards/BookCover'
+import FavouriteButton from '../cards/FavouriteButton'
 import UpdateSheet from './UpdateSheet'
 
 interface ContinueReadingProps {
@@ -123,6 +124,7 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
           </button>
         )}
       </div>
+      {!readOnly && <FavouriteButton bookId={book.id} className="self-start -mr-1 -mt-1" />}
     </li>
   )
 }
