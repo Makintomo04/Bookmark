@@ -51,6 +51,8 @@ export const notificationHref = (n: NotificationLike) => {
   if (n.type === "ACHIEVEMENT_EARNED") return "/achievements"
   if (n.type === "REVIEW_HIDDEN" && n.book?.href) return `${n.book.href}#reviews-heading`
   if (n.type === "NEW_IN_SERIES") return n.work?.href ?? "/notifications"
+  // The book, not the sender: they're named in the line, and the book is what's being offered.
+  if (n.type === "BOOK_RECOMMENDED" && n.book?.href) return n.book.href
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`
   if (n.buddyRead) return `/circles/${n.buddyRead.id}`
   return `/u/${encodeURIComponent(n.actor.username)}`
@@ -63,14 +65,14 @@ export const NotificationLead: FC<{ n: NotificationLike; size?: "sm" | "md" }> =
     variant="thumb" sizes={size === "sm" ? "36px" : "40px"} className={size === "sm" ? "w-9 shrink-0 rounded-sm" : "w-10 shrink-0 rounded-sm"} />
 ) : <ActorAvatar actor={n.actor} size={size} />
 
-// What happened and when. `full` lets the line wrap (the page) instead of cutting it short (the menu).
+// What happened and when. The line itself always wraps: cut short, it loses the book it's about. `full`
+// (the page) also lets a sender's note run on, which the menu keeps to two lines.
 export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ n, full = false }) => {
-  const oneLine = full ? "" : "truncate"
   return (
     <div className="min-w-0">
       {n.type === "COMMENTS_UNLOCKED" ? (
         // Not one person's doing: "3 comments to read in Dune", reached or newly posted.
-        <p className={`text-sm ${oneLine}`}>{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} to read in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
+        <p className="text-sm">{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} to read in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
       ) : n.type === "NEW_IN_SERIES" ? (
         <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>
           {seriesNewsText({ title: n.work?.title ?? null, seriesName: n.work?.seriesName ?? null, position: n.work?.seriesPosition ?? null, count: n.count ?? null })}
@@ -86,15 +88,31 @@ export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ 
             ? <>The host of <span className="font-semibold">{n.buddyRead?.title ?? "a reading circle"}</span> closed their account. It&apos;s yours now, archived until you have room to reopen it.</>
             : <>You&apos;re now hosting <span className="font-semibold">{n.buddyRead?.title ?? "a reading circle"}</span>: its host closed their account.</>}
         </p>
+      ) : n.type === "BOOK_RECOMMENDED" && n.book ? (
+        // The book gets its own line with its cover and author, so it's plain which one is being added.
+        <>
+          <p className="text-sm">
+            <ReaderName reader={n.actor} className="font-semibold" badge={n.actor.staffBadge && <StaffSeal kind={n.actor.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} />
+            {" "}thinks you&apos;d like
+          </p>
+          <div className="mt-1.5 flex items-center gap-2">
+            <BookCover book={{ title: n.book.title, author: n.book.author, coverImage: n.book.coverImage, cardColour: null }}
+              variant="thumb" sizes="28px" className="w-7 shrink-0 rounded-sm" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-snug">{n.book.title}</p>
+              {n.book.author && <p className="text-xs text-muted-foreground">{n.book.author}</p>}
+            </div>
+          </div>
+        </>
       ) : (
-        <p className={`text-sm ${oneLine}`}>
+        <p className="text-sm">
           {/* The row is a link, so the seal only marks the role here; the profile's seal explains it. */}
           <ReaderName reader={n.actor} className="font-semibold" badge={n.actor.staffBadge && <StaffSeal kind={n.actor.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} />
           {" "}{notificationCopy(n)}
         </p>
       )}
       {n.type === "BOOK_RECOMMENDED" && n.message && (
-        <p className={`text-xs text-muted-foreground italic ${full ? "" : "line-clamp-2"}`}>&ldquo;{n.message}&rdquo;</p>
+        <p className={`mt-1 text-xs text-muted-foreground italic ${full ? "" : "line-clamp-2"}`}>&ldquo;{n.message}&rdquo;</p>
       )}
       <p className="text-xs text-muted-foreground">{moment(n.createdAt).fromNow()}</p>
       {n.type === "BOOK_RECOMMENDED" && n.book?.onShelf && (
