@@ -11,11 +11,13 @@ interface MedalShowcaseProps {
   earned: { key: string }[]
   // Their achievements page: /achievements for the owner, /u/<username>/achievements for anyone else.
   href: string
+  // One medal per row, for a narrow column (the profile in bands).
+  stacked?: boolean
 }
 
 // A reader's best three medals under their profile header, picked automatically (topMedals, as on the
 // share image). Nothing until they've earned one.
-const MedalShowcase: FC<MedalShowcaseProps> = ({ earned, href }) => {
+const MedalShowcase: FC<MedalShowcaseProps> = ({ earned, href, stacked = false }) => {
   const medals = topMedals(earned)
   if (medals.length === 0) return null
 
@@ -27,7 +29,7 @@ const MedalShowcase: FC<MedalShowcaseProps> = ({ earned, href }) => {
           See all<ChevronRight size={14} aria-hidden />
         </Link>
       </div>
-      <ul className="grid grid-cols-1 gap-2 min-[480px]:grid-cols-3">
+      <ul className={stacked ? "grid grid-cols-1 gap-2" : "grid grid-cols-1 gap-2 min-[480px]:grid-cols-3"}>
         {medals.map((m) => (
           <li key={m.key}>
             <Link

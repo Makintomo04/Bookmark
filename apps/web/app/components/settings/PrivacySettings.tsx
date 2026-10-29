@@ -48,6 +48,13 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           disabled={busy}
         />
         <Toggle
+          label="Show my reading goal on my profile"
+          hint="Anyone who can see your profile sees how many books you've read towards this year's goal, and how far ahead you are. It never says you're behind."
+          checked={settings.showGoal}
+          onChange={(v) => save("showGoal", v)}
+          disabled={busy}
+        />
+        <Toggle
           label="Hide my favourites"
           hint="The row of favourite books on your profile shows only to you. Private books never show there either way."
           checked={settings.hideFavourites}

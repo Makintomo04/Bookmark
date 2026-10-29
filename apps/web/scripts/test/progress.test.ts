@@ -164,3 +164,35 @@ test("adding a page count later stamps a percent-only finish, so pages read catc
   assert.deepEqual(stamps, [{ id: "kindle-finish", data: lengthSnapshot(counted) }]);
   assert.deepEqual(readLength(stamps[0].data, counted), { pages: 320, minutes: 0 });
 });
+
+// ---- Chapters and Kindle locations: ways of entering a place, stored as a percent ----------------
+
+test("a book logs in chapters or locations only with their totals", async () => {
+  const { entryOf } = await import("@/lib/progress");
+  assert.equal(entryOf({ ...paper, logsIn: "CHAPTERS", chapters: 14 }), "CHAPTERS");
+  assert.equal(entryOf({ ...paper, logsIn: "CHAPTERS", chapters: null }), "PAGES");
+  assert.equal(entryOf({ ...paper, logsIn: "LOCATION", locations: 5120 }), "LOCATION");
+  assert.equal(entryOf({ ...paper, logsPercent: true }), "PERCENT");
+  assert.equal(entryOf(paper), "PAGES");
+});
+
+test("chapter N means chapter N has begun, and a percent falls in a chapter", async () => {
+  const { chapterAt, chapterPercent, locationPercent } = await import("@/lib/progress");
+  assert.equal(chapterPercent(1, 14), 0);
+  assert.equal(chapterPercent(9, 14), 57.1);
+  assert.equal(chapterPercent(20, 14), 92.9);
+  assert.equal(chapterAt(0, 14), 1);
+  assert.equal(chapterAt(57.1, 14), 8);
+  assert.equal(chapterAt(57.2, 14), 9);
+  assert.equal(chapterAt(100, 14), 14);
+  assert.equal(chapterAt(50, 0), 0);
+  assert.equal(locationPercent(2310, 5120), 45.1);
+});
+
+test("a place logged in chapters or locations is said that way", async () => {
+  const { formatEntry } = await import("@/lib/progress");
+  assert.equal(formatEntry({ ...paper, logsIn: "CHAPTERS", chapters: 14, currentChapter: 9 }), "Ch 9 of 14");
+  assert.equal(formatEntry({ ...paper, logsIn: "LOCATION", locations: 5120, currentLocation: 2310 }), "Loc 2,310 of 5,120");
+  assert.equal(formatEntry(paper), null);
+  assert.equal(formatEntry({ ...paper, status: "COMPLETED", logsIn: "CHAPTERS", chapters: 14, currentChapter: 9 }), null);
+});

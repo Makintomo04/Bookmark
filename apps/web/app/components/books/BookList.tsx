@@ -29,7 +29,8 @@ const ShelfSkeleton: FC = () => (
   </div>
 )
 
-const BookList: FC = () => {
+// `slot`: one part of the shelf on your profile in bands (?layout=bands). See BookGrid.
+const BookList: FC<{ slot?: 'results' | 'shelves' }> = ({ slot }) => {
   const {books,isLoading:isLoadingBooks,isError:isErrorBooks,mutate:mutateBooks} = useBooks();
   const {user,isLoading,isError} = useUser();
   const bookEntryModal = useBookEntryModal()
@@ -45,6 +46,8 @@ const BookList: FC = () => {
     const dateB = new Date(b.createdAt);
     return dateB.getTime() - dateA.getTime()
 })
+// The results panel has nothing to say until there's a shelf to search.
+if(slot === 'results' && !books?.length) return null
 if(isErrorBooks) return <FetchErrorState error={isErrorBooks} what="your books" onRetry={() => mutateBooks()}/>
 // The shelf isn't in the server render, so until it arrives, its outline rather than an empty Currently reading.
 if(!books) return <ShelfSkeleton/>
@@ -52,6 +55,7 @@ if(!books) return <ShelfSkeleton/>
 // Matches the Lists empty state below it. The header already has Add a book, so this card's
 // main job is the import nudge: most new readers have a shelf somewhere else already.
 if(sortedBooks?.length === 0) return (
+  <>
   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
     <div>
       <p className="font-medium">Your shelf is empty</p>
@@ -71,8 +75,9 @@ if(sortedBooks?.length === 0) return (
       </Link>
     </div>
   </div>
+  </>
   )
-  return <BookGrid books={sortedBooks ?? []}/>
+  return <BookGrid books={sortedBooks ?? []} slot={slot}/>
 }
 
 export default BookList

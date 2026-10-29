@@ -1,11 +1,12 @@
 "use client"
-import { FC, useState } from 'react'
+import { FC, ReactNode, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useOwnerLists } from '@/app/hooks/useLists'
 import useListEditorModal, { emptyList } from '@/app/hooks/useListEditorModal'
 import useUser from '@/app/hooks/useUser'
 import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import { preferencesOf } from '@/lib/preferences'
+import { cn } from '@/lib/utils'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
 import { Skeleton } from '../ui/skeleton'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
@@ -20,12 +21,19 @@ interface ProfileListsProps {
   half?: boolean
   // At the top of a profile, where the section above sets the spacing: no top margin of its own.
   flush?: boolean
+  // In bands: on a phone the lists are a row you swipe rather than a grid (with `half`, more than the two
+  // it shows from sm up).
+  swipe?: boolean
+  // A line under the heading (your profile in bands: how to add a favourite, when you have none).
+  footnote?: ReactNode
 }
 
 // Lists shown in half a row before "See all".
 const HALF_SHOWN = 2
+// Lists in the row you swipe on a phone.
+const SWIPE_SHOWN = 8
 
-const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, flush = false }) => {
+const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, flush = false, swipe = false, footnote }) => {
   const { lists, isLoading, isError, mutate } = useOwnerLists(username)
   const [all, setAll] = useState(false)
   const { onOpen } = useListEditorModal()
@@ -52,14 +60,16 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
     </button>
   )
 
-  const shown = half && !all ? lists.slice(0, HALF_SHOWN) : lists
+  // Swiping, the phone gets up to SWIPE_SHOWN in its row; from sm up, the rest past the first two stay hidden.
+  const shown = half && !all ? lists.slice(0, swipe ? SWIPE_SHOWN : HALF_SHOWN) : lists
   const action = isSelf && lists.length > 0 ? newList
-    : half && !all && lists.length > HALF_SHOWN ? <SeeAllLink onClick={() => setAll(true)} />
+    : half && !all && lists.length > HALF_SHOWN ? <span className={swipe ? "max-sm:hidden" : undefined}><SeeAllLink onClick={() => setAll(true)} /></span>
     : undefined
 
   return (
     <div className={half || flush ? undefined : "mt-12"}>
       <ShelfSection id="profile-lists" title="Lists" count={lists.length} action={action} {...(isSelf ? collapse("profile-lists") : {})}>
+        {footnote && <div className="-mt-3 mb-4">{footnote}</div>}
         {lists.length === 0 ? (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
             <div>
@@ -69,7 +79,11 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
             <div className="shrink-0">{newList}</div>
           </div>
         ) : (
-          <div className={half ? "grid grid-cols-2 gap-x-5 gap-y-8" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8"}>
+          <div className={cn(
+            half ? "grid grid-cols-2 gap-x-5 gap-y-8" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8",
+            swipe && "max-sm:relative max-sm:flex max-sm:overflow-x-auto max-sm:snap-x max-sm:-mx-4 max-sm:px-4 max-sm:pb-1 max-sm:[&>*]:w-[44%] max-sm:[&>*]:shrink-0 max-sm:[&>*]:snap-start",
+            swipe && half && !all && "sm:[&>*:nth-child(n+3)]:hidden",
+          )}>
             {shown.map((list) => <ListCard key={list.id} list={list} hideOwner />)}
           </div>
         )}

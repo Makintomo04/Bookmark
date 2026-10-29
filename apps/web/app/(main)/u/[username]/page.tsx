@@ -11,6 +11,9 @@ import Container from '@/app/components/Container'
 import PublicProfile from '@/app/components/profile-head/PublicProfile'
 import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
+import { profileLayoutOf } from '@/app/components/profile-head/Band'
+import { sharedCircles } from '@/lib/sharedCircles'
+import { publicGoal } from '@/lib/publicGoal'
 
 interface PageProps {
   params: Promise<{ username: string }>
@@ -60,6 +63,8 @@ export default async function Page(props: PageProps) {
   const one = (name: string) => { const v = searchParams[name]; return typeof v === 'string' ? v : null }
   const linked = parseShelfParams({ get: one })
   if (linked.shelf) redirect(shelfPageHref(handleOf(params.username), linked.shelf, linked))
+  // ?layout=bands tries the paired-bands profile; anything else is the page as it has been.
+  const layout = profileLayoutOf(one('layout'))
   const viewer = await getCurrentUser()
   const data = await getProfileView(profileHandle(params.username), viewer?.id)
   if (!data) notFound()
@@ -83,6 +88,7 @@ export default async function Page(props: PageProps) {
     content = (
       <OwnerProfile
         username={profile.username}
+        layout={layout}
         fallback={{
           // The same payloads those routes return, so the owner's header paints with the page.
           "/api/user": { ...self, _count: { books: readingCounts(data.profile.books).booksRead } },
@@ -95,6 +101,10 @@ export default async function Page(props: PageProps) {
     content = (
       <PublicProfile
         profile={serializeProfile(data.profile)}
+        layout={layout}
+        // In bands, a circle the viewer shares with them pins its book first on their reading cards.
+        sharedCircles={viewer && layout === 'bands' ? await sharedCircles(viewer.id, data.userId) : []}
+        goal={layout === 'bands' && data.privacy.showGoal ? await publicGoal(data.userId) : null}
         viewer={viewer ? {
           isFollowing: data.relation.isFollower,
           requested: !data.relation.isFollower && (await hasRequested(viewer.id, data.userId)),

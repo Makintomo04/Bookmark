@@ -42,6 +42,8 @@ interface ProfileReviewsProps {
   bare?: boolean
   // Your own profile: the section folds up from its heading, and stays folded.
   collapsible?: boolean
+  // How many show before "Show more": fewer in bands, where reviews sit above the shelves.
+  first?: number
 }
 
 // The newest few show straight away; a reader with hundreds of reviews pages through the rest.
@@ -49,8 +51,8 @@ const FIRST = 5
 const MORE = 20
 
 // The reviews on a profile, newest finish first. Renders nothing when there are none to show.
-const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false, href, bare = false, collapsible = false }) => {
-  const [shown, setShown] = useState(FIRST)
+const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false, href, bare = false, collapsible = false, first = FIRST }) => {
+  const [shown, setShown] = useState(first)
   const collapse = useCollapsedSections()
   const reviewed = reviewedBooks(books)
   if (reviewed.length === 0) return null

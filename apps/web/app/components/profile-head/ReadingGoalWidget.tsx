@@ -6,6 +6,8 @@ import { Pencil, Crown, Target } from 'lucide-react'
 import useGoalProgress from '@/app/hooks/useGoalProgress'
 import useReadingGoal from '@/app/hooks/useReadingGoal'
 import useUser from '@/app/hooks/useUser'
+import useBooks from '@/app/hooks/useBooks'
+import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
 import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, monthTarget } from '@/lib/goals'
@@ -70,8 +72,26 @@ const monthNote = (done: number, perMonth: number, custom: boolean, yearTarget: 
   return left > 0 ? `${fmt(left)} more to stay on track for ${fmt(yearTarget)}` : `On track for ${fmt(yearTarget)}`
 }
 
-const ReadingGoalWidget: FC = () => {
+// The average star rating of the books finished this year, or null with none rated.
+const averageRating = (books: Book[] | undefined, year: number) => {
+  const rated = (books ?? []).filter((b) => b.status === "COMPLETED" && b.rating && b.completedAt && new Date(b.completedAt).getFullYear() === year)
+  if (rated.length === 0) return null
+  return rated.reduce((sum, b) => sum + (b.rating ?? 0), 0) / rated.length
+}
+
+interface ReadingGoalWidgetProps {
+  // "strip": one slim line under the header (the profile as it has been).
+  // "block": two lines in the column beside your books, in bands from lg up.
+  // "lines": the same two lines in words under the stats, with no card, in bands below lg.
+  variant?: 'strip' | 'block' | 'lines'
+}
+
+// The most books a month the goal can ask you to catch up with before it suggests changing the goal instead.
+const CATCH_UP_MAX = 4
+
+const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) => {
   const { user } = useUser()
+  const { books } = useBooks()
   const year = new Date().getFullYear()
   const { progress: counted, isLoading: progressLoading } = useGoalProgress(year)
   const { goal, isLoading, mutate } = useReadingGoal(year)
@@ -183,42 +203,108 @@ const ReadingGoalWidget: FC = () => {
   const pagesTarget = canExtra ? goal?.targetPages : null
   const monthGoal = monthTarget(goal, progress.books - progress.thisMonth, progress.month, canExtra)
   const month = MONTHS[progress.month]
+  const average = averageRating(books as Book[] | undefined, year)
+  const ring = (size: number) => (
+    <svg
+      role="progressbar"
+      aria-label={`${year} reading goal`}
+      aria-valuenow={completedThisYear}
+      aria-valuemin={0}
+      aria-valuemax={target}
+      viewBox="0 0 52 52"
+      className="shrink-0 -rotate-90"
+      width={size}
+      height={size}
+    >
+      <circle cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="6" className="stroke-neutral-200 dark:stroke-neutral-800" />
+      <circle
+        cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="6" strokeLinecap="round"
+        stroke={colour}
+        strokeDasharray={`${ratio * RING_LENGTH} ${RING_LENGTH}`}
+        className="transition-[stroke-dasharray] duration-700"
+      />
+      <text x="26" y="26" dy="0.35em" textAnchor="middle" transform="rotate(90 26 26)" className="fill-foreground text-[13px] font-semibold tabular-nums">
+        {Math.round(ratio * 100)}
+      </text>
+    </svg>
+  )
+  const editButton = (
+    <button
+      type="button"
+      onClick={startEditing}
+      aria-label={`Edit ${year} reading goal`}
+      className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Pencil size={15} aria-hidden />
+    </button>
+  )
+
+  // In bands the goal is said in two lines. The first has at most one coloured word: amber when behind,
+  // green when ahead, so "behind" never sits beside a green "hit your target". It ends with what to do
+  // next: the books that put you back on pace this month, or (when that's more than CATCH_UP_MAX) a nudge
+  // to change the goal. The second is grey: this month, your page goal and your average rating.
+  const gap = Math.round(completedThisYear - target * ((Date.now() - new Date(year, 0, 1).getTime()) / (new Date(year + 1, 0, 1).getTime() - new Date(year, 0, 1).getTime())))
+  const token = completedThisYear >= target
+    ? <span className={toneClass.good}>{completedThisYear > target ? `${completedThisYear - target} over` : "goal reached"}</span>
+    : gap < 0 ? <span className={toneClass.behind}>{-gap} behind</span>
+    : gap > 0 ? <span className={toneClass.good}>{gap} ahead</span>
+    : <span className="text-muted-foreground">on pace</span>
+  const nextStep = completedThisYear >= target ? null
+    : gap >= 0 ? `On track for ${fmt(target)}`
+    : -gap > CATCH_UP_MAX ? <button type="button" onClick={startEditing} className="underline underline-offset-2 hover:text-foreground">Adjust your goal</button>
+    : `Read ${fmt(-gap)} more this month to catch up`
+  const second = [
+    `${month}: ${fmt(progress.thisMonth)} read`,
+    pagesTarget ? `${fmt(progress.pages)} of ${fmt(pagesTarget)} pages` : null,
+    average !== null ? `${average.toFixed(1)} ★ average` : null,
+  ].filter(Boolean).join(" · ")
+  const twoLines = (
+    <div className="flex items-start gap-3">
+      {ring(40)}
+      <div className="min-w-0 flex-1 leading-snug">
+        <p className="text-sm font-medium tabular-nums">{fmt(completedThisYear)} of {fmt(target)} in {year} · {token}</p>
+        {nextStep && <p className="text-xs text-muted-foreground">{nextStep}</p>}
+        <p className="mt-2 border-t border-neutral-200 dark:border-neutral-800 pt-2 text-xs tabular-nums text-muted-foreground">{second}</p>
+      </div>
+      <div className="-mr-2 -mt-1.5">{editButton}</div>
+    </div>
+  )
+
+  if (variant === 'block') {
+    return <section aria-label={`${year} reading goal`} className="mt-5 rounded-xl bg-neutral-100 dark:bg-neutral-900 p-3.5">{twoLines}</section>
+  }
+  if (variant === 'lines') {
+    return (
+      <section aria-label={`${year} reading goal`} className="mt-3 flex items-start gap-2">
+        <div className="min-w-0 flex-1 leading-snug">
+          <p className="text-sm tabular-nums"><span className="font-medium">{fmt(completedThisYear)} of {fmt(target)}</span> · {token}{nextStep && <span className="text-muted-foreground"> · {nextStep}</span>}</p>
+          <p className="text-xs tabular-nums text-muted-foreground">{second}</p>
+        </div>
+        <div className="-mr-2 -mt-1.5">{editButton}</div>
+      </section>
+    )
+  }
+
+  const yearLine = (
+    <>
+      <span className="flex items-center gap-1 text-sm font-medium tabular-nums">
+        <span className="truncate">{completedThisYear} of {target} books in {year}</span>
+      </span>
+      <span className="block truncate text-xs tabular-nums">
+        <span className={toneClass[status.tone]}>{status.text}{status.toGo && <span className="hidden sm:inline"> · {status.toGo}</span>}</span>
+        {monthGoal.perMonth > 0 && (
+          <span className="text-muted-foreground sm:hidden"> · {monthGoal.perMonth > progress.thisMonth ? `${fmt(monthGoal.perMonth - progress.thisMonth)} more this month` : "on track this month"}</span>
+        )}
+      </span>
+    </>
+  )
 
   // One slim strip: the ring, the year in words, and this month (and pages, on Plus) as small bars on the
   // right. On a phone the month drops into the second line instead.
   return (
-    <section aria-label={`${year} reading goal`} className="mt-4 flex items-center gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 py-2 pl-2.5 pr-1.5">
-      <svg
-        role="progressbar"
-        aria-label={`${year} reading goal`}
-        aria-valuenow={completedThisYear}
-        aria-valuemin={0}
-        aria-valuemax={target}
-        viewBox="0 0 52 52"
-        className="shrink-0 -rotate-90"
-        width={36}
-        height={36}
-      >
-        <circle cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="6" className="stroke-neutral-200 dark:stroke-neutral-800" />
-        <circle
-          cx="26" cy="26" r={RING_RADIUS} fill="none" strokeWidth="6" strokeLinecap="round"
-          stroke={colour}
-          strokeDasharray={`${ratio * RING_LENGTH} ${RING_LENGTH}`}
-          className="transition-[stroke-dasharray] duration-700"
-        />
-        <text x="26" y="26" dy="0.35em" textAnchor="middle" transform="rotate(90 26 26)" className="fill-foreground text-[13px] font-semibold tabular-nums">
-          {Math.round(ratio * 100)}
-        </text>
-      </svg>
-      <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-sm font-medium tabular-nums">{completedThisYear} of {target} books in {year}</p>
-        <p className="truncate text-xs tabular-nums">
-          <span className={toneClass[status.tone]}>{status.text}{status.toGo && <span className="hidden sm:inline"> · {status.toGo}</span>}</span>
-          {monthGoal.perMonth > 0 && (
-            <span className="text-muted-foreground sm:hidden"> · {monthGoal.perMonth > progress.thisMonth ? `${fmt(monthGoal.perMonth - progress.thisMonth)} more this month` : "on track this month"}</span>
-          )}
-        </p>
-      </div>
+    <section aria-label={`${year} reading goal`} className="mt-4 flex items-center gap-x-3 rounded-xl border border-neutral-200 dark:border-neutral-800 py-2 pl-2.5 pr-1.5">
+      {ring(36)}
+      <div className="min-w-0 flex-1 leading-tight">{yearLine}</div>
       <div className="hidden sm:flex shrink-0 flex-col gap-2.5 w-52">
         {monthGoal.perMonth > 0 && (
           <ExtraGoal label={month} done={`${fmt(progress.thisMonth)} read`} value={progress.thisMonth} target={monthGoal.perMonth}
@@ -229,14 +315,7 @@ const ReadingGoalWidget: FC = () => {
             note={progress.pages >= pagesTarget ? `Reached your ${fmt(pagesTarget)}` : `${fmt(pagesTarget - progress.pages)} more to reach ${fmt(pagesTarget)}`} colour={colour} />
         ) : null}
       </div>
-      <button
-        type="button"
-        onClick={startEditing}
-        aria-label={`Edit ${year} reading goal`}
-        className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Pencil size={15} aria-hidden />
-      </button>
+      {editButton}
     </section>
   )
 }

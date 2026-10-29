@@ -18,7 +18,17 @@ export type ProgressBook = {
   currentPercent?: number | null
   // The reader's per-book choice to log in percent.
   logsPercent?: boolean | null
+  // Chapters and Kindle locations: more ways of entering a place, stored as a percent (see entryOf below).
+  chapters?: number | null
+  currentChapter?: number | null
+  locations?: number | null
+  currentLocation?: number | null
+  logsIn?: ProgressEntry | null
 }
+
+// How a reader logs one book. Percent, chapters and Kindle locations all store a percent (currentPercent,
+// with the matching page or minute beside it), so stats, goals and circles never need to know which.
+export type ProgressEntry = "PAGES" | "PERCENT" | "CHAPTERS" | "LOCATION"
 
 // Prisma `select` for anything that calls progressPercent(): spread it, don't list the fields again.
 export const progressSelect = {
@@ -121,6 +131,46 @@ export function formatPosition(book: ProgressBook | null | undefined, opts: { pa
   }
   if (unit === "MINUTES") return `${formatMinutes(current)} of ${formatMinutes(total)}${opts.paused ? " · paused" : ""}`
   return `${opts.paused ? "Paused on page" : "Page"} ${current} of ${total}`
+}
+
+// ---- Chapters and Kindle locations ------------------------------------------------------------
+
+// How this book is logged: the reader's choice, or percent for a book set to log in percent before
+// chapters and locations existed, or pages. Chapters and locations need their totals to mean anything.
+export function entryOf(book: ProgressBook | null | undefined): ProgressEntry {
+  if (!book) return "PAGES"
+  if (book.logsIn === "CHAPTERS" && (book.chapters ?? 0) > 0) return "CHAPTERS"
+  if (book.logsIn === "LOCATION" && (book.locations ?? 0) > 0) return "LOCATION"
+  if (book.logsIn === "PERCENT" || book.logsPercent) return "PERCENT"
+  return "PAGES"
+}
+
+// The chapter a percent falls in, of a book with `chapters` chapters: 0% is chapter 1, 100% the last. It's
+// how a circle's place reads in chapters across members' different editions: by how far through, not by page.
+export function chapterAt(percent: number, chapters: number): number {
+  if (!(chapters > 0) || !Number.isFinite(percent)) return 0
+  return Math.max(1, Math.min(chapters, Math.ceil((Math.max(0, Math.min(100, percent)) / 100) * chapters)))
+}
+
+// A chapter or location as a percent: chapter 9 of 14 is the end of chapter 8 (finished chapters), so
+// logging "Ch 9" says you've started it. Location 2,310 of 5,120 is simply its share.
+export function chapterPercent(chapter: number, chapters: number): number {
+  if (!(chapters > 0)) return 0
+  return roundPercent(((Math.max(1, Math.min(chapters, chapter)) - 1) / chapters) * 100)
+}
+export function locationPercent(location: number, locations: number): number {
+  if (!(locations > 0)) return 0
+  return roundPercent((Math.max(0, Math.min(locations, location)) / locations) * 100)
+}
+
+// The place in the way the reader logs it, when that's chapters or locations: "Ch 9 of 14", "Loc 2,310 of
+// 5,120". Null for pages, minutes and percent, which formatPosition says.
+export function formatEntry(book: ProgressBook | null | undefined): string | null {
+  const entry = entryOf(book)
+  if (!book || book.status === "COMPLETED") return null
+  if (entry === "CHAPTERS") return `Ch ${book.currentChapter || chapterAt(progressPercent(book), book.chapters!)} of ${book.chapters}`
+  if (entry === "LOCATION") return `Loc ${(book.currentLocation ?? 0).toLocaleString("en-GB")} of ${book.locations!.toLocaleString("en-GB")}`
+  return null
 }
 
 // "Stopped at page 40" / "Stopped at 1h 10m".

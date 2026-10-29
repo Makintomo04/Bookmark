@@ -2,7 +2,7 @@ import { FC, ReactNode } from 'react'
 import { BLEED } from '../Container'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Crown } from 'lucide-react'
+import { ChevronRight, Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
 import { bannerPresetOf, resolveBanner } from '@/lib/banners'
@@ -49,6 +49,40 @@ interface ProfileHeaderProps {
   badge?: SupporterBadgeKind | null
   // "Bookmark team" or "Librarian" (lib/staffBadge.ts): a seal on the avatar's corner.
   staffBadge?: StaffBadgeKind | null
+  // The profile in bands (?layout=bands). `besides` (what they're reading, what's next) sits beside the
+  // header from lg up, which becomes a column; `identityFooter` ends that column from lg up (top medals,
+  // when the books beside it run longer);
+  // `follows` puts the first authors they follow under the bio; `compact` keeps the banner shorter on a
+  // wide screen, so the first band starts higher.
+  besides?: ReactNode
+  identityFooter?: ReactNode
+  follows?: { name: string; slug: string }[]
+  // Your own profile: with no followed authors, a line pointing you to some instead of nothing.
+  followsPrompt?: boolean
+  compact?: boolean
+}
+
+// How many followed authors the line under the bio names before "and N more".
+const FOLLOWS_NAMED = 2
+
+// "Follows Ursula K. Le Guin, Kazuo Ishiguro and 18 more", each name linking to the author's page and the
+// rest to the authors section further down the profile.
+const FollowsLine: FC<{ authors: { name: string; slug: string }[] }> = ({ authors }) => {
+  const named = authors.slice(0, FOLLOWS_NAMED)
+  const rest = authors.length - named.length
+  const linkClass = "text-foreground hover:underline underline-offset-2"
+  return (
+    <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+      Follows{" "}
+      {named.map((a, i) => (
+        <span key={a.slug}>
+          {i > 0 && (i === named.length - 1 && rest === 0 ? " and " : ", ")}
+          <Link href={`/authors/${encodeURIComponent(a.slug)}`} className={linkClass}>{a.name}</Link>
+        </span>
+      ))}
+      {rest > 0 && <> and <a href="#profile-authors" className={linkClass}>{rest} more</a></>}
+    </p>
+  )
 }
 
 const BADGE: Record<SupporterBadgeKind, { label: string; title: string }> = {
@@ -83,7 +117,7 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
   </Link>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge }) => {
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, identityFooter, follows, followsPrompt = false, compact = false }) => {
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
   const preset = bannerPresetOf(shownBanner)
@@ -97,16 +131,19 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
     <header>
       {/* Shorter on a phone, with the buttons beside the avatar, so the shelf's first cover is in view. The banner
           reaches the page's outer edge (edge to edge on a phone); everything else sits on the inner line. */}
-      <div className={cn("relative h-24 sm:h-44 overflow-hidden sm:rounded-2xl", BLEED)} style={{ background: accent }}>
+      <div className={cn("relative h-24 sm:h-44 overflow-hidden sm:rounded-2xl", compact && "lg:h-32", BLEED)} style={{ background: accent }}>
         {preset
           ? <BannerPattern preset={preset} colour={accent} />
           : <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
       </div>
 
-      <div>
-        <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4">
+      {/* In bands (`besides`), from lg up this is the left third of a grid and the books sit in the other two
+          thirds; the buttons drop under the stats. Below lg it's the header as ever, with the books under it. */}
+      <div data-top-grid className={cn(besides && "lg:grid lg:grid-cols-12 lg:gap-10")}>
+      <div data-identity className={cn(besides && "lg:col-span-4 lg:flex lg:flex-col lg:self-start")}>
+        <div className={cn("-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4", besides && "lg:contents")}>
           {/* The seal sits beside the avatar's button, not in it, so it can be pressed on its own. */}
-          <div className="relative shrink-0">
+          <div className={cn("relative shrink-0", besides && "lg:-mt-14 lg:self-start")}>
             {onAvatarClick ? (
               <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
                 {avatar}
@@ -115,10 +152,10 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
             {staffBadge && <StaffSeal kind={staffBadge} name={name} size={30} cutOut shine className={cn("absolute", plus ? "-right-1.5 bottom-0.5" : "right-0 bottom-[6%]")} />}
           </div>
           {/* On a phone the buttons are shorter, so beside the smaller avatar they clear the banner by 12px. */}
-          {actions && <div className="flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8">{actions}</div>}
+          {actions && <div className={cn("flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8", besides && "lg:order-last lg:mt-5 lg:flex-wrap lg:pb-0")}>{actions}</div>}
         </div>
 
-        <div className="mt-3 sm:mt-4">
+        <div className="mt-3 sm:mt-4 min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="page-title break-words">{name}</h1>
             {(badge || supporter) && (
@@ -132,12 +169,21 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
           {/* The handle, under a display name: it's the /u/ address and how friends find them. */}
           {displayName && <p className="mt-0.5 text-sm text-muted-foreground break-all">@{username}</p>}
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+          {follows && follows.length > 0 && <FollowsLine authors={follows} />}
+          {follows && follows.length === 0 && followsPrompt && (
+            <Link href="/discover" className="mt-1.5 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">
+              Follow authors you love<ChevronRight size={14} aria-hidden />
+            </Link>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
             {stats.map((stat) => <Stat key={stat.label} stat={stat} />)}
           </div>
         </div>
 
         {children}
+        {besides && identityFooter && <div className="hidden lg:block lg:order-last">{identityFooter}</div>}
+      </div>
+      {besides && <div data-books className="mt-8 min-w-0 lg:col-span-8 lg:mt-6 lg:self-start">{besides}</div>}
       </div>
     </header>
   )

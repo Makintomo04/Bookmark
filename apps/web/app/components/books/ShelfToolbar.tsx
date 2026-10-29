@@ -35,7 +35,7 @@ interface PillSelectProps {
 
 // A select drawn as a pill with the app's own menu, so it follows the theme (a native select's list
 // is the browser's) and its chevron has room.
-const PillSelect: FC<PillSelectProps> = ({ label, value, options, onChange, icon, active = false, size = "sm" }) => {
+export const PillSelect: FC<PillSelectProps> = ({ label, value, options, onChange, icon, active = false, size = "sm" }) => {
   const current = options.find((o) => o.value === value) ?? options[0]
   return (
     <DropdownMenu>
@@ -71,16 +71,19 @@ interface ShelfToolbarProps {
   onChange: (filter: ShelfFilter) => void
   // Select and the view toggle, at the end of the row.
   actions?: ReactNode
+  // Your profile in bands: the search box is at the top of the page (ShelfSearch), so this row is sort and
+  // filters only, with the filters showing.
+  searchless?: boolean
 }
 
 // Above the shelf: find a book by title, author or tag, sort every shelf, and narrow by year finished,
 // genre, rating, format or tag. Filters only offer what's on the shelf.
-const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions }) => {
+const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions, searchless = false }) => {
   const options = useMemo(() => filterOptions(books), [books])
   const set = (patch: Partial<ShelfFilter>) => onChange({ ...filter, ...patch })
   const activeFilters = [filter.year, filter.genre, filter.rating, filter.format, filter.tag, filter.author].filter((v) => v !== null).length
   const [open, setOpen] = useState(activeFilters > 0)
-  const showFilters = open || activeFilters > 0
+  const showFilters = searchless || open || activeFilters > 0
   const any = (label: string): Option => ({ value: "", label })
   // A phone's search box is narrow beside the buttons: just "Search" there.
   const [narrow, setNarrow] = useState(false)
@@ -98,7 +101,7 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
   return (
     <div className="mb-6 flex flex-col gap-3">
       <div className="flex sm:flex-wrap items-center gap-1.5 sm:gap-2">
-        <label className="relative flex-1 min-w-0 sm:min-w-[12rem]">
+        {!searchless && <label className="relative flex-1 min-w-0 sm:min-w-[12rem]">
           <span className="sr-only">Search your shelf</span>
           <Search size={16} aria-hidden className="pointer-events-none absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -108,7 +111,7 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
             placeholder={placeholder}
             className="h-10 w-full rounded-full border border-neutral-300 dark:border-neutral-700 bg-background pl-9 sm:pl-10 pr-3 sm:pr-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-        </label>
+        </label>}
         <PillSelect
           label="Sort"
           size="md"
@@ -117,10 +120,10 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
           options={SHELF_SORTS.map((s) => ({ value: s, label: SORT_LABEL[s] }))}
           onChange={(v) => set({ sort: v as ShelfSort })}
         />
-        <button type="button" aria-expanded={showFilters} aria-label={activeFilters ? `Filter, ${activeFilters} on` : "Filter"} onClick={() => setOpen((v) => !v)} className={cn(pillClass, "inline-flex items-center justify-center gap-2 max-sm:min-w-10 max-sm:px-2.5 sm:px-4")}>
+        {!searchless && <button type="button" aria-expanded={showFilters} aria-label={activeFilters ? `Filter, ${activeFilters} on` : "Filter"} onClick={() => setOpen((v) => !v)} className={cn(pillClass, "inline-flex items-center justify-center gap-2 max-sm:min-w-10 max-sm:px-2.5 sm:px-4")}>
           <SlidersHorizontal size={15} aria-hidden />
           <span className="hidden sm:inline">Filter</span>{activeFilters > 0 && <span className="tabular-nums"><span className="hidden sm:inline">· </span>{activeFilters}</span>}
-        </button>
+        </button>}
         {actions}
       </div>
 
