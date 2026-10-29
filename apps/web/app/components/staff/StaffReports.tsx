@@ -213,7 +213,7 @@ const ReportCard = ({ entry, canSuspend, closed, onDone }: { entry: QueueEntry, 
       )}
       {closed && canPutBack(entry) && mayPutBack && (
         <div className="mt-4 flex flex-col gap-3">
-          <label className="sr-only" htmlFor={`note-${entry.itemId}`}>Why it's going back up</label>
+          <label className="sr-only" htmlFor={`note-${entry.itemId}`}>Why it&apos;s going back up</label>
           <ClearableInput id={`note-${entry.itemId}`} className={fieldClass} placeholder="Why it's going back up (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={!!pending} onClick={() => act('unhide')}>
@@ -224,7 +224,7 @@ const ReportCard = ({ entry, canSuspend, closed, onDone }: { entry: QueueEntry, 
         </div>
       )}
 
-      {readOnly && <p className="mt-4 text-sm text-muted-foreground">Waiting for an admin. You'll see it in Closed once they've dealt with it.</p>}
+      {readOnly && <p className="mt-4 text-sm text-muted-foreground">Waiting for an admin. You&apos;ll see it in Closed once they&apos;ve dealt with it.</p>}
 
       {!closed && !readOnly && (
         <div className="mt-4 flex flex-col gap-3">
