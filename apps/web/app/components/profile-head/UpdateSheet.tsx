@@ -210,7 +210,7 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
 
         {step === 'next' && (
           <div>
-            <UpNext bare row />
+            <UpNext bare row after={book} />
             <div className="mt-5 flex justify-end">
               <button type="button" onClick={onClose} className={cn(primaryButtonClass, sheetButton)}>Done</button>
             </div>

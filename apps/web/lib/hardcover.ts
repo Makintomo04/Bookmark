@@ -93,7 +93,7 @@ const HEADLINE = `query Headline($id: Int!) { books(where: { id: { _eq: $id } })
 
 // One GraphQL request. Throws on any failure (no token, rate limited, expired token, timeout) so a
 // failed answer isn't cached.
-async function hardcoverQuery(query: string, variables: Record<string, unknown>) {
+export async function hardcoverQuery(query: string, variables: Record<string, unknown>) {
   const token = process.env.HARDCOVER_API_TOKEN?.trim()
   if (!token) throw new Error("HARDCOVER_API_TOKEN is not set")
   const res = await fetch(ENDPOINT, {
