@@ -14,6 +14,8 @@ export interface PrivacySettings {
   hideFavourites: boolean;
   // A librarian hiding their badge (staffBadge.ts). Only offered to librarians.
   hideStaffBadge: boolean;
+  // This year's reading goal on their profile, for anyone who can see it. Opt-in; it never says "behind".
+  showGoal: boolean;
 }
 
 // The User fields privacy needs. Spread into a Prisma `select`.
@@ -25,6 +27,7 @@ export const privacySelect = {
   hideFollowCounts: true,
   hideFavourites: true,
   hideStaffBadge: true,
+  showGoal: true,
 } as const;
 
 type StoredPrivacy = {
@@ -35,6 +38,7 @@ type StoredPrivacy = {
   hideFollowCounts?: boolean | null;
   hideFavourites?: boolean | null;
   hideStaffBadge?: boolean | null;
+  showGoal?: boolean | null;
 };
 
 // Accounts made before privacy settings existed have the fields unset: they read as the defaults.
@@ -47,6 +51,7 @@ export function privacyOf(user: StoredPrivacy): PrivacySettings {
     hideFollowCounts: user.hideFollowCounts ?? false,
     hideFavourites: user.hideFavourites ?? false,
     hideStaffBadge: user.hideStaffBadge ?? false,
+    showGoal: user.showGoal ?? false,
   };
 }
 

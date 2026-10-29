@@ -15,6 +15,19 @@ import { Skeleton } from '../ui/skeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import { reviewedBooks } from '@/lib/reviewedBooks'
 import ReadingGoalWidget from './ReadingGoalWidget'
+import ContinueReading from './ContinueReading'
+import UpNext from './UpNext'
+import ShelfSearch from './ShelfSearch'
+import GapFiller from './GapFiller'
+import BookList from '../books/BookList'
+import MedalShowcase from '../achievements/MedalShowcase'
+import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
+import { isNarrowed } from '@/lib/shelfFilter'
+import { groupShelf } from '../books/shelf'
+import useSWR from 'swr'
+import { fetcher, swrOptions } from '@/lib/fetcher'
+import type { FollowedAuthor } from '@/lib/authorFollows'
+import type { ProfileLayout } from './Band'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
@@ -25,7 +38,50 @@ import { milestoneKey, type AchievementKey } from '@/lib/achievements-catalog'
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
-const ProfileHead: FC = () => {
+// Beside your header in bands from lg up (under it below lg): what you're reading, with the shelf search on the
+// heading's right, then what to start next. With nothing on the go, Up next leads (your header says so in a
+// line). While you search, both make way for the results, right under the field: a full-width panel lower
+// down would start below your column, however tall it is.
+const BooksTop: FC = () => {
+  const { user } = useUser()
+  const { books } = useBooks()
+  const shared = useSharedShelfFilter()
+  if (!Array.isArray(books)) return <Skeleton className="h-40 w-full rounded-xl" />
+  const { reading } = groupShelf(books as Book[])
+  const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
+  return (
+    <section aria-labelledby="continue-reading">
+      <div className="mb-4 flex min-h-10 items-center justify-between gap-4">
+        <h2 id="continue-reading" className="flex items-baseline gap-2 text-lg font-semibold">
+          {searching ? "Your shelf" : reading.length > 0 ? <>Continue reading <span className="text-sm font-normal text-muted-foreground tabular-nums">{reading.length}</span></> : "Up next"}
+        </h2>
+        <ShelfSearch />
+      </div>
+      {searching ? <BookList slot="results" /> : reading.length > 0
+        ? <><ContinueReading books={reading} accentColour={user?.favColour} /><UpNext /></>
+        : <UpNext bare />}
+    </section>
+  )
+}
+
+// Under your stats in bands, when you're reading nothing: said once, with the way to start.
+const NothingOnTheGo: FC = () => {
+  const { books } = useBooks()
+  const bookEntryModal = useBookEntryModal()
+  if (!Array.isArray(books) || groupShelf(books as Book[]).reading.length > 0) return null
+  return (
+    <p className="mt-2 text-sm text-muted-foreground">
+      Not reading anything right now ·{" "}
+      <button type="button" onClick={() => bookEntryModal.onOpen(undefined, { shelf: "STARTED" })} className="font-medium text-foreground hover:underline underline-offset-2">+ Start a book</button>
+    </p>
+  )
+}
+
+// In bands your header becomes a column from lg up, with what you're reading beside it. The goal
+// is two lines in that column, or two lines in words under your stats below lg; the authors you follow get a line
+// under your bio; the banner is shorter.
+const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
+  const bands = layout === 'bands'
   const { user, isError, isLoading, mutate: mutateUser } = useUser()
   const booksReadFor = useBooksReadFor()
   const { books } = useBooks()
@@ -34,6 +90,8 @@ const ProfileHead: FC = () => {
   const bookEntryModal = useBookEntryModal()
   const editProfileModal = useEditProfileModal()
   const [showLightbox, setShowLightbox] = useState(false)
+  // The same list as Authors you follow further down, so it's one request.
+  const { data: followed } = useSWR<{ authors: FollowedAuthor[] }>(bands ? '/api/user/authors' : null, fetcher, swrOptions)
 
   // SWR reports isLoading while it revalidates server-provided fallback data too, so check for data.
   if (isLoading && !user) {
@@ -80,6 +138,11 @@ const ProfileHead: FC = () => {
         colour={user.favColour}
         {...supporterOf(user)}
         staffBadge={staffBadgeOf(user)}
+        compact={bands}
+        besides={bands ? <BooksTop /> : undefined}
+        identityFooter={bands ? <GapFiller><MedalShowcase earned={earnedKeys} href="/achievements" stacked /></GapFiller> : undefined}
+        follows={bands ? followed?.authors : undefined}
+        followsPrompt={bands}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
@@ -101,7 +164,13 @@ const ProfileHead: FC = () => {
         }
       >
         {/* One slim line, so the first cover on the shelf is in view without scrolling, even on a phone. */}
-        <ReadingGoalWidget />
+        {bands ? (
+          <>
+            <NothingOnTheGo />
+            <div className="lg:hidden"><ReadingGoalWidget variant="lines" /></div>
+            <div className="hidden lg:block"><ReadingGoalWidget variant="block" /></div>
+          </>
+        ) : <ReadingGoalWidget />}
       </ProfileHeader>
 
       {showLightbox && user.image && (

@@ -147,6 +147,8 @@ model User {
   // Keep "stopped reading" out of followers' feeds. The Did not finish shelf itself never shows to others.
   hideDidNotFinish  Boolean?
   hideFollowCounts  Boolean?
+  // Show this year's reading goal on their profile, to anyone who can see it. Off (unset) by default.
+  showGoal Boolean?
   // Keep favourites off the profile for everyone else. Unset shows them (privacyRules.ts).
   hideFavourites    Boolean?
   // A librarian hiding their Librarian badge (packages/shared/src/staffBadge.ts). The team's badge always shows.
@@ -390,6 +392,15 @@ model Book {
   // the place was last logged in pages or minutes. logsPercent remembers the reader's choice per book.
   currentPercent Float?
   logsPercent Boolean?
+  // Chapters and Kindle locations are more ways of entering progress, like percent: the place is stored as a
+  // percent (currentPercent, with its page beside it), and these say it the way the reader logged it. The
+  // totals belong to the reader's own edition. logsIn remembers how they log this book; unset reads as pages,
+  // or percent when logsPercent is set (lib/progress.ts entryOf).
+  chapters Int?
+  currentChapter Int?
+  locations Int?
+  currentLocation Int?
+  logsIn ProgressEntry?
   createdAt DateTime @default(now())
   // These mirror the current (or latest) read so existing queries keep working; BookRead holds the history.
   startedAt DateTime?
@@ -598,6 +609,14 @@ enum Status {
 }
 
 // What a read's progress is counted in. PAGES is the default for every read made before this existed.
+// How a reader logs progress for one book (Book.logsIn). Percent, chapters and locations all store a percent.
+enum ProgressEntry {
+  PAGES
+  PERCENT
+  CHAPTERS
+  LOCATION
+}
+
 enum ProgressUnit {
   PAGES
   // Minutes listened, out of the edition's audioMinutes.

@@ -29,6 +29,10 @@ const publicBookSelect = {
   progressUnit: true,
   audioMinutes: true,
   currentMinute: true,
+  // Said the way they log it: "Ch 9 of 14".
+  chapters: true,
+  currentChapter: true,
+  logsIn: true,
   createdAt: true,
   startedAt: true,
   completedAt: true,

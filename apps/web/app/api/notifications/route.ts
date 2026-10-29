@@ -47,21 +47,21 @@ export async function GET(req: Request) {
   const withBuddyReads = notifications.map((n) => (n.buddyReadId ? { ...n, buddyRead: buddyReadById.get(n.buddyReadId) ?? null } : n))
 
   // Recommendations name the sender's copy of the book, or the catalogue Work when they sent it from its page
-  // without shelving it, and say whether it's already on the reader's shelf.
+  // without shelving it, link to its page, and say whether it's already on the reader's shelf.
   const isRecommended = (n: (typeof notifications)[number]) => n.type === "BOOK_RECOMMENDED"
   const recommendedIds = Array.from(new Set(notifications.flatMap((n) => (isRecommended(n) && n.bookId ? [n.bookId] : []))))
   const recommendedWorkIds = Array.from(new Set(notifications.flatMap((n) => (isRecommended(n) && !n.bookId && n.workId ? [n.workId] : []))))
   const [copies, recommendedWorks] = await Promise.all([
     recommendedIds.length > 0
-      ? prisma.book.findMany({ where: { id: { in: recommendedIds } }, select: { id: true, title: true, author: true, coverImage: true, workKey: true } })
+      ? prisma.book.findMany({ where: { id: { in: recommendedIds } }, select: { id: true, title: true, author: true, coverImage: true, workKey: true, workId: true } })
       : [],
     recommendedWorkIds.length > 0
-      ? prisma.work.findMany({ where: { id: { in: recommendedWorkIds } }, select: { id: true, title: true, authors: true, coverUrl: true, openLibraryKey: true } })
+      ? prisma.work.findMany({ where: { id: { in: recommendedWorkIds } }, select: { id: true, title: true, authors: true, coverUrl: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true } })
       : [],
   ])
   const recommended = [
     ...copies,
-    ...recommendedWorks.map((w) => ({ id: w.id, title: w.title, author: w.authors[0] ?? "Unknown", coverImage: w.coverUrl ?? "", workKey: w.openLibraryKey })),
+    ...recommendedWorks.map((w) => ({ id: w.id, title: w.title, author: w.authors[0] ?? "Unknown", coverImage: w.coverUrl ?? "", workKey: w.openLibraryKey, workId: hasPage(w) ? w.id : null })),
   ]
   const mine = recommended.length > 0
     ? await prisma.book.findMany({
@@ -69,7 +69,11 @@ export async function GET(req: Request) {
         select: { title: true, author: true, workKey: true },
       })
     : []
-  const recommendedById = new Map(recommended.map(({ workKey, ...b }) => [b.id, { ...b, onShelf: mine.some((m) => sameBook(m, { ...b, workKey })) }]))
+  const recommendedById = new Map(recommended.map(({ workKey, workId, ...b }) => [b.id, {
+    ...b,
+    onShelf: mine.some((m) => sameBook(m, { ...b, workKey })),
+    href: bookHref({ workKey, pageWorkId: workId, title: b.title }),
+  }]))
   const withRecommendations = withBuddyReads.map((n) => {
     if (!isRecommended(n)) return n
     const id = n.bookId ?? n.workId

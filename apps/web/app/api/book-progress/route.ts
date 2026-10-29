@@ -72,6 +72,13 @@ const bodySchema = z.object({
   currentPercent: z.number().min(0).max(100).optional(),
   // Remember percent entry for this book, on every device.
   logsPercent: z.boolean().optional(),
+  // Chapters and Kindle locations: sent with the percent they mean (currentPercent), and stored as said, with
+  // the totals for this edition. logsIn remembers how the reader logs this book.
+  logsIn: z.enum(["PAGES", "PERCENT", "CHAPTERS", "LOCATION"]).optional(),
+  chapters: z.number().int().min(1).max(1000).optional(),
+  currentChapter: z.number().int().min(1).max(1000).optional(),
+  locations: z.number().int().min(1).max(1_000_000).optional(),
+  currentLocation: z.number().int().min(0).max(1_000_000).optional(),
   rating: ratingInputSchema.optional(),
   review: z.string().max(2000, "Review must be 2000 characters or fewer").optional(),
   // Spoiler reviews show collapsed behind a click-to-reveal; private ones only to the reader (lib/privacy.ts).
@@ -263,6 +270,15 @@ export async function POST(req: Request) {
       // When the reader last moved their place in the book (lib/recap.ts tells a book left untouched by it).
       if (action === "start" || action === "restart" || action === "progress" || action === "resume") data.progressAt = now
       if (body.logsPercent !== undefined) data.logsPercent = body.logsPercent
+      if (body.logsIn !== undefined) {
+        data.logsIn = body.logsIn
+        // The old update form opens in percent for anything logged as a percent.
+        data.logsPercent = body.logsIn !== "PAGES"
+      }
+      if (body.chapters !== undefined) data.chapters = body.chapters
+      if (body.currentChapter !== undefined) data.currentChapter = body.currentChapter
+      if (body.locations !== undefined) data.locations = body.locations
+      if (body.currentLocation !== undefined) data.currentLocation = body.currentLocation
       if (rating !== undefined && action !== "reshelve") data.rating = rating
       if (review !== undefined) data.review = review
       if (reviewSpoiler !== undefined) data.reviewSpoiler = reviewSpoiler
