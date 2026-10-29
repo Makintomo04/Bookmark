@@ -99,7 +99,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
         )}
         {notifications.map((n: any) => (
           <div key={n.id} className="flex flex-col">
-            <DropdownMenuItem asChild className="items-center gap-3 p-2 rounded-md cursor-pointer">
+            <DropdownMenuItem asChild className="items-start gap-3 p-2 rounded-md cursor-pointer">
               <Link href={notificationHref(n)} onClick={() => { followedLink.current = true }}>
                 <NotificationLead n={n} size="sm" />
                 <NotificationText n={n} />
