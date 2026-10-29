@@ -127,15 +127,23 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
 // popular books in the genres you picked, until there are four to six.
 // `bare`: no heading of its own, where the heading above already says Up next (nothing on the go, or the
 // Update sheet after Finished). `row`: a row you swipe at every width, for somewhere narrow (that sheet).
-const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = false }) => {
+// `after`: the book just finished, which adds a short "Because you finished" row of books like it above the rest.
+const UpNext: FC<{ bare?: boolean; row?: boolean; after?: { title: string; author: string } }> = ({ bare = false, row = false, after }) => {
   const { books } = useBooks()
   const { settings } = useSettings()
   const { data: series } = useSWR<{ series: SeriesTrack[] }>(SERIES_TRACKER_KEY, fetcher, swrOptions)
   const { data: genre } = useSWR<GenrePicks>('/api/discover/for-you', fetcher, swrOptions)
+  // Fetched once per finished book; empty (and the row left out) when there aren't two or three good matches.
+  const { data: like } = useSWR<{ books: DiscoverBook[] }>(
+    after ? `/api/discover/similar?title=${encodeURIComponent(after.title)}&author=${encodeURIComponent(after.author)}` : null, fetcher, swrOptions)
   if (!Array.isArray(books)) return null
 
   const picks: Pick[] = []
   const seen = new Set<string>()
+  const similar: Pick[] = (like?.books ?? []).map((book) => {
+    seen.add(`${book.title}|${book.author}`.toLowerCase())
+    return { key: `like-${book.hardcoverId ?? book.title}`, title: book.title, author: book.author, coverUrl: book.coverUrl, tag: book.author, discover: book }
+  })
   const add = (pick: Pick) => {
     const k = `${pick.title}|${pick.author}`.toLowerCase()
     if (seen.has(k) || picks.length >= MOST) return
@@ -162,11 +170,20 @@ const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = fal
       add({ key: `genre-${book.workKey ?? book.title}`, title: book.title, author: book.author, coverUrl: book.coverUrl, tag: label ? `For you · ${label}` : "For you", discover: book })
     }
   }
-  if (picks.length === 0) return null
+  if (picks.length === 0 && similar.length === 0) return null
 
   return (
     <section aria-labelledby={bare ? undefined : "up-next"} aria-label={bare ? "Up next" : undefined} className={bare ? undefined : "mt-8"}>
       {!bare && <h2 id="up-next" className="mb-4 text-lg font-semibold">Up next</h2>}
+      {after && similar.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">Because you finished {after.title}</p>
+          <ul className="relative flex gap-3 overflow-x-auto overflow-y-hidden pb-2">
+            {similar.map((pick) => <PickTile key={pick.key} pick={pick} row />)}
+          </ul>
+        </div>
+      )}
+      {after && similar.length > 0 && picks.length > 0 && <p className="mb-2 text-xs font-medium text-muted-foreground">More to read</p>}
       <ul className={cn(
         // Relative, so the Start buttons' screen-reader text stays inside the scroller instead of widening the page.
         // Out to the screen's edges on a phone, with the page's 16px kept as scroll padding too: without it each
