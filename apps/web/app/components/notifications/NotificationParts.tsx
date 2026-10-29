@@ -85,7 +85,7 @@ export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ 
           {seriesNewsText({ title: n.work?.title ?? null, seriesName: n.work?.seriesName ?? null, position: n.work?.seriesPosition ?? null, count: n.count ?? null })}
         </p>
       ) : n.type === "STAFF_REPORT" ? (
-        <p className={`text-sm ${oneLine}`}>{staffReportText(n.count)}</p>
+        <p className="text-sm">{staffReportText(n.count)}</p>
       ) : n.type === "ESCALATION_RESOLVED" ? (
         // Staff to staff, but the bell's other notices name nobody either.
         <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>{escalationResolvedText(n.message)}</p>
