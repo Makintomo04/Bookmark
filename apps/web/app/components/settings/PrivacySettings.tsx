@@ -4,7 +4,7 @@ import useSettings from '@/app/hooks/useSettings'
 import useUser from '@/app/hooks/useUser'
 import { roleOf } from '@/lib/roles'
 import FollowRequests from '../profile-head/FollowRequests'
-import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS, Segmented, Toggle } from './controls'
+import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_COMMENT_HINT, REVIEW_COMMENT_OPTIONS, REVIEW_OPTIONS, Segmented, Toggle } from './controls'
 
 // Each setting saves as soon as it changes, separately from the profile form. The server enforces them (lib/privacy.ts).
 const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
@@ -26,6 +26,10 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           <p className="text-xs text-muted-foreground">{PROFILE_HINT[settings.profileVisibility]}</p>
         </div>
         <Segmented id="privacy-reviews" label="Who can read your reviews" options={REVIEW_OPTIONS} value={settings.reviewVisibility} onChange={(v) => save("reviewVisibility", v)} disabled={busy} />
+        <div className="flex flex-col gap-1.5">
+          <Segmented id="privacy-review-comments" label="Who can comment on your reviews" options={REVIEW_COMMENT_OPTIONS} value={settings.reviewComments} onChange={(v) => save("reviewComments", v)} disabled={busy} />
+          <p className="text-xs text-muted-foreground">{REVIEW_COMMENT_HINT[settings.reviewComments]}</p>
+        </div>
         <Toggle
           label="Hide my Want to read shelf"
           hint="Others won't see what's on your list, or when you add to it."

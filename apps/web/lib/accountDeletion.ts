@@ -66,6 +66,12 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.bookRead.deleteMany({ where: { userId } });
     await tx.activity.deleteMany({ where: { OR: [{ userId }, { book: { userId } }] } });
     await tx.notification.deleteMany({ where: { OR: [{ userId }, { actorId: userId }] } });
+    // Comments they wrote on other readers' reviews, and reports they filed of them (comments on their own
+    // reviews go with their books).
+    await tx.reviewCommentReport.deleteMany({ where: { OR: [{ reporterId: userId }, { comment: { userId } }, { comment: { book: { userId } } }] } });
+    // Replies first: a comment can't go while replies still point at it.
+    await tx.reviewComment.deleteMany({ where: { parentId: { not: null }, OR: [{ userId }, { book: { userId } }, { parent: { userId } }] } });
+    await tx.reviewComment.deleteMany({ where: { OR: [{ userId }, { book: { userId } }] } });
     await tx.book.deleteMany({ where: { userId } });
     await tx.readerTags.deleteMany({ where: { userId } });
     // Their AI recaps and usage counters (Catch me up, Ask the shelf).

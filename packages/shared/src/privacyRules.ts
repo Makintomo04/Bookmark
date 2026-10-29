@@ -1,4 +1,4 @@
-import type { ProfileVisibility, ReviewVisibility } from "./enums";
+import type { ProfileVisibility, ReviewCommentAudience, ReviewVisibility } from "./enums";
 
 // The privacy rules as pure functions, with no database access, so client components can use the
 // same answers the server enforces (e.g. labelling the owner's own hidden reviews). Servers should
@@ -7,6 +7,8 @@ import type { ProfileVisibility, ReviewVisibility } from "./enums";
 export interface PrivacySettings {
   profileVisibility: ProfileVisibility;
   reviewVisibility: ReviewVisibility;
+  // Who may comment on their reviews, among those who can see them (canCommentOnReview).
+  reviewComments: ReviewCommentAudience;
   hideWantToRead: boolean;
   // The Did not finish shelf never shows to others; this keeps "stopped reading" out of followers' feeds too.
   hideDidNotFinish: boolean;
@@ -22,6 +24,7 @@ export interface PrivacySettings {
 export const privacySelect = {
   profileVisibility: true,
   reviewVisibility: true,
+  reviewComments: true,
   hideWantToRead: true,
   hideDidNotFinish: true,
   hideFollowCounts: true,
@@ -33,6 +36,7 @@ export const privacySelect = {
 type StoredPrivacy = {
   profileVisibility?: ProfileVisibility | null;
   reviewVisibility?: ReviewVisibility | null;
+  reviewComments?: ReviewCommentAudience | null;
   hideWantToRead?: boolean | null;
   hideDidNotFinish?: boolean | null;
   hideFollowCounts?: boolean | null;
@@ -46,6 +50,7 @@ export function privacyOf(user: StoredPrivacy): PrivacySettings {
   return {
     profileVisibility: user.profileVisibility ?? "PUBLIC",
     reviewVisibility: user.reviewVisibility ?? "EVERYONE",
+    reviewComments: user.reviewComments ?? "EVERYONE",
     hideWantToRead: user.hideWantToRead ?? false,
     hideDidNotFinish: user.hideDidNotFinish ?? false,
     hideFollowCounts: user.hideFollowCounts ?? false,
@@ -137,4 +142,15 @@ export function visibleReview(
   if (!text || !allowed) return { review: null, reviewSpoiler: false, reviewHidden: false, reviewRemoved: false };
   const onlyOwner = !!book.reviewPrivate || removed || owner.reviewVisibility === "ONLY_ME";
   return { review: text, reviewSpoiler: !!book.reviewSpoiler, reviewHidden: relation.isSelf && onlyOwner, reviewRemoved: relation.isSelf && removed };
+}
+
+// Can this viewer write a comment on the owner's review? Only asked once visibleReview() has said they can
+// read it, so seeing the review is already settled; this is the owner's narrower choice of who may reply.
+// OFF closes the thread to everyone, the owner included (they can still delete). `friends` is whether the
+// two follow each other (lib/friends.ts), only read for FRIENDS.
+export function canCommentOnReview(relation: Relation, owner: PrivacySettings, friends: boolean): boolean {
+  if (owner.reviewComments === "OFF") return false;
+  if (relation.isSelf) return true;
+  if (relation.blocked) return false;
+  return owner.reviewComments === "EVERYONE" || friends;
 }

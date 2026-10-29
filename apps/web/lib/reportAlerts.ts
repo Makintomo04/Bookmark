@@ -8,7 +8,7 @@ import { supportEmail } from "@/lib/support";
 
 export interface ReportAlert {
   // "list", "comment" (a reading-circle comment) or "review" (a reader's review, on their copy of a book).
-  kind: "list" | "comment" | "review";
+  kind: "list" | "comment" | "review" | "reviewComment";
   // The reported item's id.
   id: string;
   reason: string;
@@ -23,7 +23,7 @@ export interface ReportAlert {
 
 const EXCERPT_MAX = 2000;
 
-const KIND_NOUNS: Record<ReportAlert["kind"], string> = { list: "a list", comment: "a reading-circle comment", review: "a review" };
+const KIND_NOUNS: Record<ReportAlert["kind"], string> = { list: "a list", comment: "a reading-circle comment", review: "a review", reviewComment: "a comment on a review" };
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 

@@ -66,7 +66,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
       <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
       <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>
       <Band
-        wide={<ProfileReviews books={profile.books} accentColour={profile.favColour} canReport first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />}
+        wide={<ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />}
         narrow={<ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} />} />
     </div>
   )
@@ -165,7 +165,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
             {wantToRead.length > 0 && (
               <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
             )}
-            <ProfileReviews books={profile.books} accentColour={profile.favColour} canReport href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
+            <ProfileReviews books={profile.books} accentColour={profile.favColour} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
           </>
         )}
         <div className="mt-12"><ProfileAuthors authors={profile.followedAuthors} /></div>
