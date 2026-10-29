@@ -18,7 +18,7 @@ import ReadingGoalWidget from './ReadingGoalWidget'
 import ContinueReading from './ContinueReading'
 import UpNext from './UpNext'
 import ShelfSearch from './ShelfSearch'
-import GapFiller from './GapFiller'
+import ProfileAuthors from './ProfileAuthors'
 import BookList from '../books/BookList'
 import MedalShowcase from '../achievements/MedalShowcase'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
@@ -35,6 +35,9 @@ import { resolveBanner } from '@/lib/banners'
 import { supporterOf } from '@/lib/supporter'
 import { staffBadgeOf } from '@/lib/staffBadge'
 import { milestoneKey, type AchievementKey } from '@/lib/achievements-catalog'
+
+// Followed authors in your header's column before "+N more".
+const FOLLOWED_SHOWN = 8
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -140,9 +143,14 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         staffBadge={staffBadgeOf(user)}
         compact={bands}
         besides={bands ? <BooksTop /> : undefined}
-        identityFooter={bands ? <GapFiller><MedalShowcase earned={earnedKeys} href="/achievements" stacked /></GapFiller> : undefined}
-        follows={bands ? followed?.authors : undefined}
-        followsPrompt={bands}
+        // From lg up the column ends with your top medals, then the authors you follow (below lg, the authors
+        // come after your reviews, and the medals are on the achievements page).
+        identityFooter={bands ? (
+          <div className="flex flex-col gap-10">
+            <MedalShowcase earned={earnedKeys} href="/achievements" stacked />
+            {followed && <ProfileAuthors authors={followed.authors} isSelf cap={FOLLOWED_SHOWN} />}
+          </div>
+        ) : undefined}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },

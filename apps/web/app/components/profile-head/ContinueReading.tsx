@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import type { Book } from '@prisma/client'
-import { ChevronDown, ChevronRight, Pencil, Users, Repeat2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, Pencil, Users, Repeat2 } from 'lucide-react'
 import { chapterAt, formatEntry, formatPosition, progressWhole } from '@/lib/progress'
 import { cn } from '@/lib/utils'
 import { fetcher, swrOptions } from '@/lib/fetcher'
@@ -74,7 +74,7 @@ const markOf = (book: Book, id: string, at: number | null): CircleMark => ({
   id, at, label: at == null ? '' : book.chapters ? `at Ch ${chapterAt(at, book.chapters)}` : `${Math.round(at)}%`,
 })
 
-const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Size; circle?: CircleMark; reread?: boolean; className?: string; onUpdate: (book: Book, card: HTMLElement) => void }> = ({ book, accent, readOnly, size, circle, reread = false, className, onUpdate }) => {
+const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Size; circle?: CircleMark; reread?: boolean; bare?: boolean; className?: string; onUpdate: (book: Book, card: HTMLElement) => void }> = ({ book, accent, readOnly, size, circle, reread = false, bare = false, className, onUpdate }) => {
   const openDetails = useBookDetailsModal((s) => s.onOpen)
   const progress = progressWhole(book)
   const position = whereAt(book)
@@ -85,8 +85,7 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
   const place = (
     <>
       <span className="flex min-h-7 items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
-        {/* Where the circle is goes on this line too, not beside the bar, where it made the card taller. */}
-        <span className="min-w-0 truncate" title={circle?.at != null ? `${position} · circle ${circle.label}` : undefined}>{position}{circle?.at != null && <> · circle {circle.label}</>}</span>
+        <span className="min-w-0 truncate">{position}</span>
         {!readOnly && (
           // Lifted 4px off the bar (equal and opposite margins, so the row keeps its height).
           <span className="-mt-1 mb-1 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 font-medium text-foreground transition group-hover/update:bg-neutral-200 dark:bg-neutral-800 dark:group-hover/update:bg-neutral-700">
@@ -103,37 +102,54 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
       </span>
     </>
   )
-  // 62px is 2:3 beside the usual 94px of text; the one large card is tall enough for an 80px cover.
-  const coverWidth = size === 'large' ? 'w-20' : 'w-[62px]'
+  // 62px is 2:3 beside the usual 94px of text; the one large card is tall enough for an 80px cover. A bare
+  // card (cover, title and author only) is given the height of a 48px cover.
+  const coverWidth = bare ? 'w-12' : size === 'large' ? 'w-20' : 'w-[62px]'
+  const marks = (
+    <>
+      {circle && (
+        // z-10, so its 40px tap area (the after:) wins over the Update row just below it.
+        <Link href={`/circles/${circle.id}`} aria-label={circle.label ? `Your reading circle for ${book.title}, ${circle.label}` : `Your reading circle for ${book.title}`}
+          className="relative z-10 inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-neutral-300 pl-2 pr-1.5 text-xs font-medium text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-2 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Users size={12} aria-hidden />{circle.label.replace(/^at /, '') || 'Circle'}<ChevronRight size={12} aria-hidden className="text-muted-foreground" />
+        </Link>
+      )}
+      {reread && (
+        <span title={readOnly ? "They've read this book before" : "You've read this book before"} className="inline-flex shrink-0 items-center gap-1 text-xs">
+          {(!bare || circle) && <span aria-hidden>·</span>}<Repeat2 size={12} aria-hidden />Reread
+        </span>
+      )}
+    </>
+  )
   const title = href && !readOnly
     ? <Link href={href} className="hover:underline underline-offset-2">{book.title}</Link>
     : <button type="button" onClick={details} className="text-left hover:underline underline-offset-2">{book.title}</button>
   return (
-    <li className={cn("flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", size === 'row' && "py-2.5", size === 'large' && "min-h-[146px]", className)}>
+    <li className={cn("flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", !bare && size === 'row' && "py-2.5", bare ? "min-h-[98px]" : size === 'large' && "min-h-[146px]", className)}>
       {/* The cover runs the card's full height: its slot stretches with the card and the cover fills it, cropped
           like a photo, rather than sitting at the top with a gap under it. Widths keep the slot close to 2:3. */}
       <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("relative shrink-0 self-stretch rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
         <BookCover book={book} variant="thumb" sizes="80px" className="absolute inset-0 aspect-auto h-full shadow-sm" />
       </button>
-      <div className="min-w-0 flex-1">
+      {/* A bare tile's title and author sit at the top, with its marks on their own line under them (there's
+          room, without the progress). On a full card they're centred, the marks riding on the author line. */}
+      <div className={cn("min-w-0 flex-1", bare && "self-start")}>
         <p className="line-clamp-2 font-medium leading-snug" title={book.title}>{title}</p>
-        {/* A circle and a reread ride on the author line, after the name, rather than a row of their own, so
-            every card in the list keeps the same height. The name gives way (truncates) before they do. */}
-        <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-          <span className="truncate">{book.author}</span>
-          {circle && (
-            <Link href={`/circles/${circle.id}`} className="inline-flex shrink-0 items-center gap-1 rounded-sm text-xs font-medium text-foreground/80 hover:text-foreground hover:underline underline-offset-2">
-              <span aria-hidden className="text-muted-foreground">·</span><Users size={12} aria-hidden />Circle
-            </Link>
-          )}
-          {reread && (
-            <span title={readOnly ? "They've read this book before" : "You've read this book before"}
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-foreground/80">
-              <span aria-hidden className="text-muted-foreground">·</span><Repeat2 size={12} aria-hidden />Reread
-            </span>
-          )}
-        </p>
-        {readOnly ? <div className="mt-1">{place}</div> : (
+        {/* A circle and a reread ride on the author line, after the name, rather than a row of their own; the
+            line is 28px on every card, so the circle's chip fits and the cards stay one height. The name gives
+            way (truncates) before they do. The circle is the one control here, an outlined chip saying where the
+            circle is, a rank below the filled Update; Reread is plain text, as it does nothing. */}
+        {bare ? (
+          <>
+            <p className="truncate text-sm text-muted-foreground">{book.author}</p>
+            {(circle || reread) && <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">{marks}</p>}
+          </>
+        ) : (
+          <p className="flex h-7 min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+            <span className="truncate">{book.author}</span>{marks}
+          </p>
+        )}
+        {bare ? null : readOnly ? <div className="mt-1">{place}</div> : (
           // The place and its bar are the Update button (a 44px row), so the bar keeps the card's full width.
           <button type="button" onClick={update}
             className="group/update mt-1 block min-h-11 w-full rounded-md py-1 text-left transition active:scale-[.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
@@ -149,7 +165,8 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
 // What you're reading, at the top of your profile in bands, each with a labelled Update. One book gets a large
 // card, two sit side by side, and three or more are rows, so a third or fourth book is never hidden. A book
 // you're reading with a circle comes first, saying where the circle is. Someone else's profile shows the same
-// without Update (and, on a phone, as one line that opens them); circles are yours only for now.
+// without Update; on a phone, as bare tiles (cover, title, author), the first with "Show all" for the rest.
+// Circles shown are your own, or on someone else's page the ones you share with them.
 const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accentColour, readOnly = false, oneLineOnPhone = false, shared = [] }) => {
   const [all, setAll] = useState(false)
   // The Update sheet, kept here rather than in a card: finishing a book takes its card off the list, and the
@@ -189,9 +206,12 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
       ))}
     </ul>
   )
-  const more = !all && ordered.length > SHOWN_PHONE && (
-    <button type="button" onClick={() => setAll(true)} className={cn("mt-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground", hidden <= 0 && "sm:hidden")}>
-      Show <span className="sm:hidden">{ordered.length - SHOWN_PHONE}</span><span className="hidden sm:inline">{hidden}</span> more<ChevronDown size={15} aria-hidden />
+  // Show more, then Show less to fold them away again. From sm up it's only there when more than five are on
+  // the go, as that's all a wide screen hides.
+  const more = ordered.length > SHOWN_PHONE && (
+    <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={cn("mt-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground", hidden <= 0 && "sm:hidden")}>
+      {all ? <>Show less<ChevronUp size={15} aria-hidden /></>
+        : <>Show <span className="sm:hidden">{ordered.length - SHOWN_PHONE}</span><span className="hidden sm:inline">{hidden}</span> more<ChevronDown size={15} aria-hidden /></>}
     </button>
   )
 
@@ -203,29 +223,24 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
       </div>
     )
   }
-  const first = ordered[0]
-  const firstCircle = circleOf(first)
+  // On a phone, someone else's books are bare tiles: what they're reading, not how far. The first shows,
+  // and "Show all" opens the rest.
   return (
     <>
-      <div className="flex items-center gap-2 sm:hidden">
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-          className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span className="flex items-baseline gap-1.5 text-sm">
-            <span className="truncate font-medium">{first.title}</span>
-            <span className="shrink-0 tabular-nums text-muted-foreground">· {progressWhole(first)}%{firstCircle?.at != null && <> · circle {firstCircle.label}</>}</span>
-          </span>
-          <span className="relative mt-1.5 block h-1 rounded-full bg-neutral-200 dark:bg-neutral-700" aria-hidden>
-            <span className="block h-full rounded-full" style={{ width: `${progressWhole(first)}%`, background: accent }} />
-            {firstCircle?.at != null && <span className="absolute -top-1 h-3 w-0.5 rounded-full bg-foreground" style={{ left: `${firstCircle.at}%` }} />}
-          </span>
-        </button>
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-          className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-neutral-300 dark:border-neutral-700 px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {ordered.length > 1 ? `+${ordered.length - 1} more` : open ? "Hide" : "Details"}
-          <ChevronRight size={14} aria-hidden className={cn("transition-transform", open && "rotate-90")} />
-        </button>
+      <div className="sm:hidden">
+        <ul className="grid grid-cols-1 gap-3">
+          {ordered.slice(0, open ? ordered.length : 1).map((book) => (
+            <ContinueCard key={book.id} book={book} accent={accent} readOnly size="row" circle={circleOf(book)} reread={isRereading(book, finished)} bare onUpdate={openSheet} />
+          ))}
+        </ul>
+        {ordered.length > 1 && (
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+            className="mt-3 inline-flex h-8 items-center gap-0.5 rounded-full border border-neutral-300 dark:border-neutral-700 px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {open ? <>Show less<ChevronUp size={14} aria-hidden /></> : <>Show all<ChevronDown size={14} aria-hidden /></>}
+          </button>
+        )}
       </div>
-      <div className={cn(open ? "max-sm:mt-3" : "max-sm:hidden")}>{cards}{more}</div>
+      <div className="hidden sm:block">{cards}{more}</div>
     </>
   )
 }
