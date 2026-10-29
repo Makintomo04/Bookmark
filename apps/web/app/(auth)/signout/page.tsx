@@ -35,7 +35,7 @@ export default function SignOutPage() {
           <>
             <h1 className="page-title">Couldn&apos;t sign you out</h1>
             <p className="mt-3 text-muted-foreground">Something got in the way. Try again, and if it keeps happening, refresh the page first.</p>
-            <button type="button" onClick={() => void attempt()} className={cn(primaryButtonClass, 'mt-8 h-10')}>Sign out</button>
+            <button type="button" onClick={() => void attempt()} className={cn(primaryButtonClass, 'mt-8 h-11 pointer-fine:h-10')}>Sign out</button>
           </>
         ) : (
           <p className="flex items-center gap-2 text-muted-foreground">

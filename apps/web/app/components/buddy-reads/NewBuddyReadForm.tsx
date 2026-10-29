@@ -341,7 +341,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
             </div>
           )}
           {rows.length < SCHEDULE_MAX && (
-            <button type="button" onClick={() => setRows([...rows, { label: "", until: "", due: "" }])} className={cn(secondaryButtonClass, "w-fit h-11 pointer-fine:h-9")}>
+            <button type="button" onClick={() => setRows([...rows, { label: "", until: "", due: "" }])} className={cn(secondaryButtonClass, "w-fit")}>
               <Plus size={16} aria-hidden /> Add a checkpoint
             </button>
           )}
@@ -350,8 +350,8 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
 
       {/* Full width and stacked on phones, with the main action on top where the thumb is. */}
       <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 dark:border-neutral-800 pt-6 sm:flex-row sm:justify-end">
-        <Link href="/circles" className={cn(secondaryButtonClass, "h-11 pointer-fine:h-9")}>Cancel</Link>
-        <button type="submit" disabled={(!chosen && !found) || blocked || isSaving} className={cn(primaryButtonClass, "h-11 pointer-fine:h-9")}>
+        <Link href="/circles" className={secondaryButtonClass}>Cancel</Link>
+        <button type="submit" disabled={(!chosen && !found) || blocked || isSaving} className={primaryButtonClass}>
           {isSaving ? "Starting…" : "Start and get the link"}
         </button>
       </div>

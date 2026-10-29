@@ -7,6 +7,7 @@ import BookCover from '@/app/components/cards/BookCover'
 import MemberAvatar from '@/app/components/buddy-reads/MemberAvatar'
 import JoinButton from '@/app/components/buddy-reads/JoinButton'
 import { primaryButtonClass, secondaryButtonClass } from '@/app/components/profile-head/ProfileHeader'
+import { cn } from '@/lib/utils'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
 import { REMOVED_MESSAGE, loadInvite, wasRemoved } from '@/lib/buddyReadsServer'
@@ -97,8 +98,8 @@ const Page = async (props: PageProps) => {
             </div>
           ) : (
             <div className="flex flex-wrap justify-center gap-3">
-              <Link href={`/register?callbackUrl=${encodeURIComponent(`/circles/join/${params.code}`)}`} className={`${primaryButtonClass} h-11 px-6 text-base`}>Create an account to join</Link>
-              <Link href={`/signin?callbackUrl=${encodeURIComponent(`/circles/join/${params.code}`)}`} className={`${secondaryButtonClass} h-11 px-6 text-base`}>Sign in</Link>
+              <Link href={`/register?callbackUrl=${encodeURIComponent(`/circles/join/${params.code}`)}`} className={cn(primaryButtonClass, "pointer-fine:h-11 px-6 text-base")}>Create an account to join</Link>
+              <Link href={`/signin?callbackUrl=${encodeURIComponent(`/circles/join/${params.code}`)}`} className={cn(secondaryButtonClass, "pointer-fine:h-11 px-6 text-base")}>Sign in</Link>
             </div>
           )}
         </div>

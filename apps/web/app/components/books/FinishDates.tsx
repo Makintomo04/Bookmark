@@ -24,7 +24,7 @@ export const finishDatesBody = (v: FinishDatesValue) => ({
 export const finishDatesProblem = (v: FinishDatesValue) =>
   !v.unknown && v.started && v.finished && v.started > v.finished ? "The start date is after the finish date" : null
 
-export const dateInputClass = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
+export const dateInputClass = "h-11 pointer-fine:h-10 w-full rounded-md border border-input bg-background px-3 text-base pointer-fine:text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
 
 interface FinishDatesProps {
   value: FinishDatesValue

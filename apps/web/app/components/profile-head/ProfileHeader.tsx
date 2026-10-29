@@ -58,8 +58,9 @@ const BADGE: Record<SupporterBadgeKind, { label: string; title: string }> = {
   supporter: { label: "Supporter", title: "Supports Bookmark with Plus" },
 }
 
-export const primaryButtonClass = "inline-flex items-center justify-center gap-2 h-9 px-4 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
-export const secondaryButtonClass = "inline-flex items-center justify-center gap-2 h-9 px-4 rounded-md text-sm font-medium border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
+// 44px tall on touch screens, compact with a mouse (see the pointer-fine variant in tailwind.config.ts).
+export const primaryButtonClass = "inline-flex items-center justify-center gap-2 h-11 pointer-fine:h-9 px-4 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
+export const secondaryButtonClass = "inline-flex items-center justify-center gap-2 h-11 pointer-fine:h-9 px-4 rounded-md text-sm font-medium border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
 
 const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   const content = (

@@ -20,11 +20,12 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-brand-text underline-offset-4 hover:underline",
       },
+      // Every size is at least 44px on touch screens; the smaller ones only apply with a mouse.
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
+        default: "h-11 pointer-fine:h-10 px-4 py-2",
+        sm: "h-11 pointer-fine:h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        icon: "size-11 pointer-fine:size-10",
       },
     },
     defaultVariants: {

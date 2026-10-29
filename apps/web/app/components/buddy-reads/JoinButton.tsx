@@ -5,6 +5,7 @@ import axios from 'axios'
 import { useSWRConfig } from 'swr'
 import { notify, apiError } from '@/lib/notify'
 import { primaryButtonClass } from '../profile-head/ProfileHeader'
+import { cn } from '@/lib/utils'
 
 const JoinButton: FC<{ code: string }> = ({ code }) => {
   const router = useRouter()
@@ -25,7 +26,7 @@ const JoinButton: FC<{ code: string }> = ({ code }) => {
   }
 
   return (
-    <button type="button" onClick={join} disabled={isJoining} className={`${primaryButtonClass} h-11 px-6 text-base`}>
+    <button type="button" onClick={join} disabled={isJoining} className={cn(primaryButtonClass, "pointer-fine:h-11 px-6 text-base")}>
       {isJoining ? "Joining…" : "Join the reading circle"}
     </button>
   )
