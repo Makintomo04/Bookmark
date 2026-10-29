@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss"
 import { withUt } from "uploadthing/tw";
+import plugin from "tailwindcss/plugin";
 const {nextui} = require("@nextui-org/theme");
 
 const config = {
@@ -96,7 +97,12 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"),nextui()],
+  plugins: [
+    require("tailwindcss-animate"),
+    nextui(),
+    // Size controls by how the reader points, not by screen width: a tablet is still a finger.
+    plugin(({ addVariant }) => { addVariant("pointer-fine", "@media (pointer: fine)") }),
+  ],
 } satisfies Config
 
 export default withUt(config)
