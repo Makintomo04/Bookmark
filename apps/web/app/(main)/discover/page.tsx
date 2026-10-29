@@ -129,7 +129,7 @@ const Page = async () => {
             {reported.length > 0 && (
               <section aria-labelledby="review-heading" className="rounded-2xl border border-danger/30 p-5">
                 <h2 id="review-heading" className="text-xl font-bold">Reported lists</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Only the Bookmark team sees this. Open a list and switch on Hidden in its editor to take it down.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Lists with open reports, seen only by the Bookmark team. Deal with them in the <Link href="/staff/reports" className="font-medium text-foreground underline underline-offset-4">reports queue</Link>, so each report is closed and logged.</p>
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
                   {reported.map((list) => <ListCard key={list.id} list={list} />)}
                 </div>

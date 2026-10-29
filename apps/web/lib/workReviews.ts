@@ -2,6 +2,7 @@ import prisma from "./db"
 import { booksReadCount } from "./readerTier"
 import { blockedUserIds, countedRatingWhere, privacyOf, privacySelect, sharedBookWhere, visibleReview } from "./privacy"
 import { copiesOfWork } from "./readerCounts"
+import { hiddenWhileSuspended } from "./suspension"
 import { staffBadgeOf, staffBadgeSelect } from "./staffBadge"
 import { REVIEWS_PAGE, orderReviews, summariseRatings, type RatingSummary, type WorkReviewsPage } from "./workReviewRules"
 
@@ -9,7 +10,8 @@ export * from "./workReviewRules"
 
 // A book page's average rating and its readers' reviews. Ratings count every shared copy, anonymously,
 // like the reader counts; review text only ever comes through visibleReview, so each reviewer's
-// review visibility, private reviews and blocks hold here as they do on profiles and in the feed.
+// review visibility, private reviews and blocks hold here as they do on profiles and in the feed. A
+// suspended reader's reviews are hidden from everyone else until the suspension ends or is lifted.
 
 // Ceilings on rows read per request. Past them the average is over the newest ratings, which is fine.
 const RATINGS_MAX = 20000
@@ -26,7 +28,7 @@ export async function ratingSummaryForWork(bookKey: string): Promise<RatingSumma
 }
 
 // `bookKey`: an Open Library work key or a catalogue Work id (copiesOfWork).
-export async function reviewsForWork(bookKey: string, viewerId: string | null, offset = 0): Promise<WorkReviewsPage> {
+export async function reviewsForWork(bookKey: string, viewerId: string | null, offset = 0, now = new Date()): Promise<WorkReviewsPage> {
   const copies = await copiesOfWork(bookKey)
   // The viewer's own review shows even on a private copy; everyone else's only on shared ones.
   const visibleCopies = viewerId ? { OR: [sharedBookWhere, { userId: viewerId }] } : sharedBookWhere
@@ -46,7 +48,7 @@ export async function reviewsForWork(bookKey: string, viewerId: string | null, o
     authorIds.length
       ? prisma.user.findMany({
           where: { id: { in: authorIds } },
-          select: { id: true, username: true, displayName: true, image: true, favColour: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect },
+          select: { id: true, username: true, displayName: true, image: true, favColour: true, suspendedAt: true, suspendedUntil: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect },
         })
       : [],
   ])
@@ -60,6 +62,7 @@ export async function reviewsForWork(bookKey: string, viewerId: string | null, o
   for (const book of books) {
     const user = usersById.get(book.userId)
     if (!user || seen.has(book.userId) || blockedIds.has(book.userId)) continue
+    if (hiddenWhileSuspended(user, viewerId, now)) continue
     const relation = { isSelf: book.userId === viewerId, isFollower: followed.has(book.userId), blocked: null }
     const visible = visibleReview(book, relation, privacyOf(user))
     if (!visible.review) continue

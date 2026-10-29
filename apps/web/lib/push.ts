@@ -18,6 +18,7 @@ export interface PushableNotification {
   buddyReadId?: string | null;
   count?: number | null;
   workId?: string | null;
+  message?: string | null;
 }
 
 interface ExpoMessage {
@@ -60,6 +61,7 @@ async function contentFor(rows: PushableNotification[]): Promise<Map<PushableNot
       count: row.count ?? null,
       seriesName: work?.seriesName ?? null,
       seriesPosition: work?.seriesPosition ?? null,
+      message: row.message ?? null,
     });
     if (content) out.set(row, content);
   }

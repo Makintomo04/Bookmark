@@ -7,6 +7,7 @@ import { getRelation, privacyOf, privacySelect, visibleReview } from "@/lib/priv
 import { isObjectId } from "@/lib/staffUsers";
 import { reviewReportSchema } from "@/lib/reviewReports";
 import { alertReport } from "@/lib/reportAlerts";
+import { notifyStaffOfReport } from "@/lib/staffNotify";
 import { bookHref } from "@/lib/workKey";
 
 const notFound = () => NextResponse.json({ error: "Review not found" }, { status: 404 });
@@ -58,5 +59,6 @@ export async function POST(req: Request, props: { params: Promise<{ bookId: stri
     excerpt: book.review,
     path: href ? `${href}#reviews-heading` : "/staff/reports",
   });
+  await notifyStaffOfReport("review", book.id);
   return NextResponse.json({ reported: true });
 }

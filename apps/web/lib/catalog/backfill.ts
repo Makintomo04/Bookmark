@@ -79,6 +79,8 @@ function overlay(base: CatalogStore): CatalogStore {
     async getWorks(ids) {
       return merge(await base.getWorks(ids), await mem.getWorks(ids));
     },
+    // Merges only happen in the real catalogue.
+    ...(base.findMergedWorks && { findMergedWorks: (keys: string[]) => base.findMergedWorks!(keys) }),
     async findEditions(by) {
       return merge(await base.findEditions(by), await mem.findEditions(by));
     },

@@ -18,10 +18,11 @@ const StaffLayout = async ({ children }: { children: React.ReactNode }) => {
   if (!isStaffRole(user)) notFound()
 
   const tabs = [
+    { href: '/staff', label: 'Overview' },
     can(user, 'reports.review') && { href: '/staff/reports', label: 'Reports' },
     can(user, 'catalogue.edit') && { href: '/staff/catalogue', label: 'Catalogue' },
     can(user, 'users.view') && { href: '/staff/users', label: 'Readers' },
-    can(user, 'staff.log') && { href: '/staff/log', label: 'Log' },
+    (can(user, 'staff.log') || can(user, 'log.own')) && { href: '/staff/log', label: 'Log' },
   ].filter((t): t is { href: string, label: string } => !!t)
 
   return (

@@ -5,6 +5,7 @@ import { startPurchases } from "@/lib/purchases";
 import { registerForPush, usePushNavigation } from "@/lib/push";
 import { useTheme } from "@/lib/theme";
 import { EarnCelebration } from "@/components/achievements/EarnCelebration";
+import { RoleWelcome } from "@/components/staff/RoleWelcome";
 
 // The signed-in app: the tabs, and the screens that open over them (a book, adding a book, a reading
 // circle). Pushes are registered here, once onboarding is done.
@@ -68,6 +69,8 @@ export default function AppLayout() {
       </Stack>
       {/* Medals and tier-ups as they're earned, over whichever screen saved them. */}
       <EarnCelebration />
+      {/* Once per new staff role, as on the web. */}
+      <RoleWelcome />
     </>
   );
 }

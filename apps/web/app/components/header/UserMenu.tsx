@@ -17,12 +17,15 @@ import { tierPreviewEnabled } from '@/app/hooks/useTierPreview'
 import { isStaffRole } from '@/lib/roles'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 import { staffBadgeOf } from '@/lib/staffBadge'
+import { useStaffCounts } from '@/app/components/staff/staffCounts'
+import CountBadge from '@/app/components/staff/CountBadge'
 interface UserMenuProps {
 
 }
 
 // inHeader: the breakpoint from which the header bar shows this link itself (Header.tsx), so the menu stops.
-interface NavItem { href: string; label: string; icon: LucideIcon; inHeader?: "sm" | "md" }
+// count: a badge after the label (what's waiting in the staff reports queue).
+interface NavItem { href: string; label: string; icon: LucideIcon; inHeader?: "sm" | "md"; count?: number }
 
 // The everyday places first, the occasional ones after a divider.
 const PRIMARY: NavItem[] = [
@@ -44,6 +47,9 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
 
   const {user, isLoading} = useUser()
   const ownSeal = staffBadgeOf(user)
+  // Staff only; a failed fetch just leaves the badge off.
+  const { data: staffCounts } = useStaffCounts(isStaffRole(user))
+  const staffWaiting = staffCounts?.waiting ?? 0
   const booksReadFor = useBooksReadFor()
   // From 1 December, in the reader's own calendar. Set after mount, so the server's clock (UTC) never disagrees with the browser's at hydration.
   const [wrappedYear, setWrappedYear] = useState<number | null>(null)
@@ -80,7 +86,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
     )
 
     // Links already in the header bar are left out of the dropdown once the bar shows them.
-    const navLink = ({ href, label, icon: Icon, inHeader }: NavItem) => {
+    const navLink = ({ href, label, icon: Icon, inHeader, count }: NavItem) => {
       // Home redirects to your own profile, so that's where it counts as active.
       const active = href === "/" ? pathname === `/u/${user.username}` : pathname?.startsWith(href)
       return (
@@ -89,6 +95,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             active && "bg-neutral-100 dark:bg-neutral-800", inHeader === "sm" ? "sm:hidden" : inHeader === "md" ? "md:hidden" : undefined)}>
           <Icon size={18} className="text-muted-foreground shrink-0" aria-hidden />
           {label}
+          {!!count && <CountBadge count={count} label={`${count} waiting`} />}
         </Link>
       )
     }
@@ -105,9 +112,12 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <NotificationBell/>
 
         {/* mr-1: the tier ring is drawn 4px outside the avatar, so this keeps it inside the page's edge. */}
-        <button type="button" aria-label="Open menu" aria-expanded={showMenu} onClick={()=>setShowMenu((state)=>!state)}
-          className="mr-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
+        {/* A dot on the avatar while reports are waiting on this person, so staff needn't open the menu to know. */}
+        <button type="button" aria-label={staffWaiting > 0 ? `Open menu, ${staffWaiting} ${staffWaiting === 1 ? "report" : "reports"} waiting` : "Open menu"}
+          aria-expanded={showMenu} onClick={()=>setShowMenu((state)=>!state)}
+          className="relative mr-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
           {avatar()}
+          {staffWaiting > 0 && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand-fill ring-2 ring-background" />}
         </button>
         {showMenu && <>
           {/* Catches clicks outside the dropdown on wider screens. */}
@@ -145,7 +155,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             <div className="flex flex-col px-2 py-2">{secondary.map(navLink)}</div>
             <div className="mx-2 mt-auto md:mt-0 border-t border-neutral-200 dark:border-neutral-800 py-2">
               {navLink({ href: "/settings", label: "Settings", icon: Settings })}
-              {isStaffRole(user) && navLink({ href: "/staff", label: "Staff", icon: ShieldCheck })}
+              {isStaffRole(user) && navLink({ href: "/staff", label: "Staff", icon: ShieldCheck, count: staffCounts?.waiting })}
               {tierPreviewEnabled && navLink({ href: "/dev/tiers", label: "Dev tools", icon: Wrench })}
               {/* Straight to the landing page: no confirmation screen. */}
               <button type="button" onClick={() => { close(); void signOut({ callbackUrl: '/' }) }}

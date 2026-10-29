@@ -45,7 +45,8 @@ const BookProblemReport: FC<{ workKey?: string | null, workId?: string | null }>
     <div className="text-sm">
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
         {!sent && !open && <button type="button" onClick={() => setOpen(true)} className="hover:text-foreground hover:underline underline-offset-2">Report a problem with this book</button>}
-        {can(user, 'catalogue.edit') && <Link href={workId ? `/staff/catalogue?work=${workId}` : `/staff/catalogue?q=${workKey}`} className="text-brand-text hover:underline">Fix this book</Link>}
+        {/* By Open Library key, the catalogue page opens the book's editor itself (staff/catalogue/page.tsx). */}
+        {can(user, 'catalogue.edit') && <Link href={workId ? `/staff/catalogue?work=${workId}` : `/staff/catalogue?q=${encodeURIComponent(workKey ?? '')}`} className="inline-flex items-center min-h-11 pointer-fine:min-h-0 text-brand-text hover:underline">Fix this book</Link>}
       </div>
       {sent && <p role="status" className="text-muted-foreground">Thanks. A librarian will take a look.</p>}
       {open && !sent && (

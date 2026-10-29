@@ -22,7 +22,7 @@ export async function GET(req: Request) {
       AND: [
         { OR: [{ username: { contains: query, mode: "insensitive" } }, { displayName: { contains: query, mode: "insensitive" } }] },
         { id: { notIn: [currentUser.id, ...blocked] } },
-        searchableProfileWhere,
+        searchableProfileWhere(),
       ],
     },
     select: { id: true, username: true, displayName: true, image: true, favColour: true, bio: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect },

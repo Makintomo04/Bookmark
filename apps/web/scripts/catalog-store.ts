@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { CatalogStore, EditionRecord, WorkRecord } from "../lib/catalog/resolve.ts";
+import { MERGED_PREFIX } from "../lib/catalogueMergeRules.ts";
 
 // The same store as lib/catalog/prismaStore.ts, on a script's own client (that module imports
 // "@/lib/db", which plain Node can't resolve). Used by backfill-catalog.ts and import-catalog.ts.
@@ -14,6 +15,12 @@ export function scriptCatalogStore(prisma: PrismaClient): CatalogStore {
     },
     async findWorksByMatch(matchKeys) {
       return matchKeys.length ? (await prisma.work.findMany({ where: { matchKey: { in: matchKeys } } })).map(strip) : [];
+    },
+    // A merged duplicate's key files under the book it went into (lib/catalogueMerge.ts), not a new work.
+    async findMergedWorks(openLibraryKeys) {
+      return openLibraryKeys.length
+        ? (await prisma.work.findMany({ where: { openLibraryKey: { in: openLibraryKeys }, key: { startsWith: MERGED_PREFIX } } })).map(strip)
+        : [];
     },
     async getWorks(ids) {
       return ids.length ? (await prisma.work.findMany({ where: { id: { in: ids } } })).map(strip) : [];

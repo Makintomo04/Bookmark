@@ -12,7 +12,7 @@ export async function POST(req: Request, props: Params) {
   return staffAnswer(await suspendUser(user, params.id, await jsonBody(req)));
 }
 
-// Lifts it. Body (optional): { reason }.
+// Lifts it. Body: { reason }.
 export async function DELETE(req: Request, props: Params) {
   const params = await props.params;
   const { user, response } = await requirePermission("users.suspend");

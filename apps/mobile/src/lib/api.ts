@@ -21,8 +21,9 @@ export class ApiError extends Error {
   }
 }
 
-const SUSPENDED = "suspended";
-// The server's own wording (apps/web/lib/suspension.ts), for a 403 that arrives without it.
+export const SUSPENDED = "suspended";
+// The server's fallback wording (apps/web/lib/suspension.ts), for a 403 that arrives without it. Normally
+// `error` is the whole notice: when the suspension ends, the reason staff gave and the support address.
 const SUSPENDED_MESSAGE = "This account is suspended. Email support if you think that's a mistake.";
 
 let accessToken: string | null = null;

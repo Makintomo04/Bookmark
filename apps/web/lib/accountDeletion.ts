@@ -82,6 +82,9 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.listReport.deleteMany({ where: { OR: [{ reporterId: userId }, { list: { ownerId: userId } }] } });
     // The staff log keeps what was done (a suspension, a grant) but no longer names who it was done to.
     await tx.staffAction.updateMany({ where: { targetType: "user", targetId: userId }, data: { targetId: "deleted-account" } });
+    // Staff notes about them and their appeals go with the account (notes staff wrote stay on other readers).
+    await tx.staffNote.deleteMany({ where: { userId } });
+    await tx.appeal.deleteMany({ where: { userId } });
     await tx.listItem.deleteMany({ where: { list: { ownerId: userId } } });
     await tx.list.deleteMany({ where: { ownerId: userId } });
     await tx.authorFollow.deleteMany({ where: { userId } });

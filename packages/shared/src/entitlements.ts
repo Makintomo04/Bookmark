@@ -69,6 +69,39 @@ export function plusSourceOf(user: StoredPlan, now = new Date()): PlusSource | n
   return null;
 }
 
+// Every source of Plus an account has right now, paid first, where plusSourceOf() names only the one that
+// wins. The staff console shows them all, so free months given on top of a paid plan aren't hidden.
+// `until` is when that source runs out, where the stored fields say (a Stripe renewal isn't kept here).
+export interface ActivePlusSource {
+  source: PlusSource;
+  until: Date | null;
+  indefinite: boolean;
+}
+
+export function plusSourcesOf(user: StoredPlan, now = new Date()): ActivePlusSource[] {
+  const sources: ActivePlusSource[] = [];
+  if (user.lifetime) sources.push({ source: "lifetime", until: null, indefinite: true });
+  if (user.plan === "PLUS") sources.push({ source: "subscription", until: null, indefinite: false });
+  const store = asDate(user.storePlusUntil);
+  if (store && store.getTime() > now.getTime()) sources.push({ source: "store", until: store, indefinite: false });
+  const comp = asDate(user.compPlusUntil);
+  if (comp && comp.getTime() > now.getTime()) {
+    const indefinite = comp.getTime() >= COMP_INDEFINITE.getTime();
+    sources.push({ source: "comp", until: indefinite ? null : comp, indefinite });
+  }
+  return sources;
+}
+
+// Already paying for Plus (or paid once, for lifetime): staff are warned before giving free months on top.
+export function paysForPlus(user: StoredPlan, now = new Date()): boolean {
+  return plusSourcesOf(user, now).some((s) => s.source !== "comp");
+}
+
+// Free Plus that is still running, so there is something for staff to remove.
+export function hasActiveComp(user: StoredPlan, now = new Date()): boolean {
+  return plusSourcesOf(user, now).some((s) => s.source === "comp");
+}
+
 // Free Plus granted by an admin with no end date. Stored as a far-off compPlusUntil, so plusSourceOf()
 // needs no special case; isIndefiniteComp() tells the settings page to say "no end date".
 export const COMP_INDEFINITE = new Date("9999-12-31T00:00:00.000Z");
@@ -78,7 +111,7 @@ export function isIndefiniteComp(compPlusUntil: Date | string | null | undefined
   return !!comp && comp.getTime() >= COMP_INDEFINITE.getTime();
 }
 
-export const COMP_GRANTS = { "1m": 1, "1y": 12, indefinite: null } as const satisfies Record<string, number | null>;
+export const COMP_GRANTS = { "1m": 1, "3m": 3, "6m": 6, "1y": 12, indefinite: null } as const satisfies Record<string, number | null>;
 export type CompGrant = keyof typeof COMP_GRANTS;
 
 // The new compPlusUntil for a staff grant: months are added to whatever free Plus is still left, so a

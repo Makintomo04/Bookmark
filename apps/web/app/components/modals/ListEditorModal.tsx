@@ -57,6 +57,8 @@ const ListEditorModal: FC = () => {
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Staff editing someone else's list: an optional note for the staff log. Not part of the list itself.
+  const [reason, setReason] = useState("")
   // Why the last pick didn't go on the list, shown under the search box until the next search or add.
   const [addNotice, setAddNotice] = useState<string | null>(null)
   // The last book added, confirmed under the search box once its results have cleared away.
@@ -72,6 +74,7 @@ const ListEditorModal: FC = () => {
     setTagInput("")
     setOpenNote(null)
     setConfirmDelete(false)
+    setReason("")
   }, [isOpen, initial])
 
   const shelfMatches = useMemo(() => {
@@ -86,6 +89,8 @@ const ListEditorModal: FC = () => {
   if (!draft) return null
 
   const isNew = !draft.id
+  // toEditableList says whose list it is; a new list is always the reader's own.
+  const isOwner = isNew || initial?.isOwner !== false
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initial)
   const update = (patch: Partial<EditableList>) => setDraft((d) => (d ? { ...d, ...patch } : d))
   const setItems = (items: EditableListItem[]) => update({ items })
@@ -131,7 +136,7 @@ const ListEditorModal: FC = () => {
     // The Save button is disabled without a title, so this only guards a keyboard submit.
     if (!draft.title.trim()) return
     setIsSaving(true)
-    const request = isNew ? axios.post("/api/lists", draft) : axios.patch(`/api/lists/${draft.id}`, draft)
+    const request = isNew ? axios.post("/api/lists", draft) : axios.patch(`/api/lists/${draft.id}`, isOwner ? draft : { ...draft, reason })
     request.then((res) => {
       onClose()
       mutate(isListsKey)
@@ -340,7 +345,14 @@ const ListEditorModal: FC = () => {
           </label>
         </div>
       </div>
-      {!isNew && <Switch checked={draft.hidden} onChange={(v) => update({ hidden: v })} label="Hidden" hint="Takes the list down for everyone except its owner and staff." accent={accent} disabled={isSaving} />}
+      {!isNew && <Switch checked={draft.hidden} onChange={(v) => update({ hidden: v })} label="Hidden" hint="Takes the list down for everyone except its owner and staff. Closes its open reports." accent={accent} disabled={isSaving} />}
+      {!isOwner && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor="list-reason" className="text-sm font-medium">Reason for the log <span className="font-normal text-muted-foreground">· optional</span></label>
+          <ClearableInput id="list-reason" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} placeholder="Why you changed the Pick, spotlight or Hidden" disabled={isSaving} autoComplete="off" className={cn(fieldClass, "h-10")} />
+          <p className="text-xs text-muted-foreground">This isn&apos;t your list, so changes to these go in the staff log.</p>
+        </div>
+      )}
     </div>
   )
 
@@ -355,7 +367,8 @@ const ListEditorModal: FC = () => {
 
   const footer = (
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
-      {!isNew && (confirmDelete ? (
+      {/* Only owners can delete. Staff hide someone else's list instead, so its reports stay on record. */}
+      {!isNew && isOwner && (confirmDelete ? (
         <div className="mr-auto flex items-center gap-2">
           <Button type="button" onClick={remove} disabled={isSaving} variant="destructive">Delete list</Button>
           <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)} disabled={isSaving}>Keep it</Button>

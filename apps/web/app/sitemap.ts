@@ -28,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         AND: [
           { username: { not: null } },
           { books: { some: { status: { in: ['STARTED', 'COMPLETED'] }, ...sharedBookWhere } } },
-          publicProfileWhere,
+          publicProfileWhere(),
         ],
       },
       select: { username: true, updatedAt: true },
@@ -37,7 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
     prisma.list.findMany({
       // A reader's list is only crawlable while their profile is public; Picks are the team's.
-      where: { visibility: 'PUBLIC', hidden: false, OR: [{ isPick: true }, { owner: publicProfileWhere }] },
+      where: { visibility: 'PUBLIC', hidden: false, OR: [{ isPick: true }, { owner: publicProfileWhere() }] },
       select: { id: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
       take: 1000,

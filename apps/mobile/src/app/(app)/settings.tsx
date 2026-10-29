@@ -183,9 +183,10 @@ function Toggle({ label, hint, value, onChange, disabled }: { label: string; hin
   );
 }
 
-// Which pushes arrive (GET/PATCH /api/push/settings). The bell keeps every notification either way.
+// Which pushes arrive (GET/PATCH /api/push/settings). The bell keeps every notification either way. The
+// server only sends the groups this person has (staff work is for staff), so only those are shown.
 function PushSettings() {
-  const { data, mutate } = useSWR<{ push: Record<PushGroup, boolean> }>("/api/push/settings");
+  const { data, mutate } = useSWR<{ push: Partial<Record<PushGroup, boolean>> }>("/api/push/settings");
   const [failed, setFailed] = useState(false);
   if (!data) return null;
 
@@ -193,7 +194,7 @@ function PushSettings() {
     setFailed(false);
     void mutate({ push: { ...data.push, [group]: on } }, { revalidate: false });
     try {
-      await mutate(api.patch<{ push: Record<PushGroup, boolean> }>("/api/push/settings", { push: { [group]: on } }), { revalidate: false });
+      await mutate(api.patch<{ push: Partial<Record<PushGroup, boolean>> }>("/api/push/settings", { push: { [group]: on } }), { revalidate: false });
     } catch {
       void mutate(data, { revalidate: false });
       setFailed(true);
@@ -203,8 +204,8 @@ function PushSettings() {
   return (
     <Card title="Notifications" hint="Choose what arrives as a push. Everything still shows under the bell.">
       {failed && <Notice tone="error" message="Couldn't save that setting. Try again." />}
-      {(Object.keys(PUSH_GROUP_LABELS) as PushGroup[]).map((group) => (
-        <Toggle key={group} label={PUSH_GROUP_LABELS[group].title} hint={PUSH_GROUP_LABELS[group].description} value={data.push[group]} onChange={(v) => void set(group, v)} />
+      {(Object.keys(PUSH_GROUP_LABELS) as PushGroup[]).filter((group) => group in data.push).map((group) => (
+        <Toggle key={group} label={PUSH_GROUP_LABELS[group].title} hint={PUSH_GROUP_LABELS[group].description} value={!!data.push[group]} onChange={(v) => void set(group, v)} />
       ))}
     </Card>
   );

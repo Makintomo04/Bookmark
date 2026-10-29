@@ -227,3 +227,22 @@ export function entryState(entry: SeriesEntry, track: SeriesTrack, isHere: boole
 // "2 of 5 read". When only some books are in the catalog the total is what we know of.
 export const progressLabel = (t: Pick<SeriesTrack, "readCount" | "total">) =>
   t.total > 0 ? `${t.readCount} of ${t.total} read` : null;
+
+// ---- Spotting one series spelled two ways (the librarians' series editor) -----------------------
+
+// Looser than seriesSlug: a leading or trailing "The", "&" for "and", and a closing "series", "saga" or
+// "trilogy" set aside too, so "Stormlight Archive, The", "The Stormlight Archive" and "Stormlight Archive
+// Series" all come out "stormlight archive".
+export function seriesLooseKey(name: string) {
+  return squash(name.replace(/&/g, " and "))
+    .replace(/^the /, "")
+    .replace(/ the$/, "")
+    .replace(/ (series|saga|trilogy|books|novels)$/, "")
+    .trim();
+}
+
+// Other spellings in `names` that are possibly the same series as `name` (not `name` itself).
+export const possiblySameSeries = (name: string, names: string[]) => {
+  const key = seriesLooseKey(name);
+  return key ? names.filter((n) => n !== name && seriesLooseKey(n) === key) : [];
+};

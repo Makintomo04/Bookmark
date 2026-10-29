@@ -8,6 +8,8 @@ import { hasPageWhere } from "./workPages"
 import { hardcoverRecord } from "./bookSearch"
 import { topUp } from "./bookSearchRules"
 import { librarianCover } from "./catalogueFixRules"
+import { MERGED_PREFIX, mergedInto } from "./catalogueMergeRules"
+import { survivorOf } from "./catalogueMerge"
 
 // What a book page (app/(main)/books/[slug]) shows about the book itself. The shared catalog's Work
 // comes first, since it's already cached and holds series; a book nobody on Bookmark has shelved yet
@@ -57,17 +59,25 @@ export const bookPageData = cache(async (bookKey: string): Promise<BookPageData 
   }
 })
 
-async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | null> {
+async function catalogOrOpenLibrary(bookKey: string, hops = 0): Promise<BookPageData | null> {
   const olKey = normaliseWorkKey(bookKey)
-  const work = await prisma.work.findFirst({
-    where: olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere },
-    select: {
-      id: true, openLibraryKey: true, hardcoverId: true,
-      title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
-      coverUrl: true, firstPublishYear: true, olEditionCount: true, curatedFields: true,
-      editions: { select: { pages: true, coverUrl: true, curatedFields: true }, take: 20 },
-    },
-  })
+  const select = {
+    id: true, key: true, openLibraryKey: true, hardcoverId: true,
+    title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
+    coverUrl: true, firstPublishYear: true, olEditionCount: true, curatedFields: true,
+    editions: { select: { pages: true, coverUrl: true, curatedFields: true }, take: 20 },
+  } as const
+  const where = olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere }
+  // A duplicate a librarian merged (lib/catalogueMerge.ts) keeps its Open Library key, which the book it
+  // was merged into may share: prefer the live work, and only fall back to the merged one.
+  const work = await prisma.work.findFirst({ where: { ...where, NOT: { key: { startsWith: MERGED_PREFIX } } }, select })
+    ?? await prisma.work.findFirst({ where, select })
+
+  // The merged one shows the book it went into; the page's slug check then redirects to that address.
+  if (work && mergedInto(work.key)) {
+    const survivor = hops < 2 ? await survivorOf(work.id) : null
+    return survivor ? catalogOrOpenLibrary(survivor.openLibraryKey ?? survivor.id, hops + 1) : null
+  }
 
   const workKey = olKey ?? work?.openLibraryKey ?? null
   if (work) {

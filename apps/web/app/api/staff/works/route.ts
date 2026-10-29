@@ -3,7 +3,7 @@ import { requirePermission } from "@/lib/apiAuth";
 import { addWorkFromOpenLibrary, createWorkByHand, searchWorks } from "@/lib/catalogueFix";
 import { jsonBody, staffAnswer } from "@/lib/staffRoute";
 
-// /staff/catalogue: find a book by title, ISBN, Open Library key or id.
+// /staff/catalogue: find a book by title, author, ISBN, Open Library key or id.
 export async function GET(req: Request) {
   const { response } = await requirePermission("catalogue.edit");
   if (response) return response;
