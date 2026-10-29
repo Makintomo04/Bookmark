@@ -85,3 +85,13 @@ test("keys, order and labels", () => {
   assert.equal(positionLabel(3), "Book 3");
   assert.equal(positionLabel(null), null);
 });
+
+test("a work with no key links to its page by id only from Hardcover or a librarian's approval", () => {
+  const works = [
+    work("1", 1, { workKey: null }),
+    work("2", 2, { workKey: null, hardcoverId: "123" }),
+    work("3", 3, { workKey: null, pageApproved: true }),
+  ];
+  const track = buildTrack(SERIES, works, [], false);
+  assert.deepEqual(track.entries.map((e) => e.pageWorkId), [null, "2", "3"]);
+});

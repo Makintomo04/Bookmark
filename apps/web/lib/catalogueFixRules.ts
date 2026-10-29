@@ -9,7 +9,7 @@
 //     storage (lib/covers.ts mirrorCover), so a copy of the wrong cover rarely has the old URL. Only a
 //     reader's own upload is kept (lib/uploads.ts); the caller filters those out.
 
-export const WORK_FIELDS = ["title", "authors", "description", "coverUrl"] as const
+export const WORK_FIELDS = ["title", "authors", "description", "coverUrl", "seriesName", "seriesPosition"] as const
 
 type CoverRow = { coverUrl: string | null, curatedFields?: string[] }
 
@@ -25,12 +25,17 @@ export const TITLE_MAX = 300
 export const AUTHOR_MAX = 200
 export const AUTHORS_MAX = 10
 export const PAGES_MAX = 20000
+export const SERIES_NAME_MAX = 200
+export const SERIES_POSITION_MAX = 1000
 
 export interface WorkValues {
   title: string
   authors: string[]
   description: string | null
   coverUrl: string | null
+  seriesName: string | null
+  // 1, 2, 2.5…
+  seriesPosition: number | null
 }
 
 export interface EditionValues {
@@ -77,9 +82,25 @@ export function parseWorkFix(body: Record<string, unknown>, descriptionMax: numb
     if (!cover.ok) return cover
     patch.coverUrl = cover.value
   }
+  if ("seriesName" in body) {
+    const name = typeof body.seriesName === "string" ? body.seriesName.trim() : ""
+    patch.seriesName = name ? name.slice(0, SERIES_NAME_MAX) : null
+  }
+  if ("seriesPosition" in body) {
+    const position = body.seriesPosition === null || body.seriesPosition === "" ? null : Number(body.seriesPosition)
+    if (position !== null && (!Number.isFinite(position) || position < 0 || position > SERIES_POSITION_MAX)) return { ok: false, error: "The place in the series needs to be a number, like 1 or 2.5." }
+    patch.seriesPosition = position
+  }
+  // Out of a series means no place in one.
+  if (patch.seriesName === null) patch.seriesPosition = null
   if (!Object.keys(patch).length) return { ok: false, error: "Nothing to change." }
   return { ok: true, patch }
 }
+
+// curatedFields for a work fix's changed fields. A librarian's series (either half) is marked under
+// seriesName, which is what keeps the Hardcover series fill (lib/seriesFill.ts SERIES_CURATED) off it.
+export const curatedWorkFields = (changed: string[]) =>
+  changed.some((k) => k === "seriesName" || k === "seriesPosition") ? Array.from(new Set([...changed, "seriesName"])) : changed
 
 export function parseEditionFix(body: Record<string, unknown>): Parsed<EditionValues> {
   const patch: Partial<EditionValues> = {}

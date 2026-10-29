@@ -2,6 +2,7 @@ import { booksReadCount } from "@/lib/readerTier";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
 import { bookHref, sameBook } from "@/lib/workKey";
+import { hasPage } from "@/lib/workPages";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { NextResponse } from "next/server";
 
@@ -86,15 +87,15 @@ export async function GET(req: Request) {
   // A new book in a series names the book, its series and place, and links to its page.
   const workIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "NEW_IN_SERIES" && n.workId ? [n.workId] : []))))
   const works = workIds.length > 0
-    ? await prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, coverUrl: true, openLibraryKey: true, hardcoverId: true, seriesName: true, seriesPosition: true } })
+    ? await prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, coverUrl: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, seriesName: true, seriesPosition: true } })
     : []
   const workById = new Map(works.map((w) => [w.id, {
     title: w.title,
     coverUrl: w.coverUrl,
     seriesName: w.seriesName,
     seriesPosition: w.seriesPosition,
-    // A work with neither key has no page (lib/workPages.ts); series books are filed from Hardcover, so have one.
-    href: bookHref({ workKey: w.openLibraryKey, pageWorkId: w.hardcoverId ? w.id : null, title: w.title }),
+    // Series books are filed from Hardcover, so nearly all have a page (lib/workPages.ts).
+    href: bookHref({ workKey: w.openLibraryKey, pageWorkId: hasPage(w) ? w.id : null, title: w.title }),
   }]))
   const withWorks = withHiddenReviews.map((n) => (n.type === "NEW_IN_SERIES" ? { ...n, work: n.workId ? workById.get(n.workId) ?? null : null } : n))
 

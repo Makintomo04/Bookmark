@@ -5,7 +5,8 @@ import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
-import { Check, Lock, Send, Unlock } from 'lucide-react'
+import { BookPlus, Check, Lock, Send, Unlock } from 'lucide-react'
+import { askToCatalogue } from '../books/catalogueRequest'
 import Modal from './Modal'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
@@ -112,6 +113,8 @@ const BookUpdateModal: FC = () => {
   const [reviewPrivate, setReviewPrivate] = useState(false)
   // The whole book private, not just the review. Saved on its own, straight away (togglePrivate).
   const [isPrivate, setIsPrivate] = useState(false)
+  // Asked a librarian to add this hand-typed book to the catalogue, this time the modal is open.
+  const [askedToAdd, setAskedToAdd] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -139,6 +142,7 @@ const BookUpdateModal: FC = () => {
     setReviewSpoiler(!!book.reviewSpoiler)
     setReviewPrivate(!!book.reviewPrivate)
     setIsPrivate(!!book.isPrivate)
+    setAskedToAdd(false)
   }, [isOpen, book])
 
   useEffect(() => {
@@ -194,6 +198,11 @@ const BookUpdateModal: FC = () => {
   const pageHref = bookHref(book)
 
   const setPage = (n: number) => setPageInput(String(clamp(n, max)))
+
+  const askToAdd = () => {
+    if (!book.workId) return
+    askToCatalogue(book.workId).then(() => setAskedToAdd(true)).catch((err) => notify.error(err instanceof Error ? err.message : String(err)))
+  }
 
   // Switching keeps the reader's place: 111 of 300 becomes 37%, and back. Untouched since the last
   // switch, it goes back to exactly what was there.
@@ -623,6 +632,16 @@ const BookUpdateModal: FC = () => {
               <button type="button" onClick={togglePrivate} disabled={isSaving} className={bookActionClass}>
                 {isPrivate ? <><Unlock size={14} aria-hidden />Share on profile</> : <><Lock size={14} aria-hidden />Make private</>}
               </button>
+            )}
+            {/* Typed in by hand, so it has no book page: a shared copy can ask a librarian for one. */}
+            {!pageHref && book.workId && !isPrivate && status !== "NOT_INTERESTED" && (
+              askedToAdd
+                ? <p role="status" className="py-1.5 text-sm text-muted-foreground">Asked. A librarian will check it.</p>
+                : (
+                  <button type="button" onClick={askToAdd} disabled={isSaving} className={bookActionClass}>
+                    <BookPlus size={14} aria-hidden />Ask to add it to Bookmark
+                  </button>
+                )
             )}
           </div>
         </div>

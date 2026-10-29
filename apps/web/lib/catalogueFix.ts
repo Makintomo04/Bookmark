@@ -13,12 +13,14 @@ import { resolveCatalog } from "@/lib/catalog";
 import { workKeyOfQuery } from "@/lib/workKey";
 import {
   changedFields,
+  curatedWorkFields,
   editionCopyUpdates,
   mergeCurated,
   parseEditionFix,
   parseWorkFix,
   workCopyUpdates,
   type CopyUpdate,
+  type WorkValues,
 } from "@/lib/catalogueFixRules";
 
 // A librarian's correction to the shared catalogue, from /staff/catalogue or "Fix this book" on a book
@@ -26,7 +28,7 @@ import {
 
 const editionSelect = { id: true, key: true, format: true, pages: true, isbn13: true, isbn10: true, publisher: true, publishedYear: true, coverUrl: true, curatedFields: true } as const;
 const workSelect = {
-  id: true, key: true, openLibraryKey: true, title: true, authors: true, description: true, coverUrl: true, firstPublishYear: true, curatedFields: true,
+  id: true, key: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, title: true, authors: true, description: true, coverUrl: true, seriesName: true, seriesPosition: true, firstPublishYear: true, curatedFields: true,
   editions: { select: editionSelect, take: 20 },
   _count: { select: { books: true } },
 } as const;
@@ -70,6 +72,31 @@ export async function addWorkFromOpenLibrary(actor: Actor, key: string): Promise
   await logStaffAction({ actorId: actor.id, action: "work.add", targetType: "work", targetId: work.id, after: { openLibraryKey: olKey, title: work.title } });
   return { ok: true, value: (await findStaffWork(work.id))! };
 }
+
+// A book neither Open Library nor Hardcover has, typed in by a librarian: filed the way a reader's
+// hand-typed copy is (lib/catalog/resolve.ts, by title and first author), with a book page straight away.
+// A book already filed under that title and author is handed back instead, for the librarian to correct.
+export async function createWorkByHand(actor: Actor, body: Record<string, unknown>): Promise<StaffOutcome<{ work: StaffWork; created: boolean }>> {
+  const parsed = parseWorkFix({ title: body.title ?? "", authors: body.authors ?? "", ...pick(body, ["description", "coverUrl", "seriesName", "seriesPosition"]) }, DESCRIPTION_MAX);
+  if (!parsed.ok) return staffFail(400, parsed.error);
+  const patch = parsed.patch as Partial<WorkValues> & { title: string; authors: string[] };
+  const matchKey = workMatchKey(patch.title, patch.authors[0]);
+  const existing = matchKey ? await prisma.work.findFirst({ where: { matchKey }, select: { id: true } }) : null;
+  if (existing) return { ok: true, value: { work: (await findStaffWork(existing.id))!, created: false } };
+  const cover = await catalogueCoverFrom(patch.coverUrl);
+  if (!cover.ok) return staffFail(400, cover.error);
+
+  const { work } = await resolveCatalog({
+    title: patch.title, authors: patch.authors, author: patch.authors[0], description: patch.description, coverUrl: cover.url,
+    series: patch.seriesName ? { name: patch.seriesName, position: patch.seriesPosition ?? null } : null,
+  });
+  const given = Object.keys(patch).filter((k) => patch[k as keyof WorkValues] != null);
+  await prisma.work.update({ where: { id: work.id }, data: { pageApprovedAt: new Date(), curatedFields: curatedWorkFields(given) } });
+  await logStaffAction({ actorId: actor.id, action: "work.create", targetType: "work", targetId: work.id, after: { title: patch.title, authors: patch.authors } });
+  return { ok: true, value: { work: (await findStaffWork(work.id))!, created: true } };
+}
+
+const pick = (body: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter((k) => k in body).map((k) => [k, body[k]]));
 
 // A cover for the catalogue: never a reader's upload (lib/uploads.ts), and copied to our own storage.
 // Book pages only load images from the hosts in next.config.mjs, so a cover left on a publisher's or
@@ -160,7 +187,7 @@ export async function fixWork(actor: Actor, id: string, body: Record<string, unk
   const matchKey = changed.includes("title") || changed.includes("authors")
     ? { matchKey: workMatchKey(patch.title ?? work.title, (patch.authors ?? work.authors)[0]) }
     : {};
-  await prisma.work.update({ where: { id }, data: { ...patch, ...matchKey, curatedFields: mergeCurated(work.curatedFields, changed) } });
+  await prisma.work.update({ where: { id }, data: { ...patch, ...matchKey, curatedFields: mergeCurated(work.curatedFields, curatedWorkFields(changed)) } });
   // One cover for the book: every edition takes it, like every reader's copy, except an edition a
   // librarian gave a cover of its own (an audiobook's square art, say).
   const curatedEditions = work.editions.filter((e) => e.curatedFields.includes("coverUrl")).map((e) => e.id);
@@ -173,6 +200,30 @@ export async function fixWork(actor: Actor, id: string, body: Record<string, unk
     before, after: { ...Object.fromEntries(changed.map((k) => [k, patch[k as keyof typeof patch] ?? null])), copies }, reason,
   });
   return { ok: true, value: { work: (await findStaffWork(id))!, copies } };
+}
+
+// A hand-typed work (neither Open Library nor Hardcover has it) gets a book page only once a librarian has
+// checked it's a real book rather than someone's private note (lib/workPages.ts). Withdrawing takes the page
+// down again; readers keep their copies either way.
+export async function setWorkPage(actor: Actor, id: string, approve: boolean, reason?: string): Promise<StaffOutcome<StaffWork>> {
+  if (!isObjectId(id)) return staffFail(404, "No book with that id.");
+  const work = await findStaffWork(id);
+  if (!work) return staffFail(404, "No book with that id.");
+  if (work.openLibraryKey || work.hardcoverId) return staffFail(400, "This book already has a page from Open Library or Hardcover.");
+  if (!!work.pageApprovedAt === approve) return { ok: true, value: work };
+  await prisma.work.update({ where: { id }, data: { pageApprovedAt: approve ? new Date() : null } });
+  // Readers' requests to add it (lib/staffReports.ts, reason "catalogue") are answered by the approval.
+  if (approve) {
+    await prisma.bookReport.updateMany({
+      where: { workId: id, reason: "catalogue", OR: [{ status: { isSet: false } }, { status: null }, { status: { in: ["OPEN", "ESCALATED"] } }] },
+      data: { status: "ACTIONED", resolvedById: actor.id, resolvedAt: new Date(), resolutionNote: "Given a book page" },
+    });
+  }
+  await logStaffAction({
+    actorId: actor.id, action: approve ? "work.page_approve" : "work.page_withdraw", targetType: "work", targetId: id,
+    before: { pageApprovedAt: work.pageApprovedAt?.toISOString() ?? null }, after: { title: work.title }, reason,
+  });
+  return { ok: true, value: (await findStaffWork(id))! };
 }
 
 export async function fixEdition(actor: Actor, id: string, body: Record<string, unknown>, reason?: string): Promise<FixResult> {

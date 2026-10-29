@@ -15,7 +15,7 @@ import { librarianCover } from "./catalogueFixRules"
 // request, so the metadata and the page share one lookup.
 //
 // A book Open Library doesn't have is addressed by its catalogue Work's id instead (bookHref), and only
-// when the Work came from Hardcover (lib/workPages.ts).
+// when the Work came from Hardcover or a librarian approved it (lib/workPages.ts).
 
 const GENRES_SHOWN = 4
 
@@ -32,6 +32,9 @@ export interface BookPageData {
   // Credited to the work's first author, the half of the series' identity a name alone doesn't give.
   series: { name: string, author: string, position: number | null } | null
   editionCount: number | null
+  // A hand-typed work a librarian gave a page. Neither Open Library nor Hardcover has it, so nothing is
+  // topped up from Hardcover: a search by its title would only find some other book.
+  handTyped: boolean
 }
 
 // Open Library subjects run from "Fantasy" to "nyt:hardcover-fiction=2023-05-21" in several languages;
@@ -43,7 +46,7 @@ const genresOf = (subjects: string[]) =>
 // been matched to Open Library comes back keyed by its work key, so its page redirects there.
 export const bookPageData = cache(async (bookKey: string): Promise<BookPageData | null> => {
   const data = await catalogOrOpenLibrary(bookKey)
-  if (!data || (data.book.coverUrl && data.description && data.book.pages)) return data
+  if (!data || data.handTyped || (data.book.coverUrl && data.description && data.book.pages)) return data
   const found = await hardcoverRecord(data.book.title, data.book.author)
   if (!found) return data
   return {
@@ -59,7 +62,7 @@ async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | nul
   const work = await prisma.work.findFirst({
     where: olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere },
     select: {
-      id: true, openLibraryKey: true,
+      id: true, openLibraryKey: true, hardcoverId: true,
       title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
       coverUrl: true, firstPublishYear: true, olEditionCount: true, curatedFields: true,
       editions: { select: { pages: true, coverUrl: true, curatedFields: true }, take: 20 },
@@ -92,6 +95,7 @@ async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | nul
       genres: genresOf(work.subjects),
       series: work.seriesName && work.authors[0] ? { name: work.seriesName, author: work.authors[0], position: work.seriesPosition } : null,
       editionCount: work.olEditionCount,
+      handTyped: !work.openLibraryKey && !work.hardcoverId,
     }
   }
 
@@ -118,5 +122,6 @@ async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | nul
     genres: genresOf(ol.subjects),
     series: null,
     editionCount: null,
+    handTyped: false,
   }
 }

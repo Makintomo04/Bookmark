@@ -6,7 +6,8 @@ import useUser from '@/app/hooks/useUser'
 import { can } from '@/lib/roles'
 import { Button } from '../ui/button'
 
-// Matches BOOK_REPORT_REASONS in lib/staffReports.ts.
+// Matches BOOK_REPORT_REASONS in lib/staffReports.ts, less "catalogue": asking to add a hand-typed book
+// has its own button (catalogueRequest.ts), since a book with a page is already in the catalogue.
 const REASONS = [
   { value: 'cover', label: 'Wrong or missing cover' },
   { value: 'details', label: 'Wrong title, author or pages' },
