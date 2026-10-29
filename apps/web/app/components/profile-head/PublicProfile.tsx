@@ -77,7 +77,6 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
 
   const actions = (
     <>
-      <ShareProfileButton username={profile.username} />
       {viewer
         ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval={viewer.needsApproval} followsYou={viewer.followsYou} />
         : <Link href="/register" className={primaryButtonClass}>Sign up to follow</Link>}
@@ -109,6 +108,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         follows={bands ? profile.followedAuthors : undefined}
         besides={bands ? besides : undefined}
         identityFooter={bands ? <GapFiller><MedalShowcase earned={profile.achievements} href={achievementsHref} stacked /></GapFiller> : undefined}
+        share={<ShareProfileButton username={profile.username} />}
         actions={actions}
         stats={[
           { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },

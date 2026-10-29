@@ -3,7 +3,7 @@ import { FC } from 'react'
 import Link from 'next/link'
 import type { Book } from '@prisma/client'
 import BookCoverCard from '../cards/BookCoverCard'
-import { SeeAllLink, ShelfSection, coverGridClass } from '../books/shelf'
+import { SeeAllLink, ShelfSection, coverOnlyGridClass } from '../books/shelf'
 import useShelfPreview from '@/app/hooks/useShelfPreview'
 import { pillClass } from '../books/ShelfToolbar'
 
@@ -23,8 +23,8 @@ const CappedShelf: FC<CappedShelfProps> = ({ id, title, books, accentColour, hre
   const preview = useShelfPreview()
   return (
   <ShelfSection id={id} title={title} count={books.length} action={books.length > preview ? <SeeAllLink href={href} /> : undefined}>
-    <div className={coverGridClass}>
-      {books.slice(0, preview).map((book) => <BookCoverCard key={book.id} book={book} accentColour={accentColour} readOnly />)}
+    <div className={coverOnlyGridClass}>
+      {books.slice(0, preview).map((book) => <BookCoverCard key={book.id} book={book} accentColour={accentColour} readOnly coversOnly />)}
     </div>
     {books.length > preview && (
       <div className="mt-6 flex justify-center">

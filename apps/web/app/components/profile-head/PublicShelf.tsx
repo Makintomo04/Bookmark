@@ -2,7 +2,7 @@
 import { FC, useMemo, useState } from 'react'
 import type { Book } from '@prisma/client'
 import BookCoverCard from '../cards/BookCoverCard'
-import { coverGridClass } from '../books/shelf'
+import { coverOnlyGridClass } from '../books/shelf'
 import GrowingList from '../books/GrowingList'
 import ShelfToolbar from '../books/ShelfToolbar'
 import { EMPTY_FILTER, isNarrowed, matchesFilter, shelfParams, sortBooks, type ShelfFilter, type ShelfKey } from '@/lib/shelfFilter'
@@ -29,8 +29,8 @@ const PublicShelf: FC<PublicShelfProps> = ({ books, shelf, accentColour }) => {
         </h2>
       )}
       {matches.length > 0
-        ? <GrowingList items={matches} className={coverGridClass} resetKey={shelfParams(filter).toString()}
-            render={(book) => <BookCoverCard key={book.id} book={book} accentColour={accentColour} readOnly />} />
+        ? <GrowingList items={matches} className={coverOnlyGridClass} resetKey={shelfParams(filter).toString()}
+            render={(book) => <BookCoverCard key={book.id} book={book} accentColour={accentColour} readOnly coversOnly />} />
         : <p className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-3 text-sm text-muted-foreground">
             Nothing on this shelf matches that. Try fewer words, or clear the filters.
           </p>}

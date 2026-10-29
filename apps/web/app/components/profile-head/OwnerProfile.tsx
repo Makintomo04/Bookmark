@@ -3,13 +3,13 @@ import { FC, useEffect, useState } from 'react'
 import { Bookmark } from 'lucide-react'
 import useSWR, { SWRConfig } from 'swr'
 import { Book } from '@prisma/client'
-import { privacyOf, visibleReview, type Relation } from '@/lib/privacyRules'
 import useBooks from '@/app/hooks/useBooks'
 import useUser from '@/app/hooks/useUser'
 import useSettings from '@/app/hooks/useSettings'
 import { notify } from '@/lib/notify'
 import ProfileHead from './ProfileHead'
-import ProfileReviews from './ProfileReviews'
+import OwnReviews from './OwnReviews'
+import BandsShowcase from './BandsShowcase'
 import BookList from '../books/BookList'
 import FavouritesRow, { FavouritesRowSkeleton } from './FavouritesRow'
 import useFavourite from '@/app/hooks/useFavourite'
@@ -31,21 +31,6 @@ interface OwnerProfileProps {
   // SWR keys the server already has answers for, so the header renders on the first paint
   // instead of behind a loader. Everything still revalidates on mount.
   fallback: Record<string, unknown>
-}
-
-const SELF: Relation = { isSelf: true, isFollower: false, blocked: null }
-
-// Your reviews, from your own shelf so an edit shows up straight away. Each one says when
-// nobody else can see it. Finished books only, matching what your public profile shows.
-const OwnReviews: FC<{ first?: number }> = ({ first }) => {
-  const { user } = useUser()
-  const { books } = useBooks()
-  if (!user || !books) return null
-  const privacy = privacyOf(user)
-  const reviewed = (books as Book[])
-    .filter((b) => b.status === "COMPLETED")
-    .map((b) => ({ ...b, completedAt: b.completedAt ? String(b.completedAt) : null, ...visibleReview(b, SELF, privacy) }))
-  return <ProfileReviews books={reviewed} accentColour={user.favColour} title="Your reviews" href={`/u/${encodeURIComponent(user.username)}/reviews`} collapsible first={first} />
 }
 
 // Your favourites and your lists, side by side from lg up when you have both (as others see on your
@@ -98,25 +83,6 @@ const OwnAuthors: FC<{ cap?: number }> = ({ cap }) => {
 const BANDS_REVIEWS = 3
 const BANDS_AUTHORS = 8
 
-// Your favourites and lists in bands, above the shelves. With no favourites yet, the way to add one is a line
-// under the lists' heading rather than a section of its own.
-const BandsShowcase: FC<{ username: string }> = ({ username }) => {
-  const { books } = useBooks()
-  const { favourites } = useFavourite()
-  if (!Array.isArray(books)) return (favourites as string[]).length > 0 ? <FavouritesRowSkeleton /> : null
-  const byId = new Map((books as Book[]).map((b) => [b.id, b]))
-  const favs = (favourites as string[]).slice().reverse().flatMap((id) => byId.get(id) ?? [])
-  const hint = favs.length === 0 && books.length > 0 && (
-    <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Bookmark size={14} aria-hidden />No favourites yet. Use the bookmark on any cover to add one.</p>
-  )
-  return (
-    <div className="flex flex-col gap-12">
-      {favs.length > 0 && <FavouritesRow books={favs} href="/favourites" collapsible />}
-      <ProfileLists username={username} isSelf flush swipe footnote={hint || undefined} />
-    </div>
-  )
-}
-
 // Your profile in bands, as the reader panel and designer settled it (docs/profile-layout-spike.html,
 // Iterations 2 and 3). Your header is a column from lg up with what you're reading and what's next beside it,
 // and the shelf search at the top; its results open right under it, in place of what you're reading. Then your
@@ -127,10 +93,12 @@ const OwnerBands: FC<{ username: string }> = ({ username }) => (
     <ProfileHead layout="bands" />
     <div className="mt-10 flex flex-col gap-12 [&>*]:!mb-0">
       <FollowRequests />
-      <OwnReviews first={BANDS_REVIEWS} />
+      {/* From lg up your reviews are in your header's column too, under the authors you follow (ProfileHead). */}
+      <div className="lg:hidden empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
       {/* From lg up the authors you follow are in your header's column, under your medals (ProfileHead). */}
       <div className="lg:hidden empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
-      <BandsShowcase username={username} />
+      {/* From lg up your favourites and lists sit in your header's right column, under Up next (ProfileHead). */}
+      <div className="lg:hidden"><BandsShowcase username={username} /></div>
       <BookList slot="shelves" />
     </div>
   </ShelfFilterProvider>

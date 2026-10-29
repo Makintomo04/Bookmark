@@ -27,6 +27,9 @@ interface BookCoverCardProps {
   selected?: boolean | null
   // Which shelf the book is on, for search results that mix shelves.
   shelfLabel?: string
+  // Just the cover: no title, author or progress under it. A white outline on hover and a tooltip with the title
+  // (and shelf) say which book it is; the title is still there for screen readers and keyboards.
+  coversOnly?: boolean
 }
 
 const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, onUpdateProgress }) => {
@@ -47,7 +50,7 @@ const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, 
   )
 }
 
-const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = false, selected = null, shelfLabel }) => {
+const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = false, selected = null, shelfLabel, coversOnly = false }) => {
   const { title, author, status, rating, completedAt, stoppedAt } = book
   const bookUpdateModal = useBookUpdateModal()
   const openDetails = useBookDetailsModal((s) => s.onOpen)
@@ -62,6 +65,44 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
   }
 
   const onActivate = readOnly ? () => openDetails(discoverBookOf(book)) : openProgress
+
+  if (coversOnly) {
+    return (
+      <div onClick={onActivate} className="group relative cursor-pointer rounded-md">
+        {/* The outline sits just off the cover, in the page's own text colour (white on dark). */}
+        <div className={cn("relative rounded-md transition", selected === null && "md:group-hover:ring-2 md:group-hover:ring-foreground md:group-hover:ring-offset-2 md:group-hover:ring-offset-background group-has-[h3_button:focus-visible]:ring-2 group-has-[h3_button:focus-visible]:ring-foreground group-has-[h3_button:focus-visible]:ring-offset-2 group-has-[h3_button:focus-visible]:ring-offset-background")}>
+          <BookCover
+            book={book}
+            sizes="(min-width: 1280px) 180px, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw"
+          />
+          {!readOnly && selected === null && <OwnerOverlay book={book} onUpdateProgress={openProgress} />}
+          {book.isPrivate && <PrivateBadge className="pointer-events-none absolute bottom-2 left-2" />}
+          {selected !== null && (
+            <>
+              <div aria-hidden style={selected ? { boxShadow: `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${accentColour || 'currentColor'}` } : undefined}
+                className={cn("pointer-events-none absolute inset-0 rounded-md transition", selected ? "bg-black/25" : "md:group-hover:bg-black/10")} />
+              <span aria-hidden
+                style={selected ? { background: accentColour || undefined, borderColor: accentColour || undefined } : undefined}
+                className={cn("pointer-events-none absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-sm transition",
+                  selected ? "border-foreground bg-foreground text-background" : "border-white/90 bg-black/30")}>
+                {selected && <Check size={14} strokeWidth={3} style={accentColour ? { color: readableInk(accentColour) } : undefined} />}
+              </span>
+            </>
+          )}
+        </div>
+        {/* Over the cover's top edge, so it never covers the next row's covers; hover only, as a touch screen has none. */}
+        <span role="tooltip" aria-hidden
+          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 hidden w-max max-w-[15rem] -translate-x-1/2 translate-y-1 rounded-lg bg-foreground px-3 py-2 text-center opacity-0 shadow-lg transition duration-150 md:block md:group-hover:translate-y-0 md:group-hover:opacity-100 group-has-[h3_button:focus-visible]:translate-y-0 group-has-[h3_button:focus-visible]:opacity-100">
+          <span className="block text-sm font-semibold leading-snug text-background">{book.title}</span>
+          {shelfLabel && <span className="mt-0.5 block text-xs text-background/70">{shelfLabel}</span>}
+          <span aria-hidden className="absolute left-1/2 top-full size-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-foreground" />
+        </span>
+        <h3 className="sr-only">
+          <button type="button" aria-label={readOnly ? `${book.title}: about this book` : `${book.title}: update progress`}>{book.title}</button>
+        </h3>
+      </div>
+    )
+  }
 
   // A click anywhere on the card opens it. The keyboard and screen readers get the title as a real button,
   // whose click bubbles up to here, so the card's own controls (the actions, the author link) aren't nested

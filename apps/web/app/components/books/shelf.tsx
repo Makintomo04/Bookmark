@@ -45,6 +45,8 @@ export function readingGridCols(count: number) {
 export const SHELF_PREVIEW = 12
 
 export const coverGridClass = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-5 gap-y-8"
+// The same columns for covers on their own (BookCoverCard coversOnly), with no text under them to leave room for.
+export const coverOnlyGridClass = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5"
 
 // "See all ›" in a capped section's header, so the whole list is a tap away without scrolling past the
 // preview (the button under the preview, with the count, stays for whoever has). No count here: it's
