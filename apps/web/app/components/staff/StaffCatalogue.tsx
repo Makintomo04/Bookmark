@@ -7,6 +7,7 @@ import type { StaffWork } from '@/lib/catalogueFix'
 import { bookHref, workKeyOfQuery } from '@/lib/workKey'
 import { Button } from '../ui/button'
 import { cardClass, fieldClass, staffSend } from './staffApi'
+import { UploadButton } from '@/utils/uploadthing'
 
 type Saved = { work: StaffWork, copies: { books: number, listItems: number, circles: number } }
 
@@ -173,6 +174,7 @@ const CreateByHand = ({ initialTitle, onBack, onOpen }: { initialTitle: string, 
         )}
         {field('authors', 'Authors, separated by commas')}
         {field('coverUrl', 'Cover image link (https, optional)')}
+        <CoverUpload onUploaded={(url) => setForm({ ...form, coverUrl: url })} />
         {field('description', 'Description (optional)', true)}
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">
           {field('seriesName', 'Series (optional)')}
@@ -189,6 +191,24 @@ const CreateByHand = ({ initialTitle, onBack, onOpen }: { initialTitle: string, 
           </p>
         )}
       </section>
+    </div>
+  )
+}
+
+// Or upload the cover instead of linking to one. It fills the link field, so saving works as for a link.
+const CoverUpload = ({ onUploaded }: { onUploaded: (url: string) => void }) => {
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <div className="-mt-2 flex flex-col items-start gap-1">
+      <UploadButton
+        endpoint="catalogueCover"
+        className="items-start ut-button:h-9 ut-button:bg-brand-fill ut-button:text-sm ut-allowed-content:text-muted-foreground"
+        content={{ button: ({ isUploading }) => (isUploading ? 'Uploading…' : 'Or upload a cover') }}
+        onUploadBegin={() => setError(null)}
+        onClientUploadComplete={(res) => { if (res[0]?.url) onUploaded(res[0].url) }}
+        onUploadError={(e: Error) => setError(e.message || 'Upload failed. Try another image.')}
+      />
+      {error && <p role="status" className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }
@@ -269,6 +289,7 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
         {field('title', 'Title')}
         {field('authors', 'Authors, separated by commas')}
         {field('coverUrl', 'Cover image link (https)')}
+        <CoverUpload onUploaded={(url) => setForm({ ...form, coverUrl: url })} />
         <p className="-mt-2 text-xs text-muted-foreground">A new cover goes on every edition and every reader&apos;s copy, except readers&apos; own photos and editions given their own cover below.</p>
         {field('description', 'Description', true)}
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">

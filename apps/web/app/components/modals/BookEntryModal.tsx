@@ -3,6 +3,7 @@ import { FC, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BookPlus, Lock, Search, Users } from 'lucide-react'
 import { askToCatalogue } from '../books/catalogueRequest'
+import CoverLinkInput from '../books/CoverLinkInput'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
@@ -345,6 +346,7 @@ const BookEntryModal: FC = () => {
               setIsLoading(false)
             }}
           />
+          <CoverLinkInput onCopied={(url) => setValue("coverImgSrc", url)} disabled={isLoading} />
         </div>
       </div>
 

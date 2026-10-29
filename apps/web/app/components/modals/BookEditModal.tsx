@@ -17,6 +17,7 @@ import { GENRES, isOpenLibraryCover } from '@/utils/helpers'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import FormatPicker, { type FormatChoice, formatPayload } from '../books/FormatPicker'
 import { readableInk } from '@/lib/colour'
+import CoverLinkInput from '../books/CoverLinkInput'
 
 interface BookEditModalProps {
 
@@ -157,6 +158,9 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
                   notify.error(error.message || "Upload failed. Try another image.")
                 }}
               />
+              <div className="mt-2 max-w-sm">
+                <CoverLinkInput onCopied={(url) => setCustomValue("coverImgSrc", url)} />
+              </div>
             </div>
           </div>
         </div>
