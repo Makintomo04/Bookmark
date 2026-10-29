@@ -1,6 +1,7 @@
 import prisma from "@/lib/db";
 import { Prisma, type Edition, type Work } from "@prisma/client";
-import type { CatalogStore, EditionRecord, WorkRecord } from "./resolve";
+import { type CatalogStore, type EditionRecord, type WorkRecord, survivorsByOpenLibraryKey } from "./resolve";
+import { MERGED_PREFIX, mergedInto } from "@/lib/catalogueMergeRules";
 
 // The CatalogStore over Prisma. Work and Edition rows are the records themselves (same field names);
 // timestamps are left to the database.
@@ -22,6 +23,10 @@ export const prismaCatalogStore: CatalogStore = {
   async getWorks(ids) {
     if (!ids.length) return [];
     return (await prisma.work.findMany({ where: { id: { in: ids } } })).map(workRecord);
+  },
+  async findMergedWorks(openLibraryKeys) {
+    if (!openLibraryKeys.length) return [];
+    return (await prisma.work.findMany({ where: { openLibraryKey: { in: openLibraryKeys }, key: { startsWith: MERGED_PREFIX } } })).map(workRecord);
   },
   async findEditions({ keys, isbn13, isbn10 }) {
     const or: Prisma.EditionWhereInput[] = [];
@@ -78,3 +83,12 @@ export const prismaCatalogStore: CatalogStore = {
     await prisma.edition.update({ where: { id }, data: patch });
   },
 };
+
+// The work an Open Library key is filed under: the one holding it, or, when that work was merged into
+// another, the book it went into. For lookups by key outside resolving (reports, "Add from Open Library").
+export async function workIdForOpenLibraryKey(openLibraryKey: string): Promise<string | null> {
+  const works = await prisma.work.findMany({ where: { openLibraryKey }, select: { id: true, key: true } });
+  const live = works.find((w) => !mergedInto(w.key));
+  if (live) return live.id;
+  return (await survivorsByOpenLibraryKey(prismaCatalogStore, [openLibraryKey])).get(openLibraryKey)?.id ?? null;
+}

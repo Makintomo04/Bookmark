@@ -9,6 +9,7 @@ import { notify } from '@/lib/notify'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { reviewHiddenMessage } from '@/lib/reviewReports'
 import { seriesNewsText } from '@/lib/series'
+import { escalationCopy, escalationResolvedText, reviewRestoredText, roleChangedText, staffNoticeWebPath, staffReportText } from '@bookmark/shared/staffNotices'
 import type { StaffBadgeKind } from '@/lib/staffBadge'
 import BookCover from '../cards/BookCover'
 import { ActorAvatar } from '../feed/FeedRow'
@@ -43,13 +44,19 @@ export const notificationCopy = (n: NotificationLike) => {
     case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your reading circle for ${book}`
     case "BUDDY_READ_HOSTED": return `handed you the reading circle for ${book}. You're the host now`
     case "FOLLOW_REQUEST": return "asked to follow you"
+    case "STAFF_ESCALATION": return escalationCopy(n.message)
     default: return "did something"
   }
 }
 
 export const notificationHref = (n: NotificationLike) => {
   if (n.type === "ACHIEVEMENT_EARNED") return "/achievements"
-  if (n.type === "REVIEW_HIDDEN" && n.book?.href) return `${n.book.href}#reviews-heading`
+  if ((n.type === "REVIEW_HIDDEN" || n.type === "REVIEW_RESTORED") && n.book?.href) return `${n.book.href}#reviews-heading`
+  // The staff queue, or the staff console for a new role. A review back up with no page to show it on,
+  // or a reader again, stays here.
+  const staffPath = staffNoticeWebPath(n.type, n.message)
+  if (staffPath) return staffPath
+  if (n.type === "REVIEW_RESTORED" || n.type === "ROLE_CHANGED") return "/notifications"
   if (n.type === "NEW_IN_SERIES") return n.work?.href ?? "/notifications"
   // The book, not the sender: they're named in the line, and the book is what's being offered.
   if (n.type === "BOOK_RECOMMENDED" && n.book?.href) return n.book.href
@@ -77,6 +84,17 @@ export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ 
         <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>
           {seriesNewsText({ title: n.work?.title ?? null, seriesName: n.work?.seriesName ?? null, position: n.work?.seriesPosition ?? null, count: n.count ?? null })}
         </p>
+      ) : n.type === "STAFF_REPORT" ? (
+        <p className="text-sm">{staffReportText(n.count)}</p>
+      ) : n.type === "ESCALATION_RESOLVED" ? (
+        // Staff to staff, but the bell's other notices name nobody either.
+        <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>{escalationResolvedText(n.message)}</p>
+      ) : n.type === "REVIEW_RESTORED" ? (
+        // Moderation, so nobody is named, as when it was hidden. message is the title as it was.
+        <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>{reviewRestoredText(n.book?.title ?? n.message)}</p>
+      ) : n.type === "ROLE_CHANGED" ? (
+        // Nobody named: the role is the team's to give.
+        <p className={`text-sm ${full ? "" : "line-clamp-3"}`}>{roleChangedText(n.message)}</p>
       ) : n.type === "REVIEW_HIDDEN" ? (
         // Moderation, so nobody is named: not the reporter, not the librarian.
         // Never cut short: the last line is how to appeal.

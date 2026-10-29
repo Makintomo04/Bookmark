@@ -6,6 +6,7 @@ import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { canSeeComment, reportSchema } from "@/lib/buddyReads";
 import { buddyReadError, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 import { alertReport } from "@/lib/reportAlerts";
+import { notifyStaffOfReport } from "@/lib/staffNotify";
 
 // Like list reports: a fixed reason, one report per reader per comment, reviewed by staff.
 export async function POST(
@@ -50,5 +51,6 @@ export async function POST(
     excerpt: comment.body,
     path: `/circles/${membership.buddyRead.id}`,
   });
+  await notifyStaffOfReport("comment", comment.id);
   return NextResponse.json({ reported: true });
 }

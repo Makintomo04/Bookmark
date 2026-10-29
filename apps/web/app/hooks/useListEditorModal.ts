@@ -25,6 +25,8 @@ export interface EditableList {
   featuredFrom: string
   featuredUntil: string
   items: EditableListItem[]
+  // False when staff are editing someone else's list (lib/lists.ts toEditableList).
+  isOwner?: boolean
 }
 
 // Readers' lists start as their defaultListVisibility preference; staff picks are always public.

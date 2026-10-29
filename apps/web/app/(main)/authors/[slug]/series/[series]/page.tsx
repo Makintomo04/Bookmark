@@ -10,6 +10,7 @@ import { findAuthor } from '@/lib/authors'
 import { authorHref, authorSlug } from '@/lib/authorNames'
 import { progressLabel, seriesHref, seriesSlug } from '@/lib/series'
 import { authorSeriesBySlug, seriesOnPage } from '@/lib/seriesFollows'
+import { can } from '@/lib/roles'
 
 interface PageProps {
   params: Promise<{ slug: string, series: string }>
@@ -83,6 +84,13 @@ const Page = async (props: PageProps) => {
             {" · "}{known}
             {progress && <> · <span className="tabular-nums">{track.finished ? "All read" : progress}</span></>}
           </p>
+          {/* Librarians only: places, name and books in one go (/staff/catalogue/series). */}
+          {can(user, 'catalogue.edit') && (
+            <Link href={`/staff/catalogue/series?name=${encodeURIComponent(track.name)}`}
+              className="mt-1 inline-flex min-h-11 pointer-fine:min-h-0 items-center text-sm text-brand-text hover:underline">
+              Edit series
+            </Link>
+          )}
         </div>
         <SeriesBooks track={track} />
       </Container>

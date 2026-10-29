@@ -80,13 +80,13 @@ export async function GET(req: Request) {
     return { ...n, book: id ? recommendedById.get(id) ?? null : null }
   })
 
-  // A hidden review names the reader's own copy, and links to the book's page where they can see it.
-  const hiddenIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "REVIEW_HIDDEN" && n.bookId ? [n.bookId] : []))))
+  // A hidden (or restored) review names the reader's own copy, and links to the book's page where they can see it.
+  const hiddenIds = Array.from(new Set(notifications.flatMap((n) => ((n.type === "REVIEW_HIDDEN" || n.type === "REVIEW_RESTORED") && n.bookId ? [n.bookId] : []))))
   const hiddenCopies = hiddenIds.length > 0
     ? await prisma.book.findMany({ where: { id: { in: hiddenIds }, userId: currentUser.id }, select: { id: true, title: true, author: true, coverImage: true, workKey: true, workId: true } })
     : []
   const hiddenById = new Map(hiddenCopies.map(({ workKey, workId, ...b }) => [b.id, { ...b, onShelf: true, href: bookHref({ workKey, pageWorkId: workId, title: b.title }) }]))
-  const withHiddenReviews = withRecommendations.map((n) => (n.type === "REVIEW_HIDDEN" ? { ...n, book: n.bookId ? hiddenById.get(n.bookId) ?? null : null } : n))
+  const withHiddenReviews = withRecommendations.map((n) => (n.type === "REVIEW_HIDDEN" || n.type === "REVIEW_RESTORED" ? { ...n, book: n.bookId ? hiddenById.get(n.bookId) ?? null : null } : n))
 
   // A new book in a series names the book, its series and place, and links to its page.
   const workIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "NEW_IN_SERIES" && n.workId ? [n.workId] : []))))

@@ -1,4 +1,5 @@
 import type { CatalogStore, EditionRecord, WorkRecord } from "./resolve.ts";
+import { MERGED_PREFIX } from "../catalogueMergeRules.ts";
 
 // An in-memory CatalogStore with the same unique-key behaviour as the database, for tests.
 export class MemoryCatalogStore implements CatalogStore {
@@ -15,6 +16,10 @@ export class MemoryCatalogStore implements CatalogStore {
   async getWorks(ids: string[]) {
     const wanted = new Set(ids);
     return Array.from(this.works.values()).filter((w) => wanted.has(w.id)).map((w) => ({ ...w }));
+  }
+  async findMergedWorks(openLibraryKeys: string[]) {
+    const wanted = new Set(openLibraryKeys);
+    return Array.from(this.works.values()).filter((w) => w.key.startsWith(MERGED_PREFIX) && w.openLibraryKey && wanted.has(w.openLibraryKey)).map((w) => ({ ...w }));
   }
   async findEditions(by: { keys: string[]; isbn13: string[]; isbn10: string[] }) {
     const keys = new Set(by.keys);

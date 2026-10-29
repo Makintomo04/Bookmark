@@ -58,6 +58,8 @@ export function snapshotSubscription(sub: Stripe.Subscription): SubscriptionSnap
 export type PlanUpdate = {
   plan: Plan;
   planRenewsAt: Date | null;
+  // Only a subscription snapshot knows; an invoice alone leaves it as it was.
+  planCancelsAtPeriodEnd?: boolean;
   stripeSubscriptionId: string | null;
   stripeCustomerId?: string;
   trialEndsAt?: Date;
@@ -77,6 +79,7 @@ export function planUpdateFor(snapshot: SubscriptionSnapshot, foundingPriceId?: 
   return {
     plan,
     planRenewsAt: plan === "PLUS" ? snapshot.periodEnd : null,
+    planCancelsAtPeriodEnd: plan === "PLUS" && snapshot.cancelAtPeriodEnd,
     stripeSubscriptionId: snapshot.id,
     ...(snapshot.customerId && { stripeCustomerId: snapshot.customerId }),
     // Recorded once so a second Checkout doesn't grant a second trial.
@@ -192,7 +195,7 @@ async function handleRisk(kind: RiskKind, chargeId: string | null, paymentIntent
     await stripe.cancelSubscription(subscriptionId);
     const user = await findUser(db, { subscriptionId });
     if (!user) continue;
-    await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, stripeSubscriptionId: null, patron: false } });
+    await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, planCancelsAtPeriodEnd: false, stripeSubscriptionId: null, patron: false } });
     // Server log, so the owner can follow up from the Dashboard (evidence for a dispute, a refund for a fraud warning).
     console.warn(`[billing] ${kind} on ${subscriptionId}: cancelled the subscription and moved user ${user.id} to FREE`);
     last = outcome(true, user.id, "FREE", `${kind}: subscription cancelled`);
@@ -262,7 +265,7 @@ export async function handleStripeEvent(event: Stripe.Event, deps: BillingDeps):
       if (!user) return outcome(false, null, null, "no user for deleted subscription");
       if (!followsSubscription(user, snapshot.id)) return outcome(false, user.id, null, "deleted a subscription the account no longer follows");
       // The customer stays, so the portal can still show invoices and a resubscribe skips the trial.
-      await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, stripeSubscriptionId: null, patron: false } });
+      await db.user.update({ where: { id: user.id }, data: { plan: "FREE", planRenewsAt: null, planCancelsAtPeriodEnd: false, stripeSubscriptionId: null, patron: false } });
       return outcome(true, user.id, "FREE", "subscription deleted");
     }
 

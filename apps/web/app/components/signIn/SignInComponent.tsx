@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Input } from '../ui/input'
 import { PasswordInput } from '../ui/password-input'
 import { signIn } from 'next-auth/react'
-import { mutate } from 'swr'
+import useSWR, { mutate } from 'swr'
 import Image from 'next/image'
 import Link from 'next/link'
 import SignInWithOAuthButton, { appleSignInShown } from './SignInWithOAuthButton'
@@ -14,15 +14,40 @@ import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import { EMAIL_NOT_VERIFIED } from '@/lib/authSchemas'
 import CheckInboxNotice from './CheckInboxNotice'
 import { afterSignInPath, safeCallbackPath, withCallback } from '@/lib/callbackUrl'
+import { fetcher } from '@/lib/fetcher'
 
 // NextAuth sends failed provider and magic-link sign-ins back here as ?error=<code>.
 const errorMessages: Record<string, string> = {
   OAuthAccountNotLinked: "An account with this email already exists. Sign in with the method you used to create it, or email yourself a sign-in link.",
   Verification: "That sign-in link has expired or was already used. Request a new one below.",
-  suspended: "This account is suspended. Email support if you think that's a mistake.",
   EmailSignin: "We couldn't send the sign-in link. If you've asked for a few, wait a few minutes and try again.",
 }
 const genericError = "Sign-in failed. Please try again."
+
+// A suspended account (lib/suspension.ts). Password sign-in answers with the notice itself; the other ways
+// in come back as ?error=suspended, with ?until=<ISO date> when the server passes the end date.
+const SUSPENDED_PREFIX = "This account is suspended"
+const suspendedText = (until: string | null) => {
+  const end = until ? new Date(until) : null
+  return end && !Number.isNaN(end.getTime())
+    ? `${SUSPENDED_PREFIX} until ${end.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' at')}.`
+    : `${SUSPENDED_PREFIX}.`
+}
+// The server's own "who to email" line is swapped for one with a link.
+const supportLine = /\s*(If you think that's a mistake, email \S+\.|Email support if you think that's a mistake\.)$/
+
+const SuspendedNotice = ({ message }: { message: string }) => {
+  const { data } = useSWR<{ email: string | null }>('/api/support', fetcher)
+  const text = message.replace(supportLine, '')
+  return (
+    <p role="alert" className="mb-4 rounded-md bg-danger/10 text-danger text-sm px-3 py-2">
+      {text}{' '}
+      {data?.email
+        ? <>If you think that&apos;s a mistake, email <a href={`mailto:${data.email}`} className="font-semibold underline">{data.email}</a>.</>
+        : <>Email support if you think that&apos;s a mistake.</>}
+    </p>
+  )
+}
 
 const linkClass = 'text-brand-text font-semibold hover:underline hover:underline-offset-2 transition'
 
@@ -35,6 +60,7 @@ const SignInComponent =  () => {
   useEffect(() => setMounted(true), [])
 
   const [authError, setAuthError] = useState<string | null>(null)
+  const [suspension, setSuspension] = useState<string | null>(null)
   // A wrong password gets its own message, with the ways back in.
   const [wrongPassword, setWrongPassword] = useState(false)
   const [justVerified, setJustVerified] = useState(false)
@@ -67,13 +93,15 @@ const SignInComponent =  () => {
     const email = params.get("email")
     if (email) setValue("email", email)
     const code = params.get("error")
-    if (code) setAuthError(errorMessages[code] ?? genericError)
+    if (code === 'suspended') setSuspension(suspendedText(params.get('until')))
+    else if (code) setAuthError(errorMessages[code] ?? genericError)
   }, [setValue])
 
   const clearMessages = () => {
     setUnverifiedEmail(null)
     setWrongPassword(false)
     setAuthError(null)
+    setSuspension(null)
   }
 
   const onSubmit:SubmitHandler<FieldValues> = async (data) => {
@@ -91,6 +119,9 @@ const SignInComponent =  () => {
       }
       else if(res?.error === EMAIL_NOT_VERIFIED){
         setUnverifiedEmail(data.email)
+      }
+      else if(res?.error?.startsWith(SUSPENDED_PREFIX)){
+        setSuspension(res.error)
       }
       else if(!res?.error || res.error === "Invalid email or password" || res.error === "CredentialsSignin"){
         setWrongPassword(true)
@@ -172,6 +203,7 @@ const SignInComponent =  () => {
         That email and password don&apos;t match. <Link href="/forgot-password" className="font-semibold underline">Reset your password</Link>, or email yourself a sign-in link. That also works if you signed up with Google or GitHub.
       </p>
     )}
+    {suspension && <SuspendedNotice message={suspension}/>}
     {authError && <p role="alert" className="mb-4 rounded-md bg-danger/10 text-danger text-sm px-3 py-2">{authError}</p>}
     <form method="post" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
       <div className="flex flex-col gap-2">

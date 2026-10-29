@@ -9,12 +9,15 @@ import { can } from "./roles"
 import { QUALITY_MIN_ACCOUNT_DAYS } from "./genreListRules"
 import { openReportWhere } from "./staffReports"
 import { staffBadgeOf, staffBadgeSelect } from "./staffBadge"
+import { logStaffAction } from "./staffLog"
+import type { ListFlagChange } from "./listStaffRules"
 import type { DiscoverBook } from "./openLibrary"
 import { withoutUploadedCovers } from "./uploads"
 import { workIdsWithPages } from "./workPages"
 import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
 
 export * from "./listRules"
+export * from "./listStaffRules"
 
 type Viewer = { id: string, role?: string | null, isStaff?: boolean, username?: string | null } | null
 
@@ -31,7 +34,7 @@ const withSeal = <P extends { role: string | null, isStaff: boolean | null, hide
 const visibleTo = (viewer: Viewer): Prisma.ListWhereInput =>
   curates(viewer) ? {} : {
     OR: [
-      { visibility: "PUBLIC", hidden: false, owner: notSuspendedWhere },
+      { visibility: "PUBLIC", hidden: false, owner: notSuspendedWhere() },
       ...(viewer ? [{ ownerId: viewer.id }] : []),
     ],
   }
@@ -45,7 +48,7 @@ export interface ListFilters {
   workKey?: string
   featured?: boolean
   owner?: string
-  // Staff only: lists with at least one report, of any visibility, for review.
+  // Staff only: lists with at least one open report, of any visibility, for review.
   reported?: boolean
   // Editors' choices only (List.chosenAt), most recently chosen first.
   chosen?: boolean
@@ -71,7 +74,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
       ...(filters.workKey ? [{ items: { some: { workKey: filters.workKey } } }] : []),
       ...(filters.featured ? [{ featuredFrom: { lte: now }, featuredUntil: { gte: now } }] : []),
       ...(filters.owner ? [{ owner: { username: usernameEquals(filters.owner) } }] : []),
-      ...(filters.reported ? [{ reports: { some: {} } }] : []),
+      ...(filters.reported ? [{ reports: { some: openReportWhere } }] : []),
       ...(filters.chosen ? [{ chosenAt: { not: null } }] : []),
       ...(filters.quality ? [{
         description: { not: null },
@@ -90,7 +93,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
     include: {
       owner: { select: { ...ownerSelect, ...privacySelect, ...staffBadgeSelect } },
       items: { orderBy: { position: "asc" }, take: 4, select: { title: true, author: true, coverUrl: true } },
-      _count: { select: { items: true, reports: true } },
+      _count: { select: { items: true, reports: { where: openReportWhere } } },
     },
   })
   const lists = (await visibleLists(found, viewer)).slice(0, limit)
@@ -161,7 +164,7 @@ export async function findList(id: string, viewer: Viewer) {
   // Remixes keep the original curator's notes; everyone else's notes are the owner's.
   const noteAuthorIds = Array.from(new Set(list.items.flatMap((i) => (i.note && i.noteAuthorId && i.noteAuthorId !== list.ownerId ? [i.noteAuthorId] : []))))
   const [reportCount, hasReported, remixCount, forkedFrom, noteAuthors, canCopy] = await Promise.all([
-    curates(viewer) ? prisma.listReport.count({ where: { listId: list.id } }) : 0,
+    curates(viewer) ? prisma.listReport.count({ where: { listId: list.id, ...openReportWhere } }) : 0,
     viewer && !isOwner
       ? prisma.listReport.findUnique({ where: { listId_reporterId: { listId: list.id, reporterId: viewer.id } } }).then(Boolean)
       : false,
@@ -266,6 +269,8 @@ const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "")
 // The editor works on plain JSON, so dates travel as yyyy-mm-dd.
 export const toEditableList = (list: ListDetail) => ({
   id: list.id,
+  // Staff editing someone else's list see a reason field, and don't get a Delete button.
+  isOwner: list.isOwner,
   title: list.title,
   description: list.description ?? "",
   visibility: list.visibility,
@@ -301,6 +306,24 @@ export function carryOverItems(existing: StoredItem[], items: Prisma.ListItemCre
     const keepsAuthor = !!before.noteAuthorId && !!item.note && before.note === item.note
     return { ...item, createdAt: before.createdAt, noteAuthorId: keepsAuthor ? before.noteAuthorId : null }
   })
+}
+
+// A curator's save of someone else's list: one staff log entry per flag it changed. Hiding the list
+// closes its open reports the way the reports queue's "Hide list" does (lib/staffReports.ts).
+export async function recordListFlagChanges(actorId: string, listId: string, changes: ListFlagChange[], reason?: unknown) {
+  const note = typeof reason === "string" ? reason.trim().slice(0, 500) || null : null
+  for (const change of changes) {
+    let after: Prisma.InputJsonValue = change.after
+    if (change.action === "list.hide") {
+      // Escalated reports stay for an admin to close (lib/staffReportRules.ts mayActOnReport).
+      const closed = await prisma.listReport.updateMany({
+        where: { listId, OR: [{ status: { isSet: false } }, { status: null }, { status: "OPEN" }] },
+        data: { status: "ACTIONED", resolvedById: actorId, resolvedAt: new Date(), resolutionNote: note },
+      })
+      after = { ...after, reports: closed.count }
+    }
+    await logStaffAction({ actorId, action: change.action, targetType: "list", targetId: listId, before: change.before, after, reason: note })
+  }
 }
 
 type CopyResult = { id: string } | { error: string, status: number }
@@ -424,7 +447,10 @@ export interface PersonPick {
 export async function peoplePicksForBook(viewerId: string, book: { workKey: string | null, title: string, author: string }) {
   const { followsAnyone, people } = await followedPeople(viewerId)
   if (people.size === 0) return { followsAnyone, picks: [] as PersonPick[] }
-  const ids = Array.from(people.keys())
+  // A suspended reader's picks are hidden until the suspension ends or is lifted, like their reviews.
+  const active = await prisma.user.findMany({ where: { id: { in: Array.from(people.keys()) }, AND: [notSuspendedWhere()] }, select: { id: true } })
+  const ids = active.map((u) => u.id)
+  if (ids.length === 0) return { followsAnyone, picks: [] as PersonPick[] }
   // The work key is indexed on both collections. Books without one fall back to an exact title,
   // narrowed by the followed readers' own lists and shelves, then checked with sameBook.
   const match = book.workKey ? { workKey: book.workKey } : { title: book.title }

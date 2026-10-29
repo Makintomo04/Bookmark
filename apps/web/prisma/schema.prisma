@@ -172,6 +172,8 @@ model User {
   plan                 Plan?     @default(FREE)
   // When the current paid or trial period ends. Informational: the webhook moves `plan`.
   planRenewsAt         DateTime?
+  // The subscriber cancelled: Plus runs to planRenewsAt and then stops, so staff see "Ends", not "Renews".
+  planCancelsAtPeriodEnd Boolean?
   stripeCustomerId     String?
   stripeSubscriptionId String?
   // Set once a trial has been used, so a second Checkout doesn't grant another.
@@ -744,6 +746,17 @@ enum NotificationType {
   // A new book came out in a series you follow or have started (lib/seriesNews.ts). actorId is you, since
   // nobody did it; workId is the new book, count how many came out at once.
   NEW_IN_SERIES
+  // Staff (lib/staffNotify.ts). Reports are waiting in the queue: at most one unread per librarian or admin,
+  // refreshed with count (what's waiting on them) as more come in. actorId is the recipient.
+  STAFF_REPORT
+  // A librarian passed a report to admins. actorId is the librarian; message is the kind (review, list...).
+  STAFF_ESCALATION
+  // An admin closed a report you escalated. actorId is you; message is "<kind>:<ACTIONED|DISMISSED>".
+  ESCALATION_RESOLVED
+  // Staff put your hidden review back up. actorId is you, as REVIEW_HIDDEN; bookId is your copy, message its title.
+  REVIEW_RESTORED
+  // An admin changed your role. actorId is you, so no admin is named; message is the new role.
+  ROLE_CHANGED
 }
 
 model UserAchievement {
@@ -824,6 +837,10 @@ model ListReport {
   resolvedById String? @db.ObjectId
   resolvedAt DateTime?
   resolutionNote String?
+  // Set when a librarian passes it to an admin: who, when and why. Kept after the admin closes it.
+  escalatedById String? @db.ObjectId
+  escalatedAt DateTime?
+  escalationNote String?
 
   list List @relation(fields: [listId], references: [id], onDelete: Cascade)
   reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
@@ -1014,6 +1031,10 @@ model BuddyReadCommentReport {
   resolvedById String? @db.ObjectId
   resolvedAt DateTime?
   resolutionNote String?
+  // Set when a librarian passes it to an admin: who, when and why. Kept after the admin closes it.
+  escalatedById String? @db.ObjectId
+  escalatedAt DateTime?
+  escalationNote String?
 
   comment BuddyReadComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
@@ -1139,6 +1160,10 @@ model BookReport {
   resolvedById String? @db.ObjectId
   resolvedAt DateTime?
   resolutionNote String?
+  // Set when a librarian passes it to an admin: who, when and why. Kept after the admin closes it.
+  escalatedById String? @db.ObjectId
+  escalatedAt DateTime?
+  escalationNote String?
 
   @@unique([workId, reporterId])
   @@index([status, createdAt])
@@ -1161,6 +1186,10 @@ model ReviewReport {
   resolvedById String? @db.ObjectId
   resolvedAt DateTime?
   resolutionNote String?
+  // Set when a librarian passes it to an admin: who, when and why. Kept after the admin closes it.
+  escalatedById String? @db.ObjectId
+  escalatedAt DateTime?
+  escalationNote String?
 
   @@unique([bookId, reporterId])
   @@index([status, createdAt])
@@ -1183,4 +1212,36 @@ model StaffAction {
 
   @@index([createdAt])
   @@index([targetType, targetId])
+}
+
+// Staff notes on an account (/staff/users), for the team only: never shown to the reader. Plain ids,
+// like StaffAction, so the note outlives either account.
+model StaffNote {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  // The reader the note is about.
+  userId String @db.ObjectId
+  // The staff member who wrote it.
+  authorId String @db.ObjectId
+  body String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// A suspended reader's appeal, logged by an admin from whatever the reader sent support (lib/staffAppeals.ts).
+// OPEN until an admin upholds it (which lifts the suspension) or rejects it, with a note either way.
+model Appeal {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  openedById String @db.ObjectId
+  summary String
+  // OPEN, UPHELD or REJECTED (lib/staffUserRules.ts APPEAL_STATUSES).
+  status String @default("OPEN")
+  decisionNote String?
+  decidedById String? @db.ObjectId
+  createdAt DateTime @default(now())
+  decidedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([userId])
 }

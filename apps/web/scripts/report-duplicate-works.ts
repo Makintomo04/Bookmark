@@ -9,10 +9,11 @@
 //
 // Duplicates are works whose first author and title match once case, series suffixes ("- Flight & Glory
 // #4") and edition tags ("(Special Edition)") are set aside: the same rule author pages use
-// (lib/bookListCleanup.ts titleKey).
+// (lib/bookListCleanup.ts titleKey), and the one the duplicates queue at /staff/catalogue/duplicates groups by
+// (lib/catalogueMergeRules.ts duplicateGroups). Works merged there already are left out.
 import { PrismaClient } from "@prisma/client";
-import { authorSlug } from "@bookmark/shared/authors";
-import { dropReason, titleKey } from "../lib/bookListCleanup.ts";
+import { dropReason } from "../lib/bookListCleanup.ts";
+import { duplicateGroups, isMerged } from "../lib/catalogueMergeRules.ts";
 
 const prisma = new PrismaClient();
 const showAll = process.argv.includes("--all");
@@ -27,18 +28,12 @@ async function main() {
   const shelved = new Map(books.map((b) => [b.workId, b._count._all]));
   const tagged = new Map(tags.map((t) => [t.workId, t._count._all]));
 
-  const groups = new Map<string, typeof works>();
-  for (const w of works) {
-    const group = `${authorSlug(w.authors[0] ?? "")}|${titleKey(w.title)}`;
-    groups.set(group, [...(groups.get(group) ?? []), w]);
-  }
-  const duplicates = Array.from(groups.values())
-    .filter((g) => g.length > 1)
+  const duplicates = duplicateGroups(works)
     .sort((a, b) => b.reduce((n, w) => n + (shelved.get(w.id) ?? 0), 0) - a.reduce((n, w) => n + (shelved.get(w.id) ?? 0), 0));
 
   const extraEntries = duplicates.reduce((n, g) => n + g.length - 1, 0);
   const splitCopies = duplicates.reduce((n, g) => n + g.reduce((m, w) => m + (shelved.get(w.id) ?? 0), 0), 0);
-  const flagged = works.flatMap((w) => {
+  const flagged = works.filter((w) => !isMerged(w)).flatMap((w) => {
     const reason = dropReason({ title: w.title, coverUrl: w.coverUrl }, false, []);
     return reason ? [{ w, reason }] : [];
   });

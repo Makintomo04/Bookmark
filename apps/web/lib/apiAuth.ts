@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import getCurrentUser, { resolveCurrentUser } from "@/app/actions/getCurrentUser";
+import { headers } from "next/headers";
+import getCurrentUser, { getSession, resolveCurrentUser } from "@/app/actions/getCurrentUser";
+import prisma from "@/lib/db";
+import { bearerUserId } from "@/lib/mobileAuth";
 import { can, type Permission } from "@/lib/roles";
-import { SUSPENDED, SUSPENDED_MESSAGE } from "@/lib/suspension";
+import { SUSPENDED, SUSPENDED_MESSAGE, suspensionNotice } from "@/lib/suspension";
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
@@ -15,12 +18,39 @@ export function forbidden(message = "You don't have access to that.") {
 
 type Guarded = { user: CurrentUser; response: null } | { user: null; response: NextResponse };
 
+const suspensionSelect = { suspendedUntil: true, suspensionReason: true } as const;
+
+// The suspension on the account making this request, found the way getCurrentUser finds it (the app's
+// bearer token, else the web's session). Only read once resolveCurrentUser has said it's suspended.
+async function requestSuspension() {
+  const authorization = (await headers()).get("authorization");
+  if (authorization) {
+    const id = await bearerUserId(authorization);
+    return id ? prisma.user.findUnique({ where: { id }, select: suspensionSelect }) : null;
+  }
+  const email = (await getSession())?.user?.email;
+  return email ? prisma.user.findUnique({ where: { email }, select: suspensionSelect }) : null;
+}
+
+// 403 { error, code: "suspended", until, reason, supportEmail }: `error` is the whole notice, so a client
+// that only shows the message still tells the reader when it ends, why, and who to email.
+async function suspendedResponse() {
+  const row = await requestSuspension().catch(() => null);
+  const notice = row ? suspensionNotice(row) : null;
+  return NextResponse.json(
+    notice
+      ? { error: notice.message, code: SUSPENDED, until: notice.until, reason: notice.reason, supportEmail: notice.supportEmail }
+      : { error: SUSPENDED_MESSAGE, code: SUSPENDED },
+    { status: 403 },
+  );
+}
+
 // Route handlers use it as: const { user, response } = await requireUser(); if (response) return response;
 // A signed-out request gets a 401 JSON body instead of the bare 500 that NextResponse.error() sends, and a
 // suspended account a 403 with code "suspended" so the apps can say why.
 export async function requireUser(message?: string): Promise<Guarded> {
   const { user, suspended } = await resolveCurrentUser();
-  if (suspended) return { user: null, response: NextResponse.json({ error: SUSPENDED_MESSAGE, code: SUSPENDED }, { status: 403 }) };
+  if (suspended) return { user: null, response: await suspendedResponse() };
   if (!user) return { user: null, response: unauthorized(message) };
   return { user, response: null };
 }

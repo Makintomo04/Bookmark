@@ -14,6 +14,7 @@ import { booksReadCount, booksReadOf } from "@/lib/readerTier";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { sameBook } from "@/lib/workKey";
 import { coverToShare } from "@/lib/uploads";
+import { hiddenWhileSuspended } from "@/lib/suspension";
 import {
   BUDDY_READ_MAX_MEMBERS,
   circleProgress,
@@ -90,6 +91,7 @@ export async function newInviteCode() {
 }
 
 const userSelect = { id: true, username: true, displayName: true, image: true, favColour: true, ...booksReadCount } as const
+const suspensionSelect = { suspendedAt: true, suspendedUntil: true } as const
 
 type ProgressBook = Pick<Book, "id" | "status" | "currentPage" | "pages" | "progressUnit" | "currentMinute" | "audioMinutes">
 const progressBookSelect = { id: true, ...progressSelect } as const
@@ -160,7 +162,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
 
   const memberRows = await prisma.buddyReadMember.findMany({ where: { buddyReadId }, orderBy: { joinedAt: "asc" } })
   const [users, books] = await Promise.all([
-    prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect } }),
+    prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect, ...suspensionSelect } }),
     prisma.book.findMany({ where: { id: { in: memberRows.map((m) => m.bookId) } }, select: { ...progressBookSelect, userId: true } }),
   ])
   const userById = new Map(users.map((u) => [u.id, u]))
@@ -177,7 +179,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const pastWriterIds = Array.from(new Set(rows.map((r) => r.userId).filter((id) => !userById.has(id))))
   const [pastWriters, blocked] = await Promise.all([
     pastWriterIds.length > 0
-      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, displayName: true, image: true, favColour: true, ...staffBadgeSelect } })
+      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, displayName: true, image: true, favColour: true, ...staffBadgeSelect, ...suspensionSelect } })
       : Promise.resolve([]),
     blockedAmong(viewerId, [...memberRows.map((m) => m.userId), ...pastWriterIds]),
   ])
@@ -210,6 +212,10 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
     if (blocked.has(id)) continue
     const u = pastWriterById.get(id)
     authors.set(id, u ? { username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u) } : null)
+  }
+  // A suspended writer's comments drop out for everyone else, like a blocked one's, until it ends.
+  for (const u of [...users, ...pastWriters]) {
+    if (hiddenWhileSuspended(u, viewerId)) authors.delete(u.id)
   }
   // The lock runs here, on the server: bodies past the viewer's progress never leave this function.
   const comments = serializeComments(rows, { userId: viewerId, progress }, authors)

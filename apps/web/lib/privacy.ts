@@ -42,16 +42,17 @@ export async function blockedUserIds(userId: string): Promise<string[]> {
   return Array.from(new Set(rows.map((r) => (r.blockerId === userId ? r.blockedId : r.blockerId))));
 }
 
-// Not suspended (lib/suspension.ts). A suspension with an end date that has passed still matches here
-// until an admin lifts it; erring towards hidden is the safe side.
-export const notSuspendedWhere: Prisma.UserWhereInput = {
-  OR: [{ suspendedAt: { isSet: false } }, { suspendedAt: null }],
-};
+// Not suspended (lib/suspension.ts) at `now`: never suspended, lifted, or past its end date, the same
+// test as isSuspended(). A function so the time is taken when the query runs, not when this loads.
+// An indefinite suspension has suspendedUntil unset or null, which `lte` never matches.
+export const notSuspendedWhere = (now = new Date()): Prisma.UserWhereInput => ({
+  OR: [{ suspendedAt: { isSet: false } }, { suspendedAt: null }, { suspendedUntil: { lte: now } }],
+});
 
 // Unset reads as PUBLIC, so match it explicitly (MongoDB: unset and null are different things).
-const visibilityIn = (values: ProfileVisibility[]): Prisma.UserWhereInput => ({
+const visibilityIn = (values: ProfileVisibility[], now = new Date()): Prisma.UserWhereInput => ({
   AND: [
-    notSuspendedWhere,
+    notSuspendedWhere(now),
     {
       OR: [
         { profileVisibility: { isSet: false } },
@@ -62,10 +63,10 @@ const visibilityIn = (values: ProfileVisibility[]): Prisma.UserWhereInput => ({
   ],
 });
 
-// Profiles anyone may see: the sitemap and anything else crawlable.
-export const publicProfileWhere: Prisma.UserWhereInput = visibilityIn(["PUBLIC"]);
+// Profiles anyone may see: the sitemap and anything else crawlable. Functions, like notSuspendedWhere.
+export const publicProfileWhere = (now = new Date()): Prisma.UserWhereInput => visibilityIn(["PUBLIC"], now);
 // Profiles that turn up in user search: not private (followers-only readers need to be findable to be followed).
-export const searchableProfileWhere: Prisma.UserWhereInput = visibilityIn(["PUBLIC", "FOLLOWERS"]);
+export const searchableProfileWhere = (now = new Date()): Prisma.UserWhereInput => visibilityIn(["PUBLIC", "FOLLOWERS"], now);
 
 // Books other readers may see: anything not marked private. Unset and null both mean shared.
 // Wrap it in AND when the query has its own OR.
