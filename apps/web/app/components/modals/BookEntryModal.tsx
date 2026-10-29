@@ -9,6 +9,7 @@ import { notify, apiError } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
+import { Textarea } from '../ui/textarea'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { Button } from '../ui/button'
@@ -50,7 +51,12 @@ const defaultValues = {
   editionKey: "",
   isbn13: "",
   isbn10: "",
+  // A book typed in by hand has no blurb to fetch, so the reader may write one.
+  blurb: "",
 }
+
+// The server keeps the first 3,000 characters (lib/openLibrary.ts DESCRIPTION_MAX).
+const BLURB_MAX = 3000
 
 const BookEntryModal: FC = () => {
   const { user } = useUser()
@@ -67,6 +73,8 @@ const BookEntryModal: FC = () => {
 
   // "search" until a book is picked (or the user opts to type one in), then "shelf".
   const [stage, setStage] = useState<"search" | "shelf">("search")
+  // Typed in by hand rather than picked from search.
+  const [isManual, setIsManual] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [shelf, setShelf] = useState<Shelf>("NOT_STARTED")
   // A finished book's dates: today by default, or the day picked, or undated.
@@ -94,6 +102,7 @@ const BookEntryModal: FC = () => {
   const resetAll = () => {
     reset(defaultValues)
     setStage("search")
+    setIsManual(false)
     setIsEditing(false)
     setFormat("PRINT")
     setStartCircle(false)
@@ -136,6 +145,7 @@ const BookEntryModal: FC = () => {
     setGivenBlurb(result.description ?? null)
     setHardcoverId(result.hardcoverId ?? null)
     setFormat("PRINT")
+    setIsManual(false)
     // Open Library doesn't always know the page count. Only progress needs it, so ask only when starting.
     setIsEditing(!result.pages && onShelf === "STARTED")
     setStage("shelf")
@@ -157,6 +167,7 @@ const BookEntryModal: FC = () => {
     setPublished(null)
     setGivenBlurb(null)
     setHardcoverId(null)
+    setIsManual(true)
     setIsEditing(true)
     setStage("shelf")
   }
@@ -189,7 +200,7 @@ const BookEntryModal: FC = () => {
       isbn13: data.isbn13 || undefined,
       isbn10: data.isbn10 || undefined,
       hardcoverId: hardcoverId || undefined,
-      description: description || undefined,
+      description: (isManual ? data.blurb?.trim() : description) || undefined,
       status: shelf,
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
       ...(shelf === "COMPLETED" && finishDatesBody(finishDates)),
@@ -265,7 +276,7 @@ const BookEntryModal: FC = () => {
         </div>
       </div>
 
-      <BookBlurb description={description} headline={headline} isLoading={isDescriptionLoading} />
+      {!isManual && <BookBlurb description={description} headline={headline} isLoading={isDescriptionLoading} />}
 
       <FormatPicker value={format} onChange={chooseFormat} disabled={isLoading} />
 
@@ -305,6 +316,12 @@ const BookEntryModal: FC = () => {
             {GENRES.map((g) => <option key={g} value={g} />)}
           </datalist>
         </div>
+        {isManual && (
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <Label htmlFor="blurb">Description <span className="font-normal text-muted-foreground">· optional</span></Label>
+            <Textarea register={register} errors={errors} id="blurb" rows={4} maxLength={BLURB_MAX} placeholder="What's it about? The blurb from the back cover will do." disabled={isLoading} />
+          </div>
+        )}
         <div className="flex flex-col gap-2 sm:col-span-2">
           <Label>Cover <span className="font-normal text-muted-foreground">· optional</span></Label>
           <UploadButton

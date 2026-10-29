@@ -11,6 +11,8 @@ export type StaffActionKind =
   | "role.set"
   | "work.edit"
   | "work.add"
+  | "work.page_approve"
+  | "work.page_withdraw"
   | "edition.edit"
   | "report.dismiss"
   | "report.hide"
@@ -46,6 +48,8 @@ export const STAFF_ACTION_LABELS: Record<StaffActionKind, string> = {
   "role.set": "Changed role",
   "work.edit": "Edited book",
   "work.add": "Added book from Open Library",
+  "work.page_approve": "Gave a hand-typed book a page",
+  "work.page_withdraw": "Took a hand-typed book's page down",
   "edition.edit": "Edited edition",
   "report.dismiss": "Dismissed report",
   "report.hide": "Took content down",

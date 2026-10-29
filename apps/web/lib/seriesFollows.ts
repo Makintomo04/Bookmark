@@ -34,11 +34,11 @@ async function worksNamed(names: string[]): Promise<SeriesWork[]> {
   if (unique.length === 0) return []
   const rows = await prisma.work.findMany({
     where: { OR: unique.map((name) => ({ seriesName: { equals: name, mode: "insensitive" as const } })) },
-    select: { id: true, openLibraryKey: true, hardcoverId: true, title: true, authors: true, coverUrl: true, seriesName: true, seriesPosition: true },
+    select: { id: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, title: true, authors: true, coverUrl: true, seriesName: true, seriesPosition: true },
     take: SERIES_WORKS_MAX,
   })
   return rows.flatMap((w) => (w.seriesName
-    ? [{ id: w.id, workKey: w.openLibraryKey, title: w.title, authors: w.authors, coverUrl: w.coverUrl, seriesName: w.seriesName, seriesPosition: w.seriesPosition, hardcoverId: w.hardcoverId }]
+    ? [{ id: w.id, workKey: w.openLibraryKey, title: w.title, authors: w.authors, coverUrl: w.coverUrl, seriesName: w.seriesName, seriesPosition: w.seriesPosition, hardcoverId: w.hardcoverId, pageApproved: !!w.pageApprovedAt }]
     : []))
 }
 

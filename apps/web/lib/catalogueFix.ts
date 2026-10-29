@@ -26,7 +26,7 @@ import {
 
 const editionSelect = { id: true, key: true, format: true, pages: true, isbn13: true, isbn10: true, publisher: true, publishedYear: true, coverUrl: true, curatedFields: true } as const;
 const workSelect = {
-  id: true, key: true, openLibraryKey: true, title: true, authors: true, description: true, coverUrl: true, firstPublishYear: true, curatedFields: true,
+  id: true, key: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, title: true, authors: true, description: true, coverUrl: true, firstPublishYear: true, curatedFields: true,
   editions: { select: editionSelect, take: 20 },
   _count: { select: { books: true } },
 } as const;
@@ -173,6 +173,23 @@ export async function fixWork(actor: Actor, id: string, body: Record<string, unk
     before, after: { ...Object.fromEntries(changed.map((k) => [k, patch[k as keyof typeof patch] ?? null])), copies }, reason,
   });
   return { ok: true, value: { work: (await findStaffWork(id))!, copies } };
+}
+
+// A hand-typed work (neither Open Library nor Hardcover has it) gets a book page only once a librarian has
+// checked it's a real book rather than someone's private note (lib/workPages.ts). Withdrawing takes the page
+// down again; readers keep their copies either way.
+export async function setWorkPage(actor: Actor, id: string, approve: boolean, reason?: string): Promise<StaffOutcome<StaffWork>> {
+  if (!isObjectId(id)) return staffFail(404, "No book with that id.");
+  const work = await findStaffWork(id);
+  if (!work) return staffFail(404, "No book with that id.");
+  if (work.openLibraryKey || work.hardcoverId) return staffFail(400, "This book already has a page from Open Library or Hardcover.");
+  if (!!work.pageApprovedAt === approve) return { ok: true, value: work };
+  await prisma.work.update({ where: { id }, data: { pageApprovedAt: approve ? new Date() : null } });
+  await logStaffAction({
+    actorId: actor.id, action: approve ? "work.page_approve" : "work.page_withdraw", targetType: "work", targetId: id,
+    before: { pageApprovedAt: work.pageApprovedAt?.toISOString() ?? null }, after: { title: work.title }, reason,
+  });
+  return { ok: true, value: (await findStaffWork(id))! };
 }
 
 export async function fixEdition(actor: Actor, id: string, body: Record<string, unknown>, reason?: string): Promise<FixResult> {

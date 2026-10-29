@@ -4,7 +4,7 @@ import useSWR from 'swr'
 import { Loader2, Search } from 'lucide-react'
 import { fetcher } from '@/lib/fetcher'
 import type { StaffWork } from '@/lib/catalogueFix'
-import { workKeyOfQuery } from '@/lib/workKey'
+import { bookHref, workKeyOfQuery } from '@/lib/workKey'
 import { Button } from '../ui/button'
 import { cardClass, fieldClass, staffSend } from './staffApi'
 
@@ -62,7 +62,7 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
                   <span className="min-w-0">
                     <span className="block font-medium truncate">{w.title}</span>
                     <span className="block text-sm text-muted-foreground truncate">{w.authors.join(', ') || 'No author'}{w.firstPublishYear ? ` · ${w.firstPublishYear}` : ''}</span>
-                    <span className="block text-xs text-muted-foreground">{w._count.books} on shelves · {w.editions.length} {w.editions.length === 1 ? 'edition' : 'editions'}{w.curatedFields.length ? ' · corrected before' : ''}</span>
+                    <span className="block text-xs text-muted-foreground">{w._count.books} on shelves · {w.editions.length} {w.editions.length === 1 ? 'edition' : 'editions'}{w.curatedFields.length ? ' · corrected before' : ''}{handTyped(w) ? (w.pageApprovedAt ? ' · hand-typed, has a page' : ' · hand-typed, no page') : ''}</span>
                   </span>
                 </button>
               </li>
@@ -98,6 +98,9 @@ const AddFromOpenLibrary = ({ olKey, onAdded }: { olKey: string, onAdded: (id: s
     </div>
   )
 }
+
+// Neither Open Library nor Hardcover has it: a reader typed it in, so it has a page only if a librarian gave it one.
+const handTyped = (w: StaffWork) => !w.openLibraryKey && !w.hardcoverId
 
 const Cover = ({ url, className }: { url: string | null, className: string }) => (
   // eslint-disable-next-line @next/next/no-img-element
@@ -176,6 +179,8 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
         {message && <p role="status" className={`text-sm ${message.ok ? 'text-muted-foreground' : 'text-destructive'}`}>{message.text}</p>}
       </section>
 
+      {handTyped(work) && <PageApproval work={work} onSaved={(w) => mutate(w, { revalidate: false })} />}
+
       {work.editions.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="font-semibold">Editions</h2>
@@ -183,6 +188,48 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
         </section>
       )}
     </div>
+  )
+}
+
+// A hand-typed book gets a page once a librarian has checked it's a real, published book and not someone's
+// private note (lib/workPages.ts). Its page then shows the title, authors, cover and description above.
+const PageApproval = ({ work, onSaved }: { work: StaffWork, onSaved: (w: StaffWork) => void }) => {
+  const [reason, setReason] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const approved = !!work.pageApprovedAt
+  const href = bookHref({ workKey: null, pageWorkId: work.id, title: work.title })
+
+  const send = async () => {
+    setPending(true)
+    setError(null)
+    try {
+      onSaved(await staffSend<StaffWork>(`/api/staff/works/${work.id}/page`, approved ? 'DELETE' : 'PUT', { reason }))
+      setReason('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <section className={`${cardClass} flex flex-col gap-3`}>
+      <h2 className="font-semibold">Book page</h2>
+      {approved ? (
+        <p className="text-sm text-muted-foreground">
+          Approved on {new Date(work.pageApprovedAt!).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.{' '}
+          {href && <a className="text-brand-text hover:underline" href={href} target="_blank" rel="noreferrer">Open its page</a>}
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">Neither Open Library nor Hardcover has this book, so a reader typed it in and it has no page. Give it one once you&apos;ve checked it&apos;s a real, published book and not someone&apos;s private note. Fix the details above first: the page shows them to everyone.</p>
+      )}
+      <input className={fieldClass} placeholder={approved ? 'Why it should come down (optional, for the log)' : 'How you checked it (optional, for the log)'} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+      <Button size="sm" variant={approved ? 'outline' : 'default'} className="self-start" onClick={send} disabled={pending}>
+        {pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}{approved ? 'Take the page down' : 'Give it a book page'}
+      </Button>
+      {error && <p role="status" className="text-sm text-destructive">{error}</p>}
+    </section>
   )
 }
 

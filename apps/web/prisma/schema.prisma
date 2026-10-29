@@ -445,6 +445,9 @@ model Work {
   // Hardcover's book id, for a book first added from a Hardcover search hit (lib/hardcover.ts). With no
   // Open Library key, this is what gives the work a book page (lib/bookPage.ts): a hand-typed work has neither.
   hardcoverId String?
+  // When a librarian gave a hand-typed work a book page, having checked it's a real book and not someone's
+  // private note (lib/workPages.ts). Unset for every other work, whose page comes from either key above.
+  pageApprovedAt DateTime?
   title String
   authors String[] @db.String
   // Open Library author keys (OL7477772A), in step with `authors` where Open Library had them. The
