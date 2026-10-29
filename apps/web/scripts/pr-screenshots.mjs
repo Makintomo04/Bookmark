@@ -56,7 +56,8 @@ function parseArgs(argv) {
   return opts
 }
 
-const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim()
+// stderr is kept quiet: the first fetch of pr-screenshots fails by design, and push chats about PR links.
+const git = (...args) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
 
 async function signIn(page, email, password) {
   await page.goto("/signin")
