@@ -118,7 +118,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         outline-none
         focus:outline-none
         overscroll-contain
-        bg-neutral-800/70
+        bg-black/40
 
       "
     >
@@ -129,7 +129,9 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={cn("flex flex-col mb-auto sm:my-auto w-full h-full max-h-dvh sm:max-h-[85dvh] overflow-hidden sm:rounded-lg sm:h-auto", size === "sm" ? "sm:w-[520px]" : "sm:w-[650px] md:w-[800px] lg:w-[900px]", " bg-background shadow-md relative outline-none", !compact && "sm:min-h-[min(580px,85dvh)]")}
+        // The page's own background with a thin neutral edge, as the Update sheet has (profile-head/UpdateSheet.tsx),
+        // over a dimmed page. Full screen on a phone, so the edge and corners are from sm up.
+        className={cn("flex flex-col mb-auto sm:my-auto w-full h-full max-h-dvh sm:max-h-[85dvh] overflow-hidden sm:rounded-xl sm:h-auto", size === "sm" ? "sm:w-[520px]" : "sm:w-[650px] md:w-[800px] lg:w-[900px]", "bg-background sm:border sm:border-neutral-200 sm:dark:border-neutral-800 shadow-2xl relative outline-none", !compact && "sm:min-h-[min(580px,85dvh)]")}
       >
         {bare ? (
           <>
