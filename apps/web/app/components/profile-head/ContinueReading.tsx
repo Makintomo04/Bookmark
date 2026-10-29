@@ -87,7 +87,8 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
         {/* Where the circle is goes on this line too, not beside the bar, where it made the card taller. */}
         <span className="min-w-0 truncate" title={circle?.at != null ? `${position} · circle ${circle.label}` : undefined}>{position}{circle?.at != null && <> · circle {circle.label}</>}</span>
         {!readOnly && (
-          <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 font-medium text-foreground transition group-hover/update:bg-neutral-200 dark:bg-neutral-800 dark:group-hover/update:bg-neutral-700">
+          // Lifted 4px off the bar (equal and opposite margins, so the row keeps its height).
+          <span className="-mt-1 mb-1 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 font-medium text-foreground transition group-hover/update:bg-neutral-200 dark:bg-neutral-800 dark:group-hover/update:bg-neutral-700">
             <Pencil size={12} aria-hidden />Update<span className="sr-only"> progress for {book.title}</span>
           </span>
         )}

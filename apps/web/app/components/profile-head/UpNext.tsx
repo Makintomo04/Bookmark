@@ -98,9 +98,10 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
       </button>
       {/* Two lines kept for every title, so a one-line title doesn't lift its Start above the rest of the row. */}
-      <p className="mt-1.5 line-clamp-2 min-h-[2.75em] break-words text-xs font-medium leading-snug" title={pick.title}>
+      {/* The clamp is on the button: a button is its own box, so a clamp on the paragraph doesn't reach inside it. */}
+      <p className="mt-1.5 min-h-[2.75em] break-words text-xs font-medium leading-snug" title={pick.title}>
         <button type="button" onClick={() => openDetails(pick.discover)} aria-label={`${pick.title}: about this book`}
-          className="rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{pick.title}</button>
+          className="line-clamp-2 w-full rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{pick.title}</button>
       </p>
       <p className="truncate text-[11px] leading-snug text-muted-foreground" title={pick.tag}>{pick.tag}</p>
       {/* One quiet pill at every width: 32px to look at, with a 44px tap area, full width under a phone's cover. */}
@@ -170,7 +171,9 @@ const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = fal
         // Relative, so the Start buttons' screen-reader text stays inside the scroller instead of widening the page.
         // Out to the screen's edges on a phone, with the page's 16px kept as scroll padding too: without it each
         // tile snaps to the scroller's very edge and the first cover touches the side of the screen.
-        "relative flex gap-3 overflow-x-auto snap-x pb-1 max-sm:-mx-4 max-sm:px-4 max-sm:scroll-px-4",
+        // overflow-y-hidden: overflow-x-auto alone makes it a vertical scroller too, and the Start pills' tap areas
+        // reaching past the bottom let the row be dragged up and down. pb-2 keeps those tap areas inside it.
+        "relative flex gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x pb-2 max-sm:-mx-4 max-sm:px-4 max-sm:scroll-px-4",
         !row && "sm:grid sm:grid-cols-6 sm:overflow-visible lg:grid-cols-7 sm:max-lg:[&>li:nth-child(n+7)]:hidden lg:[&>li:nth-child(n+8)]:hidden",
       )}>
         {picks.map((pick) => <PickTile key={pick.key} pick={pick} row={row} />)}
