@@ -102,14 +102,17 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
       </span>
     </>
   )
-  const coverWidth = size === 'large' ? 'w-20' : size === 'card' ? 'w-16' : 'w-12'
+  // 62px is 2:3 beside the usual 94px of text; the one large card is tall enough for an 80px cover.
+  const coverWidth = size === 'large' ? 'w-20' : 'w-[62px]'
   const title = href && !readOnly
     ? <Link href={href} className="hover:underline underline-offset-2">{book.title}</Link>
     : <button type="button" onClick={details} className="text-left hover:underline underline-offset-2">{book.title}</button>
   return (
-    <li className={cn("flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", size === 'row' && "py-2.5", className)}>
-      <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("shrink-0 self-start rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
-        <BookCover book={book} variant="thumb" sizes="80px" className="w-full shadow-sm" />
+    <li className={cn("flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", size === 'row' && "py-2.5", size === 'large' && "min-h-[146px]", className)}>
+      {/* The cover runs the card's full height: its slot stretches with the card and the cover fills it, cropped
+          like a photo, rather than sitting at the top with a gap under it. Widths keep the slot close to 2:3. */}
+      <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("relative shrink-0 self-stretch rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
+        <BookCover book={book} variant="thumb" sizes="80px" className="absolute inset-0 aspect-auto h-full shadow-sm" />
       </button>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 font-medium leading-snug" title={book.title}>{title}</p>
