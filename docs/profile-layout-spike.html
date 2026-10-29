@@ -1,0 +1,873 @@
+<title>Profile Layout Spike</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column of argument, with each layout drawn as a scaled wireframe of the real profile. Dark-first, Bookmark tokens. */
+:root {
+  --bg: #0a0a0a; --surface: #141414; --raised: #1c1c1c; --line: #262626;
+  --fg: #fafafa; --muted: #a3a3a3; --faint: #525252;
+  --brand: #F13C3C; --brand-text: #F05252; --good: #34d399; --warn: #fbbf24;
+  --wire: #2a2a2a; --wire-2: #3a3a3a;
+  --display: "Literata", Georgia, "Times New Roman", serif;
+  --ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #ffffff; --surface: #f5f5f5; --raised: #ededed; --line: #e5e5e5;
+  --fg: #0a0a0a; --muted: #6b6b6b; --faint: #a3a3a3;
+  --brand-text: #C42727; --good: #059669; --warn: #b45309;
+  --wire: #e8e8e8; --wire-2: #d4d4d4; color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #ffffff; --surface: #f5f5f5; --raised: #ededed; --line: #e5e5e5;
+  --fg: #0a0a0a; --muted: #6b6b6b; --faint: #a3a3a3;
+  --brand-text: #C42727; --good: #059669; --warn: #b45309;
+  --wire: #e8e8e8; --wire-2: #d4d4d4; color-scheme: light; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--ui); margin: 0; }
+.page { max-width: 1040px; margin: 0 auto; padding-block: 48px 96px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.prose { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; text-wrap: balance; letter-spacing: -0.015em; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 42px); line-height: 1.15; }
+h2 { font-size: 26px; line-height: 1.25; }
+h3 { font-size: 18px; line-height: 1.35; }
+p { margin: 0; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { color: var(--muted); font-size: 17px; margin-top: 12px; }
+a { color: var(--brand-text); }
+section { margin-top: 72px; display: grid; gap: 20px; }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.plain li::marker { color: var(--faint); }
+.muted { color: var(--muted); }
+code { font-size: 13px; background: var(--surface); padding: 1px 5px; border-radius: 4px; }
+
+/* Audit findings */
+.findings { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.finding { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.pin { width: 24px; height: 24px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 12px; font-weight: 600;
+  display: grid; place-items: center; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.finding h3 { font-family: var(--ui); font-size: 15px; font-weight: 600; letter-spacing: 0; }
+.finding p { color: var(--muted); margin-top: 2px; }
+
+/* Variant blocks */
+.variant { border-top: 1px solid var(--line); padding-top: 40px; }
+.variant-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+.tag { font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.tag.rec { border-color: color-mix(in srgb, var(--brand) 45%, transparent); color: var(--brand-text); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.two > div { min-width: 0; }
+.two h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+@media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+
+/* Wireframe frame. Drawn at desktop width; scrolls sideways on a phone. */
+.scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.frame { min-width: 760px; padding: 16px 24px 24px; font-size: 10px; line-height: 1.35; }
+.frame .chrome { display: flex; justify-content: space-between; align-items: center; color: var(--muted); padding-bottom: 12px; }
+.frame .logo { font-family: var(--display); font-weight: 600; font-size: 12px; color: var(--fg); }
+.banner { height: 70px; border-radius: 10px; margin: 0 -8px; background:
+  repeating-linear-gradient(135deg, #b82a2a 0 10px, #c73434 10px 20px); }
+.banner.short { height: 52px; }
+.idrow { display: flex; justify-content: space-between; align-items: flex-end; margin-top: -26px; padding-inline: 4px; }
+.avatar { width: 54px; height: 54px; border-radius: 50%; border: 3px solid var(--bg); background: #e0a96d; }
+.btns { display: flex; gap: 5px; }
+.btn { height: 18px; padding: 0 8px; border-radius: 4px; border: 1px solid var(--wire-2); display: grid; place-items: center; color: var(--muted); }
+.btn.solid { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.name { font-family: var(--display); font-weight: 600; font-size: 17px; margin-top: 6px; }
+.handle, .bio { color: var(--muted); }
+.stats { display: flex; gap: 12px; margin-top: 5px; color: var(--muted); flex-wrap: wrap; }
+.stats b { color: var(--fg); font-weight: 600; }
+.stats.col { flex-direction: column; gap: 3px; }
+
+.sec { margin-top: 18px; }
+.sec-t { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+.sec-t span:first-child { font-family: var(--display); font-weight: 600; font-size: 12px; }
+.sec-t span:last-child { color: var(--muted); }
+.covers { display: grid; gap: 8px 10px; }
+.cover { aspect-ratio: 2 / 3; border-radius: 3px; position: relative; overflow: hidden; }
+.cover::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: rgba(0,0,0,.18); }
+.ct { font-size: 8.5px; margin-top: 3px; line-height: 1.25; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.toolbar { height: 20px; border-radius: 999px; background: var(--surface); margin-bottom: 4px; }
+
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: var(--bg); }
+.card.fill { background: var(--surface); border-color: transparent; }
+.goal { display: flex; align-items: center; gap: 9px; }
+.ring { width: 30px; height: 30px; flex: none; }
+.ring.big { width: 58px; height: 58px; }
+.goal b { font-weight: 600; }
+.warn { color: var(--warn); }
+.good { color: var(--good); }
+.bar { height: 3px; border-radius: 99px; background: var(--wire-2); margin-top: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--brand); }
+.reading { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; }
+.reading .bar { margin-top: 5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { border: 1px solid var(--wire-2); border-radius: 99px; padding: 1px 7px; color: var(--muted); }
+.list-card { border-radius: 6px; background: var(--surface); padding: 6px; }
+.stack { display: flex; }
+.stack .cover { width: 22px; margin-right: -9px; border: 1px solid var(--bg); }
+.review { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+.review:first-of-type { border-top: 0; }
+.lines i { display: block; height: 4px; border-radius: 2px; background: var(--wire); margin-top: 4px; }
+.stars { color: var(--brand); letter-spacing: 1px; font-size: 9px; }
+.badges { display: flex; gap: 5px; }
+.badge { width: 22px; height: 22px; border-radius: 50%; background: var(--raised); border: 1px solid var(--wire-2); }
+.fade { position: relative; }
+.fade::after { content: "…shelves continue"; display: block; text-align: center; color: var(--faint); padding-top: 8px; }
+.note { outline: 1.5px dashed var(--brand); outline-offset: 3px; border-radius: 6px; position: relative; }
+.note > .n { position: absolute; top: -9px; left: -9px; z-index: 2; width: 17px; height: 17px; border-radius: 50%; background: var(--brand); color: #fff;
+  font: 600 9.5px/17px var(--ui); text-align: center; }
+.empty-rail { border: 1px dashed var(--wire-2); border-radius: 8px; display: grid; place-items: center; color: var(--faint); text-align: center; padding: 10px; }
+
+/* Phone order strip */
+.phone { display: flex; flex-wrap: wrap; gap: 6px; counter-reset: p; }
+.phone span { counter-increment: p; font-size: 13px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; }
+.phone span::before { content: counter(p) " "; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+/* Comparison table */
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+.dots { letter-spacing: 2px; color: var(--brand); white-space: nowrap; }
+.dots s { color: var(--wire-2); text-decoration: none; }
+
+.phoneframe { min-width: 0; width: 260px; max-width: 100%; margin: 0 auto; border: 1px solid var(--line); border-radius: 22px; padding: 12px 12px 18px; }
+.pcap { font-size: 11px; color: var(--muted); text-align: center; margin-bottom: 8px; }
+.phoneframe .banner { margin: 0 -4px; height: 44px; }
+.phoneframe .idrow { margin-top: -20px; }
+.phoneframe .avatar { width: 40px; height: 40px; }
+.phoneframe .name { font-size: 14px; }
+.search { height: 16px; width: 150px; border-radius: 99px; border: 1px solid var(--wire-2); color: var(--faint); font-size: 8.5px; padding: 0 7px; display: flex; align-items: center; }
+.strip { display: grid; gap: 8px; }
+.mini { display: grid; grid-template-columns: 22px 1fr; gap: 6px; align-items: center; }
+.mini b { font-weight: 500; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.srow { display: grid; grid-template-columns: 16px 1fr auto; gap: 6px; align-items: center; padding: 4px 0; border-top: 1px solid var(--line); }
+.srow:first-child { border-top: 0; }
+.oneline { border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px; display: flex; justify-content: space-between; gap: 6px; }
+.swipe { display: flex; gap: 6px; overflow: hidden; }
+.swipe > * { flex: 0 0 44%; }
+/* Button options: mock cards at the app's real sizes (Tailwind px), drawn with the page's tokens. */
+:root { --reader: #2F80ED; --chip: #262626; --chip-hover: #404040; --tile: #171717; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --chip: #ededed; --chip-hover: #e0e0e0; --tile: #f5f5f5; } }
+:root[data-theme="light"] { --chip: #ededed; --chip-hover: #e0e0e0; --tile: #f5f5f5; }
+.bx-grid { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 340px); gap: 24px; align-items: start; }
+@media (max-width: 960px) { .bx-grid { grid-template-columns: minmax(0, 1fr); } }
+.bx-frame { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--bg); min-width: 0; overflow-x: auto; }
+.bx-cap { font-size: 12px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; }
+.bx-cards { display: grid; gap: 12px; min-width: 300px; }
+.bx-card { position: relative; display: flex; gap: 14px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-family: var(--ui); }
+.bx-cover { width: 48px; flex: none; aspect-ratio: 2 / 3; border-radius: 4px; align-self: flex-start; display: grid; place-items: start; padding: 4px; font: 600 7px/1.15 var(--display); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.bx-body { min-width: 0; flex: 1; }
+.bx-title { font-size: 15px; font-weight: 500; line-height: 1.3; }
+.bx-author { font-size: 13px; color: var(--muted); }
+.bx-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 11px; font-weight: 500; background: var(--chip); border-radius: 999px; padding: 1px 8px; }
+.bx-pos { margin-top: 4px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bx-barrow { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+.bx-track { position: relative; flex: 1; height: 6px; border-radius: 999px; background: var(--wire-2); transition: filter .15s; }
+.bx-fill { height: 100%; border-radius: 999px; background: var(--reader); }
+.bx-tick { position: absolute; top: -4px; width: 2px; height: 14px; border-radius: 2px; background: var(--fg); }
+.bx-circ { flex: none; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+svg.bx-i { width: 1em; height: 1em; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bx-btn { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+.bx-btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+/* Today */
+.bx-outline { flex: none; height: 36px; padding: 0 16px; border: 1px solid var(--wire-2); border-radius: 6px; font-size: 14px; font-weight: 500; }
+.bx-outline:hover { background: var(--surface); }
+/* U1: the progress row is the button */
+.bx-u1 { display: block; width: 100%; min-height: 44px; margin-top: 2px; padding: 4px 0; text-align: left; border-radius: 6px; }
+.bx-u1 .bx-pos { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 0; }
+.bx-chip { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--chip); color: var(--fg); font-size: 12px; font-weight: 500; transition: background .15s; }
+.bx-u1:hover .bx-chip { background: var(--chip-hover); }
+.bx-u1:hover .bx-track { filter: brightness(1.25); }
+.bx-u1:active { transform: scale(.985); }
+/* U2: ghost, top right */
+.bx-ghost { position: absolute; top: 6px; right: 6px; display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+.bx-ghost:hover { color: var(--fg); background: var(--surface); }
+.bx-u2 .bx-title { padding-right: 84px; }
+/* U3: round accent button at the end of the bar */
+.bx-round { flex: none; width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--reader); color: #fff; font-size: 14px; }
+.bx-round:hover { filter: brightness(1.1); }
+/* Up next tiles */
+.bx-tiles { display: flex; gap: 12px; }
+.bx-tiles.bx-desk .bx-tile { width: 72px; }
+.bx-tiles.bx-phone { overflow-x: auto; padding-bottom: 4px; }
+.bx-tiles.bx-phone .bx-tile { width: 96px; flex: none; }
+.bx-tile { display: flex; flex-direction: column; font-family: var(--ui); }
+.bx-tile .bx-cover { width: 100%; font-size: 9px; padding: 6px; position: relative; }
+.bx-tt { margin-top: 6px; font-size: 12px; font-weight: 500; line-height: 1.375; min-height: 2.75em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bx-tag { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bx-start-text { margin-top: auto; display: inline-flex; align-items: center; gap: 4px; height: 32px; margin-left: -6px; padding: 0 6px; font-size: 12px; font-weight: 500; color: var(--muted); border-radius: 6px; }
+.bx-start-text:hover { color: var(--fg); }
+.bx-start-box { margin-top: 8px; height: 44px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--wire-2); border-radius: 6px; font-size: 12px; font-weight: 500; }
+.bx-pill { position: relative; margin-top: 8px; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 12px; border-radius: 999px; background: var(--tile); border: 1px solid var(--line); font-size: 12px; font-weight: 500; }
+.bx-pill::after { content: ""; position: absolute; inset: -6px 0; }
+.bx-pill:hover { background: var(--chip); }
+.bx-tiles.bx-phone .bx-pill { width: 100%; }
+.bx-tiles.bx-desk .bx-pill { align-self: flex-start; padding: 0 10px; }
+.bx-corner { position: absolute; right: -6px; bottom: -6px; width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; background: var(--reader); color: #fff; font-size: 14px; box-shadow: 0 0 0 3px var(--bg); }
+.bx-tiles.bx-desk .bx-corner { width: 28px; height: 28px; font-size: 12px; }
+.bx-done { color: #34d399; }
+.bx-option { display: grid; gap: 14px; padding-top: 28px; border-top: 1px solid var(--line); }
+.bx-option h3 { font-family: var(--ui); font-size: 17px; letter-spacing: 0; }
+.bx-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 24px; font-size: 14px; color: var(--muted); max-width: 900px; }
+.bx-meta b { color: var(--fg); font-weight: 600; }
+.bx-pick { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); }
+.callout { background: var(--surface); border-radius: 12px; padding: 20px 22px; display: grid; gap: 10px; }
+@media (prefers-reduced-motion: no-preference) { .bar i { transition: width .6s; } }
+</style>
+
+<div class="page">
+  <header class="prose">
+    <p class="eyebrow">Spike · 29 October 2026 · your profile at /u/&lt;you&gt;</p>
+    <h1 style="margin-top:10px">Where things sit on your profile</h1>
+    <p class="lede">An audit of the owner's profile as it stands on main, and four layouts that move the smaller sections to the side. Each one is drawn at desktop width with real section shapes, then the order a phone would get. A five-reader panel then stress-tested them and agreed on one: <a href="#agreed">B+, a reading-first page in bands</a>. A refined D then took B+ to a <a href="#rematch-result">tie on points, and B+ won the vote 3 to 2</a>. Built, B+ didn't hold up, so a <a href="#ux-review">UX-only review</a> with a senior product designer led to <a href="#iteration-2">Iteration 2</a>, the current design. A UI audit then compared <a href="#buttons">five options for the Update and Start buttons</a>.</p>
+  </header>
+
+  <!-- AUDIT -->
+  <section>
+    <p class="eyebrow">Today</p>
+    <h2>One long column, with one good idea in it</h2>
+    <p class="prose muted">Below the header, everything takes the full width except Favourites and Lists, which share a row from <code>lg</code> up. That pairing is the strongest part of the page. The rest stacks in this order: follow requests, genre picks for new shelves, Favourites | Lists, the shelf (Currently reading, Paused, Want to read, Finished, Did not finish, Not interested), Up next in your series, your reviews, the "make a list" prompt, then the authors you follow.</p>
+    <div class="scroller"><div class="frame" id="today"></div></div>
+    <div class="findings">
+      <div class="finding"><span class="pin">1</span><div><h3>The goal row spends a full width on two lines of text</h3><p>A 36px ring and "41 of 52 books in 2026 · 3 behind pace" sit on the left; the month and pages bars sit 208px wide on the right. At 1200px there's around 600px of nothing between them. It also reads as part of the header, yet only you see it: visitors get no goal at all.</p></div></div>
+      <div class="finding"><span class="pin">2</span><div><h3>The pairing only happens when you have both</h3><p>With favourites and no lists (or the reverse), the one you have takes the full row. Favourites then become eight small covers across; on a test account with one list and no favourites, a single list card sits alone at the left of a 1,100px row. The page also has a different shape from a friend's. The side-by-side idea is right; it just isn't the page's structure yet.</p></div></div>
+      <div class="finding"><span class="pin">3</span><div><h3>Everything after the shelf is out of sight</h3><p>Series, reviews and followed authors come after every shelf, each previewing two rows. With five shelves that's several screens down. Up next in your series is an action ("start book 3"), so it belongs near Currently reading, not under Not interested.</p></div></div>
+      <div class="finding"><span class="pin">4</span><div><h3>Small sections are given big rows</h3><p>Followed authors are a handful of pills; achievements are only a stat in the header. Both are classic side-column content: short, glanceable, and not what you came to the page to do.</p></div></div>
+      <div class="finding"><span class="pin">5</span><div><h3>Owner and visitor pages have drifted</h3><p><code>OwnerProfile</code> and <code>PublicProfile</code> both pair favourites with lists, but the visitor page has no goal or series, and puts reviews inside the shelf block. Whatever layout we pick should be one skeleton with owner-only slots, so the two can't drift again.</p></div></div>
+      <div class="finding"><span class="pin">6</span><div><h3>The phone constraint is real, and the code protects it</h3><p>The header comment asks that the first shelf cover be in view without scrolling on a phone. Any side column has to drop below the shelf on a phone (or slim down above it), never push the shelf down.</p></div></div>
+    </div>
+  </section>
+
+  <!-- VARIANTS -->
+  <section>
+    <p class="eyebrow">Four layouts</p>
+    <h2>From the least change to the most</h2>
+    <p class="prose muted">All four keep the banner, avatar and header buttons as they are. The sample reader is 41 books into a 2026 goal of 52, with two in progress, favourites, three lists and five followed authors.</p>
+  </section>
+
+  <section class="variant" id="goal-in-header">
+    <div class="variant-head"><h2>A · Goal in the header</h2><span class="tag">Smallest change</span></div>
+    <p class="prose muted">No side column. The goal leaves its own row and becomes a compact card on the right of the header, level with your name and stats. The page keeps one column below, so every shelf stays six covers wide.</p>
+    <div class="scroller"><div class="frame" id="vA"></div></div>
+    <div class="two">
+      <div><h4>Works because</h4><ul class="plain"><li>Removes the emptiest row on the page for very little code: <code>ReadingGoalWidget</code> moves from <code>children</code> to a new header slot.</li><li>The goal reads as a fact about you, like your stats.</li></ul></div>
+      <div><h4>Falls short because</h4><ul class="plain"><li>Doesn't touch findings 2 to 4: the page is still one long column.</li><li>The header gets busier; a long bio will meet the goal card.</li></ul></div>
+    </div>
+    <div><h4 class="eyebrow" style="margin-bottom:8px">On a phone</h4><div class="phone"><span>Header</span><span>Goal (slim line, as today)</span><span>Favourites</span><span>Lists</span><span>Shelf</span><span>Series</span><span>Reviews</span><span>Authors</span></div></div>
+  </section>
+
+  <section class="variant" id="bands">
+    <div class="variant-head"><h2>B · Paired bands</h2><span class="tag rec">Recommended</span></div>
+    <p class="prose muted">Your Favourites | Lists row, made the rule. The page is a stack of bands, and each band pairs a wide section with a narrow one, two thirds and one third. Currently reading sits beside the goal; Favourites beside Lists; the shelves keep the full width; and at the end, your reviews sit beside the authors you follow and your achievements.</p>
+    <div class="scroller"><div class="frame" id="vB"></div></div>
+    <div class="two">
+      <div><h4>Works because</h4><ul class="plain"><li>Every side column ends where its band ends, so there's never a tall empty strip beside the shelves.</li><li>Shelves stay six covers wide, which is the core of the page.</li><li>The goal sits next to the books that move it.</li><li>Series moves up the page, next to what you're reading.</li><li>One <code>Band</code> component (wide + narrow, stacks below <code>lg</code>) serves owner and visitor pages.</li></ul></div>
+      <div><h4>Falls short because</h4><ul class="plain"><li>Each band needs a rule for when one side is empty (no goal set, no lists); the wide side takes the row.</li><li>Reviews still come after every shelf, so on a big library they stay out of sight.</li><li>Medium effort: <code>OwnerProfile</code> and <code>PublicProfile</code> both get re-ordered.</li></ul></div>
+    </div>
+    <div><h4 class="eyebrow" style="margin-bottom:8px">On a phone</h4><div class="phone"><span>Header</span><span>Goal (slim line)</span><span>Currently reading</span><span>Up next in series</span><span>Favourites</span><span>Lists</span><span>Shelves</span><span>Reviews</span><span>Authors</span></div></div>
+  </section>
+
+  <section class="variant" id="rail">
+    <div class="variant-head"><h2>C · Right-hand rail</h2><span class="tag">Closest to Goodreads</span></div>
+    <p class="prose muted">A two-column page under the header: the main column (about 720px) holds Currently reading, the shelves and your reviews; a 300px rail holds the goal, favourites as a 3-across grid, lists, series, followed authors and recent achievements. The rail sticks while the shelves scroll.</p>
+    <div class="scroller"><div class="frame" id="vC"></div></div>
+    <div class="two">
+      <div><h4>Works because</h4><ul class="plain"><li>Everything small lives in one predictable place, and it's all in view at the top.</li><li>The most "profile at a glance" of the four; readers coming from Goodreads will know it.</li></ul></div>
+      <div><h4>Falls short because</h4><ul class="plain"><li>The rail runs out after about one screen, leaving a tall blank strip beside the shelves (or a sticky rail that hides content until you scroll back up).</li><li>Shelves drop from six covers to four, so each shelf preview shows a third fewer books.</li><li>Favourites, the most personal section, shrink into the margin.</li></ul></div>
+    </div>
+    <div><h4 class="eyebrow" style="margin-bottom:8px">On a phone</h4><div class="phone"><span>Header</span><span>Goal (slim line)</span><span>Currently reading</span><span>Shelves</span><span>Reviews</span><span>Rail: favourites, lists, series, authors, achievements</span></div></div>
+  </section>
+
+  <section class="variant" id="identity">
+    <div class="variant-head"><h2>D · Identity column</h2><span class="tag">Biggest rejig</span></div>
+    <p class="prose muted">The header stops being a block on top. Under a shorter banner, a left column holds who you are: avatar, name, bio, stats as a list, the goal, followed authors and achievements. Everything to the right is your books. It's the shape GitHub and Letterboxd's diary use.</p>
+    <div class="scroller"><div class="frame" id="vD"></div></div>
+    <div class="two">
+      <div><h4>Works because</h4><ul class="plain"><li>Content starts much higher: the shelf begins beside your name, not under it.</li><li>A clear split between "you" and "your books" that suits a sticky column.</li></ul></div>
+      <div><h4>Falls short because</h4><ul class="plain"><li>Rewrites <code>ProfileHeader</code>, which the visitor and restricted profiles share, and changes the banner's overlap.</li><li>Same blank-strip problem as C once the left column ends.</li><li>The identity column collapses back to today's header on a phone, so there are two header layouts to keep in step.</li></ul></div>
+    </div>
+    <div><h4 class="eyebrow" style="margin-bottom:8px">On a phone</h4><div class="phone"><span>Header (as today)</span><span>Goal (slim line)</span><span>Favourites</span><span>Lists</span><span>Shelves</span><span>Reviews</span><span>Authors</span></div></div>
+  </section>
+
+  <!-- COMPARE -->
+  <section>
+    <p class="eyebrow">Side by side</p>
+    <h2>How they compare</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Layout</th><th>Fixes</th><th>Covers per shelf row</th><th>Blank space</th><th>Effort</th></tr></thead>
+      <tbody>
+        <tr><td>A · Goal in header</td><td>1</td><td>6</td><td>None added</td><td><span class="dots">●<s>●●●</s></span></td></tr>
+        <tr><td>B · Paired bands</td><td>1, 2, 4, 5 (3 only for series)</td><td>6</td><td>None: each side ends with its band</td><td><span class="dots">●●<s>●●</s></span></td></tr>
+        <tr><td>C · Right-hand rail</td><td>1, 3, 4</td><td>4</td><td>Tall strip beside the shelves</td><td><span class="dots">●●●<s>●</s></span></td></tr>
+        <tr><td>D · Identity column</td><td>1, 4, 5</td><td>4 to 5</td><td>Tall strip under the column</td><td><span class="dots">●●●●</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- PANEL -->
+  <section id="panel">
+    <p class="eyebrow">Reader panel</p>
+    <h2>Five readers took the four layouts apart</h2>
+    <p class="prose muted">This is the same five-person panel as the 27 October review (<code>docs/research/persona-panel-2026-10-27.md</code>). Each persona read this page and the profile code, scored the four layouts against their own shelf, and named one dealbreaker. In a second round they argued over a compromise. In a third, each one accepted or rejected the final version. The personas are simulated readers, not user research. Treat what they say as a stress test, not as evidence.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Reader</th><th>A</th><th>B</th><th>C</th><th>D</th><th>Dealbreaker</th></tr></thead>
+      <tbody>
+        <tr><td>Ada · 500 books, ex-StoryGraph</td><td>5</td><td>7</td><td>5</td><td>4</td><td>Shelf search must be reachable without scrolling past favourites, lists or series.</td></tr>
+        <tr><td>Sam · new reader, 7 books</td><td>5</td><td>7</td><td>3</td><td>4</td><td>The page mustn't be mostly empty boxes, and suggestions mustn't vanish at 5 books.</td></tr>
+        <tr><td>Dana · author</td><td>3</td><td>7</td><td>6</td><td>4</td><td>On a visitor's page, reviews (with Report) and followed authors can't sit after every shelf.</td></tr>
+        <tr><td>Kofi · book club host</td><td>4</td><td>7</td><td>5</td><td>3</td><td>Currently reading, with progress, is the first thing under the header on anyone's profile.</td></tr>
+        <tr><td>Mei · BookTok creator</td><td>6</td><td>6</td><td>3</td><td>5</td><td>On a phone, nothing goes between the header and her favourites and lists.</td></tr>
+        <tr><td>Total</td><td>23</td><td><b>34</b></td><td>22</td><td>20</td><td>Four put B first; Mei put A first, tied with B.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="findings">
+      <div class="finding"><span class="pin">!</span><div><h3>What they found wrong with B as drawn</h3><p>Reviews still came after every shelf, although the text said otherwise (now corrected above). Visitors have no goal or series, so the first band was half empty for them. Lists were squeezed into a third. With real data the bands went uneven: Ada's series are taller than the goal card, and twenty author chips are taller than three reviews. Pulling Currently reading out of <code>BookGrid</code> would also strand the shelf search below two bands.</p></div></div>
+      <div class="finding"><span class="pin">⇄</span><div><h3>Two conflicts, and how they settled</h3><p><b>Reviews above or below the shelves:</b> above, 5 to 0. Ada gave way once shelf search moved into the first band. <b>Now first or favourites first:</b> Kofi, Dana, Ada and Sam wanted what you're reading first. Mei needed her favourites above the fold for visitors on a phone. They settled it like this: on a visitor's phone the Now band is a single line of text, and everywhere else it's the cover strip.</p></div></div>
+      <div class="finding"><span class="pin">↔</span><div><h3>What each traded</h3><p>Kofi and Dana gave up the achievements slot (it's still linked from the header stat). Mei gave up four lists on desktop. Ada dropped her "2026 in numbers" column. Sam agreed to keep "Pick your next read" owner-only and hideable. Kofi gave up a list of shared circles beside Now, and gets circle progress on the book itself instead.</p></div></div>
+    </div>
+  </section>
+
+  <section id="agreed">
+    <p class="eyebrow">Agreed layout · accepted by all five</p>
+    <h2>B+: a reading-first page in bands</h2>
+    <p class="prose muted">It's B with the panel's fixes. One skeleton serves the owner and visitor pages, with a few slots only the owner sees. Below is the owner's page on desktop, then both pages on a phone.</p>
+    <div class="scroller"><div class="frame" id="vF"></div></div>
+    <div class="two">
+      <div class="scroller" style="border:0"><div class="frame phoneframe" id="vFo"><div class="pcap">Your page, phone</div></div></div>
+      <div class="scroller" style="border:0"><div class="frame phoneframe" id="vFv"><div class="pcap">A visitor's view, phone</div></div></div>
+    </div>
+    <div class="findings">
+      <div class="finding"><span class="pin">0</span><div><h3>Header</h3><p>As today, but the goal moves to a compact ring card on the right, with the Plus pages and month bars as two thin rows inside it. On a phone it stays the slim line under the stats. "Show my goal on my profile" is an opt-in, off by default.</p></div></div>
+      <div class="finding"><span class="pin">1</span><div><h3>Now, the first band on every profile</h3><p>Wide side: Currently reading as a compact strip (cover, title, progress), up to four across. On a visitor's phone it's one line, such as "Reading Fourth Wing · 62% · +2 more", that opens the strip. When the book is the pick of a circle you share with that reader, it reads "Ch 9 of 14 · circle at Ch 8" instead of a percentage. Narrow side: series in progress as compact rows, at most three plus "See all", for owner and visitor alike. Owner only: "Search your shelf" in the band's heading. It stays a visible field on a phone, and results and the filter pills open right under it.</p></div></div>
+      <div class="finding"><span class="pin">+</span><div><h3>Pick your next read (owner only)</h3><p>One row of covers under Now, drawn from your Want to read list and the genres you picked. It shows when you're behind your goal's pace, or have nothing in progress and no series next. Shelf size and lists don't affect it, and you can hide it in Settings. Search results always open above it.</p></div></div>
+      <div class="finding"><span class="pin">2</span><div><h3>Showcase</h3><p>Favourites | Lists at 1:1, as today. Lists show two plus "See all" on desktop and become a swipeable row on a phone.</p></div></div>
+      <div class="finding"><span class="pin">3</span><div><h3>Talk</h3><p>Two or three reviews (with Report for visitors) plus "See all" | followed authors, capped at eight chips plus "+N more". Achievements leave this band. Any empty side is hidden; it never shows as an empty box.</p></div></div>
+      <div class="finding"><span class="pin">4</span><div><h3>Shelves, last</h3><p>Full width, six covers. The owner and visitor pages use the same shelf order; today the visitor page shows Finished before Want to read.</p></div></div>
+    </div>
+  </section>
+
+  <!-- REMATCH -->
+  <section id="rematch">
+    <p class="eyebrow">Rematch</p>
+    <h2>D+: the identity column, refined</h2>
+    <p class="prose muted">D came last with 20 out of 50. This version keeps D's idea (you on the left, your books on the right) and answers each objection the panel raised. The main change is that the column stops at the shelves. From the shelves down, the page goes full width again, so the column never leaves a blank strip and the shelves keep six covers.</p>
+    <div class="scroller"><div class="frame" id="vG"></div></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Objection to D</th><th>Raised by</th><th>How D+ answers it</th></tr></thead>
+      <tbody>
+        <tr><td>Two header layouts to keep in step</td><td>Ada, Dana, Kofi, Mei</td><td>One <code>ProfileIdentity</code> component. The banner and avatar overlap stay as today. From <code>lg</code> up, CSS places it in a column; below <code>lg</code> it stacks as today's header. The markup is the same, and the visitor and restricted profiles use it too.</td></tr>
+        <tr><td>Blank strip under the column</td><td>Ada, Kofi, Mei</td><td>The column only sits beside the top of the page (Now, series, Favourites | Lists, reviews). The shelves span both columns underneath, so whatever the column holds, it ends before they start.</td></tr>
+        <tr><td>Five covers per shelf</td><td>Ada</td><td>Shelves are full width again: six covers.</td></tr>
+        <tr><td>Favourites above Currently reading</td><td>Kofi</td><td>Now is the first section in the books column, with shelf search in its heading. On a visitor's phone it's the one-line version.</td></tr>
+        <tr><td>No series, no reviews</td><td>Ada, Dana</td><td>Series rows (three at most) sit under Now. Two or three reviews close the books column, above the shelves.</td></tr>
+        <tr><td>Small numbers look sad in a stats list</td><td>Sam</td><td>The column shows "2026 in numbers" (goal ring, pages, this month), which Ada asked for. Counts of zero are hidden, and an empty authors box isn't shown.</td></tr>
+        <tr><td>Phone gains nothing</td><td>Sam, Dana</td><td>On a phone, D+ and B+ share the same order, apart from where authors and achievements fall. The difference between them is a desktop decision.</td></tr>
+        <tr><td>Biggest rewrite</td><td>Everyone</td><td>Still the bigger build. <code>ProfileHeader</code> becomes a grid with named areas, on top of everything B+ needs.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="rematch-result">
+    <p class="eyebrow">Rematch result</p>
+    <h2>B+ wins 3 to 2, on a tied score</h2>
+    <p class="prose muted">Refining D took it from last place to a dead heat on points: 37 each out of 50. The vote went to B+. No one said D+ breaks their dealbreaker. Every vote turned on desktop, because on a phone the two layouts give almost the same order.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Reader</th><th>B+</th><th>D+</th><th>Vote</th><th>Deciding reason</th></tr></thead>
+      <tbody>
+        <tr><td>Ada</td><td>8</td><td>7</td><td>B+</td><td>Shelf search results would pour into the narrow books column, beside a left column that has already ended. The blank strip comes back exactly when she uses the page most.</td></tr>
+        <tr><td>Sam</td><td>7</td><td>7</td><td>B+</td><td>Nearly always on a phone, where the two are the same. D+ is the bigger build, for a desktop-only gain, and would delay picks and the Now strip.</td></tr>
+        <tr><td>Mei</td><td>8</td><td>7</td><td>B+</td><td>Her favourites get smaller and drop lower on desktop, below Now, series and picks. That's the screen she screenshots.</td></tr>
+        <tr><td>Dana</td><td>7</td><td>8</td><td>D+</td><td>The authors a reader follows sit beside their name, on the first screen, instead of a screen and a half down.</td></tr>
+        <tr><td>Kofi</td><td>7</td><td>8</td><td>D+, narrowly</td><td>A member's reading progress sits level with their avatar, without the header's height above it. He'd switch if the narrower strip ever cut off the circle marker.</td></tr>
+        <tr><td>Total</td><td>37</td><td>37</td><td>B+ 3–2</td><td></td></tr>
+      </tbody>
+    </table></div>
+    <div class="findings">
+      <div class="finding"><span class="pin">↺</span><div><h3>The gap risk was real for three of five</h3><p>Ada and Mei have tall books columns, so a blank appears under their left column. Kofi's books column is tall whenever he's behind pace. Dana's left column overflows unless the author chips are capped by height. Only Sam came out about even.</p></div></div>
+      <div class="finding"><span class="pin">→</span><div><h3>What B+ takes from D+</h3><p>Each of these came from a reader's answer to "if D+ won, what would it still need". None has been voted on yet.</p><ul class="plain" style="margin-top:6px"><li>The header goal card becomes "2026 in numbers" (goal, month, pages, average rating), and visitors see it only through the "Show my goal" opt-in. (Ada, Mei)</li><li>On a phone, the goal line expands into those numbers when tapped. (Sam)</li><li>A one-line "Follows Le Guin, Ishiguro +18" under the bio, so visitors see followed authors on the first screen. The full chips stay in the Talk band. (Dana)</li><li>The desktop header gets tighter, so the Now band starts higher. (Kofi)</li></ul></div></div>
+    </div>
+  </section>
+
+  <!-- UX-ONLY REVIEW -->
+  <section id="ux-review">
+    <p class="eyebrow">UX-only review · 29 October</p>
+    <h2>Judged on experience alone, the built B+ falls short</h2>
+    <p class="prose muted">Once B+ was built, it didn't look right on desktop. A fresh panel (the same five readers plus a senior product designer who has worked at Netflix and Airbnb) judged every option on the experience alone, with build effort ruled out. They worked through seven tasks: update progress, find a book, read the goal, start the next book, show who you are, see a friend's reading, and browse shelves. B+ was judged from screenshots of the real build.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Reader</th><th>Today</th><th>A</th><th>B+</th><th>C</th><th>D+</th><th>Top tasks</th></tr></thead>
+      <tbody>
+        <tr><td>Ada</td><td>4</td><td>5</td><td>6</td><td>5</td><td>7</td><td>Update progress, find a book, goal</td></tr>
+        <tr><td>Sam</td><td>5</td><td>5</td><td>7</td><td>4</td><td>6</td><td>Update progress, next read, goal</td></tr>
+        <tr><td>Dana</td><td>4</td><td>4</td><td>6</td><td>5</td><td>7</td><td>Show who I am, a friend's reading, update progress</td></tr>
+        <tr><td>Kofi</td><td>4</td><td>4</td><td>7*</td><td>5</td><td>8</td><td>A friend's reading, update progress, next read</td></tr>
+        <tr><td>Mei</td><td>5</td><td>6</td><td>5</td><td>4</td><td>6</td><td>Show who I am, a friend's reading, update progress</td></tr>
+        <tr><td>Total</td><td>22</td><td>24</td><td>31</td><td>23</td><td><b>34</b></td><td>Update progress is in all five top threes.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted" style="font-size:13px">* Kofi scored B+ as drawn; the built version scored lower in his comments.</p>
+    <div class="findings">
+      <div class="finding"><span class="pin">1</span><div><h3>Updating progress got harder</h3><p>All six reviewers said this. Today's card shows "Page 0 of 500" and a pencil. The compact strip shows a thin bar and "0%", with no visible control, so people guess where to tap. The one task everyone does most lost its button.</p></div></div>
+      <div class="finding"><span class="pin">2</span><div><h3>The bands don't pair, so the page has holes</h3><p>The goal card props the header open with about 150px of black under the stats. The series column is twice the height of the reading cards, which leaves a hole under the toolbar. Lists is one card in a half-width grey box, and reviews have nothing beside them. The designer's verdict: "the pairs rarely pair".</p></div></div>
+      <div class="finding"><span class="pin">3</span><div><h3>Weight is in the wrong places</h3><p>The shelf toolbar's 48px pills outweigh the books above them, and they control shelves three sections further down. Every series row has a full shelf button, and a Did-not-finish book appears under "Up next". "Pick your next read" is the loudest thing on the page. Cover sizes change from section to section, so no row sets the rhythm.</p></div></div>
+      <div class="finding"><span class="pin">4</span><div><h3>The goal contradicts itself, and the phone clips</h3><p>"17 behind pace" sits in amber next to "Hit your 2 this month" in green. On a phone, the second reading card is cut off mid-card.</p></div></div>
+      <div class="finding"><span class="pin">5</span><div><h3>The page has two jobs</h3><p>The designer's framing: for you it's a home screen (resume, log, decide). For a visitor it's an identity page (who this is, their taste, what they're reading). The library comes third for both.</p></div></div>
+    </div>
+  </section>
+
+  <section id="iteration-1">
+    <p class="eyebrow">Iteration 1 · the designer's synthesis</p>
+    <h2>D+'s top, B+'s bands below, shelves as tabs</h2>
+    <p class="prose muted">This is the only side-by-side pairing that always shows. You on the left; on the right, what you're reading, with a labelled Update button, and what's next. Below that, everything runs full width, and a band only pairs when both sides have content.</p>
+    <div class="scroller"><div class="frame" id="vI"></div></div>
+    <div class="two">
+      <div class="scroller" style="border:0"><div class="frame phoneframe" id="vIo"><div class="pcap">Your page, phone</div></div></div>
+      <div class="scroller" style="border:0"><div class="frame phoneframe" id="vIv"><div class="pcap">A visitor's view, phone</div></div></div>
+    </div>
+    <div class="findings">
+      <div class="finding"><span class="pin">↻</span><div><h3>Continue card</h3><p>A 2:3 cover at 80×120, the title, the author, "p. 212 of 500 · 42%", a 6px bar in your colour, and a labelled <b>Update</b> button. Update opens a popover on the card with the page field already focused, a pages/% toggle, Save and Finished. Enter saves, then an Undo toast appears: two clicks, no modal. On a phone it opens a bottom sheet with a number pad. The cover and title open the book. On a phone, cards stack at full width: two at most, then "+N more".</p></div></div>
+      <div class="finding"><span class="pin">→</span><div><h3>Up next</h3><p>One row of small covers that replaces both the series column and "Pick your next read". Series books come first, captioned "Book 2 · Middle Earth". Up to three picks from Want to read follow, captioned "From Want to read", and only when you're behind pace or have no series next. Each cover has a one-tap <b>Start reading</b>, with no shelf dropdowns. Did-not-finish books never appear here.</p></div></div>
+      <div class="finding"><span class="pin">◔</span><div><h3>Goal wording</h3><p>The ring is in your colour. The headline reads "4 of 12 · 2 behind", and the next step reads "Read 1 more this month to catch up". If catching up would take more than four a month, it reads "17 behind pace · Adjust goal" instead. Only one coloured word shows at a time: amber when behind, green only when on or ahead of pace. Month and pages are grey, and open on click.</p></div></div>
+      <div class="finding"><span class="pin">⌕</span><div><h3>Search and shelves</h3><p>Shelf search sits in the top zone, visible on load, with "/" as a shortcut. Results open across the full width under the top zone, with chips to narrow them to one shelf. Shelves become tabs (Want to read · Reading · Read · DNF · All). Sort, filter and view are 36px ghost icons on the tab row, and Select goes into an overflow menu. The toolbar never appears away from its shelves.</p></div></div>
+      <div class="finding"><span class="pin">✓</span><div><h3>Visitor page</h3><p>The same top zone, minus everything only you see. The goal shows only if you opt in. A reading line comes first: "Reading Fourth Wing · p. 212 of 500 · 62% · +2 more", or "Not reading anything right now". Favourites come next. On a phone: header, reading line, favourites, reviews, lists, shelves. Nothing only the owner sees appears, so it's ready to screenshot.</p></div></div>
+      <div class="finding"><span class="pin">✕</span><div><h3>What it deliberately doesn't do</h3><p>Picks stay on the first screen, at under a third of their old size and folded into Up next. That's for Sam's next-read task, against Ada, Mei and Dana's wish to move them lower. On a visitor's page, favourites come second, after one reading line, which all five readers asked for first. And B+'s pairing of Currently reading with series is gone, because it caused the hole.</p></div></div>
+    </div>
+  </section>
+
+  <section id="iteration-2">
+    <p class="eyebrow">Iteration 2 · after the readers reacted</p>
+    <h2>Every book on the go, logged the way you read it</h2>
+    <p class="prose muted">Iteration 1 scored 39 out of 50: 8 each from Ada, Sam, Kofi and Mei, and 7 from Dana. They raised the same gaps. A third or fourth book on the go got hidden, and long titles clipped. The "+2" on a visitor's reading line didn't say what it opened. Audiobooks and Kindle books couldn't be logged in their own units. Reviews slipped back below the shelves. Iteration 2 is the designer's answer, with each reader's one change folded in.</p>
+    <div class="scroller"><div class="frame" id="v2"></div></div>
+    <div class="scroller"><div class="frame" id="v2v"></div></div>
+    <div class="two">
+      <div class="scroller" style="border:0"><div class="frame phoneframe" id="v2o"><div class="pcap">Your page, phone</div></div></div>
+      <div class="scroller" style="border:0"><div class="frame phoneframe" id="v2p"><div class="pcap">A visitor's view, phone</div></div></div>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Reader asked for</th><th>Iteration 2</th></tr></thead>
+      <tbody>
+        <tr><td>Ada: the page goal at a glance, and the last shelf tab remembered</td><td>The goal is two lines on desktop. The second, always visible in grey, reads "October: 3 read · 1,354 of 9,000 pages". Shelves open on the tab you last used.</td></tr>
+        <tr><td>Sam: always something to start, with a thumb-sized button, and ideas the moment you finish</td><td>Up next always shows 4–6 covers: the next in a series, then your Want to read, then picks from your genres. Each has a full-width Start button, 44px tall on a phone. Tapping Finished asks for a rating, then shows "What's next?" with those covers.</td></tr>
+        <tr><td>Kofi: the circle marker back, with the club book pinned first</td><td>A circle's book is pinned first and reads "Ch 9 of 14 · circle at Ch 8", with a tick on its bar. Visitors who share the circle see the marker. Other visitors see "Ch 9 of 14".</td></tr>
+        <tr><td>Dana: reviews and authors above the shelves, the follows line, and a visible Report button</td><td>The Talk band comes before Favourites and the shelves on desktop. "Follows Le Guin, Ishiguro +18" is under the bio everywhere. Reviews show Report to visitors.</td></tr>
+        <tr><td>Mei: lists before reviews on a visitor's phone, audiobook and Kindle units, and a public goal</td><td>On a visitor's phone: reading line, favourites, a swipe row of lists, then reviews. The Update sheet speaks each format's units. The opt-in public goal shows green when you're ahead, and a plain count otherwise.</td></tr>
+        <tr><td>Everyone: three or four books, long titles, and the "+2"</td><td>One book gets a big card, two sit side by side, and three or more become 96px rows. Five or more show five, then "Show 2 more". Titles wrap to two lines. The visitor's "+2" becomes "and 2 more ›", which opens the cards in place.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="findings">
+      <div class="finding"><span class="pin">⇄</span><div><h3>How the conflicts settled</h3><p><b>Reviews against lists:</b> both sit above the shelves everywhere, so Dana's dealbreaker holds. On a visitor's phone, lists come before reviews, as Mei asked. Dana gave up lists sitting beside favourites, so lists run full width. <b>Search:</b> on desktop it stays in the top zone for Ada. On a phone it moves into the sticky shelf tab row for Sam, one tap away wherever you've scrolled. A magnifier on the Continue heading jumps to it.</p></div></div>
+      <div class="finding"><span class="pin">◔</span><div><h3>Update sheet units</h3><p>Print books log pages. Ebooks log pages, % or Kindle location. Audiobooks log hours and minutes of the total, or %. Any book can switch to chapters. A circle's book defaults to chapters. The sheet remembers the last unit you used for each book.</p></div></div>
+      <div class="finding"><span class="pin">✕</span><div><h3>Still not met</h3><p>The circle marker shows only to circle members, because anyone else would get a spoiler and a privacy leak. A public goal never says "behind". On a phone, the goal's two lines sit behind a chip in the stats row. With four or more books on the go, a short gap can open under the identity column; the designer chose that over cutting books. And when a reader has picked no genres, picks fall back to "Popular in your circles", which still needs a reader check.</p></div></div>
+    </div>
+  </section>
+
+  <section id="iteration-2-built">
+    <p class="eyebrow">Iteration 2, built · scored from screenshots of the real page</p>
+    <h2>Updating progress is easy now, but Up next is too loud</h2>
+    <p class="prose muted">Iteration 2 was built behind <code>?layout=bands</code> and scored from ten screenshots of the running app. The test data couldn't show a circle book, three or more books on the go, or a visitor reading something. Reviewers judged those from the spec and said so.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Reviewer</th><th>Iteration 1 (paper)</th><th>Iteration 2 (built)</th><th>What moved the score</th></tr></thead>
+      <tbody>
+        <tr><td>Ada</td><td>8</td><td>7</td><td>Search results open below Up next, so the field she typed in scrolls away.</td></tr>
+        <tr><td>Sam</td><td>8</td><td>8</td><td>Update and Start are real and thumb-sized, but the goal sentence hides behind a chip.</td></tr>
+        <tr><td>Dana</td><td>7</td><td>7.5</td><td>Reviews and Report now sit above the shelves.</td></tr>
+        <tr><td>Kofi</td><td>8</td><td>7</td><td>The circle marker isn't on members' pages yet.</td></tr>
+        <tr><td>Mei</td><td>8</td><td>7</td><td>Empty states leave holes; a visitor's page looks abandoned.</td></tr>
+        <tr><td>Total</td><td>39</td><td>36.5</td><td>The designer gave the build a 7.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="findings">
+      <div class="finding"><span class="pin">✓</span><div><h3>What works</h3><p>Every reviewer said updating progress is now obvious: a labelled Update on each card, no scrolling, on desktop and phone. The top zone and the order of sections match the spec. Titles wrap to two lines, reviews sit above the shelves with Report for visitors, and search results span the full width.</p></div></div>
+      <div class="finding"><span class="pin">1</span><div><h3>The hierarchy is upside down</h3><p>The six Up next covers are about three times the height of the Continue thumbnails, each with a bright Start button. Your eye lands on what to read next, not on what you're reading. Their captions clip ("Book 2 · Middle Ea…").</p></div></div>
+      <div class="finding"><span class="pin">2</span><div><h3>Empty states still leave holes</h3><p>On a visitor's desktop page, an empty "Reading now" claims the whole column beside the header, leaving about 60% of the first screen black. On your own page, the favourites hint floats with no heading, and one list card sits alone in a wide row.</p></div></div>
+      <div class="finding"><span class="pin">3</span><div><h3>The phone's controls stack up, and the goal reads as a code</h3><p>The shelf area on a phone is three rows: search, then tabs (clipped at "D…"), then icons. The goal chip "3/24 ●" means nothing until you tap it.</p></div></div>
+    </div>
+  </section>
+
+  <section id="iteration-3">
+    <p class="eyebrow">Iteration 3 · the designer's merged fix list</p>
+    <h2>Eight fixes, most important first</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th></th><th>Fix</th><th>Spec</th><th>Answers</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Put Continue reading back on top</td><td>Up next covers shrink to 72×108px on desktop (eight across) and 96×144px on a phone. Each has a two-line title, a one-line grey tag, and a quiet "▷ Start" text button. Only the Continue cards keep outlined buttons. The phone row shows 2.3 covers with dots.</td><td>Ada, Mei, Sam, Dana, designer</td></tr>
+        <tr><td>2</td><td>Collapse empty and sparse states</td><td>Nothing in progress becomes one grey line under the stats, plus "+ Start a book" for you, and the next section moves up. With no favourites, you see a headed one-line prompt; visitors see nothing. One list becomes one row, "Lists · Test: sci-fi starters ›". A band with one empty side gives the other side the full width.</td><td>Sam, Dana, Kofi, Mei, designer</td></tr>
+        <tr><td>3</td><td>Search results right under the field</td><td>Typing opens a full-width panel under the search field, above Continue. It's headed "10 books match 'the'", with a clear (✕) button and Esc to close, and the field stays in view. On a phone, results open under the sticky shelf row.</td><td>Ada, Kofi</td></tr>
+        <tr><td>4</td><td>The phone goal in words</td><td>Two slim lines under the stats, with no card. The first reads "3 of 24 · 17 behind · read 2 more this month to catch up", with one amber word. The second is grey and always shown: "October: 3 read · 1,354 of 9,000 pages".</td><td>Sam, Dana, Ada, designer</td></tr>
+        <tr><td>5</td><td>One sticky shelf row on a phone</td><td>A search icon, the tabs (scrolling, with a fade at the edge), and one sort-and-filter icon, all in one row. Tapping search expands the field over the tabs. Shelves can switch between three covers across and list rows.</td><td>Ada, designer</td></tr>
+        <tr><td>6</td><td>Reorder for each viewer</td><td>Your page: top zone, then reviews and authors, then shelves, then favourites, then lists. A visitor's: reading line, favourites, a swipe row of lists, reviews, authors, shelves.</td><td>Ada, Dana, Mei</td></tr>
+        <tr><td>7</td><td>Followed authors everywhere</td><td>"Follows Le Guin, Ishiguro +18" goes under every bio. You see "Follow authors you love ›" when you follow none; visitors see nothing. Beside reviews, authors show up to eight chips plus "+N".</td><td>Dana</td></tr>
+        <tr><td>8</td><td>Fill the gap under the identity column</td><td>Up to three recent achievements at 40px each, shown only when the books column would otherwise leave more than 80px empty beside it.</td><td>Mei</td></tr>
+      </tbody>
+    </table></div>
+    <div class="findings">
+      <div class="finding"><span class="pin">⇄</span><div><h3>Conflicts settled</h3><p><b>Goal sentence or chip:</b> the sentence wins, since three readers asked for words. It sits in two slim lines with no card, which keeps the space Kofi traded the chip for. <b>Shelves above favourites and lists:</b> on your own page only, because you rarely need your own showcase and Ada traded it away. Reviews still come before shelves for Dana. A visitor's page keeps the showcase first for Mei, because that's what visitors come for.</p></div></div>
+      <div class="finding"><span class="pin">…</span><div><h3>Later, not in Iteration 3</h3><p>The circle marker in chapters needs chapter counts mapped across editions, and a check that the viewer shares the circle. The new Update sheet (chapters, Kindle location, audio time, then a rating and "What's next?" after Finished) is a flow of its own and should be tested on its own. The public goal opt-in needs a setting. Before Iteration 3 is scored, the test data needs a reader in a circle with four books on the go, so pinning and the row layout can finally be judged.</p></div></div>
+    </div>
+  </section>
+
+  <section id="iteration-3-built">
+    <p class="eyebrow">Iteration 3, built · scored with a circle and four books on the go</p>
+    <h2>Your own page is nearly there; visitors' pages are next</h2>
+    <p class="prose muted">The test data now has a reader with four books on the go (one in a reading circle, one an audiobook, one with a long title), followed authors, and a friend reading two books. All five readers scored the build at or above Iteration 2. The designer would ship it once the visitor's reading line on a phone is fixed.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Reviewer</th><th>Iteration 2</th><th>Iteration 3</th><th>In a sentence</th></tr></thead>
+      <tbody>
+        <tr><td>Ada</td><td>7</td><td>8.5</td><td>All three of her fixes landed: search under the field, the goal at a glance, Continue on top.</td></tr>
+        <tr><td>Sam</td><td>8</td><td>8</td><td>The goal in words and the empty-state lines worked, but Start shrank to a text link.</td></tr>
+        <tr><td>Dana</td><td>7.5</td><td>8</td><td>Followed authors are finally on the first screen.</td></tr>
+        <tr><td>Kofi</td><td>7</td><td>7.5</td><td>His own page is very good; a member's page still hides the shared circle book.</td></tr>
+        <tr><td>Mei</td><td>7</td><td>7</td><td>Reading and progress are superb; her showcase went backwards.</td></tr>
+        <tr><td>Total</td><td>36.5</td><td><b>39</b></td><td>The designer gave the build an 8: six of the eight fixes met, two partly met.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="findings">
+      <div class="finding"><span class="pin">✓</span><div><h3>What works now</h3><p>The circle book pinned first, with its badge and a tick on its bar. Four books as rows. The audiobook reads "3h 23m of 9h 1m", and long titles wrap cleanly. Search results open right under the field with shelf labels and Clear search; the designer accepted that they sit in the books column, not full width. The goal reads in words on a phone. Followed authors sit under every bio, empty sections don't leave holes, and medals fill the gap under the column.</p></div></div>
+    </div>
+    <h3 style="margin-top:8px">What's left, ranked by how many raised it</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th></th><th>Fix</th><th>Raised by</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b>The visitor's reading line on a phone.</b> It truncates to "Page 31…", hiding the one number a friend wants. The designer's spec: "Fourth Wing · 62%", a 4px bar in the reader's colour, and "+1 more ›" as an outlined 32px chip.</td><td>All six</td></tr>
+        <tr><td>2</td><td><b>A visitor's desktop page goes empty beside the reading cards.</b> When the cards are short, lists and authors should move up into the right-hand column, or the rest of the page should run full width under the top.</td><td>Kofi, Ada, Sam, Dana, Mei</td></tr>
+        <tr><td>3</td><td><b>Each reading card needs its own percentage.</b> "Page 248 of 590 · 42%". At the moment the only percentage on the circle card is the circle's, so it reads as yours. A visitor's cards need it too.</td><td>Ada, Mei</td></tr>
+        <tr><td>4</td><td><b>Favourites and lists as a showcase with covers, above the shelves.</b> A single list became a text link, and on your own page both sit below every shelf. That reverses Ada's earlier trade, so it needs a call.</td><td>Mei, Dana, Sam (Ada traded it away)</td></tr>
+        <tr><td>5</td><td><b>The phone tab row hides the active tab under its fade</b> ("Fini…"). Scroll the active tab into view.</td><td>Designer, Kofi, Sam, Dana, Ada</td></tr>
+        <tr><td>6</td><td><b>Up next captions on desktop:</b> two-line titles at 72px, as specified. On a phone, give Start a visible button shape at 44px; that's Sam's ask, and the designer keeps it quiet on desktop.</td><td>Designer, Kofi, Dana, Sam</td></tr>
+        <tr><td>7</td><td><b>Searching stacks two rows of controls above the results.</b> Only the query header and Clear search should stay; sort, Select and the filters move behind the filter icon.</td><td>Designer</td></tr>
+        <tr><td>8</td><td><b>On a member's page, a circle you share with them is pinned first</b>, with the badge and "circle at". This needs a check that the viewer is in that circle.</td><td>Kofi</td></tr>
+        <tr><td>9</td><td><b>On a phone with three or more books on the go,</b> show two, then "Show 2 more", so Up next stays within one scroll.</td><td>Sam</td></tr>
+      </tbody>
+    </table></div>
+    <p class="prose muted">Still parked from earlier: the new Update sheet (chapters, Kindle location, a rating step after Finished), the circle marker in chapters, and showing your goal to visitors.</p>
+  </section>
+
+  <section id="iteration-4-built">
+    <p class="eyebrow">Iteration 4, built · the verdict</p>
+    <h2>Ship it: all six say so</h2>
+    <p class="prose muted">All nine remaining fixes were built and scored from fresh screenshots of the seeded readers. Every reviewer scored it higher than Iteration 3, and nobody named anything that blocks shipping. The designer marked eight fixes as met and one as partly met.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Reviewer</th><th>B+ built</th><th>It. 2</th><th>It. 3</th><th>It. 4</th><th>In a sentence</th></tr></thead>
+      <tbody>
+        <tr><td>Ada</td><td>6</td><td>7</td><td>8.5</td><td>9</td><td>Updating progress, finding a book and checking the goal are all obvious, with no scrolling.</td></tr>
+        <tr><td>Sam</td><td>7</td><td>8</td><td>8</td><td>9</td><td>"On my phone it now feels like a home screen."</td></tr>
+        <tr><td>Dana</td><td>6</td><td>7.5</td><td>8</td><td>8.5</td><td>The page shows who she is to visitors, and reviews and followed authors are easy to find.</td></tr>
+        <tr><td>Kofi</td><td>7</td><td>7</td><td>7.5</td><td>8.5</td><td>"For the first time, the member's page does my job."</td></tr>
+        <tr><td>Mei</td><td>5</td><td>7</td><td>7</td><td>8</td><td>A visitor's page on a phone is one she'd finally screenshot.</td></tr>
+        <tr><td>Total</td><td>31</td><td>36.5</td><td>39</td><td><b>43</b></td><td>The designer: 8.5, ship it.</td></tr>
+      </tbody>
+    </table></div>
+    <h3 style="margin-top:8px">Polish after shipping</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Polish</th><th>Raised by</th></tr></thead>
+      <tbody>
+        <tr><td>The phone's sticky tab row clips tabs at both edges ("d 10", "D…"). Fade both edges, not just the right.</td><td>Ada, Sam, Kofi, Dana, Mei</td></tr>
+        <tr><td>Up next titles on desktop still show one line. Give them two. On a phone, shorten the tag to "Want to read".</td><td>Designer, Kofi, Dana, Sam</td></tr>
+        <tr><td>A single list on your own page is one cover in a large grey box. Use the fanned covers the visitor card has, or size the card to its content.</td><td>Designer, Mei, Dana, Sam</td></tr>
+        <tr><td>The visitor's phone reading line needs the circle tick on its bar, as desktop has.</td><td>Designer, Kofi</td></tr>
+        <tr><td>On a phone's circle card, "· circle 34%" wraps onto its own line. Put it on the bar line.</td><td>Designer</td></tr>
+        <tr><td>The empty-favourites hint says "Tap" on desktop. Say "Click", or "Use the bookmark".</td><td>Dana</td></tr>
+        <tr><td>Fanned list covers overlap their printed titles ("The Hobbit me…").</td><td>Kofi, Mei</td></tr>
+        <tr><td>On your own page, the shelves are about one and a half screens down. Consider folding the empty-favourites prompt into Lists' heading.</td><td>Ada</td></tr>
+        <tr><td>Before a creator puts the link in their bio, test with eight favourites and fifteen lists.</td><td>Mei</td></tr>
+      </tbody>
+    </table></div>
+    <p class="prose muted">Next real iteration: the Update sheet (chapters, Kindle location, then rating and "What's next?" after Finished, which Sam called his next must-have), and the circle marker in chapters (Kofi). Showing your goal to visitors still needs its setting.</p>
+  </section>
+
+  <section id="built">
+    <p class="eyebrow">Built and committed</p>
+    <h2>The polish, the Update sheet, chapters and the public goal</h2>
+    <div class="findings">
+      <div class="finding"><span class="pin">✓</span><div><h3>Polish</h3><p>The phone's tab row fades at both edges and keeps the open tab clear of them. Up next titles get their two lines, with a shorter "Want to read" tag. A short list's covers sit in the middle of its card. The circle figure sits on the bar line, so it never wraps, and the visitor's phone bar gets its tick. The desktop favourites hint no longer says "Tap", and with no favourites it folds into the Lists heading. A creator-sized test account (eight favourites, fifteen lists) checks the visitor page.</p></div></div>
+      <div class="finding"><span class="pin">↻</span><div><h3>The Update sheet</h3><p>Update opens a panel under the card on desktop and a sheet from the bottom on a phone. It logs in pages (or time for an audiobook), percent, chapters ("Ch 26 of 59") or Kindle location ("Loc 2,310 of 5,120"), opening on the unit you last used, with the field ready: type, then Enter. Undo is in the toast. Finished asks for a rating, then shows what's next with one-tap Start. Chapters and locations are stored as a percent, so stats, goals and circles work as before.</p></div></div>
+      <div class="finding"><span class="pin">◔</span><div><h3>Circle marker in chapters, and the public goal</h3><p>When the book has chapters, a circle reads "circle at Ch 21", mapped across members' editions by how far through they are. It shows on your page and, pinned first, on a member's page for anyone in that circle. "Show my reading goal on my profile" (Settings, privacy) is off by default. Turned on, visitors see "8 of 12 books in 2026", with "3 ahead" in green when you are ahead; it never says behind.</p></div></div>
+    </div>
+  </section>
+
+  <section id="buttons">
+    <p class="eyebrow">Update and Start · five options side by side</p>
+    <h2>How the buttons sit in their cards</h2>
+    <p class="prose muted">A senior UI designer audited the Update and Start buttons after the owner said they weren't keen on how the buttons sit in their cards. His verdict: <b>Update looks bolted on.</b> It's the page's outlined button inside a bordered card, and it takes its own column, so the progress bars stop short. On a phone it squeezes the bar to about a quarter of the card. <b>Start is right on desktop but too heavy on a phone:</b> 44px outlined boxes outrank the Update buttons above them. The options below are drawn at the app's real sizes: a desktop card (about 560px) and a phone card (about 340px). Hover them to see their states. The reader's colour here is the test reader's blue.</p>
+  </section>
+  <section class="bx-option" id="bx-update-now"><h3>Update today</h3><div class="bx-meta"><span>Outlined 36px button in its own right-hand column.</span></div><div class="bx-grid" data-bx="update" data-variant="now"></div></section>
+  <section class="bx-option bx-pick" id="bx-u1"><h3>U1 · the progress row is the button <span class="tag rec">Designer's pick</span></h3>
+    <div class="bx-meta"><span><b>How:</b> the place line and bar are one tap target, at least 44px tall. A small grey "✎ Update" chip ends the place line, and the bar runs the card's full width.</span><span><b>States:</b> on hover the chip lightens and the bar brightens. On press the row shrinks slightly. After saving, the bar animates to the new place and the toast offers Undo.</span><span><b>Trade-off:</b> a smaller label, but the bar gets its width back and the whole row is easy to hit.</span></div>
+    <div class="bx-grid" data-bx="update" data-variant="u1"></div></section>
+  <section class="bx-option" id="bx-u2"><h3>U2 · a ghost button, top right</h3>
+    <div class="bx-meta"><span><b>How:</b> grey "✎ Update" text in line with the title, 32px to look at, with a 44px tap area on a phone. The bar runs full width.</span><span><b>Trade-off:</b> light and clearly part of the card, but it still costs the title width on a phone, and it isn't tied to the bar.</span></div>
+    <div class="bx-grid" data-bx="update" data-variant="u2"></div></section>
+  <section class="bx-option" id="bx-u3"><h3>U3 · a round button in the reader's colour</h3>
+    <div class="bx-meta"><span><b>How:</b> the older card's 28px round button at the end of the bar, filled with the reader's colour.</span><span><b>Trade-off:</b> readers already know it, but it has no label, and some reader colours give it poor contrast.</span></div>
+    <div class="bx-grid" data-bx="update" data-variant="u3"></div></section>
+
+  <section class="bx-option" id="bx-start-now"><h3>Start today</h3><div class="bx-meta"><span>Desktop: quiet "▷ Start" text. Phone: a full-width 44px outlined box under each cover.</span></div><div class="bx-grid" data-bx="start" data-variant="now"></div></section>
+  <section class="bx-option bx-pick" id="bx-s1"><h3>S1 · a quiet pill everywhere <span class="tag rec">Designer's pick</span></h3>
+    <div class="bx-meta"><span><b>How:</b> a 32px grey pill with a book icon (not ▷, which reads as "play audio"), and a 44px tap area. Full width under the cover on a phone, its own width on desktop.</span><span><b>After tapping:</b> it shows "✓ Reading" for a moment, then the tile leaves and the toast offers Undo. Today Start has no Undo, which breaks the house rule.</span><span><b>Trade-off:</b> slightly louder than today's desktop text, much quieter than today's phone boxes, and one design at every size.</span></div>
+    <div class="bx-grid" data-bx="start" data-variant="s1"></div></section>
+  <section class="bx-option" id="bx-s2"><h3>S2 · a round button on the cover's corner</h3>
+    <div class="bx-meta"><span><b>How:</b> a 32px round button in the reader's colour (28px on desktop) overlapping the cover's bottom-right corner.</span><span><b>Trade-off:</b> it ties the action to the book and echoes the progress bars, but it covers some of the cover art.</span></div>
+    <div class="bx-grid" data-bx="start" data-variant="s2"></div></section>
+
+  <section class="bx-option" id="bx-together"><h3>U1 and S1 together, as the designer recommends</h3>
+    <div class="bx-meta"><span>The reading cards keep the only visible controls with weight. Up next sits underneath, clearly second.</span></div>
+    <div class="bx-grid" data-bx="together"></div></section>
+
+  <section>
+    <div class="callout">
+      <p class="eyebrow">What it takes</p>
+      <h3>Build B+ behind <code>?layout=bands</code></h3>
+      <ul class="plain muted prose">
+        <li>A shared <code>Band</code> (wide + narrow, stacks below <code>lg</code>, hides an empty side) and one profile skeleton that both <code>OwnerProfile</code> and <code>PublicProfile</code> fill.</li>
+        <li>Split <code>BookGrid</code> so Currently reading and the shelf search can live in the Now band, with results rendered under it.</li>
+        <li>New: compact reading strip, phone one-liner, compact series rows, header goal card.</li>
+        <li>Two later pieces that need product calls. The public-goal opt-in needs a setting. The circle-progress line needs circle data on the profile, which must respect each member's lock and show only circles the viewer shares.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+const BOOKS = [
+  ["Piranesi", "#2f4858"], ["Babel", "#7a2e2e"], ["Klara and the Sun", "#c9a14a"], ["Station Eleven", "#3b5249"],
+  ["Middlemarch", "#5b4a6b"], ["The Secret History", "#1f2a36"], ["Demon Copperhead", "#a5552c"], ["The Remains of the Day", "#6d6a4b"],
+  ["Tomorrow, and Tomorrow…", "#2c6e7a"], ["The Left Hand of Darkness", "#8a8f99"], ["Pachinko", "#94603e"], ["Never Let Me Go", "#46556b"],
+  ["Small Things Like These", "#4f6b4a"], ["Orbital", "#192840"], ["Intermezzo", "#b0745b"], ["James", "#3e3a36"],
+];
+let k = 0;
+const cover = (title = true) => { const [t, c] = BOOKS[k++ % BOOKS.length]; return `<div><div class="cover" style="background:${c}"></div>${title ? `<div class="ct">${t}</div>` : ""}</div>`; };
+const covers = (n, cols, title = true) => `<div class="covers" style="grid-template-columns:repeat(${cols},1fr)">${Array.from({ length: n }, () => cover(title)).join("")}</div>`;
+const sec = (t, right, body, cls = "") => `<div class="sec ${cls}"><div class="sec-t"><span>${t}</span><span>${right || ""}</span></div>${body}</div>`;
+const ring = (big) => `<svg class="ring ${big ? "big" : ""}" viewBox="0 0 52 52"><circle cx="26" cy="26" r="21" fill="none" stroke="var(--wire-2)" stroke-width="6"/><circle cx="26" cy="26" r="21" fill="none" stroke="var(--brand)" stroke-width="6" stroke-linecap="round" stroke-dasharray="${0.79 * 132} 132" transform="rotate(-90 26 26)"/><text x="26" y="26" dy=".35em" text-anchor="middle" fill="var(--fg)" font-size="${big ? 13 : 14}" font-weight="600" font-family="Inter, sans-serif">79</text></svg>`;
+const goalSlim = `<div class="card goal" style="padding:6px 8px">${ring()}<div style="flex:1"><b>41 of 52 books in 2026</b><div class="warn">3 behind pace · 11 to go</div></div><div style="width:130px"><div style="display:flex;justify-content:space-between"><span>October</span><span class="muted">2 read</span></div><div class="bar"><i style="width:50%"></i></div><div class="muted">2 more to stay on track</div></div><span class="muted">✎</span></div>`;
+const goalCard = (title = true) => `<div class="card fill">${title ? `<div class="sec-t"><span style="font-family:var(--display);font-weight:600;font-size:12px">2026 goal</span><span>Edit</span></div>` : ""}<div class="goal">${ring(true)}<div><b>41 of 52 books</b><div class="warn">3 behind pace</div><div class="muted">11 to go</div></div></div><div style="margin-top:8px"><div style="display:flex;justify-content:space-between"><span>October</span><span class="muted">2 read</span></div><div class="bar"><i style="width:50%"></i></div></div><div style="margin-top:6px"><div style="display:flex;justify-content:space-between"><span>Pages</span><span class="muted">12,480 read</span></div><div class="bar"><i style="width:78%"></i></div></div></div>`;
+const goalCompact = `<div class="card fill goal" style="width:230px">${ring(true)}<div><b>41 of 52 in 2026</b><div class="warn">3 behind pace</div><div style="margin-top:4px;display:flex;justify-content:space-between;gap:8px"><span>October</span><span class="muted">2 of 4</span></div><div class="bar"><i style="width:50%"></i></div></div></div>`;
+const readingCard = (pct, cls = "") => `<div class="card reading ${cls}">${cover(false)}<div><b>${BOOKS[(k - 1) % BOOKS.length][0]}</b><div class="muted">Page ${Math.round(pct * 4.2)} of 420 · ${pct}%</div><div class="bar"><i style="width:${pct}%"></i></div></div></div>`;
+const reading = (cols) => `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px">${readingCard(64)}${readingCard(22)}</div>`;
+const lists = (cols, n = 3) => `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px">${["Comfort rereads", "Books that broke me", "Gift these"].slice(0, n).map((t) => `<div class="list-card"><div class="stack">${cover(false)}${cover(false)}${cover(false)}</div><div style="margin-top:5px;font-weight:500">${t}</div><div class="muted">${8 + t.length % 7} books</div></div>`).join("")}</div>`;
+const series = (n = 2, cols = 2) => `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px">${Array.from({ length: n }, (_, i) => `<div class="card" style="display:grid;grid-template-columns:24px 1fr;gap:7px;align-items:center">${cover(false)}<div><b>${["The Will of the Many", "Murderbot #5"][i % 2]}</b><div class="muted">Book ${i ? 5 : 2} · Start</div></div></div>`).join("")}</div>`;
+const authors = `<div class="chips">${["Ursula K. Le Guin", "Kazuo Ishiguro", "Sally Rooney", "R. F. Kuang", "Emily St. John Mandel"].map((a) => `<span class="chip">${a}</span>`).join("")}</div>`;
+const reviews = (n) => Array.from({ length: n }, () => `<div class="review">${cover(false)}<div><b>${BOOKS[(k - 1) % BOOKS.length][0]}</b> <span class="stars">★★★★☆</span><div class="lines"><i style="width:95%"></i><i style="width:80%"></i></div></div></div>`).join("");
+const badges = `<div class="badges">${'<span class="badge"></span>'.repeat(5)}</div>`;
+const chrome = `<div class="chrome"><span class="logo">Bookmark</span><span>Feed · Discover · Circles · <b style="color:var(--fg)">Profile</b></span></div>`;
+const stats = (col) => `<div class="stats ${col ? "col" : ""}"><span><b>214</b> books read</span><span><b>38</b> reviews</span><span><b>126</b> followers</span><span><b>98</b> following</span><span><b>17</b> achievements</span></div>`;
+const head = (extra = "", aside = "") => `${chrome}<div class="banner"></div><div class="idrow"><div class="avatar"></div><div class="btns"><span class="btn">Share</span><span class="btn">Edit profile</span><span class="btn solid">+ Add a book</span></div></div><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px"><div><div class="name">Sam Reed</div><div class="handle">@samreads</div><div class="bio">Literary fiction, slow sci-fi, and whatever my book club picks.</div>${stats()}</div>${aside}</div>${extra}`;
+const shelves = (cols) => `<div class="sec"><div class="toolbar"></div></div>` + sec("Want to read", "See all", covers(cols, cols)) + `<div class="fade">${sec("Finished", "See all", covers(cols, cols))}</div>`;
+const two = (wide, narrow, ratio = "2fr 1fr", gap = 18) => `<div style="display:grid;grid-template-columns:${ratio};gap:${gap}px;align-items:start"><div>${wide}</div><div>${narrow}</div></div>`;
+const note = (n, html) => `<div class="note"><span class="n">${n}</span>${html}</div>`;
+
+document.getElementById("today").innerHTML =
+  head(`<div style="margin-top:10px">${note(1, goalSlim)}</div>`) +
+  note(2, two(sec("Favourites", "See all", covers(4, 4)), sec("Lists", "See all", lists(2, 2)), "1fr 1fr")) +
+  `<div class="sec"><div class="toolbar"></div></div>` + sec("Currently reading", "2", reading(2)) + sec("Want to read", "See all", covers(6, 6)) +
+  sec("Finished", "See all", covers(6, 6)) + `<div class="muted" style="text-align:center;padding:8px 0">… Paused, Did not finish, Not interested …</div>` +
+  note(3, sec("Up next in your series", "", series(2, 3)) + sec("Your reviews", "See all", reviews(2))) + `<div style="height:14px"></div>` +
+  note(4, sec("Authors you follow", "", authors));
+
+document.getElementById("vA").innerHTML =
+  head("", `<div style="margin-top:8px">${goalCompact}</div>`) +
+  two(sec("Favourites", "See all", covers(4, 4)), sec("Lists", "See all", lists(2, 2)), "1fr 1fr") +
+  sec("Currently reading", "2", reading(2)) + shelves(6);
+
+document.getElementById("vB").innerHTML =
+  head() +
+  two(sec("Currently reading", "2", reading(2)) + sec("Up next in your series", "", series(2, 2)), sec("2026 goal", "Edit", goalCard(false))) +
+  two(sec("Favourites", "See all", covers(5, 5)), sec("Lists", "See all", lists(1, 2))) +
+  shelves(6) +
+  two(sec("Your reviews", "See all", reviews(3)), sec("Authors you follow", "", authors) + sec("Achievements", "17", badges));
+
+document.getElementById("vC").innerHTML =
+  head() +
+  two(
+    sec("Currently reading", "2", reading(2)) + `<div class="sec"><div class="toolbar"></div></div>` + sec("Want to read", "See all", covers(8, 4)) + sec("Finished", "See all", covers(8, 4)) + sec("Your reviews", "See all", reviews(2)),
+    `<div class="sec">${goalCard()}</div>` + sec("Favourites", "See all", covers(6, 3)) + sec("Lists", "See all", lists(1, 2)) + sec("Up next in your series", "", series(1, 1)) + sec("Authors you follow", "", authors) +
+    `<div class="sec empty-rail" style="height:150px">Rail ends here. The shelves keep going.</div>`,
+    "1fr 240px", 22);
+
+document.getElementById("vD").innerHTML =
+  chrome + `<div class="banner short"></div>` +
+  two(
+    `<div style="margin-top:-28px;padding-left:4px"><div class="avatar"></div><div class="name">Sam Reed</div><div class="handle">@samreads</div><div class="bio" style="margin-top:3px">Literary fiction, slow sci-fi, and whatever my book club picks.</div><div class="btns" style="margin-top:8px"><span class="btn">Edit profile</span><span class="btn">Share</span></div><div style="margin-top:10px">${stats(true)}</div></div>` +
+    `<div class="sec">${goalCard()}</div>` + sec("Authors you follow", "", authors) + sec("Achievements", "17", badges) +
+    `<div class="sec empty-rail" style="height:150px">Column ends here.</div>`,
+    `<div style="display:flex;justify-content:flex-end;margin-top:8px"><span class="btn solid">+ Add a book</span></div>` +
+    two(sec("Favourites", "See all", covers(4, 4)), sec("Lists", "See all", lists(1, 2)), "3fr 2fr", 14) +
+    sec("Currently reading", "2", reading(2)) + `<div class="sec"><div class="toolbar"></div></div>` + sec("Want to read", "See all", covers(5, 5)) + `<div class="fade">${sec("Finished", "See all", covers(5, 5))}</div>`,
+    "200px 1fr", 22);
+
+// B+, the agreed layout.
+const mini = (pct, note) => { const c = cover(false); return `<div class="mini">${c}<div><b>${BOOKS[(k - 1) % BOOKS.length][0]}</b><div class="muted">${note || pct + "%"}</div><div class="bar"><i style="width:${pct}%"></i></div></div></div>`; };
+const nowStrip = (cols) => `<div class="strip" style="grid-template-columns:repeat(${cols},1fr)">${mini(64)}${mini(22, "Ch 9 of 14 · circle at Ch 8")}${mini(41)}</div>`;
+const seriesRows = (n) => Array.from({ length: n }, (_, i) => `<div class="srow">${cover(false)}<span>${["The Will of the Many · 2", "Murderbot · 5", "Wayward Children · 4"][i]}</span><span class="muted">Start</span></div>`).join("") + `<div class="muted" style="padding-top:4px">See all 7 series</div>`;
+const nowHead = (search) => `<div class="sec-t"><span>Currently reading <span class="muted" style="font-family:var(--ui);font-weight:400">3</span></span>${search ? `<span class="search">Search your shelf</span>` : "<span></span>"}</div>`;
+const picks = (n) => sec("Pick your next read", "Hide", covers(n, n, false));
+const authorsCapped = `<div class="chips">${["Ursula K. Le Guin", "Kazuo Ishiguro", "Sally Rooney", "R. F. Kuang", "Emily St. John Mandel", "Becky Chambers", "Ann Leckie", "Martha Wells"].map((a) => `<span class="chip">${a}</span>`).join("")}<span class="chip" style="border-style:dashed">+12 more</span></div>`;
+
+document.getElementById("vF").innerHTML =
+  head("", `<div style="margin-top:8px">${goalCompact}</div>`) +
+  note(1, two(`<div class="sec">${nowHead(true)}${nowStrip(3)}</div>`, sec("Up next in your series", "", seriesRows(3)))) +
+  `<div style="height:6px"></div>` + note("+", picks(8)) + `<div style="height:6px"></div>` +
+  note(2, two(sec("Favourites", "See all", covers(4, 4)), sec("Lists", "See all", lists(2, 2)), "1fr 1fr")) + `<div style="height:6px"></div>` +
+  note(3, two(sec("Your reviews", "See all", reviews(3)), sec("Authors you follow", "", authorsCapped))) + `<div style="height:6px"></div>` +
+  note(4, shelves(6));
+
+// D+, the identity column that hands over to full-width shelves.
+const numbers = `<div class="card fill"><div class="sec-t"><span style="font-family:var(--display);font-weight:600;font-size:12px">2026 in numbers</span><span>Edit goal</span></div><div class="goal">${ring(true)}<div><b>41 of 52 books</b><div class="warn">3 behind pace</div></div></div><div style="margin-top:7px;display:grid;gap:3px"><div style="display:flex;justify-content:space-between"><span>October</span><span class="muted">2 of 4</span></div><div class="bar"><i style="width:50%"></i></div><div style="display:flex;justify-content:space-between;margin-top:3px"><span>Pages</span><span class="muted">12,480</span></div><div class="bar"><i style="width:78%"></i></div><div style="display:flex;justify-content:space-between;margin-top:3px"><span>Average rating</span><span class="muted">3.8★</span></div></div></div>`;
+document.getElementById("vG").innerHTML =
+  chrome + `<div class="banner"></div>` +
+  two(
+    `<div style="margin-top:-28px;padding-left:4px"><div class="avatar"></div><div class="name">Sam Reed</div><div class="handle">@samreads</div><div class="bio" style="margin-top:3px">Literary fiction, slow sci-fi, and whatever my book club picks.</div><div class="btns" style="margin-top:8px"><span class="btn">Edit profile</span><span class="btn">Share</span></div><div style="margin-top:9px">${stats(true)}</div></div>` +
+    `<div class="sec">${numbers}</div>` + sec("Authors you follow", "", authorsCapped) + sec("Achievements", "17", badges),
+    `<div style="display:flex;justify-content:flex-end;margin-top:8px"><span class="btn solid">+ Add a book</span></div>` +
+    `<div class="sec">${nowHead(true)}${nowStrip(3)}</div>` + sec("Up next in your series", "See all 7", `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">${seriesRows(3).replace(/<div class="muted"[^]*$/, "")}</div>`) +
+    `<div style="height:2px"></div>` + note("+", picks(6)) +
+    two(sec("Favourites", "See all", covers(4, 4)), sec("Lists", "See all", lists(2, 2)), "1fr 1fr") +
+    sec("Your reviews", "See all", reviews(2)),
+    "210px 1fr", 22) +
+  `<div style="margin-top:6px;border-top:1px dashed var(--wire-2);padding-top:2px"><div class="muted" style="text-align:center;margin-top:4px">Shelves take the full width from here</div></div>` + shelves(6);
+
+// Iteration 1: the designer's synthesis.
+const contCard = (pct, pages) => { const c = cover(false); return `<div class="card" style="display:grid;grid-template-columns:34px 1fr auto;gap:9px;align-items:center;padding:8px">${c}<div style="min-width:0"><b>${BOOKS[(k - 1) % BOOKS.length][0]}</b><div class="muted">p. ${Math.round(pages * pct / 100)} of ${pages} · ${pct}%</div><div class="bar" style="height:4px;margin-top:5px"><i style="width:${pct}%"></i></div></div><span class="btn" style="height:20px;color:var(--fg)">Update</span></div>`; };
+const upNextRow = (n, cols) => `<div class="covers" style="grid-template-columns:repeat(${cols},1fr);gap:6px 8px">${Array.from({ length: n }, (_, i) => { const c = cover(false); return `<div>${c}<div class="ct" style="-webkit-line-clamp:1">${i < 3 ? `Book ${i + 2} · ${["Middle Earth", "Murderbot", "Wayward"][i]}` : "From Want to read"}</div><div style="margin-top:3px"><span class="btn" style="height:14px;font-size:8px;padding:0 5px">Start</span></div></div>`; }).join("")}</div>`;
+const goalLine = `<div class="card fill goal" style="padding:7px 8px">${ring()}<div><b>41 of 52</b> <span class="warn">· 3 behind</span><div class="muted">Read 2 more this month to catch up</div></div></div>`;
+const shelfTabs = `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:5px;margin-top:18px"><div style="display:flex;gap:12px"><b>Want to read 10</b><span class="muted">Reading 2</span><span class="muted">Read 214</span><span class="muted">DNF 6</span><span class="muted">All</span></div><span class="muted">⇅ &nbsp;⚲ &nbsp;▦ &nbsp;⋯</span></div>`;
+const searchField = (w) => `<span class="search" style="width:${w}">Search your shelf  /</span>`;
+document.getElementById("vI").innerHTML =
+  chrome + `<div class="banner short"></div>` +
+  `<div style="display:grid;grid-template-columns:4fr 8fr;gap:22px;align-items:start">` +
+    `<div style="margin-top:-28px;padding-left:4px"><div class="avatar"></div><div class="name">Sam Reed</div><div class="handle">@samreads</div><div class="bio" style="margin-top:3px">Literary fiction, slow sci-fi, and whatever my book club picks.</div><div style="margin-top:6px">${stats()}</div><div style="margin-top:9px">${goalLine}</div><div class="btns" style="margin-top:9px"><span class="btn">Share</span><span class="btn">Edit profile</span><span class="btn solid">+ Add a book</span></div></div>` +
+    `<div style="margin-top:10px">${note(1, `<div class="sec-t"><span>Continue reading</span>${searchField("170px")}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${contCard(42, 500)}${contCard(18, 384)}</div>`)}<div style="height:8px"></div>${note(2, sec("Up next", "", upNextRow(6, 6)))}</div>` +
+  `</div>` +
+  `<div style="margin-top:10px;border-top:1px dashed var(--wire-2)"></div>` +
+  two(sec("Favourites", "See all", covers(5, 5)), sec("Lists", "See all", lists(2, 2)), "1fr 1fr") +
+  note(3, `<div>${shelfTabs}<div style="margin-top:8px">${covers(6, 6)}</div></div>`) + `<div style="height:6px"></div>` +
+  two(sec("Your reviews", "See all", reviews(2)), sec("Authors you follow", "", authorsCapped));
+
+const phoneTop = (owner) => `<div class="banner"></div><div class="idrow"><div class="avatar"></div><div class="btns">${owner ? `<span class="btn">Edit</span><span class="btn solid">+ Add</span>` : `<span class="btn solid">Follow</span>`}</div></div><div class="name">Sam Reed</div><div class="stats"><span><b>214</b> read</span><span><b>38</b> reviews</span><span><b>126</b> followers</span></div>`;
+document.getElementById("vIo").innerHTML += phoneTop(true) + `<div style="margin-top:6px">${goalLine}</div>` +
+  `<div class="sec">${searchField("100%")}</div>` +
+  sec("Continue reading", "", `<div style="display:grid;gap:6px">${contCard(42, 500)}${contCard(18, 384)}</div><div class="muted" style="margin-top:4px">+1 more</div>`) +
+  sec("Up next", "", upNextRow(4, 4)) +
+  sec("Favourites", "See all", covers(4, 4, false)) + `<div class="fade"></div>`;
+document.getElementById("vIv").innerHTML += phoneTop(false) +
+  `<div class="sec"><div class="oneline"><span>Reading <b>Fourth Wing</b> · p. 212 of 500 · 62%</span><span class="muted">+2</span></div></div>` +
+  sec("Favourites", "See all", covers(4, 4, false)) + sec("Reviews", "See all", reviews(1)) + sec("Lists", "See all", lists(2, 2)) + `<div class="fade"></div>`;
+
+// Iteration 2.
+const contRow = (pct, meta, circle) => { const c = cover(false); return `<div class="card" style="display:grid;grid-template-columns:24px 1fr auto;gap:9px;align-items:center;padding:6px 8px">${c}<div style="min-width:0"><b>${BOOKS[(k - 1) % BOOKS.length][0]}</b>${circle ? ` <span class="chip" style="font-size:8px;padding:0 5px">Sci-fi circle</span>` : ""}<div class="muted">${meta}</div><div class="bar" style="height:4px;margin-top:4px;position:relative"><i style="width:${pct}%"></i>${circle ? `<span style="position:absolute;left:${circle}%;top:-2px;width:1.5px;height:8px;background:var(--fg)"></span>` : ""}</div></div><span class="btn" style="height:20px;color:var(--fg)">Update</span></div>`; };
+const contRows = `<div style="display:grid;gap:6px">${contRow(64, "Ch 9 of 14 · circle at Ch 8", 57)}${contRow(42, "p. 212 of 500 · 42%")}${contRow(30, "4h 12m of 13h 40m · audiobook")}</div>`;
+const upNext2 = (n, cols) => `<div class="covers" style="grid-template-columns:repeat(${cols},1fr);gap:6px 8px">${Array.from({ length: n }, (_, i) => { const c = cover(false); const tag = i < 2 ? `Book ${i + 2} · ${["Middle Earth", "Murderbot"][i]}` : i < 4 ? "On your Want to read" : "For you · Fantasy"; return `<div>${c}<div class="ct">${tag}</div><span class="btn solid" style="height:16px;font-size:8px;margin-top:3px;display:flex">Start</span></div>`; }).join("")}</div>`;
+const goal2 = `<div class="card fill" style="padding:7px 8px"><div class="goal">${ring()}<div><b>41 of 52</b> <span class="warn">· 3 behind</span><div class="muted">Read 2 more this month to catch up</div></div></div><div class="muted" style="margin-top:5px;border-top:1px solid var(--line);padding-top:4px">October: 3 read · 12,480 of 15,000 pages</div></div>`;
+const followsLine = `<div class="bio" style="margin-top:2px">Follows <span style="color:var(--fg)">Ursula K. Le Guin</span>, <span style="color:var(--fg)">Kazuo Ishiguro</span> and 18 more</div>`;
+const idCol = (owner) => `<div style="margin-top:-28px;padding-left:4px"><div class="avatar"></div><div class="name">Sam Reed</div><div class="handle">@samreads</div><div class="bio" style="margin-top:3px">Literary fiction, slow sci-fi, and whatever my book club picks.</div>${followsLine}<div style="margin-top:6px">${stats()}</div><div style="margin-top:9px">${owner ? goal2 : `<div class="card fill goal" style="padding:7px 8px">${ring()}<div><b>41 of 52 books in 2026</b><div class="muted">Shown because Sam chose to</div></div></div>`}</div><div class="btns" style="margin-top:9px">${owner ? `<span class="btn">Share</span><span class="btn">Edit profile</span><span class="btn solid">+ Add a book</span>` : `<span class="btn">Share</span><span class="btn solid">Follow</span>`}</div></div>`;
+const shelfTabs2 = (search) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding-bottom:5px;margin-top:18px">${search ? `<span class="search" style="width:70px">⌕ Search</span>` : ""}<div style="display:flex;gap:10px;overflow:hidden;white-space:nowrap"><b>Read 214</b><span class="muted">Want to read 10</span><span class="muted">Reading 3</span><span class="muted">DNF 6</span></div><span class="muted">⇅ ⚲ ⋯</span></div>`;
+const reviewsReport = (n) => reviews(n).replace(/<\/div><\/div><\/div>/g, `<div class="muted" style="margin-top:3px">⚑ Report</div></div></div></div>`);
+
+document.getElementById("v2").innerHTML =
+  chrome + `<div class="banner short"></div>` +
+  `<div style="display:grid;grid-template-columns:4fr 8fr;gap:22px;align-items:start">` + idCol(true) +
+    `<div style="margin-top:10px">${note(1, `<div class="sec-t"><span>Continue reading <span class="muted" style="font-family:var(--ui);font-weight:400">3</span></span>${searchField("170px")}</div>${contRows}`)}<div style="height:8px"></div>${note(2, sec("Up next", "", upNext2(6, 6)))}</div>` +
+  `</div>` +
+  note(3, two(sec("Your reviews", "See all", reviews(2)), sec("Authors you follow", "", authorsCapped) + sec("Achievements", "17", badges), "2fr 1fr")) + `<div style="height:6px"></div>` +
+  sec("Favourites", "See all", covers(8, 8)) + sec("Lists", "See all", lists(4, 4)) +
+  note(4, `<div>${shelfTabs2(false)}<div style="margin-top:8px">${covers(6, 6)}</div></div>`);
+
+document.getElementById("v2v").innerHTML =
+  `<div class="pcap" style="text-align:left">A visitor's view, desktop</div>` + chrome + `<div class="banner short"></div>` +
+  `<div style="display:grid;grid-template-columns:4fr 8fr;gap:22px;align-items:start">` + idCol(false) +
+    `<div style="margin-top:10px">${sec("Reading now", "3", `<div style="display:grid;gap:6px">${contRow(64, "Ch 9 of 14 · circle at Ch 8", 57).replace(/<span class="btn"[^>]*>Update<\/span>/, "<span></span>")}${contRow(42, "p. 212 of 500 · 42%").replace(/<span class="btn"[^>]*>Update<\/span>/, "<span></span>")}${contRow(30, "Audiobook · 30%").replace(/<span class="btn"[^>]*>Update<\/span>/, "<span></span>")}</div>`)}${sec("Favourites", "See all", covers(6, 6))}</div>` +
+  `</div>` +
+  two(sec("Reviews", "See all", reviewsReport(2)), sec("Authors they follow", "", authorsCapped), "2fr 1fr") +
+  sec("Lists", "See all", lists(4, 4)) + `<div class="fade"></div>`;
+
+const phoneTop2 = (owner) => `<div class="banner"></div><div class="idrow"><div class="avatar"></div><div class="btns">${owner ? `<span class="btn">Edit</span><span class="btn solid">+ Add</span>` : `<span class="btn solid">Follow</span>`}</div></div><div class="name">Sam Reed</div><div class="bio">Literary fiction, slow sci-fi, and whatever my book club picks.</div>${followsLine}<div class="stats"><span><b>214</b> read</span><span><b>38</b> reviews</span>${owner ? `<span class="chip" style="color:var(--fg)">41/52 <span class="warn">●</span></span>` : `<span><b>126</b> followers</span>`}</div>`;
+document.getElementById("v2o").innerHTML += phoneTop2(true) +
+  sec("Continue reading", "⌕", contRows) + sec("Up next", "", upNext2(4, 4)) +
+  sec("Your reviews", "See all", reviews(1)) + sec("Favourites", "See all", covers(4, 4, false)) +
+  `<div style="position:relative">${shelfTabs2(true)}<div class="muted" style="margin-top:3px;font-size:8px">Sticks to the top while the shelves scroll</div></div>`;
+document.getElementById("v2p").innerHTML += phoneTop2(false) +
+  `<div class="sec"><div class="oneline"><span>Reading <b>Fourth Wing</b> · Ch 9 of 14</span><span style="color:var(--fg)">and 2 more ›</span></div></div>` +
+  sec("Favourites", "See all", covers(4, 4, false)) +
+  sec("Lists", "See all", `<div class="swipe">${["Spice 3, no cheating", "Morally grey men", "Comfort rereads"].map((t) => `<div class="list-card"><div class="stack">${cover(false)}${cover(false)}${cover(false)}</div><div style="margin-top:5px;font-weight:500">${t}</div></div>`).join("")}</div>`) +
+  sec("Reviews", "See all", reviewsReport(1)) + `<div class="fade"></div>`;
+
+const phoneHead = (owner) => `<div class="banner"></div><div class="idrow"><div class="avatar"></div><div class="btns">${owner ? `<span class="btn">Edit</span><span class="btn solid">+ Add</span>` : `<span class="btn solid">Follow</span>`}</div></div><div class="name">Sam Reed</div><div class="handle">@samreads</div><div class="stats"><span><b>214</b> read</span><span><b>38</b> reviews</span><span><b>126</b> followers</span></div>`;
+const phoneGoal = `<div class="card goal" style="padding:5px 7px;margin-top:6px">${ring()}<div><b>41 of 52 in 2026</b><div class="warn">3 behind pace</div></div></div>`;
+const swipeLists = `<div class="swipe">${lists(1, 3).replace(/^<div[^>]*>|<\/div>$/g, "")}</div>`;
+
+document.getElementById("vFo").innerHTML += phoneHead(true) + phoneGoal +
+  `<div class="sec"><div class="sec-t"><span>Currently reading</span><span></span></div><div class="search" style="width:100%;margin-bottom:6px">Search your shelf</div><div class="swipe">${mini(64)}${mini(22)}</div></div>` +
+  picks(4) + sec("Up next in your series", "", seriesRows(2)) + sec("Favourites", "See all", covers(4, 4, false)) +
+  sec("Lists", "See all", swipeLists) + `<div class="fade"></div>`;
+
+document.getElementById("vFv").innerHTML += phoneHead(false) +
+  `<div class="sec"><div class="oneline"><span>Reading <b>Fourth Wing</b> · Ch 9 · circle at Ch 8</span><span class="muted">+2</span></div></div>` +
+  sec("Favourites", "See all", covers(4, 4, false)) + sec("Lists", "See all", swipeLists) +
+  sec("Series", "", seriesRows(2)) + sec("Reviews", "See all", reviews(1)) + `<div class="fade"></div>`;
+</script>
+
+<script>
+// Button options (#buttons): mock cards and Up next tiles at the app's sizes.
+(() => {
+  const I = {
+    pencil: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></svg>',
+    book: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>',
+    play: '<svg class="bx-i" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+    users: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    check: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+  };
+  const READING = [
+    { title: "The Well of Ascension", author: "Brandon Sanderson", colour: "#1f3a5f", pos: "Ch 25 of 59 · 41%", pct: 41, circle: 34, circleLabel: "circle at Ch 21" },
+    { title: "Piranesi", author: "Susanna Clarke", colour: "#2e7d32", pos: "3h 23m of 9h 1m · 38%", pct: 38 },
+  ];
+  const NEXT = [
+    { title: "The Fellowship of the Ring", tag: "Book 2 · Middle Earth", colour: "#2b2b2b" },
+    { title: "Hunting Adeline", tag: "Book 2 · Cat and Mouse", colour: "#4a2b2b" },
+    { title: "The Quiet Orchards of Fenmarch", tag: "Want to read", colour: "#2e9e3f" },
+    { title: "Saltwater Almanac of Brindle Cove", tag: "Want to read", colour: "#e0631b" },
+    { title: "Project Hail Mary", tag: "Want to read", colour: "#c0392b" },
+  ];
+  const cover = (b) => `<div class="bx-cover" style="background:${b.colour}">${b.title}</div>`;
+  const bar = (b, extra = "") => `<div class="bx-barrow"><div class="bx-track"><div class="bx-fill" style="width:${b.pct}%"></div>${b.circle ? `<span class="bx-tick" style="left:${b.circle}%"></span>` : ""}</div>${b.circle ? `<span class="bx-circ">${b.circleLabel}</span>` : ""}${extra}</div>`;
+  const head = (b) => `<div class="bx-title">${b.title}</div><div class="bx-author">${b.author}</div>${b.circle ? `<span class="bx-badge">${I.users}Reading circle</span>` : ""}`;
+
+  const card = (b, v) => {
+    if (v === "now") return `<div class="bx-card">${cover(b)}<div class="bx-body">${head(b)}<div class="bx-pos">${b.pos}</div>${bar(b)}</div><button class="bx-btn bx-outline">Update</button></div>`;
+    if (v === "u1") return `<div class="bx-card">${cover(b)}<div class="bx-body">${head(b)}<button class="bx-btn bx-u1" aria-label="Update progress for ${b.title}"><div class="bx-pos"><span>${b.pos}</span><span class="bx-chip">${I.pencil}Update</span></div>${bar(b)}</button></div></div>`;
+    if (v === "u2") return `<div class="bx-card bx-u2">${cover(b)}<div class="bx-body">${head(b)}<div class="bx-pos">${b.pos}</div>${bar(b)}</div><button class="bx-btn bx-ghost">${I.pencil}Update</button></div>`;
+    return `<div class="bx-card">${cover(b)}<div class="bx-body">${head(b)}<div class="bx-pos">${b.pos}</div>${bar(b, `<button class="bx-btn bx-round" aria-label="Update progress for ${b.title}">${I.pencil}</button>`)}</div></div>`;
+  };
+  const tile = (b, v, phone) => {
+    const start = v === "now"
+      ? (phone ? `<button class="bx-btn bx-start-box">${I.play}Start</button>` : `<button class="bx-btn bx-start-text">${I.play}Start</button>`)
+      : v === "s1" ? `<button class="bx-btn bx-pill" data-start>${I.book}Start</button>` : "";
+    const corner = v === "s2" ? `<button class="bx-btn bx-corner" aria-label="Start ${b.title}">${I.book}</button>` : "";
+    return `<div class="bx-tile"><div class="bx-cover" style="background:${b.colour}">${b.title}${corner}</div><div class="bx-tt">${b.title}</div><div class="bx-tag">${b.tag}</div>${start}</div>`;
+  };
+  const frame = (cap, inner) => `<div class="bx-frame"><div class="bx-cap"><span>${cap}</span></div>${inner}</div>`;
+  const cards = (v) => `<div class="bx-cards">${READING.map((b) => card(b, v)).join("")}</div>`;
+  const tiles = (v, phone) => `<div class="bx-tiles ${phone ? "bx-phone" : "bx-desk"}">${NEXT.map((b) => tile(b, v, phone)).join("")}</div>`;
+
+  for (const el of document.querySelectorAll("[data-bx]")) {
+    const v = el.dataset.variant;
+    if (el.dataset.bx === "update") el.innerHTML = frame("Desktop", cards(v)) + frame("Phone", cards(v));
+    if (el.dataset.bx === "start") el.innerHTML = frame("Desktop · 72px covers", tiles(v, false)) + frame("Phone · swipe row, 96px covers", tiles(v, true));
+    if (el.dataset.bx === "together") el.innerHTML =
+      frame("Desktop", cards("u1") + `<div style="margin-top:20px;font:600 15px var(--ui)">Up next</div><div style="margin-top:10px">${tiles("s1", false)}</div>`) +
+      frame("Phone", cards("u1") + `<div style="margin-top:20px;font:600 15px var(--ui)">Up next</div><div style="margin-top:10px">${tiles("s1", true)}</div>`);
+  }
+  // S1's after-tap state: a moment of "✓ Reading", as the tile would show before it leaves.
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-start]");
+    if (!b || b.dataset.done) return;
+    b.dataset.done = "1";
+    const was = b.innerHTML;
+    b.innerHTML = `<span class="bx-done">${I.check}</span>Reading`;
+    setTimeout(() => { b.innerHTML = was; delete b.dataset.done; }, 1500);
+  });
+})();
+</script>

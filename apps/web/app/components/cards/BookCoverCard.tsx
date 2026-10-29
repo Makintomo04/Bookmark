@@ -1,5 +1,5 @@
 "use client"
-import { FC, KeyboardEvent } from 'react'
+import { FC } from 'react'
 import moment from 'moment'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
@@ -63,26 +63,13 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
 
   const onActivate = readOnly ? () => openDetails(discoverBookOf(book)) : openProgress
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      onActivate()
-    }
-  }
-
-  const interactiveProps = {
-    role: "button",
-    tabIndex: 0,
-    "aria-label": readOnly ? `About ${title} by ${author}` : `${title} by ${author}. Update progress`,
-    onClick: onActivate,
-    onKeyDown: handleKeyDown,
-  }
-
+  // A click anywhere on the card opens it. The keyboard and screen readers get the title as a real button,
+  // whose click bubbles up to here, so the card's own controls (the actions, the author link) aren't nested
+  // inside another control.
   return (
     <div
-      {...interactiveProps}
-      className="group flex flex-col gap-3 rounded-lg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+      onClick={onActivate}
+      className="group flex flex-col gap-3 rounded-lg cursor-pointer has-[h3_button:focus-visible]:ring-2 has-[h3_button:focus-visible]:ring-ring has-[h3_button:focus-visible]:ring-offset-4 has-[h3_button:focus-visible]:ring-offset-background"
     >
       {/* Someone else's book lifts a touch on hover, as Discover's covers do, since there's no overlay to show. */}
       <div className={cn("relative", readOnly && "transition md:group-hover:-translate-y-0.5 md:group-hover:opacity-90")}>
@@ -108,7 +95,10 @@ const BookCoverCard: FC<BookCoverCardProps> = ({ book, accentColour, readOnly = 
       </div>
 
       <div className="min-w-0">
-        <h3 title={title} className="text-[15px] font-semibold leading-snug line-clamp-2">{title}</h3>
+        <h3 title={title} className="text-[15px] font-semibold leading-snug line-clamp-2">
+          <button type="button" aria-label={readOnly ? `${title}: about this book` : `${title}: update progress`}
+            className="text-left focus-visible:outline-none">{title}</button>
+        </h3>
         <p className="mt-0.5 text-sm text-muted-foreground truncate"><AuthorLink author={author} /></p>
 
         {(status === Status.STARTED || isPaused) && (

@@ -26,14 +26,19 @@ test("a small Goodreads CSV lands on the right shelves", async ({ browser }, tes
 
   await page.getByRole("link", { name: "Go to my shelves" }).click()
   await page.waitForURL(`**/u/${reader.username}`)
-  const shelf = (id: string) => page.locator(`section[aria-labelledby="${id}"]`)
-  await expect(shelf("shelf-finished")).toContainText("Hobbit")
-  await expect(shelf("shelf-finished")).toContainText("Dune")
-  await expect(shelf("shelf-dnf")).toContainText("Infinite Jest")
-  await expect(shelf("shelf-dnf")).toContainText("Middlemarch")
-  await expect(shelf("shelf-paused")).toContainText("Name of the Wind")
+  // The profile shows the shelves as tabs, one at a time; an empty shelf has no tab.
+  const shelves = page.locator('section[aria-label="Your shelves"]')
+  const shelf = async (name: RegExp) => {
+    await shelves.getByRole("tab", { name }).click()
+    return shelves
+  }
+  await expect(await shelf(/^Finished/)).toContainText("Hobbit")
+  await expect(shelves).toContainText("Dune")
+  await expect(await shelf(/^Did not finish/)).toContainText("Infinite Jest")
+  await expect(shelves).toContainText("Middlemarch")
+  await expect(await shelf(/^Paused/)).toContainText("Name of the Wind")
   await expect(page.getByText("Project Hail Mary").first()).toBeVisible()
-  await expect(shelf("shelf-want")).toHaveCount(0)
+  await expect(shelves.getByRole("tab", { name: /^Want to read/ })).toHaveCount(0)
 
   await context.close()
 })
