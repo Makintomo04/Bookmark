@@ -52,7 +52,8 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
     <li className={cn("flex w-24 shrink-0 snap-start flex-col", !row && "sm:w-auto")}>
       <BookCover book={{ title: pick.title, author: pick.author, coverImage: pick.coverUrl || "", cardColour: pick.cardColour ?? null }}
         variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
-      <p className="mt-1.5 line-clamp-2 break-words text-xs font-medium leading-snug" title={pick.title}>{pick.title}</p>
+      {/* Two lines kept for every title, so a one-line title doesn't lift its Start above the rest of the row. */}
+      <p className="mt-1.5 line-clamp-2 min-h-[2.75em] break-words text-xs font-medium leading-snug" title={pick.title}>{pick.title}</p>
       <p className="truncate text-[11px] leading-snug text-muted-foreground" title={pick.tag}>{pick.tag}</p>
       <button type="button" onClick={start} disabled={starting}
         className={cn(

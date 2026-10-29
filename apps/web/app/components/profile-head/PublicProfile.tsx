@@ -44,7 +44,7 @@ const BANDS_AUTHORS = 8
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
 // and the profile's reading lists are client islands. The payload is already filtered for
 // this viewer (lib/publicProfile.ts): hidden shelves, reviews and counts never arrive.
-const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'stack', sharedCircles = [], goal = null }) => {
+const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'bands', sharedCircles = [], goal = null }) => {
   const bands = layout === 'bands'
   const favourites = profile.favourites as unknown as Book[]
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`

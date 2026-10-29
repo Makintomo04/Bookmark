@@ -1,11 +1,12 @@
 import { FC, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-// The profile's two layouts. "stack" is the page as it has been; "bands" (?layout=bands, a trial) pairs a
-// wide section with a narrow one on each row. docs/profile-layout-spike.html has the reasoning.
-export type ProfileLayout = 'stack' | 'bands'
+// The profile's two layouts. "bands" is the profile: your header beside what you're reading, then rows that
+// pair a wide section with a narrow one (docs/profile-layout-spike.html has how it was settled). "classic" is
+// the page as it was before, one column, kept behind ?layout=classic as a way back while bands beds in.
+export type ProfileLayout = 'bands' | 'classic'
 
-export const profileLayoutOf = (value: unknown): ProfileLayout => (value === 'bands' ? 'bands' : 'stack')
+export const profileLayoutOf = (value: unknown): ProfileLayout => (value === 'classic' ? 'classic' : 'bands')
 
 // The shelf writes its search and filters into the URL; this keeps the layout through those writes.
 export const LAYOUT_PARAM = 'layout'

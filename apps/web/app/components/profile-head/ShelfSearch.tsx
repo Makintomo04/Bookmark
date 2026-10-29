@@ -44,7 +44,8 @@ const ShelfSearch: FC = () => {
           <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input ref={input} type="search" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="Search your shelf"
             onKeyDown={(e) => { if (e.key === 'Escape') { setFilter({ ...filter, q: '' }); setFiltersOpen(false); input.current?.blur() } }}
-            className="h-9 w-full rounded-full border border-neutral-300 dark:border-neutral-700 bg-background pl-9 pr-8 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            // Room on the right for the "/" hint only while it shows; once there's a query the browser's clear button sits there.
+            className={cn("h-9 w-full rounded-full border border-neutral-300 dark:border-neutral-700 bg-background pl-9 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", filter.q ? "pr-3" : "pr-8")} />
           {!filter.q && <kbd aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-neutral-300 dark:border-neutral-700 px-1.5 text-[11px] text-muted-foreground">/</kbd>}
         </label>
         <button type="button" onClick={() => setFiltersOpen(!filtersOpen)} aria-expanded={filtersOpen} aria-label="Filter your shelf"

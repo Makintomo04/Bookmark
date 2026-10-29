@@ -33,7 +33,7 @@ export function useShelfFilterState({ flat = false, onlyShelf, enabled = true }:
   }, [urlKey, live])
   useEffect(() => {
     if (!live) return
-    // The profile's layout trial rides along, so a search doesn't drop you back to the old layout on reload.
+    // ?layout=classic rides along, so a search on the old layout doesn't drop you into the new one on reload.
     const params = shelfParams({ ...filter, shelf: null })
     const layout = searchParams?.get(LAYOUT_PARAM)
     if (layout) params.set(LAYOUT_PARAM, layout)

@@ -77,10 +77,10 @@ const NothingOnTheGo: FC = () => {
   )
 }
 
-// In bands (?layout=bands) your header becomes a column from lg up, with what you're reading beside it. The goal
+// In bands your header becomes a column from lg up, with what you're reading beside it. The goal
 // is two lines in that column, or two lines in words under your stats below lg; the authors you follow get a line
 // under your bio; the banner is shorter.
-const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'stack' }) => {
+const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
   const bands = layout === 'bands'
   const { user, isError, isLoading, mutate: mutateUser } = useUser()
   const booksReadFor = useBooksReadFor()

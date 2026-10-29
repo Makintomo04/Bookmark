@@ -49,7 +49,7 @@ interface ProfileHeaderProps {
   badge?: SupporterBadgeKind | null
   // "Bookmark team" or "Librarian" (lib/staffBadge.ts): a seal on the avatar's corner.
   staffBadge?: StaffBadgeKind | null
-  // The profile in bands (?layout=bands). `besides` (what they're reading, what's next) sits beside the
+  // The profile in bands (Band.tsx). `besides` (what they're reading, what's next) sits beside the
   // header from lg up, which becomes a column; `identityFooter` ends that column from lg up (top medals,
   // when the books beside it run longer);
   // `follows` puts the first authors they follow under the bio; `compact` keeps the banner shorter on a

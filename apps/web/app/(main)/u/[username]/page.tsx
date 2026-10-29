@@ -63,7 +63,7 @@ export default async function Page(props: PageProps) {
   const one = (name: string) => { const v = searchParams[name]; return typeof v === 'string' ? v : null }
   const linked = parseShelfParams({ get: one })
   if (linked.shelf) redirect(shelfPageHref(handleOf(params.username), linked.shelf, linked))
-  // ?layout=bands tries the paired-bands profile; anything else is the page as it has been.
+  // The profile in bands; ?layout=classic is the one-column page it replaced (Band.tsx).
   const layout = profileLayoutOf(one('layout'))
   const viewer = await getCurrentUser()
   const data = await getProfileView(profileHandle(params.username), viewer?.id)

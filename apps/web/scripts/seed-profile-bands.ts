@@ -1,4 +1,4 @@
-// Fills the two test readers (seed-test-readers.ts) so the profile in bands (?layout=bands) can be judged with
+// Fills the two test readers (seed-test-readers.ts) so the profile in bands can be judged with
 // the cases its design turns on: four books on the go (one an audiobook, one with a long title), a book being
 // read with a reading circle and logged in chapters, followed authors, a friend reading something, and that
 // friend as a creator-sized account (eight favourites, fifteen public lists, their goal on show). Run

@@ -117,7 +117,7 @@ const BandsShowcase: FC<{ username: string }> = ({ username }) => {
   )
 }
 
-// Your profile in bands (?layout=bands), as the reader panel and designer settled it (docs/profile-layout-spike.html,
+// Your profile in bands, as the reader panel and designer settled it (docs/profile-layout-spike.html,
 // Iterations 2 and 3). Your header is a column from lg up with what you're reading and what's next beside it,
 // and the shelf search at the top; its results open right under it, in place of what you're reading. Then your
 // reviews beside the authors you follow, your favourites and lists, and your shelves as tabs. One filter serves
@@ -154,10 +154,10 @@ const NewShelfPicks: FC = () => {
 }
 
 // Your own profile: editable, so it stays client-side, but starts from server data.
-const OwnerProfile: FC<OwnerProfileProps> = ({ username, layout = 'stack', fallback }) => (
+const OwnerProfile: FC<OwnerProfileProps> = ({ username, layout = 'bands', fallback }) => (
   <SWRConfig value={{ fallback }}>
     {layout === 'bands' ? <OwnerBands username={username} /> : <>
-    <ProfileHead />
+    <ProfileHead layout="classic" />
     <div className="mt-6 sm:mt-8">
       <FollowRequests className="mb-10" />
       <NewShelfPicks />

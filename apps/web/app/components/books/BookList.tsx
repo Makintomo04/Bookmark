@@ -29,7 +29,7 @@ const ShelfSkeleton: FC = () => (
   </div>
 )
 
-// `slot`: one part of the shelf on your profile in bands (?layout=bands). See BookGrid.
+// `slot`: one part of the shelf on your profile in bands. See BookGrid.
 const BookList: FC<{ slot?: 'results' | 'shelves' }> = ({ slot }) => {
   const {books,isLoading:isLoadingBooks,isError:isErrorBooks,mutate:mutateBooks} = useBooks();
   const {user,isLoading,isError} = useUser();

@@ -34,7 +34,7 @@ interface BookGridProps {
   flat?: boolean
   // A shelf's own page (/u/<username>/shelf/<slug>): that shelf only, searched, sorted and filtered.
   shelf?: ShelfKey
-  // Your profile in bands (?layout=bands), where the search sits at the top of the page (ShelfSearch) and
+  // Your profile in bands, where the search sits at the top of the page (ShelfSearch) and
   // the filter is shared (ShelfFilterProvider). "results" is the panel under the top of the page while you
   // search or filter, and nothing otherwise; "shelves" is the shelves as tabs, further down.
   slot?: 'results' | 'shelves'
