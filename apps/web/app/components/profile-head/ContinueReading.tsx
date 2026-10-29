@@ -84,7 +84,8 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
   const place = (
     <>
       <span className="flex min-h-7 items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
-        <span className="min-w-0">{position}</span>
+        {/* Where the circle is goes on this line too, not beside the bar, where it made the card taller. */}
+        <span className="min-w-0 truncate" title={circle?.at != null ? `${position} · circle ${circle.label}` : undefined}>{position}{circle?.at != null && <> · circle {circle.label}</>}</span>
         {!readOnly && (
           <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 font-medium text-foreground transition group-hover/update:bg-neutral-200 dark:bg-neutral-800 dark:group-hover/update:bg-neutral-700">
             <Pencil size={12} aria-hidden />Update<span className="sr-only"> progress for {book.title}</span>
@@ -97,7 +98,6 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
           <span className="block h-full rounded-full transition-[width] duration-500" style={{ width: `${progress}%`, background: accent }} />
           {circle?.at != null && <span aria-hidden title={`Circle ${circle.label}`} className="absolute -top-1 h-3.5 w-0.5 rounded-full bg-foreground" style={{ left: `${circle.at}%` }} />}
         </span>
-        {circle?.at != null && <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">circle {circle.label}</span>}
       </span>
     </>
   )
@@ -112,23 +112,22 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
       </button>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 font-medium leading-snug" title={book.title}>{title}</p>
-        <p className="truncate text-sm text-muted-foreground">{book.author}</p>
-        {/* A circle and a reread are said the same quiet way, side by side when a book is both. */}
-        {(circle || reread) && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {circle && (
-              <Link href={`/circles/${circle.id}`} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-900 px-2 py-0.5 text-[11px] font-medium hover:bg-neutral-200 dark:hover:bg-neutral-800">
-                <Users size={11} aria-hidden />Reading circle
-              </Link>
-            )}
-            {reread && (
-              <span title={readOnly ? "They've read this book before" : "You've read this book before"}
-                className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-900 px-2 py-0.5 text-[11px] font-medium">
-                <Repeat2 size={11} aria-hidden />Reread
-              </span>
-            )}
-          </div>
-        )}
+        {/* A circle and a reread ride on the author line, after the name, rather than a row of their own, so
+            every card in the list keeps the same height. The name gives way (truncates) before they do. */}
+        <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+          <span className="truncate">{book.author}</span>
+          {circle && (
+            <Link href={`/circles/${circle.id}`} className="inline-flex shrink-0 items-center gap-1 rounded-sm text-xs font-medium text-foreground/80 hover:text-foreground hover:underline underline-offset-2">
+              <span aria-hidden className="text-muted-foreground">·</span><Users size={12} aria-hidden />Circle
+            </Link>
+          )}
+          {reread && (
+            <span title={readOnly ? "They've read this book before" : "You've read this book before"}
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-foreground/80">
+              <span aria-hidden className="text-muted-foreground">·</span><Repeat2 size={12} aria-hidden />Reread
+            </span>
+          )}
+        </p>
         {readOnly ? <div className="mt-1">{place}</div> : (
           // The place and its bar are the Update button (a 44px row), so the bar keeps the card's full width.
           <button type="button" onClick={update}
@@ -176,7 +175,8 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
   const hidden = ordered.length - SHOWN_WIDE
 
   const cards = (
-    <ul className={cn("grid gap-3", size === 'card' && "sm:grid-cols-2")}>
+    // grid-cols-1 (minmax(0, 1fr)), so a long position line truncates instead of widening the column past the screen.
+    <ul className={cn("grid grid-cols-1 gap-3", size === 'card' && "sm:grid-cols-2")}>
       {ordered.map((book, i) => (
         <ContinueCard key={book.id} book={book} accent={accent} readOnly={readOnly} size={size} circle={circleOf(book)} reread={isRereading(book, finished)} onUpdate={openSheet}
           className={cn(!all && i >= SHOWN_PHONE && "max-sm:hidden", !all && i >= SHOWN_WIDE && "sm:hidden")} />
