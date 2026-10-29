@@ -149,6 +149,72 @@ td:first-child { font-weight: 600; white-space: nowrap; }
 .oneline { border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px; display: flex; justify-content: space-between; gap: 6px; }
 .swipe { display: flex; gap: 6px; overflow: hidden; }
 .swipe > * { flex: 0 0 44%; }
+/* Button options: mock cards at the app's real sizes (Tailwind px), drawn with the page's tokens. */
+:root { --reader: #2F80ED; --chip: #262626; --chip-hover: #404040; --tile: #171717; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --chip: #ededed; --chip-hover: #e0e0e0; --tile: #f5f5f5; } }
+:root[data-theme="light"] { --chip: #ededed; --chip-hover: #e0e0e0; --tile: #f5f5f5; }
+.bx-grid { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 340px); gap: 24px; align-items: start; }
+@media (max-width: 960px) { .bx-grid { grid-template-columns: minmax(0, 1fr); } }
+.bx-frame { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--bg); min-width: 0; overflow-x: auto; }
+.bx-cap { font-size: 12px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; }
+.bx-cards { display: grid; gap: 12px; min-width: 300px; }
+.bx-card { position: relative; display: flex; gap: 14px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-family: var(--ui); }
+.bx-cover { width: 48px; flex: none; aspect-ratio: 2 / 3; border-radius: 4px; align-self: flex-start; display: grid; place-items: start; padding: 4px; font: 600 7px/1.15 var(--display); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.bx-body { min-width: 0; flex: 1; }
+.bx-title { font-size: 15px; font-weight: 500; line-height: 1.3; }
+.bx-author { font-size: 13px; color: var(--muted); }
+.bx-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 11px; font-weight: 500; background: var(--chip); border-radius: 999px; padding: 1px 8px; }
+.bx-pos { margin-top: 4px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bx-barrow { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+.bx-track { position: relative; flex: 1; height: 6px; border-radius: 999px; background: var(--wire-2); transition: filter .15s; }
+.bx-fill { height: 100%; border-radius: 999px; background: var(--reader); }
+.bx-tick { position: absolute; top: -4px; width: 2px; height: 14px; border-radius: 2px; background: var(--fg); }
+.bx-circ { flex: none; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+svg.bx-i { width: 1em; height: 1em; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bx-btn { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+.bx-btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+/* Today */
+.bx-outline { flex: none; height: 36px; padding: 0 16px; border: 1px solid var(--wire-2); border-radius: 6px; font-size: 14px; font-weight: 500; }
+.bx-outline:hover { background: var(--surface); }
+/* U1: the progress row is the button */
+.bx-u1 { display: block; width: 100%; min-height: 44px; margin-top: 2px; padding: 4px 0; text-align: left; border-radius: 6px; }
+.bx-u1 .bx-pos { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 0; }
+.bx-chip { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--chip); color: var(--fg); font-size: 12px; font-weight: 500; transition: background .15s; }
+.bx-u1:hover .bx-chip { background: var(--chip-hover); }
+.bx-u1:hover .bx-track { filter: brightness(1.25); }
+.bx-u1:active { transform: scale(.985); }
+/* U2: ghost, top right */
+.bx-ghost { position: absolute; top: 6px; right: 6px; display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+.bx-ghost:hover { color: var(--fg); background: var(--surface); }
+.bx-u2 .bx-title { padding-right: 84px; }
+/* U3: round accent button at the end of the bar */
+.bx-round { flex: none; width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--reader); color: #fff; font-size: 14px; }
+.bx-round:hover { filter: brightness(1.1); }
+/* Up next tiles */
+.bx-tiles { display: flex; gap: 12px; }
+.bx-tiles.bx-desk .bx-tile { width: 72px; }
+.bx-tiles.bx-phone { overflow-x: auto; padding-bottom: 4px; }
+.bx-tiles.bx-phone .bx-tile { width: 96px; flex: none; }
+.bx-tile { display: flex; flex-direction: column; font-family: var(--ui); }
+.bx-tile .bx-cover { width: 100%; font-size: 9px; padding: 6px; position: relative; }
+.bx-tt { margin-top: 6px; font-size: 12px; font-weight: 500; line-height: 1.375; min-height: 2.75em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bx-tag { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bx-start-text { margin-top: auto; display: inline-flex; align-items: center; gap: 4px; height: 32px; margin-left: -6px; padding: 0 6px; font-size: 12px; font-weight: 500; color: var(--muted); border-radius: 6px; }
+.bx-start-text:hover { color: var(--fg); }
+.bx-start-box { margin-top: 8px; height: 44px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--wire-2); border-radius: 6px; font-size: 12px; font-weight: 500; }
+.bx-pill { position: relative; margin-top: 8px; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 12px; border-radius: 999px; background: var(--tile); border: 1px solid var(--line); font-size: 12px; font-weight: 500; }
+.bx-pill::after { content: ""; position: absolute; inset: -6px 0; }
+.bx-pill:hover { background: var(--chip); }
+.bx-tiles.bx-phone .bx-pill { width: 100%; }
+.bx-tiles.bx-desk .bx-pill { align-self: flex-start; padding: 0 10px; }
+.bx-corner { position: absolute; right: -6px; bottom: -6px; width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; background: var(--reader); color: #fff; font-size: 14px; box-shadow: 0 0 0 3px var(--bg); }
+.bx-tiles.bx-desk .bx-corner { width: 28px; height: 28px; font-size: 12px; }
+.bx-done { color: #34d399; }
+.bx-option { display: grid; gap: 14px; padding-top: 28px; border-top: 1px solid var(--line); }
+.bx-option h3 { font-family: var(--ui); font-size: 17px; letter-spacing: 0; }
+.bx-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 24px; font-size: 14px; color: var(--muted); max-width: 900px; }
+.bx-meta b { color: var(--fg); font-weight: 600; }
+.bx-pick { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); }
 .callout { background: var(--surface); border-radius: 12px; padding: 20px 22px; display: grid; gap: 10px; }
 @media (prefers-reduced-motion: no-preference) { .bar i { transition: width .6s; } }
 </style>
@@ -157,7 +223,7 @@ td:first-child { font-weight: 600; white-space: nowrap; }
   <header class="prose">
     <p class="eyebrow">Spike · 29 October 2026 · your profile at /u/&lt;you&gt;</p>
     <h1 style="margin-top:10px">Where things sit on your profile</h1>
-    <p class="lede">An audit of the owner's profile as it stands on main, and four layouts that move the smaller sections to the side. Each one is drawn at desktop width with real section shapes, then the order a phone would get. A five-reader panel then stress-tested them and agreed on one: <a href="#agreed">B+, a reading-first page in bands</a>. A refined D then took B+ to a <a href="#rematch-result">tie on points, and B+ won the vote 3 to 2</a>. Built, B+ didn't hold up, so a <a href="#ux-review">UX-only review</a> with a senior product designer led to <a href="#iteration-2">Iteration 2</a>, the current design.</p>
+    <p class="lede">An audit of the owner's profile as it stands on main, and four layouts that move the smaller sections to the side. Each one is drawn at desktop width with real section shapes, then the order a phone would get. A five-reader panel then stress-tested them and agreed on one: <a href="#agreed">B+, a reading-first page in bands</a>. A refined D then took B+ to a <a href="#rematch-result">tie on points, and B+ won the vote 3 to 2</a>. Built, B+ didn't hold up, so a <a href="#ux-review">UX-only review</a> with a senior product designer led to <a href="#iteration-2">Iteration 2</a>, the current design. A UI audit then compared <a href="#buttons">five options for the Update and Start buttons</a>.</p>
   </header>
 
   <!-- AUDIT -->
@@ -523,6 +589,34 @@ td:first-child { font-weight: 600; white-space: nowrap; }
     </div>
   </section>
 
+  <section id="buttons">
+    <p class="eyebrow">Update and Start · five options side by side</p>
+    <h2>How the buttons sit in their cards</h2>
+    <p class="prose muted">A senior UI designer audited the Update and Start buttons after the owner said they weren't keen on how the buttons sit in their cards. His verdict: <b>Update looks bolted on.</b> It's the page's outlined button inside a bordered card, and it takes its own column, so the progress bars stop short. On a phone it squeezes the bar to about a quarter of the card. <b>Start is right on desktop but too heavy on a phone:</b> 44px outlined boxes outrank the Update buttons above them. The options below are drawn at the app's real sizes: a desktop card (about 560px) and a phone card (about 340px). Hover them to see their states. The reader's colour here is the test reader's blue.</p>
+  </section>
+  <section class="bx-option" id="bx-update-now"><h3>Update today</h3><div class="bx-meta"><span>Outlined 36px button in its own right-hand column.</span></div><div class="bx-grid" data-bx="update" data-variant="now"></div></section>
+  <section class="bx-option bx-pick" id="bx-u1"><h3>U1 · the progress row is the button <span class="tag rec">Designer's pick</span></h3>
+    <div class="bx-meta"><span><b>How:</b> the place line and bar are one tap target, at least 44px tall. A small grey "✎ Update" chip ends the place line, and the bar runs the card's full width.</span><span><b>States:</b> on hover the chip lightens and the bar brightens. On press the row shrinks slightly. After saving, the bar animates to the new place and the toast offers Undo.</span><span><b>Trade-off:</b> a smaller label, but the bar gets its width back and the whole row is easy to hit.</span></div>
+    <div class="bx-grid" data-bx="update" data-variant="u1"></div></section>
+  <section class="bx-option" id="bx-u2"><h3>U2 · a ghost button, top right</h3>
+    <div class="bx-meta"><span><b>How:</b> grey "✎ Update" text in line with the title, 32px to look at, with a 44px tap area on a phone. The bar runs full width.</span><span><b>Trade-off:</b> light and clearly part of the card, but it still costs the title width on a phone, and it isn't tied to the bar.</span></div>
+    <div class="bx-grid" data-bx="update" data-variant="u2"></div></section>
+  <section class="bx-option" id="bx-u3"><h3>U3 · a round button in the reader's colour</h3>
+    <div class="bx-meta"><span><b>How:</b> the older card's 28px round button at the end of the bar, filled with the reader's colour.</span><span><b>Trade-off:</b> readers already know it, but it has no label, and some reader colours give it poor contrast.</span></div>
+    <div class="bx-grid" data-bx="update" data-variant="u3"></div></section>
+
+  <section class="bx-option" id="bx-start-now"><h3>Start today</h3><div class="bx-meta"><span>Desktop: quiet "▷ Start" text. Phone: a full-width 44px outlined box under each cover.</span></div><div class="bx-grid" data-bx="start" data-variant="now"></div></section>
+  <section class="bx-option bx-pick" id="bx-s1"><h3>S1 · a quiet pill everywhere <span class="tag rec">Designer's pick</span></h3>
+    <div class="bx-meta"><span><b>How:</b> a 32px grey pill with a book icon (not ▷, which reads as "play audio"), and a 44px tap area. Full width under the cover on a phone, its own width on desktop.</span><span><b>After tapping:</b> it shows "✓ Reading" for a moment, then the tile leaves and the toast offers Undo. Today Start has no Undo, which breaks the house rule.</span><span><b>Trade-off:</b> slightly louder than today's desktop text, much quieter than today's phone boxes, and one design at every size.</span></div>
+    <div class="bx-grid" data-bx="start" data-variant="s1"></div></section>
+  <section class="bx-option" id="bx-s2"><h3>S2 · a round button on the cover's corner</h3>
+    <div class="bx-meta"><span><b>How:</b> a 32px round button in the reader's colour (28px on desktop) overlapping the cover's bottom-right corner.</span><span><b>Trade-off:</b> it ties the action to the book and echoes the progress bars, but it covers some of the cover art.</span></div>
+    <div class="bx-grid" data-bx="start" data-variant="s2"></div></section>
+
+  <section class="bx-option" id="bx-together"><h3>U1 and S1 together, as the designer recommends</h3>
+    <div class="bx-meta"><span>The reading cards keep the only visible controls with weight. Up next sits underneath, clearly second.</span></div>
+    <div class="bx-grid" data-bx="together"></div></section>
+
   <section>
     <div class="callout">
       <p class="eyebrow">What it takes</p>
@@ -714,4 +808,66 @@ document.getElementById("vFv").innerHTML += phoneHead(false) +
   `<div class="sec"><div class="oneline"><span>Reading <b>Fourth Wing</b> · Ch 9 · circle at Ch 8</span><span class="muted">+2</span></div></div>` +
   sec("Favourites", "See all", covers(4, 4, false)) + sec("Lists", "See all", swipeLists) +
   sec("Series", "", seriesRows(2)) + sec("Reviews", "See all", reviews(1)) + `<div class="fade"></div>`;
+</script>
+
+<script>
+// Button options (#buttons): mock cards and Up next tiles at the app's sizes.
+(() => {
+  const I = {
+    pencil: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></svg>',
+    book: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>',
+    play: '<svg class="bx-i" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+    users: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    check: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+  };
+  const READING = [
+    { title: "The Well of Ascension", author: "Brandon Sanderson", colour: "#1f3a5f", pos: "Ch 25 of 59 · 41%", pct: 41, circle: 34, circleLabel: "circle at Ch 21" },
+    { title: "Piranesi", author: "Susanna Clarke", colour: "#2e7d32", pos: "3h 23m of 9h 1m · 38%", pct: 38 },
+  ];
+  const NEXT = [
+    { title: "The Fellowship of the Ring", tag: "Book 2 · Middle Earth", colour: "#2b2b2b" },
+    { title: "Hunting Adeline", tag: "Book 2 · Cat and Mouse", colour: "#4a2b2b" },
+    { title: "The Quiet Orchards of Fenmarch", tag: "Want to read", colour: "#2e9e3f" },
+    { title: "Saltwater Almanac of Brindle Cove", tag: "Want to read", colour: "#e0631b" },
+    { title: "Project Hail Mary", tag: "Want to read", colour: "#c0392b" },
+  ];
+  const cover = (b) => `<div class="bx-cover" style="background:${b.colour}">${b.title}</div>`;
+  const bar = (b, extra = "") => `<div class="bx-barrow"><div class="bx-track"><div class="bx-fill" style="width:${b.pct}%"></div>${b.circle ? `<span class="bx-tick" style="left:${b.circle}%"></span>` : ""}</div>${b.circle ? `<span class="bx-circ">${b.circleLabel}</span>` : ""}${extra}</div>`;
+  const head = (b) => `<div class="bx-title">${b.title}</div><div class="bx-author">${b.author}</div>${b.circle ? `<span class="bx-badge">${I.users}Reading circle</span>` : ""}`;
+
+  const card = (b, v) => {
+    if (v === "now") return `<div class="bx-card">${cover(b)}<div class="bx-body">${head(b)}<div class="bx-pos">${b.pos}</div>${bar(b)}</div><button class="bx-btn bx-outline">Update</button></div>`;
+    if (v === "u1") return `<div class="bx-card">${cover(b)}<div class="bx-body">${head(b)}<button class="bx-btn bx-u1" aria-label="Update progress for ${b.title}"><div class="bx-pos"><span>${b.pos}</span><span class="bx-chip">${I.pencil}Update</span></div>${bar(b)}</button></div></div>`;
+    if (v === "u2") return `<div class="bx-card bx-u2">${cover(b)}<div class="bx-body">${head(b)}<div class="bx-pos">${b.pos}</div>${bar(b)}</div><button class="bx-btn bx-ghost">${I.pencil}Update</button></div>`;
+    return `<div class="bx-card">${cover(b)}<div class="bx-body">${head(b)}<div class="bx-pos">${b.pos}</div>${bar(b, `<button class="bx-btn bx-round" aria-label="Update progress for ${b.title}">${I.pencil}</button>`)}</div></div>`;
+  };
+  const tile = (b, v, phone) => {
+    const start = v === "now"
+      ? (phone ? `<button class="bx-btn bx-start-box">${I.play}Start</button>` : `<button class="bx-btn bx-start-text">${I.play}Start</button>`)
+      : v === "s1" ? `<button class="bx-btn bx-pill" data-start>${I.book}Start</button>` : "";
+    const corner = v === "s2" ? `<button class="bx-btn bx-corner" aria-label="Start ${b.title}">${I.book}</button>` : "";
+    return `<div class="bx-tile"><div class="bx-cover" style="background:${b.colour}">${b.title}${corner}</div><div class="bx-tt">${b.title}</div><div class="bx-tag">${b.tag}</div>${start}</div>`;
+  };
+  const frame = (cap, inner) => `<div class="bx-frame"><div class="bx-cap"><span>${cap}</span></div>${inner}</div>`;
+  const cards = (v) => `<div class="bx-cards">${READING.map((b) => card(b, v)).join("")}</div>`;
+  const tiles = (v, phone) => `<div class="bx-tiles ${phone ? "bx-phone" : "bx-desk"}">${NEXT.map((b) => tile(b, v, phone)).join("")}</div>`;
+
+  for (const el of document.querySelectorAll("[data-bx]")) {
+    const v = el.dataset.variant;
+    if (el.dataset.bx === "update") el.innerHTML = frame("Desktop", cards(v)) + frame("Phone", cards(v));
+    if (el.dataset.bx === "start") el.innerHTML = frame("Desktop · 72px covers", tiles(v, false)) + frame("Phone · swipe row, 96px covers", tiles(v, true));
+    if (el.dataset.bx === "together") el.innerHTML =
+      frame("Desktop", cards("u1") + `<div style="margin-top:20px;font:600 15px var(--ui)">Up next</div><div style="margin-top:10px">${tiles("s1", false)}</div>`) +
+      frame("Phone", cards("u1") + `<div style="margin-top:20px;font:600 15px var(--ui)">Up next</div><div style="margin-top:10px">${tiles("s1", true)}</div>`);
+  }
+  // S1's after-tap state: a moment of "✓ Reading", as the tile would show before it leaves.
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-start]");
+    if (!b || b.dataset.done) return;
+    b.dataset.done = "1";
+    const was = b.innerHTML;
+    b.innerHTML = `<span class="bx-done">${I.check}</span>Reading`;
+    setTimeout(() => { b.innerHTML = was; delete b.dataset.done; }, 1500);
+  });
+})();
 </script>

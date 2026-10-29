@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import type { Book } from '@prisma/client'
-import { ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Users } from 'lucide-react'
 import { chapterAt, formatEntry, formatPosition, progressWhole } from '@/lib/progress'
 import { cn } from '@/lib/utils'
 import { fetcher, swrOptions } from '@/lib/fetcher'
@@ -12,7 +12,6 @@ import { discoverBookOf } from '@/lib/openLibrary'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useUser from '@/app/hooks/useUser'
 import BookCover from '../cards/BookCover'
-import { secondaryButtonClass } from './ProfileHeader'
 import UpdateSheet from './UpdateSheet'
 
 interface ContinueReadingProps {
@@ -78,6 +77,27 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
   const href = bookHref({ workKey: book.workKey, title: book.title })
   const update = (e: React.MouseEvent<HTMLElement>) => onUpdate(book, e.currentTarget.closest('li')!)
   const details = () => openDetails(discoverBookOf(book))
+  // Where you are, the bar, and (on your own books) a quiet Update chip at the end of the line.
+  const place = (
+    <>
+      <span className="flex min-h-7 items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
+        <span className="min-w-0">{position}</span>
+        {!readOnly && (
+          <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 font-medium text-foreground transition group-hover/update:bg-neutral-200 dark:bg-neutral-800 dark:group-hover/update:bg-neutral-700">
+            <Pencil size={12} aria-hidden />Update<span className="sr-only"> progress for {book.title}</span>
+          </span>
+        )}
+      </span>
+      <span className="mt-1.5 flex items-center gap-2">
+        <span role="progressbar" aria-label={`${book.title} progress`} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}
+          className="relative block h-1.5 flex-1 rounded-full bg-neutral-200 transition group-hover/update:brightness-125 dark:bg-neutral-700">
+          <span className="block h-full rounded-full transition-[width] duration-500" style={{ width: `${progress}%`, background: accent }} />
+          {circle?.at != null && <span aria-hidden title={`Circle ${circle.label}`} className="absolute -top-1 h-3.5 w-0.5 rounded-full bg-foreground" style={{ left: `${circle.at}%` }} />}
+        </span>
+        {circle?.at != null && <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">circle {circle.label}</span>}
+      </span>
+    </>
+  )
   const coverWidth = size === 'large' ? 'w-20' : size === 'card' ? 'w-16' : 'w-12'
   const title = href && !readOnly
     ? <Link href={href} className="hover:underline underline-offset-2">{book.title}</Link>
@@ -95,23 +115,14 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
             <Users size={11} aria-hidden />Reading circle
           </Link>
         )}
-        <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-          {position}
-        </p>
-        <div className="mt-2 flex items-center gap-2">
-          <div role="progressbar" aria-label={`${book.title} progress`} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}
-            className="relative h-1.5 flex-1 rounded-full bg-neutral-200 dark:bg-neutral-700">
-            <div className="h-full rounded-full" style={{ width: `${progress}%`, background: accent }} />
-            {circle?.at != null && <span aria-hidden title={`Circle ${circle.label}`} className="absolute -top-1 h-3.5 w-0.5 rounded-full bg-foreground" style={{ left: `${circle.at}%` }} />}
-          </div>
-          {circle?.at != null && <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">circle {circle.label}</span>}
-        </div>
+        {readOnly ? <div className="mt-1">{place}</div> : (
+          // The place and its bar are the Update button (a 44px row), so the bar keeps the card's full width.
+          <button type="button" onClick={update}
+            className="group/update mt-1 block min-h-11 w-full rounded-md py-1 text-left transition active:scale-[.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+            {place}
+          </button>
+        )}
       </div>
-      {!readOnly && (
-        <button type="button" onClick={update} className={cn(secondaryButtonClass, "shrink-0 self-center")}>
-          Update<span className="sr-only"> progress for {book.title}</span>
-        </button>
-      )}
     </li>
   )
 }

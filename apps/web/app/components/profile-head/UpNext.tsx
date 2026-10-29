@@ -2,9 +2,10 @@
 import { FC, useState } from 'react'
 import useSWR from 'swr'
 import type { Book } from '@prisma/client'
-import { Loader2, Play } from 'lucide-react'
+import axios from 'axios'
+import { BookOpen, Check, Loader2 } from 'lucide-react'
 import { fetcher, swrOptions } from '@/lib/fetcher'
-import { notify } from '@/lib/notify'
+import { notify, apiError } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { positionLabel, trackerGroups, type SeriesTrack } from '@/lib/series'
 import type { DiscoverBook } from '@/lib/openLibrary'
@@ -13,7 +14,6 @@ import useBooks from '@/app/hooks/useBooks'
 import useSettings from '@/app/hooks/useSettings'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
-import { reshelveBook } from '../books/ShelfMenuItems'
 import { groupShelf } from '../books/shelf'
 import BookCover from '../cards/BookCover'
 import { SERIES_TRACKER_KEY } from '../series/FollowSeriesButton'
@@ -31,38 +31,68 @@ interface Pick {
   cardColour?: string | null
   tag: string
   bookId?: string
+  // Where it sits now, so Start can pick a paused book back up and Undo can put it back.
+  status?: string | null
   discover?: DiscoverBook
 }
+
+// How long Start says "Reading" before the tile leaves the row.
+const STARTED_MS = 1500
 
 const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
   const { mutate } = useBooks()
   const bookEntryModal = useBookEntryModal()
-  const [starting, setStarting] = useState(false)
+  const [state, setState] = useState<'idle' | 'starting' | 'started'>('idle')
+  const refresh = async () => { await mutate(); refreshAfterBookChange() }
+  const paused = pick.status === "PAUSED"
+
+  // Starts it straight away and offers Undo, as the app does everywhere, rather than asking first. A paused
+  // book picks up where it was; one from your Want to read starts from the beginning.
   const start = async () => {
     if (!pick.bookId) return pick.discover && bookEntryModal.onOpen(pick.discover, { shelf: "STARTED" })
-    setStarting(true)
-    if (await reshelveBook(pick.bookId, "STARTED")) notify.success(`Started ${pick.title}`)
-    await mutate()
-    refreshAfterBookChange()
-    setStarting(false)
+    const id = pick.bookId
+    setState('starting')
+    try {
+      await axios.post("/api/book-progress", paused ? { id, action: "resume" } : { id, action: "start" })
+    } catch (err) {
+      setState('idle')
+      return notify.error(apiError(err, `Couldn't start ${pick.title}. Try again.`))
+    }
+    setState('started')
+    notify.success(`Started ${pick.title}`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          axios.post("/api/book-progress", { id, action: paused ? "pause" : "wantToRead" })
+            .then(refresh)
+            .catch((err) => notify.error(apiError(err, "Couldn't undo that")))
+        },
+      },
+    })
+    setTimeout(refresh, STARTED_MS)
   }
+
   return (
     // Smaller than the Continue cards above, with a quiet Start, so what you're reading stays the loudest thing:
-    // 96px wide on a phone (a row you swipe, the third cover peeking), 72px across eight columns from lg up.
+    // 96px wide on a phone (a row you swipe, the third cover peeking), 72px across seven columns from lg up.
     <li className={cn("flex w-24 shrink-0 snap-start flex-col", !row && "sm:w-auto")}>
       <BookCover book={{ title: pick.title, author: pick.author, coverImage: pick.coverUrl || "", cardColour: pick.cardColour ?? null }}
         variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
       {/* Two lines kept for every title, so a one-line title doesn't lift its Start above the rest of the row. */}
       <p className="mt-1.5 line-clamp-2 min-h-[2.75em] break-words text-xs font-medium leading-snug" title={pick.title}>{pick.title}</p>
       <p className="truncate text-[11px] leading-snug text-muted-foreground" title={pick.tag}>{pick.tag}</p>
-      <button type="button" onClick={start} disabled={starting}
+      {/* One quiet pill at every width: 32px to look at, with a 44px tap area, full width under a phone's cover. */}
+      <button type="button" onClick={start} disabled={state !== 'idle'}
         className={cn(
-          "mt-auto inline-flex items-center gap-1 rounded-md text-xs font-medium transition disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          // A button you can hit with a thumb below lg; a quiet text button beside the Continue cards above it.
-          "mt-2 h-11 w-full justify-center border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900",
-          "lg:mt-auto lg:h-8 lg:w-auto lg:justify-start lg:-ml-1.5 lg:border-0 lg:px-1.5 lg:text-muted-foreground lg:hover:bg-transparent lg:hover:text-foreground",
+          "relative mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium transition",
+          "border-neutral-200 bg-neutral-100 hover:bg-neutral-200 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800",
+          "after:absolute after:inset-x-0 after:-inset-y-1.5 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          !row && "lg:w-auto lg:self-start",
         )}>
-        {starting ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <Play size={12} aria-hidden />}Start
+        {state === 'starting' ? <Loader2 size={13} className="animate-spin" aria-hidden />
+          : state === 'started' ? <Check size={13} aria-hidden className="text-emerald-600 dark:text-emerald-400" />
+          : <BookOpen size={13} aria-hidden />}
+        {state === 'started' ? "Reading" : "Start"}
         <span className="sr-only"> {pick.title}</span>
       </button>
     </li>
@@ -96,12 +126,12 @@ const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = fal
     add({
       key: `series-${track.key}`, title: next.title, author: next.author, coverUrl: next.coverUrl,
       tag: [positionLabel(next.position), track.name].filter(Boolean).join(" · "),
-      bookId: next.bookId ?? undefined,
+      bookId: next.bookId ?? undefined, status: next.status,
       discover: { workKey: next.workKey, title: next.title, author: next.author, pages: null, coverUrl: next.coverUrl },
     })
   }
   for (const book of groupShelf(books as Book[]).wantToRead) {
-    add({ key: book.id, title: book.title, author: book.author, coverUrl: book.coverImage, cardColour: book.cardColour, tag: "Want to read", bookId: book.id })
+    add({ key: book.id, title: book.title, author: book.author, coverUrl: book.coverImage, cardColour: book.cardColour, tag: "Want to read", bookId: book.id, status: book.status })
   }
   if (!settings?.hideShelfPicks) {
     const label = genre?.genres[0]?.label

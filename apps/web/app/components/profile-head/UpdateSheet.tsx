@@ -2,7 +2,7 @@
 import { FC, FormEvent, useEffect, useState } from 'react'
 import axios from 'axios'
 import type { Book } from '@prisma/client'
-import { X } from 'lucide-react'
+import { Check, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { notify, apiError } from '@/lib/notify'
 import {
@@ -12,15 +12,20 @@ import useBooks from '@/app/hooks/useBooks'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import StarRating from '../StarRating'
 import UpNext from './UpNext'
-import { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
+import { primaryButtonClass } from './ProfileHeader'
 
 // The ways a place can be said: on the book's own scale (pages, or time for an audiobook), or as a percent,
 // a chapter or a Kindle location, which are all stored as a percent (lib/progress.ts).
 type Unit = 'pages' | 'time' | 'percent' | 'chapters' | 'location'
-const UNIT_LABEL: Record<Unit, string> = { pages: 'Pages', time: 'Time', percent: '%', chapters: 'Chapters', location: 'Location' }
+const UNIT_LABEL: Record<Unit, string> = { pages: 'Pages', time: 'Time', percent: 'Percent', chapters: 'Chapters', location: 'Location' }
 const ENTRY_OF: Record<Unit, ProgressEntry> = { pages: 'PAGES', time: 'PAGES', percent: 'PERCENT', chapters: 'CHAPTERS', location: 'LOCATION' }
 
+// One corner radius (rounded-lg) for the tabs, fields and buttons in the sheet.
 const fieldClass = "h-11 w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-background px-3 text-base tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+
+// The sheet's buttons: a full-width 44px target on a phone, the usual size from sm up, all rounded-lg.
+const sheetButton = "h-11 w-full rounded-lg sm:h-9 sm:w-auto"
+const ghostClass = "inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium text-muted-foreground transition hover:bg-neutral-100 hover:text-foreground disabled:opacity-60 dark:hover:bg-neutral-900 sm:h-9 sm:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 // "3:23" or "203" (minutes) → minutes; NaN when it isn't either.
 const parseTime = (raw: string) => {
@@ -135,34 +140,40 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
 
   return (
     <>
-      <button type="button" aria-label="Close" onClick={onClose} className="fixed inset-0 z-40 cursor-default bg-black/40 sm:bg-transparent" />
+      <button type="button" aria-label="Close" onClick={onClose} className="fixed inset-0 z-40 cursor-default bg-black/40 sm:bg-black/20" />
       <div role="dialog" aria-modal="true" aria-label={`Update ${book.title}`} style={{ '--sheet-top': `${top}px` } as React.CSSProperties}
         className={cn(
           "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border border-neutral-200 dark:border-neutral-800 bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl",
-          "sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-[var(--sheet-top)] sm:mt-2 sm:w-96 sm:rounded-xl sm:pb-5",
+          // From sm up it spans the cards under the one that opened it, so it doesn't half-cover the next card.
+          "sm:absolute sm:inset-x-0 sm:bottom-auto sm:top-[var(--sheet-top)] sm:mt-2 sm:rounded-xl sm:pb-5",
         )}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">{step === 'log' ? 'Update progress' : step === 'rate' ? 'Finished' : 'What’s next?'}</p>
             <p className="line-clamp-2 font-semibold leading-snug">{book.title}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="-mr-2 -mt-1 rounded-md p-2 text-muted-foreground hover:text-foreground"><X size={18} aria-hidden /></button>
+          <button type="button" onClick={onClose} aria-label="Close" className="-mr-2 -mt-2 grid size-10 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-neutral-100 hover:text-foreground dark:hover:bg-neutral-900"><X size={18} aria-hidden /></button>
         </div>
 
         {step === 'log' && (
           <form onSubmit={save}>
-            <div role="tablist" aria-label="Log in" className="mb-4 flex gap-1 rounded-full bg-neutral-100 dark:bg-neutral-900 p-1">
+            <div role="tablist" aria-label="Log in" className="mb-4 flex gap-1 rounded-lg bg-neutral-100 dark:bg-neutral-900 p-1">
               {units.map((u) => (
                 <button key={u} type="button" role="tab" aria-selected={u === unit} onClick={() => setUnit(u)}
-                  className={cn("h-8 flex-1 rounded-full text-xs font-medium transition", u === unit ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                  className={cn("h-11 flex-1 rounded-md text-xs font-medium transition sm:h-9", u === unit ? "bg-background text-foreground shadow-sm dark:bg-neutral-700" : "text-muted-foreground hover:text-foreground")}>
                   {UNIT_LABEL[u]}
                 </button>
               ))}
             </div>
             <div className="flex items-center gap-2">
-              {(unit === 'chapters' || unit === 'location') && <span className="text-sm text-muted-foreground">{unit === 'chapters' ? 'Ch' : 'Loc'}</span>}
-              <input autoFocus inputMode={unit === 'time' ? 'text' : 'numeric'} aria-label={UNIT_LABEL[unit]} value={value} onChange={(e) => setValue(e.target.value)}
-                placeholder={unit === 'time' ? 'h:mm' : undefined} className={fieldClass} />
+              {/* "Ch" and "Loc" sit inside the field, as part of what you're typing. */}
+              <label className="relative min-w-0 flex-1">
+                {(unit === 'chapters' || unit === 'location') && (
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{unit === 'chapters' ? 'Ch' : 'Loc'}</span>
+                )}
+                <input autoFocus inputMode={unit === 'time' ? 'text' : 'numeric'} aria-label={UNIT_LABEL[unit]} value={value} onChange={(e) => setValue(e.target.value)}
+                  placeholder={unit === 'time' ? 'h:mm' : undefined} className={cn(fieldClass, (unit === 'chapters' || unit === 'location') && (unit === 'chapters' ? "pl-10" : "pl-11"))} />
+              </label>
               {of && <span className="shrink-0 text-sm text-muted-foreground tabular-nums">{of}</span>}
               {(unit === 'chapters' || unit === 'location') && (
                 <>
@@ -173,9 +184,12 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
               )}
             </div>
             {unit === 'chapters' && <p className="mt-2 text-xs text-muted-foreground">The chapter you&apos;re on. Your circle sees chapters too.</p>}
-            <div className="mt-5 flex items-center justify-between gap-2">
-              <button type="button" onClick={() => setStep('rate')} className={secondaryButtonClass}>Finished</button>
-              <button type="submit" disabled={saving} className={primaryButtonClass}>Save</button>
+            {/* Mark finished is a quiet way out, not a second answer beside Save, so it doesn't read as Cancel. */}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <button type="button" onClick={() => setStep('rate')} className={ghostClass}><Check size={15} aria-hidden />Mark finished</button>
+              <button type="submit" disabled={saving} className={cn(primaryButtonClass, sheetButton)}>
+                {saving && <Loader2 size={15} className="animate-spin" aria-hidden />}Save
+              </button>
             </div>
           </form>
         )}
@@ -184,9 +198,11 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
           <div>
             <p className="text-sm text-muted-foreground">How was it?</p>
             <StarRating value={rating} onChange={setRating} size={32} className="mt-2" />
-            <div className="mt-5 flex items-center justify-between gap-2">
-              <button type="button" disabled={saving} onClick={() => finish(false)} className="text-sm text-muted-foreground hover:text-foreground">Skip rating</button>
-              <button type="button" disabled={saving} onClick={() => finish(true)} className={primaryButtonClass}>Mark as finished</button>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <button type="button" disabled={saving} onClick={() => finish(false)} className={ghostClass}>Skip rating</button>
+              <button type="button" disabled={saving} onClick={() => finish(true)} className={cn(primaryButtonClass, sheetButton)}>
+                {saving && <Loader2 size={15} className="animate-spin" aria-hidden />}Mark as finished
+              </button>
             </div>
           </div>
         )}
@@ -195,7 +211,7 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
           <div>
             <UpNext bare row />
             <div className="mt-5 flex justify-end">
-              <button type="button" onClick={onClose} className={primaryButtonClass}>Done</button>
+              <button type="button" onClick={onClose} className={cn(primaryButtonClass, sheetButton)}>Done</button>
             </div>
           </div>
         )}
