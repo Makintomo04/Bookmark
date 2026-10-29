@@ -6,6 +6,7 @@ import { fetcher } from '@/lib/fetcher'
 import type { StaffWork } from '@/lib/catalogueFix'
 import { bookHref, workKeyOfQuery } from '@/lib/workKey'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cardClass, fieldClass, staffSend } from './staffApi'
 import { UploadButton } from '@/utils/uploadthing'
 
@@ -44,7 +45,7 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
       <label className="relative block">
         <span className="sr-only">Search the catalogue</span>
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <input className={`${fieldClass} pl-9 h-10`} placeholder="Title, ISBN or Open Library id (OL45883W)" value={query}
+        <ClearableInput className={`${fieldClass} pl-9 h-10`} placeholder="Title, ISBN or Open Library id (OL45883W)" value={query}
           onChange={(e) => { setQuery(e.target.value); setSelected(null); setCreating(null) }} />
       </label>
 
@@ -146,7 +147,7 @@ const CreateByHand = ({ initialTitle, onBack, onOpen }: { initialTitle: string, 
       {label}
       {multiline
         ? <textarea className={fieldClass} rows={5} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
-        : <input className={fieldClass} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
+        : <ClearableInput className={fieldClass} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
     </label>
   )
 
@@ -270,7 +271,7 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
       {label}
       {multiline
         ? <textarea className={fieldClass} rows={5} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
-        : <input className={fieldClass} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
+        : <ClearableInput className={fieldClass} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
     </label>
   )
 
@@ -297,7 +298,7 @@ const WorkEditor = ({ id, onBack }: { id: string, onBack: () => void }) => {
           {field('seriesPosition', 'Number in series')}
         </div>
         <p className="-mt-2 text-xs text-muted-foreground">Spell the series as its other books have it, so they show together. Use 2.5 for a novella between books 2 and 3. Hardcover&apos;s series check leaves a series set here alone.</p>
-        <input className={fieldClass} placeholder="What was wrong (optional, for the log)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+        <ClearableInput className={fieldClass} placeholder="What was wrong (optional, for the log)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
         <div className="flex items-center gap-3">
           <Button size="sm" onClick={save} disabled={pending}>{pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Save book</Button>
         </div>
@@ -349,7 +350,7 @@ const PageApproval = ({ work, onSaved }: { work: StaffWork, onSaved: (w: StaffWo
       ) : (
         <p className="text-sm text-muted-foreground">Neither Open Library nor Hardcover has this book, so a reader typed it in and it has no page. Give it one once you&apos;ve checked it&apos;s a real, published book and not someone&apos;s private note. Fix the details above first: the page shows them to everyone.</p>
       )}
-      <input className={fieldClass} placeholder={approved ? 'Why it should come down (optional, for the log)' : 'How you checked it (optional, for the log)'} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+      <ClearableInput className={fieldClass} placeholder={approved ? 'Why it should come down (optional, for the log)' : 'How you checked it (optional, for the log)'} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
       <Button size="sm" variant={approved ? 'outline' : 'default'} className="self-start" onClick={send} disabled={pending}>
         {pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}{approved ? 'Take the page down' : 'Give it a book page'}
       </Button>
@@ -393,7 +394,7 @@ const EditionEditor = ({ edition, onSaved }: { edition: StaffWork['editions'][nu
             <input className={fieldClass} inputMode="numeric" placeholder="Pages" value={pages} onChange={(e) => setPages(e.target.value)} />
           </label>
           <label className="text-sm flex-1"><span className="sr-only">Cover image link</span>
-            <input className={fieldClass} placeholder="Cover image link (https)" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} />
+            <ClearableInput className={fieldClass} placeholder="Cover image link (https)" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} />
           </label>
           <Button size="sm" variant="outline" onClick={save} disabled={pending || !dirty}>{pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Save</Button>
         </div>

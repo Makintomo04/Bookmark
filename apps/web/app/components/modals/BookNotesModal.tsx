@@ -4,6 +4,7 @@ import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { Textarea } from '../ui/textarea'
 import { Button } from '../ui/button'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
@@ -77,7 +78,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
       <div className="flex flex-col gap-4 w-full">
         <div className="flex flex-col gap-2">
           <Label className="text-md font-bold" htmlFor="recommended-by">Recommended by</Label>
-          <input id="recommended-by" value={recommender} maxLength={RECOMMENDED_BY_MAX} autoComplete="off"
+          <ClearableInput id="recommended-by" value={recommender} maxLength={RECOMMENDED_BY_MAX} autoComplete="off"
             onChange={(e) => setRecommender(e.target.value)} onBlur={saveRecommender}
             onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
             placeholder="A friend, a podcast, a bookshop..."

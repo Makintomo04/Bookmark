@@ -2,6 +2,7 @@
 import { FC, ReactNode, useEffect, useMemo, useState } from 'react'
 import { ArrowUpDown, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import {
   EMPTY_FILTER, FORMAT_LABEL, SHELF_SORTS, SHELF_TITLE, SORT_LABEL, filterOptions,
   type ShelfBook, type ShelfFilter, type ShelfSort,
@@ -101,12 +102,12 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions 
         <label className="relative flex-1 min-w-0 sm:min-w-[12rem]">
           <span className="sr-only">Search your shelf</span>
           <Search size={16} aria-hidden className="pointer-events-none absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
+          <ClearableInput
             type="search"
             value={filter.q}
             onChange={(e) => set({ q: e.target.value })}
             placeholder={placeholder}
-            className="h-10 w-full rounded-full border border-neutral-300 dark:border-neutral-700 bg-background pl-9 sm:pl-10 pr-3 sm:pr-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 w-full rounded-full border border-neutral-300 dark:border-neutral-700 bg-background pl-9 sm:pl-10 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
           />
         </label>
         <PillSelect

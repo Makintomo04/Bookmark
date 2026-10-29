@@ -10,6 +10,7 @@ import Modal from './Modal'
 import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 import BookCover from '../cards/BookCover'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
 import { GENRES } from '@/lib/genres'
@@ -158,7 +159,7 @@ const ListEditorModal: FC = () => {
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <label htmlFor="list-title" className="text-sm font-medium">Title</label>
-        <input id="list-title" value={draft.title} maxLength={TITLE_MAX} onChange={(e) => update({ title: e.target.value })} placeholder="e.g. Cosy fantasy for winter nights" disabled={isSaving} autoComplete="off" className={cn(fieldClass, "h-10")} />
+        <ClearableInput id="list-title" value={draft.title} maxLength={TITLE_MAX} onChange={(e) => update({ title: e.target.value })} placeholder="e.g. Cosy fantasy for winter nights" disabled={isSaving} autoComplete="off" className={cn(fieldClass, "h-10")} />
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
@@ -300,7 +301,7 @@ const ListEditorModal: FC = () => {
             ))}
           </div>
         )}
-        <input id="list-tags" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onBlur={addTag}
+        <ClearableInput id="list-tags" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onBlur={addTag}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag() } }}
           placeholder="Type a theme and press Enter" disabled={isSaving || draft.tags.length >= 10} autoComplete="off" className={cn(fieldClass, "h-10")} />
       </div>
@@ -329,7 +330,7 @@ const ListEditorModal: FC = () => {
       <Switch checked={draft.isPick} onChange={(v) => update({ isPick: v })} label="Bookmark Pick" hint="Badged as a Pick and shown in the Picks row on Discover." accent={accent} disabled={isSaving} />
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">Spotlight <span className="font-normal text-muted-foreground">· featured at the top of Discover between these dates</span></span>
-        <input value={draft.featuredLabel} maxLength={60} onChange={(e) => update({ featuredLabel: e.target.value })} placeholder="Label, e.g. Black History Month" aria-label="Spotlight label" disabled={isSaving} className={cn(fieldClass, "h-10")} />
+        <ClearableInput value={draft.featuredLabel} maxLength={60} onChange={(e) => update({ featuredLabel: e.target.value })} placeholder="Label, e.g. Black History Month" aria-label="Spotlight label" disabled={isSaving} className={cn(fieldClass, "h-10")} />
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">From
             <input type="date" value={draft.featuredFrom} onChange={(e) => update({ featuredFrom: e.target.value })} disabled={isSaving} className={cn(fieldClass, "h-10 text-foreground")} />

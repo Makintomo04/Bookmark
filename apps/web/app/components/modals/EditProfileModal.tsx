@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form'
 import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
 import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, usernameProblem } from '@/lib/profile'
@@ -189,7 +190,7 @@ const EditProfileModal: FC = () => {
             {displayName?.length ?? 0}/{DISPLAY_NAME_MAX}
           </span>
         </div>
-        <input
+        <ClearableInput
           id="displayName"
           autoComplete="name"
           disabled={isSaving}
@@ -206,7 +207,7 @@ const EditProfileModal: FC = () => {
 
       <div className="flex flex-col gap-2">
         <label htmlFor="username" className="text-sm font-medium">Username</label>
-        <input
+        <ClearableInput
           id="username"
           autoComplete="off"
           spellCheck={false}

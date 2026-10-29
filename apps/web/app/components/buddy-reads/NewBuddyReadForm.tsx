@@ -20,6 +20,7 @@ import BookSearchResults, { BookSearchResult } from '../modals/BookSearchResults
 import FetchErrorState from '../FetchErrorState'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 import UpgradePrompt from '../plus/UpgradePrompt'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 
 // Books worth reading together: not ones already finished or given up on.
 const SHELVES: Record<string, string> = { STARTED: "Reading", PAUSED: "Paused", NOT_STARTED: "Want to read" }
@@ -240,13 +241,13 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
         </div>
 
         <fieldset className="flex flex-col gap-3">
-          <legend className="text-sm font-medium">Schedule <span className="font-normal text-muted-foreground">· optional</span></legend>
-          <p className="text-sm text-muted-foreground">Checkpoints to read up to, as a percent so they work in any edition.</p>
+          <legend className="text-sm font-medium">Reading plan <span className="font-normal text-muted-foreground">· optional</span></legend>
+          <p className="text-sm text-muted-foreground">Split the book into stops so everyone keeps pace and talks about each part together, like &ldquo;Chapters 1–5, to 25%, by 3 Nov&rdquo;. Percentages work whichever edition people have.</p>
           {rows.length > 0 && (
             <ol className="flex flex-col gap-2">
               {rows.map((r, i) => (
                 <li key={i} className="grid grid-cols-[minmax(0,1fr)_72px_auto] sm:grid-cols-[minmax(0,1fr)_88px_150px_auto] items-center gap-2">
-                  <input aria-label={`Checkpoint ${i + 1} name`} value={r.label} onChange={(e) => setRow(i, { label: e.target.value })} maxLength={LABEL_MAX} placeholder="Chapters 1–5" className={inputClass} />
+                  <ClearableInput aria-label={`Checkpoint ${i + 1} name`} value={r.label} onChange={(e) => setRow(i, { label: e.target.value })} maxLength={LABEL_MAX} placeholder="Chapters 1–5" className={inputClass} />
                   <input aria-label={`Checkpoint ${i + 1} percent`} value={r.until} onChange={(e) => setRow(i, { until: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) })} inputMode="decimal" placeholder="25%" className={inputClass} />
                   <input aria-label={`Checkpoint ${i + 1} due date`} type="date" value={r.due} onChange={(e) => setRow(i, { due: e.target.value })} className={cn(inputClass, "hidden sm:block")} />
                   <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label={`Remove checkpoint ${i + 1}`} className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800">
