@@ -45,7 +45,7 @@ const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId,
   }
 
   const body = (
-    <div className="flex w-full flex-col gap-4">
+    <div className="flex w-full flex-col gap-4 px-6 pt-4">
       <p className="text-sm text-muted-foreground">
         The new host can invite and remove readers, change the schedule, and finish or archive the circle. Your comments stay where they are.
       </p>

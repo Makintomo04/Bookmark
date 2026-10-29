@@ -2,6 +2,7 @@
 import { FC, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 
 // "Or paste an image link", beside a cover's upload button. The server copies the image to our storage
 // (app/api/covers/from-link) and hands back its address, which the form then uses like an upload.
@@ -31,7 +32,7 @@ const CoverLinkInput: FC<{ onCopied: (url: string) => void, disabled?: boolean }
       <div className="flex gap-2">
         <label className="flex-1">
           <span className="sr-only">Cover image link</span>
-          <input
+          <ClearableInput
             type="url"
             inputMode="url"
             value={link}

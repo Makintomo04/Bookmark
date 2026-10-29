@@ -9,6 +9,7 @@ import { BookOpen, Camera, Check, ChevronRight, Loader2, Target, Upload, Users }
 import Loader from '@/app/components/Loader'
 import FetchErrorState from '@/app/components/FetchErrorState'
 import { Button } from '@/app/components/ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import ColourSwatches from '@/app/components/profile/ColourSwatches'
 import CommunityStep from '@/app/components/new-user/CommunityStep'
 import useUser from '@/app/hooks/useUser'
@@ -206,7 +207,7 @@ const Page = () => {
 
       <div className="flex flex-col gap-2">
         <label htmlFor="username" className="text-sm font-medium">Username</label>
-        <input
+        <ClearableInput
           id="username"
           autoComplete="username"
           autoCapitalize="none"
@@ -234,7 +235,7 @@ const Page = () => {
             {displayName?.length ?? 0}/{DISPLAY_NAME_MAX}
           </span>
         </div>
-        <input
+        <ClearableInput
           id="displayName"
           autoComplete="name"
           placeholder="e.g. Jane Reader"

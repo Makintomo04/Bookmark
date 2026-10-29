@@ -6,6 +6,7 @@ import { Check, Link2 } from 'lucide-react'
 import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import FriendsPicker from './FriendsPicker'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 
 interface InvitePanelProps {
   buddyReadId: string
@@ -84,14 +85,15 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
       <FriendsPicker buddyReadId={buddyReadId} memberUsernames={memberUsernames} room={BUDDY_READ_MAX_MEMBERS - memberCount} />
       <form onSubmit={(e) => { e.preventDefault(); invite() }} className="flex gap-2">
         <label htmlFor="invite-username" className="sr-only">Username</label>
-        <input
+        <ClearableInput
           id="invite-username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           placeholder="@username"
           autoComplete="off"
           disabled={isSending}
-          className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          wrapperClassName="flex-1"
+          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
         <button type="submit" disabled={isSending || !username.trim()} className={secondaryButtonClass}>Invite</button>
       </form>

@@ -10,6 +10,7 @@ import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { BULK_MAX } from '@/lib/bulkRules'
 import { TAG_MAX_LENGTH, cleanTag } from '@/lib/shelfTags'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -137,7 +138,7 @@ const BulkBar: FC<{ selected: Book[], onDone: () => void, onCancel: () => void }
         <DropdownMenuContent align="end" className="w-60 max-h-80 overflow-y-auto">
           <form onSubmit={onNewTag} className="p-1.5" onKeyDown={(e) => e.stopPropagation()}>
             <label htmlFor="bulk-new-tag" className="sr-only">New tag</label>
-            <input id="bulk-new-tag" value={newTag} maxLength={TAG_MAX_LENGTH} onChange={(e) => setNewTag(e.target.value)} placeholder="New tag, then Enter"
+            <ClearableInput id="bulk-new-tag" value={newTag} maxLength={TAG_MAX_LENGTH} onChange={(e) => setNewTag(e.target.value)} placeholder="New tag, then Enter"
               className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </form>
           {shelfTags.length > 0 && <DropdownMenuLabel>Add a tag</DropdownMenuLabel>}

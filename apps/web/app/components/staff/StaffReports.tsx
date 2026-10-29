@@ -7,6 +7,7 @@ import { fetcher } from '@/lib/fetcher'
 import { cn } from '@/lib/utils'
 import type { QueueEntry, ReportAction } from '@/lib/staffReports'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cardClass, fieldClass, formatDate, staffSend } from './staffApi'
 
 const KIND_LABELS: Record<QueueEntry['kind'], string> = { list: 'List', comment: 'Comment', review: 'Review', book: 'Book details' }
@@ -101,7 +102,7 @@ const ReportCard = ({ entry, canSuspend, closed, onDone }: { entry: QueueEntry, 
       {!closed && (
         <div className="mt-4 flex flex-col gap-3">
           <label className="sr-only" htmlFor={`note-${entry.itemId}`}>Note for the log</label>
-          <input id={`note-${entry.itemId}`} className={fieldClass} placeholder="Note for the log (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+          <ClearableInput id={`note-${entry.itemId}`} className={fieldClass} placeholder="Note for the log (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
           <div className="flex flex-wrap gap-2">
             {entry.kind === 'book' ? (
               <>

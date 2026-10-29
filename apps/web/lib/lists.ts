@@ -11,6 +11,7 @@ import { openReportWhere } from "./staffReports"
 import { staffBadgeOf, staffBadgeSelect } from "./staffBadge"
 import type { DiscoverBook } from "./openLibrary"
 import { withoutUploadedCovers } from "./uploads"
+import { workIdsWithPages } from "./workPages"
 import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
 
 export * from "./listRules"
@@ -506,9 +507,11 @@ export async function followingPicks(viewerId: string) {
       where: { userId: { in: ids }, status: "COMPLETED", rating: { gte: 4 }, ...sharedBookWhere, AND: [countedRatingWhere] },
       orderBy: { completedAt: "desc" },
       take: 40,
-      select: { id: true, userId: true, workKey: true, title: true, author: true, coverImage: true, pages: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, completedAt: true, createdAt: true },
+      select: { id: true, userId: true, workKey: true, workId: true, title: true, author: true, coverImage: true, pages: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, completedAt: true, createdAt: true },
     }),
   ])
+  // A rated book without an Open Library key links to its page by catalogue Work id, when the work has one (bookHref).
+  const withPages = await workIdsWithPages(rated.map((b) => (b.workKey ? null : b.workId)))
 
   const candidates: FollowingPick[] = []
   for (const item of items) {
@@ -530,7 +533,7 @@ export async function followingPicks(viewerId: string) {
     if (!person) continue
     candidates.push({
       key: `book-${book.id}`,
-      book: { workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverImage || null, pages: book.pages || null },
+      book: { workKey: book.workKey, pageWorkId: !book.workKey && book.workId && withPages.has(book.workId) ? book.workId : null, title: book.title, author: book.author, coverUrl: book.coverImage || null, pages: book.pages || null },
       person: publicPerson(person),
       reason: reviewSnippet(book, person),
       rating: book.rating,
