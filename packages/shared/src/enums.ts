@@ -4,5 +4,6 @@
 export type Plan = "FREE" | "PLUS";
 export type ProfileVisibility = "PUBLIC" | "FOLLOWERS" | "PRIVATE";
 export type ReviewVisibility = "EVERYONE" | "FOLLOWERS" | "ONLY_ME";
+export type ReviewCommentAudience = "EVERYONE" | "FRIENDS" | "OFF";
 export type BuddyReadInviteAudience = "EVERYONE" | "FOLLOWING" | "FRIENDS" | "NOBODY";
 export type ListVisibility = "PRIVATE" | "PUBLIC";

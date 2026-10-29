@@ -88,6 +88,15 @@ export async function GET(req: Request) {
   const hiddenById = new Map(hiddenCopies.map(({ workKey, workId, ...b }) => [b.id, { ...b, onShelf: true, href: bookHref({ workKey, pageWorkId: workId, title: b.title }) }]))
   const withHiddenReviews = withRecommendations.map((n) => (n.type === "REVIEW_HIDDEN" || n.type === "REVIEW_RESTORED" ? { ...n, book: n.bookId ? hiddenById.get(n.bookId) ?? null : null } : n))
 
+  // A comment on a review (or a reply) names the book and links to the review's page, whoever wrote it.
+  const isReviewComment = (n: (typeof notifications)[number]) => n.type === "REVIEW_COMMENT" || n.type === "REVIEW_REPLY"
+  const reviewBookIds = Array.from(new Set(notifications.flatMap((n) => (isReviewComment(n) && n.bookId ? [n.bookId] : []))))
+  const reviewCopies = reviewBookIds.length > 0
+    ? await prisma.book.findMany({ where: { id: { in: reviewBookIds } }, select: { id: true, title: true, user: { select: { username: true } } } })
+    : []
+  const reviewById = new Map(reviewCopies.map((b) => [b.id, { title: b.title, href: b.user.username ? `/u/${encodeURIComponent(b.user.username)}/reviews/${b.id}` : null }]))
+  const withReviewComments = withHiddenReviews.map((n) => (isReviewComment(n) ? { ...n, review: n.bookId ? reviewById.get(n.bookId) ?? null : null } : n))
+
   // A new book in a series names the book, its series and place, and links to its page.
   const workIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "NEW_IN_SERIES" && n.workId ? [n.workId] : []))))
   const works = workIds.length > 0
@@ -101,7 +110,7 @@ export async function GET(req: Request) {
     // Series books are filed from Hardcover, so nearly all have a page (lib/workPages.ts).
     href: bookHref({ workKey: w.openLibraryKey, pageWorkId: hasPage(w) ? w.id : null, title: w.title }),
   }]))
-  const withWorks = withHiddenReviews.map((n) => (n.type === "NEW_IN_SERIES" ? { ...n, work: n.workId ? workById.get(n.workId) ?? null : null } : n))
+  const withWorks = withReviewComments.map((n) => (n.type === "NEW_IN_SERIES" ? { ...n, work: n.workId ? workById.get(n.workId) ?? null : null } : n))
 
   // The actor's staff seal, if any, instead of the role fields it came from: hideStaffBadge says a librarian
   // is one, so it never leaves the server.

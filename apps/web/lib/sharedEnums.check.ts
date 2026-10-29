@@ -9,6 +9,7 @@ export const sharedEnumsMatchSchema: [
   Same<Db.Plan, Shared.Plan>,
   Same<Db.ProfileVisibility, Shared.ProfileVisibility>,
   Same<Db.ReviewVisibility, Shared.ReviewVisibility>,
+  Same<Db.ReviewCommentAudience, Shared.ReviewCommentAudience>,
   Same<Db.BuddyReadInviteAudience, Shared.BuddyReadInviteAudience>,
   Same<Db.ListVisibility, Shared.ListVisibility>,
-] = [true, true, true, true, true];
+] = [true, true, true, true, true, true];

@@ -2,12 +2,11 @@
 import { FC, useState } from 'react'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
-import ReviewText from '../feed/ReviewText'
+import Link from 'next/link'
+import { EyeOff, Lock } from 'lucide-react'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
 import { pillClass } from '../books/ShelfToolbar'
 import AuthorLink from '@/app/components/AuthorLink'
-import BookDetailsButton from '../books/BookDetailsButton'
-import ReportReviewButton from '../books/ReportReviewButton'
 import { reviewedBooks } from '@/lib/reviewedBooks'
 import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 
@@ -33,10 +32,8 @@ interface ProfileReviewsProps {
   books: ReviewedBook[]
   accentColour?: string | null
   title?: string
-  // Someone else's profile: each review gets a Report button.
-  canReport?: boolean
-  // The reader's reviews page: the heading's "See all" goes there. Without it (on that page), "See all"
-  // opens every review in place.
+  // The reader's reviews page (/u/<username>/reviews): the heading's "See all" goes there, and each review's
+  // own page sits beneath it. Without it (on that page), "See all" opens every review in place.
   href?: string
   // The reviews page, whose own title already heads the list: no section heading, just the reviews.
   bare?: boolean
@@ -51,29 +48,41 @@ const FIRST = 5
 const MORE = 20
 
 // The reviews on a profile, newest finish first. Renders nothing when there are none to show.
-const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", canReport = false, href, bare = false, collapsible = false, first = FIRST }) => {
+const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", href, bare = false, collapsible = false, first = FIRST }) => {
   const [shown, setShown] = useState(first)
   const collapse = useCollapsedSections()
   const reviewed = reviewedBooks(books)
   if (reviewed.length === 0) return null
   const left = reviewed.length - shown
+  const reviewHref = (id: string) => `${href}/${id}`
 
   const list = (
     <>
       <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
         {reviewed.slice(0, shown).map((book) => (
-          <li key={book.id} className="flex gap-4 py-5 first:pt-0">
-            <BookDetailsButton book={book} duplicate className="w-16 shrink-0 self-start transition hover:opacity-90">
-              <BookCover book={book} variant="thumb" sizes="64px" className="shadow-sm" />
-            </BookDetailsButton>
+          // The whole card opens the review (the title's link is stretched over it); the author's link sits above.
+          <li key={book.id} className="group relative flex gap-3 py-3.5 first:pt-0">
+            <BookCover book={book} variant="thumb" sizes="48px" className="w-12 shrink-0 self-start shadow-sm" />
             <div className="min-w-0 flex-1">
-              <BookDetailsButton book={book} className="font-semibold leading-snug break-words hover:underline underline-offset-4">
-                <span className="sr-only">About </span>{book.title}
-              </BookDetailsButton>
-              <p className="text-sm text-muted-foreground"><AuthorLink author={book.author} /></p>
-              {book.rating ? <StarRating value={book.rating} readOnly size={14} label="Rating" className="mt-1" /> : null}
-              <ReviewText review={book.review} spoiler={book.reviewSpoiler} hidden={book.reviewHidden} removed={book.reviewRemoved} className="mt-2 max-w-2xl" />
-              {canReport && <ReportReviewButton bookId={book.id} className="mt-2" />}
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <Link href={reviewHref(book.id)} className="font-semibold leading-snug break-words after:absolute after:inset-0 group-hover:underline underline-offset-4 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:rounded-md">
+                  <span className="sr-only">Read the review of </span>{book.title}
+                </Link>
+                <span className="relative z-10 text-sm text-muted-foreground"><AuthorLink author={book.author} /></span>
+              </div>
+              {book.rating ? <StarRating value={book.rating} readOnly size={13} label="Rating" className="mt-0.5" /> : null}
+              {(book.reviewHidden || book.reviewSpoiler) && (
+                <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                  {book.reviewHidden && (
+                    <span className="inline-flex items-center gap-1">
+                      <Lock size={12} aria-hidden />{book.reviewRemoved ? "Hidden by the Bookmark team. Only you can see it." : "Only you can see this review"}
+                    </span>
+                  )}
+                  {book.reviewSpoiler && <span className="inline-flex items-center gap-1"><EyeOff size={12} aria-hidden />Contains spoilers</span>}
+                </p>
+              )}
+              {/* A spoiler stays covered until the review's own page, where it can be revealed. */}
+              {!book.reviewSpoiler && <p className="mt-1 max-w-2xl whitespace-pre-line break-words text-sm line-clamp-3">{book.review}</p>}
             </div>
           </li>
         ))}

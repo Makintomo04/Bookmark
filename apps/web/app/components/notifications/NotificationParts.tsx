@@ -28,6 +28,8 @@ export type NotificationLike = {
   count?: number | null
   buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null
   book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null
+  // REVIEW_COMMENT / REVIEW_REPLY: the review commented on, and its page.
+  review?: { title: string; href: string | null } | null
   // NEW_IN_SERIES: the new book.
   work?: { title: string; coverUrl: string | null; seriesName: string | null; seriesPosition: number | null; href: string | null } | null
   actor: { username: string; displayName?: string | null; image?: string | null; favColour?: string | null; staffBadge?: StaffBadgeKind | null }
@@ -44,6 +46,8 @@ export const notificationCopy = (n: NotificationLike) => {
     case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your reading circle for ${book}`
     case "BUDDY_READ_HOSTED": return `handed you the reading circle for ${book}. You're the host now`
     case "FOLLOW_REQUEST": return "asked to follow you"
+    case "REVIEW_COMMENT": return n.review ? `commented on your review of ${n.review.title}` : "commented on your review"
+    case "REVIEW_REPLY": return n.review ? `replied to your comment on a review of ${n.review.title}` : "replied to your comment on a review"
     case "STAFF_ESCALATION": return escalationCopy(n.message)
     default: return "did something"
   }
@@ -51,6 +55,7 @@ export const notificationCopy = (n: NotificationLike) => {
 
 export const notificationHref = (n: NotificationLike) => {
   if (n.type === "ACHIEVEMENT_EARNED") return "/achievements"
+  if ((n.type === "REVIEW_COMMENT" || n.type === "REVIEW_REPLY") && n.review?.href) return `${n.review.href}#comments`
   if ((n.type === "REVIEW_HIDDEN" || n.type === "REVIEW_RESTORED") && n.book?.href) return `${n.book.href}#reviews-heading`
   // The staff queue, or the staff console for a new role. A review back up with no page to show it on,
   // or a reader again, stays here.

@@ -60,7 +60,7 @@ export default async function Page(props: PageProps) {
           <span className="ml-3 text-lg font-normal text-muted-foreground tabular-nums">{count.toLocaleString('en-GB')}</span>
         </h1>
         {count > 0
-          ? <div className="max-w-3xl"><ProfileReviews books={books} accentColour={profile.favColour} canReport={!isSelf} bare /></div>
+          ? <div className="max-w-3xl"><ProfileReviews books={books} accentColour={profile.favColour} href={`/u/${encodeURIComponent(profile.username)}/reviews`} bare /></div>
           : <p className="text-sm text-muted-foreground">{isSelf ? "Reviews you write when you finish a book show up here." : "No reviews to show."}</p>}
       </>
     )

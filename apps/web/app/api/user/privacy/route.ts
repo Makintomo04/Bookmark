@@ -12,6 +12,7 @@ import { z } from "zod";
 const bodySchema = z.object({
   profileVisibility: z.enum(["PUBLIC", "FOLLOWERS", "PRIVATE"]),
   reviewVisibility: z.enum(["EVERYONE", "FOLLOWERS", "ONLY_ME"]),
+  reviewComments: z.enum(["EVERYONE", "FRIENDS", "OFF"]),
   hideWantToRead: z.boolean(),
   hideDidNotFinish: z.boolean(),
   hideFollowCounts: z.boolean(),

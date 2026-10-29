@@ -15,6 +15,7 @@ export const PUSH_GROUPS = {
   circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED"],
   follows: ["NEW_FOLLOWER", "FOLLOW_REQUEST"],
   recommendations: ["BOOK_RECOMMENDED"],
+  reviews: ["REVIEW_COMMENT", "REVIEW_REPLY"],
   account: ["REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED"],
   series: ["NEW_IN_SERIES"],
   // Librarians and admins only. The app has no staff console, so these open the notifications screen;
@@ -29,6 +30,7 @@ export const PUSH_GROUP_LABELS: Record<PushGroup, { title: string; description: 
   circles: { title: "Reading circles", description: "Invites, people joining, new comments you can read, and hosting handed to you." },
   follows: { title: "Followers", description: "New followers and follow requests." },
   recommendations: { title: "Books from friends", description: "When a friend sends you a book." },
+  reviews: { title: "Review comments", description: "When someone comments on your review or replies to your comment." },
   account: { title: "Your account", description: "When the Bookmark team hides or puts back something you posted, or changes your role." },
   series: { title: "New books in your series", description: "When a new book comes out in a series you follow or have started." },
   staff: { title: "Staff work", description: "Reports waiting in the queue, and reports passed to admins." },
@@ -89,6 +91,11 @@ export function pushContentFor(n: PushContext): PushContent | null {
       return { title: "Follow request", body: `${who} asked to follow you.`, path: "/notifications" };
     case "BOOK_RECOMMENDED":
       return { title: "A book from a friend", body: `${who} sent you ${book(n.bookTitle)}.`, path: "/notifications" };
+    // Said, never quoted: a comment's words stay off the lock screen like every other push.
+    case "REVIEW_COMMENT":
+      return { title: "New comment on your review", body: `${who} commented on your review of ${book(n.bookTitle)}.`, path: "/notifications" };
+    case "REVIEW_REPLY":
+      return { title: "New reply", body: `${who} replied to your comment on a review of ${book(n.bookTitle)}.`, path: "/notifications" };
     case "BUDDY_READ_INVITE":
       return { title: "Reading circle invite", body: `${who} asked you to read ${book(n.bookTitle)} together.`, path: circlePath };
     case "BUDDY_READ_JOINED":
