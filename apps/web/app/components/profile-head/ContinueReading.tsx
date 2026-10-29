@@ -84,8 +84,7 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
   const place = (
     <>
       <span className="flex min-h-7 items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
-        {/* Where the circle is goes on this line too, not beside the bar, where it made the card taller. */}
-        <span className="min-w-0 truncate" title={circle?.at != null ? `${position} · circle ${circle.label}` : undefined}>{position}{circle?.at != null && <> · circle {circle.label}</>}</span>
+        <span className="min-w-0 truncate">{position}</span>
         {!readOnly && (
           // Lifted 4px off the bar (equal and opposite margins, so the row keeps its height).
           <span className="-mt-1 mb-1 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 font-medium text-foreground transition group-hover/update:bg-neutral-200 dark:bg-neutral-800 dark:group-hover/update:bg-neutral-700">
@@ -116,19 +115,22 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
       </button>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 font-medium leading-snug" title={book.title}>{title}</p>
-        {/* A circle and a reread ride on the author line, after the name, rather than a row of their own, so
-            every card in the list keeps the same height. The name gives way (truncates) before they do. */}
-        <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+        {/* A circle and a reread ride on the author line, after the name, rather than a row of their own; the
+            line is 28px on every card, so the circle's chip fits and the cards stay one height. The name gives
+            way (truncates) before they do. The circle is the one control here, an outlined chip saying where the
+            circle is, a rank below the filled Update; Reread is plain text, as it does nothing. */}
+        <p className="flex h-7 min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
           <span className="truncate">{book.author}</span>
           {circle && (
-            <Link href={`/circles/${circle.id}`} className="inline-flex shrink-0 items-center gap-1 rounded-sm text-xs font-medium text-foreground/80 hover:text-foreground hover:underline underline-offset-2">
-              <span aria-hidden className="text-muted-foreground">·</span><Users size={12} aria-hidden />Circle
+            // z-10, so its 40px tap area (the after:) wins over the Update row just below it.
+            <Link href={`/circles/${circle.id}`} aria-label={circle.label ? `Your reading circle for ${book.title}, ${circle.label}` : `Your reading circle for ${book.title}`}
+              className="relative z-10 inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-neutral-300 pl-2 pr-1.5 text-xs font-medium text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-2 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Users size={12} aria-hidden />{circle.label.replace(/^at /, '') || 'Circle'}<ChevronRight size={12} aria-hidden className="text-muted-foreground" />
             </Link>
           )}
           {reread && (
-            <span title={readOnly ? "They've read this book before" : "You've read this book before"}
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-foreground/80">
-              <span aria-hidden className="text-muted-foreground">·</span><Repeat2 size={12} aria-hidden />Reread
+            <span title={readOnly ? "They've read this book before" : "You've read this book before"} className="inline-flex shrink-0 items-center gap-1 text-xs">
+              <span aria-hidden>·</span><Repeat2 size={12} aria-hidden />Reread
             </span>
           )}
         </p>
