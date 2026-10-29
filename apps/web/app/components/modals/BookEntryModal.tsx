@@ -11,6 +11,7 @@ import { notify, apiError } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { Textarea } from '../ui/textarea'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
@@ -236,7 +237,7 @@ const BookEntryModal: FC = () => {
     <div className="w-full h-full px-6 self-start">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
-        <input
+        <ClearableInput
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}

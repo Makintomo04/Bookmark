@@ -31,6 +31,7 @@ import ProgressModeToggle from '../books/ProgressModeToggle'
 import useWorkTags from '@/app/hooks/useWorkTags'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import BookBlurb from '../books/BookBlurb'
+import ModalSeries from '../series/ModalSeries'
 import { recommendedByOf } from '@/lib/recommendRules'
 import { spiceAskable, type ReaderTagsInput } from '@/lib/workTags'
 import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../books/WorkTags'
@@ -652,6 +653,8 @@ const BookUpdateModal: FC = () => {
         {(isActive || status === "NOT_STARTED") && !finished && !stopping && (
           <CatchMeUp bookId={book.id} accent={accent} accentInk={accentInk} />
         )}
+        {/* Book 3 of a series you haven't started: see that before starting it, with the earlier books a tap away. */}
+        {status === "NOT_STARTED" && bookKeyOf(book) && <ModalSeries bookKey={bookKeyOf(book)!} onNavigate={close} compact headingClassName="text-sm font-medium" />}
         {blurb}
         {status === "NOT_STARTED" && startControl}
         {isActive && progressControl}

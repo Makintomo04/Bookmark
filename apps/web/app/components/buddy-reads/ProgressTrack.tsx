@@ -3,11 +3,12 @@ import { FC } from 'react'
 import { readerName } from '@/lib/profile'
 import ReaderName from '@/app/components/profile/ReaderName'
 import Link from 'next/link'
-import { X } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { formatPercent, type BuddyReadSchedule } from '@/lib/buddyReads'
 import type { BuddyReadView } from '@/lib/buddyReadsServer'
 import MemberAvatar, { memberColour } from './MemberAvatar'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
 
 interface ProgressTrackProps {
   members: BuddyReadView["members"]
@@ -58,15 +59,23 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-12 text-right text-sm font-semibold tabular-nums">{formatPercent(m.progress)}</span>
+                {/* The host's own row keeps an empty slot so every bar ends at the same place. */}
+                {onRemove && m.isYou && <span aria-hidden className="w-9" />}
                 {onRemove && !m.isYou && (
-                  <button
-                    type="button"
-                    onClick={() => onRemove(m.userId, readerName(m) || null)}
-                    aria-label={`Remove ${readerName(m)}`}
-                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <X size={14} aria-hidden />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Options for ${readerName(m)}`}
+                        className="grid size-9 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <MoreHorizontal size={16} aria-hidden />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => onRemove(m.userId, readerName(m) || null)} className="text-danger">Remove from circle</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
             </li>

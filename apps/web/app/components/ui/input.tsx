@@ -2,6 +2,10 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { FieldErrors, FieldValues, UseFormRegister } from "react-hook-form"
+import { ClearableInput } from "./clearable-input"
+
+// Typed-in text gets a ×; passwords, numbers and pickers don't.
+const CLEARABLE = new Set([undefined, "text", "email", "search", "url", "tel"])
 
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -11,13 +15,15 @@ export interface InputProps
     required?:boolean
     disabled?:boolean
     inputValidation?:Record<string,any>
+    clearable?:boolean
   }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ id,className, type,register ,errors,inputValidation,disabled,required, ...props}, ref) => {
+  ({ id,className, type,register ,errors,inputValidation,disabled,required,clearable = true, ...props}, ref) => {
+    const Field = clearable && CLEARABLE.has(type) ? ClearableInput : "input"
     return (
       <>
-      <input
+      <Field
       {...register(id,inputValidation)}
         id={id}
         type={type}

@@ -20,6 +20,7 @@ import BookSearchResults, { BookSearchResult } from '../modals/BookSearchResults
 import FetchErrorState from '../FetchErrorState'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 import UpgradePrompt from '../plus/UpgradePrompt'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 
 // Books worth reading together: not ones already finished or given up on.
 const SHELVES: Record<string, string> = { STARTED: "Reading", PAUSED: "Paused", NOT_STARTED: "Want to read" }
@@ -312,8 +313,8 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
         </div>
 
         <fieldset className="flex flex-col gap-3">
-          <legend className="text-sm font-medium">Schedule <span className="font-normal text-muted-foreground">· optional</span></legend>
-          <p className="text-sm text-muted-foreground">Checkpoints to read up to, as a percent so they work in any edition.</p>
+          <legend className="text-sm font-medium">Reading plan <span className="font-normal text-muted-foreground">· optional</span></legend>
+          <p className="text-sm text-muted-foreground">Split the book into stops so everyone keeps pace and talks about each part together, like &ldquo;Chapters 1–5, to 25%, by 3 Nov&rdquo;. Percentages work whichever edition people have.</p>
           {rows.length > 0 && (
             <div className="flex flex-col gap-2">
               {/* Column names on wider screens; on phones each row stacks and labels its own fields. */}
@@ -323,7 +324,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
               <ol className="flex flex-col gap-3 sm:gap-2">
                 {rows.map((r, i) => (
                   <li key={i} className="grid grid-cols-[88px_minmax(0,1fr)_auto] gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 sm:grid-cols-[minmax(0,1fr)_88px_150px_44px] pointer-fine:sm:grid-cols-[minmax(0,1fr)_88px_150px_36px] sm:items-center sm:rounded-none sm:border-0 sm:p-0">
-                    <input aria-label={`Checkpoint ${i + 1} name`} value={r.label} onChange={(e) => setRow(i, { label: e.target.value })} maxLength={LABEL_MAX} placeholder="Chapters 1–5" className={cn(inputClass, "col-span-2 sm:col-span-1")} />
+                    <ClearableInput aria-label={`Checkpoint ${i + 1} name`} value={r.label} onChange={(e) => setRow(i, { label: e.target.value })} maxLength={LABEL_MAX} placeholder="Chapters 1–5" wrapperClassName="col-span-2 sm:col-span-1" className={inputClass} />
                     <label className="row-start-2 flex flex-col gap-1 sm:row-start-auto">
                       <span className="text-xs text-muted-foreground sm:sr-only">Up to</span>
                       <input aria-label={`Checkpoint ${i + 1} percent`} value={r.until} onChange={(e) => setRow(i, { until: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) })} inputMode="decimal" placeholder="25%" className={inputClass} />

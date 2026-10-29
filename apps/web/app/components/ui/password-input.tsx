@@ -10,7 +10,7 @@ const PasswordInput = ({ className, ...props }: Omit<InputProps, "type">) => {
   const [visible, setVisible] = useState(false)
   return (
     <div className="relative">
-      <Input {...props} type={visible ? "text" : "password"} className={cn("pr-12 pointer-fine:pr-10", className)} />
+      <Input {...props} clearable={false} type={visible ? "text" : "password"} className={cn("pr-12 pointer-fine:pr-10", className)} />
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}

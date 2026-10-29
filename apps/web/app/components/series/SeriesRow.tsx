@@ -3,13 +3,14 @@ import { FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Half a cover (112px wide, 2:3) down from the row's top padding: where the arrows sit.
+// Half a cover (112px wide, 2:3, or 64px when compact) down from the row's top padding: where the arrows sit.
 const ARROW_TOP = "top-[88px]"
+const COMPACT_ARROW_TOP = "top-[52px]"
 
 // The row of a series' books, opened at the page's own book (the one marked aria-current) so book 7 of a
 // long series isn't off the edge on a phone. Only the row scrolls, never the page. No scrollbar: a phone
 // swipes, and with a mouse, arrows over the edges page through it. The edge that hides more fades out.
-const SeriesRow: FC<{ label: string, children: ReactNode }> = ({ label, children }) => {
+const SeriesRow: FC<{ label: string, children: ReactNode, compact?: boolean }> = ({ label, children, compact = false }) => {
   const row = useRef<HTMLOListElement>(null)
   const [more, setMore] = useState({ left: false, right: false })
 
@@ -53,17 +54,17 @@ const SeriesRow: FC<{ label: string, children: ReactNode }> = ({ label, children
   return (
     <div className="relative">
       <ol ref={row} aria-label={label} onScroll={measure}
-        className={cn("-mx-4 px-4 scroll-px-4 flex gap-4 overflow-x-auto snap-x pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", fade)}>
+        className={cn("-mx-4 px-4 scroll-px-4 flex overflow-x-auto", compact ? "gap-3" : "gap-4", "snap-x pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", fade)}>
         {children}
       </ol>
       {/* Mouse and trackpad only: touch swipes the row itself. Keyboard users tab through the books. */}
       {more.left && (
-        <button type="button" aria-label="Earlier books in the series" tabIndex={-1} onClick={() => page(-1)} className={cn(arrow, ARROW_TOP, "-left-3")}>
+        <button type="button" aria-label="Earlier books in the series" tabIndex={-1} onClick={() => page(-1)} className={cn(arrow, compact ? COMPACT_ARROW_TOP : ARROW_TOP, "-left-3")}>
           <ChevronLeft size={18} aria-hidden />
         </button>
       )}
       {more.right && (
-        <button type="button" aria-label="Later books in the series" tabIndex={-1} onClick={() => page(1)} className={cn(arrow, ARROW_TOP, "-right-3")}>
+        <button type="button" aria-label="Later books in the series" tabIndex={-1} onClick={() => page(1)} className={cn(arrow, compact ? COMPACT_ARROW_TOP : ARROW_TOP, "-right-3")}>
           <ChevronRight size={18} aria-hidden />
         </button>
       )}

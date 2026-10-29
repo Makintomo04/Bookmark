@@ -8,6 +8,7 @@ import { ROLE_LABELS, ROLES, SUSPENSION_DURATIONS, type Role, type SuspensionDur
 import { COMP_GRANTS, type CompGrant } from '@/lib/entitlements'
 import type { StaffUser } from '@/lib/staffUsers'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cardClass, fieldClass, formatDate, staffSend } from './staffApi'
 
 const SUSPENSION_LABELS: Record<SuspensionDuration, string> = { '1d': '1 day', '7d': '7 days', '30d': '30 days', indefinite: 'Until lifted' }
@@ -39,7 +40,7 @@ const StaffUsers = ({ viewerId, initialQuery, canSuspend, canGrant, canAssign }:
       <label className="relative block">
         <span className="sr-only">Search readers</span>
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <input className={`${fieldClass} pl-9 h-10`} placeholder="Username, email, name or id" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
+        <ClearableInput className={`${fieldClass} pl-9 h-10`} placeholder="Username, email, name or id" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
       </label>
       {!debounced && <p className="text-sm text-muted-foreground">Newest accounts first.</p>}
       {isLoading && !data && <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />}
@@ -154,7 +155,7 @@ const UserCard = ({ user, isSelf, canSuspend, canGrant, canAssign, onChange }: {
               </label>
             ))}
           </div>
-          <input className={fieldClass} placeholder="Why (optional, for the log)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+          <ClearableInput className={fieldClass} placeholder="Why (optional, for the log)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
           <div><Button size="sm" disabled={pending}>{pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Give Plus</Button></div>
         </form>
       )}
