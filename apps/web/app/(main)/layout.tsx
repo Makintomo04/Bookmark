@@ -16,6 +16,8 @@ import MoveToFinishedModal from "../components/modals/MoveToFinishedModal";
 import TierPreviewBadge from "../components/dev/TierPreviewBadge";
 import Footer from "../components/footer/Footer";
 import RoleWelcome from "../components/staff/RoleWelcome";
+import RouteTrail from "../components/RouteTrail";
+import { Suspense } from "react";
 import { useRouter } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -36,6 +38,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <MoveToFinishedModal/>
         <TierPreviewBadge/>
         <RoleWelcome/>
+        {/* Reads the search params, so it sits in its own Suspense boundary rather than making every page dynamic. */}
+        <Suspense fallback={null}><RouteTrail/></Suspense>
         <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow pb-16">{children}</main>

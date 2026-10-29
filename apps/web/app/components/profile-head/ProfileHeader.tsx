@@ -124,7 +124,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
   const plus = !!(badge || supporter)
   const name = readerName({ username, displayName })
   const avatar = (
-    <TierAvatar image={image} username={username} colour={accent} alt={`${name}'s avatar`} booksRead={booksRead} square={plus} className="w-20 sm:w-28" />
+    <TierAvatar image={image} username={username} colour={accent} alt={`${name}'s avatar`} booksRead={booksRead} square={plus} className="size-20 sm:size-28" />
   )
 
   return (
