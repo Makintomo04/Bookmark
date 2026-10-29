@@ -1,5 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
+import { cn } from '@/lib/utils'
 import { BLEED } from '../Container'
 import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
@@ -19,6 +20,8 @@ import ContinueReading from './ContinueReading'
 import UpNext from './UpNext'
 import ShelfSearch from './ShelfSearch'
 import ProfileAuthors from './ProfileAuthors'
+import OwnReviews from './OwnReviews'
+import BandsShowcase, { ProfileFavourites } from './BandsShowcase'
 import BookList from '../books/BookList'
 import MedalShowcase from '../achievements/MedalShowcase'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
@@ -38,6 +41,8 @@ import { milestoneKey, type AchievementKey } from '@/lib/achievements-catalog'
 
 // Followed authors in your header's column before "+N more".
 const FOLLOWED_SHOWN = 8
+// Your reviews in that column show three before "Show more", as they do below it.
+const REVIEWS_SHOWN = 3
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -53,6 +58,10 @@ const BooksTop: FC = () => {
   const { reading, finished } = groupShelf(books as Book[])
   const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
   return (
+    <>
+    {/* From lg up your favourites lead this column, above what you're reading; below lg they're a band of their own
+        (OwnerProfile). Out of the way while you search, so the results stay right under the field. */}
+    {!searching && <div className="hidden lg:block"><ProfileFavourites /></div>}
     <section aria-labelledby="continue-reading">
       <div className="mb-4 flex min-h-10 items-center justify-between gap-4">
         <h2 id="continue-reading" className="flex items-baseline gap-2 text-lg font-semibold">
@@ -61,9 +70,17 @@ const BooksTop: FC = () => {
         <ShelfSearch />
       </div>
       {searching ? <BookList slot="results" /> : reading.length > 0
-        ? <><ContinueReading books={reading} finished={finished} accentColour={user?.favColour} /><UpNext /></>
+        ? <><ContinueReading books={reading} finished={finished} accentColour={user?.favColour} /><div className="lg:hidden"><UpNext /></div></>
         : <UpNext bare />}
+      {/* From lg up the rest of this column is Up next (three) beside your lists, so they sit beside your reviews
+          rather than under them. Below lg they stay bands of their own (OwnerProfile). */}
+      {!searching && user && (
+        <div className={cn("hidden lg:block", reading.length > 0 ? "mt-8" : "mt-12")}>
+          <BandsShowcase username={user.username} column withUpNext={reading.length > 0} />
+        </div>
+      )}
     </section>
+    </>
   )
 }
 
@@ -143,12 +160,14 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         staffBadge={staffBadgeOf(user)}
         compact={bands}
         besides={bands ? <BooksTop /> : undefined}
-        // From lg up the column ends with your top medals, then the authors you follow (below lg, the authors
-        // come after your reviews, and the medals are on the achievements page).
+        // From lg up the column ends with your reviews, the authors you follow, then your top medals (below lg,
+        // the reviews and authors come after what you're reading, and the medals are on the achievements page).
         identityFooter={bands ? (
-          <div className="flex flex-col gap-10">
-            <MedalShowcase earned={earnedKeys} href="/achievements" stacked />
-            {followed && <ProfileAuthors authors={followed.authors} isSelf cap={FOLLOWED_SHOWN} />}
+          // 32px under the buttons and between every block; the medals' own 20px top margin is dropped so theirs matches.
+          <div className="flex flex-col gap-8 pt-8">
+            <div className="empty:hidden"><OwnReviews first={REVIEWS_SHOWN} /></div>
+            {followed && <div><ProfileAuthors authors={followed.authors} isSelf cap={FOLLOWED_SHOWN} /></div>}
+            <div className="[&>section]:!mt-0"><MedalShowcase earned={earnedKeys} href="/achievements" stacked /></div>
           </div>
         ) : undefined}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
@@ -159,9 +178,9 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
           { value: hideCounts ? null : following, label: hideCounts ? "Following" : "following", followList: { username: user.username, kind: "following" } },
           { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
         ]}
+        share={<ShareProfileButton username={user.username} />}
         actions={
           <>
-            <ShareProfileButton username={user.username} />
             <button type="button" onClick={editProfileModal.onOpen} className={`${secondaryButtonClass} max-sm:px-3`}>
               <span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit profile</span>
             </button>

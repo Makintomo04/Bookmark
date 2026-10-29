@@ -38,6 +38,8 @@ interface ProfileHeaderProps {
   colour?: string | null
   stats: ProfileStat[]
   actions?: ReactNode
+  // The share icon, beside the display name.
+  share?: ReactNode
   children?: ReactNode
   onAvatarClick?: () => void
   booksRead: number
@@ -118,7 +120,7 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
   </Link>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, image, banner, colour, stats, actions, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, identityFooter, follows, followsPrompt = false, compact = false }) => {
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, image, banner, colour, stats, actions, share, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, identityFooter, follows, followsPrompt = false, compact = false }) => {
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
   const preset = bannerPresetOf(shownBanner)
@@ -159,6 +161,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
         <div className="mt-3 sm:mt-4 min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="page-title break-words">{name}</h1>
+            {share}
             {(badge || supporter) && (
               // Centring on the line box leaves the pills riding high beside Literata's lowercase,
               // so drop them to the middle of the name's x-height.

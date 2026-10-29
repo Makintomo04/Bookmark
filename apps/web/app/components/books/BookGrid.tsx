@@ -15,7 +15,7 @@ import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import BookCoverCard from '../cards/BookCoverCard'
 import CompactBookCard from '../cards/CompactBookCard'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
-import { SeeAllLink, ShelfSection, coverGridClass, groupShelf, isRereading, readingGridCols } from './shelf'
+import { SeeAllLink, ShelfSection, coverOnlyGridClass, groupShelf, isRereading, readingGridCols } from './shelf'
 import BulkBar from './BulkBar'
 import { useShelfFilterState, useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
 import ShelfToolbar, { PillSelect, pillClass } from './ShelfToolbar'
@@ -141,11 +141,11 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
   const card = (book: Book, showShelf = false) => {
     const label = showShelf ? SHELF_TITLE[shelfOf(book.status)] : undefined
     if (activeMode === 'comfortable') {
-      return pickable(book, <BookCoverCard key={book.id} book={book} accentColour={accent} selected={selecting ? picked.has(book.id) : null} shelfLabel={label} />)
+      return pickable(book, <BookCoverCard key={book.id} book={book} accentColour={accent} selected={selecting ? picked.has(book.id) : null} shelfLabel={label} coversOnly />)
     }
     return pickable(book, <CompactBookCard key={book.id} book={book} accentColour={accent} selected={selecting ? picked.has(book.id) : null} shelfLabel={label} />)
   }
-  const gridClass = activeMode === 'comfortable' ? coverGridClass : "grid grid-cols-1 lg:grid-cols-2 gap-3"
+  const gridClass = activeMode === 'comfortable' ? coverOnlyGridClass : "grid grid-cols-1 lg:grid-cols-2 gap-3"
   const shelf = (items: Book[], showShelf = false) => (
     <div className={gridClass}>{items.map((book) => card(book, showShelf))}</div>
   )

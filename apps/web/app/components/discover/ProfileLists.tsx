@@ -1,5 +1,5 @@
 "use client"
-import { FC, ReactNode, useState } from 'react'
+import { FC, ReactNode } from 'react'
 import { Plus } from 'lucide-react'
 import { useOwnerLists } from '@/app/hooks/useLists'
 import useListEditorModal, { emptyList } from '@/app/hooks/useListEditorModal'
@@ -17,7 +17,7 @@ interface ProfileListsProps {
   username: string
   isSelf: boolean
   // Beside favourites near the top of someone's profile (ProfileShowcase): no top margin, two lists to a
-  // row, and the first two until "See all" opens the rest in place.
+  // row, and the first two until "See all" opens the lists page (/u/<name>/lists).
   half?: boolean
   // At the top of a profile, where the section above sets the spacing: no top margin of its own.
   flush?: boolean
@@ -35,7 +35,6 @@ const SWIPE_SHOWN = 8
 
 const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, flush = false, swipe = false, footnote }) => {
   const { lists, isLoading, isError, mutate } = useOwnerLists(username)
-  const [all, setAll] = useState(false)
   const { onOpen } = useListEditorModal()
   const { user } = useUser()
   const collapse = useCollapsedSections()
@@ -55,16 +54,20 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
   if (lists.length === 0 && !isSelf) return null
 
   const newList = (
-    <button type="button" onClick={() => onOpen(emptyList(false, user ? preferencesOf(user).defaultListVisibility : undefined))} className={secondaryButtonClass}>
-      <Plus size={16} aria-hidden />New list
+    <button type="button" onClick={() => onOpen(emptyList(false, user ? preferencesOf(user).defaultListVisibility : undefined))} className={cn(secondaryButtonClass, half && "px-2.5")} title={half ? "New list" : undefined}>
+      <Plus size={16} aria-hidden />
+      {/* Half a column is too narrow for the words beside "See all": an icon, with the label for screen readers. */}
+      <span className={half ? "sr-only" : undefined}>New list</span>
     </button>
   )
 
   // Swiping, the phone gets up to SWIPE_SHOWN in its row; from sm up, the rest past the first two stay hidden.
-  const shown = half && !all ? lists.slice(0, swipe ? SWIPE_SHOWN : HALF_SHOWN) : lists
-  const action = isSelf && lists.length > 0 ? newList
-    : half && !all && lists.length > HALF_SHOWN ? <span className={swipe ? "max-sm:hidden" : undefined}><SeeAllLink onClick={() => setAll(true)} /></span>
-    : undefined
+  const shown = half ? lists.slice(0, swipe ? SWIPE_SHOWN : HALF_SHOWN) : lists
+  // On a phone that swipes through eight, "See all" is only for the reader with more than that.
+  const seeAll = half && lists.length > HALF_SHOWN
+    ? <span className={cn("whitespace-nowrap", swipe && lists.length <= SWIPE_SHOWN && "max-sm:hidden")}><SeeAllLink href={`/u/${encodeURIComponent(username)}/lists`} /></span>
+    : null
+  const action = isSelf && lists.length > 0 ? <div className="flex items-center gap-3 whitespace-nowrap">{seeAll}{newList}</div> : seeAll ?? undefined
 
   return (
     <div className={half || flush ? undefined : "mt-12"}>
@@ -82,7 +85,7 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
           <div className={cn(
             half ? "grid grid-cols-2 gap-x-5 gap-y-8" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8",
             swipe && "max-sm:relative max-sm:flex max-sm:overflow-x-auto max-sm:snap-x max-sm:-mx-4 max-sm:px-4 max-sm:pb-1 max-sm:[&>*]:w-[44%] max-sm:[&>*]:shrink-0 max-sm:[&>*]:snap-start",
-            swipe && half && !all && "sm:[&>*:nth-child(n+3)]:hidden",
+            swipe && half && "sm:[&>*:nth-child(n+3)]:hidden",
           )}>
             {shown.map((list) => <ListCard key={list.id} list={list} hideOwner />)}
           </div>

@@ -6,6 +6,7 @@ import { notify } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
 import useFavourite from '@/app/hooks/useFavourite'
+import { withFavourite } from '@/lib/favourites'
 
 // The bookmark that adds a book to your favourites, as on BookActions' plain tone. It fills as soon as it's
 // tapped, then settles on what the server saved.
@@ -17,7 +18,7 @@ const FavouriteButton: FC<{ bookId: string; className?: string }> = ({ bookId, c
   const toggle = () => {
     mutateFav((data: any) => data && ({
       ...data,
-      favouriteIds: isFavourite ? data.favouriteIds.filter((id: string) => id !== bookId) : [...data.favouriteIds, bookId],
+      favouriteIds: isFavourite ? data.favouriteIds.filter((id: string) => id !== bookId) : withFavourite(data.favouriteIds, bookId),
     }), { revalidate: false })
     axios.post(`/api/favourites/${bookId}`).catch(() => {
       notify.error(isFavourite ? "Couldn't remove it from your favourites." : "Couldn't add it to your favourites.", { retry: toggle })

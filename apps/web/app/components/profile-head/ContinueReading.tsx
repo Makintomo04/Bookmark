@@ -1,9 +1,9 @@
 "use client"
-import { FC, useState } from 'react'
+import { FC, useRef, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import type { Book } from '@prisma/client'
-import { ChevronDown, ChevronRight, ChevronUp, Pencil, Users, Repeat2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, Pencil, Users, Repeat2 } from 'lucide-react'
 import { chapterAt, formatEntry, formatPosition, progressWhole } from '@/lib/progress'
 import { cn } from '@/lib/utils'
 import { fetcher, swrOptions } from '@/lib/fetcher'
@@ -12,8 +12,11 @@ import { discoverBookOf } from '@/lib/openLibrary'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useUser from '@/app/hooks/useUser'
 import { isRereading } from '../books/shelf'
+import AuthorLink from '../AuthorLink'
 import BookCover from '../cards/BookCover'
 import FavouriteButton from '../cards/FavouriteButton'
+import ShelfMenuItems from '../books/ShelfMenuItems'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import UpdateSheet from './UpdateSheet'
 
 interface ContinueReadingProps {
@@ -32,9 +35,9 @@ interface ContinueReadingProps {
   shared?: { bookId: string; circleId: string; at: number | null }[]
 }
 
-// Books shown before "Show N more": five rows on a wide screen; on a phone two, so what's next stays within a
+// Books shown before "Show N more": three rows on a wide screen; on a phone two, so what's next stays within a
 // scroll.
-const SHOWN_WIDE = 5
+const SHOWN_WIDE = 3
 const SHOWN_PHONE = 2
 
 // "Page 248 of 590 · 42%", "3h 23m of 9h 1m · 37%": where you are, and always your own percentage, so a
@@ -74,11 +77,12 @@ const markOf = (book: Book, id: string, at: number | null): CircleMark => ({
   id, at, label: at == null ? '' : book.chapters ? `at Ch ${chapterAt(at, book.chapters)}` : `${Math.round(at)}%`,
 })
 
-const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Size; circle?: CircleMark; reread?: boolean; bare?: boolean; className?: string; onUpdate: (book: Book, card: HTMLElement) => void }> = ({ book, accent, readOnly, size, circle, reread = false, bare = false, className, onUpdate }) => {
+const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Size; circle?: CircleMark; reread?: boolean; bare?: boolean; className?: string; onUpdate: (book: Book, card: HTMLElement, startAt?: 'log' | 'rate') => void }> = ({ book, accent, readOnly, size, circle, reread = false, bare = false, className, onUpdate }) => {
   const openDetails = useBookDetailsModal((s) => s.onOpen)
   const progress = progressWhole(book)
   const position = whereAt(book)
   const href = bookHref({ workKey: book.workKey, title: book.title })
+  const card = useRef<HTMLLIElement>(null)
   const update = (e: React.MouseEvent<HTMLElement>) => onUpdate(book, e.currentTarget.closest('li')!)
   const details = () => openDetails(discoverBookOf(book))
   // Where you are, the bar, and (on your own books) a quiet Update chip at the end of the line.
@@ -125,7 +129,8 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
     ? <Link href={href} className="hover:underline underline-offset-2">{book.title}</Link>
     : <button type="button" onClick={details} className="text-left hover:underline underline-offset-2">{book.title}</button>
   return (
-    <li className={cn("flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", !bare && size === 'row' && "py-2.5", bare ? "min-h-[98px]" : size === 'large' && "min-h-[146px]", className)}>
+    <li ref={card} className={cn("relative flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", !bare && size === 'row' && "py-2.5", bare ? "min-h-[98px]" : size === 'large' && "min-h-[146px]", className)}>
+      {/* The bookmark floats in the corner rather than taking a column, so the bar runs the card's full width. */}
       {/* The cover runs the card's full height: its slot stretches with the card and the cover fills it, cropped
           like a photo, rather than sitting at the top with a gap under it. Widths keep the slot close to 2:3. */}
       <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("relative shrink-0 self-stretch rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
@@ -134,19 +139,19 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
       {/* A bare tile's title and author sit at the top, with its marks on their own line under them (there's
           room, without the progress). On a full card they're centred, the marks riding on the author line. */}
       <div className={cn("min-w-0 flex-1", bare && "self-start")}>
-        <p className="line-clamp-2 font-medium leading-snug" title={book.title}>{title}</p>
+        <p className={cn("line-clamp-2 font-medium leading-snug", !readOnly && "pr-[4.5rem]")} title={book.title}>{title}</p>
         {/* A circle and a reread ride on the author line, after the name, rather than a row of their own; the
             line is 28px on every card, so the circle's chip fits and the cards stay one height. The name gives
             way (truncates) before they do. The circle is the one control here, an outlined chip saying where the
             circle is, a rank below the filled Update; Reread is plain text, as it does nothing. */}
         {bare ? (
           <>
-            <p className="truncate text-sm text-muted-foreground">{book.author}</p>
+            <p className="truncate text-sm text-muted-foreground"><AuthorLink author={book.author} /></p>
             {(circle || reread) && <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">{marks}</p>}
           </>
         ) : (
-          <p className="flex h-7 min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-            <span className="truncate">{book.author}</span>{marks}
+          <p className={cn("flex h-7 min-w-0 items-center gap-1.5 text-sm text-muted-foreground", !readOnly && "pr-[4.5rem]")}>
+            <AuthorLink author={book.author} className="truncate" />{marks}
           </p>
         )}
         {bare ? null : readOnly ? <div className="mt-1">{place}</div> : (
@@ -157,22 +162,40 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
           </button>
         )}
       </div>
-      {!readOnly && <FavouriteButton bookId={book.id} className="self-start -mr-1 -mt-1" />}
+      {!readOnly && (
+        // Pause, Did not finish, Want to read and Make private, as on every other shelf card, so taking a book
+        // off Currently reading never depends on a toast's Undo.
+        <div className="absolute right-2 top-2 flex items-center">
+          <FavouriteButton bookId={book.id} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label={`More actions for ${book.title}`} className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-neutral-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-800">
+                <MoreHorizontal size={16} aria-hidden />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {/* Opens the Update sheet on its rating step, so a finish from here is rated and followed by what's next. */}
+              <DropdownMenuItem onSelect={() => onUpdate(book, card.current!, 'rate')}>Finished</DropdownMenuItem>
+              <ShelfMenuItems book={book} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </li>
   )
 }
 
 // What you're reading, at the top of your profile in bands, each with a labelled Update. One book gets a large
-// card, two sit side by side, and three or more are rows, so a third or fourth book is never hidden. A book
+// card, two sit side by side, and three or more are rows, and past three the rest wait behind "Show more". A book
 // you're reading with a circle comes first, saying where the circle is. Someone else's profile shows the same
 // without Update; on a phone, as bare tiles (cover, title, author), the first with "Show all" for the rest.
 // Circles shown are your own, or on someone else's page the ones you share with them.
 const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accentColour, readOnly = false, oneLineOnPhone = false, shared = [] }) => {
   const [all, setAll] = useState(false)
   // The Update sheet, kept here rather than in a card: finishing a book takes its card off the list, and the
-  // sheet still has a rating and what's next to show. From sm up it sits under the card that opened it.
-  const [sheet, setSheet] = useState<{ book: Book; top: number } | null>(null)
-  const openSheet = (book: Book, card: HTMLElement) => setSheet({ book, top: card.offsetTop + card.offsetHeight })
+  // sheet still has a rating and what's next to show. From sm up it opens as a modal.
+  const [sheet, setSheet] = useState<{ book: Book; startAt: 'log' | 'rate' } | null>(null)
+  const openSheet = (book: Book, card: HTMLElement, startAt: 'log' | 'rate' = 'log') => setSheet({ book, startAt })
   const [open, setOpen] = useState(false)
   const { data: circles } = useSWR<{ buddyReads: CircleRow[] }>(readOnly ? null : '/api/buddy-reads', fetcher, swrOptions)
   const { user } = useUser()
@@ -206,7 +229,7 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
       ))}
     </ul>
   )
-  // Show more, then Show less to fold them away again. From sm up it's only there when more than five are on
+  // Show more, then Show less to fold them away again. From sm up it's only there when more than three are on
   // the go, as that's all a wide screen hides.
   const more = ordered.length > SHOWN_PHONE && (
     <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={cn("mt-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground", hidden <= 0 && "sm:hidden")}>
@@ -219,7 +242,7 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
     return (
       <div className="relative">
         {cards}{more}
-        {sheet && <UpdateSheet book={sheet.book} top={sheet.top} onClose={() => setSheet(null)} />}
+        {sheet && <UpdateSheet book={sheet.book} startAt={sheet.startAt} onClose={() => setSheet(null)} />}
       </div>
     )
   }

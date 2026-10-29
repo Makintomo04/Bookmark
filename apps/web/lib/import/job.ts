@@ -4,6 +4,7 @@ import { syncAchievements } from "@/lib/achievements";
 import { isOpenLibraryCoverUrl, mirrorCover } from "@/lib/covers";
 import { catalogIds, linkCatalog, resolveCatalogMany, type CatalogInput } from "@/lib/catalog";
 import { normaliseWorkKey } from "@/lib/workKey";
+import { withFavourite } from "@/lib/favourites";
 import { isShareableCover } from "@/lib/uploadedImages";
 import { uploadersOf } from "@/lib/uploads";
 import { parseImport } from "./formats";
@@ -438,7 +439,12 @@ export async function importStep(job: ImportJob) {
   if (books.length) await prisma.book.createMany({ data: books });
   if (reads.length) await prisma.bookRead.createMany({ data: reads });
   if (notes.length) await prisma.note.createMany({ data: notes });
-  if (favourites.length) await prisma.user.update({ where: { id: job.userId }, data: { favouriteIds: { push: favourites } } });
+  if (favourites.length) {
+    // Each takes its place as a new favourite would (lib/favourites.ts), after any the reader already has.
+    const current = await prisma.user.findUnique({ where: { id: job.userId }, select: { favouriteIds: true } });
+    const favouriteIds = favourites.reduce((ids, id) => (ids.includes(id) ? ids : withFavourite(ids, id)), current?.favouriteIds ?? []);
+    await prisma.user.update({ where: { id: job.userId }, data: { favouriteIds } });
+  }
 
   const finished = end >= rows.length;
   const updated = await prisma.importJob.update({

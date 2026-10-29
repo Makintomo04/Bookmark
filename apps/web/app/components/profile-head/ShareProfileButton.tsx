@@ -2,8 +2,6 @@
 import { FC, useState } from 'react'
 import { Check, Share2 } from 'lucide-react'
 import { notify } from '@/lib/notify'
-import { cn } from '@/lib/utils'
-import { secondaryButtonClass } from './ProfileHeader'
 import { copyText } from '@/lib/copyText'
 
 interface ShareProfileButtonProps {
@@ -37,11 +35,12 @@ const ShareProfileButton: FC<ShareProfileButtonProps> = ({ username }) => {
     }
   }
 
+  const label = copied ? "Copied" : "Share profile"
   return (
-    <button type="button" onClick={share} className={cn(secondaryButtonClass, "max-sm:px-3")}>
-      {copied ? <Check size={16} aria-hidden /> : <Share2 size={16} aria-hidden />}
-      {/* Icon-only on phones, where it shares a row with two other buttons. */}
-      <span className="max-sm:sr-only">{copied ? "Copied" : "Share profile"}</span>
+    // An icon beside the display name, quiet until hovered; the label is for screen readers and the tooltip.
+    <button type="button" onClick={share} aria-label={label} title={label}
+      className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-neutral-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-800">
+      {copied ? <Check size={18} aria-hidden /> : <Share2 size={18} aria-hidden />}
     </button>
   )
 }

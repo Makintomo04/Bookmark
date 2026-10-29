@@ -125,9 +125,10 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
 // Under Continue reading on your profile in bands: what to start next, one tap each. The next book in a series
 // you're reading or follow comes first (never one you put down), then your Want to read, newest first, then
 // popular books in the genres you picked, until there are four to six.
+// `cap`: only that many, in a row of three columns, for the half of the column it shares with Lists.
 // `bare`: no heading of its own, where the heading above already says Up next (nothing on the go, or the
 // Update sheet after Finished). `row`: a row you swipe at every width, for somewhere narrow (that sheet).
-const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = false }) => {
+const UpNext: FC<{ bare?: boolean; row?: boolean; cap?: number }> = ({ bare = false, row = false, cap }) => {
   const { books } = useBooks()
   const { settings } = useSettings()
   const { data: series } = useSWR<{ series: SeriesTrack[] }>(SERIES_TRACKER_KEY, fetcher, swrOptions)
@@ -138,7 +139,7 @@ const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = fal
   const seen = new Set<string>()
   const add = (pick: Pick) => {
     const k = `${pick.title}|${pick.author}`.toLowerCase()
-    if (seen.has(k) || picks.length >= MOST) return
+    if (seen.has(k) || picks.length >= (cap ?? MOST)) return
     seen.add(k)
     picks.push(pick)
   }
@@ -165,9 +166,10 @@ const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = fal
   if (picks.length === 0) return null
 
   return (
-    <section aria-labelledby={bare ? undefined : "up-next"} aria-label={bare ? "Up next" : undefined} className={bare ? undefined : "mt-8"}>
-      {!bare && <h2 id="up-next" className="mb-4 text-lg font-semibold">Up next</h2>}
-      <ul className={cn(
+    <section aria-labelledby={bare ? undefined : "up-next"} aria-label={bare ? "Up next" : undefined} className={bare || cap ? undefined : "mt-8"}>
+      {/* Capped, it sits beside Lists: the heading takes a section heading's height so the two line up. */}
+      {!bare && <h2 id="up-next" className={cn("text-lg font-semibold", cap ? "mb-5 flex min-h-10 items-center" : "mb-4")}>Up next</h2>}
+      <ul className={cap ? "grid grid-cols-3 gap-3" : cn(
         // Relative, so the Start buttons' screen-reader text stays inside the scroller instead of widening the page.
         // Out to the screen's edges on a phone, with the page's 16px kept as scroll padding too: without it each
         // tile snaps to the scroller's very edge and the first cover touches the side of the screen.

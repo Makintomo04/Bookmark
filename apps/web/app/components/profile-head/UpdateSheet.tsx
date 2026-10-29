@@ -2,11 +2,11 @@
 import { FC, FormEvent, useEffect, useState } from 'react'
 import axios from 'axios'
 import type { Book } from '@prisma/client'
-import { Check, Loader2, X } from 'lucide-react'
+import { Check, Loader2, Minus, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { notify, apiError } from '@/lib/notify'
 import {
-  chapterAt, chapterPercent, entryOf, formatMinutes, locationPercent, progressPercent, progressScale, type ProgressEntry,
+  PERCENT_QUICK_ADDS, QUICK_ADDS, chapterAt, chapterPercent, entryOf, formatMinutes, locationPercent, progressPercent, progressScale, type ProgressEntry,
 } from '@/lib/progress'
 import useBooks from '@/app/hooks/useBooks'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
@@ -43,15 +43,15 @@ const placeOf = (book: Book) => book.currentPercent != null
 
 interface UpdateSheetProps {
   book: Book
-  // From sm up: how far down its container the card that opened it ends, so the panel sits under it.
-  top: number
+  // 'rate' opens on "How was it?", for Finished from a card's menu.
+  startAt?: 'log' | 'rate'
   onClose: () => void
 }
 
-// Logging progress from a Continue reading card on your profile in bands: a panel under the card from sm up,
+// Logging progress from a Continue reading card on your profile in bands: a modal from sm up,
 // a sheet from the bottom on a phone. It opens on the unit you last logged this book in, with the field ready,
 // so it's type and Enter. Finished asks for a rating, then shows what to read next.
-const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
+const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) => {
   const { mutate } = useBooks()
   const scale = progressScale(book)
   const audio = scale.unit === 'MINUTES'
@@ -62,7 +62,7 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
   const percentNow = progressPercent(book)
   const [value, setValue] = useState('')
   const [total, setTotal] = useState('')
-  const [step, setStep] = useState<'log' | 'rate' | 'next'>('log')
+  const [step, setStep] = useState<'log' | 'rate' | 'next'>(startAt)
   const [rating, setRating] = useState<number>(book.rating ?? 0)
   const [saving, setSaving] = useState(false)
 
@@ -86,6 +86,17 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // The stepper and the quick adds (+10 pages, +10%) from the old update modal: they move what's typed, and
+  // Save still decides. Held inside 0 (1 for chapters) and the book's own end, where it has one.
+  const bump = (by: number) => {
+    const now = unit === 'time' ? parseTime(value) : Number(value)
+    const end = unit === 'percent' ? 100 : unit === 'pages' || unit === 'time' ? scale.total || Infinity : Number(total) || Infinity
+    const next = Math.min(Math.max((Number.isFinite(now) ? now : 0) + by, unit === 'chapters' ? 1 : 0), end)
+    setValue(unit === 'time' ? toClock(Math.round(next)) : String(Math.round(next * 100) / 100))
+  }
+  const quickAdds = unit === 'percent' ? PERCENT_QUICK_ADDS : unit === 'pages' ? QUICK_ADDS.PAGES : unit === 'time' ? QUICK_ADDS.MINUTES : []
+  const stepClass = "grid size-11 shrink-0 place-items-center rounded-lg border border-neutral-300 text-foreground transition hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900 sm:size-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
   const post = (body: Record<string, unknown>) => axios.post('/api/book-progress', { id: book.id, ...body })
   const refresh = async () => { await mutate(); refreshAfterBookChange() }
@@ -141,12 +152,12 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
 
   return (
     <>
-      <button type="button" aria-label="Close" onClick={onClose} className="fixed inset-0 z-40 cursor-default bg-black/40 sm:bg-black/20" />
-      <div role="dialog" aria-modal="true" aria-label={`Update ${book.title}`} style={{ '--sheet-top': `${top}px` } as React.CSSProperties}
+      <button type="button" aria-label="Close" onClick={onClose} className="fixed inset-0 z-40 cursor-default bg-black/40 sm:bg-black/50" />
+      <div role="dialog" aria-modal="true" aria-label={`Update ${book.title}`}
         className={cn(
           "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border border-neutral-200 dark:border-neutral-800 bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl",
-          // From sm up it spans the cards under the one that opened it, so it doesn't half-cover the next card.
-          "sm:absolute sm:inset-x-0 sm:bottom-auto sm:top-[var(--sheet-top)] sm:mt-2 sm:rounded-xl sm:pb-5",
+          // From sm up it's a modal in the middle of the screen; below that, a sheet from the bottom.
+          "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:pb-5",
         )}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -167,6 +178,7 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
               ))}
             </div>
             <div className="flex items-center gap-2">
+              <button type="button" onClick={() => bump(-1)} aria-label={`One ${unit === 'percent' ? 'percent' : unit === 'time' ? 'minute' : unit === 'pages' ? 'page' : unit === 'chapters' ? 'chapter' : 'location'} back`} className={stepClass}><Minus size={16} aria-hidden /></button>
               {/* "Ch" and "Loc" sit inside the field, as part of what you're typing. */}
               <label className="relative min-w-0 flex-1">
                 {(unit === 'chapters' || unit === 'location') && (
@@ -175,6 +187,7 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
                 <input autoFocus inputMode={unit === 'time' ? 'text' : 'numeric'} aria-label={UNIT_LABEL[unit]} value={value} onChange={(e) => setValue(e.target.value)}
                   placeholder={unit === 'time' ? 'h:mm' : undefined} className={cn(fieldClass, (unit === 'chapters' || unit === 'location') && (unit === 'chapters' ? "pl-10" : "pl-11"))} />
               </label>
+              <button type="button" onClick={() => bump(1)} aria-label={`One ${unit === 'percent' ? 'percent' : unit === 'time' ? 'minute' : unit === 'pages' ? 'page' : unit === 'chapters' ? 'chapter' : 'location'} forward`} className={stepClass}><Plus size={16} aria-hidden /></button>
               {of && <span className="shrink-0 text-sm text-muted-foreground tabular-nums">{of}</span>}
               {(unit === 'chapters' || unit === 'location') && (
                 <>
@@ -184,6 +197,16 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
                 </>
               )}
             </div>
+            {quickAdds.length > 0 && (
+              <div className="mt-3 flex gap-1.5">
+                {quickAdds.map((n) => (
+                  <button key={n} type="button" onClick={() => bump(n)} aria-label={`Add ${n} ${unit === 'percent' ? 'percent' : unit === 'time' ? 'minutes' : 'pages'}`}
+                    className="h-10 rounded-full bg-neutral-100 px-3.5 text-sm font-medium tabular-nums transition hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 sm:h-8 sm:px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    +{n}{unit === 'percent' && '%'}{unit === 'time' && 'm'}
+                  </button>
+                ))}
+              </div>
+            )}
             {unit === 'chapters' && <p className="mt-2 text-xs text-muted-foreground">The chapter you&apos;re on. Your circle sees chapters too.</p>}
             {/* Mark finished is a quiet way out, not a second answer beside Save, so it doesn't read as Cancel. */}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
