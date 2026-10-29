@@ -39,7 +39,7 @@ const ClearableInput = React.forwardRef<HTMLInputElement, ClearableInputProps>(
           ref={inner}
           {...props}
           onChange={(e) => { setFilled(e.target.value.length > 0); onChange?.(e) }}
-          className={cn(className, "pr-10")}
+          className={cn(className, "pr-12 pointer-fine:pr-10")}
         />
         {hasValue && !props.disabled && !props.readOnly && (
           <button
@@ -47,7 +47,7 @@ const ClearableInput = React.forwardRef<HTMLInputElement, ClearableInputProps>(
             onMouseDown={(e) => e.preventDefault()}
             onClick={clear}
             aria-label={props["aria-label"] ? `Clear ${props["aria-label"].toLowerCase()}` : "Clear"}
-            className="absolute right-1 top-1/2 -translate-y-1/2 grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="absolute right-0 top-1/2 -translate-y-1/2 grid size-11 pointer-fine:right-1 pointer-fine:size-8 place-items-center rounded-full text-muted-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X size={14} aria-hidden />
           </button>
