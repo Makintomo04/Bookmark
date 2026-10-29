@@ -112,8 +112,9 @@ export async function addBookAndStartCircle(page: Page, book: { title: string; a
 
   await page.waitForURL("**/circles/new**")
   await expect(page.getByRole("heading", { name: "Start a reading circle" })).toBeVisible()
-  const choice = page.locator("label").filter({ hasText: book.title })
-  await choice.click()
+  // The book comes in already chosen, so the picker opens folded to it.
+  await expect(page.getByRole("button", { name: "Change book" })).toBeVisible()
+  await expect(page.getByRole("group", { name: "Book" })).toContainText(book.title)
   await page.getByRole("button", { name: "Start and get the link" }).click()
   await page.waitForURL(/\/circles\/[a-f0-9]{24}$/)
   await expect(page.getByRole("heading", { level: 1, name: book.title })).toBeVisible()
