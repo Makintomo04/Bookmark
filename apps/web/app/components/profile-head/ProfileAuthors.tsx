@@ -8,8 +8,8 @@ interface ProfileAuthorsProps {
   authors: { name: string; slug: string }[]
   // Your own profile says how to add one; someone else's leaves the section out when it's empty.
   isSelf?: boolean
-  // In bands: no section at all when there are none, even your own, and only the first `cap` until
-  // "+N more" opens the rest in place, so the band beside reviews stays short.
+  // In bands: only the first `cap` until "+N more" opens the rest in place. Someone else's with none shows
+  // no section; your own says how to follow one.
   cap?: number
 }
 
@@ -17,7 +17,7 @@ interface ProfileAuthorsProps {
 const ProfileAuthors: FC<ProfileAuthorsProps> = ({ authors, isSelf = false, cap }) => {
   const collapse = useCollapsedSections()
   const [all, setAll] = useState(false)
-  if (authors.length === 0 && (!isSelf || cap)) return null
+  if (authors.length === 0 && !isSelf) return null
   const shown = cap && !all ? authors.slice(0, cap) : authors
   const chipClass = "inline-flex items-center h-9 px-4 rounded-full border border-neutral-300 dark:border-neutral-700 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
   return (

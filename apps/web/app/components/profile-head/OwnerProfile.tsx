@@ -22,7 +22,7 @@ import ProfileAuthors from './ProfileAuthors'
 import SeriesTracker from '../series/SeriesTracker'
 import type { FollowedAuthor } from '@/lib/authorFollows'
 import { fetcher, swrOptions } from '@/lib/fetcher'
-import Band, { type ProfileLayout } from './Band'
+import { type ProfileLayout } from './Band'
 import { ShelfFilterProvider } from '@/app/hooks/useShelfFilter'
 
 interface OwnerProfileProps {
@@ -127,7 +127,9 @@ const OwnerBands: FC<{ username: string }> = ({ username }) => (
     <ProfileHead layout="bands" />
     <div className="mt-10 flex flex-col gap-12 [&>*]:!mb-0">
       <FollowRequests />
-      <Band wide={<OwnReviews first={BANDS_REVIEWS} />} narrow={<OwnAuthors cap={BANDS_AUTHORS} />} />
+      <OwnReviews first={BANDS_REVIEWS} />
+      {/* From lg up the authors you follow are in your header's column, under your medals (ProfileHead). */}
+      <div className="lg:hidden empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
       <BandsShowcase username={username} />
       <BookList slot="shelves" />
     </div>
