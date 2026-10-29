@@ -18,7 +18,8 @@ export const NewPickButton: FC = () => {
   const { onOpen } = useListEditorModal()
   if (!can(user, "lists.curate")) return null
   return (
-    <button type="button" onClick={() => onOpen(emptyList(true))} className={secondaryButtonClass}>
+    // Sits beside the Discover heading: it keeps its width so the label never wraps on phones.
+    <button type="button" onClick={() => onOpen(emptyList(true))} className={`${secondaryButtonClass} shrink-0 whitespace-nowrap`}>
       <Plus size={16} aria-hidden />New Pick
     </button>
   )
