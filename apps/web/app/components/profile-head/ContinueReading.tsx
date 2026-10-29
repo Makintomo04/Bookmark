@@ -3,7 +3,7 @@ import { FC, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import type { Book } from '@prisma/client'
-import { ChevronDown, ChevronRight, Pencil, Users } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Users, Repeat2 } from 'lucide-react'
 import { chapterAt, formatEntry, formatPosition, progressWhole } from '@/lib/progress'
 import { cn } from '@/lib/utils'
 import { fetcher, swrOptions } from '@/lib/fetcher'
@@ -11,12 +11,15 @@ import { bookHref } from '@/lib/workKey'
 import { discoverBookOf } from '@/lib/openLibrary'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useUser from '@/app/hooks/useUser'
+import { isRereading } from '../books/shelf'
 import BookCover from '../cards/BookCover'
 import UpdateSheet from './UpdateSheet'
 
 interface ContinueReadingProps {
   // Currently reading, most recently started first.
   books: Book[]
+  // The finished shelf, to tell a reread (an earlier copy finished) from a first read.
+  finished?: Book[]
   accentColour?: string | null
   // Someone else's books: no Update, and a tap opens the book's details.
   readOnly?: boolean
@@ -70,7 +73,7 @@ const markOf = (book: Book, id: string, at: number | null): CircleMark => ({
   id, at, label: at == null ? '' : book.chapters ? `at Ch ${chapterAt(at, book.chapters)}` : `${Math.round(at)}%`,
 })
 
-const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Size; circle?: CircleMark; className?: string; onUpdate: (book: Book, card: HTMLElement) => void }> = ({ book, accent, readOnly, size, circle, className, onUpdate }) => {
+const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Size; circle?: CircleMark; reread?: boolean; className?: string; onUpdate: (book: Book, card: HTMLElement) => void }> = ({ book, accent, readOnly, size, circle, reread = false, className, onUpdate }) => {
   const openDetails = useBookDetailsModal((s) => s.onOpen)
   const progress = progressWhole(book)
   const position = whereAt(book)
@@ -110,10 +113,21 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 font-medium leading-snug" title={book.title}>{title}</p>
         <p className="truncate text-sm text-muted-foreground">{book.author}</p>
-        {circle && (
-          <Link href={`/circles/${circle.id}`} className="mt-1 inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-900 px-2 py-0.5 text-[11px] font-medium hover:bg-neutral-200 dark:hover:bg-neutral-800">
-            <Users size={11} aria-hidden />Reading circle
-          </Link>
+        {/* A circle and a reread are said the same quiet way, side by side when a book is both. */}
+        {(circle || reread) && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {circle && (
+              <Link href={`/circles/${circle.id}`} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-900 px-2 py-0.5 text-[11px] font-medium hover:bg-neutral-200 dark:hover:bg-neutral-800">
+                <Users size={11} aria-hidden />Reading circle
+              </Link>
+            )}
+            {reread && (
+              <span title={readOnly ? "They've read this book before" : "You've read this book before"}
+                className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-900 px-2 py-0.5 text-[11px] font-medium">
+                <Repeat2 size={11} aria-hidden />Reread
+              </span>
+            )}
+          </div>
         )}
         {readOnly ? <div className="mt-1">{place}</div> : (
           // The place and its bar are the Update button (a 44px row), so the bar keeps the card's full width.
@@ -131,7 +145,7 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
 // card, two sit side by side, and three or more are rows, so a third or fourth book is never hidden. A book
 // you're reading with a circle comes first, saying where the circle is. Someone else's profile shows the same
 // without Update (and, on a phone, as one line that opens them); circles are yours only for now.
-const ContinueReading: FC<ContinueReadingProps> = ({ books, accentColour, readOnly = false, oneLineOnPhone = false, shared = [] }) => {
+const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accentColour, readOnly = false, oneLineOnPhone = false, shared = [] }) => {
   const [all, setAll] = useState(false)
   // The Update sheet, kept here rather than in a card: finishing a book takes its card off the list, and the
   // sheet still has a rating and what's next to show. From sm up it sits under the card that opened it.
@@ -164,7 +178,7 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, accentColour, readOn
   const cards = (
     <ul className={cn("grid gap-3", size === 'card' && "sm:grid-cols-2")}>
       {ordered.map((book, i) => (
-        <ContinueCard key={book.id} book={book} accent={accent} readOnly={readOnly} size={size} circle={circleOf(book)} onUpdate={openSheet}
+        <ContinueCard key={book.id} book={book} accent={accent} readOnly={readOnly} size={size} circle={circleOf(book)} reread={isRereading(book, finished)} onUpdate={openSheet}
           className={cn(!all && i >= SHOWN_PHONE && "max-sm:hidden", !all && i >= SHOWN_WIDE && "sm:hidden")} />
       ))}
     </ul>

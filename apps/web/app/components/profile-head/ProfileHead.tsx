@@ -47,7 +47,7 @@ const BooksTop: FC = () => {
   const { books } = useBooks()
   const shared = useSharedShelfFilter()
   if (!Array.isArray(books)) return <Skeleton className="h-40 w-full rounded-xl" />
-  const { reading } = groupShelf(books as Book[])
+  const { reading, finished } = groupShelf(books as Book[])
   const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
   return (
     <section aria-labelledby="continue-reading">
@@ -58,7 +58,7 @@ const BooksTop: FC = () => {
         <ShelfSearch />
       </div>
       {searching ? <BookList slot="results" /> : reading.length > 0
-        ? <><ContinueReading books={reading} accentColour={user?.favColour} /><UpNext /></>
+        ? <><ContinueReading books={reading} finished={finished} accentColour={user?.favColour} /><UpNext /></>
         : <UpNext bare />}
     </section>
   )
