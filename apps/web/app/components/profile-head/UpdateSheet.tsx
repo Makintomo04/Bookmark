@@ -57,7 +57,8 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, top, onClose }) => {
   const audio = scale.unit === 'MINUTES'
   const units: Unit[] = [audio ? 'time' : 'pages', 'percent', 'chapters', 'location']
   const entry = entryOf(book)
-  const [unit, setUnit] = useState<Unit>(entry === 'PERCENT' ? 'percent' : entry === 'CHAPTERS' ? 'chapters' : entry === 'LOCATION' ? 'location' : audio ? 'time' : 'pages')
+  // A book started before its page count was known (Up next's Start) opens on Percent rather than "of ?" pages.
+  const [unit, setUnit] = useState<Unit>(entry === 'PERCENT' ? 'percent' : entry === 'CHAPTERS' ? 'chapters' : entry === 'LOCATION' ? 'location' : audio ? 'time' : scale.total ? 'pages' : 'percent')
   const percentNow = progressPercent(book)
   const [value, setValue] = useState('')
   const [total, setTotal] = useState('')

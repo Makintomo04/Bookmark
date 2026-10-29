@@ -1,9 +1,9 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import Container from '@/app/components/Container'
 import BookCover from '@/app/components/cards/BookCover'
+import BookCrumbs from '@/app/components/books/BookCrumbs'
 import AuthorLink from '@/app/components/AuthorLink'
 import AddToShelfButton from '@/app/components/discover/AddToShelfButton'
 import AddToListButton from '@/app/components/discover/AddToListButton'
@@ -102,9 +102,7 @@ const Page = async (props: PageProps) => {
   return (
     <div className="mt-6 sm:mt-8">
       <Container className="flex flex-col gap-10">
-        <Link href="/discover" className="inline-flex items-center gap-1 self-start text-sm text-muted-foreground hover:text-foreground">
-          <ChevronLeft size={16} aria-hidden />Discover
-        </Link>
+        <BookCrumbs homeHref={viewer?.username ? `/u/${encodeURIComponent(viewer.username)}` : "/"} />
 
         <div className="grid gap-8 md:grid-cols-[220px_minmax(0,1fr)] md:gap-12 lg:gap-16">
           {/* The cover stays in view beside a long page, so the left column isn't empty below it. */}

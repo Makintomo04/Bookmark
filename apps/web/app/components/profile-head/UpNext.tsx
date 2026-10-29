@@ -8,12 +8,12 @@ import { fetcher, swrOptions } from '@/lib/fetcher'
 import { notify, apiError } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { positionLabel, trackerGroups, type SeriesTrack } from '@/lib/series'
-import type { DiscoverBook } from '@/lib/openLibrary'
+import { discoverBookOf, type DiscoverBook } from '@/lib/openLibrary'
 import type { GenrePicks } from '@/lib/genrePicks'
 import useBooks from '@/app/hooks/useBooks'
 import useSettings from '@/app/hooks/useSettings'
-import useBookEntryModal from '@/app/hooks/useBookEntryModal'
-import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
+import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { groupShelf } from '../books/shelf'
 import BookCover from '../cards/BookCover'
 import { SERIES_TRACKER_KEY } from '../series/FollowSeriesButton'
@@ -21,8 +21,9 @@ import { SERIES_TRACKER_KEY } from '../series/FollowSeriesButton'
 // Covers in the row: eight fill the books column on a wide screen; a phone swipes through them.
 const MOST = 8
 
-// One suggestion. On your shelf (`bookId`), Start moves it to Reading; off it, Start opens the add-book form on
-// Reading, which asks where you're up to.
+// One suggestion. On your shelf (`bookId`), Start moves it to Reading; off it (the next in a series you haven't
+// shelved, a pick for you), Start adds it to Reading. Either way it's one tap with Undo, never a form: a book
+// whose page count isn't known yet is logged in percent, chapters or location until it is.
 interface Pick {
   key: string
   title: string
@@ -33,7 +34,8 @@ interface Pick {
   bookId?: string
   // Where it sits now, so Start can pick a paused book back up and Undo can put it back.
   status?: string | null
-  discover?: DiscoverBook
+  // What the cover and title open in book details, and what Start adds when it isn't shelved.
+  discover: DiscoverBook
 }
 
 // How long Start says "Reading" before the tile leaves the row.
@@ -41,32 +43,44 @@ const STARTED_MS = 1500
 
 const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
   const { mutate } = useBooks()
-  const bookEntryModal = useBookEntryModal()
+  const openDetails = useBookDetailsModal((s) => s.onOpen)
   const [state, setState] = useState<'idle' | 'starting' | 'started'>('idle')
   const refresh = async () => { await mutate(); refreshAfterBookChange() }
   const paused = pick.status === "PAUSED"
 
   // Starts it straight away and offers Undo, as the app does everywhere, rather than asking first. A paused
-  // book picks up where it was; one from your Want to read starts from the beginning.
+  // book picks up where it was; one from your Want to read starts from the beginning; one not on your shelf
+  // goes onto Reading, and Undo takes it off again.
   const start = async () => {
-    if (!pick.bookId) return pick.discover && bookEntryModal.onOpen(pick.discover, { shelf: "STARTED" })
-    const id = pick.bookId
     setState('starting')
+    let undo: () => Promise<unknown>
     try {
-      await axios.post("/api/book-progress", paused ? { id, action: "resume" } : { id, action: "start" })
+      if (pick.bookId) {
+        const id = pick.bookId
+        await axios.post("/api/book-progress", paused ? { id, action: "resume" } : { id, action: "start" })
+        undo = () => axios.post("/api/book-progress", { id, action: paused ? "pause" : "wantToRead" })
+      } else {
+        const { discover: book } = pick
+        const { data: saved } = await axios.post("/api/books", {
+          title: book.title, author: book.author, pages: book.pages ?? undefined, coverImgSrc: book.coverUrl || "",
+          workKey: book.workKey, editionKey: book.editionKey ?? undefined, isbn13: book.isbn13 ?? undefined,
+          isbn10: book.isbn10 ?? undefined, hardcoverId: book.hardcoverId ?? undefined,
+          description: book.description ?? undefined, status: "STARTED",
+        })
+        copyCoverLater(saved?.id)
+        undo = () => axios.delete(`/api/books/${saved.id}`)
+      }
     } catch (err) {
       setState('idle')
+      // Shelved in another tab since the row loaded: the refresh moves it up to Continue reading.
+      if (axios.isAxiosError(err) && err.response?.status === 409) { refresh(); return notify.info(apiError(err, "Already on your shelf")) }
       return notify.error(apiError(err, `Couldn't start ${pick.title}. Try again.`))
     }
     setState('started')
     notify.success(`Started ${pick.title}`, {
       action: {
         label: "Undo",
-        onClick: () => {
-          axios.post("/api/book-progress", { id, action: paused ? "pause" : "wantToRead" })
-            .then(refresh)
-            .catch((err) => notify.error(apiError(err, "Couldn't undo that")))
-        },
+        onClick: () => { undo().then(refresh).catch((err) => notify.error(apiError(err, "Couldn't undo that"))) },
       },
     })
     setTimeout(refresh, STARTED_MS)
@@ -76,10 +90,19 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
     // Smaller than the Continue cards above, with a quiet Start, so what you're reading stays the loudest thing:
     // 96px wide on a phone (a row you swipe, the third cover peeking), 72px across seven columns from lg up.
     <li className={cn("flex w-24 shrink-0 snap-start flex-col", !row && "sm:w-auto")}>
-      <BookCover book={{ title: pick.title, author: pick.author, coverImage: pick.coverUrl || "", cardColour: pick.cardColour ?? null }}
-        variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
+      {/* The cover and the title both open book details. The title is the one button keyboards and screen
+          readers get; the cover is the same button for a pointer, so it isn't announced twice. */}
+      <button type="button" tabIndex={-1} aria-hidden onClick={() => openDetails(pick.discover)}
+        className="block w-full rounded-md transition hover:opacity-90">
+        <BookCover book={{ title: pick.title, author: pick.author, coverImage: pick.coverUrl || "", cardColour: pick.cardColour ?? null }}
+          variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
+      </button>
       {/* Two lines kept for every title, so a one-line title doesn't lift its Start above the rest of the row. */}
-      <p className="mt-1.5 line-clamp-2 min-h-[2.75em] break-words text-xs font-medium leading-snug" title={pick.title}>{pick.title}</p>
+      {/* The clamp is on the button: a button is its own box, so a clamp on the paragraph doesn't reach inside it. */}
+      <p className="mt-1.5 min-h-[2.75em] break-words text-xs font-medium leading-snug" title={pick.title}>
+        <button type="button" onClick={() => openDetails(pick.discover)} aria-label={`${pick.title}: about this book`}
+          className="line-clamp-2 w-full rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{pick.title}</button>
+      </p>
       <p className="truncate text-[11px] leading-snug text-muted-foreground" title={pick.tag}>{pick.tag}</p>
       {/* One quiet pill at every width: 32px to look at, with a 44px tap area, full width under a phone's cover. */}
       <button type="button" onClick={start} disabled={state !== 'idle'}
@@ -131,7 +154,7 @@ const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = fal
     })
   }
   for (const book of groupShelf(books as Book[]).wantToRead) {
-    add({ key: book.id, title: book.title, author: book.author, coverUrl: book.coverImage, cardColour: book.cardColour, tag: "Want to read", bookId: book.id, status: book.status })
+    add({ key: book.id, title: book.title, author: book.author, coverUrl: book.coverImage, cardColour: book.cardColour, tag: "Want to read", bookId: book.id, status: book.status, discover: discoverBookOf(book) })
   }
   if (!settings?.hideShelfPicks) {
     const label = genre?.genres[0]?.label
@@ -146,7 +169,11 @@ const UpNext: FC<{ bare?: boolean; row?: boolean }> = ({ bare = false, row = fal
       {!bare && <h2 id="up-next" className="mb-4 text-lg font-semibold">Up next</h2>}
       <ul className={cn(
         // Relative, so the Start buttons' screen-reader text stays inside the scroller instead of widening the page.
-        "relative flex gap-3 overflow-x-auto snap-x pb-1 max-sm:-mx-4 max-sm:px-4",
+        // Out to the screen's edges on a phone, with the page's 16px kept as scroll padding too: without it each
+        // tile snaps to the scroller's very edge and the first cover touches the side of the screen.
+        // overflow-y-hidden: overflow-x-auto alone makes it a vertical scroller too, and the Start pills' tap areas
+        // reaching past the bottom let the row be dragged up and down. pb-2 keeps those tap areas inside it.
+        "relative flex gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x pb-2 max-sm:-mx-4 max-sm:px-4 max-sm:scroll-px-4",
         !row && "sm:grid sm:grid-cols-6 sm:overflow-visible lg:grid-cols-7 sm:max-lg:[&>li:nth-child(n+7)]:hidden lg:[&>li:nth-child(n+8)]:hidden",
       )}>
         {picks.map((pick) => <PickTile key={pick.key} pick={pick} row={row} />)}

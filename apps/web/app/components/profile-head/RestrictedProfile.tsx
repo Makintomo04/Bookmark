@@ -37,7 +37,7 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
         <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-4">
           {/* No tier frame: it would give away how many books they've read. */}
           <div className="relative shrink-0">
-            <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${name}'s avatar`} booksRead={0} className="w-24 sm:w-28" />
+            <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${name}'s avatar`} booksRead={0} className="size-24 sm:size-28" />
             {profile.staffBadge && <StaffSeal kind={profile.staffBadge} name={name} size={30} cutOut shine className="absolute right-0 bottom-[6%]" />}
           </div>
           {viewer && <div className="pb-1"><ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} /></div>}

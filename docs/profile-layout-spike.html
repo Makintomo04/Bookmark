@@ -210,12 +210,38 @@ svg.bx-i { width: 1em; height: 1em; flex: none; stroke: currentColor; fill: none
 .bx-corner { position: absolute; right: -6px; bottom: -6px; width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; background: var(--reader); color: #fff; font-size: 14px; box-shadow: 0 0 0 3px var(--bg); }
 .bx-tiles.bx-desk .bx-corner { width: 28px; height: 28px; font-size: 12px; }
 .bx-done { color: #34d399; }
-.bx-option { display: grid; gap: 14px; padding-top: 28px; border-top: 1px solid var(--line); }
+.bx-option { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding-top: 28px; border-top: 1px solid var(--line); }
 .bx-option h3 { font-family: var(--ui); font-size: 17px; letter-spacing: 0; }
 .bx-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 24px; font-size: 14px; color: var(--muted); max-width: 900px; }
 .bx-meta b { color: var(--fg); font-weight: 600; }
 .bx-pick { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); }
 .callout { background: var(--surface); border-radius: 12px; padding: 20px 22px; display: grid; gap: 10px; }
+/* Circle mark options (#circle-mark): the Continue reading card as built, cover full height. */
+.cm-card { position: relative; display: flex; gap: 16px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-family: var(--ui); }
+.cm-cover { position: relative; width: 62px; flex: none; align-self: stretch; border-radius: 6px; padding: 5px; font: 600 8px/1.15 var(--display); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.cm-body { min-width: 0; flex: 1; }
+.cm-title { font-size: 15px; font-weight: 500; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-author { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; line-height: 20px; color: var(--muted); }
+.cm-author.cm-tall { height: 28px; }
+.cm-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-mark { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: color-mix(in srgb, var(--fg) 80%, transparent); text-decoration: none; }
+.cm-mark.cm-link:hover { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
+.cm-mark.cm-quiet { font-weight: 400; color: var(--muted); }
+.cm-dot { color: var(--muted); font-weight: 400; }
+.cm-chip { position: relative; z-index: 1; flex: none; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 6px 0 8px; border: 1px solid var(--wire-2); border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--fg); text-decoration: none; transition: background .15s; }
+.cm-chip::after { content: ""; position: absolute; inset: -8px -4px; }
+.cm-chip:hover { background: var(--surface); }
+.cm-pos { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cm-pos > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-pos .bx-chip { margin: -4px 0 4px; flex: none; }
+.cm-inline-link { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--wire-2); }
+.cm-row { display: flex; align-items: flex-start; gap: 6px; }
+.cm-row .bx-u1 { flex: 1; min-width: 0; }
+.cm-icon { position: relative; flex: none; margin-top: 4px; width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--chip); color: var(--fg); font-size: 14px; }
+.cm-icon::after { content: ""; position: absolute; inset: -8px; }
+.cm-icon:hover { background: var(--chip-hover); }
+.cm-h { font-variant-numeric: tabular-nums; }
+.cm-h.cm-uneven { color: var(--brand); }
 @media (prefers-reduced-motion: no-preference) { .bar i { transition: width .6s; } }
 </style>
 
@@ -223,7 +249,7 @@ svg.bx-i { width: 1em; height: 1em; flex: none; stroke: currentColor; fill: none
   <header class="prose">
     <p class="eyebrow">Spike · 29 October 2026 · your profile at /u/&lt;you&gt;</p>
     <h1 style="margin-top:10px">Where things sit on your profile</h1>
-    <p class="lede">An audit of the owner's profile as it stands on main, and four layouts that move the smaller sections to the side. Each one is drawn at desktop width with real section shapes, then the order a phone would get. A five-reader panel then stress-tested them and agreed on one: <a href="#agreed">B+, a reading-first page in bands</a>. A refined D then took B+ to a <a href="#rematch-result">tie on points, and B+ won the vote 3 to 2</a>. Built, B+ didn't hold up, so a <a href="#ux-review">UX-only review</a> with a senior product designer led to <a href="#iteration-2">Iteration 2</a>, the current design. A UI audit then compared <a href="#buttons">five options for the Update and Start buttons</a>.</p>
+    <p class="lede">An audit of the owner's profile as it stands on main, and four layouts that move the smaller sections to the side. Each one is drawn at desktop width with real section shapes, then the order a phone would get. A five-reader panel then stress-tested them and agreed on one: <a href="#agreed">B+, a reading-first page in bands</a>. A refined D then took B+ to a <a href="#rematch-result">tie on points, and B+ won the vote 3 to 2</a>. Built, B+ didn't hold up, so a <a href="#ux-review">UX-only review</a> with a senior product designer led to <a href="#iteration-2">Iteration 2</a>, the current design. A UI audit then compared <a href="#buttons">five options for the Update and Start buttons</a>, and later <a href="#circle-mark">three ways to make the circle mark tappable</a>.</p>
   </header>
 
   <!-- AUDIT -->
@@ -617,6 +643,24 @@ svg.bx-i { width: 1em; height: 1em; flex: none; stroke: currentColor; fill: none
     <div class="bx-meta"><span>The reading cards keep the only visible controls with weight. Up next sits underneath, clearly second.</span></div>
     <div class="bx-grid" data-bx="together"></div></section>
 
+  <section id="circle-mark">
+    <p class="eyebrow">Continue reading · the circle mark</p>
+    <h2>Making the circle link look tappable</h2>
+    <p class="prose muted">The owner said the "👥 Circle" mark on a card's author line doesn't look like a button. The UI designer agreed: it's styled exactly like "↻ Reread", which does nothing, its tap area is about 16px tall, and where the circle is gets said three times (the mark, "circle at Ch 21", and the tick on the bar). On a phone, "circle at Ch 21" is cut to "circl…". Each option keeps the owner's rules: every card the same height, the cover full height, and nothing competing with the Update row. The cards are drawn at the app's sizes, and each caption measures them, so you can check the heights for yourself. Hover to see states.</p>
+  </section>
+  <section class="bx-option" id="cm-now"><h3>Today</h3>
+    <div class="bx-meta"><span>"· 👥 Circle" and "· ↻ Reread" look the same, but only the circle is a link. The circle's place is also in the progress line.</span></div>
+    <div class="bx-grid" data-cm="now"></div></section>
+  <section class="bx-option bx-pick" id="cm-a"><h3>A · an outline chip that says where the circle is <span class="tag rec">Designer's pick</span></h3>
+    <div class="bx-meta"><span><b>How:</b> a 24px outlined chip, "👥 Ch 21 ›", on the author line, with a tap area of about 40px. It's outlined, not filled, so it stays a rank below Update.</span><span><b>Also:</b> "circle at Ch 21" comes off the progress line, which stops it being cut off on a phone. The tick on the bar stays. Reread becomes plain grey text, so it no longer looks like a control.</span><span><b>Trade-off:</b> the author line is 28px on every card to fit the chip, so all cards grow 8px and stay level. On a phone the author's name is cut off sooner.</span></div>
+    <div class="bx-grid" data-cm="a"></div></section>
+  <section class="bx-option" id="cm-b"><h3>B · a round icon button beside Update</h3>
+    <div class="bx-meta"><span><b>How:</b> a 28px grey round button with the people icon, to the left of the Update chip, with a 44px tap area. The author line keeps only Reread, in plain grey.</span><span><b>Trade-off:</b> no height cost, but it puts a second control right beside the main one. It squeezes the progress line on a phone, and an icon on its own is unclear.</span></div>
+    <div class="bx-grid" data-cm="b"></div></section>
+  <section class="bx-option" id="cm-c"><h3>C · the circle's place in the progress line is the link</h3>
+    <div class="bx-meta"><span><b>How:</b> "circle at Ch 21 ›", underlined, in the progress line.</span><span><b>Ruled out:</b> that line is inside the Update button, so this would be a link inside a button, which isn't valid and is easy to mis-tap. It's still cut off on a phone too. Shown here only for comparison.</span></div>
+    <div class="bx-grid" data-cm="c"></div></section>
+
   <section>
     <div class="callout">
       <p class="eyebrow">What it takes</p>
@@ -869,5 +913,59 @@ document.getElementById("vFv").innerHTML += phoneHead(false) +
     b.innerHTML = `<span class="bx-done">${I.check}</span>Reading`;
     setTimeout(() => { b.innerHTML = was; delete b.dataset.done; }, 1500);
   });
+})();
+</script>
+<script>
+// Circle mark options (#circle-mark): Continue reading cards as built, each option drawn at both widths.
+(() => {
+  const I = {
+    pencil: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></svg>',
+    users: '<svg class="bx-i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    repeat: '<svg class="bx-i" viewBox="0 0 24 24"><path d="m2 9 3-3 3 3"/><path d="M13 18H7a2 2 0 0 1-2-2V6"/><path d="m22 15-3 3-3-3"/><path d="M11 6h6a2 2 0 0 1 2 2v10"/></svg>',
+    chev: '<svg class="bx-i" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+  };
+  const BOOKS = [
+    { title: "The Well of Ascension", author: "Brandon Sanderson", colour: "#1f3a5f", pos: "Ch 25 of 59 · 41%", pct: 41, circle: { at: 35, ch: 21 } },
+    { title: "Piranesi", author: "Susanna Clarke", colour: "#2e7d32", pos: "3h 23m of 9h 1m · 38%", pct: 38, reread: true },
+    { title: "Tomorrow, and Tomorrow, and Tomorrow", author: "Gabrielle Zevin", colour: "#e0631b", pos: "Page 132 of 401 · 33%", pct: 33 },
+  ];
+  const dot = '<span class="cm-dot" aria-hidden="true">·</span>';
+  const bar = (b) => `<div class="bx-barrow" style="margin-top:6px"><div class="bx-track"><div class="bx-fill" style="width:${b.pct}%"></div>${b.circle ? `<span class="bx-tick" style="left:${b.circle.at}%"></span>` : ""}</div></div>`;
+
+  const authorLine = (b, v) => {
+    let marks = "";
+    if (b.circle && v === "now") marks += `<a href="#cm-now" class="cm-mark cm-link">${dot}${I.users}Circle</a>`;
+    if (b.circle && v === "a") marks += `<a href="#cm-a" class="cm-chip" aria-label="Your circle for ${b.title}, at chapter ${b.circle.ch}">${I.users}Ch ${b.circle.ch}${I.chev}</a>`;
+    if (b.reread) marks += v === "now" ? `<span class="cm-mark">${dot}${I.repeat}Reread</span>` : `<span class="cm-mark cm-quiet">${dot}${I.repeat}Reread</span>`;
+    return `<div class="cm-author${v === "a" ? " cm-tall" : ""}"><span class="cm-name">${b.author}</span>${marks}</div>`;
+  };
+  const posText = (b, v) => {
+    if (!b.circle || v === "a" || v === "b") return b.pos;
+    if (v === "c") return `${b.pos} · <span class="cm-inline-link">circle at Ch ${b.circle.ch} ›</span>`;
+    return `${b.pos} · circle at Ch ${b.circle.ch}`;
+  };
+  const updateRow = (b, v) => `<button class="bx-btn bx-u1" aria-label="Update progress for ${b.title}"><div class="cm-pos"><span>${posText(b, v)}</span><span class="bx-chip">${I.pencil}Update</span></div>${bar(b)}</button>`;
+  const card = (b, v) => {
+    const row = v === "b" && b.circle
+      ? `<div class="cm-row">${updateRow(b, v)}<a href="#cm-b" class="bx-btn cm-icon" aria-label="Your circle for ${b.title}">${I.users}</a></div>`
+      : updateRow(b, v);
+    return `<div class="cm-card"><div class="cm-cover" style="background:${b.colour}">${b.title}</div><div class="cm-body"><div class="cm-title">${b.title}</div>${authorLine(b, v)}${row}</div></div>`;
+  };
+  const frame = (cap, v) => `<div class="bx-frame"><div class="bx-cap"><span>${cap}</span><span class="cm-h"></span></div><div class="bx-cards">${BOOKS.map((b) => card(b, v)).join("")}</div></div>`;
+
+  for (const el of document.querySelectorAll("[data-cm]")) el.innerHTML = frame("Desktop", el.dataset.cm) + frame("Phone", el.dataset.cm);
+  // Each caption gives the cards' measured heights, so it's plain whether an option keeps them level.
+  const measure = () => {
+    for (const f of document.querySelectorAll("[data-cm] .bx-frame")) {
+      const hs = [...f.querySelectorAll(".cm-card")].map((c) => Math.round(c.getBoundingClientRect().height));
+      const out = f.querySelector(".cm-h");
+      const even = hs.every((h) => h === hs[0]);
+      out.textContent = even ? `Every card ${hs[0]}px` : `Cards ${hs.join(" / ")}px`;
+      out.classList.toggle("cm-uneven", !even);
+    }
+  };
+  measure();
+  document.fonts?.ready.then(measure);
+  addEventListener("resize", measure);
 })();
 </script>
