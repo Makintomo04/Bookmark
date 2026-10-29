@@ -5,12 +5,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  authorStrings, changedFields, editionCopyUpdates, librarianCover, mergeCurated, parseEditionFix, parseWorkFix, workCopyUpdates, type WorkValues,
+  authorStrings, changedFields, curatedWorkFields, editionCopyUpdates, librarianCover, mergeCurated, parseEditionFix, parseWorkFix, workCopyUpdates, type WorkValues,
 } from "../../lib/catalogueFixRules.ts";
 import { resolveOne } from "../../lib/catalog/resolve.ts";
 import { MemoryCatalogStore } from "../../lib/catalog/memoryStore.ts";
 
-const work: WorkValues = { title: "Dune", authors: ["Frank Herbert"], description: null, coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg" };
+const work: WorkValues = { title: "Dune", authors: ["Frank Herbert"], description: null, coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg", seriesName: null, seriesPosition: null };
 
 test("a work fix takes only the fields sent, cleaned, and refuses empty titles, authors and non-https covers", () => {
   assert.deepEqual(parseWorkFix({ title: "  Dune Messiah ", other: "ignored" }, 3000), { ok: true, patch: { title: "Dune Messiah" } });
@@ -78,4 +78,14 @@ test("a librarian's cover beats every other cover", () => {
   assert.equal(librarianCover({ ...fixed, coverUrl: "https://utfs.io/f/work.jpg" }, [fixed]), "https://utfs.io/f/work.jpg", "the work's own fix comes first");
   assert.equal(librarianCover(hardcover, [{ coverUrl: null, curatedFields: ["coverUrl"] }]), null, "a cleared cover isn't one");
   assert.equal(librarianCover(hardcover, []), null);
+});
+
+test("a librarian's series: name and place cleaned, a cleared name clears the place, and either half keeps the fill off", () => {
+  assert.deepEqual(parseWorkFix({ seriesName: " Dune Chronicles ", seriesPosition: "2" }, 3000), { ok: true, patch: { seriesName: "Dune Chronicles", seriesPosition: 2 } });
+  assert.deepEqual(parseWorkFix({ seriesPosition: "2.5" }, 3000), { ok: true, patch: { seriesPosition: 2.5 } });
+  assert.deepEqual(parseWorkFix({ seriesName: "" }, 3000), { ok: true, patch: { seriesName: null, seriesPosition: null } });
+  assert.equal(parseWorkFix({ seriesPosition: "first" }, 3000).ok, false);
+  assert.equal(parseWorkFix({ seriesPosition: -1 }, 3000).ok, false);
+  assert.deepEqual(curatedWorkFields(["seriesPosition"]), ["seriesPosition", "seriesName"]);
+  assert.deepEqual(curatedWorkFields(["title"]), ["title"]);
 });

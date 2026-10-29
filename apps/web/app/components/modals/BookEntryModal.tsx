@@ -1,7 +1,8 @@
 "use client"
 import { FC, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lock, Search, Users } from 'lucide-react'
+import { BookPlus, Lock, Search, Users } from 'lucide-react'
+import { askToCatalogue } from '../books/catalogueRequest'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
@@ -70,6 +71,8 @@ const BookEntryModal: FC = () => {
   const [startCircle, setStartCircle] = useState(false)
   // Private: on the reader's shelf as usual, but left off their profile and out of followers' feeds.
   const [isPrivate, setIsPrivate] = useState(false)
+  // A hand-typed, shared book: ask a librarian to add it to the catalogue once it's on the shelf.
+  const [askToAdd, setAskToAdd] = useState(false)
 
   // "search" until a book is picked (or the user opts to type one in), then "shelf".
   const [stage, setStage] = useState<"search" | "shelf">("search")
@@ -107,6 +110,7 @@ const BookEntryModal: FC = () => {
     setFormat("PRINT")
     setStartCircle(false)
     setIsPrivate(false)
+    setAskToAdd(false)
     setShelf("NOT_STARTED")
     setFinishDates(defaultFinishDates())
     setRating(0)
@@ -209,6 +213,9 @@ const BookEntryModal: FC = () => {
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
       celebrate(saved?.earnMoment, { message: isPrivate ? `Added to ${label}, privately` : `Added to ${label}` })
+      if (isManual && askToAdd && !isPrivate && saved?.workId) {
+        askToCatalogue(saved.workId).catch(() => notify.error("Added, but your request didn't send. Ask again from the book."))
+      }
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()
@@ -381,6 +388,27 @@ const BookEntryModal: FC = () => {
             <span className="block text-sm text-muted-foreground">It stays off your profile and out of your followers&apos; feeds. You can share it later.</span>
           </span>
         </button>
+        {isManual && !isPrivate && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={askToAdd}
+            onClick={() => setAskToAdd((v) => !v)}
+            disabled={isLoading}
+            className="flex items-start gap-3 text-left w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <span
+              className={cn("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", !askToAdd && "bg-neutral-300 dark:bg-neutral-700")}
+              style={askToAdd ? { background: user?.favColour || "#D92D2D" } : undefined}
+            >
+              <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", askToAdd && "translate-x-5")} />
+            </span>
+            <span>
+              <span className="flex items-center gap-1.5 text-sm font-medium"><BookPlus size={14} aria-hidden /> Ask to add it to Bookmark</span>
+              <span className="block text-sm text-muted-foreground">A librarian checks it&apos;s a published book, then gives it a page other readers can find.</span>
+            </span>
+          </button>
+        )}
       </div>
 
       {shelf === "STARTED" && !isAudio && (

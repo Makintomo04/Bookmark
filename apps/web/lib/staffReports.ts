@@ -5,6 +5,8 @@ import { staffFail, type StaffOutcome } from "@/lib/staffRoute";
 import { isObjectId } from "@/lib/staffUsers";
 import { createNotification } from "@/lib/notifications";
 import { bookHref } from "@/lib/workKey";
+import { hasPage } from "@/lib/workPages";
+import { sharedBookWhere } from "@/lib/privacy";
 import { actionAllowed, type ReportAction, type ReportKind } from "@/lib/staffReportRules";
 
 export * from "@/lib/staffReportRules";
@@ -26,6 +28,8 @@ export const BOOK_REPORT_REASONS = {
   cover: "Wrong or missing cover",
   details: "Wrong title, author or pages",
   other: "Something else",
+  // A reader asking for their hand-typed book to get a page (lib/workPages.ts), not a problem as such.
+  catalogue: "Asked to add it to the catalogue",
 } as const;
 export type BookReportReason = keyof typeof BOOK_REPORT_REASONS;
 export const BOOK_REPORT_NOTE_MAX = 500;
@@ -221,7 +225,7 @@ export async function actOnReport(actor: { id: string }, kind: ReportKind, itemI
   return { ok: true, value: { closed } };
 }
 
-// A reader's report of a wrong cover or wrong details. One per reader per book; reporting again updates it.
+// A reader's report of a wrong cover or wrong details, or a request to add a hand-typed book. One per reader per book; reporting again updates it.
 export async function reportBook(reporterId: string, body: Record<string, unknown>): Promise<StaffOutcome<{ reported: true }>> {
   // A work id, or the Open Library work key Discover and lists carry (OL45883W).
   const workKey = typeof body.workKey === "string" && /^OL\d+W$/i.test(body.workKey) ? body.workKey.toUpperCase() : null;
@@ -231,6 +235,14 @@ export async function reportBook(reporterId: string, body: Record<string, unknow
   const reason = body.reason as BookReportReason;
   if (!workId || !isObjectId(workId) || !(await prisma.work.findUnique({ where: { id: workId }, select: { id: true } }))) return staffFail(404, "Book not found");
   if (typeof reason !== "string" || !(reason in BOOK_REPORT_REASONS)) return staffFail(400, "Choose what's wrong.");
+  if (reason === "catalogue") {
+    // Only for a book that has no page yet, from a reader who has it on their shelf and shares it: a
+    // private copy may be a note nobody else should see.
+    const work = await prisma.work.findUnique({ where: { id: workId }, select: { openLibraryKey: true, hardcoverId: true, pageApprovedAt: true } });
+    if (work && hasPage(work)) return staffFail(400, "This book is already in the catalogue.");
+    const copy = await prisma.book.findFirst({ where: { workId, userId: reporterId, ...sharedBookWhere }, select: { id: true } });
+    if (!copy) return staffFail(400, "Share the book on your profile first, then ask for it to be added.");
+  }
   const note = typeof body.note === "string" ? body.note.trim().slice(0, BOOK_REPORT_NOTE_MAX) || null : null;
   await prisma.bookReport.upsert({
     where: { workId_reporterId: { workId, reporterId } },
