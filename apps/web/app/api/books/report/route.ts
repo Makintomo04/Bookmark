@@ -7,7 +7,7 @@ import { notifyStaffOfReport } from "@/lib/staffNotify";
 
 // "Report a problem" on a book: a wrong cover or wrong details, for a librarian to fix in the shared
 // catalogue, or a request to add a book that has no page yet ("catalogue"). Body: { workId or workKey,
-// editionId?, reason: "cover" | "details" | "other" | "catalogue", note? }.
+// editionId?, reason: "cover" | "details" | "series" | "other" | "catalogue", note? }.
 export async function POST(req: Request) {
   const { user, response } = await requireUser("Sign in to report a problem with a book.");
   if (response) return response;

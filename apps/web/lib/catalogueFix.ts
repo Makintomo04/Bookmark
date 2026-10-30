@@ -13,6 +13,7 @@ import { openLibraryLookup } from "@/lib/catalog/lookup";
 import { resolveCatalog } from "@/lib/catalog";
 import { workIdForOpenLibraryKey } from "@/lib/catalog/prismaStore";
 import { workKeyOfQuery } from "@/lib/workKey";
+import { searchCatalogue } from "@/lib/bookSearch";
 import { MERGED_PREFIX } from "@/lib/catalogueMergeRules";
 import {
   EDITION_FIELDS,
@@ -100,6 +101,35 @@ export async function addWorkFromOpenLibrary(actor: Actor, key: string): Promise
   if (!facts?.title) return staffFail(404, `Open Library doesn't have a book at ${olKey}.`);
   const { work } = await resolveCatalog({ workKey: olKey, title: facts.title }, { lookup: true, describe: true });
   await logStaffAction({ actorId: actor.id, action: "work.add", targetType: "work", targetId: work.id, after: { openLibraryKey: olKey, title: work.title } });
+  return { ok: true, value: (await findStaffWork(work.id))! };
+}
+
+// Open Library's and Hardcover's matches for a search (lib/bookSearch.ts), for filing a book the catalogue
+// lacks, e.g. into a series. Books that already have a page are left out: the librarian finds those in
+// the catalogue itself.
+export async function searchOutsideCatalogue(query: string) {
+  if (query.trim().length < 3) return [];
+  const hits = await searchCatalogue(query, 12);
+  return hits.filter((b) => !b.pageWorkId).map((b) => ({
+    workKey: b.workKey, hardcoverId: b.hardcoverId ?? null, title: b.title, author: b.author, coverUrl: b.coverUrl, year: b.year ?? null,
+  }));
+}
+
+// A Hardcover hit with no Open Library work, filed the way a reader adding it would (and with a book page
+// straight away, like a hand-typed one). Hands back the book already filed under that Hardcover id, title
+// and author.
+export async function addWorkFromHardcover(actor: Actor, body: Record<string, unknown>): Promise<StaffOutcome<StaffWork>> {
+  const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const hardcoverId = text(body.hardcoverId), title = text(body.title), author = text(body.author);
+  if (!hardcoverId || !title || !author) return staffFail(400, "That book is missing its title or author.");
+  const byId = await prisma.work.findFirst({ where: { hardcoverId }, select: { id: true } });
+  const matchKey = workMatchKey(title, author);
+  const existing = byId ?? (matchKey ? await prisma.work.findFirst({ where: { matchKey }, select: { id: true } }) : null);
+  if (existing) return { ok: true, value: (await findStaffWork(existing.id))! };
+  const cover = await catalogueCoverFrom(text(body.coverUrl) || null);
+  const { work } = await resolveCatalog({ hardcoverId, title, author, authors: [author], coverUrl: cover.ok ? cover.url : null });
+  await prisma.work.update({ where: { id: work.id }, data: { pageApprovedAt: new Date() } });
+  await logStaffAction({ actorId: actor.id, action: "work.add", targetType: "work", targetId: work.id, after: { hardcoverId, title: work.title } });
   return { ok: true, value: (await findStaffWork(work.id))! };
 }
 
