@@ -61,6 +61,10 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   // In bands, everything but the shelves sits beside the header from lg up, in the order a phone shows it:
   // favourites, what they're reading (a circle you share first), lists, then reviews and the authors they follow
   // below lg (from lg up they end the header's column). A short column of cards never leaves the rest of the page empty beside it.
+  // On a phone the authors they follow come last, under the shelves; from lg up they're in the header's column.
+  const phoneAuthors = (
+    <div className="lg:hidden empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
+  )
   const besides = (
     <div className="flex flex-col gap-10">
       <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
@@ -73,12 +77,11 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         </section>
       )}
       {hasLists && <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>}
-      {/* Below lg these follow the lists; from lg up they end the header's column (identityFooter, below). */}
+      {/* Below lg the reviews follow the lists; from lg up they end the header's column (identityFooter, below). */}
       <div className="flex flex-col gap-12 lg:hidden empty:hidden">
         <div className="empty:hidden"><ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
-        <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
       </div>
-      {shelvesBeside && <div className="empty:hidden">{shelves}</div>}
+      {shelvesBeside && <><div className="empty:hidden">{shelves}</div>{phoneAuthors}</>}
     </div>
   )
   // Re-reads sit under Currently reading but still count as read.
@@ -140,7 +143,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
       {bands ? (
         // In bands, everything else sits beside the header (besides, above), so this is the shelves, unless
         // they've taken the space beside it.
-        !shelvesBeside && <div className="mt-12 flex flex-col gap-12">{shelves}</div>
+        !shelvesBeside && <div className="mt-12 flex flex-col gap-12">{shelves}{phoneAuthors}</div>
       ) : (
       <div className="mt-8">
         <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} />

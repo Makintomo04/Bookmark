@@ -95,11 +95,11 @@ const OwnerBands: FC<{ username: string }> = ({ username }) => (
       <FollowRequests />
       {/* From lg up your reviews are in your header's column too, under the authors you follow (ProfileHead). */}
       <div className="lg:hidden empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
-      {/* From lg up the authors you follow are in your header's column, under your medals (ProfileHead). */}
-      <div className="lg:hidden empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
       {/* From lg up your favourites and lists sit in your header's right column, under Up next (ProfileHead). */}
       <div className="lg:hidden"><BandsShowcase username={username} /></div>
       <BookList slot="shelves" />
+      {/* From lg up the authors you follow are in your header's column, under your medals (ProfileHead); on a phone they come last. */}
+      <div className="lg:hidden empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
     </div>
   </ShelfFilterProvider>
 )
