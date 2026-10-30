@@ -59,10 +59,11 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   // than leaving it empty, and nothing sits under the header.
   const shelvesBeside = reading.length === 0 && favourites.length === 0 && !hasLists
   // In bands, everything but the shelves sits beside the header from lg up, in the order a phone shows it:
-  // what they're reading (a circle you share first), favourites, lists, then reviews and the authors they follow
+  // favourites, what they're reading (a circle you share first), lists, then reviews and the authors they follow
   // below lg (from lg up they end the header's column). A short column of cards never leaves the rest of the page empty beside it.
   const besides = (
     <div className="flex flex-col gap-10">
+      <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
       {reading.length > 0 && (
         <section aria-labelledby="public-now">
           <h2 id="public-now" className="mb-4 flex min-h-10 items-baseline gap-2 text-lg font-semibold">
@@ -71,7 +72,6 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
           <ContinueReading books={reading} finished={finished} accentColour={profile.favColour} readOnly oneLineOnPhone shared={sharedCircles} />
         </section>
       )}
-      <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
       {hasLists && <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>}
       {/* Below lg these follow the lists; from lg up they end the header's column (identityFooter, below). */}
       <div className="flex flex-col gap-12 lg:hidden empty:hidden">
