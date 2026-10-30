@@ -181,10 +181,10 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         share={<ShareProfileButton username={user.username} />}
         actions={
           <>
-            <button type="button" onClick={editProfileModal.onOpen} className={`${secondaryButtonClass} max-sm:px-3`}>
+            <button type="button" onClick={editProfileModal.onOpen} className={`${secondaryButtonClass} max-sm:px-3 lg:flex-1`}>
               <span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit profile</span>
             </button>
-            <button type="button" onClick={() => bookEntryModal.onOpen()} className={`${primaryButtonClass} max-sm:px-3`}>
+            <button type="button" onClick={() => bookEntryModal.onOpen()} className={`${primaryButtonClass} max-sm:px-3 lg:flex-1`}>
               <Plus size={16} aria-hidden /><span className="sm:hidden">Add</span><span className="hidden sm:inline">Add a book</span>
             </button>
           </>

@@ -155,7 +155,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
             {staffBadge && <StaffSeal kind={staffBadge} name={name} size={30} cutOut shine className={cn("absolute", plus ? "-right-1.5 bottom-0.5" : "right-0 bottom-[6%]")} />}
           </div>
           {/* On a phone the buttons are shorter, so beside the smaller avatar they clear the banner by 12px. */}
-          {actions && <div className={cn("flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8", besides && "lg:order-last lg:mt-5 lg:flex-wrap lg:pb-0")}>{actions}</div>}
+          {actions && <div className={cn("flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8", besides && "lg:order-last lg:mt-5 lg:w-full lg:flex-wrap lg:pb-0")}>{actions}</div>}
         </div>
 
         <div className="mt-3 sm:mt-4 min-w-0">
