@@ -105,6 +105,15 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
   }))
 }
 
+// Genre slugs that at least one public reader list carries, so a filter never leads to an empty page.
+export async function communityGenres(): Promise<Set<string>> {
+  const rows = await prisma.list.findMany({
+    where: { AND: [publicOnly, { isPick: false, items: { some: {} }, genres: { isEmpty: false } }] },
+    select: { genres: true },
+  })
+  return new Set(rows.flatMap((r) => r.genres))
+}
+
 // The lists whose owners' profiles the viewer can see (canSeeListOf). One query for the viewer's
 // blocks and one for which of the owners they follow, however many lists there are.
 async function visibleLists<L extends { ownerId: string, isPick: boolean, owner: Parameters<typeof privacyOf>[0] }>(lists: L[], viewer: Viewer): Promise<L[]> {

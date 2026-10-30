@@ -20,7 +20,9 @@ export const metadata: Metadata = {
   description: "Find your next read: browse genres, hand-picked lists from the Bookmark team, and readers with taste like yours.",
 }
 
-const Spotlight = ({ list }: { list: ListSummary }) => (
+const COMMUNITY_SHOWN = 9
+
+const Spotlight =({ list }: { list: ListSummary }) => (
   <Link
     href={`/lists/${list.id}`}
     className="group relative flex flex-col sm:flex-row sm:items-center gap-6 overflow-hidden rounded-2xl bg-neutral-950 text-white p-6 sm:p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -66,7 +68,8 @@ const Page = async () => {
   const [featured, picks, community, reported] = await Promise.all([
     findLists({ featured: true, limit: 1 }, viewer),
     findLists({ pick: true, limit: 12 }, viewer),
-    findLists({ community: true, limit: 12 }, viewer),
+    // Nine fill three rows of three; the tenth only tells us whether to link to the rest.
+    findLists({ community: true, limit: COMMUNITY_SHOWN + 1 }, viewer),
     findLists({ reported: true, limit: 24 }, viewer),
   ])
 
@@ -119,9 +122,14 @@ const Page = async () => {
               <section aria-labelledby="community-heading">
                 <h2 id="community-heading" className="text-xl font-bold">From readers</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Lists made by the Bookmark community. Like one? Follow the reader behind it.</p>
-                <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
-                  {community.map((list) => <ListCard key={list.id} list={list} className="w-60 shrink-0 sm:w-auto snap-start" />)}
+                <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
+                  {community.slice(0, COMMUNITY_SHOWN).map((list) => <ListCard key={list.id} list={list} className="w-60 shrink-0 sm:w-auto snap-start" />)}
                 </div>
+                {community.length > COMMUNITY_SHOWN && (
+                  <Link href="/lists" className="mt-4 inline-flex items-center gap-2 text-sm font-medium rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    See all lists from readers <ArrowRight size={16} aria-hidden />
+                  </Link>
+                )}
               </section>
             )}
 
