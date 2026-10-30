@@ -105,10 +105,10 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           </span>
         )}
       </button>
-      {/* Two lines kept for every title, so a one-line title doesn't lift its Start above the rest of the row. */}
+      {/* Up to two lines, and Start follows straight after the title, whatever its length. */}
       {/* The clamp is on a span inside the button: some mobile browsers ignore a line clamp on the button itself,
           and a long title then runs past the tile. Anywhere-wrapping stops one long word doing the same. */}
-      <p className="mt-1.5 min-h-[2.75em] min-w-0 text-xs font-medium leading-snug" title={pick.title}>
+      <p className="mt-1.5 min-w-0 text-xs font-medium leading-snug" title={pick.title}>
         <button type="button" onClick={() => openDetails(pick.discover)} aria-label={`${pick.title}: about this book`}
           className="block w-full min-w-0 rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <span className="line-clamp-2 break-words [overflow-wrap:anywhere]">{pick.title}</span>
@@ -172,8 +172,11 @@ const UpNext: FC<{ bare?: boolean; row?: boolean; cap?: number; after?: { title:
       discover: { workKey: next.workKey, title: next.title, author: next.author, pages: null, coverUrl: next.coverUrl },
     })
   }
+  // A shelved book's place in its series: from /api/books (the catalogue's), else the series tracker's.
+  const positionOf = new Map((series?.series ?? []).flatMap((track) => track.entries.flatMap((e) => (e.bookId && e.position !== null ? [[e.bookId, e.position] as const] : []))))
+  const placeOf = (book: Book) => (book as Book & { seriesPosition?: number | null }).seriesPosition ?? positionOf.get(book.id)
   for (const book of groupShelf(books as Book[]).wantToRead) {
-    add({ key: book.id, title: book.title, author: book.author, coverUrl: book.coverImage, cardColour: book.cardColour, tag: "Want to read", bookId: book.id, status: book.status, discover: discoverBookOf(book) })
+    add({ key: book.id, title: book.title, author: book.author, coverUrl: book.coverImage, cardColour: book.cardColour, tag: "Want to read", position: placeOf(book), bookId: book.id, status: book.status, discover: discoverBookOf(book) })
   }
   if (!settings?.hideShelfPicks) {
     const label = genre?.genres[0]?.label

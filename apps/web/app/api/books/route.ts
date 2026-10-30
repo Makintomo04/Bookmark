@@ -58,10 +58,16 @@ const recommenders = recommenderIds.length > 0
 const usernameById = new Map(recommenders.map((u) => [u.id, u.username]))
 // A book without an Open Library key links to its page by catalogue Work id, when the work has one (bookHref).
 const withPages = await workIdsWithPages(books.map((b) => (b.workKey ? null : b.workId)))
+// Where each book sits in its series, when the catalogue knows (the badge on an Up next cover).
+const workIds = Array.from(new Set(books.flatMap((b) => (b.workId ? [b.workId] : []))))
+const placed = workIds.length > 0
+  ? await prisma.work.findMany({ where: { id: { in: workIds }, seriesPosition: { not: null } }, select: { id: true, seriesPosition: true } })
+  : []
+const positionByWork = new Map(placed.map((w) => [w.id, w.seriesPosition]))
 return NextResponse.json(books.map((b) => {
   const username = b.recommendedById ? usernameById.get(b.recommendedById) : null
   const pageWorkId = !b.workKey && b.workId && withPages.has(b.workId) ? b.workId : null
-  return { ...b, recommendedBy: username ? `@${username}` : b.recommendedByName ?? null, pageWorkId }
+  return { ...b, recommendedBy: username ? `@${username}` : b.recommendedByName ?? null, pageWorkId, seriesPosition: (b.workId && positionByWork.get(b.workId)) || null }
 }))
 }
 export async function POST(req:Request) {
