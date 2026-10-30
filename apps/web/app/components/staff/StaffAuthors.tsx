@@ -7,6 +7,7 @@ import { fetcher } from '@/lib/fetcher'
 import type { AuthorHit } from '@/lib/catalogueAuthorRules'
 import type { AuthorChangeCount, AuthorChangeResult, AuthorUndoResult, AuthorWork } from '@/lib/catalogueAuthors'
 import { authorHref } from '@/lib/authorNames'
+import type { ProfileValues as AuthorProfileValues } from '@/lib/authorProfileRules'
 import { Button } from '../ui/button'
 import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cardClass, fieldClass, staffSend } from './staffApi'
@@ -98,6 +99,62 @@ const resultLine = (r: AuthorChangeResult) => {
 const undoneLine = (r: AuthorUndoResult) =>
   `Undone. ${counted(r.books, 'book', 'books')} and ${counted(r.copies, "reader's copy", "readers' copies")} put back${r.follows ? `, ${counted(r.follows, 'follow', 'follows')} moved back` : ''}.`
 
+// The bio and photo the author page shows in place of Open Library's. Empty fields use Open Library's.
+const ProfileEditor = ({ name }: { name: string }) => {
+  const { data, mutate } = useSWR<AuthorProfileValues>(`/api/staff/authors?profile=${encodeURIComponent(name)}`, fetcher)
+  const [bio, setBio] = useState('')
+  const [photoUrl, setPhotoUrl] = useState('')
+  const [reason, setReason] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  useEffect(() => { setBio(data?.bio ?? ''); setPhotoUrl(data?.photoUrl ?? '') }, [data])
+
+  const save = async () => {
+    setPending(true)
+    setError(null)
+    setSaved(false)
+    try {
+      mutate(await staffSend<AuthorProfileValues>('/api/staff/authors', 'POST', { kind: 'profile', name, bio, photoUrl, reason }), { revalidate: false })
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPending(false)
+    }
+  }
+  const changed = (data?.bio ?? '') !== bio.trim() || (data?.photoUrl ?? '') !== photoUrl.trim()
+
+  return (
+    <section className={`${cardClass} flex flex-col gap-3`}>
+      <h3 className="font-medium">Bio and photo</h3>
+      <p className="text-sm text-muted-foreground">
+        Shown on the author page instead of Open Library&rsquo;s. Leave a field empty to use Open Library&rsquo;s. These are kept with the current spelling of the name, so renaming or merging starts them afresh.
+      </p>
+      <div className="flex flex-col gap-1 text-sm">
+        <label htmlFor="author-bio">Bio</label>
+        <textarea id="author-bio" className={`${fieldClass} min-h-32`} value={bio} maxLength={4000} disabled={!data} onChange={(e) => { setBio(e.target.value); setSaved(false) }} />
+      </div>
+      <div className="flex flex-col gap-1 text-sm">
+        <label htmlFor="author-photo">Photo link (https)</label>
+        <ClearableInput id="author-photo" className={fieldClass} value={photoUrl} disabled={!data} onChange={(e) => { setPhotoUrl(e.target.value); setSaved(false) }} />
+      </div>
+      {photoUrl.trim().startsWith('https://') && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={photoUrl.trim()} alt="" className="size-20 rounded-full object-cover bg-neutral-200 dark:bg-neutral-800" />
+      )}
+      <ClearableInput className={fieldClass} value={reason} aria-label="Note for the log" placeholder="Note for the log (optional)" maxLength={500} onChange={(e) => setReason(e.target.value)} />
+      <div className="flex items-center gap-3">
+        <Button size="sm" disabled={!data || pending || !changed} onClick={save}>
+          {pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Save
+        </Button>
+        {saved && <p role="status" className="text-sm text-muted-foreground">Saved.</p>}
+      </div>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    </section>
+  )
+}
+
 // One name: its books, and Rename.
 const AuthorEditor = ({ name, onBack, onDone }: { name: string, onBack: () => void, onDone: (message: string, name: string | null) => void }) => {
   const { data: works, error } = useSWR<AuthorWork[]>(`/api/staff/authors?name=${encodeURIComponent(name)}`, fetcher)
@@ -124,8 +181,10 @@ const AuthorEditor = ({ name, onBack, onDone }: { name: string, onBack: () => vo
           : <Button size="sm" className="self-start" disabled={!trimmed || trimmed === name} onClick={() => setReviewing(true)}>Review rename</Button>}
       </section>
 
+      <ProfileEditor name={name} />
+
       {error && <p className="text-sm text-destructive">{error.message}</p>}
-      {!works && !error && <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />}
+      {!works && !error &&<Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />}
       {works && (
         <section className="flex flex-col gap-2">
           <h3 className="font-medium">{counted(works.length, 'book', 'books')}{works.length === 200 && ' (the first 200)'}</h3>

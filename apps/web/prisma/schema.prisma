@@ -271,6 +271,18 @@ model Follow {
   @@index([followingId, createdAt])
 }
 
+// A librarian's own bio and photo for an author page, in place of Open Library's (lib/authorProfile.ts).
+// Keyed by the page's slug, so renaming or merging an author starts them afresh. Unset fields fall back
+// to Open Library.
+model AuthorProfile {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  slug String @unique
+  bio String?
+  photoUrl String?
+  updatedById String? @db.ObjectId
+  updatedAt DateTime @updatedAt
+}
+
 // A reader following an author (lib/authorFollows.ts). Keyed by the Open Library author key, which stays
 // put when the name on a copy is spelled differently. Name and slug are as they were when followed, for
 // the "Authors you follow" list. Authors don't have accounts: the page and the follow are ours.
@@ -488,6 +500,9 @@ model Work {
   seriesCheckedAt     DateTime?
   coverUrl            String?
   firstPublishYear    Int?
+  // When staff last looked at a burst of ratings on the book (lib/ratingSpikes.ts): only ratings after it
+  // can flag the book again.
+  ratingsReviewedAt   DateTime?
   // Fields a librarian corrected (title, authors, description, coverUrl). lib/catalog never overwrites them.
   curatedFields       String[]  @db.String
   // Open Library's counts for the work, for the recaps popularity gate (lib/recap.ts isWellKnown).

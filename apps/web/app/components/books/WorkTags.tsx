@@ -81,10 +81,22 @@ export const SpiceFlames: FC<{ level: SpiceLevel, size?: number, className?: str
   </span>
 )
 
-// "Spice 3 of 5 · steamy": readers' median, once enough have reported it; before that, when it will
-// show. Deliberately no reader count: the level is what a reader is after.
+// "Spice 3 of 5 · steamy": readers' median, once enough have reported it; before that, an "Early" reading
+// from two or more readers, else when it will show. Deliberately no reader count once it's settled: the
+// level is what a reader is after.
 export const SpiceLine: FC<{ spice: TagAggregate["spice"] | undefined, className?: string }> = ({ spice, className }) => {
   if (!spice || spice.reports === 0) return null
+  if (spice.level === null && spice.early !== null) {
+    return (
+      <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-sm", className)} title={SPICE_HINT[spice.early]}>
+        <SpiceFlames level={spice.early} size={16} />
+        <span>
+          <span className="font-medium">Early: spice {spice.early} of {SPICE_MAX}</span>
+          <span className="text-muted-foreground"> · {SPICE_LABEL[spice.early]}, from {spice.reports} readers</span>
+        </span>
+      </p>
+    )
+  }
   if (spice.level === null) {
     return (
       <p className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)}>
