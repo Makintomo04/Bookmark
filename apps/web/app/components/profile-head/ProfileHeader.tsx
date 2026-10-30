@@ -171,7 +171,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
             )}
           </div>
           {/* The handle, under a display name: it's the /u/ address and how friends find them. */}
-          {displayName && <p className="mt-0.5 text-sm text-muted-foreground break-all">@{username}</p>}
+          {displayName && <p className="mt-2.5 text-sm text-muted-foreground break-all">@{username}</p>}
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
           {follows && follows.length > 0 && <FollowsLine authors={follows} />}
           {follows && follows.length === 0 && followsPrompt && (
