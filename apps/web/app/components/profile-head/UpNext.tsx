@@ -89,7 +89,7 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
   return (
     // Smaller than the Continue cards above, with a quiet Start, so what you're reading stays the loudest thing:
     // 96px wide on a phone (a row you swipe, the third cover peeking), 72px across seven columns from lg up.
-    <li className={cn("flex w-24 shrink-0 snap-start flex-col", !row && "sm:w-auto")}>
+    <li className={cn("flex w-24 min-w-0 shrink-0 snap-start flex-col", !row && "sm:w-auto")}>
       {/* The cover and the title both open book details. The title is the one button keyboards and screen
           readers get; the cover is the same button for a pointer, so it isn't announced twice. */}
       <button type="button" tabIndex={-1} aria-hidden onClick={() => openDetails(pick.discover)}
@@ -98,10 +98,13 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
       </button>
       {/* Two lines kept for every title, so a one-line title doesn't lift its Start above the rest of the row. */}
-      {/* The clamp is on the button: a button is its own box, so a clamp on the paragraph doesn't reach inside it. */}
-      <p className="mt-1.5 min-h-[2.75em] break-words text-xs font-medium leading-snug" title={pick.title}>
+      {/* The clamp is on a span inside the button: some mobile browsers ignore a line clamp on the button itself,
+          and a long title then runs past the tile. Anywhere-wrapping stops one long word doing the same. */}
+      <p className="mt-1.5 min-h-[2.75em] min-w-0 text-xs font-medium leading-snug" title={pick.title}>
         <button type="button" onClick={() => openDetails(pick.discover)} aria-label={`${pick.title}: about this book`}
-          className="line-clamp-2 w-full rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{pick.title}</button>
+          className="block w-full min-w-0 rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span className="line-clamp-2 break-words [overflow-wrap:anywhere]">{pick.title}</span>
+        </button>
       </p>
       <p className="truncate text-[11px] leading-snug text-muted-foreground" title={pick.tag}>{pick.tag}</p>
       {/* One quiet pill at every width: 32px to look at, with a 44px tap area, full width under a phone's cover. */}
