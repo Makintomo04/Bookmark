@@ -3,7 +3,7 @@ import { FC } from 'react'
 import type { Book } from '@prisma/client'
 import { Bookmark } from 'lucide-react'
 import BookCover from '../cards/BookCover'
-import { Skeleton } from '../ui/skeleton'
+import { FavouritesSkeleton } from './ProfileSkeleton'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
 import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
@@ -83,12 +83,7 @@ export const FavouritesRowSkeleton: FC = () => {
   const { collapsed } = useCollapsedSections()("profile-favourites")
   return (
     <div className="mb-12" aria-busy="true" aria-label="Loading your favourites">
-      <div className={collapsed ? "flex min-h-10 items-center" : "mb-5 flex min-h-10 items-center"}><Skeleton className="h-6 w-32" /></div>
-      {!collapsed && (
-        <div className={favouritesGridClass}>
-          {Array.from({ length: TOP_FAVOURITES }, (_, i) => <Skeleton key={i} className="aspect-[2/3]" />)}
-        </div>
-      )}
+      <FavouritesSkeleton headingOnly={collapsed} />
     </div>
   )
 }

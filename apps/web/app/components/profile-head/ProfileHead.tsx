@@ -1,7 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { BLEED } from '../Container'
 import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
 import { Plus } from 'lucide-react'
@@ -12,7 +11,7 @@ import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
-import { Skeleton } from '../ui/skeleton'
+import ProfileSkeleton, { ReadingNowSkeleton } from './ProfileSkeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
 import { reviewedBooks } from '@/lib/reviewedBooks'
 import ReadingGoalWidget from './ReadingGoalWidget'
@@ -54,7 +53,7 @@ const BooksTop: FC = () => {
   const { user } = useUser()
   const { books } = useBooks()
   const shared = useSharedShelfFilter()
-  if (!Array.isArray(books)) return <Skeleton className="h-40 w-full rounded-xl" />
+  if (!Array.isArray(books)) return <ReadingNowSkeleton progress heading="w-44" />
   const { reading, finished } = groupShelf(books as Book[])
   const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
   return (
@@ -114,18 +113,7 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
   const { data: followed } = useSWR<{ authors: FollowedAuthor[] }>(bands ? '/api/user/authors' : null, fetcher, swrOptions)
 
   // SWR reports isLoading while it revalidates server-provided fallback data too, so check for data.
-  if (isLoading && !user) {
-    return (
-      <div>
-        <Skeleton className={`h-24 sm:h-44 sm:rounded-2xl ${BLEED}`} />
-        <div>
-          <Skeleton className="-mt-9 sm:-mt-14 size-20 sm:size-28 rounded-[32px] border-4 border-background" />
-          <Skeleton className="mt-4 h-8 w-48" />
-          <Skeleton className="mt-3 h-4 w-72" />
-        </div>
-      </div>
-    )
-  }
+  if (isLoading && !user) return <ProfileSkeleton own shelves={false} />
 
   if (isError || !user) {
     return <FetchErrorState error={isError} what="your profile" onRetry={() => mutateUser()}/>
@@ -181,10 +169,10 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         share={<ShareProfileButton username={user.username} />}
         actions={
           <>
-            <button type="button" onClick={editProfileModal.onOpen} className={`${secondaryButtonClass} max-sm:px-3`}>
+            <button type="button" onClick={editProfileModal.onOpen} className={`${secondaryButtonClass} max-sm:px-3 lg:flex-1`}>
               <span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit profile</span>
             </button>
-            <button type="button" onClick={() => bookEntryModal.onOpen()} className={`${primaryButtonClass} max-sm:px-3`}>
+            <button type="button" onClick={() => bookEntryModal.onOpen()} className={`${primaryButtonClass} max-sm:px-3 lg:flex-1`}>
               <Plus size={16} aria-hidden /><span className="sm:hidden">Add</span><span className="hidden sm:inline">Add a book</span>
             </button>
           </>

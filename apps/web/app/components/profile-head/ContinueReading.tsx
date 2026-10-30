@@ -224,7 +224,7 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
     // grid-cols-1 (minmax(0, 1fr)), so a long position line truncates instead of widening the column past the screen.
     <ul className={cn("grid grid-cols-1 gap-3", size === 'card' && "sm:grid-cols-2")}>
       {ordered.map((book, i) => (
-        <ContinueCard key={book.id} book={book} accent={accent} readOnly={readOnly} size={size} circle={circleOf(book)} reread={isRereading(book, finished)} onUpdate={openSheet}
+        <ContinueCard key={book.id} book={book} accent={accent} readOnly={readOnly} size={size} circle={circleOf(book)} reread={isRereading(book, finished)} bare={readOnly} onUpdate={openSheet}
           className={cn(!all && i >= SHOWN_PHONE && "max-sm:hidden", !all && i >= SHOWN_WIDE && "sm:hidden")} />
       ))}
     </ul>

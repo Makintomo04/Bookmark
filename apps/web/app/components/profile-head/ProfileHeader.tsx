@@ -155,7 +155,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
             {staffBadge && <StaffSeal kind={staffBadge} name={name} size={30} cutOut shine className={cn("absolute", plus ? "-right-1.5 bottom-0.5" : "right-0 bottom-[6%]")} />}
           </div>
           {/* On a phone the buttons are shorter, so beside the smaller avatar they clear the banner by 12px. */}
-          {actions && <div className={cn("flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8", besides && "lg:order-last lg:mt-5 lg:flex-wrap lg:pb-0")}>{actions}</div>}
+          {actions && <div className={cn("flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8", besides && "lg:order-last lg:mt-5 lg:w-full lg:flex-wrap lg:pb-0")}>{actions}</div>}
         </div>
 
         <div className="mt-3 sm:mt-4 min-w-0">
@@ -171,7 +171,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
             )}
           </div>
           {/* The handle, under a display name: it's the /u/ address and how friends find them. */}
-          {displayName && <p className="mt-0.5 text-sm text-muted-foreground break-all">@{username}</p>}
+          {displayName && <p className="mt-2.5 text-sm text-muted-foreground break-all">@{username}</p>}
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
           {follows && follows.length > 0 && <FollowsLine authors={follows} />}
           {follows && follows.length === 0 && followsPrompt && (
