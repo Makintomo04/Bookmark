@@ -34,6 +34,8 @@ interface PublicProfileProps {
   sharedCircles?: SharedCircle[]
   // This year's goal, when they've chosen to show it (lib/publicGoal.ts).
   goal?: PublicGoal | null
+  // They have lists this viewer can see. Lists load in the browser, so the server says whether there are any.
+  hasLists?: boolean
 }
 
 // How many reviews and followed authors show in bands before "Show more" and "+N more".
@@ -43,12 +45,28 @@ const BANDS_AUTHORS = 8
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
 // and the profile's reading lists are client islands. The payload is already filtered for
 // this viewer (lib/publicProfile.ts): hidden shelves, reviews and counts never arrive.
-const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'bands', sharedCircles = [], goal = null }) => {
+const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'bands', sharedCircles = [], goal = null, hasLists = true }) => {
   const bands = layout === 'bands'
   const favourites = profile.favourites as unknown as Book[]
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`
   // The cards take a Book; the public payload is the subset of it they read.
   const { reading, finished, wantToRead } = groupShelf(profile.books as unknown as Book[])
+  // The shelves, in the owner's order.
+  const shelves = finished.length === 0 && wantToRead.length === 0 && reading.length === 0 ? (
+    <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
+  ) : (
+    <div className="[&>*:first-child]:mt-0">
+      {wantToRead.length > 0 && (
+        <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
+      )}
+      {finished.length > 0 && (
+        <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
+      )}
+    </div>
+  )
+  // With nothing to put beside the header (no reading, favourites or lists), the shelves take that space rather
+  // than leaving it empty, and nothing sits under the header.
+  const shelvesBeside = reading.length === 0 && favourites.length === 0 && !hasLists
   // In bands, everything but the shelves sits beside the header from lg up, in the order a phone shows it:
   // what they're reading (a circle you share first), favourites, lists, then reviews and the authors they follow
   // below lg (from lg up they end the header's column). A short column of cards never leaves the rest of the page empty beside it.
@@ -69,6 +87,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         <div className="empty:hidden"><ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
         <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
       </div>
+      {shelvesBeside && <div className="empty:hidden">{shelves}</div>}
     </div>
   )
   // Re-reads sit under Currently reading but still count as read.
@@ -136,22 +155,9 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         {bands && reading.length === 0 && <p className="mt-2 text-sm text-muted-foreground">Not reading anything right now.</p>}
       </ProfileHeader>
       {bands ? (
-        // In bands (Iterations 2 to 4): everything else sits beside the header (besides, above), so this is
-        // the shelves, in the owner's order.
-        <div className="mt-12 flex flex-col gap-12">
-          {finished.length === 0 && wantToRead.length === 0 && reading.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
-          ) : (
-            <div className="[&>*:first-child]:mt-0">
-              {wantToRead.length > 0 && (
-                <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
-              )}
-              {finished.length > 0 && (
-                <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
-              )}
-            </div>
-          )}
-        </div>
+        // In bands, everything else sits beside the header (besides, above), so this is the shelves, unless
+        // they've taken the space beside it.
+        !shelvesBeside && <div className="mt-12 flex flex-col gap-12">{shelves}</div>
       ) : (
       <div className="mt-8">
         <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} />
