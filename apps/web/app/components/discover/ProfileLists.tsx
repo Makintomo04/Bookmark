@@ -17,7 +17,8 @@ interface ProfileListsProps {
   username: string
   isSelf: boolean
   // Beside favourites near the top of someone's profile (ProfileShowcase): no top margin, two lists to a
-  // row, and the first two until "See all" opens the lists page (/u/<name>/lists).
+  // row, and the first two until "See all" opens the lists page (/u/<name>/lists). On a row of their own
+  // they show the first four, and "See all" opens the same page.
   half?: boolean
   // At the top of a profile, where the section above sets the spacing: no top margin of its own.
   flush?: boolean
@@ -28,8 +29,9 @@ interface ProfileListsProps {
   footnote?: ReactNode
 }
 
-// Lists shown in half a row before "See all".
+// Lists shown before "See all": two when they share a row with favourites, four when they have a row to themselves.
 const HALF_SHOWN = 2
+const FULL_SHOWN = 4
 // Lists in the row you swipe on a phone.
 const SWIPE_SHOWN = 8
 
@@ -61,10 +63,11 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
     </button>
   )
 
-  // Swiping, the phone gets up to SWIPE_SHOWN in its row; from sm up, the rest past the first two stay hidden.
-  const shown = half ? lists.slice(0, swipe ? SWIPE_SHOWN : HALF_SHOWN) : lists
+  // Swiping, the phone gets up to SWIPE_SHOWN in its row; from sm up, the rest past the cap stay hidden.
+  const cap = half ? HALF_SHOWN : FULL_SHOWN
+  const shown = lists.slice(0, swipe ? SWIPE_SHOWN : cap)
   // On a phone that swipes through eight, "See all" is only for the reader with more than that.
-  const seeAll = half && lists.length > HALF_SHOWN
+  const seeAll = lists.length > cap
     ? <span className={cn("whitespace-nowrap", swipe && lists.length <= SWIPE_SHOWN && "max-sm:hidden")}><SeeAllLink href={`/u/${encodeURIComponent(username)}/lists`} /></span>
     : null
   const action = isSelf && lists.length > 0 ? <div className="flex items-center gap-3 whitespace-nowrap">{seeAll}{newList}</div> : seeAll ?? undefined
@@ -85,7 +88,7 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
           <div className={cn(
             half ? "grid grid-cols-2 gap-x-5 gap-y-8" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8",
             swipe && "max-sm:relative max-sm:flex max-sm:overflow-x-auto max-sm:snap-x max-sm:-mx-4 max-sm:px-4 max-sm:pb-1 max-sm:[&>*]:w-[44%] max-sm:[&>*]:shrink-0 max-sm:[&>*]:snap-start",
-            swipe && half && "sm:[&>*:nth-child(n+3)]:hidden",
+            swipe && (half ? "sm:[&>*:nth-child(n+3)]:hidden" : "sm:[&>*:nth-child(n+5)]:hidden"),
           )}>
             {shown.map((list) => <ListCard key={list.id} list={list} hideOwner />)}
           </div>
