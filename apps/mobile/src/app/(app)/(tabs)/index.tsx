@@ -12,8 +12,9 @@ import { OwnAuthors } from "@/components/authors/ProfileAuthors";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { GoalCard } from "@/components/library/GoalCard";
 import { NotificationBell } from "@/components/social/NotificationBell";
+import { SelectionBar } from "@/components/library/SelectionBar";
 import { SeriesTracker } from "@/components/library/SeriesTracker";
-import { Shelves } from "@/components/library/Shelves";
+import { Shelves, useBookSelection } from "@/components/library/Shelves";
 import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHeader";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -32,11 +33,13 @@ export default function Library() {
   const { data: books, error, isLoading, mutate } = useBooks();
   const accent = user?.favColour || DEFAULT_COLOUR;
   const refreshing = false;
+  const selection = useBookSelection();
+  const picked = (books ?? []).filter((b) => selection.picked.has(b.id));
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[styles.fill, { backgroundColor: colors.background }]}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, selection.selecting && { paddingBottom: 200 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); void globalMutate(FOLLOWED_AUTHORS_KEY); void globalMutate(SERIES_TRACKER_KEY); }} tintColor={colors.mutedForeground} />}
       >
         <View style={styles.topBar}>
@@ -63,10 +66,18 @@ export default function Library() {
           </View>
         )}
         <NewShelfPicks bookCount={books?.length} />
-        {books && books.length > 0 && <Shelves books={books} accent={accent} />}
+        {books && books.length > 0 && (
+          <View style={{ gap: 12 }}>
+            <View style={{ alignItems: "flex-end" }}>
+              <Button title={selection.selecting ? "Done" : "Select"} variant="ghost" onPress={selection.selecting ? selection.stop : selection.start} />
+            </View>
+            <Shelves books={books} accent={accent} selection={selection} />
+          </View>
+        )}
         {books && books.length > 0 && <SeriesTracker accent={accent} />}
         <OwnAuthors />
       </ScrollView>
+      {selection.selecting && <SelectionBar selected={picked} onDone={selection.clear} onCancel={selection.stop} />}
     </SafeAreaView>
   );
 }
