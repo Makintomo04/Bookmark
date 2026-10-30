@@ -105,10 +105,10 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           </span>
         )}
       </button>
-      {/* Up to two lines, and Start follows straight after the title, whatever its length. */}
+      {/* Up to two lines. Start sits at the foot of the tile, so the row's buttons line up; a one-line title leaves its tile a line of space above it. */}
       {/* The clamp is on a span inside the button: some mobile browsers ignore a line clamp on the button itself,
           and a long title then runs past the tile. Anywhere-wrapping stops one long word doing the same. */}
-      <p className="mt-1.5 min-w-0 text-xs font-medium leading-snug" title={pick.title}>
+      <p className="mb-2 mt-1.5 min-w-0 text-xs font-medium leading-snug" title={pick.title}>
         <button type="button" onClick={() => openDetails(pick.discover)} aria-label={`${pick.title}: about this book`}
           className="block w-full min-w-0 rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <span className="line-clamp-2 break-words [overflow-wrap:anywhere]">{pick.title}</span>
@@ -117,7 +117,7 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
       {/* One quiet pill at every width: 32px to look at, with a 44px tap area, full width under a phone's cover. */}
       <button type="button" onClick={start} disabled={state !== 'idle'}
         className={cn(
-          "relative mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium transition",
+          "relative mt-auto inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium transition",
           "border-neutral-200 bg-neutral-100 hover:bg-neutral-200 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800",
           "after:absolute after:inset-x-0 after:-inset-y-1.5 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           !row && "lg:w-auto lg:self-start",
