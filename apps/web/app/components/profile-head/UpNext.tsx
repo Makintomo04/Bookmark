@@ -31,6 +31,8 @@ interface Pick {
   coverUrl: string | null
   cardColour?: string | null
   tag: string
+  // Its place in a series, shown as a badge on the cover (the next in a series you're reading or follow).
+  position?: number | null
   bookId?: string
   // Where it sits now, so Start can pick a paused book back up and Undo can put it back.
   status?: string | null
@@ -93,9 +95,15 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
       {/* The cover and the title both open book details. The title is the one button keyboards and screen
           readers get; the cover is the same button for a pointer, so it isn't announced twice. */}
       <button type="button" tabIndex={-1} aria-hidden onClick={() => openDetails(pick.discover)}
-        className="block w-full rounded-md transition hover:opacity-90">
+        className="relative block w-full rounded-md transition hover:opacity-90">
         <BookCover book={{ title: pick.title, author: pick.author, coverImage: pick.coverUrl || "", cardColour: pick.cardColour ?? null }}
           variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
+        {/* A series book says where it sits, on the cover rather than in a line under the title. */}
+        {pick.position != null && (
+          <span title={pick.tag} className="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-black/75 px-1.5 text-[10px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-white/20">
+            #{Number(pick.position.toFixed(2))}
+          </span>
+        )}
       </button>
       {/* Two lines kept for every title, so a one-line title doesn't lift its Start above the rest of the row. */}
       {/* The clamp is on a span inside the button: some mobile browsers ignore a line clamp on the button itself,
@@ -106,7 +114,6 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           <span className="line-clamp-2 break-words [overflow-wrap:anywhere]">{pick.title}</span>
         </button>
       </p>
-      <p className="truncate text-[11px] leading-snug text-muted-foreground" title={pick.tag}>{pick.tag}</p>
       {/* One quiet pill at every width: 32px to look at, with a 44px tap area, full width under a phone's cover. */}
       <button type="button" onClick={start} disabled={state !== 'idle'}
         className={cn(
@@ -161,7 +168,7 @@ const UpNext: FC<{ bare?: boolean; row?: boolean; cap?: number; after?: { title:
     add({
       key: `series-${track.key}`, title: next.title, author: next.author, coverUrl: next.coverUrl,
       tag: [positionLabel(next.position), track.name].filter(Boolean).join(" · "),
-      bookId: next.bookId ?? undefined, status: next.status,
+      position: next.position, bookId: next.bookId ?? undefined, status: next.status,
       discover: { workKey: next.workKey, title: next.title, author: next.author, pages: null, coverUrl: next.coverUrl },
     })
   }
