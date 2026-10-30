@@ -15,6 +15,7 @@ import CappedShelf from './CappedShelf'
 import ProfileShowcase from './ProfileShowcase'
 import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileAuthors from './ProfileAuthors'
+import PublicShelves from './PublicShelves'
 import { isFinishedBook } from '@/lib/readerTier'
 import { type ProfileLayout } from './Band'
 import ContinueReading from './ContinueReading'
@@ -51,18 +52,11 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`
   // The cards take a Book; the public payload is the subset of it they read.
   const { reading, finished, wantToRead } = groupShelf(profile.books as unknown as Book[])
-  // The shelves, in the owner's order.
+  // The shelves, as tabs.
   const shelves = finished.length === 0 && wantToRead.length === 0 && reading.length === 0 ? (
     <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
   ) : (
-    <div className="[&>*:first-child]:mt-0">
-      {wantToRead.length > 0 && (
-        <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
-      )}
-      {finished.length > 0 && (
-        <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
-      )}
-    </div>
+    <PublicShelves wantToRead={wantToRead} finished={finished} accentColour={profile.favColour} />
   )
   // With nothing to put beside the header (no reading, favourites or lists), the shelves take that space rather
   // than leaving it empty, and nothing sits under the header.
@@ -81,7 +75,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         </section>
       )}
       <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
-      <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>
+      {hasLists && <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>}
       {/* Below lg these follow the lists; from lg up they end the header's column (identityFooter, below). */}
       <div className="flex flex-col gap-12 lg:hidden empty:hidden">
         <div className="empty:hidden"><ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
