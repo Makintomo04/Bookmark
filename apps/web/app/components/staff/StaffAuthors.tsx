@@ -108,7 +108,7 @@ const ProfileEditor = ({ name }: { name: string }) => {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  useEffect(() => { setBio(data?.bio ?? ''); setPhotoUrl(data?.photoUrl ?? ''); setSaved(false) }, [data])
+  useEffect(() => { setBio(data?.bio ?? ''); setPhotoUrl(data?.photoUrl ?? '') }, [data])
 
   const save = async () => {
     setPending(true)
@@ -131,14 +131,14 @@ const ProfileEditor = ({ name }: { name: string }) => {
       <p className="text-sm text-muted-foreground">
         Shown on the author page instead of Open Library&rsquo;s. Leave a field empty to use Open Library&rsquo;s. These are kept with the current spelling of the name, so renaming or merging starts them afresh.
       </p>
-      <label className="flex flex-col gap-1 text-sm">
-        Bio
-        <textarea className={`${fieldClass} min-h-32`} value={bio} maxLength={4000} disabled={!data} onChange={(e) => setBio(e.target.value)} />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        Photo link (https)
-        <ClearableInput className={fieldClass} value={photoUrl} disabled={!data} onChange={(e) => setPhotoUrl(e.target.value)} />
-      </label>
+      <div className="flex flex-col gap-1 text-sm">
+        <label htmlFor="author-bio">Bio</label>
+        <textarea id="author-bio" className={`${fieldClass} min-h-32`} value={bio} maxLength={4000} disabled={!data} onChange={(e) => { setBio(e.target.value); setSaved(false) }} />
+      </div>
+      <div className="flex flex-col gap-1 text-sm">
+        <label htmlFor="author-photo">Photo link (https)</label>
+        <ClearableInput id="author-photo" className={fieldClass} value={photoUrl} disabled={!data} onChange={(e) => { setPhotoUrl(e.target.value); setSaved(false) }} />
+      </div>
       {photoUrl.trim().startsWith('https://') && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={photoUrl.trim()} alt="" className="size-20 rounded-full object-cover bg-neutral-200 dark:bg-neutral-800" />
