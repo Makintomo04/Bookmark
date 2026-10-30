@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 import type { WrappedData } from '@/lib/stats'
 import { readableInk, shade, toHex } from '@/lib/colour'
-import { MONTHS, plural } from './copy'
+import { MONTHS } from './copy'
 import { siteUrl } from '@/lib/siteUrl'
 import { starClip } from '@bookmark/shared/rating'
 
@@ -65,6 +65,7 @@ async function interFont(weight: 400 | 600 | 800, text: string) {
 
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s)
 const fmt = (n: number) => n.toLocaleString('en-GB')
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 interface ImageInput {
   wrapped: WrappedData
@@ -72,7 +73,12 @@ interface ImageInput {
   // Shown in place of the username when set; the address stays the username.
   displayName?: string | null
   favColour: string | null
+  // Leave the stars off the favourite (?ratings=hide), for readers who'd rather not post them.
+  hideRatings?: boolean
 }
+
+// ?ratings=hide on a story or monthly card URL.
+export const hidesRatings = (url: string) => new URL(url).searchParams.get('ratings') === 'hide'
 
 // Everything both formats print, worked out once.
 function facts({ wrapped: w, username, displayName, favColour }: ImageInput) {
@@ -98,6 +104,8 @@ function facts({ wrapped: w, username, displayName, favColour }: ImageInput) {
     title: monthly ? `${name}’s month in books` : `${name}’s year in books`,
     // There's no public page for a month, so its card points at the profile.
     url: monthly ? `${siteHost}/u/${handle}` : `${siteHost}/u/${handle}/wrapped/${w.year}`,
+    // The story's sign-off, above the address: who posted it and where to find them.
+    signoff: `@${handle} on Bookmark`,
     favourite,
     favouriteTitle: favourite ? clip(favourite.title, 44) : '',
     favouriteAuthor: favourite ? clip(favourite.author, 34) : '',
@@ -105,19 +113,30 @@ function facts({ wrapped: w, username, displayName, favColour }: ImageInput) {
     stats: [
       { label: w.books === 1 ? 'book finished' : 'books finished', value: fmt(w.books) },
       { label: 'pages turned', value: fmt(w.pages) },
+      // Audiobooks are counted in minutes, not pages, so they get a line of their own.
+      ...(w.minutes >= 60 ? [{ label: 'hours listened', value: fmt(Math.round(w.minutes / 60)) }] : w.minutes > 0 ? [{ label: 'minutes listened', value: fmt(w.minutes) }] : []),
       ...(!monthly && w.busiestMonth ? [{ label: 'busiest month', value: MONTHS[w.busiestMonth.month] }] : []),
-      ...(w.topGenre ? [{ label: 'top genre', value: clip(w.topGenre.name, 18) }] : []),
+      // Genres are stored lower case ("fantasy"); a card shows them as a heading would.
+      ...(w.topGenre ? [{ label: 'top genre', value: clip(capitalise(w.topGenre.name), 18) }] : []),
       ...(monthly && w.topAuthor ? [{ label: 'most read', value: clip(w.topAuthor.name, 18) }] : []),
     ],
     goal,
-    medals: w.medals.length ? plural(w.medals.length, 'medal') + ' earned' : null,
+    // The story's footer strip: tier, medals and goal, each a value over a label like the stats above.
+    footer: [
+      ...(w.tier ? [{ key: 'tier' as const, value: w.tier.label, label: 'reader tier' }] : []),
+      ...(w.medals.length ? [{ key: 'medals' as const, value: fmt(w.medals.length), label: `${w.medals.length === 1 ? 'medal' : 'medals'} ${monthly ? 'this month' : `in ${w.year}`}` }] : []),
+      // A met goal says so ("10/2" reads oddly when a reader passes it); otherwise how far along.
+      ...(w.goal ? [{ key: 'goal' as const, value: w.goal.met ? 'Met' : `${fmt(w.goal.completed)}/${fmt(w.goal.target)}`, label: w.goal.met ? `${goalName} of ${fmt(w.goal.target)}` : goalName }] : []),
+    ],
   }
 }
 
+type FooterItem = ReturnType<typeof facts>['footer'][number]
+
 async function assets(input: ImageInput, f: ReturnType<typeof facts>) {
   const text =
-    ['Bookmark', 'Wrapped', 'in books', 'reader', f.name, f.url, f.headline, f.kicker, f.title, f.favouriteTitle, f.favouriteAuthor, f.favouriteKicker, f.goal ?? '', f.medals ?? '', input.wrapped.tier?.label ?? '', String(input.wrapped.year), ...f.stats.flatMap((s) => [s.label, s.value])].join('') +
-    "0123456789·…'’s"
+    ['Bookmark', 'Wrapped', 'in books', 'reader', f.name, f.url, f.signoff, f.headline, f.kicker, f.title, f.favouriteTitle, f.favouriteAuthor, f.favouriteKicker, f.goal ?? '', input.wrapped.tier?.label ?? '', String(input.wrapped.year), ...f.stats.flatMap((s) => [s.label, s.value]), ...f.footer.flatMap((b) => [b.value, b.label])].join('') +
+    "0123456789·…'’s/"
   const [cover, regular, semibold, black] = await Promise.all([imageData(f.favourite?.coverImage), interFont(400, text), interFont(600, text), interFont(800, text)])
   const fonts = [regular, semibold, black].filter((x): x is NonNullable<typeof x> => !!x)
   return { cover, fonts }
@@ -148,6 +167,34 @@ const Stars = ({ rating, size, colour }: { rating: number; size: number; colour:
     })}
   </div>
 )
+
+// A footer item's mark: the tier as a ring in its metal (the avatar frame), a medal, or a target.
+function FooterIcon({ item, tier, colour }: { item: FooterItem; tier: WrappedData['tier']; colour: string }) {
+  const size = 48
+  if (item.key === 'tier' && tier) {
+    return (
+      <div style={{ display: 'flex', width: size, height: size, borderRadius: 999, padding: 7, background: `linear-gradient(135deg, ${tier.light}, ${tier.colour} 55%, ${tier.shade})` }}>
+        <div style={{ display: 'flex', flex: 1, borderRadius: 999, background: BG }} />
+      </div>
+    )
+  }
+  if (item.key === 'medals') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24">
+        <path d="M7 1.5h4l2.2 6H9.2zM13 1.5h4l-2.2 6h-4z" fill={MUTED} />
+        <circle cx="12" cy="15" r="7.5" fill={colour} />
+        <circle cx="12" cy="15" r="4" fill="none" stroke={BG} strokeOpacity="0.35" strokeWidth="1.5" />
+      </svg>
+    )
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" fill="none" stroke={colour} strokeWidth="2" />
+      <circle cx="12" cy="12" r="6" fill="none" stroke={colour} strokeWidth="2" />
+      <circle cx="12" cy="12" r="2.2" fill={colour} />
+    </svg>
+  )
+}
 
 function Cover({ src, book, accent, width }: { src: string | null; book: NonNullable<WrappedData['topRated'] | WrappedData['longestBook']>; accent: string; width: number }) {
   const height = Math.round(width * 1.5)
@@ -236,8 +283,6 @@ export async function wrappedStoryImage(input: ImageInput, headers?: Record<stri
   return new ImageResponse(
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', ...ground(f.accent), fontFamily: fonts.length ? 'Inter' : undefined, padding: '110px 90px 100px' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, right: 0, height: 16, background: f.accent, display: 'flex' }} />
-
         <Logo size={42} label="Bookmark" />
 
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 70 }}>
@@ -262,22 +307,31 @@ export async function wrappedStoryImage(input: ImageInput, headers?: Record<stri
               <span style={{ fontSize: 26, fontWeight: 600, color: f.accentText, textTransform: 'uppercase', letterSpacing: 3 }}>{f.favouriteKicker}</span>
               <span style={{ marginTop: 16, fontSize: 48, fontWeight: 800, lineHeight: 1.1 }}>{f.favouriteTitle}</span>
               <span style={{ marginTop: 8, fontSize: 30, color: MUTED }}>{f.favouriteAuthor}</span>
-              {w.topRated && <div style={{ display: 'flex', marginTop: 20 }}><Stars rating={w.topRated.rating} size={44} colour={f.accentText} /></div>}
+              {w.topRated && !input.hideRatings && <div style={{ display: 'flex', marginTop: 20 }}><Stars rating={w.topRated.rating} size={44} colour={f.accentText} /></div>}
             </div>
           </div>
         )}
 
         <div style={{ display: 'flex', flex: 1 }} />
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'center' }}>
-          {tier && (
-            <span style={{ fontSize: 30, fontWeight: 600, padding: '10px 24px', borderRadius: 999, color: '#111', background: `linear-gradient(135deg, ${tier.light}, ${tier.colour})` }}>{`${tier.label} reader`}</span>
-          )}
-          {f.goal && <span style={{ fontSize: 30, padding: '10px 24px', borderRadius: 999, border: `2px solid ${MUTED}` }}>{f.goal}</span>}
-          {f.medals && <span style={{ fontSize: 30, padding: '10px 24px', borderRadius: 999, border: `2px solid ${MUTED}` }}>{f.medals}</span>}
-        </div>
+        {f.footer.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', rowGap: 16, alignSelf: 'flex-start', maxWidth: '100%', alignItems: 'center', padding: '24px 32px 24px 28px', borderRadius: 32, background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(255,255,255,0.08)' }}>
+            {f.footer.map((item, i) => (
+              <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 16, marginLeft: i ? 24 : 0, paddingLeft: i ? 24 : 0, borderLeft: i ? '2px solid rgba(255,255,255,0.1)' : 'none' }}>
+                <FooterIcon item={item} tier={tier} colour={f.accentText} />
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: item.value.length > 8 ? 34 : 40, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>{item.value}</span>
+                  <span style={{ marginTop: 8, fontSize: 22, color: MUTED }}>{item.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-        <span style={{ marginTop: 50, fontSize: 30, color: MUTED }}>{f.url}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 48 }}>
+          <span style={{ fontSize: 34, fontWeight: 600 }}>{f.signoff}</span>
+          <span style={{ marginTop: 6, fontSize: 24, color: MUTED }}>{f.url}</span>
+        </div>
       </div>
     ),
     { ...STORY_SIZE, fonts: fonts.length ? fonts : undefined, headers }

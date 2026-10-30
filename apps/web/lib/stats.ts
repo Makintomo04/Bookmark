@@ -390,6 +390,7 @@ export async function getWrapped(userId: string, year: number, month: number | n
     books: completed.length,
     distinctBooks: finished.length,
     pages: completed.reduce((sum, f) => sum + f.pages, 0),
+    minutes: completed.reduce((sum, f) => sum + f.minutes, 0),
     rereads: Array.from(perBook.values()).reduce((sum, n) => sum + n - 1, 0),
     dnf: inYear.length - completed.length,
     topGenre: tally(finished.map((b) => b.genre), 1)[0] ?? null,

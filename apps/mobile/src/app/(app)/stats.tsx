@@ -7,6 +7,7 @@ import { formatPace } from "@bookmark/shared/goals";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { ratingGlyphs } from "@bookmark/shared/rating";
 import type { ReadingStats } from "@bookmark/shared/statsTypes";
+import { MonthlyWrapCard } from "@/components/share/MonthlyWrapCard";
 import { ColumnChart, RankedBars, type Datum } from "@/components/stats/Charts";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -76,6 +77,8 @@ export default function Stats() {
           </View>
         </View>
       )}
+
+      <MonthlyWrapCard accent={accent} />
 
       <Section title="Books per year"><ColumnChart data={yearBooks} accent={accent} label="Books finished per year" /></Section>
       <Section title="Pages per year"><ColumnChart data={yearPages} accent={accent} label="Pages read per year" /></Section>

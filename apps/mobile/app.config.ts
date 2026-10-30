@@ -99,6 +99,13 @@ const config: ExpoConfig = {
     ["expo-image-picker", { photosPermission: "Bookmark uses the photo you choose as your profile picture or a book cover.", cameraPermission: false, microphonePermission: false }],
     "@react-native-community/datetimepicker",
     "expo-sharing",
+    // Save to Photos for Wrapped, monthly and medal cards (components/share/ShareImageSheet). The app asks
+    // for add-only access; the read wording repeats image-picker's so neither overwrites the other.
+    ["expo-media-library", {
+      photosPermission: "Bookmark uses the photo you choose as your profile picture or a book cover.",
+      savePhotosPermission: "Bookmark saves the share cards you choose, like your Wrapped, to your photos.",
+      granularPermissions: ["photo"],
+    }],
     ["expo-notifications", { color: "#F13C3C" }],
     ["expo-splash-screen", { backgroundColor: "#0a0a0a", image: "./assets/images/splash-icon.png", imageWidth: 96 }],
     ...(googleIosUrlScheme ? [["@react-native-google-signin/google-signin", { iosUrlScheme: googleIosUrlScheme }] as [string, object]] : []),
