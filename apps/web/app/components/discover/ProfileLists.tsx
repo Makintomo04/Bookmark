@@ -8,7 +8,7 @@ import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import { preferencesOf } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
-import { Skeleton } from '../ui/skeleton'
+import { ListsSkeleton } from '../profile-head/ProfileSkeleton'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import ListCard from './ListCard'
 import FetchErrorState from '../FetchErrorState'
@@ -41,13 +41,7 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
   const { user } = useUser()
   const collapse = useCollapsedSections()
 
-  if (isLoading) {
-    return (
-      <div className={half ? "grid grid-cols-2 gap-5" : "mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"}>
-        {(half ? [0, 1] : [0, 1, 2, 3]).map((i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
-      </div>
-    )
-  }
+  if (isLoading) return <ListsSkeleton half={half} swipe={swipe} className={half || flush ? undefined : "mt-12"} />
   if (isError) {
     // Only the owner gets an error: on someone else's profile a missing section reads the same as none.
     return isSelf ? <div className="mt-12"><FetchErrorState error={isError} what="your lists" onRetry={() => mutate()} /></div> : null

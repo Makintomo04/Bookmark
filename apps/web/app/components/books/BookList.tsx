@@ -11,24 +11,7 @@ import { readableInk } from '@/lib/colour';
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader';
 import BookGrid from './BookGrid';
 import FetchErrorState from '../FetchErrorState';
-import { Skeleton } from '../ui/skeleton';
-import { coverGridClass } from './shelf';
-// Shaped like the toolbar and a shelf's first rows of covers, so the books land without the page jumping.
-const ShelfSkeleton: FC = () => (
-  <div className="w-full" aria-busy="true" aria-label="Loading your shelf">
-    <Skeleton className="mb-6 h-10 w-full rounded-full"/>
-    {/* Six covers fill a row on a wide screen and the screen on a phone, so the second shelf is wide-only. */}
-    {[0, 1].map((section) => (
-      <div key={section} className={section === 0 ? "" : "mt-12 hidden sm:block"}>
-        <div className="mb-5 flex min-h-10 items-center"><Skeleton className="h-6 w-40"/></div>
-        <div className={coverGridClass}>
-          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="aspect-[2/3]"/>)}
-        </div>
-      </div>
-    ))}
-  </div>
-)
-
+import { ShelvesSkeleton } from '../profile-head/ProfileSkeleton';
 // `slot`: one part of the shelf on your profile in bands. See BookGrid.
 const BookList: FC<{ slot?: 'results' | 'shelves' }> = ({ slot }) => {
   const {books,isLoading:isLoadingBooks,isError:isErrorBooks,mutate:mutateBooks} = useBooks();
@@ -50,7 +33,7 @@ const BookList: FC<{ slot?: 'results' | 'shelves' }> = ({ slot }) => {
 if(slot === 'results' && !books?.length) return null
 if(isErrorBooks) return <FetchErrorState error={isErrorBooks} what="your books" onRetry={() => mutateBooks()}/>
 // The shelf isn't in the server render, so until it arrives, its outline rather than an empty Currently reading.
-if(!books) return <ShelfSkeleton/>
+if(!books) return <ShelvesSkeleton own label="Loading your shelf"/>
 
 // Matches the Lists empty state below it. The header already has Add a book, so this card's
 // main job is the import nudge: most new readers have a shelf somewhere else already.
