@@ -94,6 +94,8 @@ export interface WrappedData {
   books: number; // finishes in the year, re-reads included
   distinctBooks: number;
   pages: number;
+  // Listened to on finished audiobooks.
+  minutes: number;
   rereads: number;
   dnf: number;
   topGenre: Tally | null;
