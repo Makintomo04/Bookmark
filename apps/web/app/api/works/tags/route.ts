@@ -20,7 +20,7 @@ import { aggregateTags, readerTagsSchema, spiceApplies, type SpiceContext, type 
 // before is kept, as it is when `spice` is left out.
 
 const empty = (workId: string | null, about?: SpiceContext): TagAggregate & { workId: string | null } =>
-  ({ workId, readers: 0, moods: [], warnings: [], spice: { level: null, reports: 0 }, spiceApplies: spiceApplies(about, []), mine: null })
+  ({ workId, readers: 0, moods: [], warnings: [], spice: { level: null, early: null, reports: 0 }, spiceApplies: spiceApplies(about, []), mine: null })
 
 // The Work a shelf book belongs to, filing it in the catalog if the backfill hasn't got to it yet
 // (by title and author only: no Open Library call on the way to saving a review).

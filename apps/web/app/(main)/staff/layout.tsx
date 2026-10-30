@@ -20,6 +20,7 @@ const StaffLayout = async ({ children }: { children: React.ReactNode }) => {
   const tabs = [
     { href: '/staff', label: 'Overview' },
     can(user, 'reports.review') && { href: '/staff/reports', label: 'Reports' },
+    can(user, 'reports.review') && { href: '/staff/ratings', label: 'Ratings' },
     can(user, 'catalogue.edit') && { href: '/staff/catalogue', label: 'Catalogue' },
     can(user, 'users.view') && { href: '/staff/users', label: 'Readers' },
     (can(user, 'staff.log') || can(user, 'log.own')) && { href: '/staff/log', label: 'Log' },

@@ -81,11 +81,11 @@ test("a book's spice is the median, shown once five readers have reported it", (
   const rows = (levels: (number | null)[]) => levels.map((spice, i) => ({ userId: `r${i}`, moods: [], warnings: [], spice }));
   // Four reports: counted, not shown.
   const few = aggregateTags(rows([4, 4, 4, 4]));
-  assert.deepEqual(few.spice, { level: null, reports: 4 });
+  assert.deepEqual(few.spice, { level: null, early: 4, reports: 4 });
   assert.equal(few.readers, 4, "a spice-only report still makes a tagger");
-  assert.equal(aggregateTags(rows([4, 4, 4, 4, 4])).spice.level, 4);
+  assert.deepEqual(aggregateTags(rows([4, 4, 4, 4, 4])).spice, { level: 4, early: null, reports: 5 });
   // Unreported and out-of-range stored values don't count.
-  assert.deepEqual(aggregateTags(rows([3, 3, 3, 3, null, 9])).spice, { level: null, reports: 4 });
+  assert.deepEqual(aggregateTags(rows([3, 3, 3, 3, null, 9])).spice, { level: null, early: 3, reports: 4 });
   // Two middles round up.
   assert.equal(spiceMedian([1, 2, 3, 4]), 3);
   assert.equal(spiceMedian([2, 2, 3, 3, 3, 3]), 3);
@@ -105,8 +105,10 @@ test("one reader can't move a book's spice on their own", () => {
       assert.equal(aggregateTags(rows(changed)).spice.level, 3, `reader ${i} → ${to}`);
     }
   }
-  // Below the threshold one reader is never enough to show a number.
-  assert.equal(aggregateTags(rows([5])).spice.level, null);
+  // Below the threshold one reader is never enough to show a number, early or settled.
+  assert.deepEqual(aggregateTags(rows([5])).spice, { level: null, early: null, reports: 1 });
+  // Two or more give an early reading, still not the settled level; two middles round up.
+  assert.deepEqual(aggregateTags(rows([3, 5])).spice, { level: null, early: 4, reports: 2 });
 });
 
 test("free accounts host one active circle at a time", () => {

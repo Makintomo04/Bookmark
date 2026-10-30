@@ -54,6 +54,9 @@ export const SPICE_LEVELS = [0, 1, 2, 3, 4, 5] as const
 export type SpiceLevel = typeof SPICE_LEVELS[number]
 export const SPICE_MAX = 5
 export const SPICE_MIN_REPORTS = 5
+// Below that, a book shows the middle answer as "Early" from this many readers: two agreeing is a hint
+// worth having when most romantasy launches with nothing, but one reader alone still sets no number.
+export const SPICE_EARLY_MIN_REPORTS = 2
 export const SPICE_LABEL: Record<SpiceLevel, string> = {
   0: "none", 1: "mild", 2: "warm", 3: "steamy", 4: "spicy", 5: "scorching",
 }
@@ -120,6 +123,8 @@ export type WarningSummary = {
 export type SpiceSummary = {
   // The median, or null until SPICE_MIN_REPORTS readers have reported one.
   level: SpiceLevel | null
+  // Between SPICE_EARLY_MIN_REPORTS and SPICE_MIN_REPORTS reports: the median so far, shown as early.
+  early: SpiceLevel | null
   reports: number
 }
 export type SavedTags = { moods: Mood[], warnings: ContentWarning[], spice: SpiceLevel | null }
@@ -173,6 +178,7 @@ export function aggregateTags(rows: ReaderTagsRow[], viewerId?: string | null, a
 
   const spice: SpiceSummary = {
     level: spiceReports.length >= SPICE_MIN_REPORTS ? spiceMedian(spiceReports) : null,
+    early: spiceReports.length >= SPICE_EARLY_MIN_REPORTS && spiceReports.length < SPICE_MIN_REPORTS ? spiceMedian(spiceReports) : null,
     reports: spiceReports.length,
   }
 

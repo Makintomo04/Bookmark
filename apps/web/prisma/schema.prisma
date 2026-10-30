@@ -488,6 +488,9 @@ model Work {
   seriesCheckedAt     DateTime?
   coverUrl            String?
   firstPublishYear    Int?
+  // When staff last looked at a burst of ratings on the book (lib/ratingSpikes.ts): only ratings after it
+  // can flag the book again.
+  ratingsReviewedAt   DateTime?
   // Fields a librarian corrected (title, authors, description, coverUrl). lib/catalog never overwrites them.
   curatedFields       String[]  @db.String
   // Open Library's counts for the work, for the recaps popularity gate (lib/recap.ts isWellKnown).

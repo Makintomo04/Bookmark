@@ -48,6 +48,9 @@ export type StaffActionKind =
   | "author.revert"
   | "series.revert"
   | "list.edit"
+  | "ratings.dismiss"
+  | "ratings.hold"
+  | "ratings.release"
 
 export type StaffTarget = "user" | "work" | "edition" | "list" | "comment" | "review" | "report" | "author" | "series" | "appeal"
 
@@ -110,6 +113,9 @@ export const STAFF_ACTION_LABELS: Record<StaffActionKind, string> = {
   "author.revert": "Undid an author change",
   "series.revert": "Undid a series edit",
   "list.edit": "Edited someone's list",
+  "ratings.dismiss": "Cleared a rating spike",
+  "ratings.hold": "Held a rating spike out of the average",
+  "ratings.release": "Put held ratings back",
 }
 
 export const isStaffActionKind = (value: unknown): value is StaffActionKind => typeof value === "string" && value in STAFF_ACTION_LABELS
