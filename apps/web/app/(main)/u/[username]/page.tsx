@@ -13,7 +13,6 @@ import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 import { profileLayoutOf } from '@/app/components/profile-head/Band'
 import { sharedCircles } from '@/lib/sharedCircles'
-import { publicGoal } from '@/lib/publicGoal'
 import { findLists } from '@/lib/lists'
 
 interface PageProps {
@@ -105,7 +104,6 @@ export default async function Page(props: PageProps) {
         layout={layout}
         // In bands, a circle the viewer shares with them pins its book first on their reading cards.
         sharedCircles={viewer && layout === 'bands' ? await sharedCircles(viewer.id, data.userId) : []}
-        goal={layout === 'bands' && data.privacy.showGoal ? await publicGoal(data.userId) : null}
         hasLists={(await findLists({ owner: data.profile.username, limit: 1 }, viewer)).length > 0}
         viewer={viewer ? {
           isFollowing: data.relation.isFollower,

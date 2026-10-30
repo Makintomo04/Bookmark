@@ -21,7 +21,6 @@ import { type ProfileLayout } from './Band'
 import ContinueReading from './ContinueReading'
 import MedalShowcase from '../achievements/MedalShowcase'
 import type { SharedCircle } from '@/lib/sharedCircles'
-import type { PublicGoal } from '@/lib/publicGoal'
 import FavouritesRow from './FavouritesRow'
 import ProfileLists from '../discover/ProfileLists'
 
@@ -33,8 +32,6 @@ interface PublicProfileProps {
   layout?: ProfileLayout
   // The reading circles the viewer shares with them (lib/sharedCircles.ts), pinned first on their reading cards.
   sharedCircles?: SharedCircle[]
-  // This year's goal, when they've chosen to show it (lib/publicGoal.ts).
-  goal?: PublicGoal | null
   // They have lists this viewer can see. Lists load in the browser, so the server says whether there are any.
   hasLists?: boolean
 }
@@ -46,7 +43,7 @@ const BANDS_AUTHORS = 8
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
 // and the profile's reading lists are client islands. The payload is already filtered for
 // this viewer (lib/publicProfile.ts): hidden shelves, reviews and counts never arrive.
-const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'bands', sharedCircles = [], goal = null, hasLists = true }) => {
+const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'bands', sharedCircles = [], hasLists = true }) => {
   const bands = layout === 'bands'
   const favourites = profile.favourites as unknown as Book[]
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`
@@ -138,14 +135,6 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
       >
-        {bands && goal && (
-          // Only the count, and how far ahead when they are: a profile never says someone is behind.
-          <p className="mt-3 text-sm tabular-nums">
-            <span className="font-medium">{goal.books} of {goal.target}</span> books in {goal.year}
-            {goal.ahead > 0 && <span className="text-emerald-600 dark:text-emerald-400"> · {goal.ahead} ahead</span>}
-            {goal.books >= goal.target && <span className="text-emerald-600 dark:text-emerald-400"> · goal reached</span>}
-          </p>
-        )}
         {bands && reading.length === 0 && <p className="mt-2 text-sm text-muted-foreground">Not reading anything right now.</p>}
       </ProfileHeader>
       {bands ? (
