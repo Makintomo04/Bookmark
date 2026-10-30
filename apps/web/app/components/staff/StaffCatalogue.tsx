@@ -54,7 +54,7 @@ const StaffCatalogue = ({ initialWorkId, initialQuery }: { initialWorkId: string
       <CatalogueSections />
       <label className="relative block">
         <span className="sr-only">Search the catalogue</span>
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Search size={16} className="pointer-events-none absolute z-10 left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <ClearableInput className={`${fieldClass} pl-9 h-10`} placeholder="Title, author, ISBN or Open Library id (OL45883W)" value={query}
           onChange={(e) => { setQuery(e.target.value); setSelected(null); setCreating(null) }} />
       </label>
@@ -629,7 +629,7 @@ const WorkPicker = ({ excludeId, onPick }: { excludeId: string, onPick: (w: Staf
     <div className="flex flex-col gap-2">
       <label className="relative block">
         <span className="sr-only">Find the other book</span>
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Search size={16} className="pointer-events-none absolute z-10 left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <ClearableInput className={`${fieldClass} pl-9`} placeholder="Title, author, ISBN or id" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
       </label>
       {isLoading && <Loader2 size={16} className="animate-spin text-muted-foreground" aria-label="Loading" />}

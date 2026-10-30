@@ -45,7 +45,7 @@ const StaffSeries = ({ initialName, initialQuery }: { initialName: string | null
     <div className="flex flex-col gap-4">
       <label className="relative block">
         <span className="sr-only">Search series</span>
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Search size={16} className="pointer-events-none absolute z-10 left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <ClearableInput className={`${fieldClass} pl-9 h-10`} placeholder="Series name, or part of it" value={query}
           onChange={(e) => { setQuery(e.target.value); setSelected(null); setDone(null) }} />
       </label>
