@@ -301,13 +301,8 @@ const RecentSearches: FC<RecentSearchesProps> = ({ entries, onOpen, onOpenBook, 
 
   return (
     <section aria-labelledby="recent-searches-heading" className="flex max-w-2xl flex-col gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <h2 id="recent-searches-heading" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Recent</h2>
-        <button type="button" onClick={onClear} className="text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-4">
-          Clear
-        </button>
-      </div>
-      <ul className="flex flex-wrap gap-2">
+      <h2 id="recent-searches-heading" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Recent</h2>
+      <ul className="flex flex-wrap items-center gap-2">
         {entries.map((entry) => {
           const label = entry.kind === "query" ? entry.q : entry.book.title
           const href = entry.kind === "book" ? bookHref(entry.book) : null
@@ -351,6 +346,15 @@ const RecentSearches: FC<RecentSearchesProps> = ({ entries, onOpen, onOpenBook, 
             </li>
           )
         })}
+        <li>
+          <button
+            type="button"
+            onClick={onClear}
+            className="h-8 rounded-full px-3 text-sm text-muted-foreground transition hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Clear all
+          </button>
+        </li>
       </ul>
     </section>
   )
