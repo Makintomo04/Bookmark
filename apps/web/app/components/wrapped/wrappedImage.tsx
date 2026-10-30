@@ -125,7 +125,8 @@ function facts({ wrapped: w, username, displayName, favColour }: ImageInput) {
     footer: [
       ...(w.tier ? [{ key: 'tier' as const, value: w.tier.label, label: 'reader tier' }] : []),
       ...(w.medals.length ? [{ key: 'medals' as const, value: fmt(w.medals.length), label: `${w.medals.length === 1 ? 'medal' : 'medals'} ${monthly ? 'this month' : `in ${w.year}`}` }] : []),
-      ...(w.goal ? [{ key: 'goal' as const, value: `${fmt(w.goal.completed)}/${fmt(w.goal.target)}`, label: w.goal.met ? `${goalName} met` : goalName }] : []),
+      // A met goal says so ("10/2" reads oddly when a reader passes it); otherwise how far along.
+      ...(w.goal ? [{ key: 'goal' as const, value: w.goal.met ? 'Met' : `${fmt(w.goal.completed)}/${fmt(w.goal.target)}`, label: w.goal.met ? `${goalName} of ${fmt(w.goal.target)}` : goalName }] : []),
     ],
   }
 }
@@ -169,7 +170,7 @@ const Stars = ({ rating, size, colour }: { rating: number; size: number; colour:
 
 // A footer item's mark: the tier as a ring in its metal (the avatar frame), a medal, or a target.
 function FooterIcon({ item, tier, colour }: { item: FooterItem; tier: WrappedData['tier']; colour: string }) {
-  const size = 56
+  const size = 48
   if (item.key === 'tier' && tier) {
     return (
       <div style={{ display: 'flex', width: size, height: size, borderRadius: 999, padding: 7, background: `linear-gradient(135deg, ${tier.light}, ${tier.colour} 55%, ${tier.shade})` }}>
@@ -314,13 +315,13 @@ export async function wrappedStoryImage(input: ImageInput, headers?: Record<stri
         <div style={{ display: 'flex', flex: 1 }} />
 
         {f.footer.length > 0 && (
-          <div style={{ display: 'flex', alignSelf: 'flex-start', alignItems: 'center', padding: '28px 40px 28px 32px', borderRadius: 32, background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', rowGap: 16, alignSelf: 'flex-start', maxWidth: '100%', alignItems: 'center', padding: '24px 32px 24px 28px', borderRadius: 32, background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(255,255,255,0.08)' }}>
             {f.footer.map((item, i) => (
-              <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 20, marginLeft: i ? 36 : 0, paddingLeft: i ? 36 : 0, borderLeft: i ? '2px solid rgba(255,255,255,0.1)' : 'none' }}>
+              <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 16, marginLeft: i ? 24 : 0, paddingLeft: i ? 24 : 0, borderLeft: i ? '2px solid rgba(255,255,255,0.1)' : 'none' }}>
                 <FooterIcon item={item} tier={tier} colour={f.accentText} />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: item.value.length > 8 ? 36 : 44, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>{item.value}</span>
-                  <span style={{ marginTop: 8, fontSize: 24, color: MUTED }}>{item.label}</span>
+                  <span style={{ fontSize: item.value.length > 8 ? 34 : 40, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>{item.value}</span>
+                  <span style={{ marginTop: 8, fontSize: 22, color: MUTED }}>{item.label}</span>
                 </div>
               </div>
             ))}
