@@ -2,6 +2,7 @@ import useSWR, { mutate } from "swr";
 import type { ProgressBook } from "@bookmark/shared/progress";
 import { api } from "@/lib/api";
 import type { EarnMoment } from "@bookmark/shared/earnMoment";
+import { BULK_MAX } from "@bookmark/shared/bulkRules";
 import { celebrate } from "@/lib/earnMoment";
 
 // The reader's own shelf, from /api/books (the same list the web's useBooks reads), and the moves the
@@ -21,6 +22,7 @@ export interface Book extends ProgressBook {
   review: string | null;
   reviewSpoiler: boolean | null;
   reviewPrivate: boolean | null;
+  isPrivate?: boolean | null;
   timesRead: number;
   createdAt: string;
   startedAt: string | null;
@@ -78,6 +80,18 @@ export async function saveBook(payload: { id: string; action: BookAction } & Rec
   const saved = await api.post<{ earnMoment?: EarnMoment | null }>("/api/book-progress", payload);
   await refreshAfterBookChange();
   celebrate(saved?.earnMoment);
+}
+
+// One action over any number of books: /api/books/bulk takes BULK_MAX at a time, so a bigger selection goes in
+// batches, one after another, and the counts come back added together (the web's BulkBar does the same).
+export async function bulkBooks(body: Record<string, unknown>, ids: string[]) {
+  const total: Record<string, number> = {};
+  for (let i = 0; i < ids.length; i += BULK_MAX) {
+    const data = await api.post<Record<string, unknown>>("/api/books/bulk", { ...body, ids: ids.slice(i, i + BULK_MAX) });
+    for (const [key, value] of Object.entries(data ?? {})) if (typeof value === "number") total[key] = (total[key] ?? 0) + value;
+  }
+  await refreshAfterBookChange();
+  return total;
 }
 
 // Saves return with the Open Library cover; copying it to our storage happens afterwards, unwaited.
