@@ -68,7 +68,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
     <div className="flex flex-col gap-10">
       {reading.length > 0 && (
         <section aria-labelledby="public-now">
-          <h2 id="public-now" className="mb-4 flex min-h-10 items-baseline gap-2 text-lg font-semibold max-sm:sr-only">
+          <h2 id="public-now" className="mb-4 flex min-h-10 items-baseline gap-2 text-lg font-semibold">
             Reading now <span className="text-sm font-normal text-muted-foreground tabular-nums">{reading.length}</span>
           </h2>
           <ContinueReading books={reading} finished={finished} accentColour={profile.favColour} readOnly oneLineOnPhone shared={sharedCircles} />
