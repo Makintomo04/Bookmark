@@ -16,9 +16,8 @@ import ProfileShowcase from './ProfileShowcase'
 import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileAuthors from './ProfileAuthors'
 import { isFinishedBook } from '@/lib/readerTier'
-import Band, { type ProfileLayout } from './Band'
+import { type ProfileLayout } from './Band'
 import ContinueReading from './ContinueReading'
-import GapFiller from './GapFiller'
 import MedalShowcase from '../achievements/MedalShowcase'
 import type { SharedCircle } from '@/lib/sharedCircles'
 import type { PublicGoal } from '@/lib/publicGoal'
@@ -51,8 +50,8 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   // The cards take a Book; the public payload is the subset of it they read.
   const { reading, finished, wantToRead } = groupShelf(profile.books as unknown as Book[])
   // In bands, everything but the shelves sits beside the header from lg up, in the order a phone shows it:
-  // what they're reading (a circle you share first), favourites, lists, then reviews beside the authors they
-  // follow. A short column of cards never leaves the rest of the page empty beside it.
+  // what they're reading (a circle you share first), favourites, lists, then reviews and the authors they follow
+  // below lg (from lg up they end the header's column). A short column of cards never leaves the rest of the page empty beside it.
   const besides = (
     <div className="flex flex-col gap-10">
       {reading.length > 0 && (
@@ -65,9 +64,11 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
       )}
       <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
       <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>
-      <Band
-        wide={<ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />}
-        narrow={<ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} />} />
+      {/* Below lg these follow the lists; from lg up they end the header's column (identityFooter, below). */}
+      <div className="flex flex-col gap-12 lg:hidden empty:hidden">
+        <div className="empty:hidden"><ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
+        <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
+      </div>
     </div>
   )
   // Re-reads sit under Currently reading but still count as read.
@@ -105,9 +106,15 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         badge={profile.badge}
         staffBadge={profile.staffBadge}
         compact={bands}
-        follows={bands ? profile.followedAuthors : undefined}
         besides={bands ? besides : undefined}
-        identityFooter={bands ? <GapFiller><MedalShowcase earned={profile.achievements} href={achievementsHref} stacked /></GapFiller> : undefined}
+        // From lg up the column ends with their reviews, the authors they follow, then their top medals, as on your own profile.
+        identityFooter={bands ? (
+          <div className="flex flex-col gap-8 pt-8">
+            <div className="empty:hidden"><ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
+            <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
+            <div className="[&>section]:!mt-0"><MedalShowcase earned={profile.achievements} href={achievementsHref} stacked /></div>
+          </div>
+        ) : undefined}
         share={<ShareProfileButton username={profile.username} />}
         actions={actions}
         stats={[
