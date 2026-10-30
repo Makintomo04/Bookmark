@@ -1,5 +1,6 @@
 "use client"
 import { FC } from 'react'
+import { createPortal } from 'react-dom'
 import Modal from './Modal'
 import { Button } from '../ui/button'
 
@@ -27,7 +28,13 @@ const ConfirmModal: FC<ConfirmModalProps> = ({ isOpen, title, description, confi
     </div>
   )
 
-  return <Modal title={title} body={body} footer={footer} onClose={onClose} isOpen={isOpen} size="sm" compact />
+  // It opens from inside other layouts (the profile's action row sizes its children with max-sm:[&>*]:h-8, which would
+  // squash the overlay to 32px on a phone), so it lives on the body instead.
+  if (!isOpen) return null
+  return createPortal(
+    <Modal title={title} body={body} footer={footer} onClose={onClose} isOpen={isOpen} size="sm" compact />,
+    document.body
+  )
 }
 
 export default ConfirmModal
