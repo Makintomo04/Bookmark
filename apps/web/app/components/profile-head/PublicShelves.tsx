@@ -61,7 +61,9 @@ const PublicShelves: FC<PublicShelvesProps> = ({ wantToRead, finished, accentCol
   const byTab = useMemo(() => ({ want: wantToRead, finished, all: [...wantToRead, ...finished] }), [wantToRead, finished])
   // With one shelf, "All" is the same books again.
   const shown = (['want', 'finished', 'all'] as Tab[]).filter((key) => byTab[key].length > 0 && (key !== 'all' || (wantToRead.length > 0 && finished.length > 0)))
-  const current = tab && shown.includes(tab) ? tab : shown[0]
+  // With no tab saved, the shelf with the most books (never "All"); the first of them on a tie.
+  const fullest = shown.filter((key) => key !== 'all').reduce<Tab | undefined>((best, key) => (!best || byTab[key].length > byTab[best].length ? key : best), undefined)
+  const current = tab && shown.includes(tab) ? tab : fullest
   const choose = (key: Tab) => {
     setTab(key)
     setFilter((f) => ({ ...f, shelf: key === 'all' ? null : key }))
