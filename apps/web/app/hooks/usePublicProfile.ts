@@ -1,9 +1,10 @@
 import useSWR from "swr";
 import { fetcher, swrOptions } from "@/lib/fetcher"
+import { publicProfileKey } from "@/lib/profileKey"
 
-export default function usePublicProfile(username: string) {
+export default function usePublicProfile(username: string, options?: { books?: boolean }) {
   const { data, error, isLoading, mutate } = useSWR(
-    username ? `/api/users/${encodeURIComponent(username)}` : null,
+    username ? publicProfileKey(username, options) : null,
     fetcher,
     swrOptions
   );

@@ -11,3 +11,8 @@ export function reviewedBooks<T extends Reviewable>(books: T[]): (T & { review: 
     .filter((b): b is T & { review: string } => !!b.review)
     .sort((a, b) => time(b.completedAt) - time(a.completedAt));
 }
+
+// The owner's reviews stat: their finished books with a review (ProfileHead counts the same from their shelf).
+export function shelfReviewCount(books: (Reviewable & { status: string })[]): number {
+  return reviewedBooks(books.filter((b) => b.status === "COMPLETED")).length;
+}
