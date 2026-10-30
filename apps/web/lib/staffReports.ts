@@ -26,6 +26,7 @@ export * from "@/lib/staffReportRules";
 export const BOOK_REPORT_REASONS = {
   cover: "Wrong or missing cover",
   details: "Wrong title, author or pages",
+  series: "Wrong or missing series",
   other: "Something else",
   // A reader asking for their hand-typed book to get a page (lib/workPages.ts), not a problem as such.
   catalogue: "Asked to add it to the catalogue",

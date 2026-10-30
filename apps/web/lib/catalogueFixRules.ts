@@ -115,10 +115,11 @@ export function parseWorkFix(body: Record<string, unknown>, descriptionMax: numb
   return { ok: true, patch }
 }
 
-// curatedFields for a work fix's changed fields. A librarian's series (either half) is marked under
-// seriesName, which is what keeps the Hardcover series fill (lib/seriesFill.ts SERIES_CURATED) off it.
+// curatedFields for a work fix's changed fields. A librarian's series is one thing: touching either half
+// marks both, so a series with no number, or a number cleared, isn't refilled from an import. seriesName is
+// what keeps the Hardcover series fill (lib/seriesFill.ts SERIES_CURATED) off it.
 export const curatedWorkFields = (changed: string[]) =>
-  changed.some((k) => k === "seriesName" || k === "seriesPosition") ? Array.from(new Set([...changed, "seriesName"])) : changed
+  changed.some((k) => k === "seriesName" || k === "seriesPosition") ? Array.from(new Set([...changed, "seriesName", "seriesPosition"])) : changed
 
 export function parseEditionFix(body: Record<string, unknown>): Parsed<EditionValues> {
   const patch: Partial<EditionValues> = {}

@@ -5,7 +5,7 @@ import useSWR from 'swr'
 import { Loader2, Search, X } from 'lucide-react'
 import { fetcher } from '@/lib/fetcher'
 import type { SeriesBook, SeriesDetail, SeriesHit, SeriesSaveResult, SeriesUndoResult } from '@/lib/catalogueSeries'
-import type { StaffWorkHit } from '@/lib/catalogueFix'
+import type { StaffWork, StaffWorkHit } from '@/lib/catalogueFix'
 import { duplicatePositions, parsePosition } from '@/lib/catalogueSeriesRules'
 import { seriesHref } from '@/lib/series'
 import { cn } from '@/lib/utils'
@@ -268,7 +268,8 @@ const SeriesEditor = ({ name, onBack, onSaved }: { name: string, onBack: () => v
   )
 }
 
-// "Add a book": any book already in the catalogue, by title, author or ISBN.
+// "Add a book": any book already in the catalogue, by title, author or ISBN, or one filed from Open Library
+// or Hardcover search.
 const AddBook = ({ onAdd, exclude }: { onAdd: (book: Book) => void, exclude: string[] }) => {
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -298,7 +299,60 @@ const AddBook = ({ onAdd, exclude }: { onAdd: (book: Book) => void, exclude: str
           </li>
         ))}
       </ul>
+      {debounced.trim().length >= 3 && <FileFromSearch query={debounced} onFiled={onAdd} />}
     </section>
+  )
+}
+
+type OutsideHit = { workKey: string | null, hardcoverId: string | null, title: string, author: string, coverUrl: string | null, year: number | null }
+
+// "Not in the catalogue yet": Open Library's and Hardcover's matches, asked for only on request. Picking one
+// files the book (a librarian's filing is logged like a reader's add) and adds it to the series.
+const FileFromSearch = ({ query, onFiled }: { query: string, onFiled: (book: Book) => void }) => {
+  const [asked, setAsked] = useState<string | null>(null)
+  const [filing, setFiling] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const { data: hits, isLoading, error: searchError } = useSWR<OutsideHit[]>(asked ? `/api/staff/works?outside=1&q=${encodeURIComponent(asked)}` : null, fetcher)
+
+  const file = async (hit: OutsideHit) => {
+    const id = hit.workKey ?? hit.hardcoverId ?? hit.title
+    setFiling(id)
+    setError(null)
+    try {
+      const work = await staffSend<StaffWork>('/api/staff/works', 'POST', hit.workKey ? { openLibraryKey: hit.workKey } : hit)
+      onFiled(work)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setFiling(null)
+    }
+  }
+
+  if (asked !== query) {
+    return <Button type="button" variant="ghost" className="self-start" onClick={() => setAsked(query)}>Not in the catalogue? Search Open Library and Hardcover</Button>
+  }
+  return (
+    <div className="flex flex-col gap-1 border-t pt-2">
+      <h4 className="text-sm font-medium">Not in the catalogue yet</h4>
+      {isLoading && <Loader2 className="animate-spin text-muted-foreground" aria-label="Loading" />}
+      {searchError && <p className="text-sm text-destructive">{searchError.message}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {hits && hits.length === 0 && <p className="text-sm text-muted-foreground">Neither has anything else that matches.</p>}
+      <ul className="flex flex-col">
+        {hits?.map((h) => (
+          <li key={h.workKey ?? h.hardcoverId ?? h.title}>
+            <button type="button" disabled={!!filing} onClick={() => void file(h)}
+              className="flex min-h-11 w-full flex-col justify-center rounded-md px-2 py-1 text-left hover:bg-accent disabled:opacity-60">
+              <span className="block truncate">{h.title}</span>
+              <span className="block text-sm text-muted-foreground truncate">
+                {h.author}{h.year ? ` · ${h.year}` : ''} · {h.workKey ? 'Open Library' : 'Hardcover'}
+                {filing === (h.workKey ?? h.hardcoverId ?? h.title) && ' · filing…'}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

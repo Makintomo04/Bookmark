@@ -94,6 +94,7 @@ test("a librarian's series: name and place cleaned, a cleared name clears the pl
   assert.equal(parseWorkFix({ seriesPosition: "first" }, 3000).ok, false);
   assert.equal(parseWorkFix({ seriesPosition: -1 }, 3000).ok, false);
   assert.deepEqual(curatedWorkFields(["seriesPosition"]), ["seriesPosition", "seriesName"]);
+  assert.deepEqual(curatedWorkFields(["seriesName"]), ["seriesName", "seriesPosition"], "either half marks both");
   assert.deepEqual(curatedWorkFields(["title"]), ["title"]);
 });
 
@@ -165,4 +166,20 @@ test("a revert reopens exactly the reports its edit closed", () => {
   assert.deepEqual(closedReportIds({ title: "Dune", reports: 2, reportIds: ["a", "b"] }), ["a", "b"]);
   assert.deepEqual(closedReportIds({ title: "Dune", reports: 2 }), [], "older entries only counted them");
   assert.deepEqual(fieldChanges({ title: "Dune" }, { title: "Dune Messiah", reportIds: ["a"], wasCurated: [], reopened: 1 }), [{ field: "title", from: "Dune", to: "Dune Messiah" }]);
+});
+
+test("a librarian's series survives a re-import, even when they cleared it", async () => {
+  const store = new MemoryCatalogStore();
+  const first = await resolveOne({ workKey: "OL2W", title: "A Book", author: "Someone", series: { name: "Wrong Saga", position: 9 } }, { store });
+  // A librarian files it under the right series, marking both halves.
+  await store.updateWork(first.work.id, { seriesName: "Right Saga", seriesPosition: 2.5, curatedFields: curatedWorkFields(["seriesPosition"]) });
+  const again = await resolveOne({ workKey: "OL2W", title: "A Book", author: "Someone", series: { name: "Wrong Saga", position: 9 } }, { store });
+  assert.equal(again.work.seriesName, "Right Saga");
+  assert.equal(again.work.seriesPosition, 2.5);
+
+  // Cleared, it stays cleared when a Goodreads title or Open Library edition names a series again.
+  await store.updateWork(first.work.id, { seriesName: null, seriesPosition: null, curatedFields: curatedWorkFields(["seriesName"]) });
+  const cleared = await resolveOne({ workKey: "OL2W", title: "A Book", author: "Someone", series: { name: "Wrong Saga", position: 9 } }, { store });
+  assert.equal(cleared.work.seriesName, null);
+  assert.equal(cleared.work.seriesPosition, null);
 });

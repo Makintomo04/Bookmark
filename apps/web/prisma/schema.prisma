@@ -1183,7 +1183,7 @@ model BookReport {
   workId         String    @db.ObjectId
   editionId      String?   @db.ObjectId
   reporterId     String    @db.ObjectId
-  // cover, details or other (lib/staffReports.ts BOOK_REPORT_REASONS).
+  // cover, details, series or other (lib/staffReports.ts BOOK_REPORT_REASONS).
   reason         String
   note           String?
   createdAt      DateTime  @default(now())
