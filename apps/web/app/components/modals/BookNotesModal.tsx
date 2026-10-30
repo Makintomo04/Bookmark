@@ -30,7 +30,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
   const { isOpen, bookId, bookTitle, onClose } = bookNotesModal
   const { notes, isLoading, mutate } = useBookNotes(isOpen ? bookId : undefined)
   const [isSaving, setIsSaving] = useState(false)
-  const { books, mutate: booksMutate } = useBooks()
+  const { books, mutate: booksMutate } = useBooks({ onlyWhen: isOpen })
   const savedRecommender = recommendedByOf((books ?? []).find((b: { id: string }) => b.id === bookId) ?? {}) ?? ""
   const [recommender, setRecommender] = useState(savedRecommender)
   useEffect(() => { if (isOpen) setRecommender(savedRecommender) }, [isOpen, bookId, savedRecommender])

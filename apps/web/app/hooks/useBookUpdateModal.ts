@@ -30,8 +30,12 @@ export const useBookUpdateModal = create<IBookUpdateModalStore>((set) =>({
   myBooks: [],
   book: null!,
   bookId:"",
+  // Openers call setBook first. A book the modal hasn't seen yet joins the list here: the modal only
+  // loads the whole shelf while it's open (BookUpdateModal).
   onOpen: (bookId: string) => set((prevState) => ({
-    myBooks: prevState.myBooks.map(b => b.id === bookId ? { ...b, isOpen: true } : b)
+    myBooks: prevState.myBooks.some(b => b.id === bookId)
+      ? prevState.myBooks.map(b => b.id === bookId ? { ...b, isOpen: true } : b)
+      : [...prevState.myBooks, { id: bookId, isOpen: true, book: prevState.book?.id === bookId ? prevState.book : null }]
   })),
   onClose: (bookId: string) => set((prevState) => ({
     myBooks: prevState.myBooks.map(b => b.id === bookId ? { ...b, isOpen: false } : b)

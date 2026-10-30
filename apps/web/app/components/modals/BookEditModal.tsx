@@ -29,9 +29,10 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
   const { user } = useUser()
   const accent = user?.favColour || '#D92D2D'
   const accentInk = readableInk(accent)
-  const { mutate: booksMutate } = useBooks()
   const bookEditModal = useBookEditModal()
   const { book, isOpen, onClose } = bookEditModal
+  // Only refreshes the shelf, so it never needs to load it.
+  const { mutate: booksMutate } = useBooks({ onlyWhen: false })
   const [format, setFormat] = useState<FormatChoice>("PRINT")
 
   const {

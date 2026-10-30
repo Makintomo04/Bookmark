@@ -16,6 +16,7 @@ import { sharedCircles } from '@/lib/sharedCircles'
 import { findLists } from '@/lib/lists'
 import { publicProfileKey } from '@/lib/profileKey'
 import { shelfReviewCount } from '@/lib/reviewedBooks'
+import { preloadShelf } from '@/lib/preloadShelf'
 
 interface PageProps {
   params: Promise<{ username: string }>
@@ -68,6 +69,8 @@ export default async function Page(props: PageProps) {
   // The profile in bands; ?layout=classic is the one-column page it replaced (Band.tsx).
   const layout = profileLayoutOf(one('layout'))
   const viewer = await getCurrentUser()
+  // Your own profile shows your shelf: start it loading before the profile itself.
+  if (viewer?.username && viewer.username === handleOf(params.username)) preloadShelf()
   const data = await getProfileView(profileHandle(params.username), viewer?.id)
   if (!data) notFound()
 

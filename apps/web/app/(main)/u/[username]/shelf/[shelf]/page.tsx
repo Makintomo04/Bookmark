@@ -13,6 +13,7 @@ import Container from '@/app/components/Container'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 import OwnerShelf from '@/app/components/books/OwnerShelf'
 import PublicShelf from '@/app/components/profile-head/PublicShelf'
+import { preloadShelf } from '@/lib/preloadShelf'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 interface PageProps {
@@ -42,6 +43,8 @@ export default async function Page(props: PageProps) {
   const shelf = shelfFromSlug(params.shelf)
   if (!shelf) notFound()
   const viewer = await getCurrentUser()
+  // Your own shelf: start it loading before the profile behind the page.
+  if (viewer?.username && viewer.username === handleOf(params.username)) preloadShelf()
   const data = await getProfileView(profileHandle(params.username, `/shelf/${params.shelf}`), viewer?.id)
   if (!data) notFound()
 
