@@ -104,7 +104,7 @@ const ShelfToolbar: FC<ShelfToolbarProps> = ({ books, filter, onChange, actions,
       <div className="flex sm:flex-wrap items-center gap-1.5 sm:gap-2">
         {!searchless && <label className="relative flex-1 min-w-0 sm:min-w-[12rem]">
           <span className="sr-only">Search your shelf</span>
-          <Search size={16} aria-hidden className="pointer-events-none absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search size={16} aria-hidden className="pointer-events-none absolute z-10 left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <ClearableInput
             type="search"
             value={filter.q}
