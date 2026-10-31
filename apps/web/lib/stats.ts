@@ -323,10 +323,42 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
 
 // The profile goal widget's numbers, from the same dated finishes as /stats: re-reads count, a book
 // being re-read keeps its earlier finish, and the calendar is the reader's time zone.
-export async function getGoalProgress(userId: string, year: number): Promise<GoalProgress> {
-  const { finishes, currentYear, currentMonth } = await readingData(userId);
-  const month = year === currentYear ? currentMonth : year < currentYear ? 11 : 0;
-  return goalProgress(finishes.filter((f) => f.outcome === "COMPLETED"), year, month);
+// Counted as readingData counts it, so it agrees with /stats, but without loading the whole library: only the
+// reads finished in that year, and the books with no reads kept yet whose last finish falls in it. The window is a
+// day wider each side, since the year is the reader's own; localDay then places each finish exactly. With `setAt`
+// (when the goal was set) it also says how many of the year's books came before it, where the goal's pace starts.
+export async function getGoalProgress(userId: string, year: number, setAt?: Date): Promise<GoalProgress & { beforeGoal?: number }> {
+  const DAY = 86_400_000;
+  const window = { gte: new Date(Date.UTC(year, 0, 1) - DAY), lt: new Date(Date.UTC(year + 1, 0, 1) + DAY) };
+  const lengthSelect = { pages: true, progressUnit: true, audioMinutes: true } as const;
+  const [user, reads, unrecorded] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { timeZone: true } }),
+    prisma.bookRead.findMany({
+      where: { userId, status: "COMPLETED", finishedAt: window, book: { userId } },
+      select: { finishedAt: true, ...lengthSelect, book: { select: lengthSelect } },
+    }),
+    prisma.book.findMany({
+      where: { userId, completedAt: window, OR: [{ status: "COMPLETED" }, { timesRead: { gte: 1 } }], reads: { none: { status: { in: ["COMPLETED", "DNF"] } } } },
+      select: { completedAt: true, ...lengthSelect },
+    }),
+  ]);
+
+  const timeZone = user?.timeZone && isValidTimeZone(user.timeZone) ? user.timeZone : DEFAULT_TIME_ZONE;
+  const place = (at: Date) => {
+    const day = localDay(at, timeZone);
+    return { year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) - 1 };
+  };
+  const finishes = [
+    ...reads.map((r) => ({ at: r.finishedAt!, ...place(r.finishedAt!), pages: readLength(r, r.book).pages })),
+    ...unrecorded.map((b) => ({ at: b.completedAt!, ...place(b.completedAt!), pages: readLength({}, b).pages })),
+  ];
+
+  const today = localDay(new Date(), timeZone);
+  const currentYear = Number(today.slice(0, 4));
+  const month = year === currentYear ? Number(today.slice(5, 7)) - 1 : year < currentYear ? 11 : 0;
+  const progress = goalProgress(finishes, year, month);
+  if (!setAt) return progress;
+  return { ...progress, beforeGoal: finishes.filter((f) => f.year === year && f.at < setAt).length };
 }
 
 // ---- Wrapped ----------------------------------------------------------------------------------
