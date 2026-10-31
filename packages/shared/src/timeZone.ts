@@ -32,6 +32,14 @@ export function localDay(date: Date, zone: string): string {
   return format.format(date);
 }
 
+// The day a finish counts on. A day the reader picked on a date picker is stored at exactly noon UTC
+// (apps/web/lib/readHistory.ts dayInputSchema), and is that day wherever they are: at UTC+13 or +14 noon UTC
+// is already the next morning, so its UTC day is taken, not `zone`'s. Any other moment is placed in `zone`.
+export function finishDay(date: Date, zone: string): string {
+  const pickedDay = date.getUTCHours() === 12 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
+  return pickedDay ? date.toISOString().slice(0, 10) : localDay(date, zone);
+}
+
 // The "YYYY-MM-DD" day before `day`. Pure calendar arithmetic, so no zone is involved.
 export function previousDay(day: string): string {
   const date = new Date(`${day}T00:00:00Z`);

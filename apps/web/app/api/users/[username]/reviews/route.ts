@@ -1,6 +1,6 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { handleOf } from "@/lib/handle";
-import { getProfileView } from "@/lib/publicProfile";
+import { getProfileShelf } from "@/lib/publicProfile";
 import { reviewedBooks } from "@/lib/reviewedBooks";
 import { SHELF_PAGE_MAX } from "@/lib/shelfFilter";
 import { NextResponse } from "next/server";
@@ -12,14 +12,15 @@ import { NextResponse } from "next/server";
 export async function GET(req: Request, props: { params: Promise<{ username: string }> }) {
   const params = await props.params;
   const currentUser = await getCurrentUser();
-  const view = await getProfileView(handleOf(params.username), currentUser?.id);
-  if (!view || (view.access === "restricted" && view.reason === "unavailable")) {
+  // Only the books with a review, not the whole profile (lib/publicProfile.ts getProfileShelf).
+  const view = await getProfileShelf(handleOf(params.username), currentUser?.id, "reviews");
+  if (!view || (view.access === "restricted" && view.unavailable)) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   const search = new URL(req.url).searchParams;
   const take = Math.min(Math.max(parseInt(search.get("take") ?? "", 10) || 20, 1), SHELF_PAGE_MAX);
   const from = Math.max(parseInt(search.get("cursor") ?? "", 10) || 0, 0);
-  const reviewed = view.access === "restricted" ? [] : reviewedBooks(view.profile.books);
+  const reviewed = view.access === "restricted" ? [] : reviewedBooks(view.books.map((b) => ({ ...b, review: b.review ?? null })));
   return NextResponse.json({
     books: reviewed.slice(from, from + take),
     total: reviewed.length,

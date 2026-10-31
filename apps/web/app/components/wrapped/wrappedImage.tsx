@@ -20,7 +20,8 @@ export const STAR_PATH = 'M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7.1L12 17.3 5.8 21l1.6
 // Same rules as the reader card: Satori only draws images it can decode, its fetches have no
 // timeout, and covers are user-set strings, so fetch only from the hosts we serve images from.
 const DRAWABLE = ['image/png', 'image/jpeg', 'image/gif']
-const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
+// assets.hardcover.app: covers of books found through the Hardcover fallback (lib/hardcover.ts, next.config.mjs).
+const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'assets.hardcover.app', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
 
 // Not the request's Host header, which the client controls.
 const siteOrigin = siteUrl

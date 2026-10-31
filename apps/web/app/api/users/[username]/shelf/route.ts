@@ -1,6 +1,6 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { handleOf } from "@/lib/handle";
-import { getProfileView } from "@/lib/publicProfile";
+import { getProfileShelf } from "@/lib/publicProfile";
 import { filterOptions, pageShelf, parseShelfParams } from "@/lib/shelfFilter";
 import { NextResponse } from "next/server";
 
@@ -14,24 +14,23 @@ const SHOWN = { finished: "COMPLETED", want: "NOT_STARTED" } as const;
 export async function GET(req: Request, props: { params: Promise<{ username: string }> }) {
   const params = await props.params;
   const currentUser = await getCurrentUser();
-  const view = await getProfileView(handleOf(params.username), currentUser?.id);
-  if (!view || (view.access === "restricted" && view.reason === "unavailable")) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
   const search = new URL(req.url).searchParams;
   const filter = parseShelfParams(search);
-  // A restricted profile shows no shelf, and a profile shows only these two (Reading now is on the profile itself).
+  // A profile shows only these two here (Reading now is on the profile itself).
   const shelf = filter.shelf === "finished" || filter.shelf === "want" ? filter.shelf : null;
-  const books = view.access === "restricted" || !shelf ? [] : view.profile.books
-    .filter((b) => b.status === SHOWN[shelf])
-    .map(({ review, reviewSpoiler, reviewHidden, reviewRemoved, ...book }) => book);
+  // Only this shelf's rows, not the whole profile (lib/publicProfile.ts getProfileShelf).
+  const view = await getProfileShelf(handleOf(params.username), currentUser?.id, shelf ?? "finished");
+  if (!view || (view.access === "restricted" && view.unavailable)) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  // A restricted profile shows no shelf.
+  const books = view.access === "restricted" || !shelf ? [] : view.books.filter((b) => b.status === SHOWN[shelf]);
   const page = pageShelf(books, { ...filter, shelf }, { take: Number(search.get("take")), cursor: search.get("cursor") });
-  const all = view.access === "restricted" ? [] : view.profile.books;
   return NextResponse.json({
     ...page,
     ...(search.get("facets") === "1" && {
       options: filterOptions(books),
-      counts: { finished: all.filter((b) => b.status === "COMPLETED").length, want: all.filter((b) => b.status === "NOT_STARTED").length },
+      counts: view.access === "restricted" ? { finished: 0, want: 0 } : view.counts,
     }),
   });
 }

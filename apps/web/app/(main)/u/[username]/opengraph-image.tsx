@@ -24,7 +24,7 @@ const BOOKMARK_PATH = 'M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 
 const DRAWABLE = ['image/png', 'image/jpeg', 'image/gif']
 // Profile images are user-set strings, so only fetch from the hosts we serve images from
 // (next.config.mjs, plus OAuth avatars), never an arbitrary or internal address.
-const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
+const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'assets.hardcover.app', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
 
 function imageUrl(url: string | null | undefined, origin: string) {
   if (!url) return null

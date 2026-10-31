@@ -2,6 +2,7 @@ import prisma from "@/lib/db"
 import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf } from "@/lib/hardcover"
 import { seriesKey } from "@/lib/series"
 import { fileSeriesBooks } from "@/lib/seriesFill"
+import { placedPositions } from "@/lib/releaseRules"
 import { highestPosition, recordSeriesCheck, sendSeriesNews, type SeriesId } from "@/lib/seriesNews"
 
 // The hourly cron's work (app/api/cron/series), in three parts:
@@ -243,9 +244,10 @@ async function recheckDue(result: RecheckResult, { now, pace, requests, deadline
         const books = await hardcoverSeriesBooks(series.hardcoverSeriesId, series.author, now)
         const known = series.highestPosition
         const fresh = known == null ? [] : books.filter((b) => b.position > known)
-        if (fresh.length) await fileSeriesBooks(series.name, series.author, fresh, now)
-        result.newBooks += fresh.length
-        await recordSeriesCheck(id, series.hardcoverSeriesId, books.map((b) => b.position), { checkedAt: now })
+        const { held } = fresh.length ? await fileSeriesBooks(series.name, series.author, fresh, now) : { held: new Set<number>() }
+        result.newBooks += fresh.length - held.size
+        // A book the catalogue dates ahead isn't the series' highest yet, so nobody hears it's new until it's out.
+        await recordSeriesCheck(id, series.hardcoverSeriesId, placedPositions(books, held), { checkedAt: now })
       }
       result.checked++
     } catch (err) {

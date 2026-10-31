@@ -8,7 +8,10 @@ import {
   CARD_DESIGNS,
   CARD_SIZES,
   cardFileName,
+  cardMonths,
   cardPath,
+  cardToday,
+  cardYears,
   cardStats,
   cardTitle,
   gridLayout,
@@ -18,6 +21,7 @@ import {
   parseCardSize,
   type GridBox,
 } from "@bookmark/shared/wrapCards";
+import { finishDay } from "@bookmark/shared/timeZone";
 import { FREE } from "@bookmark/shared/plusFeatures";
 import { entitlementsOf } from "@bookmark/shared/entitlements";
 
@@ -132,4 +136,31 @@ test("one design is free, the rest are Plus, and the free column doesn't overcla
   assert.deepEqual(Object.entries(CARD_DESIGNS).filter(([, d]) => !d.plus).map(([k]) => k), ["midnight"]);
   assert.equal(entitlementsOf({}).customWrapDesigns, false);
   assert.ok(FREE.some((line) => /cover grid/i.test(line)));
+});
+
+test("the card pickers count months in the profile's zone, back to the reader's first year", () => {
+  // 23:30 on 31 October in London is already 1 November in Auckland, and still October in New York.
+  const now = new Date("2026-10-31T23:30:00Z");
+  assert.deepEqual(cardToday("Europe/London", now), { year: 2026, month: 10 });
+  assert.deepEqual(cardToday("Pacific/Auckland", now), { year: 2026, month: 11 });
+  assert.deepEqual(cardToday("Not/AZone", now), { year: 2026, month: 10 });
+  // Every year back to the first one with a finish, and always last year; never before 2000.
+  assert.deepEqual(cardYears({ year: 2026 }, [2019, 2026]), [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019]);
+  assert.deepEqual(cardYears({ year: 2026 }, []), [2026, 2025]);
+  assert.equal(cardYears({ year: 2026 }, [1980]).at(-1), 2000);
+  // Only months that have started: all of a past year, this year up to this month, none of a future one.
+  assert.deepEqual(cardMonths(2026, { year: 2026, month: 3 }), [3, 2, 1]);
+  assert.equal(cardMonths(2025, { year: 2026, month: 3 }).length, 12);
+  assert.deepEqual(cardMonths(2027, { year: 2026, month: 3 }), []);
+});
+
+test("a picked day counts on that day at UTC+13 and UTC+14, and a timed finish in the reader's zone", () => {
+  // Stored at noon UTC (lib/readHistory.ts dayInputSchema): 31 October stays October in Auckland and Kiritimati.
+  const picked = new Date("2026-10-31T12:00:00.000Z");
+  assert.equal(finishDay(picked, "Pacific/Auckland"), "2026-10-31");
+  assert.equal(finishDay(picked, "Pacific/Kiritimati"), "2026-10-31");
+  assert.equal(finishDay(new Date("2026-12-31T12:00:00.000Z"), "Pacific/Auckland"), "2026-12-31");
+  // A finish logged at a real moment is placed where the reader is.
+  assert.equal(finishDay(new Date("2026-10-31T12:00:01.000Z"), "Pacific/Auckland"), "2026-11-01");
+  assert.equal(finishDay(new Date("2026-10-31T23:30:00.000Z"), "America/New_York"), "2026-10-31");
 });

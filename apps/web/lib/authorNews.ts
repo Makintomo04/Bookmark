@@ -47,6 +47,8 @@ export interface AuthorNewsResult {
   newBooks: number
   // Release dates Hardcover moved, put right on the catalogue's works.
   datesMoved: number
+  // Works filed before they were given a series (before #140), given the one Hardcover lists.
+  seriesNamed: number
   // Books still to come filed on an author's first lookup, with nobody told.
   filedComing: number
   told: number
@@ -195,6 +197,46 @@ async function moveReleaseDates(releases: HardcoverRelease[], today: string): Pr
   return moved
 }
 
+// A book a librarian dates ahead (lib/catalogueFix.ts) is news like one Hardcover announces: it's queued on
+// its first author's check, as its own batch, and told by the next run (sendAuthorNews). Hardcover never
+// sees a self-published book that only a librarian has entered, so without this its author's followers would
+// get Upcoming and publication day but no heads-up. Readers already told about it, or who have it, are
+// skipped as usual. Returns whether it was queued.
+export async function announceDatedByHand(work: { id: string, authors: string[], seriesName: string | null }, now = new Date()): Promise<boolean> {
+  const name = work.authors[0]
+  const slug = name ? authorSlug(name) : null
+  if (!name || !slug) return false
+  const book = { workId: work.id, seriesName: work.seriesName, batch: `librarian:${now.toISOString()}` }
+  const check = await prisma.authorCheck.findUnique({ where: { slug }, select: { id: true, announcing: true } })
+  if (check?.announcing.some((b) => b.workId === work.id)) return false
+  if (check) await prisma.authorCheck.update({ where: { id: check.id }, data: { announcing: { push: book } } })
+  // Just past a week old, so the next run looks them up on Hardcover too, as queueAuthors would.
+  else await prisma.authorCheck.create({ data: { slug, name, seenBookIds: [], announcing: [book], checkedAt: new Date(now.getTime() - RECHECK_AFTER_DAYS * DAY_MS - 60_000) } })
+  return true
+}
+
+// Books an author check filed before it gave them a series have none, so the series' followers never heard
+// they were out. Each check reads those books again anyway, with their series: a work filed from one with no
+// series takes it (no place, as fileReleases files them), unless a librarian set the series. Costs nothing
+// extra from Hardcover, so it backfills them as the weekly checks come round.
+async function fillSeriesNames(releases: HardcoverRelease[]): Promise<number> {
+  const named = releases.filter((r) => r.seriesName)
+  if (named.length === 0) return 0
+  const nameOf = new Map(named.map((r) => [r.hardcoverId, r.seriesName!]))
+  const works = await prisma.work.findMany({
+    where: { hardcoverId: { in: Array.from(nameOf.keys()) }, OR: [{ seriesName: null }, { seriesName: { isSet: false } }] },
+    select: { id: true, hardcoverId: true, curatedFields: true },
+  })
+  let filled = 0
+  for (const w of works) {
+    const name = nameOf.get(w.hardcoverId!)
+    if (!name || w.curatedFields.includes("seriesName")) continue
+    await prisma.work.update({ where: { id: w.id }, data: { seriesName: name } })
+    filled++
+  }
+  return filled
+}
+
 // ---- Telling readers --------------------------------------------------------------------------------
 
 // Tells an author's followers, and the followers of each book's series, about the check's new books, up
@@ -276,7 +318,7 @@ export async function recheckAuthors({ now = new Date(), pace = PACE_MS, request
   deadline?: number
   sendBy?: number
 } = {}): Promise<AuthorNewsResult> {
-  const result: AuthorNewsResult = { queued: 0, checked: 0, passedOver: 0, notOnHardcover: 0, newBooks: 0, datesMoved: 0, filedComing: 0, told: 0, announcing: 0, requests: 0 }
+  const result: AuthorNewsResult = { queued: 0, checked: 0, passedOver: 0, notOnHardcover: 0, newBooks: 0, datesMoved: 0, seriesNamed: 0, filedComing: 0, told: 0, announcing: 0, requests: 0 }
 
   const { queued, followed } = await queueAuthors(now)
   result.queued = queued
@@ -324,6 +366,7 @@ async function checkDue(result: AuthorNewsResult, followed: Set<string>, { now, 
         if (id == null) result.notOnHardcover++
         else {
           result.datesMoved += await moveReleaseDates(releases, today)
+          result.seriesNamed += await fillSeriesNames(releases)
           result.filedComing += (await fileReleases(releases.filter((r) => r.releaseDate > today), check.name, now.toISOString())).length
         }
         await prisma.authorCheck.update({ where: { id: check.id }, data: { hardcoverAuthorId: id, seenBookIds: seenIdsOf(releases), checkedAt: now } })
@@ -334,6 +377,7 @@ async function checkDue(result: AuthorNewsResult, followed: Set<string>, { now, 
         const filed = await fileReleases(fresh, check.name, now.toISOString())
         result.newBooks += filed.length
         result.datesMoved += await moveReleaseDates(releases, today)
+        result.seriesNamed += await fillSeriesNames(releases)
         await prisma.authorCheck.update({
           where: { id: check.id },
           data: {

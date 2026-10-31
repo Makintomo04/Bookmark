@@ -23,8 +23,9 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 const fmt = (n: number) => n.toLocaleString("en-GB");
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`;
 
-// wrapDesigns: the Plus Wrap card designs are open to this reader.
-type StatsResponse = { stats: ReadingStats; wrappedYears: number[]; accent: string | null; wrapDesigns?: boolean };
+// wrapDesigns: the Plus Wrap card designs are open to this reader. wrapToday: this year and month (1 to 12)
+// in the profile's time zone, which the Wrap cards count in.
+type StatsResponse = { stats: ReadingStats; wrappedYears: number[]; accent: string | null; wrapDesigns?: boolean; wrapToday?: { year: number; month: number } };
 
 export default function Stats() {
   const { colors } = useTheme();
@@ -80,7 +81,7 @@ export default function Stats() {
         </View>
       )}
 
-      <WrapCardPicker accent={accent} wrapDesigns={data.wrapDesigns ?? false} />
+      <WrapCardPicker accent={accent} wrapDesigns={data.wrapDesigns ?? false} today={data.wrapToday} years={data.stats.years.map((y) => y.year)} />
       <MonthlyWrapCard accent={accent} />
 
       <Section title="Books per year"><ColumnChart data={yearBooks} accent={accent} label="Books finished per year" /></Section>

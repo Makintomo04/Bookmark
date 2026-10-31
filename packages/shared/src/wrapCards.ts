@@ -1,5 +1,6 @@
 import { MONTHS } from "./wrappedCopy"
 import { MOOD_LABEL, type Mood } from "./workTags"
+import { DEFAULT_TIME_ZONE, isValidTimeZone, localDay } from "./timeZone"
 
 // Wrap cards (BOO-50): the cover grid ("my October in books") and the stats card, for a month or a
 // year, in the three shapes people post. The web draws them (app/api/wrap/card); the web's /stats and
@@ -50,6 +51,32 @@ export function cardPath({ kind, size, design, year, month, hideRatings }: { kin
 // "bookmark-grid-2026-10-story", for the download.
 export function cardFileName({ kind, size, year, month }: { kind: CardKind; size: CardSize; year: number; month: number | null }) {
   return `bookmark-${kind}-${year}${month === null ? "" : `-${String(month).padStart(2, "0")}`}-${size}`
+}
+
+// ---- Periods ---------------------------------------------------------------------------------
+
+// Today's year and month (1 to 12) in the reader's saved zone, the calendar the server buckets their finishes
+// in (lib/stats.ts). The pickers use it rather than the browser's or phone's own, so "this month" near midnight
+// on the 1st is the one the card is drawn for.
+export function cardToday(timeZone: string | null | undefined, now = new Date()): { year: number; month: number } {
+  const day = localDay(now, isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIME_ZONE)
+  return { year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) }
+}
+
+// The earliest year a card goes back to (the server takes any from 2000).
+export const CARD_FIRST_YEAR = 2000
+
+// The years a card can be made for, newest first: this one back to the reader's first year with a finish
+// (`years`, from their stats), and always last year.
+export function cardYears(today: { year: number }, years: number[] = []): number[] {
+  const first = Math.max(CARD_FIRST_YEAR, Math.min(today.year - 1, ...years))
+  return Array.from({ length: today.year - first + 1 }, (_, i) => today.year - i)
+}
+
+// The months (1 to 12) of `year` that have started, newest first.
+export function cardMonths(year: number, today: { year: number; month: number }): number[] {
+  const last = year < today.year ? 12 : year === today.year ? today.month : 0
+  return Array.from({ length: last }, (_, i) => last - i)
 }
 
 // ---- Words -----------------------------------------------------------------------------------

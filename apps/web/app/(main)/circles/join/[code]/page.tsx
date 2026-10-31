@@ -25,10 +25,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const params = await props.params;
   const invite = await loadInvite(params.code)
   if (!invite) return { title: "Reading circle", robots: { index: false } }
-  const { buddyRead, host, members } = invite
+  const { buddyRead, host, memberCount } = invite
   const hostName = host ? readerName(host) : null
   const title = `Read ${buddyRead.title} with ${hostName || "friends"}`
-  const others = members.length - 1
+  const others = memberCount - 1
   const description = `${hostName || "A reader"} is reading ${buddyRead.title} by ${buddyRead.author}${others > 0 ? ` with ${others} ${others === 1 ? "other" : "others"}` : ""}. Join the reading circle on Bookmark: track progress together, with comments that stay hidden until you reach them.`
   return {
     title,
@@ -41,9 +41,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 
 const Page = async (props: PageProps) => {
   const params = await props.params;
-  const [viewer, invite] = await Promise.all([getCurrentUser(), loadInvite(params.code)])
+  const viewer = await getCurrentUser()
+  const invite = await loadInvite(params.code, viewer?.id)
   if (!invite) notFound()
-  const { buddyRead, host, members } = invite
+  const { buddyRead, host, members, memberCount } = invite
 
   if (viewer) {
     const isMember = await prisma.buddyReadMember.findUnique({
@@ -58,7 +59,7 @@ const Page = async (props: PageProps) => {
     if (club?.status === "ACTIVE") redirect(`/clubs/join/${club.inviteCode}`)
   }
   const removed = viewer ? await wasRemoved(buddyRead.id, viewer.id) : false
-  const full = members.length >= BUDDY_READ_MAX_MEMBERS
+  const full = memberCount >= BUDDY_READ_MAX_MEMBERS
 
   return (
     <div className="mt-10 sm:mt-16">
@@ -85,7 +86,7 @@ const Page = async (props: PageProps) => {
               <span className="font-semibold">{(host && readerName(host)) || "A reader"}</span>
               {host?.staffBadge && <StaffSeal kind={host.staffBadge} name={readerName(host)} size={18} className="ml-1 align-[-4px]" />}
               {" "}invited you to read along
-              {members.length > 1 ? ` with ${members.length - 1} ${members.length - 1 === 1 ? "other" : "others"}` : ""}.
+              {memberCount > 1 ? ` with ${memberCount - 1} ${memberCount - 1 === 1 ? "other" : "others"}` : ""}.
             </p>
             <p className="max-w-md text-sm text-muted-foreground">
               Everyone&apos;s progress in one place, in any edition or on audio. Comments are pinned to where they were written and stay locked until you get there.

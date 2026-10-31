@@ -34,8 +34,10 @@ return books.map((b) => {
 export async function rereadingIds(userId: string, reading: Pick<Book, "id" | "title" | "author" | "timesRead">[]) {
   if (reading.length === 0) return new Set<string>();
   const same = (s: string) => s.trim().toLowerCase();
+  // By prefix, so a title saved with a trailing space on either copy still matches; the exact (trimmed)
+  // comparison is below. A few books on the go, so a few prefixes.
   const finished = await prisma.book.findMany({
-    where: { userId, status: "COMPLETED", title: { in: reading.map((b) => b.title), mode: "insensitive" } },
+    where: { userId, status: "COMPLETED", OR: reading.map((b) => ({ title: { startsWith: b.title.trim(), mode: "insensitive" as const } })) },
     select: { id: true, title: true, author: true },
   });
   return new Set(reading.filter((b) => b.timesRead > 0

@@ -6,7 +6,7 @@ import prisma from "@/lib/db";
 import { getMilestone } from "@/lib/achievements-catalog";
 import { getReadingStreak } from "@/lib/achievements";
 import { getReaderTier } from "@/lib/readerTier";
-import { DEFAULT_TIME_ZONE, isValidTimeZone, localDay } from "@/lib/timeZone";
+import { DEFAULT_TIME_ZONE, finishDay, isValidTimeZone, localDay } from "@/lib/timeZone";
 import { isWrappedSeason } from "@/lib/wrappedSeason";
 import { isProfilePublic, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
@@ -86,7 +86,7 @@ async function loadReadingData(userId: string, sharedOnly = false) {
   const timeZone = user?.timeZone && isValidTimeZone(user.timeZone) ? user.timeZone : DEFAULT_TIME_ZONE;
   const place = (at: Date | null) => {
     if (!at) return { year: null, month: null };
-    const day = localDay(at, timeZone);
+    const day = finishDay(at, timeZone);
     return { year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) - 1 };
   };
 
@@ -347,7 +347,7 @@ export async function getGoalProgress(userId: string, year: number, setAt?: Date
 
   const timeZone = user?.timeZone && isValidTimeZone(user.timeZone) ? user.timeZone : DEFAULT_TIME_ZONE;
   const place = (at: Date) => {
-    const day = localDay(at, timeZone);
+    const day = finishDay(at, timeZone);
     return { year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) - 1 };
   };
   const finishes = [

@@ -11,7 +11,7 @@ import {
 import { heldInQuietHours, pushContentFor, pushGroupOf, pushGroupsFor, pushedToSelf } from "@bookmark/shared/push";
 import { buildWeeklyDigest, type DigestData } from "@bookmark/shared/digest";
 import { announcementBatches, authorNewsNotifications, freshReleases, isAnnounced, seenIdsOf } from "@/lib/authorNews";
-import { BOOK_NEWS_TYPES, HEADS_UP_TYPES, bookNewsSections, isFirstRelease, placeWhileUpcoming, publicationDayReaders, takesSeriesPlace } from "@/lib/releaseRules";
+import { BOOK_NEWS_TYPES, HEADS_UP_TYPES, bookNewsSections, isFirstRelease, newlyUpcoming, placeWhileUpcoming, placedPositions, publicationDayReaders, takesSeriesPlace } from "@/lib/releaseRules";
 import { heldPushPlan } from "@/lib/jobs/heldPushes";
 import { isQuietFor } from "@/lib/notifications";
 import { parseWorkFix } from "@/lib/catalogueFixRules";
@@ -293,4 +293,23 @@ test("the author check files a new book in its series without a place", async ()
   const filed = await resolveOne({ hardcoverId: "2235778", title: "Blightfall", author: "Brandon Sanderson", releaseDate: "2027-01-10", series: { name: "Riftwake", position: null } }, { store: new MemoryCatalogStore() });
   assert.equal(filed.work.seriesName, "Riftwake");
   assert.equal(filed.work.seriesPosition, null);
+});
+
+test("a book the series re-check holds back as not out yet isn't the series' highest", () => {
+  // Hardcover lists book 4 undated, but a librarian dated it 2027: filed without a place, and left out.
+  assert.deepEqual(placedPositions([{ position: 1 }, { position: 2 }, { position: 3 }, { position: 4 }], new Set([4])), [1, 2, 3]);
+  assert.deepEqual(placedPositions([{ position: 1 }], new Set()), [1]);
+  // The work's own date counts as much as Hardcover's: either one ahead keeps its place back.
+  assert.equal(placeWhileUpcoming(placeWhileUpcoming(4, "2027-04-09", TODAY), null, TODAY), null);
+  assert.equal(placeWhileUpcoming(placeWhileUpcoming(4, null, TODAY), null, TODAY), 4);
+});
+
+test("a librarian's date is announced when it makes the book one still to come, once", () => {
+  assert.equal(newlyUpcoming(null, "2027-04-09", TODAY), true);
+  // A date already past, now moved ahead (a delay announced), counts as new; one future date to another doesn't.
+  assert.equal(newlyUpcoming("2019-05-01", "2027-04-09", TODAY), true);
+  assert.equal(newlyUpcoming("2027-03-01", "2027-04-09", TODAY), false);
+  // Cleared, or set in the past: nothing to announce.
+  assert.equal(newlyUpcoming("2027-03-01", null, TODAY), false);
+  assert.equal(newlyUpcoming(null, "2026-10-01", TODAY), false);
 });

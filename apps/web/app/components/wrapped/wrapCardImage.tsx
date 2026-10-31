@@ -140,6 +140,8 @@ function Cover({ book, src, width, height, p, stars, overlayRating, id }: { book
             {width >= 150 && <span style={{ marginTop: width * 0.05, fontSize: width * 0.08, textAlign: 'center', color: readableInk(colour), opacity: 0.8 }}>{clip(book.author, 30)}</span>}
           </div>
         )}
+        {/* Only ever set on a book spice applies to (romance, romantasy, erotica, or flagged for sexual content):
+            app/api/works/tags keeps a reader's spice nowhere else (lib/workTags.ts spiceApplies). */}
         {book.spice !== null && book.spice > 0 && width >= 64 && (
           <Badge size={badge} style={{ top: badge * 0.4, right: badge * 0.4 }}>
             <svg width={badge} height={badge} viewBox="0 0 24 24"><path d={FLAME_PATH} fill="#FB923C" /></svg>
@@ -253,7 +255,8 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
   const title = cardTitle(card.year, card.month, card.isCurrent)
   const titleSize = fitTitle(title, contentWidth, m.title)
   const kicker = cardKicker(card.year, card.month)
-  const stats = cardStats({ books: card.finishes, pages: card.pages, minutes: card.minutes })
+  // Books, not reads: a re-read in the period is one cover on the grid, so it's one book here too.
+  const stats = cardStats({ books: card.books.length, pages: card.pages, minutes: card.minutes })
   const moods = moodMix(card.moods)
   const rated = !hideRatings && card.books.some((b) => b.rating !== null)
 
@@ -322,7 +325,7 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
 // there's room.
 async function statsBody({ card, size, m, p, rated, textBits }: { card: WrapCardData; size: CardSize; m: typeof METRICS[CardSize]; p: Palette; rated: boolean; textBits: string[] }) {
   const numbers = [
-    ...cardStats({ books: card.finishes, pages: card.pages, minutes: card.minutes }),
+    ...cardStats({ books: card.books.length, pages: card.pages, minutes: card.minutes }),
     ...(rated && card.averageRating !== null ? [{ value: `${card.averageRating.toFixed(1)}`, label: 'average rating' }] : []),
   ].slice(0, 4)
   const most = Math.max(1, ...card.ratings)
