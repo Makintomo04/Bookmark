@@ -2,6 +2,7 @@ import { editionByIsbn, workDescription, worksByKeys } from "../openLibrary.ts";
 import { matchTitle } from "../import/match.ts";
 import type { CatalogLookup, EditionFacts, WorkFacts } from "./resolve.ts";
 import { formatFrom, seriesFromOpenLibrary, yearFrom } from "./normalise.ts";
+import { releaseDateFrom } from "@bookmark/shared/releases";
 
 // The CatalogLookup over Open Library (lib/openLibrary.ts). Every call may throw; the resolver treats a
 // failed lookup as "nothing known" and files the book from what the caller gave it.
@@ -33,6 +34,7 @@ export const openLibraryLookup: CatalogLookup = {
       format: formatFrom(edition.physicalFormat),
       publisher: edition.publisher,
       publishedYear: yearFrom(edition.publishDate),
+      releaseDate: releaseDateFrom(edition.publishDate),
       coverUrl: edition.coverUrl,
       series: seriesFromOpenLibrary(edition.series),
     };

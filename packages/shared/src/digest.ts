@@ -4,6 +4,9 @@
 // in, and nothing is AI-written. No Plus promotion either, so it stays a service email. No database
 // imports: plain Node loads this for the tests.
 
+import { formatReleaseDate, isUpcoming } from "./releases";
+import { seriesNewsText } from "./series";
+
 export interface DigestFriend {
   username: string;
   // What they did this week.
@@ -29,6 +32,23 @@ export interface DigestCircle {
 export interface DigestSeriesBook {
   title: string;
   seriesName: string | null;
+  seriesPosition?: number | null;
+  // How many new books in the series the notification stood for; the title is the first of them.
+  count?: number | null;
+}
+
+// A new book announced by an author, or in a series, the reader follows (NEW_BOOK).
+export interface DigestNewBook {
+  title: string;
+  author: string | null;
+  releaseDate: string | null;
+  count?: number | null;
+}
+
+// A book the reader wanted that came out this week (PUBLICATION_DAY).
+export interface DigestReleased {
+  title: string;
+  author: string | null;
 }
 
 export interface DigestData {
@@ -43,6 +63,11 @@ export interface DigestData {
   circles: DigestCircle[];
   friends: DigestFriend[];
   series: DigestSeriesBook[];
+  // Older callers leave these out.
+  newBooks?: DigestNewBook[];
+  released?: DigestReleased[];
+  // The reader's day the email is built on, "YYYY-MM-DD", for saying whether a new book is out yet.
+  today?: string;
   // Absolute URLs.
   logUrl: string;
   settingsUrl: string;
@@ -88,7 +113,18 @@ const circleLine = (c: DigestCircle) => {
   return `${c.title}: ${parts.join(", ")}`;
 };
 
-const seriesLine = (s: DigestSeriesBook) => (s.seriesName ? `${s.title}, new in ${s.seriesName}` : s.title);
+// The bell's words, so "3 new books in Mistborn, starting with…" says the count the notification held.
+const seriesLine = (s: DigestSeriesBook) =>
+  s.seriesName || (s.count ?? 1) > 1 ? seriesNewsText({ title: s.title, seriesName: s.seriesName, position: s.seriesPosition ?? null, count: s.count ?? null }) : s.title;
+
+const by = (author: string | null) => (author ? ` by ${author}` : "");
+
+// Title, author and date only: nothing about what happens in the book.
+const newBookLine = (b: DigestNewBook, today: string) => {
+  const more = (b.count ?? 1) - 1;
+  const when = b.releaseDate && isUpcoming(b.releaseDate, today) ? `, out ${formatReleaseDate(b.releaseDate)}` : ", out now";
+  return `${b.title}${by(b.author)}${when}${more > 0 ? `, and ${plural(more, "more book")}` : ""}`;
+};
 
 interface Section {
   heading: string;
@@ -104,7 +140,9 @@ export function buildWeeklyDigest(data: DigestData): DigestEmail | null {
     data.checkpoints.length > 0 ||
     data.circles.some((c) => c.newComments > 0 || c.finished > 0) ||
     data.friends.length > 0 ||
-    data.series.length > 0;
+    data.series.length > 0 ||
+    (data.newBooks?.length ?? 0) > 0 ||
+    (data.released?.length ?? 0) > 0;
   if (!happened) return null;
   const you = [
     data.readingDays > 0 && `You read on ${plural(data.readingDays, "day")} this week`,
@@ -119,6 +157,8 @@ export function buildWeeklyDigest(data: DigestData): DigestEmail | null {
     { heading: "In your circles", lines: circles.map(circleLine) },
     { heading: "From friends", lines: data.friends.slice(0, DIGEST_FRIENDS_MAX).map(friendLine) },
     { heading: "New in your series", lines: data.series.map(seriesLine) },
+    { heading: "New books announced", lines: (data.newBooks ?? []).map((b) => newBookLine(b, data.today ?? new Date().toISOString().slice(0, 10))) },
+    { heading: "Out this week", lines: (data.released ?? []).map((b) => `${b.title}${by(b.author)}`) },
   ].filter((s) => s.lines.length > 0);
   if (sections.length === 0) return null;
 

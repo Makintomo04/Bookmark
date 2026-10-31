@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/series", "schedule": "0 * * * *" },
+    { "path": "/api/cron/authors", "schedule": "30 * * * *" },
     { "path": "/api/cron/tick", "schedule": "*/15 * * * *" }
   ]
 }

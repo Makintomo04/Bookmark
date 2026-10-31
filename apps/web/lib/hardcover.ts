@@ -2,6 +2,7 @@ import { DESCRIPTION_MAX, type DiscoverBook } from "./openLibrary"
 import { sameBook } from "./bookSearchRules"
 import { titleKey } from "./bookListCleanup"
 import { authorSlug } from "./authorNames"
+import { releaseDateFrom } from "@bookmark/shared/releases"
 
 // Hardcover's catalogue, the fallback when Open Library has nothing for a search: it covers the indie and
 // Kindle-only books Open Library misses. Server-only: the token is a personal access token with the
@@ -24,6 +25,8 @@ interface HardcoverDoc {
   author_names?: string[]
   image?: { url?: string | null } | null
   release_year?: number | null
+  // "2027-04-09"; book records have it, search documents may not.
+  release_date?: string | null
   pages?: number | null
   isbns?: string[]
   description?: string | null
@@ -59,6 +62,7 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
   // Some names come through with a doubled space ("Kate  Posey").
   const author = doc.author_names?.find((a) => a?.trim())?.trim().replace(/\s+/g, " ")
   if (!title || !author) return null
+  const releaseDate = releaseDateFrom(doc.release_date)
   return {
     workKey: null,
     title,
@@ -66,6 +70,7 @@ export function hardcoverBook(doc: HardcoverDoc): DiscoverBook | null {
     pages: doc.pages && doc.pages > 0 ? doc.pages : null,
     coverUrl: doc.image?.url || null,
     year: doc.release_year || null,
+    ...(releaseDate && { releaseDate }),
     editionKey: null,
     ...pickIsbns(doc.isbns),
     authorKey: null,
@@ -231,6 +236,57 @@ export async function hardcoverSeriesBooks(seriesId: number, author: string, tod
     })
 }
 
+// Hardcover's id for an author: by its slug for them, which is usually Bookmark's ("kate-posey"), else by
+// searching the name. Null when it doesn't know them. One request, or two. Throws like searchHardcover.
+export async function hardcoverAuthorId(slug: string, name: string): Promise<number | null> {
+  let id: unknown = (await hardcoverQuery(AUTHOR_BY_SLUG, { slug }))?.authors?.[0]?.id
+  if (id == null) {
+    const hits = ((await hardcoverQuery(AUTHOR_SEARCH, { query: name }))?.search?.results?.hits ?? []) as { document?: { id?: string | number, name?: string } }[]
+    id = hits.find((h) => h.document?.name && squashName(h.document.name) === squashName(name))?.document?.id
+  }
+  const authorId = Number(id)
+  return id != null && Number.isInteger(authorId) ? authorId : null
+}
+
+// The author's own books (not ones they translated or wrote a foreword to) out since `from` or coming,
+// earliest first: one request. Box sets and other editions of a book are left out.
+const AUTHOR_RELEASES = `query AuthorReleases($id: Int!, $from: date!) {
+  authors(where: { id: { _eq: $id } }, limit: 1) {
+    contributions(
+      where: {
+        _or: [{ contribution: { _eq: "Author" } }, { contribution: { _is_null: true } }]
+        book: { release_date: { _gte: $from }, canonical_id: { _is_null: true }, compilation: { _eq: false }, book_category_id: { _eq: 1 } }
+      }
+      order_by: { book: { release_date: asc } }
+      limit: 40
+    ) { book { id title pages release_year release_date description headline image { url } featured_book_series { position compilation series { name } } } }
+  }
+}`
+
+export interface HardcoverRelease extends DiscoverBook {
+  hardcoverId: string
+  releaseDate: string
+  // The series Hardcover shows it in, unless that's a box set.
+  seriesName: string | null
+}
+
+// What `hardcoverAuthorId` found has out since `from` ("YYYY-MM-DD") or coming, credited to `name`, the name
+// the author goes by on Bookmark. Part-works and dramatised editions are left out. Throws like searchHardcover.
+export async function hardcoverAuthorReleases(authorId: number, name: string, from: string): Promise<HardcoverRelease[]> {
+  type Row = { book?: (HardcoverDoc & { featured_book_series?: { position?: number | null, compilation?: boolean | null, series?: { name?: string } | null } | null }) | null }
+  const data = await hardcoverQuery(AUTHOR_RELEASES, { id: authorId, from })
+  const seen = new Set<string>()
+  return ((data?.authors?.[0]?.contributions ?? []) as Row[]).flatMap(({ book }) => {
+    if (!book || isPartWork(book.title ?? "")) return []
+    const mapped = hardcoverBook({ ...book, featured_series: null, author_names: [name] })
+    if (!mapped?.hardcoverId || !mapped.releaseDate || seen.has(mapped.hardcoverId)) return []
+    seen.add(mapped.hardcoverId)
+    const series = book.featured_book_series
+    const seriesName = series && !series.compilation ? series.series?.name?.trim() || null : null
+    return [{ ...mapped, hardcoverId: mapped.hardcoverId, releaseDate: mapped.releaseDate, seriesName }]
+  })
+}
+
 const AUTHOR_BY_SLUG = `query AuthorBySlug($slug: String!) {
   authors(where: { slug: { _eq: $slug } }, limit: 1) { id }
 }`
@@ -257,13 +313,8 @@ const squashName = (name: string) => name.toLowerCase().normalize("NFKD").replac
 // Bookmark's ("kate-posey"), else by searching the name. Each book is credited to `name`, so it matches
 // the author page's list. Empty when Hardcover doesn't know the author. Throws like searchHardcover.
 export async function hardcoverAuthorBooks(slug: string, name: string): Promise<DiscoverBook[]> {
-  let id: unknown = (await hardcoverQuery(AUTHOR_BY_SLUG, { slug }))?.authors?.[0]?.id
-  if (id == null) {
-    const hits = ((await hardcoverQuery(AUTHOR_SEARCH, { query: name }))?.search?.results?.hits ?? []) as { document?: { id?: string | number, name?: string } }[]
-    id = hits.find((h) => h.document?.name && squashName(h.document.name) === squashName(name))?.document?.id
-  }
-  const authorId = Number(id)
-  if (!Number.isInteger(authorId)) return []
+  const authorId = await hardcoverAuthorId(slug, name)
+  if (authorId == null) return []
   const data = await hardcoverQuery(AUTHOR_BOOKS, { id: authorId, limit: AUTHOR_BOOKS_MAX })
   const contributions = (data?.authors?.[0]?.contributions ?? []) as { book?: HardcoverDoc | null }[]
   return contributions.flatMap(({ book }) => {

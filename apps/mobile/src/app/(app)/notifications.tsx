@@ -7,6 +7,7 @@ import useSWR, { mutate as revalidate } from "swr";
 import { getAchievementTitle } from "@bookmark/shared/achievements-catalog";
 import { reviewHiddenMessage } from "@bookmark/shared/reviewReports";
 import { seriesNewsText } from "@bookmark/shared/series";
+import { newBookText, publicationDayText } from "@bookmark/shared/releases";
 import { escalationCopy, escalationResolvedText, reviewRestoredText, roleChangedText, staffNoticeWebPath, staffReportText } from "@bookmark/shared/staffNotices";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
@@ -33,9 +34,15 @@ interface Notification {
   actor: Person & { username: string };
   buddyRead: { id: string; title: string; inviteCode: string; status?: string } | null;
   book: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null;
-  // NEW_IN_SERIES: the new book.
-  work?: { title: string; seriesName: string | null; seriesPosition: number | null } | null;
+  // NEW_IN_SERIES, NEW_BOOK and PUBLICATION_DAY: the book.
+  work?: { title: string; author?: string | null; seriesName: string | null; seriesPosition: number | null; releaseDate?: string | null } | null;
 }
+
+// The phone's own day, "YYYY-MM-DD", for saying whether a new book is out yet.
+const localDay = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 // The web's notificationCopy, after the actor's name.
 function copyOf(n: Notification) {
@@ -58,7 +65,7 @@ function copyOf(n: Notification) {
 // Where tapping goes. Achievements stay put.
 function pathOf(n: Notification): string | null {
   // The app has no page for a book nobody's shelved yet. Staff work opens on the web (webPathOf).
-  if (n.type === "ACHIEVEMENT_EARNED" || n.type === "NEW_IN_SERIES" || webPathOf(n) || n.type === "ROLE_CHANGED") return null;
+  if (n.type === "ACHIEVEMENT_EARNED" || n.type === "NEW_IN_SERIES" || n.type === "NEW_BOOK" || n.type === "PUBLICATION_DAY" || webPathOf(n) || n.type === "ROLE_CHANGED") return null;
   // Your own copy, where you can still read the review.
   if (n.type === "REVIEW_HIDDEN") return n.book ? `/book/${n.book.id}` : null;
   if (n.type === "REVIEW_RESTORED") return n.bookId ? `/book/${n.bookId}` : null;
@@ -147,6 +154,9 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
       : n.type === "REVIEW_RESTORED" ? reviewRestoredText(n.book?.title ?? n.message)
       : n.type === "ROLE_CHANGED" ? roleChangedText(n.message)
       : n.type === "NEW_IN_SERIES" ? seriesNewsText({ title: n.work?.title ?? null, seriesName: n.work?.seriesName ?? null, position: n.work?.seriesPosition ?? null, count: n.count })
+      // Title, author and date only.
+      : n.type === "NEW_BOOK" ? newBookText({ title: n.work?.title ?? null, author: n.work?.author ?? null, releaseDate: n.work?.releaseDate ?? null, count: n.count }, localDay())
+      : n.type === "PUBLICATION_DAY" ? publicationDayText({ title: n.work?.title ?? null, author: n.work?.author ?? null })
       : null;
 
   return (

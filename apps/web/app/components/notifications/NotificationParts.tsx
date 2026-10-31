@@ -9,6 +9,7 @@ import { notify } from '@/lib/notify'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { reviewHiddenMessage } from '@/lib/reviewReports'
 import { seriesNewsText } from '@/lib/series'
+import { newBookText, publicationDayText } from '@bookmark/shared/releases'
 import { escalationCopy, escalationResolvedText, reviewRestoredText, roleChangedText, staffNoticeWebPath, staffReportText } from '@bookmark/shared/staffNotices'
 import type { StaffBadgeKind } from '@/lib/staffBadge'
 import BookCover from '../cards/BookCover'
@@ -30,8 +31,8 @@ export type NotificationLike = {
   book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null
   // REVIEW_COMMENT / REVIEW_REPLY: the review commented on, and its page.
   review?: { title: string; href: string | null } | null
-  // NEW_IN_SERIES: the new book.
-  work?: { title: string; coverUrl: string | null; seriesName: string | null; seriesPosition: number | null; href: string | null } | null
+  // NEW_IN_SERIES, NEW_BOOK and PUBLICATION_DAY: the book.
+  work?: { title: string; author?: string | null; coverUrl: string | null; seriesName: string | null; seriesPosition: number | null; releaseDate?: string | null; href: string | null } | null
   actor: { username: string; displayName?: string | null; image?: string | null; favColour?: string | null; staffBadge?: StaffBadgeKind | null }
 }
 
@@ -63,7 +64,7 @@ export const notificationHref = (n: NotificationLike) => {
   const staffPath = staffNoticeWebPath(n.type, n.message)
   if (staffPath) return staffPath
   if (n.type === "REVIEW_RESTORED" || n.type === "ROLE_CHANGED") return "/notifications"
-  if (n.type === "NEW_IN_SERIES") return n.work?.href ?? "/notifications"
+  if (n.type === "NEW_IN_SERIES" || n.type === "NEW_BOOK" || n.type === "PUBLICATION_DAY") return n.work?.href ?? "/notifications"
   // The book, not the sender: they're named in the line, and the book is what's being offered.
   if (n.type === "BOOK_RECOMMENDED" && n.book?.href) return n.book.href
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`
@@ -71,9 +72,11 @@ export const notificationHref = (n: NotificationLike) => {
   return `/u/${encodeURIComponent(n.actor.username)}`
 }
 
-// Beside the words: the new book's cover for a new book in a series (nobody did it), else whoever it's
-// from. `size` as ActorAvatar's.
-export const NotificationLead: FC<{ n: NotificationLike; size?: "sm" | "md" }> = ({ n, size = "md" }) => n.type === "NEW_IN_SERIES" ? (
+// Book news nobody did (a new book in a series, one announced, one out today): its cover. Everything else:
+// whoever it's from. `size` as ActorAvatar's.
+const isBookNews = (type: string) => type === "NEW_IN_SERIES" || type === "NEW_BOOK" || type === "PUBLICATION_DAY"
+
+export const NotificationLead: FC<{ n: NotificationLike; size?: "sm" | "md" }> = ({ n, size = "md" }) => isBookNews(n.type) ? (
   <BookCover book={{ title: n.work?.title ?? "", author: "", coverImage: n.work?.coverUrl ?? "", cardColour: null }}
     variant="thumb" sizes={size === "sm" ? "36px" : "40px"} className={size === "sm" ? "w-9 shrink-0 rounded-sm" : "w-10 shrink-0 rounded-sm"} />
 ) : <ActorAvatar actor={n.actor} size={size} />
@@ -90,6 +93,13 @@ export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ 
         <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>
           {seriesNewsText({ title: n.work?.title ?? null, seriesName: n.work?.seriesName ?? null, position: n.work?.seriesPosition ?? null, count: n.count ?? null })}
         </p>
+      ) : n.type === "NEW_BOOK" ? (
+        // Title, author and date only.
+        <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>
+          {newBookText({ title: n.work?.title ?? null, author: n.work?.author ?? null, releaseDate: n.work?.releaseDate ?? null, count: n.count ?? null }, moment().format("YYYY-MM-DD"))}
+        </p>
+      ) : n.type === "PUBLICATION_DAY" ? (
+        <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>{publicationDayText({ title: n.work?.title ?? null, author: n.work?.author ?? null })}</p>
       ) : n.type === "STAFF_REPORT" ? (
         <p className="text-sm">{staffReportText(n.count)}</p>
       ) : n.type === "ESCALATION_RESOLVED" ? (

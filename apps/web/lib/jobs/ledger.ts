@@ -6,8 +6,9 @@ import { Prisma } from "@prisma/client";
 // send the same reminder twice. A send that fails after claiming isn't retried: one reminder too few is
 // better than two.
 
-// "nudge" is the daily reminder and "streak" the streak alert, one of each per local day at most.
-export type SendKind = "nudge" | "streak" | "checkpoint" | "digest";
+// "nudge" is the daily reminder and "streak" the streak alert, one of each per local day at most. "release"
+// is a publication-day alert, keyed by the work: once per reader per book.
+export type SendKind = "nudge" | "streak" | "checkpoint" | "digest" | "release";
 
 export interface LedgerDb {
   scheduledSend: {

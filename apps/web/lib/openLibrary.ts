@@ -10,6 +10,8 @@ export interface DiscoverBook {
   coverUrl: string | null
   // Optional: books from lists and shelves don't carry it, only fresh Open Library results.
   year?: number | null
+  // Optional: the day it came out, or comes out, "YYYY-MM-DD", when known (Hardcover hits, the catalogue).
+  releaseDate?: string | null
   // Optional, from fresh results only: the edition Open Library ranks first for the query, so a book
   // added from search lands on a real Edition in the catalog (lib/catalog.ts) rather than a guess.
   editionKey?: string | null

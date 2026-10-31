@@ -104,6 +104,7 @@ export async function fileSeriesBooks(name: string, author: string, companions: 
       coverUrl: b.coverUrl,
       description: b.description ?? null,
       year: b.year ?? null,
+      releaseDate: b.releaseDate ?? null,
       pages: b.pages,
       series: { name, position: b.position },
     })))

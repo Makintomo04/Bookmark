@@ -23,6 +23,7 @@ import { BOOK_LISTS_SHOWN } from '@/lib/bookListRules'
 import { seriesOnPage } from '@/lib/seriesFollows'
 import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
 import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
+import { publishedFact } from '@bookmark/shared/releases'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -97,7 +98,8 @@ const Page = async (props: PageProps) => {
   ])
   const lists = onLists.slice(0, BOOK_LISTS_SHOWN)
   const href = bookHref(book)!
-  const meta = [book.year && `First published ${book.year}`, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")
+  const published = publishedFact(book, new Date().toISOString().slice(0, 10))
+  const meta = [published && `${published.label} ${published.value}`, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")
 
   return (
     <div className="mt-6 sm:mt-8">
@@ -187,7 +189,7 @@ const Page = async (props: PageProps) => {
             <section aria-labelledby="details-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="details-heading" className={sectionHeading}>Details</h2>
               <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-1.5 text-sm">
-                {book.year && <><dt className="text-muted-foreground">First published</dt><dd>{book.year}</dd></>}
+                {published && <><dt className="text-muted-foreground">{published.label}</dt><dd>{published.value}</dd></>}
                 {book.pages && <><dt className="text-muted-foreground">Pages</dt><dd>{book.pages}</dd></>}
                 {data.editionCount ? <><dt className="text-muted-foreground">Editions</dt><dd>{data.editionCount.toLocaleString('en-GB')}</dd></> : null}
               </dl>

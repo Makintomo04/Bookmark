@@ -106,6 +106,8 @@ test("hardcoverBook maps a search hit and skips ones without a title or author",
     year: 2026, editionKey: null, isbn13: "9781234567897", isbn10: "123456789X", authorKey: null, description: "A blurb.", headline: null, source: "hardcover",
     hardcoverId: "1",
   });
+  // A book record's release date comes with it.
+  assert.equal(hardcoverBook({ title: "Blightfall", author_names: ["Brandon Sanderson"], release_date: "2026-09-01" })?.releaseDate, "2026-09-01");
   assert.equal(hardcoverBook({ title: "No author" }), null);
   assert.equal(hardcoverBook({ author_names: ["Someone"] }), null);
 });

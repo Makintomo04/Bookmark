@@ -29,6 +29,7 @@ import { cleanDescription, coverUrlFor, DESCRIPTION_MAX } from "../lib/openLibra
 import { normaliseWorkKey } from "../lib/workKey.ts";
 import { resolveMany, type CatalogInput, type CatalogLookup, type WorkFacts, type WorkRecord } from "../lib/catalog/resolve.ts";
 import { scriptCatalogStore } from "./catalog-store.ts";
+import { firstReleaseDate } from "@bookmark/shared/releases";
 
 // Open Library subject keys, with how many of the most-read works to take from each. Overlap between
 // subjects is expected (a romantasy is also fantasy fiction); each work is imported once.
@@ -90,7 +91,7 @@ const store = scriptCatalogStore(prisma);
 // Open Library asks bulk clients to identify themselves and keep to a few requests a second.
 const USER_AGENT = "Bookmark catalog import";
 const PAGE_SIZE = 100;
-const SEARCH_FIELDS = "key,title,author_name,author_key,cover_i,first_publish_year,subject,number_of_pages_median";
+const SEARCH_FIELDS = "key,title,author_name,author_key,cover_i,first_publish_year,publish_date,subject,number_of_pages_median";
 // Description requests in flight at once, and the pause each takes after its request.
 const DESCRIBE_CONCURRENCY = 3;
 const DESCRIBE_GAP_MS = 300;
@@ -122,6 +123,9 @@ interface SearchDoc {
   author_key?: string[];
   cover_i?: number;
   first_publish_year?: number;
+  // Every edition's publish date, as typed ("March 4, 2014", "2014"): the earliest full one in the first
+  // year is when the book came out.
+  publish_date?: string[];
   subject?: string[];
   number_of_pages_median?: number;
 }
@@ -143,6 +147,7 @@ async function subjectWorks(subject: string, want: number): Promise<WorkFacts[]>
         authorKeys: (doc.author_key ?? []).slice(0, 3).map((k) => k.replace(/^\/authors\//, "")),
         coverUrl: coverUrlFor(doc.cover_i),
         year: doc.first_publish_year || null,
+        releaseDate: firstReleaseDate(doc.publish_date ?? [], doc.first_publish_year),
         subjects: doc.subject ?? [],
         pages: doc.number_of_pages_median || null,
       });
@@ -259,6 +264,7 @@ async function main() {
         subjects: f.subjects,
         coverUrl: f.coverUrl,
         year: f.year,
+        releaseDate: f.releaseDate ?? null,
         pages: f.pages,
         description: descriptions.get(k) ?? null,
       };

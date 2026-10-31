@@ -43,7 +43,7 @@ async function contentFor(rows: PushableNotification[]): Promise<Map<PushableNot
     prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, username: true } }),
     bookIds.length ? prisma.book.findMany({ where: { id: { in: bookIds } }, select: { id: true, title: true } }) : [],
     circleIds.length ? prisma.buddyRead.findMany({ where: { id: { in: circleIds } }, select: { id: true, title: true } }) : [],
-    workIds.length ? prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, seriesName: true, seriesPosition: true } }) : [],
+    workIds.length ? prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, releaseDate: true } }) : [],
   ]);
   const username = new Map(actors.map((a) => [a.id, a.username]));
   const bookTitle = new Map(books.map((b) => [b.id, b.title]));
@@ -61,6 +61,8 @@ async function contentFor(rows: PushableNotification[]): Promise<Map<PushableNot
       count: row.count ?? null,
       seriesName: work?.seriesName ?? null,
       seriesPosition: work?.seriesPosition ?? null,
+      author: work?.authors[0] ?? null,
+      releaseDate: work?.releaseDate ?? null,
       message: row.message ?? null,
     });
     if (content) out.set(row, content);
