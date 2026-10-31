@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, V
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR, { mutate as globalMutate } from "swr";
-import { Plus, Search } from "lucide-react-native";
+import { Compass, Plus, Search } from "lucide-react-native";
 import { GENRE_PICKS_SHELF_LIMIT } from "@bookmark/shared/genres";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { GenrePicks } from "@/components/discover/GenrePicks";
@@ -16,6 +16,7 @@ import { SelectionBar } from "@/components/library/SelectionBar";
 import { SeriesTracker } from "@/components/library/SeriesTracker";
 import { Shelves, openShelf, useBookSelection } from "@/components/library/Shelves";
 import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHeader";
+import { AiLabel } from "@/components/ui/AiLabel";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
@@ -59,12 +60,7 @@ export default function Library() {
             <Button title="Try again" variant="outline" onPress={() => mutate()} />
           </View>
         )}
-        {books && books.length === 0 && (
-          <View style={{ gap: 6 }}>
-            <Text variant="title">Your shelves are empty</Text>
-            <Text variant="muted">Add the book you{"’"}re reading, or import your Goodreads or StoryGraph shelves from the web.</Text>
-          </View>
-        )}
+        {books && books.length === 0 && <EmptyLibrary />}
         <NewShelfPicks bookCount={books?.length} />
         {books && books.length > 0 && (
           <View style={{ gap: 12 }}>
@@ -89,6 +85,29 @@ export default function Library() {
       </ScrollView>
       {selection.selecting && <SelectionBar selected={picked} onDone={selection.clear} onCancel={selection.stop} />}
     </SafeAreaView>
+  );
+}
+
+// An empty library points somewhere to start, not only to import (BOO-52): the first-book picker, Discover,
+// and Ask the shelf, which is labelled as AI.
+function EmptyLibrary() {
+  const { colors } = useTheme();
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ gap: 4 }}>
+        <Text variant="title">Your shelves are empty</Text>
+        <Text variant="muted">Not sure what to read? We{"’"}ll suggest a few from the genres you picked and the people you follow. Or bring your Goodreads or StoryGraph shelves over.</Text>
+      </View>
+      <Button title="Help me pick a book" icon={<Compass size={18} color={colors.onBrand} />} onPress={() => router.push("/first-book")} />
+      <View style={styles.actions}>
+        <View style={{ flex: 1 }}><Button title="Browse Discover" variant="outline" onPress={() => router.navigate("/discover")} /></View>
+        <View style={{ flex: 1 }}><Button title="Import" variant="outline" onPress={() => router.push("/import")} /></View>
+      </View>
+      <Pressable accessibilityRole="link" accessibilityLabel="Ask the shelf, uses AI" onPress={() => router.push("/discover/ask")} style={styles.ask} hitSlop={6}>
+        <Text variant="small">Or ask the shelf in your own words</Text>
+        <AiLabel />
+      </Pressable>
+    </View>
   );
 }
 
@@ -119,6 +138,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 10 },
   shelfBar: { flexDirection: "row", alignItems: "center", gap: 12 },
   search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, borderWidth: 1, paddingHorizontal: 14 },
+  ask: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
   // Sits over the banner's top-right corner.
   topBar: { position: "absolute", top: 8, right: 8, zIndex: 1, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.35)" },
   content: { width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40, gap: 20 },

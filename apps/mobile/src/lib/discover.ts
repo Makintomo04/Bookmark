@@ -32,9 +32,10 @@ export interface DiscoverHome {
   community: ListSummary[];
 }
 
-// Opens Add a book on this book, ready to choose a shelf.
-export function addBook(book: { title: string; author: string; coverUrl?: string | null; pages?: number | null; workKey?: string | null }) {
+// Opens Add a book on this book, ready to choose a shelf (`shelf` picks which one starts selected).
+export function addBook(book: { title: string; author: string; coverUrl?: string | null; pages?: number | null; workKey?: string | null }, shelf?: "STARTED" | "NOT_STARTED") {
   const params = new URLSearchParams({ title: book.title, author: book.author });
+  if (shelf) params.set("shelf", shelf);
   if (book.coverUrl) params.set("coverUrl", book.coverUrl);
   if (book.pages) params.set("pages", String(book.pages));
   if (book.workKey) params.set("workKey", book.workKey);
