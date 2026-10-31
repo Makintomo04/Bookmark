@@ -125,6 +125,8 @@ async function socialReasons(viewerId: string, ids: string[]): Promise<Map<strin
 
 function reasonText(r: Reason): string | null {
   if (r.followsYou && !r.isFollowing) return "Follows you";
+  // You follow each other: friends (lib/friends.ts), as the follow button says.
+  if (r.followsYou && r.isFollowing) return "Friends";
   if (r.mutuals.length === 1) return `Followed by ${r.mutuals[0]}`;
   if (r.mutuals.length === 2) return `Followed by ${r.mutuals[0]} and ${r.mutuals[1]}`;
   if (r.mutuals.length > 2) return `Followed by ${r.mutuals[0]} and ${r.mutuals.length - 1} others`;
