@@ -9,7 +9,7 @@ import { RemindersSheet } from "@/components/reminders/RemindersSheet";
 import { RoleWelcome } from "@/components/staff/RoleWelcome";
 
 // The signed-in app: the tabs, and the screens that open over them (a book, adding a book, a reading
-// circle). Pushes are registered here, once onboarding is done.
+// circle, a club). Pushes are registered here, once onboarding is done.
 export default function AppLayout() {
   const { colors, fonts } = useTheme();
 
@@ -62,11 +62,15 @@ export default function AppLayout() {
         <Stack.Screen name="plus" options={{ title: "Plus" }} />
         <Stack.Screen name="settings" options={{ title: "Settings" }} />
         <Stack.Screen name="import" options={{ title: "Import" }} />
+        <Stack.Screen name="first-book" options={{ title: "" }} />
         <Stack.Screen name="achievements" options={{ title: "Achievements" }} />
         <Stack.Screen name="circles/[id]" options={{ title: "Reading circle" }} />
         <Stack.Screen name="circles/new" options={{ title: "Start a reading circle", presentation: "modal" }} />
         <Stack.Screen name="circles/join/[code]" options={{ title: "Reading circle" }} />
         <Stack.Screen name="circles/schedule/[id]" options={{ title: "Schedule" }} />
+        <Stack.Screen name="clubs/[id]" options={{ title: "Club" }} />
+        <Stack.Screen name="clubs/new" options={{ title: "Start a club", presentation: "modal" }} />
+        <Stack.Screen name="clubs/join/[code]" options={{ title: "Club" }} />
       </Stack>
       {/* Medals and tier-ups as they're earned, over whichever screen saved them. */}
       <EarnCelebration />

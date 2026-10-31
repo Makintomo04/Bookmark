@@ -1,10 +1,17 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-// The token in the weekly email's unsubscribe link: an HMAC of the reader's id and what it stops, so the
-// link works without signing in and can't be made for someone else. Nothing is stored. Changing
-// EMAIL_UNSUBSCRIBE_SECRET retires every link already sent, so don't, unless one leaks.
+// The token in an email's unsubscribe link: an HMAC of the reader's id and what it stops (the weekly email,
+// or checkpoint emails), so the link works without signing in and can't be made for someone else. Nothing
+// is stored. Changing EMAIL_UNSUBSCRIBE_SECRET retires every link already sent, so don't, unless one leaks.
 
-export type UnsubscribeKind = "weekly";
+export const UNSUBSCRIBE_KINDS = ["weekly", "checkpoints"] as const;
+export type UnsubscribeKind = (typeof UNSUBSCRIBE_KINDS)[number];
+
+// What a token says it stops, before it's verified; null when it names nothing we send.
+export function unsubscribeKindOf(token: unknown): UnsubscribeKind | null {
+  const kind = typeof token === "string" ? token.split(".")[1] : undefined;
+  return (UNSUBSCRIBE_KINDS as readonly string[]).includes(kind ?? "") ? (kind as UnsubscribeKind) : null;
+}
 
 const secretOf = (secret = process.env.EMAIL_UNSUBSCRIBE_SECRET?.trim()) => {
   if (!secret) throw new Error("EMAIL_UNSUBSCRIBE_SECRET is not set: the weekly email can't carry an unsubscribe link.");

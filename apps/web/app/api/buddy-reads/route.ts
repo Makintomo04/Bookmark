@@ -3,9 +3,8 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { circleProgress, createBuddyReadSchema, progressPercent } from "@/lib/buddyReads";
-import { buddyReadError, canHostAnotherCircle, hostingRefusal, isBlockedEitherWay, isObjectId, newInviteCode, parseBody } from "@/lib/buddyReadsServer";
-import { progressSelect, progressScale } from "@/lib/progress";
-import { coverToShare } from "@/lib/uploads";
+import { buddyReadError, canHostAnotherCircle, createCircle, hostingRefusal, isBlockedEitherWay, isObjectId, parseBody } from "@/lib/buddyReadsServer";
+import { progressSelect } from "@/lib/progress";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 
 // The reader's reading circles (newest first) with everyone's progress, and invites waiting for them.
@@ -42,6 +41,10 @@ export async function GET(req: Request) {
   const hosting = bookId ? null : await canHostAnotherCircle(currentUser.id);
   const userById = new Map(users.map((u) => [u.id, u]));
   const bookById = new Map(books.map((b) => [b.id, b]));
+  // A club's books say which club they're for.
+  const clubIds = Array.from(new Set(mine.flatMap((m) => (m.buddyRead.clubId ? [m.buddyRead.clubId] : []))));
+  const clubs = clubIds.length > 0 ? await prisma.club.findMany({ where: { id: { in: clubIds } }, select: { id: true, name: true } }) : [];
+  const clubById = new Map(clubs.map((c) => [c.id, c]));
 
   const blocked = new Set<string>();
   for (const id of userIds) if (id !== currentUser.id && (await isBlockedEitherWay(currentUser.id, id))) blocked.add(id);
@@ -63,6 +66,7 @@ export async function GET(req: Request) {
       status: buddyRead.status,
       startsAt: buddyRead.startsAt.toISOString(),
       isHost: buddyRead.hostId === currentUser.id,
+      club: (buddyRead.clubId && clubById.get(buddyRead.clubId)) || null,
       myProgress: members.find((m) => m.userId === currentUser.id)?.progress ?? 0,
       members,
     };
@@ -96,32 +100,10 @@ export async function POST(req: Request) {
 
   const book = isObjectId(bookId) ? await prisma.book.findUnique({ where: { id: bookId } }) : null;
   if (!book || book.userId !== currentUser.id) return buddyReadError("Book not found", 404);
-  // A book with no page count can host too: its members log a percent (lib/progress.ts entersPercent),
-  // and circles only ever compare percents.
-  const scale = progressScale(book);
-
   // Free accounts host one active circle at a time; Plus has no limit. Joining is never limited.
   const hosting = await canHostAnotherCircle(currentUser.id);
   if (!hosting.allowed) return hostingRefusal(hosting);
 
-  const buddyRead = await prisma.buddyRead.create({
-    data: {
-      workKey: book.workKey,
-      title: book.title,
-      author: book.author,
-      // Every member sees this cover, so it's never the host's own upload: the catalogue's instead.
-      coverImage: await coverToShare(book.coverImage, book, null),
-      cardColour: book.cardColour,
-      pages: book.pages,
-      audioMinutes: scale.unit === "MINUTES" ? book.audioMinutes : null,
-      hostId: currentUser.id,
-      startsAt: startsAt ? new Date(startsAt) : new Date(),
-      schedule: schedule && schedule.length > 0 ? schedule : undefined,
-      inviteCode: await newInviteCode(),
-    },
-  });
-  await prisma.buddyReadMember.create({
-    data: { buddyReadId: buddyRead.id, userId: currentUser.id, bookId: book.id, notifiedProgress: progressPercent(book) },
-  });
+  const buddyRead = await createCircle(book, currentUser.id, { startsAt, schedule });
   return NextResponse.json({ id: buddyRead.id, inviteCode: buddyRead.inviteCode });
 }

@@ -13,6 +13,7 @@ import { Text } from "@/components/ui/Text";
 import { ApiError, api } from "@/lib/api";
 import { refreshAfterBookChange } from "@/lib/books";
 import type { CircleInvite, CircleList, CircleSummary } from "@/lib/circles";
+import { ClubsSection } from "@/components/clubs/ClubsSection";
 import { useTheme } from "@/lib/theme";
 import { StaffSeal } from "@/components/profile/StaffSeal";
 
@@ -36,6 +37,7 @@ export default function Circles() {
           <Button title="Try again" variant="outline" onPress={() => mutate()} />
         </View>
       )}
+      <ClubsSection />
       {data && data.invites.length > 0 && (
         <View style={{ gap: 10 }}>
           <Text variant="title">Invites</Text>
@@ -73,7 +75,7 @@ function CircleRow({ circle }: { circle: CircleSummary }) {
       <BookCover book={{ title: circle.title, author: circle.author, coverImage: circle.coverImage, cardColour: circle.cardColour }} width={52} />
       <View style={{ flex: 1, gap: 4 }}>
         <Text numberOfLines={2} style={{ fontSize: 16 }}>{circle.title}</Text>
-        <Text variant="small">{circle.isHost ? "You host" : "Reading along"} · {others > 0 ? `with ${others} ${others === 1 ? "other" : "others"}` : "just you so far"} · you{"’"}re at {formatPercent(circle.myProgress)}</Text>
+        <Text variant="small">{circle.club ? circle.club.name : circle.isHost ? "You host" : "Reading along"} · {others > 0 ? `with ${others} ${others === 1 ? "other" : "others"}` : "just you so far"} · you{"’"}re at {formatPercent(circle.myProgress)}</Text>
         <View style={styles.avatars}>
           {circle.members.slice(0, 6).map((m) => <Avatar key={m.userId} image={m.image} name={m.username} colour={m.favColour} size={22} />)}
         </View>

@@ -10,39 +10,18 @@ import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
 import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, monthTarget } from '@/lib/goals'
+import { expectedBooks, goalPace, streakText } from '@bookmark/shared/goals'
 import { Input as RawInput } from '../ui/input'
 import { Skeleton } from '../ui/skeleton'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import { useForm, FieldValues, SubmitHandler } from 'react-hook-form'
 import { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
+import { useRemindersPrompt } from '@/app/hooks/useEarnMoment'
 
 const RING_RADIUS = 22
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const fmt = (n: number) => n.toLocaleString('en-GB')
-
-// Where the pace says you should be by now. It runs from 1 January, or from the day the goal was set if that was
-// later, starting from the books already read by then: so a reader who joins in October isn't told they're ten
-// behind on day one, and one who sets a goal with 150 read isn't told they're 150 ahead.
-const expectedBooks = (year: number, target: number, setAt?: string | Date | null, before = 0) => {
-  const yearStart = new Date(year, 0, 1).getTime()
-  const end = new Date(year + 1, 0, 1).getTime()
-  const start = Math.min(end, Math.max(yearStart, setAt ? new Date(setAt).getTime() : yearStart))
-  const from = start > yearStart ? Math.min(before, target) : 0
-  const fraction = start >= end ? 1 : Math.min(1, Math.max(0, (Date.now() - start) / (end - start)))
-  return from + (target - from) * fraction
-}
-
-const pace = (completed: number, target: number, expected: number) => {
-  const left = target - completed
-  if (left <= 0) return { text: completed > target ? `Goal smashed · ${completed - target} over` : "Goal reached", toGo: null, tone: "good" as const }
-  const diff = Math.round(completed - expected)
-  // "to go" is kept apart: a phone drops it to fit this month on the same line.
-  const toGo = `${left} to go`
-  if (diff > 0) return { text: `${diff} ahead of pace`, toGo, tone: "good" as const }
-  if (diff < 0) return { text: `${-diff} behind pace`, toGo, tone: "behind" as const }
-  return { text: "On pace", toGo, tone: "neutral" as const }
-}
 
 const toneClass = {
   good: "text-emerald-600 dark:text-emerald-400",
@@ -146,6 +125,8 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
   // Counted on the server from finished reads, as /stats counts them. Nothing yet reads as nothing finished.
   const progress = counted ?? { books: 0, pages: 0, thisMonth: 0, month: new Date().getMonth() }
   const completedThisYear = progress.books
+  // Their streak under the goal, so "ends tonight" is in sight before the evening alert.
+  const streakLine = streakText(counted?.streak)
 
   const startEditing = () => {
     reset({
@@ -162,9 +143,11 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
     // A free account only sends the book count, so a goal set while on Plus stays put.
     const extras = canExtra ? { targetPages: extraValue(data.targetPages), targetBooksPerMonth: extraValue(data.targetBooksPerMonth) } : {}
     axios.post("/api/reading-goal", { year, targetBooks: data.targetBooks, ...extras })
-      .then(() => {
+      .then((res) => {
         mutate()
         setIsEditing(false)
+        // Setting a goal is one of the moments reminders are offered, once.
+        if (res.data?.askReminders) useRemindersPrompt.getState().ask(res.data.askReminders)
       })
       .catch((err) => {
         if (isUpgradeRequired(err?.response?.data)) return setRefused(true)
@@ -237,7 +220,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
 
   const ratio = Math.min(1, completedThisYear / target)
   const expected = expectedBooks(year, target, goal?.createdAt, counted?.beforeGoal)
-  const status = pace(completedThisYear, target, expected)
+  const status = goalPace(completedThisYear, target, expected)
   // The page goal shows while on Plus; a lapsed account keeps it for when it comes back. The monthly
   // target is a stat everyone gets: whole books this month to stay on track, or the Plus custom target.
   const pagesTarget = canExtra ? goal?.targetPages : null
@@ -319,6 +302,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
         <div className="min-w-0 flex-1 leading-snug">
           <p className="text-sm tabular-nums"><span className="font-medium">{fmt(completedThisYear)} of {fmt(target)}</span> · {token}{nextStep && <span className="text-muted-foreground"> · {nextStep}</span>}</p>
           <p className="text-xs tabular-nums text-muted-foreground">{second}</p>
+          {streakLine && <p className="text-xs tabular-nums text-muted-foreground">{streakLine}</p>}
         </div>
         <div className="-mr-2 -mt-1.5">{editButton}</div>
       </section>
@@ -336,6 +320,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
           <span className="text-muted-foreground sm:hidden"> · {monthGoal.perMonth > progress.thisMonth ? `${fmt(monthGoal.perMonth - progress.thisMonth)} more this month` : "on track this month"}</span>
         )}
       </span>
+      {streakLine && <span className="block truncate text-xs tabular-nums text-muted-foreground">{streakLine}</span>}
     </>
   )
 

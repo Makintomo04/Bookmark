@@ -23,7 +23,7 @@ export default function EditSchedule() {
 
   useEffect(() => { if (view && rows === null) setRows(rowsOf(view.buddyRead.schedule)); }, [view, rows]);
   if (!view || rows === null) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
-  if (!view.viewer.isHost) return <Screen><Text variant="muted">Only the host can change the schedule.</Text></Screen>;
+  if (!view.viewer.canManage) return <Screen><Text variant="muted">Only the host can change the schedule.</Text></Screen>;
 
   const save = async () => {
     setSaving(true);

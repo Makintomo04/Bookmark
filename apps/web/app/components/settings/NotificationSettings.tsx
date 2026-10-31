@@ -2,7 +2,6 @@
 import { FC } from 'react'
 import useNotificationSettings from '@/app/hooks/useNotificationSettings'
 import { PUSH_GROUP_LABELS, type PushGroup } from '@bookmark/shared/push'
-import { REMINDER_COPY } from '@bookmark/shared/reminders'
 import ReminderControls from './ReminderControls'
 import { Toggle } from './controls'
 
@@ -26,7 +25,7 @@ const NotificationSettings: FC<{ disabled?: boolean }> = ({ disabled = false }) 
       <div className="rounded-lg border p-4 flex flex-col gap-5">
         <div>
           <p className="text-sm font-medium">Notifications on your phone</p>
-          <p className="text-xs text-muted-foreground">{settings.hasPhone ? "The bell keeps every notification, whichever you switch off here." : REMINDER_COPY.phoneOnly}</p>
+          <p className="text-xs text-muted-foreground">{settings.hasPhone ? "The bell keeps every notification, whichever you switch off here." : "These arrive on your phone once you sign in to the Bookmark app. The bell keeps them all either way."}</p>
         </div>
         {groups.map((group) => (
           <Toggle

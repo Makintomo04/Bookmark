@@ -14,6 +14,7 @@ import { primaryButtonClass, secondaryButtonClass } from '../profile-head/Profil
 import MemberAvatar from './MemberAvatar'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
+import ClubsSection from '../clubs/ClubsSection'
 
 const cover = (b: { title: string, author: string, coverImage: string | null, cardColour: string | null }) =>
   ({ title: b.title, author: b.author, coverImage: b.coverImage ?? "", cardColour: b.cardColour })
@@ -38,7 +39,7 @@ const BuddyReadCard: FC<{ buddyRead: BuddyReadSummary }> = ({ buddyRead }) => {
       <div className="min-w-0 flex-1 flex flex-col gap-3">
         <div>
           <p className="font-semibold leading-snug line-clamp-2">{buddyRead.title}</p>
-          <p className="text-sm text-muted-foreground truncate">{buddyRead.author}{buddyRead.isHost ? " · You're hosting" : ""}</p>
+          <p className="text-sm text-muted-foreground truncate">{buddyRead.author}{buddyRead.club ? ` · ${buddyRead.club.name}` : buddyRead.isHost ? " · You're hosting" : ""}</p>
         </div>
         <div className="relative h-8 mx-3" aria-label={`You're at ${formatPercent(buddyRead.myProgress)}; ${status}`}>
           <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-neutral-200 dark:bg-neutral-800" />
@@ -109,6 +110,8 @@ const BuddyReadsList: FC = () => {
           <span>{hosting.message}</span>
         </p>
       ))}
+
+      <ClubsSection />
 
       {isError && !buddyReads && <FetchErrorState error={isError} what="your reading circles" onRetry={() => mutate()} />}
 

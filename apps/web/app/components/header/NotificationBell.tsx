@@ -23,7 +23,7 @@ interface NotificationBellProps {
 
 // The kinds that also get a toast when they arrive: other people's doing, at a moment the reader can't
 // predict. Achievements have their own celebration and unlocked comments follow the reader's own save.
-const TOASTED = new Set(["NEW_FOLLOWER", "FOLLOW_REQUEST", "BUDDY_READ_INVITE", "BOOK_RECOMMENDED", "BUDDY_READ_HOSTED", "BUDDY_READ_HOST_INHERITED"])
+const TOASTED = new Set(["NEW_FOLLOWER", "FOLLOW_REQUEST", "BUDDY_READ_INVITE", "BOOK_RECOMMENDED", "BUDDY_READ_HOSTED", "BUDDY_READ_HOST_INHERITED", "CLUB_CIRCLE_ADDED"])
 
 const toastCopy = (n: NotificationLike) =>
   n.type === "BUDDY_READ_HOST_INHERITED"

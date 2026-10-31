@@ -55,6 +55,7 @@ function copyOf(n: Notification) {
     case "BOOK_RECOMMENDED": return `thinks you'd like ${n.book?.title ?? "a book"}`;
     case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your reading circle for ${book}`;
     case "BUDDY_READ_HOSTED": return `handed you the reading circle for ${book}. You're the host now`;
+    case "CLUB_CIRCLE_ADDED": return `started ${book} for your club. You're in`;
     case "FOLLOW_REQUEST": return "asked to follow you";
     case "STAFF_ESCALATION": return escalationCopy(n.message);
     default: return "did something";

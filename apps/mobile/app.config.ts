@@ -24,7 +24,7 @@ const collected = (type: string) => ({
 });
 
 // The same paths apps/web/lib/appLinks.ts tells iOS and Android to hand to the app.
-const LINK_PATHS = ["/open", "/circles", "/u", "/lists", "/quests", "/reset-password", "/verify-email"];
+const LINK_PATHS = ["/open", "/circles", "/clubs", "/u", "/lists", "/quests", "/reset-password", "/verify-email"];
 
 const config: ExpoConfig = {
   name: "Bookmark",

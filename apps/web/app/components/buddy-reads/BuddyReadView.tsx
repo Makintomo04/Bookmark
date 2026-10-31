@@ -49,7 +49,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
 
   if (!view) return <FetchErrorState error={isError} what="this reading circle" onRetry={() => mutate()} />
 
-  const { buddyRead, viewer, members, comments } = view
+  const { buddyRead, club, viewer, members, comments } = view
   const archived = buddyRead.status === "ARCHIVED"
   const notStarted = moment(buddyRead.startsAt).isAfter(moment())
 
@@ -109,6 +109,11 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
           className="w-24 sm:w-36 self-start shadow-sm sm:row-span-2"
         />
         <div className="min-w-0 flex flex-col gap-2">
+          {club && (
+            <Link href={`/clubs/${club.id}`} className="w-fit text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+              {club.name}
+            </Link>
+          )}
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Reading circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}{buddyRead.audioMinutes ? " · audiobook" : ""}
           </p>
@@ -127,7 +132,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="flex flex-col gap-10 min-w-0">
-          <ProgressTrack members={members} schedule={buddyRead.schedule} onRemove={viewer.isHost ? remove : undefined} />
+          <ProgressTrack members={members} schedule={buddyRead.schedule} onRemove={viewer.canManage ? remove : undefined} />
           <Discussion
             buddyReadId={id}
             comments={comments}
@@ -139,7 +144,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         </div>
 
         <aside className="flex flex-col gap-8 lg:sticky lg:top-6 lg:self-start">
-          {!archived && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))} isHost={viewer.isHost} onLinkReset={() => mutate()} />}
+          {!archived && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))} isHost={viewer.canManage} onLinkReset={() => mutate()} clubInviteCode={club?.inviteCode} />}
           <section className="flex flex-col gap-2 text-sm">
             <h2 className="font-semibold">How it works</h2>
             <p className="text-muted-foreground">
@@ -149,13 +154,14 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
           </section>
           <MuteCircleButton buddyReadId={id} viewerId={viewer.userId} muted={viewer.muted} onChange={() => mutate()} />
           <section className="flex flex-col items-start gap-2">
-            {viewer.isHost ? (
+            {viewer.canManage ? (
               <>
                 {buddyRead.status === "ACTIVE" && <button type="button" onClick={() => setStatus("FINISHED")} className={secondaryButtonClass}>Mark as finished</button>}
                 {buddyRead.status !== "ACTIVE" && <button type="button" onClick={() => setStatus("ACTIVE")} className={secondaryButtonClass}>Reopen</button>}
                 {!archived && <button type="button" onClick={() => setStatus("ARCHIVED")} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Archive</button>}
                 {reopenRefusal && <UpgradePrompt feature="canHostUnlimited" variant="inline" message={reopenRefusal} />}
-                {others.length > 0 && <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Hand over and leave</button>}
+                {viewer.isHost && others.length > 0 && <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Hand over and leave</button>}
+                {!viewer.isHost && <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this reading circle</button>}
               </>
             ) : (
               <button type="button" onClick={leave} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Leave this reading circle</button>

@@ -3,6 +3,8 @@ import { formatMinute, parseMinute, quietHoursOf, REMINDER_COPY, reminderTimes, 
 import { Text } from "@/components/ui/Text";
 import { TimeField } from "@/components/ui/TimeField";
 import { Toggle } from "@/components/ui/Toggle";
+import { Notice } from "@/components/ui/Notice";
+import { usePushBlocked } from "@/lib/push";
 
 // The reminder time a reader gets when they first turn the daily reminder on (the web's is the same).
 export const DEFAULT_REMINDER_AT = "20:00";
@@ -13,9 +15,11 @@ export function ReminderControls({ settings, save, disabled, showQuiet = true }:
   const { reminders, email } = settings;
   const times = reminderTimes(quietHoursOf(parseMinute(reminders.quietStart), parseMinute(reminders.quietEnd)));
   const firstTime = times.includes(parseMinute(DEFAULT_REMINDER_AT)!) ? DEFAULT_REMINDER_AT : formatMinute(times[0] ?? 0);
+  const blocked = usePushBlocked();
 
   return (
     <View style={{ gap: 16 }}>
+      {blocked && <Notice tone="info" message={REMINDER_COPY.blocked} />}
       <View style={{ gap: 8 }}>
         <Toggle label={REMINDER_COPY.daily.title} hint={REMINDER_COPY.daily.hint} value={reminders.dailyAt !== null} onChange={(on) => save({ reminders: { dailyAt: on ? firstTime : null } })} disabled={disabled} />
         {reminders.dailyAt !== null && <TimeField label="Reminder time" value={reminders.dailyAt} options={times} onChange={(v) => save({ reminders: { dailyAt: v } })} disabled={disabled} />}

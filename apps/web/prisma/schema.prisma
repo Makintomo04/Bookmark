@@ -819,6 +819,9 @@ enum NotificationType {
   // The host closed their account and the reading circle passed to you. actorId is you (the old host is gone);
   // if you had no room it arrived archived.
   BUDDY_READ_HOST_INHERITED
+  // A host or co-host started your club's next book, and you were added to its reading circle (BOO-49).
+  // actorId is whoever started it; buddyReadId the new circle.
+  CLUB_CIRCLE_ADDED
   // Someone asked to follow your followers-only or private profile (lib/followRequests.ts).
   FOLLOW_REQUEST
   // You finished a seasonal quest (cut before launch; old rows are left out of the bell).
@@ -1054,15 +1057,21 @@ model BuddyRead {
   schedule     Json?
   status       BuddyReadStatus @default(ACTIVE)
   inviteCode   String          @unique
+  // Set when the circle is one of a club's books (BOO-49). Its members come from the club, and it doesn't
+  // count against the host's own hosting limit (the club does).
+  clubId       String?         @db.ObjectId
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
   members  BuddyReadMember[]
   comments BuddyReadComment[]
   invites  BuddyReadInvite[]
+  club     Club?             @relation(fields: [clubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   // Hosted reading circles (the medal, and the host's list).
   @@index([hostId, createdAt])
+  // A club's books: what it's reading, what's next and what it's read.
+  @@index([clubId, startsAt])
 }
 
 model BuddyReadMember {
@@ -1181,6 +1190,65 @@ model BuddyReadRemoval {
   removedAt   DateTime @default(now())
 
   @@unique([buddyReadId, userId])
+  @@index([userId])
+}
+
+// ---- Book clubs (BOO-49) ----------------------------------------------------------------------
+
+enum ClubStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+// A club outlives any one book: a name, its members and one invite link. Each book it reads is a reading
+// circle (BuddyRead.clubId) that the club's members are added to when it's started, so the circle's own
+// rules (the spoiler lock, checkpoint reminders, the weekly email) work the same inside a club.
+// The rules are in packages/shared/src/clubs.ts; the database work in lib/clubsServer.ts.
+model Club {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  // A line or two about the club, shown on its page and its invite.
+  about      String?
+  hostId     String     @db.ObjectId
+  inviteCode String     @unique
+  status     ClubStatus @default(ACTIVE)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  members  ClubMember[]
+  removals ClubRemoval[]
+  circles  BuddyRead[]
+
+  // The host's clubs, and their active-club limit.
+  @@index([hostId, status])
+}
+
+model ClubMember {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  clubId   String   @db.ObjectId
+  userId   String   @db.ObjectId
+  // A co-host can start the next book, edit schedules, and invite and remove members. The host is Club.hostId.
+  coHost   Boolean  @default(false)
+  joinedAt DateTime @default(now())
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  // One membership each. The prefix covers the clubId foreign key.
+  @@unique([clubId, userId])
+  // "My clubs".
+  @@index([userId, joinedAt])
+}
+
+// Like BuddyReadRemoval: someone removed from a club can't come back through its link.
+model ClubRemoval {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clubId    String   @db.ObjectId
+  userId    String   @db.ObjectId
+  removedAt DateTime @default(now())
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, userId])
   @@index([userId])
 }
 

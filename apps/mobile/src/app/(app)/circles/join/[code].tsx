@@ -16,7 +16,8 @@ import { StaffSeal } from "@/components/profile/StaffSeal";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 
 // An invite link (https://<site>/circles/join/<code>, handed to the app): the book, who's in, and Join.
-// Members go straight to the circle, as on the web.
+// Members go straight to the circle, as on the web. A club's book is joined through its club, so its link
+// opens the club's invite instead.
 
 type Invite = {
   buddyRead: { title: string; author: string; coverImage: string | null; cardColour: string | null };
@@ -24,6 +25,7 @@ type Invite = {
   members: { username: string | null; image: string | null; favColour: string | null }[];
   full: boolean;
   viewer: { isMember: boolean; buddyReadId: string | null; removed: boolean; removedMessage: string | null };
+  clubInviteCode?: string | null;
 };
 
 export default function JoinCircle() {
@@ -35,9 +37,10 @@ export default function JoinCircle() {
 
   useEffect(() => {
     if (data?.viewer.isMember && data.viewer.buddyReadId) router.replace(`/circles/${data.viewer.buddyReadId}`);
+    else if (data?.clubInviteCode) router.replace(`/clubs/join/${data.clubInviteCode}`);
   }, [data]);
 
-  if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
+  if (isLoading || data?.clubInviteCode) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !data) {
     return (
       <Screen>

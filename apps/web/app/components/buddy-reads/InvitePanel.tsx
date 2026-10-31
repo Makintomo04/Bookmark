@@ -17,11 +17,13 @@ interface InvitePanelProps {
   // The host can swap the link for a new one, e.g. after it was shared too widely.
   isHost?: boolean
   onLinkReset?: () => void
+  // A club's circle shares the club's link instead: new readers join the club, and every book after.
+  clubInviteCode?: string | null
 }
 
 // The link is the main way in (it unfurls with the cover and everyone's colours); a friend can be ticked
 // from the list, and anyone else invited by username: both land in their notifications. Neither needs a follow.
-const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset }) => {
+const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset, clubInviteCode }) => {
   const [copied, setCopied] = useState(false)
   const [username, setUsername] = useState("")
   const [isSending, setIsSending] = useState(false)
@@ -29,7 +31,7 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
   const full = memberCount >= BUDDY_READ_MAX_MEMBERS
 
   const copy = async () => {
-    const link = `${window.location.origin}/circles/join/${inviteCode}`
+    const link = clubInviteCode ? `${window.location.origin}/clubs/join/${clubInviteCode}` : `${window.location.origin}/circles/join/${inviteCode}`
     try {
       if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
         await navigator.share({ title: "Read along with me on Bookmark", url: link })
@@ -75,9 +77,10 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
       <h2 id="invite-heading" className="text-sm font-semibold">Invite readers</h2>
       <button type="button" onClick={copy} className={`${secondaryButtonClass} justify-start w-full`}>
         {copied ? <Check size={16} aria-hidden /> : <Link2 size={16} aria-hidden />}
-        <span aria-live="polite">{copied ? "Link copied" : "Copy invite link"}</span>
+        <span aria-live="polite">{copied ? "Link copied" : clubInviteCode ? "Copy the club's invite link" : "Copy invite link"}</span>
       </button>
-      {isHost && (
+      {clubInviteCode && <p className="text-xs text-muted-foreground">Whoever joins with it joins the club, so they&apos;re in for this book and the next.</p>}
+      {isHost && !clubInviteCode && (
         <button type="button" onClick={resetLink} disabled={isResetting} className="self-start text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60">
           {isResetting ? "Resetting…" : "Reset link"}
         </button>

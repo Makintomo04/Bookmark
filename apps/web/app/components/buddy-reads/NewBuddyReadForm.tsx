@@ -38,10 +38,12 @@ type Row = { label: string, until: string, due: string }
 // 44px to tap on touch screens, and 16px text so iOS doesn't zoom in on focus; compact with a mouse.
 const inputClass = "h-11 pointer-fine:h-9 w-full rounded-md border border-input bg-background px-3 text-base pointer-fine:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
-const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => {
+// With `club`, it starts the club's next book instead (POST /api/clubs/[id]/circles): every member is added,
+// and it counts against the club's open books rather than the reader's own hosting limit.
+const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: string } }> = ({ initialBookId, club }) => {
   const router = useRouter()
   const { books, isError, mutate } = useBooks()
-  const { hosting } = useBuddyReads()
+  const { hosting } = useBuddyReads(club ? null : undefined)
   const [bookId, setBookId] = useState<string | undefined>(initialBookId)
   const [startsOn, setStartsOn] = useState(moment().format("YYYY-MM-DD"))
   const [rows, setRows] = useState<Row[]>([])
@@ -154,7 +156,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
     }))
     setIsSaving(true)
     const shelfId = chosen ? Promise.resolve(chosen.id) : shelveFound(found!)
-    shelfId.then((id) => axios.post("/api/buddy-reads", {
+    shelfId.then((id) => axios.post(club ? `/api/clubs/${club.id}/circles` : "/api/buddy-reads", {
       bookId: id,
       // Local midnight on the chosen day.
       startsAt: moment(startsOn, "YYYY-MM-DD").toISOString(),
@@ -173,11 +175,15 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
     <form onSubmit={(e) => { e.preventDefault(); submit() }} className="flex flex-col gap-10">
       <div className="flex max-w-2xl flex-col gap-10">
         <div className="flex flex-col gap-3">
-          <Link href="/circles" className="-my-3 inline-flex w-fit items-center gap-1 py-3 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft size={14} aria-hidden /> Reading circles
+          <Link href={club ? `/clubs/${club.id}` : "/circles"} className="-my-3 inline-flex w-fit items-center gap-1 py-3 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft size={14} aria-hidden /> {club ? club.name : "Reading circles"}
           </Link>
-          <h1 className="page-title">Start a reading circle</h1>
-          <p className="max-w-prose text-muted-foreground">Choose a book from your shelf or search for one. You&apos;ll get a link to share; anyone with it can join, and the book goes on their shelf too.</p>
+          <h1 className="page-title">{club ? "Start the next book" : "Start a reading circle"}</h1>
+          {club ? (
+            <p className="max-w-prose text-muted-foreground">Choose a book from your shelf or search for one. Everyone in {club.name} is added to its reading circle, and the book goes on their shelf. If it starts later, it goes in Want to read until then.</p>
+          ) : (
+            <p className="max-w-prose text-muted-foreground">Choose a book from your shelf or search for one. You&apos;ll get a link to share; anyone with it can join, and the book goes on their shelf too.</p>
+          )}
         </div>
 
         {blocked && hosting.upgrade && <UpgradePrompt feature="canHostUnlimited" message={hosting.message ?? undefined} />}
@@ -351,9 +357,9 @@ const NewBuddyReadForm: FC<{ initialBookId?: string }> = ({ initialBookId }) => 
 
       {/* Full width and stacked on phones, with the main action on top where the thumb is. */}
       <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 dark:border-neutral-800 pt-6 sm:flex-row sm:justify-end">
-        <Link href="/circles" className={secondaryButtonClass}>Cancel</Link>
+        <Link href={club ? `/clubs/${club.id}` : "/circles"} className={secondaryButtonClass}>Cancel</Link>
         <button type="submit" disabled={(!chosen && !found) || blocked || isSaving} className={primaryButtonClass}>
-          {isSaving ? "Starting…" : "Start and get the link"}
+          {isSaving ? "Starting…" : club ? "Start and add the club" : "Start and get the link"}
         </button>
       </div>
     </form>
