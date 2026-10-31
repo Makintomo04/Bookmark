@@ -18,7 +18,7 @@ const JoinPromptModal: FC = () => {
   const back = backTo ? encodeURIComponent(backTo) : hereForCallback()
 
   const body = (
-    <p className="w-full px-6 pb-2 text-base text-muted-foreground">It&apos;s free, and you&apos;ll come straight back here.</p>
+    <p className="w-full px-6 pb-2 text-base text-muted-foreground">It&apos;s free. Once you&apos;re set up, you&apos;ll come back here.</p>
   )
   const footer = (
     <div className="flex w-full flex-col-reverse gap-2 p-6 sm:flex-row sm:items-center sm:justify-end">

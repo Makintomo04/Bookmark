@@ -17,7 +17,7 @@ const InlineJoinPrompt: FC<{ heading: string; onClose: () => void }> = ({ headin
     <div ref={ref} tabIndex={-1} role="group" aria-labelledby="inline-join-heading" className="basis-full mt-2 flex flex-col gap-3 rounded-xl border border-neutral-200 p-4 outline-none dark:border-neutral-800">
       <div className="flex flex-col gap-1">
         <p id="inline-join-heading" className="font-semibold">{heading}</p>
-        <p className="text-sm text-muted-foreground">It&apos;s free, and you&apos;ll come straight back here.</p>
+        <p className="text-sm text-muted-foreground">It&apos;s free. Once you&apos;re set up, you&apos;ll come back here.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Link href={`/register?callbackUrl=${back}`} className={cn(primaryButtonClass, "bg-brand-fill text-white hover:bg-brand-fill-hover hover:opacity-100")}>Join Bookmark</Link>

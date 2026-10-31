@@ -39,21 +39,31 @@ export async function GET(req: Request) {
 
   // Private profiles never turn up, and a block in either direction hides the pair from each other.
   const blocked = viewer ? await blockedUserIds(viewer.id) : [];
-  const users = await prisma.user.findMany({
-    where: {
-      AND: [
-        { OR: [{ username: { contains: query, mode: "insensitive" } }, { displayName: { contains: query, mode: "insensitive" } }] },
-        ...(viewer ? [{ id: { notIn: [viewer.id, ...blocked] } }] : []),
-        viewer ? searchableProfileWhere() : publicProfileWhere(),
-      ],
-    },
-    select: { id: true, username: true, displayName: true, image: true, favColour: true, bio: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect },
-    take: CANDIDATES,
-  });
+  const allowed = [...(viewer ? [{ id: { notIn: [viewer.id, ...blocked] } }] : []), viewer ? searchableProfileWhere() : publicProfileWhere()];
+  const select = { id: true, username: true, displayName: true, image: true, favColour: true, bio: true, ...booksReadCount, ...privacySelect, ...staffBadgeSelect };
+  // The exact handle is looked up on its own, so a common name can't push the one someone gave out past
+  // the candidate cut. Usernames are stored lowercase (lib/profile.ts).
+  const q = query.toLowerCase();
+  const [exact, others] = await Promise.all([
+    prisma.user.findFirst({ where: { AND: [{ username: q }, ...allowed] }, select }),
+    prisma.user.findMany({
+      where: {
+        AND: [
+          { OR: [{ username: { contains: query, mode: "insensitive" } }, { displayName: { contains: query, mode: "insensitive" } }] },
+          { username: { not: q } },
+          ...allowed,
+        ],
+      },
+      select,
+      // A fixed order, so the same candidates come back for every page.
+      orderBy: { username: "asc" },
+      take: CANDIDATES,
+    }),
+  ]);
+  const users = exact ? [exact, ...others] : others;
   const ids = users.map((u) => u.id);
 
   const reasons = viewer ? await socialReasons(viewer.id, ids) : null;
-  const q = query.toLowerCase();
   // Exact handle first, then people with a reason (the more mutuals the higher), then names that start
   // with what was typed, then the rest by name.
   const rank = (u: (typeof users)[number]) => {
