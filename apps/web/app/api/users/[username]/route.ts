@@ -3,6 +3,7 @@ import { handleOf } from "@/lib/handle";
 import { getProfileView } from "@/lib/publicProfile";
 import { hasRequested } from "@/lib/followRequests";
 import { followsBack } from "@/lib/friends";
+import { shelfReviewCount } from "@/lib/reviewedBooks";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request, props: { params: Promise<{ username: string }> }) {
@@ -21,8 +22,12 @@ export async function GET(req: Request, props: { params: Promise<{ username: str
   const requested = !!currentUser && !relation.isSelf && !relation.isFollower && (await hasRequested(currentUser.id, view.userId));
   // They follow the viewer: "Follow back", or "Friends" once the viewer follows them too (lib/friends.ts).
   const followsYou = !!currentUser && !relation.isSelf && (await followsBack(currentUser.id, view.userId));
+  // ?books=0 leaves the shelf out, for the owner's header: their books come from /api/books already. It keeps
+  // the review count, which the header shows before that loads.
+  const withoutBooks = new URL(req.url).searchParams.get("books") === "0";
   return NextResponse.json({
     ...view.profile,
+    ...(withoutBooks && "books" in view.profile && { books: undefined, reviewCount: shelfReviewCount(view.profile.books) }),
     // null when the whole profile is visible; otherwise why it isn't.
     restricted: view.access === "restricted" ? view.reason : null,
     isFollowing: relation.isFollower,

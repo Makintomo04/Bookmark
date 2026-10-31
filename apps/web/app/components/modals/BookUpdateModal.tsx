@@ -79,11 +79,12 @@ const AccentCheckbox: FC<{ checked: boolean, onChange: (checked: boolean) => voi
 
 const BookUpdateModal: FC = () => {
   const { user, mutate } = useUser()
-  const { books, mutate: booksMutate } = useBooks()
   const { onClose, getBookIsOpen, book } = useBookUpdateModal()
   const bookEditModal = useBookEditModal()
   const recommendModal = useRecommendModal()
   const isOpen = getBookIsOpen(book?.id, useBookUpdateModal.getState())
+  // The shelf (for rereads, and the list behind the modal) only while it's open.
+  const { books, mutate: booksMutate } = useBooks({ onlyWhen: !!isOpen })
   const { reads, mutate: readsMutate } = useBookReads(isOpen ? book?.id : null)
   const { tags: workTags, mutate: tagsMutate } = useWorkTags({ bookId: isOpen ? book?.id : null })
   // The blurb is for a book you haven't read yet. The reader's own copy may carry one; otherwise ask the catalog.

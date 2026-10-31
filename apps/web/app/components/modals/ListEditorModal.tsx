@@ -43,8 +43,8 @@ const ListEditorModal: FC = () => {
   const router = useRouter()
   const { mutate } = useSWRConfig()
   const { user } = useUser()
-  const { books } = useBooks()
   const { isOpen, list: initial, onClose } = useListEditorModal()
+  const { books } = useBooks({ onlyWhen: isOpen })
   const isStaff = can(user, "lists.curate")
   const accent = user?.favColour || '#D92D2D'
 

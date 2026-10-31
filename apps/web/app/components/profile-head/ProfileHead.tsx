@@ -13,7 +13,7 @@ import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import ProfileSkeleton, { ReadingNowSkeleton } from './ProfileSkeleton'
 import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
-import { reviewedBooks } from '@/lib/reviewedBooks'
+import { shelfReviewCount } from '@/lib/reviewedBooks'
 import ReadingGoalWidget from './ReadingGoalWidget'
 import ContinueReading from './ContinueReading'
 import UpNext from './UpNext'
@@ -105,7 +105,8 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
   const booksReadFor = useBooksReadFor()
   const { books } = useBooks()
   const { achievements, isLoading: achievementsLoading } = useAchievements()
-  const { profile } = usePublicProfile(user?.username ?? "")
+  // Only its counts and medals: your books are on your shelf (useBooks), which comes with the page.
+  const { profile } = usePublicProfile(user?.username ?? "", { books: false })
   const bookEntryModal = useBookEntryModal()
   const editProfileModal = useEditProfileModal()
   const [showLightbox, setShowLightbox] = useState(false)
@@ -130,9 +131,8 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
   // Calm social: with counts hidden, even the owner just gets the links to the lists.
   const hideCounts = !!user.hideFollowCounts
   // Your reviews: finished books with one, as your reviews section and page count them. Until the shelf
-  // loads, the server's copy of your profile.
-  const shelf = (books as Book[] | undefined) ?? (profile?.books as unknown as Book[] | undefined) ?? []
-  const reviews = reviewedBooks(shelf.filter((b) => b.status === "COMPLETED").map((b) => ({ ...b, completedAt: b.completedAt ? String(b.completedAt) : null }))).length
+  // loads, the count that came with the page.
+  const reviews = books ? shelfReviewCount(books as Book[]) : profile?.reviewCount ?? 0
 
   return (
     <>

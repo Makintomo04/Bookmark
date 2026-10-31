@@ -14,6 +14,9 @@ import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 import { profileLayoutOf } from '@/app/components/profile-head/Band'
 import { sharedCircles } from '@/lib/sharedCircles'
 import { findLists } from '@/lib/lists'
+import { publicProfileKey } from '@/lib/profileKey'
+import { shelfReviewCount } from '@/lib/reviewedBooks'
+import { preloadShelf } from '@/lib/preloadShelf'
 
 interface PageProps {
   params: Promise<{ username: string }>
@@ -66,6 +69,8 @@ export default async function Page(props: PageProps) {
   // The profile in bands; ?layout=classic is the one-column page it replaced (Band.tsx).
   const layout = profileLayoutOf(one('layout'))
   const viewer = await getCurrentUser()
+  // Your own profile shows your shelf: start it loading before the profile itself.
+  if (viewer?.username && viewer.username === handleOf(params.username)) preloadShelf()
   const data = await getProfileView(profileHandle(params.username), viewer?.id)
   if (!data) notFound()
 
@@ -81,10 +86,10 @@ export default async function Page(props: PageProps) {
       />
     )
   } else if (viewer && data.relation.isSelf) {
-    const profile = serializeProfile(data.profile)
+    // Your books reach the page once, as your shelf (/api/books); the header's copy of your profile leaves them out.
+    const { books, ...profile } = serializeProfile(data.profile)
     // Credentials and the subscription id stay on the server (as lib/sanitizeUser.ts does for the API).
     const { hashedPassword, password, stripeSubscriptionId, ...self } = viewer
-    const profileKey = `/api/users/${encodeURIComponent(profile.username)}`
     content = (
       <OwnerProfile
         username={profile.username}
@@ -93,7 +98,7 @@ export default async function Page(props: PageProps) {
           // The same payloads those routes return, so the owner's header paints with the page.
           "/api/user": { ...self, _count: { books: readingCounts(data.profile.books).booksRead } },
           "/api/favourites": self,
-          [profileKey]: { ...profile, restricted: null, isFollowing: false, isSelf: true, isBlocked: false },
+          [publicProfileKey(profile.username, { books: false })]: { ...profile, reviewCount: shelfReviewCount(books), restricted: null, isFollowing: false, isSelf: true, isBlocked: false },
         }}
       />
     )

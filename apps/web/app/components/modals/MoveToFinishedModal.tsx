@@ -17,7 +17,8 @@ import { notify } from '@/lib/notify'
 // A book on the wrong shelf that the reader has actually read: the same questions adding it to Finished asks.
 const MoveToFinishedModal: FC = () => {
   const { user } = useUser()
-  const { mutate } = useBooks()
+  // Only refreshes the shelf, so it never needs to load it.
+  const { mutate } = useBooks({ onlyWhen: false })
   const { isOpen, bookId, bookTitle, onClose } = useMoveToFinishedModal()
   const [dates, setDates] = useState<FinishDatesValue>(defaultFinishDates)
   const [rating, setRating] = useState(0)
