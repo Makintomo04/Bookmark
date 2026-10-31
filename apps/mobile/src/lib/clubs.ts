@@ -63,6 +63,8 @@ export type ClubInvite = {
   current: ClubInviteBook | null;
   next: ClubInviteBook | null;
   booksRead: number;
+  // Everyone in the club; `members` leaves out those a stranger can't see (private profiles, blocks).
+  memberCount?: number;
   full: boolean;
   viewer: { isMember: boolean; clubId: string | null; removed: boolean; removedMessage: string | null };
 };

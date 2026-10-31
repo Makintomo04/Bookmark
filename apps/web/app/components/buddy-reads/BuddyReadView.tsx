@@ -137,7 +137,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
             buddyReadId={id}
             comments={comments}
             viewerProgress={viewer.progress}
-            isHost={viewer.isHost}
+            isHost={viewer.canManage}
             canPost={!archived}
             onChange={() => mutate()}
           />

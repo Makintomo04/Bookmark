@@ -15,7 +15,7 @@ const ClubJoinButton: FC<{ code: string }> = ({ code }) => {
   const join = () => {
     setIsJoining(true)
     axios.post("/api/clubs/join", { code }).then(async ({ data }) => {
-      if (data.circleIds?.length > 0) notify.info("The club's book is on your shelf")
+      if (data.circleIds?.length > 0) notify.info("The club's book is in your Want to read")
       // Its circles find your copy in the cached shelf, which the layout keeps mounted: refresh it first.
       await mutate("/api/books/")
       router.push(`/clubs/${data.clubId}`)

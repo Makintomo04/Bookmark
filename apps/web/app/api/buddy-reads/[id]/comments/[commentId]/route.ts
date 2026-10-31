@@ -48,7 +48,7 @@ export async function PATCH(
   return NextResponse.json(updated);
 }
 
-// The author or the host removes a comment. It stays as an empty placeholder while it has replies.
+// The author or the host (in a club's book, also the club's host and co-hosts) removes a comment. It stays as an empty placeholder while it has replies.
 export async function DELETE(
   req: Request,
   props: { params: Promise<{ id: string, commentId: string }> }
@@ -60,7 +60,7 @@ export async function DELETE(
   if (notMember) return notMember;
 
   const comment = await findComment(membership.buddyRead.id, params.commentId);
-  if (!comment || (comment.userId !== currentUser.id && !membership.isHost)) return buddyReadError("Comment not found", 404);
+  if (!comment || (comment.userId !== currentUser.id && !membership.canManage)) return buddyReadError("Comment not found", 404);
 
   await prisma.buddyReadReaction.deleteMany({ where: { commentId: comment.id } });
   await prisma.buddyReadComment.update({

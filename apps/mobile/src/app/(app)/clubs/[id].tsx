@@ -375,7 +375,7 @@ function ClubStatusButton({ clubId, archived, onChange }: { clubId: string; arch
         <Button title="Reopen the club" variant="outline" loading={busy} onPress={() => setStatus("ACTIVE")} />
       ) : confirming ? (
         <View style={{ gap: 8 }}>
-          <Text>Archive this club? Its invite link stops working and no new books can be started. Its reading circles carry on as they are.</Text>
+          <Text>Archive this club? Its invite link stops working, no new books can be started, and the books it's reading are marked finished. Their discussions stay open.</Text>
           <View style={styles.actionRow}>
             <Button title="Archive" variant="outline" loading={busy} onPress={() => setStatus("ARCHIVED")} />
             <Button title="Keep it" variant="ghost" disabled={busy} onPress={() => setConfirming(false)} />

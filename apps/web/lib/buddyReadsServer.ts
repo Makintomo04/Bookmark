@@ -32,6 +32,7 @@ import {
   type HostingPlan,
 } from "@/lib/buddyReads";
 import { progressScale, progressSelect, unitOf } from "@/lib/progress";
+import { CLUB_COPY_STATUS } from "@/lib/clubs";
 import { EntitlementError, entitlementsOf, entitlementsSelect } from "@/lib/entitlements";
 import { entitlementResponse } from "@/lib/entitlementsServer";
 
@@ -313,15 +314,16 @@ export async function createCircle(book: Book, hostId: string, opts: { startsAt?
 
 // The member's own copy: the one already on their shelf (same Open Library work, or same title and
 // author), or a new one in Currently reading using the host's page count, which they can change.
-// `upcoming`: a club's next book, added before it starts, goes in Want to read instead.
-export async function shelfBookFor(userId: string, buddyRead: BuddyRead, opts: { upcoming?: boolean } = {}) {
+// `byClub`: a club's book (lib/clubs.ts CLUB_COPY_STATUS) goes in Want to read instead, and a copy already on
+// the shelf is left as the reader has it.
+export async function shelfBookFor(userId: string, buddyRead: BuddyRead, opts: { byClub?: boolean } = {}) {
   const shelf = await prisma.book.findMany({
     where: { userId },
     select: { id: true, title: true, author: true, workKey: true, status: true },
   })
   const existing = shelf.find((b) => sameBook(b, buddyRead))
   // Joining a circle overrides an earlier "will not read".
-  if (existing?.status === "NOT_INTERESTED") await prisma.book.update({ where: { id: existing.id }, data: { status: "NOT_STARTED" } })
+  if (existing?.status === "NOT_INTERESTED" && !opts.byClub) await prisma.book.update({ where: { id: existing.id }, data: { status: "NOT_STARTED" } })
   if (existing) return { bookId: existing.id, added: false }
 
   const now = new Date()
@@ -341,13 +343,13 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead, opts: {
       // The host's scale: a joiner of an audiobook circle starts on minutes too, and can change it.
       audioMinutes: buddyRead.audioMinutes,
       progressUnit: unitOf({ progressUnit: "MINUTES", audioMinutes: buddyRead.audioMinutes }),
-      status: opts.upcoming ? "NOT_STARTED" : "STARTED",
-      ...(!opts.upcoming && { startedAt: now }),
+      status: opts.byClub ? CLUB_COPY_STATUS : "STARTED",
+      ...(!opts.byClub && { startedAt: now }),
       currentPage: 0,
       currentMinute: 0,
     },
   })
-  if (opts.upcoming) return { bookId: book.id, added: true }
+  if (opts.byClub) return { bookId: book.id, added: true }
   const firstRead = readFromBook(book)
   if (firstRead) await prisma.bookRead.create({ data: firstRead })
   await prisma.activity.create({ data: { userId, bookId: book.id, type: "STARTED_BOOK" } })
@@ -371,7 +373,7 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
   if (existing) {
     // Re-joining after removing the book from the shelf links a fresh copy.
     if (!(await isOwnBook(existing.bookId, userId))) {
-      const { bookId, added } = await shelfBookFor(userId, buddyRead)
+      const { bookId, added } = await shelfBookFor(userId, buddyRead, { byClub: !!buddyRead.clubId })
       await prisma.buddyReadMember.update({ where: { id: existing.id }, data: { bookId } })
       return { ok: true, buddyReadId: buddyRead.id, alreadyMember: true, addedToShelf: added }
     }
@@ -383,7 +385,7 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
   const count = await prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } })
   if (count >= BUDDY_READ_MAX_MEMBERS) return { ok: false, error: `This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, status: 409 }
 
-  const { bookId, added } = await shelfBookFor(userId, buddyRead)
+  const { bookId, added } = await shelfBookFor(userId, buddyRead, { byClub: !!buddyRead.clubId })
   const book = await prisma.book.findUnique({ where: { id: bookId }, select: progressBookSelect })
   try {
     await prisma.buddyReadMember.create({

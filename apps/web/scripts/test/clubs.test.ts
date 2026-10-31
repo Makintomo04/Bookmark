@@ -5,17 +5,21 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ACTIVE_CLUB_LIMIT,
+  CLUB_COPY_STATUS,
   CLUB_MAX_MEMBERS,
   CLUB_OPEN_CIRCLES_MAX,
   canEditClubSettings,
   canManageClub,
+  admittedWithinCap,
   canRemoveFromClub,
+  canRemoveFromClubBook,
   circleSlotsLeft,
   clubAbout,
   clubAllowance,
   clubRole,
   clubShelf,
   createClubSchema,
+  inviteFaces,
   updateClubSchema,
 } from "@bookmark/shared/clubs";
 import { BUDDY_READ_MAX_MEMBERS } from "@bookmark/shared/buddyReads";
@@ -98,4 +102,50 @@ test("input: a club needs a name; about is optional and clears when emptied", ()
   assert.equal(updateClubSchema.parse({ name: "New" }).about, undefined);
   assert.equal(clubAbout(updateClubSchema.parse({ about: "" }).about), null);
   assert.equal(updateClubSchema.safeParse({ status: "FINISHED" }).success, false);
+});
+
+// ---- Round 9 fixes ---------------------------------------------------------------------------
+
+test("a club's book: club roles decide removals, whoever started the book", () => {
+  // A co-host started the book; another co-host or the club's host can't be removed by them.
+  assert.equal(canRemoveFromClubBook("cohost", "host", false), false);
+  assert.equal(canRemoveFromClubBook("cohost", "cohost", false), false);
+  assert.equal(canRemoveFromClubBook("cohost", "member", false), true);
+  // Someone who has left the club counts as a member; the club's host can remove anyone else.
+  assert.equal(canRemoveFromClubBook("cohost", null, false), true);
+  assert.equal(canRemoveFromClubBook("host", "cohost", false), true);
+  // Nobody removes the book's own host, and a reader out of the club removes nobody.
+  assert.equal(canRemoveFromClubBook("host", "member", true), false);
+  assert.equal(canRemoveFromClubBook(null, "member", false), false);
+  assert.equal(canRemoveFromClubBook("member", "member", false), false);
+});
+
+test("the club never marks anyone as reading: its copies go in Want to read", () => {
+  assert.equal(CLUB_COPY_STATUS, "NOT_STARTED");
+});
+
+test("two joins at once: only the first CLUB_MAX_MEMBERS in joining order stay", () => {
+  const order = Array.from({ length: CLUB_MAX_MEMBERS + 1 }, (_, i) => `u${i}`);
+  assert.equal(admittedWithinCap(order, "u0"), true);
+  assert.equal(admittedWithinCap(order, `u${CLUB_MAX_MEMBERS - 1}`), true);
+  assert.equal(admittedWithinCap(order, `u${CLUB_MAX_MEMBERS}`), false);
+  // Not written at all (the other request removed it): not admitted.
+  assert.equal(admittedWithinCap(order, "nobody"), false);
+});
+
+test("the public invite shows only members a stranger could see", () => {
+  const members = [
+    { userId: "host", profileVisibility: "PRIVATE" },
+    { userId: "pub" },
+    { userId: "followers", profileVisibility: "FOLLOWERS" },
+    { userId: "private", profileVisibility: "PRIVATE" },
+    { userId: "blocker", profileVisibility: "PUBLIC" },
+    { userId: "suspended", profileVisibility: "PUBLIC", suspended: true },
+    { userId: "me", profileVisibility: "PRIVATE" },
+  ];
+  const anon = inviteFaces(members, { hostId: "host", blocked: new Set() }).map((m) => m.userId);
+  assert.deepEqual(anon, ["pub", "blocker"]);
+  // Signed in: their own face shows; anyone blocked either way doesn't.
+  const viewer = inviteFaces(members, { hostId: "host", viewerId: "me", blocked: new Set(["blocker"]) }).map((m) => m.userId);
+  assert.deepEqual(viewer, ["pub", "me"]);
 });

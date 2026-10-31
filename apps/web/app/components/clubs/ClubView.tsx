@@ -117,7 +117,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
   }
 
   const setStatus = (status: "ACTIVE" | "ARCHIVED") => {
-    if (status === "ARCHIVED" && !window.confirm("Archive this club? Its invite link stops working and no new books can be started. Its reading circles carry on as they are.")) return
+    if (status === "ARCHIVED" && !window.confirm("Archive this club? Its invite link stops working, no new books can be started, and the books it's reading are marked finished. Their discussions stay open.")) return
     setReopenRefusal(null)
     axios.patch(`/api/clubs/${id}`, { status }).then(() => mutate())
       .catch((err) => {

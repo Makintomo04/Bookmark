@@ -321,6 +321,24 @@ check("minutes round to one decimal", progressPercent({ ...audio, currentMinute:
   }
 }
 
+// ---- Clubs (BOO-49) -------------------------------------------------------------------------
+// A club puts its book in each member's Want to read (lib/clubs.ts CLUB_COPY_STATUS), so someone added by their
+// club starts at 0% and sees nothing past it. Running the club (host or co-host) never lifts the lock: the
+// lock only knows the viewer's own progress.
+{
+  const clubRows = [row("ana", 0), row("ana", 0.5), row("ben", 20), row("cal", 64)]
+  const added = circleProgress(progressPercent({ status: "NOT_STARTED", currentPage: 0, pages: 320 }), 0)
+  check("a copy the club added reads 0%", added === 0, added)
+  const seenByAdded = JSON.stringify(serializeComments(clubRows, { userId: "dee", progress: added }, authors))
+  for (const r of clubRows) {
+    const leaks = seenByAdded.includes(r.body)
+    check(`a member the club added sees comment at ${r.position}% only once they reach it`, leaks === (r.position <= added), { position: r.position })
+  }
+  // A co-host at 20% who moderates the circle: still nothing past 20%.
+  const seenByCoHost = JSON.stringify(serializeComments(clubRows, { userId: "dee", progress: 20 }, authors))
+  check("a co-host sees nothing past their own progress", !seenByCoHost.includes(clubRows[3].body) && seenByCoHost.includes(clubRows[2].body))
+}
+
 if (failures > 0) {
   console.error(`\n${failures} failed, ${passes} passed`)
   process.exit(1)
