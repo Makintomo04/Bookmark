@@ -9,7 +9,7 @@ export async function GET() {
   const { user, response } = await requireUser();
   if (response) return response;
   const stats = await getReadingStats(user.id);
-  // wrapDesigns: whether the Plus Wrap card designs are open to this reader. wrapToday: this year and month
+  // wrapDesigns: whether the Plus Wrap card designs are open to this reader; statsExplorer, the stats explorer. wrapToday: this year and month
   // in the profile's zone, which the Wrap card picker counts from, as the cards do.
-  return NextResponse.json({ stats, wrappedYears: wrappedYearsFor(stats), accent: user.favColour ?? null, wrapDesigns: entitlementsOf(user).customWrapDesigns, wrapToday: cardToday(user.timeZone) });
+  return NextResponse.json({ stats, wrappedYears: wrappedYearsFor(stats), accent: user.favColour ?? null, wrapDesigns: entitlementsOf(user).customWrapDesigns, statsExplorer: entitlementsOf(user).statsExplorer, wrapToday: cardToday(user.timeZone) });
 }

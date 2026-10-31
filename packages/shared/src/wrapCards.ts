@@ -1,6 +1,7 @@
 import { MONTHS } from "./wrappedCopy"
 import { MOOD_LABEL, type Mood } from "./workTags"
 import { DEFAULT_TIME_ZONE, isValidTimeZone, localDay } from "./timeZone"
+import { rangeCardTitle, rangeLabel, type DateRange } from "./statsExplorer"
 
 // Wrap cards (BOO-50): the cover grid ("my October in books") and the stats card, for a month or a
 // year, in the three shapes people post. The web draws them (app/api/wrap/card); the web's /stats and
@@ -40,16 +41,28 @@ export const parseCardKind = (raw: string | null | undefined) => pick(CARD_KINDS
 export const parseCardSize = (raw: string | null | undefined) => pick(CARD_SIZE_KEYS, raw, "story")
 export const parseCardDesign = (raw: string | null | undefined) => pick(CARD_DESIGN_KEYS, raw, DEFAULT_CARD_DESIGN)
 
-// The image's address, for /stats and the app: month is 1 to 12, or null for the whole year.
-export function cardPath({ kind, size, design, year, month, hideRatings }: { kind: CardKind; size: CardSize; design: CardDesign; year: number; month: number | null; hideRatings?: boolean }) {
-  const q = new URLSearchParams({ kind, size, design, year: String(year) })
-  if (month !== null) q.set("month", String(month))
+// A card's period: a year, or with `month` (1 to 12) one month of it, both free; or any range of days
+// ("YYYY-MM-DD", both ends counted), which is the stats explorer's and Plus (entitlements.ts statsExplorer).
+export type CardPeriod = { year: number; month: number | null } | { range: DateRange }
+
+// The image's address, for /stats, the stats explorer and the app.
+export function cardPath({ kind, size, design, hideRatings, ...period }: { kind: CardKind; size: CardSize; design: CardDesign; hideRatings?: boolean } & CardPeriod) {
+  const q = new URLSearchParams({ kind, size, design })
+  if ("range" in period) {
+    q.set("from", period.range.from)
+    q.set("to", period.range.to)
+  } else {
+    q.set("year", String(period.year))
+    if (period.month !== null) q.set("month", String(period.month))
+  }
   if (hideRatings) q.set("ratings", "hide")
   return `/api/wrap/card?${q}`
 }
 
-// "bookmark-grid-2026-10-story", for the download.
-export function cardFileName({ kind, size, year, month }: { kind: CardKind; size: CardSize; year: number; month: number | null }) {
+// "bookmark-grid-2026-10-story", or "bookmark-grid-2026-06-01-to-2026-08-31-story" for a range, for the download.
+export function cardFileName({ kind, size, ...period }: { kind: CardKind; size: CardSize } & CardPeriod) {
+  if ("range" in period) return `bookmark-${kind}-${period.range.from}-to-${period.range.to}-${size}`
+  const { year, month } = period
   return `bookmark-${kind}-${year}${month === null ? "" : `-${String(month).padStart(2, "0")}`}-${size}`
 }
 
@@ -91,6 +104,13 @@ export function cardTitle(year: number, month: number | null, current: boolean) 
 
 // Above the title: "October 2026", or "2026".
 export const cardKicker = (year: number, month: number | null) => (month === null ? String(year) : `${MONTHS[month]} ${year}`)
+
+// The title and kicker for any card: a range's own words ("My June to August in books" over "June – August
+// 2026"), otherwise the year's or month's.
+export function cardWords(card: { year: number; month: number | null; isCurrent: boolean; range?: DateRange }) {
+  if (card.range) return { title: rangeCardTitle(card.range), kicker: rangeLabel(card.range) }
+  return { title: cardTitle(card.year, card.month, card.isCurrent), kicker: cardKicker(card.year, card.month) }
+}
 
 // The headline numbers. Audiobooks are counted in time, not pages, so they get their own figure.
 export function cardStats({ books, pages, minutes }: { books: number; pages: number; minutes: number }) {

@@ -78,6 +78,8 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     // Their AI recaps and usage counters (Catch me up, Ask the shelf).
     await tx.recap.deleteMany({ where: { userId } });
     await tx.aiUsage.deleteMany({ where: { userId } });
+    // Their saved stat views.
+    await tx.statView.deleteMany({ where: { userId } });
     // Unfinished imports still hold the uploaded file's rows, reviews included.
     await tx.importJob.deleteMany({ where: { userId } });
     await tx.readingGoal.deleteMany({ where: { userId } });
