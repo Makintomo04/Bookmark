@@ -123,7 +123,7 @@ if (!isMobile) {
           errors={errors} name="password" id="password" autoComplete="new-password" className="w-full"/>
         {!errors.password && <p className='text-xs text-muted-foreground'>At least {PASSWORD_MIN} characters.</p>}
       </div>
-      <Button disabled={isLoading} className="rounded-md py-2 mt-2">{isLoading ? "Creating account…" : "Create account"}</Button>
+      <Button loading={isLoading} className="rounded-md py-2 mt-2">{isLoading ? "Creating account…" : "Create account"}</Button>
     </form>
     <div className="flex gap-3 items-center justify-center my-6">
       <hr className='border-1 border-neutral-400/50 w-full'/>

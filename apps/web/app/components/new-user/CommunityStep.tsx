@@ -55,7 +55,7 @@ const CommunityStep: FC<{ onDone: () => void }> = ({ onDone }) => {
         <Button type="button" onClick={onDone} disabled={saving} variant="outline" className="rounded-md py-2 dark:border-neutral-100/50">
           Skip
         </Button>
-        <Button type="button" onClick={submit} disabled={saving} className="rounded-md py-2">
+        <Button type="button" onClick={submit} loading={saving} className="rounded-md py-2">
           {saving ? "Saving…" : "Continue"}
         </Button>
       </div>

@@ -55,7 +55,7 @@ const VerifyEmailComponent = () => {
               {error} <Link href={signInHref} className='font-semibold underline'>Sign in</Link> to get a new link.
             </p>
           )}
-          <Button type="button" onClick={verify} disabled={state === "verifying"} className="rounded-md py-2">
+          <Button type="button" onClick={verify} loading={state === "verifying"} className="rounded-md py-2">
             {state === "verifying" ? "Confirming…" : "Confirm and continue"}
           </Button>
         </div>

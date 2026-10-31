@@ -302,6 +302,7 @@ const EditProfileModal: FC = () => {
         type="submit"
         form="edit-profile-form"
         disabled={!isDirty || isBusy}
+        loading={isBusy}
         style={{ background: accent, color: accentInk }}
         className="transition-colors"
       >

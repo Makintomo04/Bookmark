@@ -60,7 +60,7 @@ const ForgotPasswordComponent = () => {
         <label htmlFor="email">Email</label>
         <Input register={register} errors={errors} inputValidation={{required:true, message:"Email Required"}} type="email" name="email" id="email" autoComplete="email" className="w-full" required/>
       </div>
-      <Button disabled={isLoading} className="rounded-md py-2">Send reset link</Button>
+      <Button loading={isLoading} className="rounded-md py-2">Send reset link</Button>
     </form>
     )}
     <p className='text-sm mt-4 text-center'><Link href="/signin" className='text-brand-text font-semibold cursor-pointer hover:underline hover:underline-offset-2 transition'>Back to sign in</Link></p>

@@ -66,6 +66,8 @@ const BookEntryModal: FC = () => {
   const router = useRouter()
   const bookEntryModal = useBookEntryModal()
   const [isLoading, setIsLoading] = useState(false)
+  // isLoading also covers a cover upload; this is only the add itself, so the spinner sits on the right button.
+  const [isAdding, setIsAdding] = useState(false)
   const submitting = useRef(false)
   // Print by default; an audiobook logs minutes listened instead of pages.
   const [format, setFormat] = useState<FormatChoice>("PRINT")
@@ -193,6 +195,7 @@ const BookEntryModal: FC = () => {
     if (submitting.current) return
     submitting.current = true
     setIsLoading(true)
+    setIsAdding(true)
     axios.post("/api/books", {
       title: data.title,
       author: data.author,
@@ -227,6 +230,7 @@ const BookEntryModal: FC = () => {
     }).finally(() => {
       submitting.current = false
       setIsLoading(false)
+      setIsAdding(false)
     })
   }
 
@@ -472,7 +476,7 @@ const BookEntryModal: FC = () => {
       <div className="flex items-center gap-3 justify-end mt-auto">
         <Button onClick={bookEntryModal.onClose} variant="outline" className="border-neutral-700 rounded-md py-2" disabled={isLoading}>Cancel</Button>
         {stage === "shelf" && (
-          <Button style={{ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading}>
+          <Button style={{ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading} loading={isAdding}>
             {SHELVES.find((s) => s.value === shelf)?.action}
           </Button>
         )}
