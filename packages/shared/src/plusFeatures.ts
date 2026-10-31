@@ -24,6 +24,7 @@ export const PLUS = [
   'Everything in Free',
   'Keep Bookmark independent and ad-free, with a supporter badge on your profile',
   'Host as many active circles as you like',
+  'Host clubs of up to 150 readers. Members never pay',
   'A page goal and your own monthly target',
   'Two more designs for your Wrap cards: Paper and your own colour',
   `Ask the shelf: up to ${MONTHLY_ALLOWANCES.askShelfSearches.plus} mood searches a month`,

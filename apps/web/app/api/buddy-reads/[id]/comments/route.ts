@@ -3,7 +3,8 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit } from "@/lib/rateLimit";
 import { canSeeComment, commentPosition, commentSchema } from "@/lib/buddyReads";
-import { buddyReadError, isObjectId, notifyNewComment, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { buddyReadError, isObjectId, mutedInCircleClub, notifyNewComment, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { CLUB_MUTED_MESSAGE } from "@/lib/clubs";
 
 // Posts a comment pinned to a point in the book: the author's progress, or lower if they say so.
 // A reply sits with its parent (or later), and you can only reply to what you can read. Members who've
@@ -16,6 +17,8 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   if (notMember) return notMember;
   const { buddyRead, progress } = membership;
   if (buddyRead.status === "ARCHIVED") return buddyReadError("This reading circle has ended.", 409);
+  // Muted by the club's host or a co-host (BOO-79): reading along, not commenting.
+  if (await mutedInCircleClub(buddyRead, currentUser.id)) return buddyReadError(CLUB_MUTED_MESSAGE, 403);
 
   const parsed = await parseBody(req, commentSchema);
   if (parsed.response) return parsed.response;

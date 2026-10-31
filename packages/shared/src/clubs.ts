@@ -3,10 +3,19 @@
 // when it's started. Everything inside a circle (the spoiler lock above all) stays in buddyReads.ts and
 // works the same in a club. No database or "@/" imports here, so the rules can be checked under plain Node.
 import { z } from "zod";
-import { BUDDY_READ_MAX_MEMBERS, type HostingAllowance, type HostingPlan } from "./buddyReads";
+import { type HostingAllowance, type HostingPlan } from "./buddyReads";
+import { BIG_CLUB_MAX_MEMBERS, CLUB_MEMBER_LIMIT, type Entitlements } from "./entitlements";
 
-// Everyone in the club is added to each book's circle, so a club can't outgrow a circle.
-export const CLUB_MAX_MEMBERS = BUDDY_READ_MAX_MEMBERS
+// A club hosted on a free account holds as many readers as a reading circle; a Plus host's club up to
+// BIG_CLUB_MAX_MEMBERS (BOO-79). The limit is the host's entitlement (entitlements.ts clubMemberLimit, with
+// FEATURE_COPY.bigClubs for the prompt): gate hosts, not guests, so members never pay. The club's books take the
+// club's size, whatever a circle on its own holds.
+export const CLUB_MAX_MEMBERS = CLUB_MEMBER_LIMIT.free
+export { BIG_CLUB_MAX_MEMBERS }
+// The cap follows the host's plan now. A club that grew under Plus keeps everyone if the host drops it (or
+// hands the club to a free host); it just takes nobody new until it's back under the free size.
+export const clubMemberCap = (host: Pick<Entitlements, "clubMemberLimit">) => host.clubMemberLimit
+export const clubFullMessage = (cap: number) => `This club is full (${cap} readers).`
 export const CLUB_NAME_MAX = 60
 export const CLUB_ABOUT_MAX = 300
 // Open circles at once: the book the club is reading and the one after it. Club circles don't count against
@@ -61,6 +70,11 @@ export function canRemoveFromClub(actor: ClubRole, target: ClubRole) {
   return actor === "cohost" && target === "member"
 }
 
+// Muting (BOO-79) follows the same rule as removing: a muted member still reads and votes, but can't comment
+// in the club's books or nominate.
+export const canMuteInClub = canRemoveFromClub
+export const CLUB_MUTED_MESSAGE = "A host has muted you in this club, so you can't comment or nominate for now. You can still read along and vote."
+
 // Only the host names co-hosts, and renames or archives the club.
 export const canEditClubSettings = (role: ClubRole | null | undefined) => role === "host"
 
@@ -74,6 +88,14 @@ export function canRemoveFromClubBook(actor: ClubRole | null, target: ClubRole |
 }
 
 // ---- Joining ------------------------------------------------------------------------------
+
+// Who a new club book takes in, in joining order: members not skipped (blocked by its host, removed from
+// it) and not in it already, up to the club's size. In a club that shrank under its cap (the host dropped
+// Plus) everyone already in stays; only new places are limited.
+export function clubBookAdditions(memberIds: string[], opts: { skip: Set<string>, already: string[], cap: number }) {
+  const inIt = new Set(opts.already)
+  return memberIds.filter((id) => !opts.skip.has(id) && !inIt.has(id)).slice(0, Math.max(0, opts.cap - inIt.size))
+}
 
 // The club never says you're reading something you haven't started. A copy it puts on your shelf, when a book
 // starts or ahead of it, and whether you joined just now or were added, goes in Want to read; your first logged
@@ -131,3 +153,16 @@ export const updateClubSchema = z.object({
 })
 
 export const clubMemberUpdateSchema = z.object({ coHost: z.boolean() })
+
+// ---- Big clubs: the members list --------------------------------------------------------------
+
+// The club page lists this many members before "Show all", and offers a search once there are more.
+export const MEMBERS_SHOWN = 20
+
+// The members list filter: name or @username, case- and accent-insensitive, so "zoe" finds "Zoë".
+const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+export function matchesMember(m: { username?: string | null, displayName?: string | null }, query: string) {
+  const q = fold(query.trim().replace(/^@/, ""))
+  if (!q) return true
+  return [m.username, m.displayName].some((s) => !!s && fold(s).includes(q))
+}

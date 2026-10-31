@@ -19,16 +19,18 @@ interface InvitePanelProps {
   onLinkReset?: () => void
   // A club's circle shares the club's link instead: new readers join the club, and every book after.
   clubInviteCode?: string | null
+  // How many it takes: a club's book takes the club's size (BOO-79), up to 150.
+  memberCap?: number
 }
 
 // The link is the main way in (it unfurls with the cover and everyone's colours); a friend can be ticked
 // from the list, and anyone else invited by username: both land in their notifications. Neither needs a follow.
-const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset, clubInviteCode }) => {
+const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset, clubInviteCode, memberCap = BUDDY_READ_MAX_MEMBERS }) => {
   const [copied, setCopied] = useState(false)
   const [username, setUsername] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
-  const full = memberCount >= BUDDY_READ_MAX_MEMBERS
+  const full = memberCount >= memberCap
 
   const copy = async () => {
     const link = clubInviteCode ? `${window.location.origin}/clubs/join/${clubInviteCode}` : `${window.location.origin}/circles/join/${inviteCode}`
@@ -69,7 +71,7 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
   }
 
   if (full) {
-    return <p className="text-sm text-muted-foreground">This reading circle is full ({BUDDY_READ_MAX_MEMBERS} readers).</p>
+    return <p className="text-sm text-muted-foreground">This reading circle is full ({memberCap} readers).</p>
   }
 
   return (
@@ -85,7 +87,7 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
           {isResetting ? "Resetting…" : "Reset link"}
         </button>
       )}
-      <FriendsPicker buddyReadId={buddyReadId} memberUsernames={memberUsernames} room={BUDDY_READ_MAX_MEMBERS - memberCount} />
+      <FriendsPicker buddyReadId={buddyReadId} memberUsernames={memberUsernames} room={memberCap - memberCount} />
       <form onSubmit={(e) => { e.preventDefault(); invite() }} className="flex gap-2">
         <label htmlFor="invite-username" className="sr-only">Username</label>
         <ClearableInput

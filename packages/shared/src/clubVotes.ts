@@ -1,0 +1,122 @@
+// Club votes (BOO-49 phase 2): the club picks its next book. Shared by the API and the apps; no database or
+// "@/" imports, so the rules can be checked under plain Node.
+//
+// A host or co-host opens a vote with a closing time. Members nominate one book each from their shelves (or
+// only the host and co-hosts do, as a shortlist), and everyone in the club votes for one, changing it as
+// often as they like until it closes. Counts stay hidden until then, so an early lead can't snowball. It
+// closes on its own at closesAt (the cron tick, or whoever opens the club first), or early when a host says.
+// A tie goes to the host and co-hosts to pick from. The winner doesn't start itself: a host starts it as the
+// club's next book, with its dates, from the club page.
+import { z } from "zod";
+import type { ClubRole } from "./clubs";
+import { canManageClub } from "./clubs";
+
+export const VOTE_NOMINATIONS_MAX = 10
+export const VOTE_DAYS_DEFAULT = 3
+export const VOTE_DAYS_MIN = 1
+export const VOTE_DAYS_MAX = 14
+
+export type ClubVoteStatus = "OPEN" | "TIED" | "CLOSED" | "CANCELLED"
+
+// ---- Who may do what ------------------------------------------------------------------------
+
+// Opening, closing early, cancelling, removing a nomination and breaking a tie.
+export const canRunVote = (role: ClubRole | null | undefined) => canManageClub(role)
+
+// Whether this member may put a book up. A host-muted member (lib/clubs.ts canMuteInClub) can still vote.
+export function canNominate(role: ClubRole | null | undefined, opts: { hostsOnly: boolean, muted: boolean }) {
+  if (!role || opts.muted) return false
+  return opts.hostsOnly ? canManageClub(role) : true
+}
+
+export const NOMINATIONS_FULL_MESSAGE = `This vote already has ${VOTE_NOMINATIONS_MAX} books. Vote for one of them instead.`
+export const VOTE_ALREADY_OPEN_MESSAGE = "The club already has a vote on. Close it before opening another."
+export const VOTE_CLOSED_MESSAGE = "This vote has closed."
+
+export const closesAtFor = (days: number, now: Date = new Date()) => new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
+export const isVoteDue = (vote: { status: ClubVoteStatus, closesAt: Date | string }, now: Date = new Date()) =>
+  vote.status === "OPEN" && new Date(vote.closesAt).getTime() <= now.getTime()
+
+// Counts (and who voted for what) are shown once the vote has closed, to everyone, hosts included.
+export const countsVisible = (status: ClubVoteStatus) => status !== "OPEN"
+
+// ---- Counting -------------------------------------------------------------------------------
+
+export type BallotLike = { userId: string, nominationId: string }
+
+// Votes per nomination, from current members only: someone who left the club no longer counts. Every
+// nomination is listed, with 0 if nobody voted for it.
+export function tallyVotes(nominationIds: string[], ballots: BallotLike[], memberIds: Set<string>) {
+  const counts = new Map(nominationIds.map((id) => [id, 0]))
+  for (const b of ballots) {
+    if (!memberIds.has(b.userId) || !counts.has(b.nominationId)) continue
+    counts.set(b.nominationId, counts.get(b.nominationId)! + 1)
+  }
+  return counts
+}
+
+export type VoteOutcome =
+  | { kind: "winner", nominationId: string }
+  | { kind: "tied", nominationIds: string[] }
+  | { kind: "empty" }
+
+// The winner, or the books level at the top for a host to choose between (every book, if nobody voted).
+// No books at all and the vote is cancelled.
+export function voteOutcome(counts: Map<string, number>): VoteOutcome {
+  if (counts.size === 0) return { kind: "empty" }
+  const top = Math.max(...counts.values())
+  const leaders = [...counts].filter(([, n]) => n === top).map(([id]) => id)
+  return leaders.length === 1 ? { kind: "winner", nominationId: leaders[0] } : { kind: "tied", nominationIds: leaders }
+}
+
+// Like the club's member cap: nominations are counted after they're written, so two at the same moment can't
+// both squeeze past the tenth. The nominations in the order written, and whether this one is in the first max.
+export function nominationAdmitted(order: string[], nominationId: string, max: number = VOTE_NOMINATIONS_MAX) {
+  const at = order.indexOf(nominationId)
+  return at >= 0 && at < max
+}
+
+// ---- Input ----------------------------------------------------------------------------------
+
+export const openVoteSchema = z.object({
+  days: z.number().int().min(VOTE_DAYS_MIN).max(VOTE_DAYS_MAX, `A vote can run for up to ${VOTE_DAYS_MAX} days`).default(VOTE_DAYS_DEFAULT),
+  hostsOnly: z.boolean().default(false),
+})
+
+const objectId = z.string().regex(/^[a-f0-9]{24}$/i, "That book isn't there any more.")
+export const nominateSchema = z.object({ bookId: objectId })
+export const ballotSchema = z.object({ nominationId: objectId })
+export const voteActionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("close") }),
+  z.object({ action: z.literal("cancel") }),
+  z.object({ action: z.literal("pick"), nominationId: objectId }),
+])
+
+// ---- Copy -----------------------------------------------------------------------------------
+
+// "Closes in 2 days", "Closes in 5 hours", "Closes in under an hour", for the vote card.
+export function closesInText(closesAt: Date | string, now: Date = new Date()) {
+  const ms = new Date(closesAt).getTime() - now.getTime()
+  if (ms <= 0) return "Closing now"
+  const hours = Math.floor(ms / (60 * 60 * 1000))
+  if (hours < 1) return "Closes in under an hour"
+  if (hours < 48) return `Closes in ${hours} ${hours === 1 ? "hour" : "hours"}`
+  const days = Math.floor(hours / 24)
+  return `Closes in ${days} days`
+}
+
+// "12 of 40 have voted": turnout is shown while the vote is open; which book is ahead isn't.
+export const turnoutText = (voted: number, members: number) => `${voted} of ${members} ${voted === 1 ? "has" : "have"} voted`
+
+// The bell, the push and the phone's notifications list say the same. Nobody is named: a vote is the club's.
+// `title` is the winning book (CLUB_VOTE_PICKED keeps it in Notification.message).
+export function clubVoteText(type: string, club: string | null, title?: string | null) {
+  const name = club ?? "Your club"
+  switch (type) {
+    case "CLUB_VOTE_OPENED": return `${name} is voting on its next book. Put one up or cast your vote.`
+    case "CLUB_VOTE_PICKED": return title ? `${name} picked ${title} as its next book.` : `${name} has picked its next book.`
+    case "CLUB_VOTE_TIED": return `The vote in ${name} is a tie. Pick the winner from the books level at the top.`
+    default: return null
+  }
+}
+export const isClubVoteNotification = (type: string) => type === "CLUB_VOTE_OPENED" || type === "CLUB_VOTE_PICKED" || type === "CLUB_VOTE_TIED"

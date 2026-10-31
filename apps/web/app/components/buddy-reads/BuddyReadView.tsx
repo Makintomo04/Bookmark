@@ -13,6 +13,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import type { BuddyReadView as View } from '@/lib/buddyReadsServer'
 import { formatPercent } from '@/lib/buddyReads'
+import { CLUB_MUTED_MESSAGE } from '@/lib/clubs'
 import BookCover from '../cards/BookCover'
 import FetchErrorState from '../FetchErrorState'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
@@ -49,7 +50,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
 
   if (!view) return <FetchErrorState error={isError} what="this reading circle" onRetry={() => mutate()} />
 
-  const { buddyRead, club, viewer, members, comments } = view
+  const { buddyRead, club, viewer, members, comments, memberCap } = view
   const archived = buddyRead.status === "ARCHIVED"
   const notStarted = moment(buddyRead.startsAt).isAfter(moment())
 
@@ -133,19 +134,22 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="flex flex-col gap-10 min-w-0">
           <ProgressTrack members={members} schedule={buddyRead.schedule} onRemove={viewer.canModerate ? remove : undefined} />
+          {viewer.clubMuted && !archived && (
+            <p role="status" className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 text-sm text-muted-foreground">{CLUB_MUTED_MESSAGE}</p>
+          )}
           <Discussion
             buddyReadId={id}
             comments={comments}
             viewerProgress={viewer.progress}
             isHost={viewer.canModerate}
-            canPost={!archived}
+            canPost={!archived && !viewer.clubMuted}
             onChange={() => mutate()}
           />
         </div>
 
         <aside className="flex flex-col gap-8 lg:sticky lg:top-6 lg:self-start">
           {/* An archived club's books take no one new (lib/buddyReadsServer.ts clubBookRefusal), so there's no link to share. */}
-          {!archived && !(club && !club.inviteCode) && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))} isHost={viewer.canManage} onLinkReset={() => mutate()} clubInviteCode={club?.inviteCode} />}
+          {!archived && !(club && !club.inviteCode) && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))} isHost={viewer.canManage} onLinkReset={() => mutate()} clubInviteCode={club?.inviteCode} memberCap={memberCap} />}
           <section className="flex flex-col gap-2 text-sm">
             <h2 className="font-semibold">How it works</h2>
             <p className="text-muted-foreground">

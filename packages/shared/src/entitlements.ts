@@ -1,4 +1,5 @@
 import type { Plan } from "./enums";
+import { BUDDY_READ_MAX_MEMBERS } from "./buddyReads";
 
 // Bookmark Plus: what a plan may do. Pure, so client components and tests can read it off a user
 // with nothing but `plan`. The rule from the strategy: charge for convenience and power;
@@ -32,7 +33,12 @@ export const MONTHLY_ALLOWANCES = {
 
 export type AllowanceKey = keyof typeof MONTHLY_ALLOWANCES;
 
-export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns";
+// Big clubs (BOO-79, decided 31 Oct 2026): a club hosted on Plus holds up to this many readers; on a free
+// account, a reading circle's 15. Gate hosts, not guests: members never pay, and votes stay free.
+export const BIG_CLUB_MAX_MEMBERS = 150;
+export const CLUB_MEMBER_LIMIT = { free: BUDDY_READ_MAX_MEMBERS, plus: BIG_CLUB_MAX_MEMBERS } as const;
+
+export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns" | "bigClubs";
 
 export interface Entitlements {
   plan: Plan;
@@ -45,6 +51,10 @@ export interface Entitlements {
   // The Paper and Your colour designs for Wrap cards (packages/shared/src/wrapCards.ts). Midnight, the
   // standard design, is free in every size.
   customWrapDesigns: boolean;
+  // Clubs this account hosts take more than a circle's 15 readers: up to clubMemberLimit.
+  bigClubs: boolean;
+  // How many readers a club this account hosts takes (CLUB_MEMBER_LIMIT). It's the host's plan that counts.
+  clubMemberLimit: number;
   // Per calendar month; null is unlimited.
   allowances: Record<AllowanceKey, number | null>;
 }
@@ -141,6 +151,8 @@ export function entitlementsOf(user: StoredPlan, now = new Date()): Entitlements
     canHostUnlimited: isPlus,
     extraGoalTypes: isPlus,
     customWrapDesigns: isPlus,
+    bigClubs: isPlus,
+    clubMemberLimit: CLUB_MEMBER_LIMIT[tier],
     allowances: {
       askShelfSearches: MONTHLY_ALLOWANCES.askShelfSearches[tier],
       recaps: MONTHLY_ALLOWANCES.recaps[tier],
@@ -172,6 +184,10 @@ export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string
   customWrapDesigns: {
     title: "Your Wrap, your way",
     message: "Paper and your own colour are Plus designs for your Wrap cards. Midnight stays free in every size, and so does your year-end Wrapped.",
+  },
+  bigClubs: {
+    title: "Bigger clubs",
+    message: `Clubs on a free account take ${CLUB_MEMBER_LIMIT.free} readers. With Plus, the clubs you host take up to ${CLUB_MEMBER_LIMIT.plus}. Members never pay, and votes are free for every club.`,
   },
   askShelfSearches: {
     title: "More Ask the shelf searches",

@@ -3,6 +3,7 @@ import type { BuddyReadSchedule, SerializedComment } from "@bookmark/shared/budd
 import { api } from "@/lib/api";
 import { API_URL } from "@/lib/config";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
+import type { ClubRole } from "@bookmark/shared/clubs";
 
 // Reading circles, as the API serves them (the web's useBuddyReads and BuddyReadView).
 
@@ -47,6 +48,8 @@ export type CircleMember = {
   isYou: boolean;
   joinedAt: string;
   finishedAt: string | null;
+  // In a club's book: their role in the club.
+  clubRole?: ClubRole | null;
 };
 
 export type CircleView = {
@@ -67,7 +70,10 @@ export type CircleView = {
   club: { id: string; name: string; inviteCode: string | null } | null;
   // canManage: the host, or in a club's circle the club's host or a co-host (the schedule, finishing it).
   // canModerate: deleting comments and removing readers, which a club's host and co-hosts keep once it's archived.
-  viewer: { userId: string; progress: number; isHost: boolean; canManage: boolean; canModerate?: boolean; bookId: string; muted: boolean };
+  // clubMuted: the club's host or a co-host muted them (BOO-79), so they read along without commenting.
+  viewer: { userId: string; progress: number; isHost: boolean; canManage: boolean; canModerate?: boolean; bookId: string; muted: boolean; clubMuted?: boolean };
+  // How many readers it takes: a club's book takes the club's size.
+  memberCap?: number;
   members: CircleMember[];
   comments: SerializedComment[];
 };

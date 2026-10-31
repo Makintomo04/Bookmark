@@ -4,12 +4,12 @@
 // only decides who is added to which circle, and when.
 import { randomBytes } from "crypto";
 import prisma from "@/lib/db";
-import { createNotification } from "@/lib/notifications";
+import { createNotifications } from "@/lib/notifications";
 import { Prisma, type BuddyRead, type Club } from "@prisma/client";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { booksReadCount, booksReadOf } from "@/lib/readerTier";
-import { BUDDY_READ_MAX_MEMBERS, circleProgress, makeInviteCode, progressPercent } from "@/lib/buddyReads";
-import { CLUB_MAX_MEMBERS, canManageClub, clubAllowance, clubRole, clubShelf, inviteFaces, type ClubRole } from "@/lib/clubs";
+import { circleProgress, makeInviteCode, progressPercent } from "@/lib/buddyReads";
+import { CLUB_MAX_MEMBERS, canManageClub, clubAllowance, clubBookAdditions, clubFullMessage, clubRole, clubShelf, inviteFaces, type ClubRole } from "@/lib/clubs";
 import { hiddenWhileSuspended } from "@/lib/suspension";
 import { withinClubCap } from "@/lib/clubLimits";
 export { finishClubBooks } from "@/lib/clubLimits";
@@ -17,6 +17,7 @@ import { progressSelect } from "@/lib/progress";
 import {
   blockedAmong,
   buddyReadError,
+  clubMemberLimitOf,
   handOverHosting,
   hostingPlanOf,
   isBlockedEitherWay,
@@ -44,6 +45,9 @@ export async function canHostAnotherClub(userId: string) {
   ])
   return clubAllowance(active, plan)
 }
+
+// How many readers the club takes: the host's entitlement (lib/entitlements.ts clubMemberLimit, BOO-79).
+export const clubCapOf = (club: Pick<Club, "hostId">) => clubMemberLimitOf(club.hostId)
 
 // A club and the viewer's place in it, or null if they aren't in it. Not found and not a member look the
 // same from outside, so ids can't be probed.
@@ -84,9 +88,10 @@ export async function loadClubView(clubId: string, viewerId: string) {
   if (!membership) return null
   const { club, role, canManage } = membership
 
-  const [memberRows, circles] = await Promise.all([
+  const [memberRows, circles, memberCap] = await Promise.all([
     prisma.clubMember.findMany({ where: { clubId }, orderBy: { joinedAt: "asc" } }),
     prisma.buddyRead.findMany({ where: { clubId }, orderBy: { startsAt: "desc" }, take: 100 }),
+    clubCapOf(club),
   ])
   const [users, blocked, myCircleRows, counts] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: userSelect }),
@@ -117,6 +122,8 @@ export async function loadClubView(clubId: string, viewerId: string) {
       role: clubRole(m, club.hostId),
       isYou: m.userId === viewerId,
       joinedAt: m.joinedAt.toISOString(),
+      // Shown to the host and co-hosts, and to the member themselves; nobody else needs to know.
+      muted: !!m.hostMutedAt && (canManageClub(role) || m.userId === viewerId),
     }]
   })
 
@@ -146,7 +153,12 @@ export async function loadClubView(clubId: string, viewerId: string) {
       // Members can share the link; anyone with it can join.
       inviteCode: club.status === "ACTIVE" ? club.inviteCode : null,
     },
-    viewer: { userId: viewerId, role, canManage },
+    // hostPlus: the club takes more than a circle's 15 (the host has Plus), so the page can say so.
+    viewer: { userId: viewerId, role, canManage, muted: !!membership.member.hostMutedAt, hostPlus: memberCap > CLUB_MAX_MEMBERS },
+    // Every member counts, including any the viewer has blocked (left out of `members`).
+    memberCount: memberRows.length,
+    memberCap,
+    full: memberRows.length >= memberCap,
     members,
     reading: shelf.reading.map(summary),
     upcoming: shelf.upcoming.map(summary),
@@ -162,9 +174,10 @@ export async function loadClubInvite(code: string, viewerId?: string | null) {
   if (!/^[a-z0-9]{6,20}$/.test(code)) return null
   const club = await prisma.club.findUnique({ where: { inviteCode: code } })
   if (!club || club.status !== "ACTIVE") return null
-  const [memberRows, circles] = await Promise.all([
+  const [memberRows, circles, memberCap] = await Promise.all([
     prisma.clubMember.findMany({ where: { clubId: club.id }, orderBy: { joinedAt: "asc" }, select: { userId: true } }),
     prisma.buddyRead.findMany({ where: { clubId: club.id }, orderBy: { startsAt: "desc" }, take: 50 }),
+    clubCapOf(club),
   ])
   const [users, blocked] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, profileVisibility: true, suspendedAt: true, suspendedUntil: true } }),
@@ -193,7 +206,7 @@ export async function loadClubInvite(code: string, viewerId?: string | null) {
     next: book(shelf.upcoming[0]),
     booksRead: shelf.past.length,
     memberCount: everyone.length,
-    full: everyone.length >= CLUB_MAX_MEMBERS,
+    full: everyone.length >= memberCap,
   }
 }
 
@@ -207,14 +220,20 @@ export async function wasRemovedFromClub(clubId: string, userId: string) {
 // Adds a club member to one of the club's circles, as joining it would: their own shelf copy (in Want to
 // read: lib/clubs.ts CLUB_COPY_STATUS) and a membership starting from their progress. Skipped, quietly, for a
 // circle they're already in, one whose host they've blocked (or who blocked them), one they were removed
-// from, or a full one. Returns whether they were added.
-export async function addToClubCircle(circle: BuddyRead, userId: string) {
+// from, or a full one (a club's book takes the club's size, `cap`). Returns whether they were added.
+export async function addToClubCircle(circle: BuddyRead, userId: string, cap: number) {
   if (circle.status !== "ACTIVE") return false
   if (await prisma.buddyReadMember.findUnique({ where: { buddyReadId_userId: { buddyReadId: circle.id, userId } }, select: { id: true } })) return false
   if (await isBlockedEitherWay(userId, circle.hostId)) return false
   if (await wasRemoved(circle.id, userId)) return false
-  if ((await prisma.buddyReadMember.count({ where: { buddyReadId: circle.id } })) >= BUDDY_READ_MAX_MEMBERS) return false
+  if ((await prisma.buddyReadMember.count({ where: { buddyReadId: circle.id } })) >= cap) return false
+  if (!(await addMembership(circle, userId))) return false
+  await prisma.buddyReadInvite.deleteMany({ where: { buddyReadId: circle.id, inviteeId: userId } })
+  return true
+}
 
+// The shelf copy and the membership, for someone already checked. False if they got in another way first.
+async function addMembership(circle: BuddyRead, userId: string) {
   const { bookId } = await shelfBookFor(userId, circle, { byClub: true })
   const book = await prisma.book.findUnique({ where: { id: bookId }, select: { id: true, ...progressSelect } })
   try {
@@ -224,7 +243,6 @@ export async function addToClubCircle(circle: BuddyRead, userId: string) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return false
     throw e
   }
-  await prisma.buddyReadInvite.deleteMany({ where: { buddyReadId: circle.id, inviteeId: userId } })
   return true
 }
 
@@ -236,12 +254,13 @@ export type ClubJoinResult =
 // started after this adds them too (startClubCircle).
 export async function joinClub(club: Club, userId: string): Promise<ClubJoinResult> {
   if (club.status !== "ACTIVE") return { ok: false, error: "This club has closed.", status: 410 }
+  const cap = await clubCapOf(club)
   const existing = await prisma.clubMember.findUnique({ where: { clubId_userId: { clubId: club.id, userId } }, select: { id: true } })
   if (!existing) {
     if (await isBlockedEitherWay(userId, club.hostId)) return { ok: false, error: "You can't join this club.", status: 403 }
     if (await wasRemovedFromClub(club.id, userId)) return { ok: false, error: CLUB_REMOVED_MESSAGE, status: 403 }
     const count = await prisma.clubMember.count({ where: { clubId: club.id } })
-    if (count >= CLUB_MAX_MEMBERS) return { ok: false, error: `This club is full (${CLUB_MAX_MEMBERS} readers).`, status: 409 }
+    if (count >= cap) return { ok: false, error: clubFullMessage(cap), status: 409 }
     try {
       await prisma.clubMember.create({ data: { clubId: club.id, userId } })
     } catch (e) {
@@ -249,16 +268,16 @@ export async function joinClub(club: Club, userId: string): Promise<ClubJoinResu
       if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e
     }
     // The count above can race another join: check again now both are written, and the later one backs out.
-    if (!(await withinClubCap(club.id, userId, prisma))) {
+    if (!(await withinClubCap(club.id, userId, prisma, cap))) {
       await prisma.clubMember.deleteMany({ where: { clubId: club.id, userId } })
-      return { ok: false, error: `This club is full (${CLUB_MAX_MEMBERS} readers).`, status: 409 }
+      return { ok: false, error: clubFullMessage(cap), status: 409 }
     }
   }
   // A member who left a circle on purpose stays out of it: only a new member is added to the open ones.
   const circleIds: string[] = []
   if (!existing) {
     for (const circle of await openCircles(club.id)) {
-      if (await addToClubCircle(circle, userId)) circleIds.push(circle.id)
+      if (await addToClubCircle(circle, userId, cap)) circleIds.push(circle.id)
     }
   }
   return { ok: true, clubId: club.id, alreadyMember: !!existing, circleIds }
@@ -267,13 +286,42 @@ export async function joinClub(club: Club, userId: string): Promise<ClubJoinResu
 // ---- The next book ------------------------------------------------------------------------
 
 // A host or co-host started the club's next book (lib/buddyReadsServer.ts createCircle, with clubId): every
-// other member is added and told. Those who can't be (blocked by the starter) are skipped.
+// other member is added and told. Those who can't be (blocked by the book's host) are skipped.
+// A big club (BOO-79) can have 150 members, so the checks are one query each for everyone, the shelf copies
+// are made a few at a time, and the notifications go out together.
+const ADD_AT_ONCE = 10
 export async function addClubToCircle(circle: BuddyRead, clubId: string, starterId: string) {
-  const members = await prisma.clubMember.findMany({ where: { clubId, userId: { not: starterId } }, orderBy: { joinedAt: "asc" }, select: { userId: true } })
-  for (const m of members) {
-    if (!(await addToClubCircle(circle, m.userId))) continue
-    await createNotification({ userId: m.userId, actorId: starterId, type: "CLUB_CIRCLE_ADDED", buddyReadId: circle.id, count: 1 })
+  const club = await prisma.club.findUnique({ where: { id: clubId }, select: { hostId: true } })
+  if (!club || circle.status !== "ACTIVE") return
+  const [cap, members] = await Promise.all([
+    clubCapOf(club),
+    prisma.clubMember.findMany({ where: { clubId, userId: { not: starterId } }, orderBy: { joinedAt: "asc" }, select: { userId: true } }),
+  ])
+  const ids = members.map((m) => m.userId)
+  const [blocked, removals, already] = await Promise.all([
+    blockedAmong(circle.hostId, ids),
+    prisma.buddyReadRemoval.findMany({ where: { buddyReadId: circle.id, userId: { in: ids } }, select: { userId: true } }),
+    prisma.buddyReadMember.findMany({ where: { buddyReadId: circle.id }, select: { userId: true } }),
+  ])
+  const toAdd = clubBookAdditions(ids, { skip: new Set([...blocked, ...removals.map((r) => r.userId)]), already: already.map((m) => m.userId), cap })
+
+  const added: string[] = []
+  for (let i = 0; i < toAdd.length; i += ADD_AT_ONCE) {
+    const batch = toAdd.slice(i, i + ADD_AT_ONCE)
+    const results = await Promise.all(batch.map((userId) => addMembership(circle, userId)))
+    added.push(...batch.filter((_, j) => results[j]))
   }
+  if (added.length === 0) return
+  await prisma.buddyReadInvite.deleteMany({ where: { buddyReadId: circle.id, inviteeId: { in: added } } })
+  await createNotifications(added.map((userId) => ({ userId, actorId: starterId, type: "CLUB_CIRCLE_ADDED" as const, buddyReadId: circle.id, count: 1 })))
+}
+
+// ---- Host tools (BOO-79) ------------------------------------------------------------------
+
+// Whether a host or co-host has muted this member: they can read and vote, not comment or nominate.
+export async function isMutedInClub(clubId: string, userId: string) {
+  const member = await prisma.clubMember.findUnique({ where: { clubId_userId: { clubId, userId } }, select: { hostMutedAt: true } })
+  return !!member?.hostMutedAt
 }
 
 // ---- Leaving ------------------------------------------------------------------------------
