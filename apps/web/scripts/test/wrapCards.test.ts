@@ -10,6 +10,8 @@ import {
   cardFileName,
   cardMonths,
   cardPath,
+  cardPeriodKey,
+  cardPeriodKeys,
   cardToday,
   cardYears,
   cardStats,
@@ -22,6 +24,7 @@ import {
   type GridBox,
 } from "@bookmark/shared/wrapCards";
 import { finishDay } from "@bookmark/shared/timeZone";
+import { parseDate } from "@/lib/import/formats";
 import { FREE } from "@bookmark/shared/plusFeatures";
 import { entitlementsOf } from "@bookmark/shared/entitlements";
 
@@ -104,6 +107,9 @@ test("hours listened are their own figure, and singular reads as singular", () =
     { value: "45", label: "minutes listened" },
   ]);
   assert.deepEqual(cardStats({ books: 2, pages: 600, minutes: 0 }).map((s) => s.label), ["books", "pages"]);
+  // A re-read in the period: 11 covers, 12 reads, as /stats counts them.
+  assert.deepEqual(cardStats({ books: 11, reads: 12, pages: 0, minutes: 0 }), [{ value: "11", label: "books · 12 reads" }]);
+  assert.deepEqual(cardStats({ books: 11, reads: 11, pages: 0, minutes: 0 }), [{ value: "11", label: "books" }]);
 });
 
 test("the mood mix is the top three, in whole percentages, without the noise", () => {
@@ -154,6 +160,14 @@ test("the card pickers count months in the profile's zone, back to the reader's 
   assert.deepEqual(cardMonths(2027, { year: 2026, month: 3 }), []);
 });
 
+test("the picker knows which years and months have books to draw", () => {
+  const keys = cardPeriodKeys([{ year: 2026, month: 10 }, { year: 2026, month: 10 }, { year: 2024, month: 3 }]);
+  assert.deepEqual(keys.sort(), ["2024", "2024-03", "2026", "2026-10"]);
+  assert.ok(keys.includes(cardPeriodKey(2026, 10)));
+  assert.ok(!keys.includes(cardPeriodKey(2026, 9)));
+  assert.ok(!keys.includes(cardPeriodKey(2025, null)));
+});
+
 test("a picked day counts on that day at UTC+13 and UTC+14, and a timed finish in the reader's zone", () => {
   // Stored at noon UTC (lib/readHistory.ts dayInputSchema): 31 October stays October in Auckland and Kiritimati.
   const picked = new Date("2026-10-31T12:00:00.000Z");
@@ -163,4 +177,16 @@ test("a picked day counts on that day at UTC+13 and UTC+14, and a timed finish i
   // A finish logged at a real moment is placed where the reader is.
   assert.equal(finishDay(new Date("2026-10-31T12:00:01.000Z"), "Pacific/Auckland"), "2026-11-01");
   assert.equal(finishDay(new Date("2026-10-31T23:30:00.000Z"), "America/New_York"), "2026-10-31");
+});
+
+test("an imported day at UTC midnight counts on that day west and east of UTC, 1 January included", () => {
+  // lib/import/formats.ts parseDate stores "2023/01/01", "2023/01" and "2023" all at 2023-01-01T00:00Z.
+  const newYear = new Date(parseDate("2023/01/01")!);
+  for (const zone of ["America/New_York", "America/Los_Angeles", "Pacific/Honolulu", "Europe/London", "Asia/Tokyo", "Pacific/Kiritimati"]) {
+    assert.equal(finishDay(newYear, zone), "2023-01-01", zone);
+    assert.equal(finishDay(new Date(parseDate("2023")!), zone), "2023-01-01", zone);
+    assert.equal(finishDay(new Date(parseDate("2023/11")!), zone), "2023-11-01", zone);
+  }
+  // A real moment a second after midnight UTC is still the evening before in New York.
+  assert.equal(finishDay(new Date("2023-01-01T00:00:01.000Z"), "America/New_York"), "2022-12-31");
 });

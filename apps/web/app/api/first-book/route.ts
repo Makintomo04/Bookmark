@@ -7,7 +7,7 @@ import { preferencesOf } from "@/lib/preferences";
 import { readerName } from "@/lib/profile";
 import { starterSections, starterWhy, type FirstBookPicks, type StarterBook } from "@bookmark/shared/firstBook";
 
-// "Help me pick my first book" (BOO-52), for the web's /first-book and the app's picker: your Want to read,
+// The book picker (BOO-52: onboarding's first book, and "Help me pick a book" after), for the web's /first-book and the app's picker: your Want to read,
 // what people you follow loved, the team's picks and what's popular in your genres. No AI, so it works with
 // AI features off; Ask the shelf is offered after it as a separate, labelled step.
 export async function GET() {

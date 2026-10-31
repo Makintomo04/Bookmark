@@ -9,7 +9,7 @@ import { Prisma, type BuddyRead, type Club } from "@prisma/client";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { booksReadCount, booksReadOf } from "@/lib/readerTier";
 import { circleProgress, makeInviteCode, progressPercent } from "@/lib/buddyReads";
-import { CLUB_MAX_MEMBERS, canManageClub, clubAllowance, clubBookAdditions, clubFullMessage, clubRole, clubShelf, inviteFaces, type ClubRole } from "@/lib/clubs";
+import { CLUB_MAX_MEMBERS, canManageClub, clubAllowance, clubBookAdditions, clubFullMessage, clubRole, clubShelf, inviteFaces, inviteHost, type ClubRole } from "@/lib/clubs";
 import { hiddenWhileSuspended } from "@/lib/suspension";
 import { withinClubCap } from "@/lib/clubLimits";
 export { finishClubBooks } from "@/lib/clubLimits";
@@ -193,9 +193,8 @@ export async function loadClubInvite(code: string, viewerId?: string | null) {
   })
   const faces = inviteFaces(everyone, { hostId: club.hostId, viewerId, blocked })
   const members = faces.map(({ profileVisibility: _v, suspended: _s, ...m }) => m)
-  // Named on the invite whatever their settings, since the link is theirs; not to someone they've blocked.
-  const hostRow = everyone.find((m) => m.userId === club.hostId)
-  const host = hostRow && !blocked.has(hostRow.userId) ? (({ profileVisibility: _v, suspended: _s, ...m }) => m)(hostRow) : null
+  const hostRow = inviteHost(everyone, club.hostId, { viewerId, blocked })
+  const host = hostRow ? (({ profileVisibility: _v, suspended: _s, ...m }) => m)(hostRow) : null
   const shelf = clubShelf(circles)
   const book = (c: BuddyRead | undefined) => c ? { title: c.title, author: c.author, coverImage: c.coverImage, cardColour: c.cardColour, startsAt: c.startsAt.toISOString() } : null
   return {

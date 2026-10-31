@@ -10,7 +10,7 @@ import { primaryButtonClass, secondaryButtonClass } from '@/app/components/profi
 import { cn } from '@/lib/utils'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { BUDDY_READ_MAX_MEMBERS } from '@/lib/buddyReads'
-import { REMOVED_MESSAGE, loadInvite, wasRemoved } from '@/lib/buddyReadsServer'
+import { CLUB_CLOSED_MESSAGE, REMOVED_MESSAGE, clubBookRefusal, loadInvite, wasRemoved } from '@/lib/buddyReadsServer'
 import prisma from '@/lib/db'
 import AuthorLink from '@/app/components/AuthorLink'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
@@ -53,12 +53,16 @@ const Page = async (props: PageProps) => {
     })
     if (isMember) redirect(`/circles/${buddyRead.id}`)
   }
-  // A club's book is joined through the club, which brings this book and every one after.
+  // A club's book is joined through the club, which brings this book and every one after. Once the club is
+  // archived only its members can come in (lib/buddyReadsServer.ts clubBookRefusal), so anyone else, and anyone
+  // removed from the club, is told so here rather than by a Join button that fails.
+  let refusal: string | null = null
   if (buddyRead.clubId) {
     const club = await prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { inviteCode: true, status: true } })
     if (club?.status === "ACTIVE") redirect(`/clubs/join/${club.inviteCode}`)
+    refusal = viewer ? (await clubBookRefusal(buddyRead.clubId, viewer.id))?.error ?? null : CLUB_CLOSED_MESSAGE
   }
-  const removed = viewer ? await wasRemoved(buddyRead.id, viewer.id) : false
+  if (!refusal && viewer && await wasRemoved(buddyRead.id, viewer.id)) refusal = REMOVED_MESSAGE
   const full = memberCount >= BUDDY_READ_MAX_MEMBERS
 
   return (
@@ -93,14 +97,14 @@ const Page = async (props: PageProps) => {
             </p>
           </div>
 
-          {removed ? (
-            <p className="max-w-md text-muted-foreground">{REMOVED_MESSAGE}</p>
+          {refusal ? (
+            <p className="max-w-md text-muted-foreground">{refusal}</p>
           ) : full ? (
             <p className="text-muted-foreground">This reading circle is full.</p>
           ) : viewer ? (
             <div className="flex flex-col items-center gap-2">
               <JoinButton code={params.code} />
-              <p className="text-xs text-muted-foreground">Not on your shelf yet? It&apos;ll be added to Currently reading.</p>
+              <p className="text-xs text-muted-foreground">Not on your shelf yet? It&apos;ll be added to {buddyRead.clubId ? "Want to read" : "Currently reading"}.</p>
             </div>
           ) : (
             <div className="flex flex-wrap justify-center gap-3">

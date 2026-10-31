@@ -92,6 +92,14 @@ export function cardMonths(year: number, today: { year: number; month: number })
   return Array.from({ length: last }, (_, i) => last - i)
 }
 
+// The periods with something to draw, as keys: "2026" for a year, "2026-10" for a month (1 to 12). A card
+// leaves private books out, so these count only the reader's shared finishes (apps/web/lib/stats.ts
+// getCardPeriods). The pickers offer the others greyed out rather than refusing them after they're picked.
+export const cardPeriodKey = (year: number, month: number | null) => (month === null ? String(year) : `${year}-${String(month).padStart(2, "0")}`);
+export function cardPeriodKeys(finishes: { year: number; month: number }[]): string[] {
+  return Array.from(new Set(finishes.flatMap((f) => [cardPeriodKey(f.year, null), cardPeriodKey(f.year, f.month)])));
+}
+
 // ---- Words -----------------------------------------------------------------------------------
 
 const fmt = (n: number) => n.toLocaleString("en-GB")
@@ -113,9 +121,12 @@ export function cardWords(card: { year: number; month: number | null; isCurrent:
 }
 
 // The headline numbers. Audiobooks are counted in time, not pages, so they get their own figure.
-export function cardStats({ books, pages, minutes }: { books: number; pages: number; minutes: number }) {
+// `books` counts each book once, as the grid shows it; `reads` every finish, as /stats counts "Books read".
+// With a re-read in the period the two differ, so the card says both ("11 books · 12 reads") and agrees with /stats.
+export function cardStats({ books, reads = books, pages, minutes }: { books: number; reads?: number; pages: number; minutes: number }) {
+  const bookLabel = books === 1 ? "book" : "books"
   return [
-    { value: fmt(books), label: books === 1 ? "book" : "books" },
+    { value: fmt(books), label: reads > books ? `${bookLabel} · ${fmt(reads)} reads` : bookLabel },
     ...(pages > 0 ? [{ value: fmt(pages), label: pages === 1 ? "page" : "pages" }] : []),
     ...(minutes >= 60
       ? [{ value: fmt(Math.round(minutes / 60)), label: Math.round(minutes / 60) === 1 ? "hour listened" : "hours listened" }]

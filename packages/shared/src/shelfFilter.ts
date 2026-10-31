@@ -245,22 +245,35 @@ export function sortBooks<T extends ShelfBook>(books: T[], sort: ShelfSort): T[]
 // The most books one page of a paged /api/books carries.
 export const SHELF_PAGE_MAX = 100;
 
-// One page of the shelf: the books that match, in order, from `cursor` (an offset, as the page before
-// gave it) for `take`. `nextCursor` is null on the last page.
+// One page of the shelf: the books that match, in order, from `cursor` (as the page before gave it) for
+// `take`. `nextCursor` is null on the last page.
 export function pageShelf<T extends ShelfBook>(books: T[], filter: ShelfFilter, { take, cursor }: { take: number; cursor?: string | null }) {
   const size = Math.min(Math.max(Math.floor(take) || 1, 1), SHELF_PAGE_MAX);
-  const from = Math.max(parseInt(cursor ?? "", 10) || 0, 0);
   const matches = sortBooks(books.filter((b) => matchesFilter(b, filter)), filter.sort);
+  const from = pageStart(matches, cursor);
+  const page = matches.slice(from, from + size);
   return {
-    books: matches.slice(from, from + size),
+    books: page,
     total: matches.length,
-    nextCursor: from + size < matches.length ? String(from + size) : null,
+    nextCursor: from + size < matches.length ? `${from + size}.${page[page.length - 1].id}` : null,
   };
 }
 
-// The books of every page loaded so far, in order, each once. Pages are offsets, so a book moved or finished
-// while someone scrolls shifts the later pages by one, and the next page can repeat a book already shown (and
-// give a list two rows with one key). The first copy stays; a refresh puts the order right.
+// Where a page starts. A cursor is "<offset>.<id of the last book shown>": the page starts after that book
+// wherever it is now, so a book that left the shelf (or moved) meanwhile shifts nothing and none is skipped.
+// When that book itself has gone, one place earlier than the offset: at worst a book shown already comes
+// again, and pagedBooks drops it. A plain offset (an older app) is taken as it is.
+export function pageStart(matches: { id: string }[], cursor: string | null | undefined): number {
+  const [offset, lastId] = (cursor ?? "").split(".");
+  const from = Math.max(parseInt(offset, 10) || 0, 0);
+  if (!lastId) return from;
+  const at = matches.findIndex((b) => b.id === lastId);
+  return at >= 0 ? at + 1 : Math.max(from - 1, 0);
+}
+
+// The books of every page loaded so far, in order, each once. A book moved while someone scrolls can come
+// round again on a later page (pageStart), and would give a list two rows with one key. The first copy stays;
+// a refresh puts the order right.
 export function pagedBooks<T extends { id: string }>(pages: { books: T[] }[]): T[] {
   const seen = new Set<string>();
   return pages.flatMap((p) => p.books.filter((b) => !seen.has(b.id) && !!seen.add(b.id)));

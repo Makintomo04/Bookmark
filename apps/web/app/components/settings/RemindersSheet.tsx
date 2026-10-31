@@ -1,6 +1,6 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
-import { clockLabel, parseMinute, SHEET_INTRO, withChange, type NotificationSettings } from '@bookmark/shared/reminders'
+import { clockLabel, parseMinute, SHEET_INTRO, suggestedReminders, withChange, type AskReason, type NotificationSettings } from '@bookmark/shared/reminders'
 import { useEarnMoment, useRemindersPrompt } from '@/app/hooks/useEarnMoment'
 import useNotificationSettings from '@/app/hooks/useNotificationSettings'
 import { notify } from '@/lib/notify'
@@ -18,17 +18,19 @@ const RemindersSheet: FC = () => {
   const { settings, save, pending } = useNotificationSettings(!!asked)
   const [draft, setDraft] = useState<NotificationSettings | null>(null)
   const [open, setOpen] = useState(false)
+  // Why it opened, kept with the sheet: its words and suggestion shouldn't change under the reader if the prompt
+  // store is reset while it's open (a page's first compile in development reloads the module, for one).
+  const [reason, setReason] = useState<AskReason>("finished")
 
   // A moment after the save's toast, so the two don't land at once.
   useEffect(() => {
     if (!asked || celebrating || !settings) return
     if (settings.prompted) return done()
     const timer = setTimeout(() => {
-      // Suggest what can reach them: the phone reminders when they have the app, otherwise the weekly email
-      // and checkpoint emails.
-      setDraft(settings.hasPhone
-        ? withChange(settings, { reminders: { dailyAt: settings.reminders.dailyAt ?? DEFAULT_REMINDER_AT, streak: true, checkpoints: true } })
-        : withChange(settings, { reminders: { checkpoints: true }, email: { weekly: true } }))
+      // Suggest what can reach them: the phone reminders when they have the app (just checkpoints after joining
+      // a circle or club), otherwise the weekly email and checkpoint emails.
+      setDraft(withChange(settings, suggestedReminders(asked, settings.hasPhone, settings.reminders.dailyAt, DEFAULT_REMINDER_AT)))
+      setReason(asked)
       setOpen(true)
     }, 800)
     return () => clearTimeout(timer)
@@ -61,7 +63,7 @@ const RemindersSheet: FC = () => {
       closeOnBackdrop={false}
       body={
         <div className="w-full px-6 flex flex-col gap-5">
-          <p className="text-sm text-muted-foreground">{SHEET_INTRO[asked ?? "finished"]} Choose what you&apos;d like from Bookmark. Everything here is free{draft.hasPhone && quietFrom !== quietTo && <>, and nothing arrives on your phone between {quietFrom} and {quietTo}</>}.</p>
+          <p className="text-sm text-muted-foreground">{SHEET_INTRO[reason]} Choose what you&apos;d like from Bookmark. Everything here is free{draft.hasPhone && quietFrom !== quietTo && <>, and nothing arrives on your phone between {quietFrom} and {quietTo}</>}.</p>
           <ReminderControls settings={draft} save={(change) => setDraft(withChange(draft, change))} disabled={pending} showQuiet={false} />
         </div>
       }

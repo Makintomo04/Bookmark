@@ -13,6 +13,9 @@ import {
   admittedWithinCap,
   canRemoveFromClub,
   canRemoveFromClubBook,
+  canRemoveFromClubNow,
+  canSetCoHost,
+  clubReadingEmpty,
   circleSlotsLeft,
   clubAbout,
   clubAllowance,
@@ -20,6 +23,7 @@ import {
   clubShelf,
   createClubSchema,
   inviteFaces,
+  inviteHost,
   updateClubSchema,
   BIG_CLUB_MAX_MEMBERS,
   MEMBERS_SHOWN,
@@ -126,6 +130,21 @@ test("removing: the host removes anyone else, a co-host only members, nobody rem
   assert.equal(canRemoveFromClub("host", "host"), false);
 });
 
+test("an archived club: the host can still take co-host away and remove anyone, and nobody else changes a thing", () => {
+  // Active: as ever.
+  assert.equal(canRemoveFromClubNow("cohost", "member", true), true);
+  assert.equal(canSetCoHost("host", true, true), true);
+  // Archived: the host demotes and removes, so a co-host's powers in the finished books can be taken back.
+  assert.equal(canSetCoHost("host", false, false), true);
+  assert.equal(canRemoveFromClubNow("host", "cohost", false), true);
+  assert.equal(canRemoveFromClubNow("host", "member", false), true);
+  // But makes nobody a co-host, and co-hosts remove no one, until it's reopened.
+  assert.equal(canSetCoHost("host", true, false), false);
+  assert.equal(canSetCoHost("cohost", false, false), false);
+  assert.equal(canRemoveFromClubNow("cohost", "member", false), false);
+  assert.equal(canRemoveFromClubNow("host", "host", false), false);
+});
+
 test("the club page: reading now, up next and past reads, each in its own order", () => {
   const now = new Date("2026-11-10T12:00:00Z");
   const circles = [
@@ -204,6 +223,15 @@ test("two joins at once: only the first CLUB_MAX_MEMBERS in joining order stay",
   assert.equal(admittedWithinCap(order, "nobody"), false);
 });
 
+test("an archived club's Reading now doesn't promise a next book", () => {
+  const archived = { archived: true, canManage: false, upcoming: 0 };
+  assert.equal(clubReadingEmpty({ ...archived, isHost: true }), "The club is archived. Reopen it to start the next book.");
+  assert.match(clubReadingEmpty({ ...archived, isHost: false }), /^The club is archived/);
+  // An active club, as before.
+  assert.equal(clubReadingEmpty({ archived: false, isHost: false, canManage: false, upcoming: 0 }), "No book yet. The host will start one soon.");
+  assert.equal(clubReadingEmpty({ archived: false, isHost: true, canManage: true, upcoming: 1 }), "Nothing yet: the next book starts soon.");
+});
+
 test("the public invite shows only members a stranger could see", () => {
   const members = [
     { userId: "host", profileVisibility: "PRIVATE" },
@@ -219,4 +247,21 @@ test("the public invite shows only members a stranger could see", () => {
   // Signed in: their own face shows; anyone blocked either way doesn't.
   const viewer = inviteFaces(members, { hostId: "host", viewerId: "me", blocked: new Set(["blocker"]) }).map((m) => m.userId);
   assert.deepEqual(viewer, ["pub", "me"]);
+});
+
+test("the invite names its host on the same terms as the faces: not suspended, blocked or private", () => {
+  const members = [
+    { userId: "host" },
+    { userId: "starter", profileVisibility: "PRIVATE" },
+    { userId: "gone", suspended: true },
+  ];
+  assert.equal(inviteHost(members, "host", { blocked: new Set() })?.userId, "host");
+  assert.equal(inviteHost(members, "host", { viewerId: "me", blocked: new Set(["host"]) }), null);
+  assert.equal(inviteHost(members, "gone", { blocked: new Set() }), null);
+  // A private co-host who started a club's book isn't named to a stranger, but sees themselves.
+  assert.equal(inviteHost(members, "starter", { blocked: new Set() }), null);
+  assert.equal(inviteHost(members, "starter", { viewerId: "starter", blocked: new Set() })?.userId, "starter");
+  // A club host not reading this book: nobody is named.
+  assert.equal(inviteHost(members, "elsewhere", { blocked: new Set() }), null);
+  assert.equal(inviteHost(members, null, { blocked: new Set() }), null);
 });

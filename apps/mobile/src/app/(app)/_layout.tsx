@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Stack, router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { startPurchases } from "@/lib/purchases";
-import { registerForPush, usePushNavigation } from "@/lib/push";
+import { registerForPush, usePushNavigation, usePushPermissionSync } from "@/lib/push";
 import { useTheme } from "@/lib/theme";
 import { EarnCelebration } from "@/components/achievements/EarnCelebration";
 import { RemindersSheet } from "@/components/reminders/RemindersSheet";
@@ -16,6 +16,8 @@ export default function AppLayout() {
   useEffect(() => {
     void registerForPush();
   }, []);
+  // Notifications switched off or on in the phone's settings meanwhile: the server hears, so reminders fall back to email.
+  usePushPermissionSync();
 
   // RevenueCat knows the reader by their Bookmark id, so a store purchase lands on the right account.
   const userId = useAuth((s) => s.user?.id);

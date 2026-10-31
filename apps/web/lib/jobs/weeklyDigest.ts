@@ -11,6 +11,7 @@ import { buildWeeklyDigest, DIGEST_FRIENDS_MAX, goalPace, type DigestData, type 
 import { progressSelect } from "@bookmark/shared/progress";
 import { addDays, DIGEST_MINUTE, DIGEST_WEEKDAY, isoWeekKey, localClock } from "@bookmark/shared/reminders";
 import { visibleComments, visibleFinishers } from "./circleCounts";
+import { unlockedCommentsWhere } from "./unlockedComments";
 import { unsubscribeLinks } from "./emailLinks";
 import { bookNewsSections } from "@/lib/releaseRules";
 import { claimSend } from "./ledger";
@@ -84,13 +85,14 @@ async function friendsWeek(userId: string, since: Date): Promise<DigestFriend[]>
   return Array.from(lines.values()).slice(0, DIGEST_FRIENDS_MAX);
 }
 
-// Circle news: sections due in the next week, and per circle the new comments the reader's progress
-// already reaches (never one past it, BOO-43's rule) and members who finished.
-async function circlesWeek(userId: string, today: string, since: Date) {
+// Circle news: sections due in the next week, and per circle the comments the reader unlocked this week (by
+// reading on, or posted within what they'd reached; never one past it, BOO-43's rule) and members who finished.
+// Each membership's progress goes in `reached`, for runWeeklyDigest to keep once the email is sent.
+async function circlesWeek(userId: string, today: string, since: Date, reached?: Map<string, number>) {
   // A muted circle stays quiet here too, as in the bell and the checkpoint push.
   const memberships = await prisma.buddyReadMember.findMany({
     where: { userId, buddyRead: { status: "ACTIVE" }, OR: [{ mutedAt: null }, { mutedAt: { isSet: false } }] },
-    select: { bookId: true, notifiedProgress: true, buddyRead: { select: { id: true, title: true, schedule: true } } },
+    select: { id: true, bookId: true, notifiedProgress: true, digestProgress: true, buddyRead: { select: { id: true, title: true, schedule: true } } },
   });
   const weekEnd = addDays(today, 6);
   const checkpoints: DigestData["checkpoints"] = [];
@@ -98,13 +100,14 @@ async function circlesWeek(userId: string, today: string, since: Date) {
   for (const m of memberships) {
     const book = await prisma.book.findUnique({ where: { id: m.bookId }, select: { userId: true, ...progressSelect } });
     const progress = circleProgress(book && book.userId === userId ? progressPercent(book) : 0, m.notifiedProgress);
+    reached?.set(m.id, progress);
     for (const c of parseSchedule(m.buddyRead.schedule)) {
       // Only sections still ahead of them: one they've read past isn't "due".
       const ahead = c.until == null || progress < c.until;
       if (c.due && c.due >= today && c.due <= weekEnd && ahead) checkpoints.push({ circleTitle: m.buddyRead.title, label: c.label, due: c.due });
     }
     const [newComments, finished] = await Promise.all([
-      visibleComments(userId, m.buddyRead.id, { createdAt: { gte: since }, position: { lte: progress } }),
+      visibleComments(userId, m.buddyRead.id, unlockedCommentsWhere(progress, m.digestProgress, since)),
       visibleFinishers(userId, m.buddyRead.id, since),
     ]);
     circles.push({ title: m.buddyRead.title, newComments, finished });
@@ -116,7 +119,8 @@ async function circlesWeek(userId: string, today: string, since: Date) {
 export async function digestFor(
   user: { id: string; username: string | null; displayName: string | null },
   zone: string,
-  now: Date
+  now: Date,
+  reached?: Map<string, number>,
 ): Promise<DigestData> {
   const today = localClock(now, zone).day;
   const since = new Date(now.getTime() - WEEK_MS);
@@ -127,7 +131,7 @@ export async function digestFor(
     readingStreakState(user.id, zone, 1000, now),
     prisma.readingGoal.findFirst({ where: { userId: user.id, year, targetBooks: { gt: 0 } }, select: { targetBooks: true, createdAt: true } }),
     friendsWeek(user.id, since),
-    circlesWeek(user.id, today, since),
+    circlesWeek(user.id, today, since, reached),
     // The week's book news from the bell, newest first: series, new books announced, and books out.
     prisma.notification.findMany({
       where: { userId: user.id, type: { in: ["NEW_IN_SERIES", "NEW_BOOK", "PUBLICATION_DAY"] }, createdAt: { gte: since } },
@@ -187,7 +191,8 @@ export async function runWeeklyDigest(ctx: JobContext): Promise<{ digests: numbe
       const week = isoWeekKey(clock.day);
       // Already sent this week: skip before building, which is the costly part.
       if (await prisma.scheduledSend.findUnique({ where: { userId_kind_key: { userId: user.id, kind: "digest", key: week } }, select: { id: true } })) continue;
-      const email = buildWeeklyDigest(await digestFor(user, zone, ctx.now));
+      const reached = new Map<string, number>();
+      const email = buildWeeklyDigest(await digestFor(user, zone, ctx.now, reached));
       if (!email) {
         // From the evening on, an empty week is settled, so the rest of Sunday's ticks don't build it again.
         // Before that it's looked at again: some reading or a friend's finish later on Sunday still counts.
@@ -199,6 +204,8 @@ export async function runWeeklyDigest(ctx: JobContext): Promise<{ digests: numbe
       try {
         await sendMail({ to: user.email!, ...email, headers: unsubscribeLinks(user.id, "weekly").headers });
         result.digests++;
+        // Next week's email counts what they unlock from here.
+        for (const [id, progress] of Array.from(reached)) await prisma.buddyReadMember.update({ where: { id }, data: { digestProgress: progress } });
       } catch (error) {
         console.error("[digest] couldn't send", user.id, error);
       }

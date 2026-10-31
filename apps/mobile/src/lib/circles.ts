@@ -46,6 +46,8 @@ export type CircleMember = {
   progress: number;
   isHost: boolean;
   isYou: boolean;
+  // Whether the viewer can remove them (worked out on the server, lib/buddyReadsServer.ts).
+  removable?: boolean;
   joinedAt: string;
   finishedAt: string | null;
   // In a club's book: their role in the club.

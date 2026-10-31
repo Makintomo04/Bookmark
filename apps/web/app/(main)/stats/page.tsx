@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Container from '@/app/components/Container'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { getReadingStats, wrappedYearsFor } from '@/lib/stats'
+import { getCardPeriods, getReadingStats, wrappedYearsFor } from '@/lib/stats'
 import StatsView, { StatsEmpty } from '@/app/components/stats/StatsView'
 import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/accent'
 import MonthlyWrapCards from '@/app/components/wrapped/MonthlyWrapCards'
@@ -26,7 +26,7 @@ const Page = async (props: PageProps) => {
   const user = await getCurrentUser()
   if (!user) redirect('/signin?callbackUrl=/stats')
 
-  const stats = await getReadingStats(user.id)
+  const [stats, cardPeriods] = await Promise.all([getReadingStats(user.id), getCardPeriods(user.id)])
   const thisYear = stats.years[stats.years.length - 1]?.year ?? new Date().getFullYear()
   const asked = Number(searchParams.year)
   const year = stats.years.some((y) => y.year === asked) ? asked : thisYear
@@ -40,7 +40,7 @@ const Page = async (props: PageProps) => {
         <h1 className="page-title">Your reading stats</h1>
         <p className="mt-2 text-muted-foreground">Every stat on this page is free, and always will be. It&apos;s your data.</p>
         <ExploreLink isPlus={entitlementsOf(user).statsExplorer} />
-        {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<><WrapCardMaker canPickDesigns={entitlementsOf(user).customWrapDesigns} today={cardToday(user.timeZone)} years={stats.years.map((y) => y.year)} /><MonthlyWrapCards /></>} />}
+        {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<><WrapCardMaker canPickDesigns={entitlementsOf(user).customWrapDesigns} today={cardToday(user.timeZone)} filled={cardPeriods} /><MonthlyWrapCards /></>} />}
       </Container>
     </div>
   )

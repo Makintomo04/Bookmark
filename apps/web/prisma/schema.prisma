@@ -1109,6 +1109,9 @@ model BuddyReadMember {
   mutedAt          DateTime?
   // When they last had the circle open, so a comment posted while they're reading it isn't pushed too.
   lastSeenAt       DateTime?
+  // Their progress when their last weekly email went out, so the next counts the comments they've reached
+  // since (lib/jobs/weeklyDigest.ts). Unset until the first.
+  digestProgress   Float?
 
   buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
 

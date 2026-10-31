@@ -32,7 +32,7 @@ import {
   type HostingPlan,
 } from "@/lib/buddyReads";
 import { progressScale, progressSelect, unitOf } from "@/lib/progress";
-import { CLUB_COPY_STATUS, canRemoveFromClubBook, clubRole, inviteFaces } from "@/lib/clubs";
+import { CLUB_COPY_STATUS, canRemoveFromClubBook, clubRole, inviteFaces, inviteHost } from "@/lib/clubs";
 import { EntitlementError, entitlementsOf, entitlementsSelect } from "@/lib/entitlements";
 import { entitlementResponse } from "@/lib/entitlementsServer";
 
@@ -337,9 +337,10 @@ export async function loadInvite(code: string, viewerId?: string | null) {
   })
   const strip = ({ profileVisibility: _v, suspended: _s, ...m }: (typeof everyone)[number]) => m
   const members = inviteFaces(everyone, { hostId: buddyRead.hostId, viewerId, blocked }).map(strip)
-  // Named on the invite whatever their settings, since the link is theirs; not to someone they've blocked.
-  const hostRow = everyone.find((m) => m.userId === buddyRead.hostId)
-  const host = hostRow && !blocked.has(hostRow.userId) ? strip(hostRow) : null
+  // In a club's book the club's host is the one who invites, if they're reading it (lib/clubs.ts inviteHost).
+  const club = buddyRead.clubId ? await prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { hostId: true } }) : null
+  const hostRow = inviteHost(everyone, buddyRead.clubId ? club?.hostId ?? null : buddyRead.hostId, { viewerId, blocked })
+  const host = hostRow ? strip(hostRow) : null
   return { buddyRead, host, members, memberCount: everyone.length }
 }
 

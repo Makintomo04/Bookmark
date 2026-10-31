@@ -19,13 +19,16 @@ interface InvitePanelProps {
   onLinkReset?: () => void
   // A club's circle shares the club's link instead: new readers join the club, and every book after.
   clubInviteCode?: string | null
+  // An archived club's book takes only club members, so there's no link: just a username, for a member who left
+  // or one a host or co-host removed (inviting them lifts the removal).
+  clubArchived?: boolean
   // How many it takes: a club's book takes the club's size (BOO-79), up to 150.
   memberCap?: number
 }
 
 // The link is the main way in (it unfurls with the cover and everyone's colours); a friend can be ticked
 // from the list, and anyone else invited by username: both land in their notifications. Neither needs a follow.
-const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset, clubInviteCode, memberCap = BUDDY_READ_MAX_MEMBERS }) => {
+const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset, clubInviteCode, clubArchived, memberCap = BUDDY_READ_MAX_MEMBERS }) => {
   const [copied, setCopied] = useState(false)
   const [username, setUsername] = useState("")
   const [isSending, setIsSending] = useState(false)
@@ -76,18 +79,19 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
 
   return (
     <section aria-labelledby="invite-heading" className="flex flex-col gap-3">
-      <h2 id="invite-heading" className="text-sm font-semibold">Invite readers</h2>
-      <button type="button" onClick={copy} className={`${secondaryButtonClass} justify-start w-full`}>
+      <h2 id="invite-heading" className="text-sm font-semibold">{clubArchived ? "Invite a member back" : "Invite readers"}</h2>
+      {clubArchived && <p className="text-xs text-muted-foreground">The club is archived, so only its members can join. Inviting someone who was removed lets them back in.</p>}
+      {!clubArchived && <button type="button" onClick={copy} className={`${secondaryButtonClass} justify-start w-full`}>
         {copied ? <Check size={16} aria-hidden /> : <Link2 size={16} aria-hidden />}
         <span aria-live="polite">{copied ? "Link copied" : clubInviteCode ? "Copy the club's invite link" : "Copy invite link"}</span>
-      </button>
+      </button>}
       {clubInviteCode && <p className="text-xs text-muted-foreground">Whoever joins with it joins the club, so they&apos;re in for this book and the next.</p>}
-      {isHost && !clubInviteCode && (
+      {isHost && !clubInviteCode && !clubArchived && (
         <button type="button" onClick={resetLink} disabled={isResetting} className="self-start text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-60">
           {isResetting ? "Resetting…" : "Reset link"}
         </button>
       )}
-      <FriendsPicker buddyReadId={buddyReadId} memberUsernames={memberUsernames} room={memberCap - memberCount} />
+      {!clubArchived && <FriendsPicker buddyReadId={buddyReadId} memberUsernames={memberUsernames} room={memberCap - memberCount} />}
       <form onSubmit={(e) => { e.preventDefault(); invite() }} className="flex gap-2">
         <label htmlFor="invite-username" className="sr-only">Username</label>
         <ClearableInput

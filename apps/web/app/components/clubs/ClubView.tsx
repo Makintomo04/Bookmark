@@ -9,7 +9,7 @@ import { notify, apiError } from '@/lib/notify'
 import { readerName } from '@/lib/profile'
 import { isUpgradeRequired } from '@/lib/entitlements'
 import { formatPercent } from '@/lib/buddyReads'
-import { CLUB_ABOUT_MAX, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, canMuteInClub, canRemoveFromClub, circleSlotsLeft, matchesMember } from '@/lib/clubs'
+import { CLUB_ABOUT_MAX, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, canMuteInClub, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty, matchesMember } from '@/lib/clubs'
 import type { ClubView as View } from '@/lib/clubsServer'
 import useClub from '@/app/hooks/useClub'
 import ReaderName from '@/app/components/profile/ReaderName'
@@ -192,7 +192,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
               <ul className="grid gap-4 md:grid-cols-2">{reading.map((c) => <li key={c.id}><CircleCard circle={c} /></li>)}</ul>
             ) : (
               <p className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6 text-sm text-muted-foreground">
-                {upcoming.length > 0 ? "Nothing yet: the next book starts soon." : viewer.canManage ? "No book yet. Start one, and everyone in the club is added to it." : "No book yet. The host will start one soon."}
+                {clubReadingEmpty({ archived, isHost, canManage: viewer.canManage, upcoming: upcoming.length })}
               </p>
             )}
           </section>
@@ -259,9 +259,11 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
             <ul className="flex flex-col gap-2">
               {listed.map((m) => {
                 const who = readerName(m) || "this reader"
-                const canRemove = !m.isYou && !archived && canRemoveFromClub(viewer.role, m.role)
+                const canRemove = !m.isYou && canRemoveFromClubNow(viewer.role, m.role, !archived)
+                // An archived club's host can still take co-host away and remove readers, but makes no new co-hosts.
+                const canPromote = !m.isYou && m.role === "member" && canSetCoHost(viewer.role, true, !archived)
+                const canDemote = !m.isYou && m.role === "cohost" && canSetCoHost(viewer.role, false, !archived)
                 const canMute = !m.isYou && !archived && canMuteInClub(viewer.role, m.role)
-                const canPromote = !m.isYou && !archived && isHost
                 return (
                   <li key={m.userId} className="flex items-center gap-3">
                     <Link href={m.username ? `/u/${m.username}` : "#"} className="flex min-w-0 flex-1 items-center gap-3">
@@ -272,7 +274,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
                     </Link>
                     {m.muted && <span className="shrink-0 text-xs text-muted-foreground">Muted</span>}
                     {ROLE_LABEL[m.role] && <span className="shrink-0 text-xs text-muted-foreground">{ROLE_LABEL[m.role]}</span>}
-                    {(canRemove || canPromote || canMute) && (
+                    {(canRemove || canPromote || canDemote || canMute) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button type="button" aria-label={`Options for ${who}`} className="grid size-9 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -280,8 +282,8 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {canPromote && m.role === "member" && <DropdownMenuItem onSelect={() => setCoHost(m.userId, true)}>Make co-host</DropdownMenuItem>}
-                          {canPromote && m.role === "cohost" && <DropdownMenuItem onSelect={() => setCoHost(m.userId, false)}>Remove as co-host</DropdownMenuItem>}
+                          {canPromote && <DropdownMenuItem onSelect={() => setCoHost(m.userId, true)}>Make co-host</DropdownMenuItem>}
+                          {canDemote && <DropdownMenuItem onSelect={() => setCoHost(m.userId, false)}>Remove as co-host</DropdownMenuItem>}
                           {canMute && !m.muted && <DropdownMenuItem onSelect={() => setMuted(m.userId, who, true)}>Mute</DropdownMenuItem>}
                           {canMute && m.muted && <DropdownMenuItem onSelect={() => setMuted(m.userId, who, false)}>Unmute</DropdownMenuItem>}
                           {canRemove && <DropdownMenuItem onSelect={() => remove(m.userId, who)} className="text-danger">Remove from club</DropdownMenuItem>}

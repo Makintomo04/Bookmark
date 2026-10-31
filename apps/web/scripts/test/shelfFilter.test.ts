@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EMPTY_FILTER, SHELF_PAGE_MAX, SHELF_SORTS, filterOptions, isNarrowed, matchesFilter, pageShelf, pagedBooks, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
+  EMPTY_FILTER, SHELF_PAGE_MAX, SHELF_SORTS, filterOptions, isNarrowed, matchesFilter, pageShelf, pageStart, pagedBooks, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
   type ShelfBook, type ShelfFilter,
 } from "@/lib/shelfFilter";
 
@@ -94,7 +94,7 @@ test("pageShelf pages the matching books in order, with a cursor until the last 
   const first = pageShelf(books, finished, { take: 2 });
   assert.deepEqual(titles(first.books), ["Jane Eyre", "Mort"]);
   assert.equal(first.total, 3);
-  assert.equal(first.nextCursor, "2");
+  assert.equal(first.nextCursor, `2.${first.books[1].id}`);
   const last = pageShelf(books, finished, { take: 2, cursor: first.nextCursor });
   assert.deepEqual(titles(last.books), ["The Left Hand of Darkness"]);
   assert.equal(last.nextCursor, null);
@@ -107,7 +107,7 @@ test("pageShelf keeps take and cursor in range", () => {
   assert.equal(pageShelf(many, EMPTY_FILTER, { take: 1000 }).books.length, SHELF_PAGE_MAX);
   assert.equal(pageShelf(many, EMPTY_FILTER, { take: 0 }).books.length, 1);
   assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "-5" }).books[0].id, pageShelf(many, EMPTY_FILTER, { take: 10 }).books[0].id);
-  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "nonsense" }).nextCursor, "10");
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "nonsense" }).nextCursor?.split(".")[0], "10");
   assert.deepEqual(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "900" }), { books: [], total: 250, nextCursor: null });
 });
 
@@ -130,6 +130,20 @@ test("books that sort as equal keep one order whatever order they arrive in, so 
     assert.equal(new Set(seen).size, tied.length, `${sort} repeated or skipped a book`);
     assert.equal(seen.length, tied.length);
   }
+});
+
+test("a book leaving the shelf mid-scroll skips nothing: the next page starts after the last book shown", () => {
+  const shelf = Array.from({ length: 6 }, (_, i) => book({ id: `b${i}`, title: `Book ${i}`, completedAt: "2024-01-01T12:00:00Z" }));
+  const sorted = f({ sort: "title" });
+  const first = pageShelf(shelf, sorted, { take: 3 });
+  assert.deepEqual(first.books.map((b) => b.id), ["b0", "b1", "b2"]);
+  // b1 is finished elsewhere and leaves this shelf: the second page still starts at b3.
+  const second = pageShelf(shelf.filter((b) => b.id !== "b1"), sorted, { take: 3, cursor: first.nextCursor });
+  assert.deepEqual(second.books.map((b) => b.id), ["b3", "b4", "b5"]);
+  // The last book shown left: one place back, so b2 may come again (pagedBooks drops it), but b3 isn't lost.
+  assert.equal(pageStart([{ id: "b0" }, { id: "b2" }, { id: "b3" }], "3.b1"), 2);
+  // An older app's plain offset still works.
+  assert.equal(pageStart([{ id: "b0" }, { id: "b2" }], "1"), 1);
 });
 
 test("pages loaded by offset show each book once when the shelf shifts between them", () => {

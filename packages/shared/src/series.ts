@@ -1,4 +1,5 @@
 import { authorSlug } from "./authors";
+import { isUpcoming } from "./releases";
 
 // Series: following one, and the series tracker on the reader's shelf. A series is its name plus its first
 // author, since names repeat ("The Expanse" is one series, "Book One" is many): the same rule Catch me up
@@ -60,6 +61,8 @@ export interface SeriesWork {
   hardcoverId?: string | null;
   // A hand-typed work a librarian gave a page (Work.pageApprovedAt), likewise by its id.
   pageApproved?: boolean;
+  // "YYYY-MM-DD" (Work.releaseDate). A book dated ahead is listed, but never the next one to read.
+  releaseDate?: string | null;
 }
 
 // The reader's copy of one of those works.
@@ -102,7 +105,8 @@ export interface SeriesTrack {
   // Started, and nothing with a position left unread (a book marked Will not read counts as done).
   finished: boolean;
   // The next unread book: the first main (whole-numbered) book after the furthest one read, else the
-  // first main book skipped, else a novella. It can be the one they're reading now (status STARTED).
+  // first main book skipped, else a novella. It can be the one they're reading now (status STARTED). Never
+  // a book that isn't out yet (a librarian can file one in its place ahead of its release date).
   next: SeriesEntry | null;
   following: boolean;
   activeAt: string | null;
@@ -124,6 +128,7 @@ export function buildTrack(
   works: SeriesWork[],
   shelfBooks: SeriesShelfBook[],
   following: boolean,
+  today = new Date().toISOString().slice(0, 10),
 ): SeriesTrack {
   const key = seriesKey(series.name, series.author);
   const author = authorSlug(series.author);
@@ -164,8 +169,10 @@ export function buildTrack(
   const unread = positioned.filter((e) => !e.read && e.status !== "NOT_INTERESTED");
   const furthest = Math.max(-Infinity, ...positioned.filter((e) => e.read).map((e) => e.position!));
   // The main books first: a novella at 2.5 sits in order in the list but isn't put ahead of book 3.
-  const main = unread.filter((e) => Number.isInteger(e.position));
-  const next = main.find((e) => e.position! > furthest) ?? main[0] ?? unread[0] ?? null;
+  const notOut = new Set(mine.filter((w) => isUpcoming(w.releaseDate, today)).map((w) => w.id));
+  const readable = unread.filter((e) => !notOut.has(e.workId));
+  const main = readable.filter((e) => Number.isInteger(e.position));
+  const next = main.find((e) => e.position! > furthest) ?? main[0] ?? readable[0] ?? null;
   const ownBooks = entries.flatMap((e) => (e.bookId ? [shelf.get(e.workId)!] : []));
   const started = ownBooks.some((b) => isRead(b) || STARTED_STATUSES.includes(b.status));
   const activeAt = ownBooks.map((b) => b.activeAt).filter((t): t is string => !!t).sort().pop() ?? null;
