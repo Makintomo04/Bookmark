@@ -1,12 +1,10 @@
 "use client"
-import { FC, useEffect } from 'react'
+import { FC, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import useSWR from 'swr'
 import { Maximize2 } from 'lucide-react'
 import { fetcher, swrOptions } from '@/lib/fetcher'
 import type { WorkReviewsPage } from '@/lib/workReviewRules'
-import type { SeriesTrack } from '@/lib/series'
 import Modal from './Modal'
 import BookCover from '../cards/BookCover'
 import BookBlurb from '../books/BookBlurb'
@@ -25,8 +23,8 @@ import useListEditorModal from '@/app/hooks/useListEditorModal'
 import AuthorLink from '@/app/components/AuthorLink'
 import { bookHref, bookKeyOf } from '@/lib/workKey'
 import BookProblemReport from '../books/BookProblemReport'
-import SeriesSection from '../series/SeriesSection'
-import useUser from '@/app/hooks/useUser'
+import ModalSeries from '../series/ModalSeries'
+import InlineJoinPrompt from '../InlineJoinPrompt'
 
 // "12 reviews", linking to them on the book's page: the reason most people open the page, so the panel says
 // what's waiting there. Same request as the page's first page of reviews, so opening the page is quicker.
@@ -38,29 +36,6 @@ const ReviewsLink: FC<{ bookKey: string; href: string; onNavigate: () => void }>
     <Link href={`${href}#reviews-heading`} onClick={onNavigate} className="w-fit text-sm font-medium underline decoration-neutral-400/60 underline-offset-4 transition hover:decoration-current">
       {data.total.toLocaleString('en-GB')} {data.total === 1 ? "review" : "reviews"}
     </Link>
-  )
-}
-
-// "In this series", as on the book page: the series' books in order, this one marked. Nothing when the
-// book has no series in the catalog. Following a link in it closes the panel, as the title's link does.
-const ModalSeries: FC<{ bookKey: string; onNavigate: () => void }> = ({ bookKey, onNavigate }) => {
-  const { user } = useUser()
-  const pathname = usePathname()
-  const { data } = useSWR<{ series: { workId: string; position: number | null; track: SeriesTrack } | null }>(
-    `/api/books/series?workKey=${encodeURIComponent(bookKey)}`, fetcher, swrOptions)
-  const series = data?.series
-  if (!series?.track.entries.length) return null
-  return (
-    <div onClick={(e) => { if ((e.target as HTMLElement).closest('a')) onNavigate() }}>
-      <SeriesSection
-        track={series.track}
-        workId={series.workId}
-        position={series.position}
-        signedIn={!!user?.id}
-        returnTo={pathname ?? "/"}
-        headingClassName="text-lg font-semibold"
-      />
-    </div>
   )
 }
 
@@ -80,6 +55,10 @@ const BookDetailsModal: FC = () => {
   useEffect(() => {
     if (isOpen && (entryOpen || listEditorOpen)) onClose()
   }, [isOpen, entryOpen, listEditorOpen, onClose])
+
+  // Signed out, a members-only button here asks to join in place (InlineJoinPrompt), not in a second modal.
+  const [joinHeading, setJoinHeading] = useState<string | null>(null)
+  useEffect(() => { setJoinHeading(null) }, [isOpen, bookKey])
 
   const body = book ? (
     <div className="w-full self-start px-6 pb-2 grid gap-6 sm:grid-cols-[160px_1fr]">
@@ -103,9 +82,10 @@ const BookDetailsModal: FC = () => {
             {[book.year, book.pages && `${book.pages} pages`].filter(Boolean).map((part) => ` · ${part}`).join("")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-1.5">
-            <AddToShelfButton book={book} />
-            <StartCircleButton book={book} />
+            <AddToShelfButton book={book} onJoin={setJoinHeading} />
+            <StartCircleButton book={book} onJoin={setJoinHeading} />
             <AddToListButton book={book} />
+            {joinHeading && <InlineJoinPrompt key={joinHeading} heading={joinHeading} onClose={() => setJoinHeading(null)} />}
           </div>
         </div>
         <ReaderCounts bookKey={bookKey} />

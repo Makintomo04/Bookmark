@@ -26,7 +26,7 @@ const collected = (type: string) => ({
 });
 
 // The same paths apps/web/lib/appLinks.ts tells iOS and Android to hand to the app.
-const LINK_PATHS = ["/open", "/circles", "/u", "/lists", "/quests", "/reset-password", "/verify-email"];
+const LINK_PATHS = ["/open", "/circles", "/clubs", "/u", "/lists", "/quests", "/reset-password", "/verify-email"];
 
 const config: ExpoConfig = {
   name: "Bookmark",
@@ -101,6 +101,13 @@ const config: ExpoConfig = {
     ["expo-image-picker", { photosPermission: "Bookmark uses the photo you choose as your profile picture or a book cover.", cameraPermission: false, microphonePermission: false }],
     "@react-native-community/datetimepicker",
     "expo-sharing",
+    // Save to Photos for Wrapped, monthly and medal cards (components/share/ShareImageSheet). The app asks
+    // for add-only access; the read wording repeats image-picker's so neither overwrites the other.
+    ["expo-media-library", {
+      photosPermission: "Bookmark uses the photo you choose as your profile picture or a book cover.",
+      savePhotosPermission: "Bookmark saves the share cards you choose, like your Wrapped, to your photos.",
+      granularPermissions: ["photo"],
+    }],
     ["expo-notifications", { color: "#F13C3C" }],
     ["expo-splash-screen", { backgroundColor: "#0a0a0a", image: "./assets/images/splash-icon.png", imageWidth: 96 }],
     // Error monitoring (BOO-54): uploads source maps and native debug symbols during EAS builds, using the

@@ -21,9 +21,10 @@ const TierAvatar: FC<TierAvatarProps> = ({ image, username, colour, alt, booksRe
   const tier = getReaderTier(booksRead)
 
   return (
-    // The outer background-coloured edge lifts the avatar off the banner.
+    // The outer background-coloured edge lifts the avatar off the banner. Callers give it a width and height
+    // (size-*): iOS Safari squashed it into an oval when the height came from aspect-ratio alone in a flex row.
     <div
-      className={cn("relative aspect-square bg-background", square ? "rounded-[32px]" : "rounded-full", tier ? "p-[3px]" : "p-1", className)}
+      className={cn("tier-frame relative aspect-square shrink-0 bg-background", square ? "rounded-[32px]" : "rounded-full", tier ? "p-[3px]" : "p-1", className)}
       title={tier ? `${tier.label} reader: ${tier.minBooks}+ books read` : undefined}
     >
       <div

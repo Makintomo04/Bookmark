@@ -11,18 +11,18 @@ datasource db {
 }
 
 model Account {
-  id                 String  @id @default(auto()) @map("_id") @db.ObjectId
-  userId             String  @db.ObjectId
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.String
-  access_token       String?  @db.String
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.String
-  session_state      String?
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.String
+  access_token      String? @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.String
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -32,7 +32,7 @@ model Account {
 model Session {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   sessionToken String   @unique
-  userId       String  @db.ObjectId
+  userId       String   @db.ObjectId
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -86,115 +86,141 @@ model PushToken {
 }
 
 model User {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?   
-  username      String?   @unique @default(cuid())
+  id                     String                   @id @default(auto()) @map("_id") @db.ObjectId
+  name                   String?
+  username               String?                  @unique @default(cuid())
   // Shown in place of the username on their profile, cards and feed rows (packages/shared/src/profile.ts has the
   // rules). Unset shows the username.
-  displayName   String?
-  email         String?   @unique
-  emailVerified DateTime?
+  displayName            String?
+  // Up to four web addresses on the profile, so it works as a link in bio (packages/shared/src/profile.ts).
+  // Shown to whoever can see the profile, like the bio.
+  profileLinks           String[]                 @default([])
+  email                  String?                  @unique
+  emailVerified          DateTime?
   // IANA zone (e.g. "Europe/London") reported by the browser; reading-streak days roll over at its midnight.
-  timeZone      String?
-  password      String?
-  hashedPassword String?
-  bio           String?
-  image         String?
-  banner         String?
-  favColour     String? 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  favGenres String[] @db.String
+  timeZone               String?
+  password               String?
+  hashedPassword         String?
+  bio                    String?
+  image                  String?
+  banner                 String?
+  favColour              String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  favGenres              String[]                 @db.String
   // Hid the genre picks ("Somewhere to start") on their own shelf (it still shows on Discover). Unset reads as shown.
-  hideShelfPicks Boolean?
+  hideShelfPicks         Boolean?
   // Sections of their own profile they've folded up, by id (lib/profileSections.ts). Unset reads as none.
-  collapsedSections String[] @db.String
-  favouriteIds String[] @db.String
-  books Book[]
-  accounts      Account[]
-  sessions      Session[]
-  readingGoals  ReadingGoal[]
-  following     Follow[] @relation("UserFollows")
-  followers     Follow[] @relation("UserFollowedBy")
-  authorFollows AuthorFollow[]
-  seriesFollows SeriesFollow[]
-  activities    Activity[]
-  notificationsReceived Notification[] @relation("NotificationRecipient")
-  notificationsSent     Notification[] @relation("NotificationActor")
-  achievements  UserAchievement[]
-  readingDays   ReadingDay[]
+  collapsedSections      String[]                 @db.String
+  favouriteIds           String[]                 @db.String
+  books                  Book[]
+  accounts               Account[]
+  sessions               Session[]
+  readingGoals           ReadingGoal[]
+  following              Follow[]                 @relation("UserFollows")
+  followers              Follow[]                 @relation("UserFollowedBy")
+  authorFollows          AuthorFollow[]
+  seriesFollows          SeriesFollow[]
+  activities             Activity[]
+  notificationsReceived  Notification[]           @relation("NotificationRecipient")
+  notificationsSent      Notification[]           @relation("NotificationActor")
+  achievements           UserAchievement[]
+  readingDays            ReadingDay[]
   // Staff access: READER, LIBRARIAN or ADMIN (packages/shared/src/roles.ts says what each may do). Unset
   // reads as READER. Set by an admin on /staff/users, or for the first admin by scripts/set-role.ts.
-  role          String?
+  role                   String?
   // The role whose welcome this account has seen (packages/shared/src/roleWelcome.ts). Cleared when an admin
   // changes the role, so a new role is welcomed the next time the app loads.
-  roleWelcomedAs String?
+  roleWelcomedAs         String?
   // The old staff flag, before roles. Read only: scripts/set-role.ts --migrate turns it into ADMIN.
-  isStaff       Boolean @default(false)
+  isStaff                Boolean                  @default(false)
   // Suspended by an admin (lib/suspension.ts). Signed out everywhere and unable to sign in while
   // suspendedAt is set and suspendedUntil is unset (indefinite) or still ahead.
-  suspendedAt      DateTime?
-  suspendedUntil   DateTime?
-  suspensionReason String?
-  suspendedById    String? @db.ObjectId
-  lists         List[]
-  listReports   ListReport[]
+  suspendedAt            DateTime?
+  suspendedUntil         DateTime?
+  suspensionReason       String?
+  suspendedById          String?                  @db.ObjectId
+  lists                  List[]
+  listReports            ListReport[]
   // Privacy. Optional so accounts made before these existed read as the defaults
   // (PUBLIC, EVERYONE, false, false). lib/privacy.ts normalizes them and enforces every rule.
-  profileVisibility ProfileVisibility?
-  reviewVisibility  ReviewVisibility?
-  hideWantToRead    Boolean?
+  profileVisibility      ProfileVisibility?
+  reviewVisibility       ReviewVisibility?
+  // Who can comment on their reviews, among those who can see them (lib/reviewComments.ts). Unset reads as EVERYONE.
+  reviewComments         ReviewCommentAudience?
+  hideWantToRead         Boolean?
   // Keep "stopped reading" out of followers' feeds. The Did not finish shelf itself never shows to others.
-  hideDidNotFinish  Boolean?
-  hideFollowCounts  Boolean?
+  hideDidNotFinish       Boolean?
+  hideFollowCounts       Boolean?
+  // Show this year's reading goal on their profile, to anyone who can see it. Off (unset) by default.
+  showGoal               Boolean?
   // Keep favourites off the profile for everyone else. Unset shows them (privacyRules.ts).
-  hideFavourites    Boolean?
+  hideFavourites         Boolean?
   // A librarian hiding their Librarian badge (packages/shared/src/staffBadge.ts). The team's badge always shows.
-  hideStaffBadge    Boolean?
+  hideStaffBadge         Boolean?
   // Community preferences, optional for the same reason (EVERYONE, false, PRIVATE). See lib/preferences.ts.
-  buddyReadInvites      BuddyReadInviteAudience?
+  buddyReadInvites       BuddyReadInviteAudience?
   // Reveal reviews marked as spoilers instead of covering them.
-  showSpoilers          Boolean?
+  showSpoilers           Boolean?
   // What a new list starts as in the editor.
-  defaultListVisibility ListVisibility?
+  defaultListVisibility  ListVisibility?
   // Ask the shelf and Catch me up recaps (lib/preferences.ts aiFeatures). Unset reads as off on free and
   // on on Plus.
-  aiFeatures            Boolean?
+  aiFeatures             Boolean?
   // The old recaps switch, before aiFeatures. Read only: a Plus reader who switched it off stays off.
-  showRecaps            Boolean?
-  blocking      Block[] @relation("UserBlocks")
-  blockedBy     Block[] @relation("UserBlockedBy")
+  showRecaps             Boolean?
+  // Out of other readers' People you may know (lib/peopleSuggest.ts). Unset reads as suggested. A private
+  // profile is never suggested either way.
+  hideFromSuggestions    Boolean?
+  blocking               Block[]                  @relation("UserBlocks")
+  blockedBy              Block[]                  @relation("UserBlockedBy")
   // Bookmark Plus. Stripe's webhook (app/api/billing/webhook) is the only writer of these; lib/entitlements.ts
   // turns the plan into what the account may do. Optional like the other later fields: accounts made
   // before billing have no value stored, and planOf() reads that as FREE. New accounts get FREE.
-  plan                 Plan?     @default(FREE)
+  plan                   Plan?                    @default(FREE)
   // When the current paid or trial period ends. Informational: the webhook moves `plan`.
-  planRenewsAt         DateTime?
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
+  planRenewsAt           DateTime?
+  // The subscriber cancelled: Plus runs to planRenewsAt and then stops, so staff see "Ends", not "Renews".
+  planCancelsAtPeriodEnd Boolean?
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
   // Set once a trial has been used, so a second Checkout doesn't grant another.
-  trialEndsAt          DateTime?
+  trialEndsAt            DateTime?
   // Subscribed at the Founding Reader price (lib/entitlements.ts FOUNDING). Set by the webhook, never
   // cleared, and counted against the founding cap. Shows a Founding badge while on Plus.
-  foundingMember       Boolean?
+  foundingMember         Boolean?
   // Bought the one-time lifetime Plus (no longer sold). Plus for good; subscription events
   // never downgrade it. Cleared only by a full refund or a dispute of that payment.
-  lifetime             Boolean?
+  lifetime               Boolean?
   // On the Patron yearly price (no longer offered): same features, a Patron badge. Follows the subscription.
-  patron               Boolean?
+  patron                 Boolean?
   // Free Plus until this date (from referrals and gift codes before launch, or set by staff). No Stripe subscription.
-  compPlusUntil        DateTime?
+  compPlusUntil          DateTime?
   // Plus bought in the iOS or Android app, through RevenueCat (app/api/billing/revenuecat). Kept apart
   // from the Stripe fields so neither store's events can end the other's subscription. storePlusUntil is
   // when the store says access ends (null on free); storeName is APP_STORE or PLAY_STORE.
-  storePlusUntil       DateTime?
-  storeName            String?
-  storeProductId       String?
-  storeTrialing        Boolean?
+  storePlusUntil         DateTime?
+  storeName              String?
+  storeProductId         String?
+  storeTrialing          Boolean?
   // Push notification groups the reader switched off (lib/push.ts PUSH_GROUPS). Unset reads as all on.
-  pushOff              String[] @db.String
-  mobileSessions       MobileSession[]
-  pushTokens           PushToken[]
+  pushOff                String[]                 @db.String
+  mobileSessions         MobileSession[]
+  pushTokens             PushToken[]
+  // Reminders the reader turned on (BOO-48, packages/shared/src/reminders.ts). All off unless set.
+  // The daily reminder's time in minutes past local midnight, in 15-minute steps; null is off.
+  readingReminderMinute  Int?
+  streakAlerts           Boolean?
+  checkpointReminders    Boolean?
+  // Quiet hours in local minutes; unset is 22:00 to 08:00. Reminders never go out inside them.
+  quietStartMinute       Int?
+  quietEndMinute         Int?
+  // The weekly email, and when they said yes to it (the consent record).
+  weeklyEmail            Boolean?
+  weeklyEmailConsentAt   DateTime?
+  // When the reminders sheet was shown after their first finished book, so it's only asked once.
+  remindersPromptedAt    DateTime?
+  scheduledSends         ScheduledSend[]
 
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
@@ -217,6 +243,14 @@ enum ReviewVisibility {
   ONLY_ME
 }
 
+// Who can comment on this reader's reviews. Seeing a review is reviewVisibility's call; this narrows who may reply.
+enum ReviewCommentAudience {
+  EVERYONE
+  // Only their friends: readers they follow who follow them back (lib/friends.ts).
+  FRIENDS
+  OFF
+}
+
 // Who can invite this reader to a reading circle by username. The invite link always works.
 enum BuddyReadInviteAudience {
   EVERYONE
@@ -229,9 +263,9 @@ enum BuddyReadInviteAudience {
 
 // blockerId has blocked blockedId. Either direction hides the two from each other (lib/privacy.ts).
 model Block {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  blockerId String @db.ObjectId
-  blockedId String @db.ObjectId
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  blockerId String   @db.ObjectId
+  blockedId String   @db.ObjectId
   createdAt DateTime @default(now())
 
   blocker User @relation("UserBlocks", fields: [blockerId], references: [id], onDelete: Cascade)
@@ -244,12 +278,12 @@ model Block {
 }
 
 model Follow {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  followerId String @db.ObjectId
-  followingId String @db.ObjectId
-  createdAt DateTime @default(now())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  followerId  String   @db.ObjectId
+  followingId String   @db.ObjectId
+  createdAt   DateTime @default(now())
 
-  follower User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  follower  User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
   following User @relation("UserFollowedBy", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
@@ -257,15 +291,27 @@ model Follow {
   @@index([followingId, createdAt])
 }
 
+// A librarian's own bio and photo for an author page, in place of Open Library's (lib/authorProfile.ts).
+// Keyed by the page's slug, so renaming or merging an author starts them afresh. Unset fields fall back
+// to Open Library.
+model AuthorProfile {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  slug String @unique
+  bio String?
+  photoUrl String?
+  updatedById String? @db.ObjectId
+  updatedAt DateTime @updatedAt
+}
+
 // A reader following an author (lib/authorFollows.ts). Keyed by the Open Library author key, which stays
 // put when the name on a copy is spelled differently. Name and slug are as they were when followed, for
 // the "Authors you follow" list. Authors don't have accounts: the page and the follow are ours.
 model AuthorFollow {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
   authorKey String
-  name String
-  slug String
+  name      String
+  slug      String
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -273,17 +319,19 @@ model AuthorFollow {
   @@unique([userId, authorKey])
   // Everyone following an author, for telling them about a new book later.
   @@index([authorKey])
+  // The same by slug, which is how an author is checked on Hardcover (AuthorCheck) and named on a work.
+  @@index([slug])
 }
 
 // A reader following a series (lib/seriesFollows.ts), keyed by its name and first author
 // (packages/shared/src/series.ts seriesKey). Name and author are kept as the catalog spelt them when
 // followed, for the tracker. Free for everyone.
 model SeriesFollow {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
   seriesKey String
-  name String
-  author String
+  name      String
+  author    String
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -297,45 +345,75 @@ model SeriesFollow {
 // is filled (lib/seriesFill.ts), or by the cron (app/api/cron/series) once someone follows or reads a
 // series filled before; the cron re-asks about it weekly.
 model SeriesCheck {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
   // lib/series.ts seriesKey: the series' name and author, as SeriesFollow keys it.
-  seriesKey String @unique
+  seriesKey         String   @unique
   // As the catalogue spells it (Work.seriesName), and the author it's credited to.
-  name String
-  author String
+  name              String
+  author            String
   // Null when Hardcover didn't know the series; it's looked up again at the next weekly check.
   hardcoverSeriesId Int?
   // The furthest whole-numbered book seen so far. A released book past it is new.
-  highestPosition Float?
+  highestPosition   Float?
   // Set when books past this place have come out and their readers are still being told: the cron tells
   // them in batches (lib/seriesNews.ts), then clears it.
-  announceAfter Float?
-  checkedAt DateTime
-  createdAt DateTime @default(now())
+  announceAfter     Float?
+  checkedAt         DateTime
+  createdAt         DateTime @default(now())
 
   // The cron takes the series asked about longest ago.
   @@index([checkedAt])
   @@index([announceAfter])
 }
 
+// An author as Hardcover knows them, for spotting new books (lib/authorNews.ts). Recorded by the cron
+// (app/api/cron/authors) once someone follows the author, or a series of theirs, and asked about again weekly.
+model AuthorCheck {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  // lib/authorNames.ts authorSlug, as AuthorFollow.slug has it.
+  slug              String   @unique
+  name              String
+  // Null until Hardcover was asked, or when it didn't know them; looked up again at the next weekly check.
+  hardcoverAuthorId Int?
+  // Hardcover's ids for the author's books out lately or coming, as last seen. A book not among them is new.
+  seenBookIds       Int[]
+  // New books whose readers are still being told: the cron tells them in batches, then clears it.
+  announcing        AuthorNewBook[]
+  checkedAt         DateTime
+  createdAt         DateTime @default(now())
+
+  // The cron takes the authors asked about longest ago.
+  @@index([checkedAt])
+}
+
+// One of an AuthorCheck's new books: the catalogue work, and the series Hardcover puts it in, so the series'
+// followers are told too.
+type AuthorNewBook {
+  workId     String  @db.ObjectId
+  seriesName String?
+  // The check that found it ("<checkedAt ISO>"). Each check's books are announced as one batch, so a reader
+  // told about an earlier batch still hears about a later one. Unset on books queued before batches.
+  batch      String?
+}
+
 model ReadingGoal {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  year Int
-  targetBooks Int
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String   @db.ObjectId
+  year                Int
+  targetBooks         Int
   // Plus goals (lib/entitlements.ts: extraGoalTypes). Null means not set; a free account keeps what it set while on Plus.
-  targetPages Int?
+  targetPages         Int?
   targetBooksPerMonth Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, year])
 }
 
 model VerificationToken {
-  id String  @id @default(auto()) @map("_id") @db.ObjectId
-  identifier String  
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
   token      String   @unique
   expires    DateTime
 
@@ -343,76 +421,86 @@ model VerificationToken {
 }
 
 model Book {
-  id String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  title String
-  author String
-  description String?
-  coverImage String
-  cardColour String?
-  status Status @default(NOT_STARTED)
-  genre String?
+  id                String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String          @db.ObjectId
+  title             String
+  author            String
+  description       String?
+  coverImage        String
+  cardColour        String?
+  status            Status          @default(NOT_STARTED)
+  genre             String?
   // 0.25 to 5 in quarter-star steps (lib/readHistory.ts ratingSchema).
-  rating Float?
+  rating            Float?
   // The reader's own filing labels ("owned", "kindle", "book-club-2023"), private to them. Imported from
   // Goodreads shelves and StoryGraph tags, written back out as "Bookshelves". Not ReaderTags, which
   // describe the work for everyone.
-  tags String[] @db.String
-  review String?
+  tags              String[]        @db.String
+  review            String?
   // The review gives the plot away: others see it collapsed behind a click-to-reveal.
-  reviewSpoiler Boolean?
+  reviewSpoiler     Boolean?
   // Only the reader sees this review, whatever their review visibility setting.
-  reviewPrivate Boolean?
+  reviewPrivate     Boolean?
   // Staff took the review down after a report (lib/staffReports.ts): only the reader still sees the text.
   // Stays set when they edit it, until staff lift it. Their own copy, stats and export are untouched.
-  reviewHiddenAt DateTime?
+  reviewHiddenAt    DateTime?
+  reviewComments    ReviewComment[]
   // Staff also took the rating out of the book's average and every "people you follow" signal.
-  ratingHiddenAt DateTime?
+  ratingHiddenAt    DateTime?
   // A private copy: only the reader sees it, whatever shelf it's on. Left off their profile, the feed, Wrapped
   // as others see it, and every "people you follow" signal (lib/privacy.ts sharedBookWhere). Unset is shared.
-  isPrivate Boolean?
+  isPrivate         Boolean?
   // Completed reads. Kept in step with BookRead rows whose status is COMPLETED.
-  timesRead Int @default(0)
-  notes Note[]
+  timesRead         Int             @default(0)
+  notes             Note[]
   // 0 is allowed for an audiobook whose print length nobody knows; progress then runs on minutes.
-  pages Int
-  currentPage Int? @default(0)
+  pages             Int
+  currentPage       Int?            @default(0)
   // Audiobooks: progress is logged as minutes listened out of the edition's running time instead of
   // pages (lib/progress.ts). Unset means PAGES. audioMinutes is copied from the Edition so per-reader
   // queries don't need a join; currentMinute mirrors the open read the way currentPage does.
-  progressUnit ProgressUnit?
-  audioMinutes Int?
-  currentMinute Int?
+  progressUnit      ProgressUnit?
+  audioMinutes      Int?
+  currentMinute     Int?
   // Kindle readers log a percent, not a page. currentPercent is the exact percent typed (the page or
   // minute above is set to match when the length is known, so pace and stats keep working); null when
   // the place was last logged in pages or minutes. logsPercent remembers the reader's choice per book.
-  currentPercent Float?
-  logsPercent Boolean?
-  createdAt DateTime @default(now())
+  currentPercent    Float?
+  logsPercent       Boolean?
+  // Chapters and Kindle locations are more ways of entering progress, like percent: the place is stored as a
+  // percent (currentPercent, with its page beside it), and these say it the way the reader logged it. The
+  // totals belong to the reader's own edition. logsIn remembers how they log this book; unset reads as pages,
+  // or percent when logsPercent is set (lib/progress.ts entryOf).
+  chapters          Int?
+  currentChapter    Int?
+  locations         Int?
+  currentLocation   Int?
+  logsIn            ProgressEntry?
+  createdAt         DateTime        @default(now())
   // These mirror the current (or latest) read so existing queries keep working; BookRead holds the history.
-  startedAt DateTime?
-  completedAt DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
   // When the book was put down: set while DNF or PAUSED, cleared otherwise. A DNF's page is currentPage.
-  stoppedAt DateTime?
+  stoppedAt         DateTime?
   // The reader's last progress update (start, progress, resume). Unset on books not updated since this
   // existed; lib/recap.ts falls back to startedAt to tell a book left untouched for a while.
-  progressAt DateTime?
+  progressAt        DateTime?
   // Open Library work key (e.g. OL45883W), so the same book can be matched across readers and lists.
-  workKey String?
+  workKey           String?
   // The shared catalog (Work and Edition below). Optional while rows shelved before the catalog existed
   // are backfilled (scripts/backfill-catalog.ts); title, author, cover and pages above stay the reader's
   // own copy, so every existing query keeps working.
-  workId String? @db.ObjectId
-  editionId String? @db.ObjectId
+  workId            String?         @db.ObjectId
+  editionId         String?         @db.ObjectId
   // Who put this book on the reader's radar, seen only by the reader: a Bookmark user (set when the book
   // was added from a recommendation) or a free-text name for someone who isn't on Bookmark.
-  recommendedById String? @db.ObjectId
+  recommendedById   String?         @db.ObjectId
   recommendedByName String?
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  work Work? @relation(fields: [workId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  edition Edition? @relation(fields: [editionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  activities Activity[]
-  reads BookRead[]
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  work              Work?           @relation(fields: [workId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  edition           Edition?        @relation(fields: [editionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  activities        Activity[]
+  reads             BookRead[]
 
   // Shelf (userId) and public profile (userId + status in STARTED/COMPLETED). The prefix covers userId alone.
   @@index([userId, status])
@@ -436,49 +524,59 @@ enum EditionFormat {
 }
 
 model Work {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
   // Identity, always set: "ol:OL45883W" for an Open Library work, or "title:<normalised title>|<normalised author>"
   // for a book nobody could match. Required so the unique index needs no sparse handling of nulls.
-  key String @unique
+  key                 String    @unique
   // Open Library work key (OL45883W), when known. Null for manual entries.
-  openLibraryKey String?
+  openLibraryKey      String?
   // Hardcover's book id, for a book first added from a Hardcover search hit (lib/hardcover.ts). With no
   // Open Library key, this is what gives the work a book page (lib/bookPage.ts): a hand-typed work has neither.
-  hardcoverId String?
-  title String
-  authors String[] @db.String
+  hardcoverId         String?
+  // When a librarian gave a hand-typed work a book page, having checked it's a real book and not someone's
+  // private note (lib/workPages.ts). Unset for every other work, whose page comes from either key above.
+  pageApprovedAt      DateTime?
+  title               String
+  authors             String[]  @db.String
   // Open Library author keys (OL7477772A), in step with `authors` where Open Library had them. The
   // stable identity author pages (lib/authors.ts) look works up by, and that following an author will build on.
-  authorKeys String[] @db.String
-  description String?
+  authorKeys          String[]  @db.String
+  description         String?
   // Open Library subjects, capped, as the seed for genres and (later) mood search.
-  subjects String[] @db.String
-  seriesName String?
+  subjects            String[]  @db.String
+  seriesName          String?
   // 1, 2, 2.5…
-  seriesPosition Float?
+  seriesPosition      Float?
   // When Hardcover was last asked for the work's series (lib/seriesFill.ts), so a standalone isn't asked
   // about every time someone shelves it.
-  seriesCheckedAt DateTime?
-  coverUrl String?
-  firstPublishYear Int?
+  seriesCheckedAt     DateTime?
+  coverUrl            String?
+  firstPublishYear    Int?
+  // "YYYY-MM-DD": the day the book first came out, or comes out (lib/releases.ts). From Hardcover, or an
+  // Open Library edition from its first year. Unset when only the year is known. Upcoming in Discover and
+  // the publication-day alert read it, so text compares do for dates.
+  releaseDate         String?
+  // When staff last looked at a burst of ratings on the book (lib/ratingSpikes.ts): only ratings after it
+  // can flag the book again.
+  ratingsReviewedAt   DateTime?
   // Fields a librarian corrected (title, authors, description, coverUrl). lib/catalog never overwrites them.
-  curatedFields String[] @db.String
+  curatedFields       String[]  @db.String
   // Open Library's counts for the work, for the recaps popularity gate (lib/recap.ts isWellKnown).
   // Filled on first need and refreshed when popularityCheckedAt is a month old.
-  olEditionCount Int?
-  olRatingsCount Int?
-  olReadingLogCount Int?
+  olEditionCount      Int?
+  olRatingsCount      Int?
+  olReadingLogCount   Int?
   popularityCheckedAt DateTime?
   // "<author slug>|<title key>": the first author and the title once case, series suffixes, edition tags
   // and a leading article are set aside (lib/catalog/normalise.ts workMatchKey). A new book with no exact
   // key match is filed under an existing work with the same match key instead of a duplicate. Filled for
   // older rows by scripts/backfill-work-match-keys.ts.
-  matchKey String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  matchKey            String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  editions Edition[]
-  books Book[]
+  editions   Edition[]
+  books      Book[]
   readerTags ReaderTags[]
 
   @@index([openLibraryKey])
@@ -487,6 +585,8 @@ model Work {
   @@index([matchKey])
   // A series' books, for the series cron (lib/seriesRecheck.ts).
   @@index([seriesName])
+  // Upcoming in Discover, and the books coming out today (lib/jobs/publicationDay.ts).
+  @@index([releaseDate])
 }
 
 // ---- Moods and content warnings -----------------------------------------------------------
@@ -517,14 +617,14 @@ enum WarningLevel {
 }
 
 model ReaderTags {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  workId String @db.ObjectId
-  userId String @db.ObjectId
-  moods Mood[]
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  workId    String   @db.ObjectId
+  userId    String   @db.ObjectId
+  moods     Mood[]
   // [{ "topic": "Sexual assault", "level": "GRAPHIC" }], topics from WARNING_TOPICS in lib/workTags.ts.
-  warnings Json?
+  warnings  Json?
   // 0 to 5 (SPICE_MAX in lib/workTags.ts), only from a reader who finished the book. Unset: not reported.
-  spice Int?
+  spice     Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -536,28 +636,31 @@ model ReaderTags {
 }
 
 model Edition {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  workId String @db.ObjectId
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  workId         String         @db.ObjectId
   // Identity, always set: "ol:OL7353617M", else "isbn:<isbn13>", else "isbn10:<isbn10>", else
   // "generic:<workId>:<format>:<pages>" for a best guess with no identifier (backfilled and manual books).
-  key String @unique
+  key            String         @unique
   // Open Library edition key (OL7353617M), when known.
   openLibraryKey String?
-  isbn10 String?
-  isbn13 String?
-  format EditionFormat?
-  pages Int?
+  isbn10         String?
+  isbn13         String?
+  format         EditionFormat?
+  pages          Int?
   // Audiobooks: running time.
-  audioMinutes Int?
-  publisher String?
-  publishedYear Int?
-  coverUrl String?
+  audioMinutes   Int?
+  publisher      String?
+  publishedYear  Int?
+  // "YYYY-MM-DD", when the edition's full date is known (an Open Library publish date, a Hardcover release).
+  // publishedYear is set alongside it, so year-only readers of an edition keep working.
+  releaseDate    String?
+  coverUrl       String?
   // Fields a librarian corrected (pages, coverUrl). lib/catalog never overwrites them.
-  curatedFields String[] @db.String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  curatedFields  String[]       @db.String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+  work  Work   @relation(fields: [workId], references: [id], onDelete: Cascade)
   books Book[]
 
   // A work's editions.
@@ -569,13 +672,13 @@ model Edition {
 }
 
 model Note {
-  id String   @id @default(auto()) @map("_id") @db.ObjectId
-  bookId String @db.ObjectId
-  title String?
-  content String
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookId    String   @db.ObjectId
+  title     String?
+  content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
   @@index([bookId])
 }
@@ -593,6 +696,14 @@ enum Status {
 }
 
 // What a read's progress is counted in. PAGES is the default for every read made before this existed.
+// How a reader logs progress for one book (Book.logsIn). Percent, chapters and locations all store a percent.
+enum ProgressEntry {
+  PAGES
+  PERCENT
+  CHAPTERS
+  LOCATION
+}
+
 enum ProgressUnit {
   PAGES
   // Minutes listened, out of the edition's audioMinutes.
@@ -602,39 +713,39 @@ enum ProgressUnit {
 // One row per time a reader picks a book up. "Read again" closes the current read and opens a new one,
 // so earlier dates and ratings survive. Book.status/startedAt/completedAt/timesRead mirror these rows.
 model BookRead {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  bookId String @db.ObjectId
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  bookId          String        @db.ObjectId
   // Copied from the book so per-reader queries (stats, Wrapped, export) don't need a join. A scalar,
   // not a relation, so User is untouched: reads go with their book, and books go with their user.
-  userId String @db.ObjectId
+  userId          String        @db.ObjectId
   // Null for a past read shelved as Finished without dates (and for reads backfilled from those).
-  startedAt DateTime?
+  startedAt       DateTime?
   // Set when the read ends: COMPLETED or DNF. Null while STARTED or PAUSED, and for undated past reads.
-  finishedAt DateTime?
+  finishedAt      DateTime?
   // STARTED, PAUSED, COMPLETED or DNF. A read is never NOT_STARTED.
-  status Status
+  status          Status
   // The rating given for this read. Book.rating is the reader's current rating.
-  rating Float?
+  rating          Float?
   // For a DNF, the page the reader stopped at.
-  stoppedAtPage Int?
+  stoppedAtPage   Int?
   // Audiobook reads: the unit, the edition's running time when the read was open, and how far the
   // reader got in minutes (kept up to date while the read is open; final once it ends). Book mirrors
   // the open read's values. Unset on reads made before this existed, which are all in pages.
-  progressUnit ProgressUnit?
-  audioMinutes Int?
-  currentMinute Int?
+  progressUnit    ProgressUnit?
+  audioMinutes    Int?
+  currentMinute   Int?
   // For a DNF of an audiobook, the minute the reader stopped at.
   stoppedAtMinute Int?
   // The percent the reader logged, when they logged one (Book.currentPercent): kept up to date while
   // the read is open, final on a DNF.
-  currentPercent Float?
+  currentPercent  Float?
   // The book's page count when this read ended, stamped with progressUnit and audioMinutes above, so
   // stats and Wrapped count each read in the format and length it was read in (lib/progress.ts
   // readLength). Unset on reads that ended before this existed: those follow the book until an edit
   // to its format or length stamps them (readLengthsAfterEdit).
-  pages Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  pages           Int?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
@@ -647,13 +758,13 @@ model BookRead {
 }
 
 model Activity {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  bookId String? @db.ObjectId
-  type ActivityType
-  createdAt DateTime @default(now())
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String       @db.ObjectId
+  bookId    String?      @db.ObjectId
+  type      ActivityType
+  createdAt DateTime     @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   book Book? @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
   // Feed: activity from followed users, newest first.
@@ -673,27 +784,35 @@ enum ActivityType {
 }
 
 model Notification {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  actorId String @db.ObjectId
-  type NotificationType
-  bookId String? @db.ObjectId
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String           @db.ObjectId
+  actorId        String           @db.ObjectId
+  type           NotificationType
+  bookId         String?          @db.ObjectId
   achievementKey String?
   // Reading circle notifications: which reading circle, and how many joins or unlocked comments one row stands for.
-  buddyReadId String? @db.ObjectId
-  count Int?
+  buddyReadId    String?          @db.ObjectId
+  count          Int?
   // BOOK_RECOMMENDED: the sender's optional note. bookId is the sender's own copy of the book.
-  message String?
+  message        String?
   // NEW_IN_SERIES: the catalogue Work that's new, the first of `count` new books in its series.
-  workId String? @db.ObjectId
-  read Boolean @default(false)
-  createdAt DateTime @default(now())
+  workId         String?          @db.ObjectId
+  // NEW_BOOK and PUBLICATION_DAY: the catalogue Work, the first of `count` for NEW_BOOK.
+  // REVIEW_COMMENT / REVIEW_REPLY: the comment (bookId is the reviewer's copy of the book).
+  commentId      String?          @db.ObjectId
+  read           Boolean          @default(false)
+  // Book news written during the reader's quiet hours (packages/shared/src/push.ts HELD_IN_QUIET_HOURS): in
+  // the bell at once, pushed by the cron tick once quiet hours end (lib/jobs/heldPushes.ts), then unset.
+  pushHeld       Boolean?
+  createdAt      DateTime         @default(now())
 
   user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
   actor User @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
 
   // Bell: unread count and mark-all-read (userId + read), and the list (userId, sorted by createdAt).
   @@index([userId, read, createdAt])
+  // Pushes waiting for quiet hours to end.
+  @@index([pushHeld])
 }
 
 enum NotificationType {
@@ -711,6 +830,9 @@ enum NotificationType {
   // The host closed their account and the reading circle passed to you. actorId is you (the old host is gone);
   // if you had no room it arrived archived.
   BUDDY_READ_HOST_INHERITED
+  // A host or co-host started your club's next book, and you were added to its reading circle (BOO-49).
+  // actorId is whoever started it; buddyReadId the new circle.
+  CLUB_CIRCLE_ADDED
   // Someone asked to follow your followers-only or private profile (lib/followRequests.ts).
   FOLLOW_REQUEST
   // You finished a seasonal quest (cut before launch; old rows are left out of the bell).
@@ -722,12 +844,33 @@ enum NotificationType {
   // A new book came out in a series you follow or have started (lib/seriesNews.ts). actorId is you, since
   // nobody did it; workId is the new book, count how many came out at once.
   NEW_IN_SERIES
+  // A new book was announced, or has just come out, by an author you follow or in a series you follow
+  // (lib/authorNews.ts). actorId is you, as NEW_IN_SERIES; workId is the book, count how many at once.
+  NEW_BOOK
+  // A book on your Want to read, or by an author or in a series you follow, is out today
+  // (lib/jobs/publicationDay.ts). Sent in the morning of your own day. actorId is you; workId is the book.
+  PUBLICATION_DAY
+  // Staff (lib/staffNotify.ts). Reports are waiting in the queue: at most one unread per librarian or admin,
+  // refreshed with count (what's waiting on them) as more come in. actorId is the recipient.
+  STAFF_REPORT
+  // A librarian passed a report to admins. actorId is the librarian; message is the kind (review, list...).
+  STAFF_ESCALATION
+  // An admin closed a report you escalated. actorId is you; message is "<kind>:<ACTIONED|DISMISSED>".
+  ESCALATION_RESOLVED
+  // Staff put your hidden review back up. actorId is you, as REVIEW_HIDDEN; bookId is your copy, message its title.
+  REVIEW_RESTORED
+  // An admin changed your role. actorId is you, so no admin is named; message is the new role.
+  ROLE_CHANGED
+  // Someone commented on your review. bookId is your copy, commentId the comment.
+  REVIEW_COMMENT
+  // Someone replied to your comment on a review. bookId is the reviewer's copy, commentId the reply.
+  REVIEW_REPLY
 }
 
 model UserAchievement {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  key String
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String   @db.ObjectId
+  key      String
   earnedAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -738,15 +881,36 @@ model UserAchievement {
 // A calendar day (in the reader's time zone) on which they logged reading: a page update or a
 // finished book. One row per day, so reading streaks don't need to scan every Activity row.
 model ReadingDay {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
   // "YYYY-MM-DD", so it sorts and compares as text.
-  day String
+  day       String
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, day])
+}
+
+// One row per scheduled message sent (lib/jobs/ledger.ts): a reminder, a checkpoint push, a weekly email.
+// The row is claimed before sending, so a retried or overlapping cron tick can't send twice. Rows older
+// than 60 days are cleared by the tick.
+model ScheduledSend {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String   @db.ObjectId
+  // "nudge" (the daily reminder), "streak" (the streak alert), "checkpoint", "digest" or "release" (a
+  // publication-day alert, keyed by the work).
+  kind    String
+  // Once per what: the local day ("2026-10-31"), the circle and due date, or the ISO week ("2026-W44").
+  key     String
+  // "push" or "email"
+  channel String
+  sentAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, key])
+  @@index([sentAt])
 }
 
 enum ListVisibility {
@@ -755,31 +919,31 @@ enum ListVisibility {
 }
 
 model List {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  ownerId String @db.ObjectId
-  title String
-  description String?
-  visibility ListVisibility @default(PRIVATE)
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId       String         @db.ObjectId
+  title         String
+  description   String?
+  visibility    ListVisibility @default(PRIVATE)
   // Team-curated "Bookmark Picks". Only staff can set this, along with the featured window and hidden.
-  isPick Boolean @default(false)
-  genres String[] @db.String
-  tags String[] @db.String
-  featuredFrom DateTime?
+  isPick        Boolean        @default(false)
+  genres        String[]       @db.String
+  tags          String[]       @db.String
+  featuredFrom  DateTime?
   featuredUntil DateTime?
   featuredLabel String?
-  hidden Boolean @default(false)
+  hidden        Boolean        @default(false)
   // Editors' choice: a librarian or admin chose this reader's list to lead its genres' pages on Discover
   // (lib/genreLists.ts), ahead of the lists picked automatically. Unset is not chosen.
-  chosenAt DateTime?
-  chosenById String? @db.ObjectId
+  chosenAt      DateTime?
+  chosenById    String?        @db.ObjectId
   // Set when the list was copied ("remixed") from someone else's public list. A plain id, not a
   // relation, so deleting the original leaves its remixes alone.
-  forkedFromId String? @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  forkedFromId  String?        @db.ObjectId
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  items ListItem[]
+  owner   User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items   ListItem[]
   reports ListReport[]
 
   // A reader's own lists, most recently updated first. The prefix covers ownerId alone (counts, ownership checks).
@@ -792,18 +956,22 @@ model List {
 
 // One report per reader per list. Staff review reported lists and use `hidden` to take one down.
 model ListReport {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  listId String @db.ObjectId
-  reporterId String @db.ObjectId
-  reason String
-  createdAt DateTime @default(now())
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  listId         String    @db.ObjectId
+  reporterId     String    @db.ObjectId
+  reason         String
+  createdAt      DateTime  @default(now())
   // The staff reports queue (/staff/reports): OPEN until a librarian or admin resolves it. Unset reads as OPEN.
-  status String?
-  resolvedById String? @db.ObjectId
-  resolvedAt DateTime?
+  status         String?
+  resolvedById   String?   @db.ObjectId
+  resolvedAt     DateTime?
   resolutionNote String?
+  // Set when a librarian passes it to an admin: who, when and why. Kept after the admin closes it.
+  escalatedById  String?   @db.ObjectId
+  escalatedAt    DateTime?
+  escalationNote String?
 
-  list List @relation(fields: [listId], references: [id], onDelete: Cascade)
+  list     List @relation(fields: [listId], references: [id], onDelete: Cascade)
   reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
   @@unique([listId, reporterId])
@@ -811,20 +979,20 @@ model ListReport {
 
 // Items snapshot the book's details: books are per-user rows, so there's no shared record to point at.
 model ListItem {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  listId String @db.ObjectId
-  workKey String?
-  title String
-  author String
-  coverUrl String?
-  pages Int?
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  listId       String   @db.ObjectId
+  workKey      String?
+  title        String
+  author       String
+  coverUrl     String?
+  pages        Int?
   // The curator's reason: "why you'd like this".
-  note String?
+  note         String?
   // Who wrote the note when it isn't the list's owner: a remix keeps the original curator's reasons.
   // Unset means the owner. A plain id, so a deleted account just falls back to the owner.
-  noteAuthorId String? @db.ObjectId
-  position Int
-  createdAt DateTime @default(now())
+  noteAuthorId String?  @db.ObjectId
+  position     Int
+  createdAt    DateTime @default(now())
 
   list List @relation(fields: [listId], references: [id], onDelete: Cascade)
 
@@ -841,27 +1009,27 @@ model ListItem {
 // request comes near a serverless time limit. userId is a scalar, not a relation, so User is untouched;
 // rows are cleared once the import finishes, leaving only the summary.
 model ImportJob {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
   // goodreads, storygraph or bookmark.
-  source String
-  fileName String?
+  source       String
+  fileName     String?
   // matching → ready → importing → done, or cancelled.
-  status String @default("matching")
+  status       String   @default("matching")
   // ImportRow[] (lib/import/types.ts).
-  rows Json
+  rows         Json
   // { "<row index>": ImportMatch | null } for every row looked up so far (null: no match).
-  matches Json
+  matches      Json
   // A book id per row, chosen up front so a retried batch finds its books instead of inserting them twice.
-  bookIds String[]
+  bookIds      String[]
   // Rows before this index have been imported or skipped.
-  importCursor Int @default(0)
+  importCursor Int      @default(0)
   // Index into bookIds up to which covers have been copied to UploadThing (after the import).
-  coverCursor Int @default(0)
+  coverCursor  Int      @default(0)
   // Running counts while importing, then the summary.
-  result Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  result       Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // The reader's latest job, for resuming after a reload.
   @@index([userId, createdAt])
@@ -880,52 +1048,58 @@ enum BuddyReadStatus {
 }
 
 model BuddyRead {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
   // A snapshot of the host's book, so the invite page and joiners don't depend on anyone's shelf.
-  workKey String?
-  title String
-  author String
-  coverImage String?
-  cardColour String?
+  workKey      String?
+  title        String
+  author       String
+  coverImage   String?
+  cardColour   String?
   // The host's edition, used as the page count when a joiner gets the book added to their shelf.
-  pages Int
+  pages        Int
   // And its running time when the host listens: a joiner's new shelf copy keeps the same scale.
   audioMinutes Int?
-  hostId String @db.ObjectId
+  hostId       String          @db.ObjectId
   // Set when hosting was handed on (the host left or closed their account). Inherited circles don't count
   // against the host's own limit; they have a separate cap (lib/buddyReads.ts INHERITED_HOSTING_LIMIT).
   inheritedAt  DateTime?
-  startsAt DateTime
+  startsAt     DateTime
   // Optional reading plan: [{ label: "Chapters 1-5", until: 20, due: "2026-11-01" }], until being a percent.
-  schedule Json?
-  status BuddyReadStatus @default(ACTIVE)
-  inviteCode String @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  schedule     Json?
+  status       BuddyReadStatus @default(ACTIVE)
+  inviteCode   String          @unique
+  // Set when the circle is one of a club's books (BOO-49). Its members come from the club, and it doesn't
+  // count against the host's own hosting limit (the club does).
+  clubId       String?         @db.ObjectId
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  members BuddyReadMember[]
+  members  BuddyReadMember[]
   comments BuddyReadComment[]
-  invites BuddyReadInvite[]
+  invites  BuddyReadInvite[]
+  club     Club?             @relation(fields: [clubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   // Hosted reading circles (the medal, and the host's list).
   @@index([hostId, createdAt])
+  // A club's books: what it's reading, what's next and what it's read.
+  @@index([clubId, startsAt])
 }
 
 model BuddyReadMember {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  buddyReadId String @db.ObjectId
-  userId String @db.ObjectId
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId      String    @db.ObjectId
+  userId           String    @db.ObjectId
   // The member's own shelf Book; their progress is its currentPage / pages.
-  bookId String @db.ObjectId
-  joinedAt DateTime @default(now())
+  bookId           String    @db.ObjectId
+  joinedAt         DateTime  @default(now())
   // The furthest percent this member has been told about, so unlock notifications never repeat.
-  notifiedProgress Float @default(0)
+  notifiedProgress Float     @default(0)
   // When their book first reached 100%.
-  finishedAt DateTime?
+  finishedAt       DateTime?
   // Set while they've muted the circle: no comment notifications, bell or push. Unset reads as not muted.
-  mutedAt DateTime?
+  mutedAt          DateTime?
   // When they last had the circle open, so a comment posted while they're reading it isn't pushed too.
-  lastSeenAt DateTime?
+  lastSeenAt       DateTime?
 
   buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
 
@@ -938,26 +1112,26 @@ model BuddyReadMember {
 }
 
 model BuddyReadComment {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  buddyReadId String @db.ObjectId
-  userId String @db.ObjectId
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId  String    @db.ObjectId
+  userId       String    @db.ObjectId
   // Percent through the book, 0-100. Readers below it get a locked stub with no body.
-  position Float
-  pageLabel String?
+  position     Float
+  pageLabel    String?
   chapterLabel String?
-  body String
+  body         String
   // One level of replies: a reply's parent is always a top-level comment.
-  parentId String? @db.ObjectId
-  createdAt DateTime @default(now())
-  editedAt DateTime?
+  parentId     String?   @db.ObjectId
+  createdAt    DateTime  @default(now())
+  editedAt     DateTime?
   // Soft delete, so replies keep their place. The body is cleared.
-  deletedAt DateTime?
+  deletedAt    DateTime?
 
-  buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
-  parent BuddyReadComment? @relation("BuddyReadCommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies BuddyReadComment[] @relation("BuddyReadCommentReplies")
+  buddyRead BuddyRead                @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
+  parent    BuddyReadComment?        @relation("BuddyReadCommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   BuddyReadComment[]       @relation("BuddyReadCommentReplies")
   reactions BuddyReadReaction[]
-  reports BuddyReadCommentReport[]
+  reports   BuddyReadCommentReport[]
 
   // The timeline, in reading order; the prefix covers the buddyReadId foreign key.
   @@index([buddyReadId, position])
@@ -966,11 +1140,11 @@ model BuddyReadComment {
 }
 
 model BuddyReadReaction {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  commentId String @db.ObjectId
-  userId String @db.ObjectId
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  commentId String   @db.ObjectId
+  userId    String   @db.ObjectId
   // One of BUDDY_READ_EMOJI in lib/buddyReads.ts.
-  emoji String
+  emoji     String
   createdAt DateTime @default(now())
 
   comment BuddyReadComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
@@ -982,16 +1156,20 @@ model BuddyReadReaction {
 
 // Like ListReport: one report per reader per comment, with a fixed reason.
 model BuddyReadCommentReport {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  commentId String @db.ObjectId
-  reporterId String @db.ObjectId
-  reason String
-  createdAt DateTime @default(now())
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  commentId      String    @db.ObjectId
+  reporterId     String    @db.ObjectId
+  reason         String
+  createdAt      DateTime  @default(now())
   // The staff reports queue (/staff/reports): OPEN until a librarian or admin resolves it. Unset reads as OPEN.
-  status String?
-  resolvedById String? @db.ObjectId
-  resolvedAt DateTime?
+  status         String?
+  resolvedById   String?   @db.ObjectId
+  resolvedAt     DateTime?
   resolutionNote String?
+  // Set when a librarian passes it to an admin: who, when and why. Kept after the admin closes it.
+  escalatedById  String?   @db.ObjectId
+  escalatedAt    DateTime?
+  escalationNote String?
 
   comment BuddyReadComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
@@ -1001,11 +1179,11 @@ model BuddyReadCommentReport {
 
 // An in-app invite to a named reader (the invite link needs none). Shown on /buddy-reads until they join.
 model BuddyReadInvite {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  buddyReadId String @db.ObjectId
-  inviterId String @db.ObjectId
-  inviteeId String @db.ObjectId
-  createdAt DateTime @default(now())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  buddyReadId String   @db.ObjectId
+  inviterId   String   @db.ObjectId
+  inviteeId   String   @db.ObjectId
+  createdAt   DateTime @default(now())
 
   buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
 
@@ -1026,6 +1204,65 @@ model BuddyReadRemoval {
   @@index([userId])
 }
 
+// ---- Book clubs (BOO-49) ----------------------------------------------------------------------
+
+enum ClubStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+// A club outlives any one book: a name, its members and one invite link. Each book it reads is a reading
+// circle (BuddyRead.clubId) that the club's members are added to when it's started, so the circle's own
+// rules (the spoiler lock, checkpoint reminders, the weekly email) work the same inside a club.
+// The rules are in packages/shared/src/clubs.ts; the database work in lib/clubsServer.ts.
+model Club {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  // A line or two about the club, shown on its page and its invite.
+  about      String?
+  hostId     String     @db.ObjectId
+  inviteCode String     @unique
+  status     ClubStatus @default(ACTIVE)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  members  ClubMember[]
+  removals ClubRemoval[]
+  circles  BuddyRead[]
+
+  // The host's clubs, and their active-club limit.
+  @@index([hostId, status])
+}
+
+model ClubMember {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  clubId   String   @db.ObjectId
+  userId   String   @db.ObjectId
+  // A co-host can start the next book, edit schedules, and invite and remove members. The host is Club.hostId.
+  coHost   Boolean  @default(false)
+  joinedAt DateTime @default(now())
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  // One membership each. The prefix covers the clubId foreign key.
+  @@unique([clubId, userId])
+  // "My clubs".
+  @@index([userId, joinedAt])
+}
+
+// Like BuddyReadRemoval: someone removed from a club can't come back through its link.
+model ClubRemoval {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clubId    String   @db.ObjectId
+  userId    String   @db.ObjectId
+  removedAt DateTime @default(now())
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, userId])
+  @@index([userId])
+}
+
 // ---- Follow requests --------------------------------------------------------------------------
 // Following a reader whose profile isn't public (Followers only or Private) needs their approval: the
 // follow is held here until they accept or decline (lib/followRequests.ts). Users are referenced by
@@ -1042,17 +1279,42 @@ model FollowRequest {
   @@index([targetId, createdAt])
 }
 
+// ---- People you may know (BOO-81) --------------------------------------------------------------
+// Someone the reader dismissed from their suggestions, so they don't come back. Scalar ids like
+// FollowRequest; account deletion clears both sides (lib/accountDeletion.ts).
+model SuggestionDismissal {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  dismissedId String   @db.ObjectId
+  createdAt   DateTime @default(now())
+
+  // One per pair; the prefix covers "everyone I've dismissed".
+  @@unique([userId, dismissedId])
+  @@index([dismissedId])
+}
+
+// The slow part of a reader's suggestions (friends of friends and shared books), kept for an hour so a
+// big account doesn't redo it on every visit. Only candidate ids and what links them: every privacy
+// filter, the clubs, the circles and who follows whom are looked up fresh on each read.
+model PeopleSuggestionCache {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @unique @db.ObjectId
+  // [{ id, via: [userId], books: [title] }] (lib/peopleSuggest.ts CachedCandidate).
+  candidates Json
+  computedAt DateTime @default(now())
+}
+
 // How often a reader used a metered AI feature in one period (lib/ai/usage.ts). One row per reader,
 // feature and period, counted up with a conditional increment so two requests can't both spend the
 // last of an allowance. Monthly rows: feature is an allowance key ("askShelfSearches", "recaps") and
 // period the month in the reader's time zone ("2026-10"). The daily cost guard: feature "all" and
 // period the local day ("2026-10-22").
 model AiUsage {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  feature String
-  period String
-  count Int @default(0)
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  feature   String
+  period    String
+  count     Int      @default(0)
   updatedAt DateTime @updatedAt
 
   // The counter itself; the prefix covers a reader's rows.
@@ -1076,26 +1338,26 @@ enum RecapVote {
 }
 
 model Recap {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
-  workId String @db.ObjectId
+  id             String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String     @db.ObjectId
+  workId         String     @db.ObjectId
   // The shelf book it was asked for from.
-  bookId String @db.ObjectId
-  kind RecapKind
+  bookId         String     @db.ObjectId
+  kind           RecapKind
   // RESUME: the percent the recap stops at, a multiple of RECAP_BUCKET. SERIES: how many earlier books it covers.
-  bucket Int
+  bucket         Int
   // False when the model said it doesn't know the book well enough. Kept so asking again is free.
-  confident Boolean
-  paragraphs String[]
+  confident      Boolean
+  paragraphs     String[]
   // RESUME: the furthest point the model says it described. Never above bucket (otherwise it isn't stored).
   reachedPercent Float?
   // Works of the earlier books (SERIES).
-  coveredWorkIds String[] @db.ObjectId
-  model String
+  coveredWorkIds String[]   @db.ObjectId
+  model          String
   // The reader's thumbs up or down, for quality tracking.
-  vote RecapVote?
-  votedAt DateTime?
-  createdAt DateTime @default(now())
+  vote           RecapVote?
+  votedAt        DateTime?
+  createdAt      DateTime   @default(now())
 
   // The cache key; the prefix covers a reader's recaps.
   @@unique([userId, workId, kind, bucket])
@@ -1104,41 +1366,87 @@ model Recap {
 // A reader's report that a book's cover or details are wrong. Points at the shared catalogue (lib/catalog),
 // which is what a librarian fixes. Plain ids, so the report outlives the reader's copy.
 model BookReport {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  workId String @db.ObjectId
-  editionId String? @db.ObjectId
-  reporterId String @db.ObjectId
-  // cover, details or other (lib/staffReports.ts BOOK_REPORT_REASONS).
-  reason String
-  note String?
-  createdAt DateTime @default(now())
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  workId         String    @db.ObjectId
+  editionId      String?   @db.ObjectId
+  reporterId     String    @db.ObjectId
+  // cover, details, series or other (lib/staffReports.ts BOOK_REPORT_REASONS).
+  reason         String
+  note           String?
+  createdAt      DateTime  @default(now())
   // The staff reports queue (/staff/reports): OPEN until a librarian or admin resolves it. Unset reads as OPEN.
-  status String?
-  resolvedById String? @db.ObjectId
-  resolvedAt DateTime?
+  status         String?
+  resolvedById   String?   @db.ObjectId
+  resolvedAt     DateTime?
   resolutionNote String?
+  // Set when a librarian passes it to an admin: who, when and why. Kept after the admin closes it.
+  escalatedById  String?   @db.ObjectId
+  escalatedAt    DateTime?
+  escalationNote String?
 
   @@unique([workId, reporterId])
   @@index([status, createdAt])
 }
 
+// A comment on a review. The review lives on the reviewer's copy (Book), so bookId is that copy. One level
+// of replies, like reading circle comments; soft deleted so replies keep their place.
+model ReviewComment {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  bookId    String    @db.ObjectId
+  userId    String    @db.ObjectId
+  body      String
+  parentId  String?   @db.ObjectId
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  deletedAt DateTime?
+
+  book    Book                  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  parent  ReviewComment?        @relation("ReviewCommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies ReviewComment[]       @relation("ReviewCommentReplies")
+  reports ReviewCommentReport[]
+
+  @@index([bookId, createdAt])
+  @@index([userId])
+  @@index([parentId])
+}
+
+// Like BuddyReadCommentReport: one report per reader per comment, with a fixed reason. Staff are emailed
+// (lib/reportAlerts.ts); the /staff/reports queue doesn't list these yet.
+model ReviewCommentReport {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  commentId  String   @db.ObjectId
+  reporterId String   @db.ObjectId
+  reason     String
+  createdAt  DateTime @default(now())
+  status     String?
+
+  comment ReviewComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, reporterId])
+  @@index([reporterId])
+}
+
 // A reader's report of someone's review. The review lives on the reviewer's copy (Book), so bookId is that
 // copy. Plain ids, so the report and its excerpt (the text as reported) outlive an edit or a deleted copy.
 model ReviewReport {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  bookId String @db.ObjectId
-  reviewerId String @db.ObjectId
-  reporterId String @db.ObjectId
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  bookId         String    @db.ObjectId
+  reviewerId     String    @db.ObjectId
+  reporterId     String    @db.ObjectId
   // One of REVIEW_REPORT_REASONS (packages/shared/src/reviewReports.ts).
-  reason String
-  note String?
-  excerpt String?
-  createdAt DateTime @default(now())
+  reason         String
+  note           String?
+  excerpt        String?
+  createdAt      DateTime  @default(now())
   // The staff reports queue (/staff/reports), as on the other report rows. Unset reads as OPEN.
-  status String?
-  resolvedById String? @db.ObjectId
-  resolvedAt DateTime?
+  status         String?
+  resolvedById   String?   @db.ObjectId
+  resolvedAt     DateTime?
   resolutionNote String?
+  // Set when a librarian passes it to an admin: who, when and why. Kept after the admin closes it.
+  escalatedById  String?   @db.ObjectId
+  escalatedAt    DateTime?
+  escalationNote String?
 
   @@unique([bookId, reporterId])
   @@index([status, createdAt])
@@ -1147,18 +1455,65 @@ model ReviewReport {
 // Every change made through the staff tools, newest first on /staff/log. Written by lib/staffLog.ts in the
 // same request as the change. Plain ids, so deleting an account leaves the record.
 model StaffAction {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-  actorId String @db.ObjectId
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  actorId    String   @db.ObjectId
   // e.g. user.suspend, plus.grant, role.set, work.edit, report.dismiss (lib/staffLog.ts StaffActionKind).
-  action String
+  action     String
   // user, work, edition, list, comment or report.
   targetType String
-  targetId String
-  before Json?
-  after Json?
-  reason String?
-  createdAt DateTime @default(now())
+  targetId   String
+  before     Json?
+  after      Json?
+  reason     String?
+  createdAt  DateTime @default(now())
 
   @@index([createdAt])
   @@index([targetType, targetId])
+}
+
+// Staff notes on an account (/staff/users), for the team only: never shown to the reader. Plain ids,
+// like StaffAction, so the note outlives either account.
+model StaffNote {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  // The reader the note is about.
+  userId    String   @db.ObjectId
+  // The staff member who wrote it.
+  authorId  String   @db.ObjectId
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// A suspended reader's appeal, logged by an admin from whatever the reader sent support (lib/staffAppeals.ts).
+// OPEN until an admin upholds it (which lifts the suspension) or rejects it, with a note either way.
+model Appeal {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String    @db.ObjectId
+  openedById   String    @db.ObjectId
+  summary      String
+  // OPEN, UPHELD or REJECTED (lib/staffUserRules.ts APPEAL_STATUSES).
+  status       String    @default("OPEN")
+  decisionNote String?
+  decidedById  String?   @db.ObjectId
+  createdAt    DateTime  @default(now())
+  decidedAt    DateTime?
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+// ---- Saved stat views ------------------------------------------------------------------------
+// The stats explorer's saved views (BOO-82, Plus): a name and the explorer's query string
+// (packages/shared/src/statsExplorer.ts explorerSearch), so a view keeps its dates, comparison and
+// filters. Private to the reader. userId is a scalar, like ReaderTags. Kept if Plus lapses, so they
+// come back with it.
+model StatView {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  name      String
+  query     String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

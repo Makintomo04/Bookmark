@@ -88,7 +88,7 @@ const ResetPasswordComponent = () => {
           name="password" id="password" autoComplete="new-password" className="w-full"/>
         {!errors.password && <p className='text-xs text-muted-foreground'>At least {PASSWORD_MIN} characters.</p>}
       </div>
-      <Button disabled={isLoading} className="rounded-md py-2">{isLoading ? "Saving…" : "Save and sign in"}</Button>
+      <Button loading={isLoading} className="rounded-md py-2">{isLoading ? "Saving…" : "Save and sign in"}</Button>
     </form>
     )}
   </div>

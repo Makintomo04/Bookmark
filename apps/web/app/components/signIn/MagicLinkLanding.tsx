@@ -25,7 +25,7 @@ const MagicLinkLanding = () => {
       ) : (
         <div className="flex flex-col gap-4 text-sm">
           <p className="text-center">You&apos;re one click away. The link works once and expires an hour after it was sent.</p>
-          <Button type="button" disabled={going} onClick={() => { setGoing(true); window.location.assign(next) }} className="rounded-md py-2">
+          <Button type="button" loading={going} onClick={() => { setGoing(true); window.location.assign(next) }} className="rounded-md py-2">
             {going ? "Signing in…" : "Sign in"}
           </Button>
           <p className="text-center text-muted-foreground">Didn&apos;t ask for this link? Close this page and nothing will happen.</p>

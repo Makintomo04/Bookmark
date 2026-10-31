@@ -3,8 +3,9 @@ import { FC } from 'react'
 import useSettings from '@/app/hooks/useSettings'
 import useUser from '@/app/hooks/useUser'
 import { roleOf } from '@/lib/roles'
+import { SUGGEST_ME_HINT, SUGGEST_ME_LABEL } from '@bookmark/shared/peopleSuggest'
 import FollowRequests from '../profile-head/FollowRequests'
-import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS, Segmented, Toggle } from './controls'
+import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_COMMENT_HINT, REVIEW_COMMENT_OPTIONS, REVIEW_OPTIONS, Segmented, Toggle } from './controls'
 
 // Each setting saves as soon as it changes, separately from the profile form. The server enforces them (lib/privacy.ts).
 const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
@@ -26,6 +27,10 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           <p className="text-xs text-muted-foreground">{PROFILE_HINT[settings.profileVisibility]}</p>
         </div>
         <Segmented id="privacy-reviews" label="Who can read your reviews" options={REVIEW_OPTIONS} value={settings.reviewVisibility} onChange={(v) => save("reviewVisibility", v)} disabled={busy} />
+        <div className="flex flex-col gap-1.5">
+          <Segmented id="privacy-review-comments" label="Who can comment on your reviews" options={REVIEW_COMMENT_OPTIONS} value={settings.reviewComments} onChange={(v) => save("reviewComments", v)} disabled={busy} />
+          <p className="text-xs text-muted-foreground">{REVIEW_COMMENT_HINT[settings.reviewComments]}</p>
+        </div>
         <Toggle
           label="Hide my Want to read shelf"
           hint="Others won't see what's on your list, or when you add to it."
@@ -45,6 +50,13 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           hint="No numbers on your profile, for you or anyone else, and your connection lists stay private."
           checked={settings.hideFollowCounts}
           onChange={(v) => save("hideFollowCounts", v)}
+          disabled={busy}
+        />
+        <Toggle
+          label="Show my reading goal on my profile"
+          hint="Anyone who can see your profile sees how many books you've read towards this year's goal, and how far ahead you are. It never says you're behind."
+          checked={settings.showGoal}
+          onChange={(v) => save("showGoal", v)}
           disabled={busy}
         />
         <Toggle
@@ -77,6 +89,13 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           hint="Reviews marked as spoilers open straight away instead of staying covered."
           checked={settings.showSpoilers}
           onChange={(v) => save("showSpoilers", v)}
+          disabled={busy}
+        />
+        <Toggle
+          label={SUGGEST_ME_LABEL}
+          hint={SUGGEST_ME_HINT}
+          checked={settings.suggestMe}
+          onChange={(v) => save("suggestMe", v)}
           disabled={busy}
         />
       </div>

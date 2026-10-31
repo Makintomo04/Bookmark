@@ -3,6 +3,7 @@ import { authorBooks, authorRecord, searchAuthors, type DiscoverBook } from "@/l
 import { authorSlug, creditIncludes, isLinkableAuthor, slugWords } from "@/lib/authorNames"
 import { sameBook } from "@/lib/workKey"
 import { cleanBookList } from "@/lib/bookListCleanup"
+import { bioParagraphs } from "@/lib/authorProfileRules"
 import { isThin, toppedUpByTitle } from "@/lib/bookSearchRules"
 import { withCatalogueFixesOrAsIs } from "@/lib/curatedBooks"
 import { linksFromOpenLibrary, linksFromWikidata, mergeAuthorLinks, type AuthorLink } from "@/lib/authorLinks"
@@ -122,10 +123,12 @@ export function cleanBio(raw: string | null | undefined): string[] {
 export async function authorAbout(author: Author): Promise<AuthorAbout> {
   const record = author.key ? await authorRecord(author.key).catch(() => null) : null
   const entity = record?.wikidataId ? await wikidataEntity(record.wikidataId).catch(() => null) : null
+  const curated = await prisma.authorProfile.findUnique({ where: { slug: author.slug }, select: { bio: true, photoUrl: true } }).catch(() => null)
   const photoId = record?.photoIds[0]
+  // A librarian's bio or photo, where they set one, wins over Open Library's.
   return {
-    photoUrl: photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg` : null,
-    bio: cleanBio(record?.bio),
+    photoUrl: curated?.photoUrl ?? (photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg` : null),
+    bio: curated?.bio ? bioParagraphs(curated.bio) : cleanBio(record?.bio),
     links: mergeAuthorLinks(linksFromWikidata(entity), linksFromOpenLibrary(record?.links)),
   }
 }

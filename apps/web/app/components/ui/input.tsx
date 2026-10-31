@@ -2,6 +2,10 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { FieldErrors, FieldValues, UseFormRegister } from "react-hook-form"
+import { ClearableInput } from "./clearable-input"
+
+// Typed-in text gets a ×; passwords, numbers and pickers don't.
+const CLEARABLE = new Set([undefined, "text", "email", "search", "url", "tel"])
 
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -11,13 +15,15 @@ export interface InputProps
     required?:boolean
     disabled?:boolean
     inputValidation?:Record<string,any>
+    clearable?:boolean
   }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ id,className, type,register ,errors,inputValidation,disabled,required, ...props}, ref) => {
+  ({ id,className, type,register ,errors,inputValidation,disabled,required,clearable = true, ...props}, ref) => {
+    const Field = clearable && CLEARABLE.has(type) ? ClearableInput : "input"
     return (
       <>
-      <input
+      <Field
       {...register(id,inputValidation)}
         id={id}
         type={type}
@@ -25,7 +31,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         aria-invalid={errors[id] ? true : undefined}
         aria-describedby={errors[id] ? `${id}-error` : undefined}
         className={cn(
-          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-11 pointer-fine:h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base pointer-fine:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           errors[id] ? 'border-danger' : 'border-input',
           className
         )}

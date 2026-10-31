@@ -10,6 +10,7 @@ import Modal from './Modal'
 import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 import BookCover from '../cards/BookCover'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
 import { GENRES } from '@/lib/genres'
@@ -42,8 +43,8 @@ const ListEditorModal: FC = () => {
   const router = useRouter()
   const { mutate } = useSWRConfig()
   const { user } = useUser()
-  const { books } = useBooks()
   const { isOpen, list: initial, onClose } = useListEditorModal()
+  const { books } = useBooks({ onlyWhen: isOpen })
   const isStaff = can(user, "lists.curate")
   const accent = user?.favColour || '#D92D2D'
 
@@ -55,7 +56,11 @@ const ListEditorModal: FC = () => {
   const [tagInput, setTagInput] = useState("")
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  // Deleting also sets isSaving to lock the form; this says which button is busy.
+  const [isDeleting, setIsDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Staff editing someone else's list: an optional note for the staff log. Not part of the list itself.
+  const [reason, setReason] = useState("")
   // Why the last pick didn't go on the list, shown under the search box until the next search or add.
   const [addNotice, setAddNotice] = useState<string | null>(null)
   // The last book added, confirmed under the search box once its results have cleared away.
@@ -71,6 +76,7 @@ const ListEditorModal: FC = () => {
     setTagInput("")
     setOpenNote(null)
     setConfirmDelete(false)
+    setReason("")
   }, [isOpen, initial])
 
   const shelfMatches = useMemo(() => {
@@ -85,6 +91,8 @@ const ListEditorModal: FC = () => {
   if (!draft) return null
 
   const isNew = !draft.id
+  // toEditableList says whose list it is; a new list is always the reader's own.
+  const isOwner = isNew || initial?.isOwner !== false
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initial)
   const update = (patch: Partial<EditableList>) => setDraft((d) => (d ? { ...d, ...patch } : d))
   const setItems = (items: EditableListItem[]) => update({ items })
@@ -130,7 +138,7 @@ const ListEditorModal: FC = () => {
     // The Save button is disabled without a title, so this only guards a keyboard submit.
     if (!draft.title.trim()) return
     setIsSaving(true)
-    const request = isNew ? axios.post("/api/lists", draft) : axios.patch(`/api/lists/${draft.id}`, draft)
+    const request = isNew ? axios.post("/api/lists", draft) : axios.patch(`/api/lists/${draft.id}`, isOwner ? draft : { ...draft, reason })
     request.then((res) => {
       onClose()
       mutate(isListsKey)
@@ -143,6 +151,7 @@ const ListEditorModal: FC = () => {
 
   const remove = () => {
     setIsSaving(true)
+    setIsDeleting(true)
     axios.delete(`/api/lists/${draft.id}`).then(() => {
       notify.success("List deleted")
       onClose()
@@ -151,14 +160,14 @@ const ListEditorModal: FC = () => {
       router.refresh()
     }).catch(() => {
       notify.error("Couldn't delete this list. Try again.", { retry: remove })
-    }).finally(() => setIsSaving(false))
+    }).finally(() => { setIsSaving(false); setIsDeleting(false) })
   }
 
   const details = (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <label htmlFor="list-title" className="text-sm font-medium">Title</label>
-        <input id="list-title" value={draft.title} maxLength={TITLE_MAX} onChange={(e) => update({ title: e.target.value })} placeholder="e.g. Cosy fantasy for winter nights" disabled={isSaving} autoComplete="off" className={cn(fieldClass, "h-10")} />
+        <ClearableInput id="list-title" value={draft.title} maxLength={TITLE_MAX} onChange={(e) => update({ title: e.target.value })} placeholder="e.g. Cosy fantasy for winter nights" disabled={isSaving} autoComplete="off" className={cn(fieldClass, "h-10")} />
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
@@ -300,7 +309,7 @@ const ListEditorModal: FC = () => {
             ))}
           </div>
         )}
-        <input id="list-tags" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onBlur={addTag}
+        <ClearableInput id="list-tags" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onBlur={addTag}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag() } }}
           placeholder="Type a theme and press Enter" disabled={isSaving || draft.tags.length >= 10} autoComplete="off" className={cn(fieldClass, "h-10")} />
       </div>
@@ -329,7 +338,7 @@ const ListEditorModal: FC = () => {
       <Switch checked={draft.isPick} onChange={(v) => update({ isPick: v })} label="Bookmark Pick" hint="Badged as a Pick and shown in the Picks row on Discover." accent={accent} disabled={isSaving} />
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">Spotlight <span className="font-normal text-muted-foreground">· featured at the top of Discover between these dates</span></span>
-        <input value={draft.featuredLabel} maxLength={60} onChange={(e) => update({ featuredLabel: e.target.value })} placeholder="Label, e.g. Black History Month" aria-label="Spotlight label" disabled={isSaving} className={cn(fieldClass, "h-10")} />
+        <ClearableInput value={draft.featuredLabel} maxLength={60} onChange={(e) => update({ featuredLabel: e.target.value })} placeholder="Label, e.g. Black History Month" aria-label="Spotlight label" disabled={isSaving} className={cn(fieldClass, "h-10")} />
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">From
             <input type="date" value={draft.featuredFrom} onChange={(e) => update({ featuredFrom: e.target.value })} disabled={isSaving} className={cn(fieldClass, "h-10 text-foreground")} />
@@ -339,7 +348,14 @@ const ListEditorModal: FC = () => {
           </label>
         </div>
       </div>
-      {!isNew && <Switch checked={draft.hidden} onChange={(v) => update({ hidden: v })} label="Hidden" hint="Takes the list down for everyone except its owner and staff." accent={accent} disabled={isSaving} />}
+      {!isNew && <Switch checked={draft.hidden} onChange={(v) => update({ hidden: v })} label="Hidden" hint="Takes the list down for everyone except its owner and staff. Closes its open reports." accent={accent} disabled={isSaving} />}
+      {!isOwner && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor="list-reason" className="text-sm font-medium">Reason for the log <span className="font-normal text-muted-foreground">· optional</span></label>
+          <ClearableInput id="list-reason" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} placeholder="Why you changed the Pick, spotlight or Hidden" disabled={isSaving} autoComplete="off" className={cn(fieldClass, "h-10")} />
+          <p className="text-xs text-muted-foreground">This isn&apos;t your list, so changes to these go in the staff log.</p>
+        </div>
+      )}
     </div>
   )
 
@@ -354,17 +370,18 @@ const ListEditorModal: FC = () => {
 
   const footer = (
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
-      {!isNew && (confirmDelete ? (
+      {/* Only owners can delete. Staff hide someone else's list instead, so its reports stay on record. */}
+      {!isNew && isOwner && (confirmDelete ? (
         <div className="mr-auto flex items-center gap-2">
-          <Button type="button" onClick={remove} disabled={isSaving} variant="destructive">Delete list</Button>
+          <Button type="button" onClick={remove} disabled={isSaving} loading={isDeleting} variant="destructive">Delete list</Button>
           <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)} disabled={isSaving}>Keep it</Button>
         </div>
       ) : (
         <Button type="button" variant="outline" onClick={() => setConfirmDelete(true)} disabled={isSaving} className="mr-auto text-danger hover:text-danger">Delete</Button>
       ))}
       <Button type="button" variant="outline" onClick={close} disabled={isSaving} className="hidden sm:inline-flex">{isDirty ? "Cancel" : "Close"}</Button>
-      <Button type="button" onClick={save} disabled={isSaving || !isDirty || !draft.title.trim()} style={{ background: accent, color: readableInk(accent) }}>
-        {isSaving ? "Saving…" : isNew ? "Create list" : "Save changes"}
+      <Button type="button" onClick={save} disabled={isSaving || !isDirty || !draft.title.trim()} loading={isSaving && !isDeleting} style={{ background: accent, color: readableInk(accent) }}>
+        {isSaving && !isDeleting ? "Saving…" : isNew ? "Create list" : "Save changes"}
       </Button>
     </div>
   )

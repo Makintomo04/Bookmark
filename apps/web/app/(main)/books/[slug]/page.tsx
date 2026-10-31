@@ -1,9 +1,9 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import Container from '@/app/components/Container'
 import BookCover from '@/app/components/cards/BookCover'
+import BookCrumbs from '@/app/components/books/BookCrumbs'
 import AuthorLink from '@/app/components/AuthorLink'
 import AddToShelfButton from '@/app/components/discover/AddToShelfButton'
 import AddToListButton from '@/app/components/discover/AddToListButton'
@@ -23,6 +23,7 @@ import { BOOK_LISTS_SHOWN } from '@/lib/bookListRules'
 import { seriesOnPage } from '@/lib/seriesFollows'
 import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
 import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
+import { publishedFact } from '@bookmark/shared/releases'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -97,14 +98,13 @@ const Page = async (props: PageProps) => {
   ])
   const lists = onLists.slice(0, BOOK_LISTS_SHOWN)
   const href = bookHref(book)!
-  const meta = [book.year && `First published ${book.year}`, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")
+  const published = publishedFact(book, new Date().toISOString().slice(0, 10))
+  const meta = [published && `${published.label} ${published.value}`, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")
 
   return (
     <div className="mt-6 sm:mt-8">
       <Container className="flex flex-col gap-10">
-        <Link href="/discover" className="inline-flex items-center gap-1 self-start text-sm text-muted-foreground hover:text-foreground">
-          <ChevronLeft size={16} aria-hidden />Discover
-        </Link>
+        <BookCrumbs homeHref={viewer?.username ? `/u/${encodeURIComponent(viewer.username)}` : "/"} />
 
         <div className="grid gap-8 md:grid-cols-[220px_minmax(0,1fr)] md:gap-12 lg:gap-16">
           {/* The cover stays in view beside a long page, so the left column isn't empty below it. */}
@@ -189,7 +189,7 @@ const Page = async (props: PageProps) => {
             <section aria-labelledby="details-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="details-heading" className={sectionHeading}>Details</h2>
               <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-1.5 text-sm">
-                {book.year && <><dt className="text-muted-foreground">First published</dt><dd>{book.year}</dd></>}
+                {published && <><dt className="text-muted-foreground">{published.label}</dt><dd>{published.value}</dd></>}
                 {book.pages && <><dt className="text-muted-foreground">Pages</dt><dd>{book.pages}</dd></>}
                 {data.editionCount ? <><dt className="text-muted-foreground">Editions</dt><dd>{data.editionCount.toLocaleString('en-GB')}</dd></> : null}
               </dl>

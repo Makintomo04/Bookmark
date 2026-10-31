@@ -6,7 +6,7 @@ import { positionLabel, progressLabel, trackerGroups, type SeriesEntry, type Ser
 import { BookCover } from "@/components/books/BookCover";
 import { Segmented } from "@/components/ui/Segmented";
 import { Text } from "@/components/ui/Text";
-import { useBooks } from "@/lib/books";
+import { useLibrary } from "@/lib/books";
 import { addBook } from "@/lib/discover";
 import { SERIES_TRACKER_KEY, type SeriesTracker as Tracker } from "@/lib/series";
 import { useTheme } from "@/lib/theme";
@@ -27,10 +27,11 @@ const openEntry = (entry: SeriesEntry) =>
 // series you've started, and the ones you haven't finished.
 export function SeriesTracker({ accent }: { accent: string }) {
   const { data, mutate } = useSWR<Tracker>(SERIES_TRACKER_KEY);
-  const { data: books } = useBooks();
+  // The Library's copy of your shelves (useLibrary), which every book change refreshes.
+  const { data: library } = useLibrary();
   const [tab, setTab] = useState<Tab>("nextUp");
   // A book moved between shelves changes what's next.
-  useEffect(() => { if (books) void mutate(); }, [books, mutate]);
+  useEffect(() => { if (library) void mutate(); }, [library, mutate]);
   if (!data) return null;
   const groups = trackerGroups(data.series);
   const shown = groups[tab];

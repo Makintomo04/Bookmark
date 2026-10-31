@@ -5,7 +5,6 @@ import moment from 'moment'
 import type { Book } from '@prisma/client'
 import { Pencil, Repeat2 } from 'lucide-react'
 import { formatPosition, progressWhole } from '@/lib/progress'
-import { readableInk } from '@/lib/colour'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import { discoverBookOf } from '@/lib/openLibrary'
@@ -125,7 +124,8 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
             </div>
           </div>
         ) : (
-          // The whole progress area is the target; the round button just shows where to tap.
+          // The whole progress area is the target. The Update chip ends the counts line, as on Continue reading,
+          // so the bar below it runs the card's full width rather than stopping short of a button.
           <button
             type="button"
             onClick={openProgress}
@@ -134,17 +134,17 @@ const CurrentlyReadingCard: FC<CurrentlyReadingCardProps> = ({ book, accentColou
             {/* Added to the visible counts rather than replacing them (an aria-label would), so voice
                 control users can say what they see (WCAG 2.5.3). */}
             <span className="sr-only">Update progress for {title}: </span>
-            {counts}
-            <div className="flex items-center gap-3">
-              {bar}
-              <span
-                aria-hidden
-                style={{ background: accent, color: readableInk(accent) }}
-                className="grid size-7 flex-shrink-0 place-items-center rounded-full shadow-sm transition group-hover:scale-110 group-active:scale-95"
-              >
-                <Pencil size={14} strokeWidth={2.5} />
+            <span className="mb-1.5 flex items-center justify-between gap-2 text-sm">
+              {/* The position gives way on a narrow card; the percent never does. */}
+              <span className="flex min-w-0 items-baseline gap-1 tabular-nums text-muted-foreground">
+                <span className="truncate">{position}</span>
+                <span className="shrink-0">· <span className="font-semibold text-foreground">{progress}%</span></span>
               </span>
-            </div>
+              <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-200 px-2.5 text-xs font-medium text-foreground transition group-hover:bg-neutral-300 dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <Pencil size={12} aria-hidden />Update
+              </span>
+            </span>
+            <span className="flex">{bar}</span>
           </button>
         )}
       </div>

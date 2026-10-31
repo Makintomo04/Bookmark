@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client"
 import prisma from "@/lib/db"
 import { createNotifications } from "@/lib/notifications"
+import { BOOK_NEWS_TYPES } from "@/lib/releaseRules"
 import { seriesKey } from "@/lib/series"
 
 // Telling readers when a new book comes out in a series they follow or have started. Each series Hardcover
@@ -10,6 +11,8 @@ import { seriesKey } from "@/lib/series"
 // its series was first filled. Either way readers are told by the cron, in batches.
 //
 // The first time a series is seen nobody is told: the books already out are its back catalogue, not news.
+// Nor is a reader who already heard of the book another way: announced (NEW_BOOK) or out today
+// (PUBLICATION_DAY). See lib/releaseRules.ts BOOK_NEWS_TYPES.
 
 export interface SeriesId {
   key: string
@@ -91,7 +94,7 @@ export async function announceSeriesBooks(series: SeriesId, after: number, limit
   const [follows, shelf, told] = await Promise.all([
     prisma.seriesFollow.findMany({ where: { seriesKey: series.key }, select: { userId: true } }),
     prisma.book.findMany({ where: { workId: { in: works.map((w) => w.id) } }, select: { userId: true, workId: true, status: true, timesRead: true } }),
-    prisma.notification.findMany({ where: { type: "NEW_IN_SERIES", workId: { in: newWorks.map((w) => w.id) } }, select: { userId: true, workId: true } }),
+    prisma.notification.findMany({ where: { type: { in: [...BOOK_NEWS_TYPES] }, workId: { in: newWorks.map((w) => w.id) } }, select: { userId: true, workId: true } }),
   ])
   const rows = seriesNewsNotifications({
     followers: follows.map((f) => f.userId),

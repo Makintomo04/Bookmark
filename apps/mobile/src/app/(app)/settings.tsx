@@ -1,15 +1,16 @@
 import { useState, type ReactNode } from "react";
-import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Switch, TextInput, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Download, FileUp } from "lucide-react-native";
 import { GENRES } from "@bookmark/shared/genres";
-import { preferencesOf, type CommunityPreferences } from "@bookmark/shared/preferences";
+import { preferencesOf, storedSetting, type CommunityPreferences } from "@bookmark/shared/preferences";
 import { privacyOf, type PrivacySettings } from "@bookmark/shared/privacyRules";
 import { PUSH_GROUP_LABELS, type PushGroup } from "@bookmark/shared/push";
 import { can, roleOf } from "@bookmark/shared/roles";
+import { SUGGEST_ME_HINT, SUGGEST_ME_LABEL } from "@bookmark/shared/peopleSuggest";
 import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS } from "@bookmark/shared/settingsCopy";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +19,9 @@ import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Segmented } from "@/components/ui/Segmented";
 import { Text } from "@/components/ui/Text";
+import { Toggle } from "@/components/ui/Toggle";
+import { ReminderControls } from "@/components/reminders/ReminderControls";
+import { useNotificationSettings } from "@/lib/notificationSettings";
 import { ApiError, api, apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { SENTRY_DSN, sendTestError } from "@/lib/sentry";
@@ -27,7 +31,7 @@ import { useTheme, useThemePreference, type ThemePreference } from "@/lib/theme"
 // deleting the account. Every control saves as soon as it changes.
 
 type Settings = PrivacySettings & CommunityPreferences & { favGenres: string[]; hideShelfPicks: boolean };
-type SettingsUser = Partial<Settings> & { id: string; username: string | null; role?: string | null; isStaff?: boolean | null };
+type SettingsUser = Partial<Settings> & { hideFromSuggestions?: boolean | null; id: string; username: string | null; role?: string | null; isStaff?: boolean | null };
 type PlanResponse = { status: { plan: "FREE" | "PLUS"; store: "APP_STORE" | "PLAY_STORE" | null; source: string | null } | null };
 
 const APPEARANCE: { value: ThemePreference; label: string }[] = [
@@ -52,7 +56,7 @@ export default function SettingsScreen() {
   const save = async <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setPending(key);
     setError(null);
-    void mutate({ ...user, [key]: value }, { revalidate: false });
+    void mutate({ ...user, ...storedSetting(key, value) }, { revalidate: false });
     try {
       const saved = await api.patch<Partial<Settings>>("/api/user/privacy", { [key]: value });
       void mutate({ ...user, ...saved }, { revalidate: false });
@@ -132,6 +136,7 @@ export default function SettingsScreen() {
         </View>
         <Segmented label="New lists start as" options={LIST_OPTIONS} value={settings.defaultListVisibility} onChange={(v) => void save("defaultListVisibility", v)} disabled={busy} />
         <Toggle label="Show spoilers in reviews" hint="Reviews marked as spoilers open straight away instead of staying covered." value={settings.showSpoilers} onChange={(v) => void save("showSpoilers", v)} disabled={busy} />
+        <Toggle label={SUGGEST_ME_LABEL} hint={SUGGEST_ME_HINT} value={settings.suggestMe} onChange={(v) => void save("suggestMe", v)} disabled={busy} />
       </Card>
 
       <Card title="AI features" hint="Only ever for something you ask for, always labelled, and never about you.">
@@ -176,50 +181,25 @@ function Card({ title, hint, children, danger }: { title: string; hint?: string;
   );
 }
 
-function Toggle({ label, hint, value, onChange, disabled }: { label: string; hint: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.toggle}>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="label">{label}</Text>
-        <Text variant="small">{hint}</Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        accessibilityLabel={label}
-        trackColor={{ true: colors.foreground, false: colors.input }}
-        thumbColor={colors.background}
-      />
-    </View>
-  );
-}
-
-// Which pushes arrive (GET/PATCH /api/push/settings). The bell keeps every notification either way.
+// Reminders and the weekly email, then which pushes arrive (GET/PATCH /api/push/settings). The bell keeps
+// every notification either way. The server only sends the groups this person has (staff work is for
+// staff), so only those are shown.
 function PushSettings() {
-  const { data, mutate } = useSWR<{ push: Record<PushGroup, boolean> }>("/api/push/settings");
-  const [failed, setFailed] = useState(false);
-  if (!data) return null;
-
-  const set = async (group: PushGroup, on: boolean) => {
-    setFailed(false);
-    void mutate({ push: { ...data.push, [group]: on } }, { revalidate: false });
-    try {
-      await mutate(api.patch<{ push: Record<PushGroup, boolean> }>("/api/push/settings", { push: { [group]: on } }), { revalidate: false });
-    } catch {
-      void mutate(data, { revalidate: false });
-      setFailed(true);
-    }
-  };
+  const { settings, save, pending, error } = useNotificationSettings();
+  if (!settings) return null;
 
   return (
-    <Card title="Notifications" hint="Choose what arrives as a push. Everything still shows under the bell.">
-      {failed && <Notice tone="error" message="Couldn't save that setting. Try again." />}
-      {(Object.keys(PUSH_GROUP_LABELS) as PushGroup[]).map((group) => (
-        <Toggle key={group} label={PUSH_GROUP_LABELS[group].title} hint={PUSH_GROUP_LABELS[group].description} value={data.push[group]} onChange={(v) => void set(group, v)} />
-      ))}
-    </Card>
+    <>
+      <Card title="Reminders" hint="All off until you turn them on, and all free.">
+        {error && <Notice tone="error" message={error} />}
+        <ReminderControls settings={settings} save={(c) => void save(c)} disabled={pending} />
+      </Card>
+      <Card title="Notifications" hint="Choose what arrives as a push. Everything still shows under the bell.">
+        {(Object.keys(PUSH_GROUP_LABELS) as PushGroup[]).filter((group) => group in settings.push).map((group) => (
+          <Toggle key={group} label={PUSH_GROUP_LABELS[group].title} hint={PUSH_GROUP_LABELS[group].description} value={!!settings.push[group]} onChange={(v) => void save({ push: { [group]: v } })} />
+        ))}
+      </Card>
+    </>
   );
 }
 

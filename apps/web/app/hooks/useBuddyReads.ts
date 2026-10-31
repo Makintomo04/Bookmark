@@ -13,6 +13,8 @@ export type BuddyReadSummary = {
   status: "ACTIVE" | "FINISHED" | "ARCHIVED"
   startsAt: string
   isHost: boolean
+  // Set when it's one of a club's books.
+  club: { id: string, name: string } | null
   myProgress: number
   members: BuddyReadMemberSummary[]
 }

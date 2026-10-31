@@ -3,6 +3,8 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { z } from "zod";
 import { buddyReadError, canInheritAnotherCircle, handOverHosting, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { canRemoveFromClubBook } from "@/lib/clubs";
+import { clubRoleOf } from "@/lib/clubsServer";
 
 // The host removes a member, or a member leaves. A host leaves by handing the circle to another member
 // (?newHost=<userId>); the only reader left can't leave, they archive it instead. Whoever leaves keeps
@@ -16,8 +18,18 @@ export async function DELETE(req: Request, props: { params: Promise<{ id: string
   const { buddyRead } = membership;
 
   const leaving = params.userId === currentUser.id;
-  if (!leaving && !membership.isHost) return buddyReadError("Only the host can remove readers.", 403);
+  // Moderating, so it lasts after a club is archived (lib/buddyReadsServer.ts canModerate).
+  if (!leaving && !membership.canModerate) return buddyReadError("Only the host can remove readers.", 403);
   if (!isObjectId(params.userId)) return buddyReadError("Reader not found", 404);
+  if (!leaving && params.userId === buddyRead.hostId) return buddyReadError("The host can't be removed.", 403);
+  // In a club's book the club's roles decide, whoever started it: a co-host can't remove the club's host or
+  // another co-host (lib/clubs.ts canRemoveFromClubBook).
+  if (!leaving && buddyRead.clubId) {
+    const [actor, target] = await Promise.all([clubRoleOf(buddyRead.clubId, currentUser.id), clubRoleOf(buddyRead.clubId, params.userId)]);
+    if (!canRemoveFromClubBook(actor, target, false)) {
+      return buddyReadError("Co-hosts can remove members, but not the club's host or another co-host.", 403);
+    }
+  }
 
   if (leaving && membership.isHost) {
     const newHost = new URL(req.url).searchParams.get("newHost");

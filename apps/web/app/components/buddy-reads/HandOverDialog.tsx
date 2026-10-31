@@ -10,18 +10,23 @@ import { primaryButtonClass, secondaryButtonClass } from '../profile-head/Profil
 import MemberAvatar from './MemberAvatar'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
+type Member = Pick<BuddyReadView["members"][number], "userId" | "username" | "displayName" | "image" | "favColour" | "staffBadge">
+
 interface HandOverDialogProps {
   isOpen: boolean
   onClose: () => void
   buddyReadId: string
   viewerId: string
   // Everyone else in the circle, longest-standing first.
-  members: BuddyReadView["members"]
+  members: Member[]
   onLeft: () => void
+  // Handing over a club instead (buddyReadId is then the club's id).
+  club?: boolean
 }
 
 // A host leaves by choosing who hosts after them. The longest-standing member is picked to start with.
-const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId, viewerId, members, onLeft }) => {
+const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId, viewerId, members, onLeft, club }) => {
+  const noun = club ? "club" : "reading circle"
   const [chosen, setChosen] = useState<string | null>(members[0]?.userId ?? null)
   const [busy, setBusy] = useState(false)
 
@@ -33,21 +38,23 @@ const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId,
   const leave = () => {
     if (!chosen) return
     setBusy(true)
-    axios.delete(`/api/buddy-reads/${buddyReadId}/members/${viewerId}?newHost=${chosen}`)
+    axios.delete(`/api/${club ? "clubs" : "buddy-reads"}/${buddyReadId}/members/${viewerId}?newHost=${chosen}`)
       .then(() => {
         const picked = members.find((m) => m.userId === chosen)
         const name = picked ? readerName(picked) : null
-        notify.success(`You've left. ${name ?? "They"} hosts the reading circle now.`)
+        notify.success(`You've left. ${name ?? "They"} hosts the ${noun} now.`)
         onLeft()
       })
-      .catch((err) => notify.error(apiError(err, "Couldn't hand the reading circle over.")))
+      .catch((err) => notify.error(apiError(err, `Couldn't hand the ${noun} over.`)))
       .finally(() => setBusy(false))
   }
 
   const body = (
-    <div className="flex w-full flex-col gap-4">
+    <div className="flex w-full flex-col gap-4 px-6 pt-4">
       <p className="text-sm text-muted-foreground">
-        The new host can invite and remove readers, change the schedule, and finish or archive the circle. Your comments stay where they are.
+        {club
+          ? "The new host can choose co-hosts, start the next book, invite and remove members, and archive the club. You'll leave the books it's reading now; the ones you've finished stay in your history."
+          : "The new host can invite and remove readers, change the schedule, and finish or archive the circle. Your comments stay where they are."}
       </p>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">Who should host next?</legend>

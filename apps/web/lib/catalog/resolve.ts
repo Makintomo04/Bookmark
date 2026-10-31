@@ -2,6 +2,8 @@ import { DESCRIPTION_MAX } from "../openLibrary.ts";
 import { normaliseWorkKey } from "../workKey.ts";
 import { newObjectId } from "../objectId.ts";
 import { type EditionFormat, type Series, normaliseEditionKey, normaliseIsbns, titleAuthorKey, workMatchKey } from "./normalise.ts";
+import { mergedInto } from "../catalogueMergeRules.ts";
+import { releaseYear } from "@bookmark/shared/releases";
 
 // Find-or-create for the shared catalog (prisma/schema.prisma, Work and Edition), written against a
 // small store interface so scripts/test/catalog.test.ts runs it in memory and lib/catalog.ts runs it on
@@ -11,6 +13,8 @@ import { type EditionFormat, type Series, normaliseEditionKey, normaliseIsbns, t
 //   - the same ISBN (in either form) or Open Library edition key always lands on one Edition;
 //   - the same Open Library work key always lands on one Work, so two editions of a book share it;
 //   - a book nobody could match is filed by normalised title + author, the way sameBook() compares;
+//   - an Open Library key whose work a librarian merged into another (lib/catalogueMergeRules.ts) lands
+//     on the book it went into, never on a new work under its old key, which would block undoing the merge;
 //   - a book with no exact key match goes under an existing work with the same match key (first author
 //     and title, case and series suffixes aside) rather than a duplicate, preferring an Open Library work;
 //   - existing rows are only ever filled in (null fields), never overwritten, and a field a librarian
@@ -32,6 +36,8 @@ export interface WorkRecord {
   seriesPosition: number | null;
   coverUrl: string | null;
   firstPublishYear: number | null;
+  // "YYYY-MM-DD" (Work.releaseDate).
+  releaseDate?: string | null;
   matchKey: string | null;
   curatedFields?: string[];
 }
@@ -48,6 +54,7 @@ export interface EditionRecord {
   audioMinutes: number | null;
   publisher: string | null;
   publishedYear: number | null;
+  releaseDate?: string | null;
   coverUrl: string | null;
   curatedFields?: string[];
 }
@@ -69,6 +76,8 @@ export interface CatalogInput {
   coverUrl?: string | null;
   // First published.
   year?: number | null;
+  // The day it first came out, or comes out, "YYYY-MM-DD": Hardcover's release date for the book.
+  releaseDate?: string | null;
   series?: Series | null;
   pages?: number | null;
   audioMinutes?: number | null;
@@ -87,6 +96,8 @@ export interface WorkFacts {
   subjects?: string[] | null;
   coverUrl?: string | null;
   year?: number | null;
+  // The day the work first came out, when the source knows it.
+  releaseDate?: string | null;
   pages?: number | null;
   series?: Series | null;
 }
@@ -100,6 +111,8 @@ export interface EditionFacts {
   format?: EditionFormat | null;
   publisher?: string | null;
   publishedYear?: number | null;
+  // The edition's own full date, "YYYY-MM-DD", when its publish date gives one.
+  releaseDate?: string | null;
   coverUrl?: string | null;
   series?: Series | null;
 }
@@ -119,6 +132,9 @@ export interface CatalogStore {
   // Works filed under any of these match keys (WorkRecord.matchKey).
   findWorksByMatch(matchKeys: string[]): Promise<WorkRecord[]>;
   getWorks(ids: string[]): Promise<WorkRecord[]>;
+  // Merged works (key "merged:...") still holding any of these Open Library keys. Optional: a store without
+  // it files those keys as if never merged.
+  findMergedWorks?(openLibraryKeys: string[]): Promise<WorkRecord[]>;
   findEditions(by: { keys: string[]; isbn13: string[]; isbn10: string[] }): Promise<EditionRecord[]>;
   // Insert rows (ids chosen by the caller). When another writer created the same key first, the
   // existing row comes back in its place, so callers never see a unique-key error.
@@ -152,8 +168,22 @@ const WORKS_PER_LOOKUP = 25;
 
 const clean = (s?: string | null) => (s ?? "").trim() || null;
 const positive = (n?: number | null) => (typeof n === "number" && Number.isFinite(n) && n > 0 ? Math.round(n) : null);
+const isDay = (s?: string | null): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const cleanList = (list?: (string | null | undefined)[] | null, max = Infinity) =>
   Array.from(new Set((list ?? []).map((s) => (s ?? "").trim()).filter(Boolean))).slice(0, max);
+
+// The work each merged work's readers went to, by the merged work's Open Library key, following a survivor
+// merged in turn. A chain that ends nowhere (a survivor since removed) is left out.
+export async function survivorsByOpenLibraryKey(store: CatalogStore, openLibraryKeys: string[]): Promise<Map<string, WorkRecord>> {
+  const out = new Map<string, WorkRecord>();
+  if (!store.findMergedWorks || !openLibraryKeys.length) return out;
+  for (const merged of await store.findMergedWorks(openLibraryKeys)) {
+    let work: WorkRecord | undefined = merged;
+    for (let hop = 0; hop < 5 && work && mergedInto(work.key); hop++) [work] = await store.getWorks([mergedInto(work.key)!]);
+    if (work && !mergedInto(work.key) && merged.openLibraryKey && !out.has(merged.openLibraryKey)) out.set(merged.openLibraryKey, work);
+  }
+  return out;
+}
 
 async function pool<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
   let next = 0;
@@ -205,8 +235,19 @@ function workRow(item: Item): WorkRecord {
     seriesPosition: series?.position ?? null,
     coverUrl: clean(facts?.coverUrl ?? input.coverUrl ?? item.editionFacts?.coverUrl),
     firstPublishYear: positive(facts?.year ?? input.year),
+    releaseDate: workReleaseDate(item),
     matchKey: matchKeyFor(item),
   };
+}
+
+// When the book first came out: the date the caller gave (Hardcover's, for the book itself), else this
+// edition's, but only when it's from the book's first year. A 2019 reprint's date isn't when Dune came out.
+function workReleaseDate(item: Item): string | null {
+  if (isDay(item.input.releaseDate)) return item.input.releaseDate;
+  if (isDay(item.workFacts?.releaseDate)) return item.workFacts.releaseDate;
+  const edition = item.editionFacts?.releaseDate;
+  const year = positive(item.workFacts?.year ?? item.input.year);
+  return isDay(edition) && year != null && releaseYear(edition) === year ? edition : null;
 }
 
 const matchKeyFor = (item: Pick<Item, "input" | "workFacts">) =>
@@ -237,6 +278,8 @@ function editionRow(item: Item, work: WorkRecord): EditionRecord {
   const facts = item.editionFacts;
   const format = input.format ?? facts?.format ?? null;
   const pages = positive(input.pages ?? facts?.pages);
+  // An edition with no identifier of its own (a Hardcover book's) is the book as the caller knows it.
+  const releaseDate = isDay(facts?.releaseDate) ? facts.releaseDate : !item.editionKey && !item.isbn13 && !item.isbn10 && isDay(input.releaseDate) ? input.releaseDate : null;
   return {
     id: newObjectId(),
     workId: work.id,
@@ -248,7 +291,8 @@ function editionRow(item: Item, work: WorkRecord): EditionRecord {
     pages,
     audioMinutes: positive(input.audioMinutes),
     publisher: clean(input.publisher ?? facts?.publisher),
-    publishedYear: positive(input.publishedYear ?? facts?.publishedYear),
+    publishedYear: positive(input.publishedYear ?? facts?.publishedYear) ?? (releaseDate ? releaseYear(releaseDate) : null),
+    releaseDate,
     coverUrl: clean(facts?.coverUrl ?? input.coverUrl ?? work.coverUrl),
   };
 }
@@ -341,6 +385,17 @@ export async function resolveMany(inputs: CatalogInput[], opts: ResolveOptions):
   const needWork = items.filter((i) => !i.edition);
   const workKeys = Array.from(new Set(needWork.map(workKeyFor)));
   const works = new Map((await store.findWorks(workKeys)).map((w) => [w.key, w]));
+  // An Open Library key whose work was merged: file it where that work's readers went. Left as it is, not
+  // filled in from Open Library: a librarian chose it.
+  const merged = new Set<Item>();
+  const survivors = await survivorsByOpenLibraryKey(store, Array.from(new Set(needWork.flatMap((i) => (i.workKey && !works.has(workKeyFor(i)) ? [i.workKey] : [])))));
+  for (const i of needWork) {
+    const survivor = i.workKey && !works.has(workKeyFor(i)) ? survivors.get(i.workKey) : undefined;
+    if (survivor) {
+      works.set(workKeyFor(i), survivor);
+      merged.add(i);
+    }
+  }
   // No exact key: the same book may already be in the catalog under another key ("Lover reborn" filed
   // by another reader, or a second Open Library record for it). File it there instead of a duplicate.
   const unkeyed = needWork.filter((i) => !works.has(workKeyFor(i)));
@@ -380,7 +435,7 @@ export async function resolveMany(inputs: CatalogInput[], opts: ResolveOptions):
   for (const i of needWork) {
     i.work = works.get(workKeyFor(i))!;
     // Fill in what an older row lacks (a description or cover the first reader didn't have).
-    if (!newWorks.has(i.work.key)) {
+    if (!newWorks.has(i.work.key) && !merged.has(i)) {
       const { id: _id, key: _key, ...want } = workRow(i);
       const patch = fillIn(i.work, want);
       if (Object.keys(patch).length) {

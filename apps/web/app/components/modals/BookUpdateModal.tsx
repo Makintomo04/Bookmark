@@ -5,7 +5,8 @@ import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
-import { Check, Lock, Send, Unlock } from 'lucide-react'
+import { BookPlus, Check, Lock, Send, Unlock } from 'lucide-react'
+import { askToCatalogue } from '../books/catalogueRequest'
 import Modal from './Modal'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
@@ -30,6 +31,7 @@ import ProgressModeToggle from '../books/ProgressModeToggle'
 import useWorkTags from '@/app/hooks/useWorkTags'
 import useBookDescription from '@/app/hooks/useBookDescription'
 import BookBlurb from '../books/BookBlurb'
+import ModalSeries from '../series/ModalSeries'
 import { recommendedByOf } from '@/lib/recommendRules'
 import { spiceAskable, type ReaderTagsInput } from '@/lib/workTags'
 import { EMPTY_TAGS, ReaderTagsEditor, WorkTagsSummary, sameTags } from '../books/WorkTags'
@@ -77,11 +79,12 @@ const AccentCheckbox: FC<{ checked: boolean, onChange: (checked: boolean) => voi
 
 const BookUpdateModal: FC = () => {
   const { user, mutate } = useUser()
-  const { books, mutate: booksMutate } = useBooks()
   const { onClose, getBookIsOpen, book } = useBookUpdateModal()
   const bookEditModal = useBookEditModal()
   const recommendModal = useRecommendModal()
   const isOpen = getBookIsOpen(book?.id, useBookUpdateModal.getState())
+  // The shelf (for rereads, and the list behind the modal) only while it's open.
+  const { books, mutate: booksMutate } = useBooks({ onlyWhen: !!isOpen })
   const { reads, mutate: readsMutate } = useBookReads(isOpen ? book?.id : null)
   const { tags: workTags, mutate: tagsMutate } = useWorkTags({ bookId: isOpen ? book?.id : null })
   // The blurb is for a book you haven't read yet. The reader's own copy may carry one; otherwise ask the catalog.
@@ -112,7 +115,11 @@ const BookUpdateModal: FC = () => {
   const [reviewPrivate, setReviewPrivate] = useState(false)
   // The whole book private, not just the review. Saved on its own, straight away (togglePrivate).
   const [isPrivate, setIsPrivate] = useState(false)
+  // Asked a librarian to add this hand-typed book to the catalogue, this time the modal is open.
+  const [askedToAdd, setAskedToAdd] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  // Which footer button started the save, so only that one shows the spinner.
+  const [savingAction, setSavingAction] = useState<"save" | ShelfAction | null>(null)
 
   useEffect(() => {
     if (books && books.length > 0) {
@@ -139,6 +146,7 @@ const BookUpdateModal: FC = () => {
     setReviewSpoiler(!!book.reviewSpoiler)
     setReviewPrivate(!!book.reviewPrivate)
     setIsPrivate(!!book.isPrivate)
+    setAskedToAdd(false)
   }, [isOpen, book])
 
   useEffect(() => {
@@ -194,6 +202,11 @@ const BookUpdateModal: FC = () => {
   const pageHref = bookHref(book)
 
   const setPage = (n: number) => setPageInput(String(clamp(n, max)))
+
+  const askToAdd = () => {
+    if (!book.workId) return
+    askToCatalogue(book.workId).then(() => setAskedToAdd(true)).catch((err) => notify.error(err instanceof Error ? err.message : String(err)))
+  }
 
   // Switching keeps the reader's place: 111 of 300 becomes 37%, and back. Untouched since the last
   // switch, it goes back to exactly what was there.
@@ -279,28 +292,30 @@ const BookUpdateModal: FC = () => {
       : undefined
 
     setIsSaving(true)
+    setSavingAction("save")
     axios.post("/api/book-progress", payload).then(async ({ data: saved }) => {
       await saveTags()
-      celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null)
+      celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null, saved?.askReminders)
       mutate()
       refreshAfterBookChange()
       readsMutate()
       close()
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't save. Check your connection and try again."), { retry: save })
-    }).finally(() => setIsSaving(false))
+    }).finally(() => { setIsSaving(false); setSavingAction(null) })
   }
 
   // Pause keeps the page typed in; the other moves don't take one.
   const move = (action: ShelfAction) => {
     setIsSaving(true)
+    setSavingAction(action)
     moveBook(book.id, action, action === "pause" ? place() : {}).then((ok) => {
       if (!ok) return
       mutate()
       booksMutate()
       readsMutate()
       close()
-    }).finally(() => setIsSaving(false))
+    }).finally(() => { setIsSaving(false); setSavingAction(null) })
   }
 
   // Applies straight away, apart from the progress form: it's about who sees the book, not the read.
@@ -624,6 +639,16 @@ const BookUpdateModal: FC = () => {
                 {isPrivate ? <><Unlock size={14} aria-hidden />Share on profile</> : <><Lock size={14} aria-hidden />Make private</>}
               </button>
             )}
+            {/* Typed in by hand, so it has no book page: a shared copy can ask a librarian for one. */}
+            {!pageHref && book.workId && !isPrivate && status !== "NOT_INTERESTED" && (
+              askedToAdd
+                ? <p role="status" className="py-1.5 text-sm text-muted-foreground">Asked. A librarian will check it.</p>
+                : (
+                  <button type="button" onClick={askToAdd} disabled={isSaving} className={bookActionClass}>
+                    <BookPlus size={14} aria-hidden />Ask to add it to Bookmark
+                  </button>
+                )
+            )}
           </div>
         </div>
       </div>
@@ -633,6 +658,8 @@ const BookUpdateModal: FC = () => {
         {(isActive || status === "NOT_STARTED") && !finished && !stopping && (
           <CatchMeUp bookId={book.id} accent={accent} accentInk={accentInk} />
         )}
+        {/* Book 3 of a series you haven't started: see that before starting it, with the earlier books a tap away. */}
+        {status === "NOT_STARTED" && bookKeyOf(book) && <ModalSeries bookKey={bookKeyOf(book)!} onNavigate={close} compact headingClassName="text-sm font-medium" />}
         {blurb}
         {status === "NOT_STARTED" && startControl}
         {isActive && progressControl}
@@ -665,20 +692,20 @@ const BookUpdateModal: FC = () => {
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
       {isClosed && (
         <div className="contents sm:flex flex-wrap gap-3 sm:mr-auto">
-          <Button onClick={() => move("restart")} variant="outline" className={footerButton} disabled={isSaving}>Read again</Button>
+          <Button onClick={() => move("restart")} variant="outline" className={footerButton} disabled={isSaving} loading={savingAction === "restart"}>Read again</Button>
           {status === "DNF" && (
-            <Button onClick={() => move("wantToRead")} variant="outline" className={footerButton} disabled={isSaving}>Move to Want to read</Button>
+            <Button onClick={() => move("wantToRead")} variant="outline" className={footerButton} disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
           )}
         </div>
       )}
       {status === "NOT_INTERESTED" && (
-        <Button onClick={() => move("wantToRead")} variant="outline" className={cn(footerButton, "sm:mr-auto")} disabled={isSaving}>Move to Want to read</Button>
+        <Button onClick={() => move("wantToRead")} variant="outline" className={cn(footerButton, "sm:mr-auto")} disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
       )}
       <Button onClick={close} variant="outline" className={footerButton} disabled={isSaving}>
         {showPrimary ? "Cancel" : "Close"}
       </Button>
       {showPrimary && (
-        <Button style={{ background: accent, color: accentInk }} onClick={save} disabled={!canSave} className={footerButton}>
+        <Button style={{ background: accent, color: accentInk }} onClick={save} disabled={!canSave} loading={savingAction === "save"} className={footerButton}>
           {primaryLabel}
         </Button>
       )}

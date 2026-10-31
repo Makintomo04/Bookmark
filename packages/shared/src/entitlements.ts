@@ -2,7 +2,8 @@ import type { Plan } from "./enums";
 
 // Bookmark Plus: what a plan may do. Pure, so client components and tests can read it off a user
 // with nothing but `plan`. The rule from the strategy: charge for convenience and power;
-// gate the host, never the guest; never gate stats or import. Every gated feature
+// gate the host, never the guest; never gate import. Never take away a stat that's free: Plus adds
+// ways to explore your stats, never the stats themselves. Every gated feature
 // checks these on the server through lib/entitlementsServer.ts, not only in the UI.
 
 // Final prices: the Stripe prices are tax-inclusive (tax_behavior "inclusive"), so readers pay
@@ -32,7 +33,7 @@ export const MONTHLY_ALLOWANCES = {
 
 export type AllowanceKey = keyof typeof MONTHLY_ALLOWANCES;
 
-export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns";
+export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns" | "statsExplorer";
 
 export interface Entitlements {
   plan: Plan;
@@ -42,8 +43,13 @@ export interface Entitlements {
   // A page goal and a custom monthly target beside the yearly count. The pace worked out from the
   // yearly goal is a stat, so it's free.
   extraGoalTypes: boolean;
-  // Alternative Wrap card designs (planned). The standard monthly Wrap card is free.
+  // The Paper and Your colour designs for Wrap cards (packages/shared/src/wrapCards.ts). Midnight, the
+  // standard design, is free in every size.
   customWrapDesigns: boolean;
+  // The stats explorer (packages/shared/src/statsExplorer.ts): any date range, comparing two periods,
+  // filters, saved views, a CSV of a chart and Wrap cards for a custom range. Every stat on /stats, Wrapped
+  // and the monthly and yearly cards stays free.
+  statsExplorer: boolean;
   // Per calendar month; null is unlimited.
   allowances: Record<AllowanceKey, number | null>;
 }
@@ -69,6 +75,39 @@ export function plusSourceOf(user: StoredPlan, now = new Date()): PlusSource | n
   return null;
 }
 
+// Every source of Plus an account has right now, paid first, where plusSourceOf() names only the one that
+// wins. The staff console shows them all, so free months given on top of a paid plan aren't hidden.
+// `until` is when that source runs out, where the stored fields say (a Stripe renewal isn't kept here).
+export interface ActivePlusSource {
+  source: PlusSource;
+  until: Date | null;
+  indefinite: boolean;
+}
+
+export function plusSourcesOf(user: StoredPlan, now = new Date()): ActivePlusSource[] {
+  const sources: ActivePlusSource[] = [];
+  if (user.lifetime) sources.push({ source: "lifetime", until: null, indefinite: true });
+  if (user.plan === "PLUS") sources.push({ source: "subscription", until: null, indefinite: false });
+  const store = asDate(user.storePlusUntil);
+  if (store && store.getTime() > now.getTime()) sources.push({ source: "store", until: store, indefinite: false });
+  const comp = asDate(user.compPlusUntil);
+  if (comp && comp.getTime() > now.getTime()) {
+    const indefinite = comp.getTime() >= COMP_INDEFINITE.getTime();
+    sources.push({ source: "comp", until: indefinite ? null : comp, indefinite });
+  }
+  return sources;
+}
+
+// Already paying for Plus (or paid once, for lifetime): staff are warned before giving free months on top.
+export function paysForPlus(user: StoredPlan, now = new Date()): boolean {
+  return plusSourcesOf(user, now).some((s) => s.source !== "comp");
+}
+
+// Free Plus that is still running, so there is something for staff to remove.
+export function hasActiveComp(user: StoredPlan, now = new Date()): boolean {
+  return plusSourcesOf(user, now).some((s) => s.source === "comp");
+}
+
 // Free Plus granted by an admin with no end date. Stored as a far-off compPlusUntil, so plusSourceOf()
 // needs no special case; isIndefiniteComp() tells the settings page to say "no end date".
 export const COMP_INDEFINITE = new Date("9999-12-31T00:00:00.000Z");
@@ -78,7 +117,7 @@ export function isIndefiniteComp(compPlusUntil: Date | string | null | undefined
   return !!comp && comp.getTime() >= COMP_INDEFINITE.getTime();
 }
 
-export const COMP_GRANTS = { "1m": 1, "1y": 12, indefinite: null } as const satisfies Record<string, number | null>;
+export const COMP_GRANTS = { "1m": 1, "3m": 3, "6m": 6, "1y": 12, indefinite: null } as const satisfies Record<string, number | null>;
 export type CompGrant = keyof typeof COMP_GRANTS;
 
 // The new compPlusUntil for a staff grant: months are added to whatever free Plus is still left, so a
@@ -107,6 +146,7 @@ export function entitlementsOf(user: StoredPlan, now = new Date()): Entitlements
     canHostUnlimited: isPlus,
     extraGoalTypes: isPlus,
     customWrapDesigns: isPlus,
+    statsExplorer: isPlus,
     allowances: {
       askShelfSearches: MONTHLY_ALLOWANCES.askShelfSearches[tier],
       recaps: MONTHLY_ALLOWANCES.recaps[tier],
@@ -137,7 +177,11 @@ export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string
   },
   customWrapDesigns: {
     title: "Your Wrap, your way",
-    message: "Pick other designs for your Wrap cards. The standard monthly card and your year-end Wrapped stay free.",
+    message: "Paper and your own colour are Plus designs for your Wrap cards. Midnight stays free in every size, and so does your year-end Wrapped.",
+  },
+  statsExplorer: {
+    title: "Dig deeper into your stats",
+    message: "Pick any dates, set two periods side by side, filter by format, genre, mood, spice, author or re-reads, and save the views you come back to. Every stat on your stats page stays free.",
   },
   askShelfSearches: {
     title: "More Ask the shelf searches",

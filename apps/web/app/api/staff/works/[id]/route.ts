@@ -14,7 +14,8 @@ export async function GET(_req: Request, props: Params) {
   return work ? NextResponse.json(work) : NextResponse.json({ error: "No book with that id." }, { status: 404 });
 }
 
-// Body: any of { title, authors, description, coverUrl }, plus an optional { reason } for the log.
+// Body: any of { title, authors, description, coverUrl, seriesName, seriesPosition, firstPublishYear, releaseDate }, plus an
+// optional { reason } for the log. Saving a change closes the open reports about the book.
 export async function PATCH(req: Request, props: Params) {
   const params = await props.params;
   const { user, response } = await requirePermission("catalogue.edit");

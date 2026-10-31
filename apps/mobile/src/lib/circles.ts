@@ -18,6 +18,8 @@ export type CircleSummary = {
   startsAt: string;
   isHost: boolean;
   myProgress: number;
+  // A club's book (BOO-49): the club it belongs to.
+  club: { id: string; name: string } | null;
   members: { userId: string; username: string | null; displayName?: string | null; image: string | null; favColour: string | null; staffBadge?: StaffBadgeKind | null; progress: number }[];
 };
 
@@ -61,7 +63,11 @@ export type CircleView = {
     hostId: string;
     inviteCode: string;
   };
-  viewer: { userId: string; progress: number; isHost: boolean; bookId: string; muted: boolean };
+  // A club's book: the club, and its link (null once the club is archived). New readers join through it.
+  club: { id: string; name: string; inviteCode: string | null } | null;
+  // canManage: the host, or in a club's circle the club's host or a co-host (the schedule, finishing it).
+  // canModerate: deleting comments and removing readers, which a club's host and co-hosts keep once it's archived.
+  viewer: { userId: string; progress: number; isHost: boolean; canManage: boolean; canModerate?: boolean; bookId: string; muted: boolean };
   members: CircleMember[];
   comments: SerializedComment[];
 };

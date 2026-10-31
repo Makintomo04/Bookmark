@@ -16,7 +16,8 @@ export interface AccountDeletionDeps {
   // isn't configured.
   cancelSubscription?: (id: string) => Promise<void>;
   // Reading circles (lib/buddyReadsServer.ts deleteBuddyReadDataFor): hosted circles pass to another member,
-  // and the reader's comments stay as a former member's. Runs first, inside the transaction.
+  // and the reader's comments stay as a former member's; the route runs lib/clubsServer.ts deleteClubDataFor
+  // before it, for their clubs. Runs first, inside the transaction.
   deleteCircleData: (userId: string, tx: Tx) => Promise<void>;
   // Removes the reader from RevenueCat (lib/storeBilling.ts revenueCatApi). App Store and Google Play
   // subscriptions can only be cancelled by the reader in the store, which the app tells them before they
@@ -66,11 +67,19 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.bookRead.deleteMany({ where: { userId } });
     await tx.activity.deleteMany({ where: { OR: [{ userId }, { book: { userId } }] } });
     await tx.notification.deleteMany({ where: { OR: [{ userId }, { actorId: userId }] } });
+    // Comments they wrote on other readers' reviews, and reports they filed of them (comments on their own
+    // reviews go with their books).
+    await tx.reviewCommentReport.deleteMany({ where: { OR: [{ reporterId: userId }, { comment: { userId } }, { comment: { book: { userId } } }] } });
+    // Replies first: a comment can't go while replies still point at it.
+    await tx.reviewComment.deleteMany({ where: { parentId: { not: null }, OR: [{ userId }, { book: { userId } }, { parent: { userId } }] } });
+    await tx.reviewComment.deleteMany({ where: { OR: [{ userId }, { book: { userId } }] } });
     await tx.book.deleteMany({ where: { userId } });
     await tx.readerTags.deleteMany({ where: { userId } });
     // Their AI recaps and usage counters (Catch me up, Ask the shelf).
     await tx.recap.deleteMany({ where: { userId } });
     await tx.aiUsage.deleteMany({ where: { userId } });
+    // Their saved stat views.
+    await tx.statView.deleteMany({ where: { userId } });
     // Unfinished imports still hold the uploaded file's rows, reviews included.
     await tx.importJob.deleteMany({ where: { userId } });
     await tx.readingGoal.deleteMany({ where: { userId } });
@@ -82,6 +91,9 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.listReport.deleteMany({ where: { OR: [{ reporterId: userId }, { list: { ownerId: userId } }] } });
     // The staff log keeps what was done (a suspension, a grant) but no longer names who it was done to.
     await tx.staffAction.updateMany({ where: { targetType: "user", targetId: userId }, data: { targetId: "deleted-account" } });
+    // Staff notes about them and their appeals go with the account (notes staff wrote stay on other readers).
+    await tx.staffNote.deleteMany({ where: { userId } });
+    await tx.appeal.deleteMany({ where: { userId } });
     await tx.listItem.deleteMany({ where: { list: { ownerId: userId } } });
     await tx.list.deleteMany({ where: { ownerId: userId } });
     await tx.authorFollow.deleteMany({ where: { userId } });
@@ -89,11 +101,15 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.follow.deleteMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } });
     await tx.block.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } });
     await tx.followRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } });
+    await tx.suggestionDismissal.deleteMany({ where: { OR: [{ userId }, { dismissedId: userId }] } });
+    await tx.peopleSuggestionCache.deleteMany({ where: { userId } });
     await tx.account.deleteMany({ where: { userId } });
     await tx.session.deleteMany({ where: { userId } });
     // Signed-in phones and their push tokens.
     await tx.mobileSession.deleteMany({ where: { userId } });
     await tx.pushToken.deleteMany({ where: { userId } });
+    // What the reminders and weekly email have sent them.
+    await tx.scheduledSend.deleteMany({ where: { userId } });
     await tx.upload.deleteMany({ where: { userId } });
     await tx.user.delete({ where: { id: userId } });
   }, { timeout: 30_000 });

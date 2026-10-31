@@ -5,11 +5,13 @@ import type { Prisma } from "@prisma/client";
 import { QUEST_MEDAL_PREFIX } from "@/lib/achievements-catalog";
 import { ladders } from "@bookmark/shared/medals";
 import { computeAchievementStats } from "@/lib/achievements";
-import { canView, getRelation, privacyOf, privacySelect, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
+import { canView, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
 import { isFinishedBook } from "@/lib/readerTier";
 import { resolveBanner } from "@/lib/banners";
 import { supporterOf, supporterSelect } from "@/lib/supporter";
 import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
+import { workIdsWithPages } from "@/lib/workPages";
+import { profilePreview } from "@/lib/profilePreview";
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
@@ -29,11 +31,23 @@ const publicBookSelect = {
   progressUnit: true,
   audioMinutes: true,
   currentMinute: true,
+  // Said the way they log it: "Ch 9 of 14".
+  chapters: true,
+  currentChapter: true,
+  logsIn: true,
   createdAt: true,
   startedAt: true,
   completedAt: true,
   workKey: true,
+  // Server-only: leaves as pageWorkId (pageWorkIdOf), so a book Open Library lacks still opens its details.
+  workId: true,
 } as const;
+
+// A book without an Open Library key has its page (and its details) under its catalogue Work, when that
+// work has one (DiscoverBook.pageWorkId), as the shelf API sends it.
+function pageWorkIdOf<T extends { workKey: string | null; workId: string | null }>({ workId, ...book }: T, withPages: Set<string>) {
+  return { ...book, pageWorkId: !book.workKey && workId && withPages.has(workId) ? workId : null };
+}
 
 // Everything any viewer might be shown. Server-only: profileForViewer() decides what leaves.
 async function loadProfileRecord(username: string) {
@@ -44,6 +58,7 @@ async function loadProfileRecord(username: string) {
       username: true,
       displayName: true,
       bio: true,
+      profileLinks: true,
       image: true,
       banner: true,
       favColour: true,
@@ -53,7 +68,8 @@ async function loadProfileRecord(username: string) {
       ...staffBadgeSelect,
       books: {
         where: { status: { in: ["STARTED", "COMPLETED", "NOT_STARTED"] } },
-        orderBy: { createdAt: "desc" },
+        // Newest first, and by id within an import's shared timestamps, so the order never changes between requests.
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: { ...publicBookSelect, isPrivate: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true },
       },
       _count: { select: { followers: true, following: true } },
@@ -98,7 +114,7 @@ type FavouriteBook = Prisma.BookGetPayload<{ select: typeof publicBookSelect & {
 // The reader's favourites as this viewer may see them, newest first: none when they hide them (or the
 // viewer can't see the profile), and never a private book except to its reader.
 async function favouritesForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings) {
-  if (!record.favouriteIds.length || !canView(relation, privacy, "favourites")) return [];
+  if (!record.favouriteIds.length || !canView(relation, privacy, "favourites")) return [] as FavouriteBook[];
   const books: FavouriteBook[] = await prisma.book.findMany({
     where: { userId: record.id, id: { in: record.favouriteIds } },
     select: { ...publicBookSelect, isPrivate: true },
@@ -110,7 +126,7 @@ async function favouritesForViewer(record: ProfileRecord, relation: Relation, pr
     .map(({ isPrivate, ...book }) => ({ ...book, isPrivate: !!isPrivate }));
 }
 
-function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings, favourites: Awaited<ReturnType<typeof favouritesForViewer>> = []) {
+function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings, favourites: Awaited<ReturnType<typeof favouritesForViewer>> = [], withPages: Set<string> = new Set()) {
   const showWantToRead = canView(relation, privacy, "wantToRead");
   const showCounts = canView(relation, privacy, "followCounts");
   const books = record.books
@@ -118,7 +134,7 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     .filter((b) => !b.isPrivate || relation.isSelf)
     .filter((b) => b.status !== "NOT_STARTED" || showWantToRead)
     .map(({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt, isPrivate, ...book }) => ({
-      ...book,
+      ...pageWorkIdOf(book, withPages),
       isPrivate: !!isPrivate,
       ...visibleReview({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt }, relation, privacy),
     }));
@@ -126,6 +142,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     username: record.username,
     displayName: record.displayName,
     bio: record.bio,
+    // Shown like the bio, to whoever can see the profile.
+    profileLinks: record.profileLinks ?? [],
     image: record.image,
     // A reader who hasn't chosen a banner gets the preset seeded from their id, same as they see themselves.
     banner: resolveBanner(record.banner, record.id),
@@ -143,7 +161,7 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     followerCount: showCounts ? record._count.followers : null,
     followingCount: showCounts ? record._count.following : null,
     // Newest first. Empty when hidden from this viewer.
-    favourites,
+    favourites: favourites.map((book) => pageWorkIdOf(book, withPages)),
   };
 }
 
@@ -166,7 +184,8 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
 
   if (canView(relation, privacy, "profile")) {
     const favourites = await favouritesForViewer(record, relation, privacy);
-    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy, favourites) };
+    const withPages = await workIdsWithPages([...record.books, ...favourites].map((b) => (b.workKey ? null : b.workId)));
+    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy, favourites, withPages) };
   }
   const reason: RestrictedReason = relation.blocked === "byOwner" ? "unavailable"
     : relation.blocked === "byViewer" ? "blockedByViewer"
@@ -187,6 +206,48 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
     },
   };
 });
+
+// One shelf of a profile (Finished, Want to read, or the books with a review), by the same rules
+// profileForViewer applies, without loading the rest of it: the phone's See all pages
+// (app/api/users/<username>/shelf and /reviews) ask for one page at a time, so each reads only that shelf's
+// rows, with review text only for the reviews. null when there's no such reader; `unavailable` when they
+// blocked the viewer (said as not found); `restricted` (no books) when the viewer can't see the profile.
+export type ProfileShelf = "finished" | "want" | "reviews";
+export async function getProfileShelf(username: string, viewerId: string | null | undefined, shelf: ProfileShelf) {
+  if (!username) return null;
+  const owner = await findUserByUsername(username, { id: true, username: true, ...privacySelect });
+  if (!owner?.username) return null;
+  const [relation, privacy] = [await getRelation(viewerId, owner.id), privacyOf(owner)];
+  if (!canView(relation, privacy, "profile")) return { access: "restricted" as const, unavailable: relation.blocked === "byOwner" };
+
+  const showWantToRead = canView(relation, privacy, "wantToRead");
+  // Private books are the owner's alone, as on the profile.
+  const own: Prisma.BookWhereInput = { userId: owner.id, ...(!relation.isSelf && sharedBookWhere) };
+  const statuses = shelf === "finished" ? ["COMPLETED"] : shelf === "want" ? ["NOT_STARTED"] : ["STARTED", "COMPLETED", "NOT_STARTED"];
+  const shown = statuses.filter((s) => s !== "NOT_STARTED" || showWantToRead) as ("STARTED" | "COMPLETED" | "NOT_STARTED")[];
+  const reviews = shelf === "reviews";
+  const [rows, finished, want] = await Promise.all([
+    shown.length
+      ? prisma.book.findMany({
+        where: { AND: [own, { status: { in: shown } }, ...(reviews ? [{ review: { not: null } }] : [])] },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { ...publicBookSelect, isPrivate: true, ...(reviews && { review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true }) },
+      })
+      : Promise.resolve([]),
+    prisma.book.count({ where: { AND: [own, { status: "COMPLETED" }] } }),
+    showWantToRead ? prisma.book.count({ where: { AND: [own, { status: "NOT_STARTED" }] } }) : Promise.resolve(0),
+  ]);
+  const withPages = await workIdsWithPages(rows.map((b) => (b.workKey ? null : b.workId)));
+  const books = rows.map(({ isPrivate, ...row }) => {
+    const { review, reviewSpoiler, reviewPrivate, reviewHiddenAt, ...book } = row as typeof row & { review?: string | null; reviewSpoiler?: boolean | null; reviewPrivate?: boolean | null; reviewHiddenAt?: Date | null };
+    return {
+      ...pageWorkIdOf(book, withPages),
+      isPrivate: !!isPrivate,
+      ...(reviews ? visibleReview({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt }, relation, privacy) : {}),
+    };
+  });
+  return { access: "full" as const, books, counts: { finished, want } };
+}
 
 // The profile as a signed-out visitor (or a crawler) sees it: for metadata and the share image.
 export const getPublicProfile = (username: string) => getProfileView(username, null);
@@ -224,6 +285,9 @@ export function readingCounts(books: Pick<PublicBook, "status" | "completedAt" |
   };
 }
 
+// Someone else's profile as its page carries it: lib/profilePreview.ts.
+export { PROFILE_REVIEWS, PROFILE_SHELF_PREVIEW, profilePreview } from "@/lib/profilePreview";
+
 // The book they're reading now: the most recently started of their in-progress books.
 export function currentBook<T extends Pick<PublicBook, "status" | "startedAt" | "createdAt">>(books: T[]): T | null {
   const time = (b: T) => new Date(b.startedAt ?? b.createdAt).getTime();
@@ -234,13 +298,15 @@ export function currentBook<T extends Pick<PublicBook, "status" | "startedAt" | 
 export { topMedals } from "@bookmark/shared/medals";
 
 // Plain JSON for client components and the API: dates as ISO strings, as the API has always sent them.
-export function serializeProfile(profile: PublicProfileData) {
+export function serializeProfile<P extends PublicProfileData>(profile: P) {
   type Dated<T> = Omit<T, "createdAt" | "startedAt" | "completedAt"> & { createdAt: string; startedAt: string | null; completedAt: string | null };
-  return JSON.parse(JSON.stringify(profile)) as Omit<PublicProfileData, "createdAt" | "books" | "achievements" | "favourites"> & {
+  return JSON.parse(JSON.stringify(profile)) as Omit<P, "createdAt" | "books" | "achievements" | "favourites"> & {
     createdAt: string;
     books: Dated<PublicBook>[];
     favourites: Dated<PublicProfileData["favourites"][number]>[];
     achievements: { key: string; earnedAt: string }[];
   };
 }
-export type SerializedProfile = ReturnType<typeof serializeProfile>;
+export type SerializedProfile = ReturnType<typeof serializeProfile<PublicProfileData>>;
+// Someone else's profile as their page carries it (profilePreview).
+export type SerializedPreview = ReturnType<typeof serializeProfile<ReturnType<typeof profilePreview<PublicBook, PublicProfileData>>>>;

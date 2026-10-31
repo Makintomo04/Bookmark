@@ -6,11 +6,17 @@ import { parseShelfParams, shelfPageHref } from '@/lib/shelfFilter'
 import { hasRequested, needsFollowApproval } from '@/lib/followRequests'
 import { followsBack, restrictedViewerFlags } from '@/lib/friends'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { currentBook, getProfileView, getPublicProfile, readingCounts, serializeProfile } from '@/lib/publicProfile'
+import { currentBook, getProfileView, getPublicProfile, profilePreview, readingCounts, serializeProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
 import PublicProfile from '@/app/components/profile-head/PublicProfile'
 import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
+import { profileLayoutOf } from '@/app/components/profile-head/Band'
+import { sharedCircles } from '@/lib/sharedCircles'
+import { findLists } from '@/lib/lists'
+import { publicProfileKey } from '@/lib/profileKey'
+import { shelfReviewCount } from '@/lib/reviewedBooks'
+import { preloadShelf } from '@/lib/preloadShelf'
 
 interface PageProps {
   params: Promise<{ username: string }>
@@ -60,7 +66,11 @@ export default async function Page(props: PageProps) {
   const one = (name: string) => { const v = searchParams[name]; return typeof v === 'string' ? v : null }
   const linked = parseShelfParams({ get: one })
   if (linked.shelf) redirect(shelfPageHref(handleOf(params.username), linked.shelf, linked))
+  // The profile in bands; ?layout=classic is the one-column page it replaced (Band.tsx).
+  const layout = profileLayoutOf(one('layout'))
   const viewer = await getCurrentUser()
+  // Your own profile shows your shelf: start it loading before the profile itself.
+  if (viewer?.username && viewer.username === handleOf(params.username)) preloadShelf()
   const data = await getProfileView(profileHandle(params.username), viewer?.id)
   if (!data) notFound()
 
@@ -76,25 +86,32 @@ export default async function Page(props: PageProps) {
       />
     )
   } else if (viewer && data.relation.isSelf) {
-    const profile = serializeProfile(data.profile)
+    // Your books reach the page once, as your shelf (/api/books); the header's copy of your profile leaves them out.
+    const { books, ...profile } = serializeProfile(data.profile)
     // Credentials and the subscription id stay on the server (as lib/sanitizeUser.ts does for the API).
     const { hashedPassword, password, stripeSubscriptionId, ...self } = viewer
-    const profileKey = `/api/users/${encodeURIComponent(profile.username)}`
     content = (
       <OwnerProfile
         username={profile.username}
+        layout={layout}
         fallback={{
           // The same payloads those routes return, so the owner's header paints with the page.
           "/api/user": { ...self, _count: { books: readingCounts(data.profile.books).booksRead } },
           "/api/favourites": self,
-          [profileKey]: { ...profile, restricted: null, isFollowing: false, isSelf: true, isBlocked: false },
+          [publicProfileKey(profile.username, { books: false })]: { ...profile, reviewCount: shelfReviewCount(books), restricted: null, isFollowing: false, isSelf: true, isBlocked: false },
         }}
       />
     )
   } else {
     content = (
       <PublicProfile
-        profile={serializeProfile(data.profile)}
+        // Previews of their shelves and reviews, with the counts: the rest loads when the viewer asks for it.
+        profile={serializeProfile(profilePreview(data.profile))}
+        layout={layout}
+        // In bands, a circle the viewer shares with them pins its book first on their reading cards.
+        sharedCircles={viewer && layout === 'bands' ? await sharedCircles(viewer.id, data.userId) : []}
+        hasLists={(await findLists({ owner: data.profile.username, limit: 1 }, viewer)).length > 0}
+        justJoined={one('joined') === '1'}
         viewer={viewer ? {
           isFollowing: data.relation.isFollower,
           requested: !data.relation.isFollower && (await hasRequested(viewer.id, data.userId)),

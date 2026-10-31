@@ -10,13 +10,13 @@ const PasswordInput = ({ className, ...props }: Omit<InputProps, "type">) => {
   const [visible, setVisible] = useState(false)
   return (
     <div className="relative">
-      <Input {...props} type={visible ? "text" : "password"} className={cn("pr-10", className)} />
+      <Input {...props} clearable={false} type={visible ? "text" : "password"} className={cn("pr-12 pointer-fine:pr-10", className)} />
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
-        className="absolute right-0 top-0 h-10 w-10 grid place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute right-0 top-0 size-11 pointer-fine:size-10 grid place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {visible ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
       </button>

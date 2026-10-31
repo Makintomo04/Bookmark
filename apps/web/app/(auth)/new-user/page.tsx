@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { useForm } from 'react-hook-form'
-import { BookOpen, Camera, Check, ChevronRight, Loader2, Target, Upload, Users } from 'lucide-react'
+import { BookOpen, Camera, Check, ChevronRight, Compass, Loader2, Target, Upload, Users } from 'lucide-react'
 import Loader from '@/app/components/Loader'
 import FetchErrorState from '@/app/components/FetchErrorState'
 import { Button } from '@/app/components/ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import ColourSwatches from '@/app/components/profile/ColourSwatches'
 import CommunityStep from '@/app/components/new-user/CommunityStep'
 import useUser from '@/app/hooks/useUser'
@@ -206,7 +207,7 @@ const Page = () => {
 
       <div className="flex flex-col gap-2">
         <label htmlFor="username" className="text-sm font-medium">Username</label>
-        <input
+        <ClearableInput
           id="username"
           autoComplete="username"
           autoCapitalize="none"
@@ -234,7 +235,7 @@ const Page = () => {
             {displayName?.length ?? 0}/{DISPLAY_NAME_MAX}
           </span>
         </div>
-        <input
+        <ClearableInput
           id="displayName"
           autoComplete="name"
           placeholder="e.g. Jane Reader"
@@ -265,7 +266,7 @@ const Page = () => {
         </div>
       </div>
 
-      <Button type="submit" disabled={busy || availability === "checking"} className="mt-2 rounded-md py-2">
+      <Button type="submit" disabled={busy || availability === "checking"} loading={saving} className="mt-2 rounded-md py-2">
         {saving ? "Saving…" : nextPath ? "Save and continue" : "Continue"}
       </Button>
     </form>
@@ -275,15 +276,22 @@ const Page = () => {
     <div className="flex flex-col gap-6">
       <div className="text-center">
         <h1 className="page-title break-words">Welcome, {shownName}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Your profile is ready. Start a circle with friends, or put a few books on your shelf.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Your profile is ready. Here are a few ways to start.</p>
       </div>
       <div className="flex flex-col gap-3">
         {/* What the landing page promises, so it comes first: pick the book, then the circle form opens with it. */}
         <ShelfOption
           icon={<Users size={20} aria-hidden />}
           title="Start a reading circle"
-          description="Pick a book, share one link, and talk about it as you go."
+          description="Read one book with friends: pick it, share one link, and talk about it as you go."
           onClick={() => { openBookEntry(undefined, { shelf: "STARTED", startCircle: true }); router.push(profileHref) }}
+        />
+        {/* For a reader who doesn't know what to read yet (BOO-52). No AI: Ask the shelf is offered on that page, labelled. */}
+        <ShelfOption
+          icon={<Compass size={20} aria-hidden />}
+          title="Help me pick my first book"
+          description="Popular books in the genres you picked, and what the Bookmark team and people you follow recommend."
+          onClick={() => router.push("/first-book")}
         />
         <ShelfOption
           icon={<BookOpen size={20} aria-hidden />}
@@ -353,6 +361,8 @@ const GoalOption = () => {
     setTarget(value)
     setSaving(true)
     try {
+      // askReminders is ignored here on purpose, as in the app's sign-up: the reader has enough to take in
+      // already, and reminders are offered on their third reading day or when they next set a goal (BOO-48).
       await axios.post("/api/reading-goal", { year, targetBooks: value })
       setSaved(value)
     } catch (err) {

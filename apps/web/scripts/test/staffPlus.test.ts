@@ -4,7 +4,7 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/staffPlus.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COMP_INDEFINITE, grantedCompUntil, isIndefiniteComp, planStatusOf, plusSourceOf } from "@/lib/entitlements";
+import { COMP_INDEFINITE, grantedCompUntil, hasActiveComp, isIndefiniteComp, paysForPlus, planStatusOf, plusSourceOf, plusSourcesOf } from "@/lib/entitlements";
 
 const now = new Date("2026-10-26T12:00:00Z");
 
@@ -27,4 +27,31 @@ test("an open-ended grant is Plus with no end date, and stays open-ended", () =>
 
 test("a paid plan wins over free Plus as the source", () => {
   assert.equal(plusSourceOf({ plan: "PLUS", compPlusUntil: COMP_INDEFINITE }, now), "subscription");
+});
+
+test("three- and six-month grants stack like the others", () => {
+  assert.equal(grantedCompUntil(null, "3m", now).toISOString(), "2027-01-26T12:00:00.000Z");
+  assert.equal(grantedCompUntil("2026-12-01T00:00:00Z", "6m", now).toISOString(), "2027-06-01T00:00:00.000Z");
+});
+
+test("every active source is listed, so free Plus on top of a paid plan isn't hidden", () => {
+  const until = new Date("2027-01-01T00:00:00Z");
+  assert.deepEqual(plusSourcesOf({ plan: "PLUS", compPlusUntil: until }, now), [
+    { source: "subscription", until: null, indefinite: false },
+    { source: "comp", until, indefinite: false },
+  ]);
+  assert.deepEqual(plusSourcesOf({ lifetime: true, storePlusUntil: until, compPlusUntil: COMP_INDEFINITE }, now).map((s) => [s.source, s.indefinite]), [
+    ["lifetime", true], ["store", false], ["comp", true],
+  ]);
+  assert.deepEqual(plusSourcesOf({ plan: "FREE", storePlusUntil: new Date("2026-01-01"), compPlusUntil: new Date("2026-01-01") }, now), [], "expired ones drop out");
+});
+
+test("paying and active free Plus: for the warning before a grant and the remove button", () => {
+  assert.equal(paysForPlus({ plan: "PLUS" }, now), true);
+  assert.equal(paysForPlus({ storePlusUntil: new Date("2027-01-01") }, now), true);
+  assert.equal(paysForPlus({ lifetime: true }, now), true);
+  assert.equal(paysForPlus({ plan: "FREE", compPlusUntil: COMP_INDEFINITE }, now), false, "free months alone aren't paying");
+  assert.equal(hasActiveComp({ compPlusUntil: new Date("2027-01-01") }, now), true);
+  assert.equal(hasActiveComp({ compPlusUntil: new Date("2026-01-01") }, now), false, "an expired grant has nothing to remove");
+  assert.equal(hasActiveComp({ compPlusUntil: null }, now), false);
 });

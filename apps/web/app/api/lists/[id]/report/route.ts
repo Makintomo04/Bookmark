@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { findList } from "@/lib/lists";
 import { REPORT_REASONS } from "@/lib/listRules";
 import { alertReport } from "@/lib/reportAlerts";
+import { notifyStaffOfReport } from "@/lib/staffNotify";
 import { Prisma } from "@prisma/client";
 
 
@@ -38,6 +39,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
       excerpt: [list.title, list.description].filter(Boolean).join("\n\n"),
       path: `/lists/${list.id}`,
     });
+    await notifyStaffOfReport("list", list.id);
   }
   return NextResponse.json({ reported: true });
 }

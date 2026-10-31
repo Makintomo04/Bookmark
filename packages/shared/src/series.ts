@@ -58,6 +58,8 @@ export interface SeriesWork {
   seriesPosition: number | null;
   // Set on a work filed from Hardcover, which has a book page by its id when it has no work key.
   hardcoverId?: string | null;
+  // A hand-typed work a librarian gave a page (Work.pageApprovedAt), likewise by its id.
+  pageApproved?: boolean;
 }
 
 // The reader's copy of one of those works.
@@ -112,7 +114,7 @@ const STARTED_STATUSES: ShelfStatus[] = ["STARTED", "COMPLETED", "PAUSED", "DNF"
 // Several catalog works can claim one position (two editions nobody merged): keep the one on the reader's
 // shelf, else one linked to Open Library, else one with a cover.
 function pickWork(a: SeriesWork, b: SeriesWork, shelf: Map<string, SeriesShelfBook>) {
-  const score = (w: SeriesWork) => (shelf.has(w.id) ? 4 : 0) + (w.workKey || w.hardcoverId ? 2 : 0) + (w.coverUrl ? 1 : 0);
+  const score = (w: SeriesWork) => (shelf.has(w.id) ? 4 : 0) + (w.workKey || w.hardcoverId || w.pageApproved ? 2 : 0) + (w.coverUrl ? 1 : 0);
   return score(b) > score(a) ? b : a;
 }
 
@@ -147,7 +149,7 @@ export function buildTrack(
       return {
         workId: w.id,
         workKey: w.workKey,
-        pageWorkId: !w.workKey && w.hardcoverId ? w.id : null,
+        pageWorkId: !w.workKey && (w.hardcoverId || w.pageApproved) ? w.id : null,
         title: w.title,
         author: w.authors[0] ?? series.author,
         coverUrl: book?.coverImage || w.coverUrl,
@@ -225,3 +227,22 @@ export function entryState(entry: SeriesEntry, track: SeriesTrack, isHere: boole
 // "2 of 5 read". When only some books are in the catalog the total is what we know of.
 export const progressLabel = (t: Pick<SeriesTrack, "readCount" | "total">) =>
   t.total > 0 ? `${t.readCount} of ${t.total} read` : null;
+
+// ---- Spotting one series spelled two ways (the librarians' series editor) -----------------------
+
+// Looser than seriesSlug: a leading or trailing "The", "&" for "and", and a closing "series", "saga" or
+// "trilogy" set aside too, so "Stormlight Archive, The", "The Stormlight Archive" and "Stormlight Archive
+// Series" all come out "stormlight archive".
+export function seriesLooseKey(name: string) {
+  return squash(name.replace(/&/g, " and "))
+    .replace(/^the /, "")
+    .replace(/ the$/, "")
+    .replace(/ (series|saga|trilogy|books|novels)$/, "")
+    .trim();
+}
+
+// Other spellings in `names` that are possibly the same series as `name` (not `name` itself).
+export const possiblySameSeries = (name: string, names: string[]) => {
+  const key = seriesLooseKey(name);
+  return key ? names.filter((n) => n !== name && seriesLooseKey(n) === key) : [];
+};

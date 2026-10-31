@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Modal, Pressable, Share, StyleSheet, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Modal, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 import { readableInk } from "@bookmark/shared/colour";
 import { finishLine } from "@bookmark/shared/earnMoment";
-import { medalSharePath } from "@bookmark/shared/medalShare";
+import { medalSharePath, medalSlug } from "@bookmark/shared/medalShare";
 import { READER_TIERS } from "@bookmark/shared/readerTier";
 import { Share2 } from "lucide-react-native";
+import { ShareImageSheet } from "@/components/share/ShareImageSheet";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { useAuth } from "@/lib/auth";
@@ -31,6 +32,7 @@ function MedalMoment() {
   const { colors } = useTheme();
   const { moment, clear } = useEarnMoment();
   const username = useAuth((s) => s.user?.username ?? null);
+  const [sharing, setSharing] = useState(false);
   if (!moment || moment.medals.length === 0) return null;
 
   // A tier-up leads with the Books read rung it landed on; otherwise the first medal leads.
@@ -41,12 +43,8 @@ function MedalMoment() {
   const heading = tier ? "New reader tier" : others.length > 0 ? `${moment.medals.length} medals earned` : "Medal earned";
   const ink = tier ? readableInk(tier.colour) : MEDAL_INK;
 
-  // The lead medal's page, whose link unfurls to that medal's card (the web's Share button).
-  const share = () => {
-    if (!username) return;
-    const url = webUrl(medalSharePath(username, lead.key));
-    void Share.share({ message: `I just earned ${lead.title} on Bookmark ${url}`, url }).catch(() => {});
-  };
+  // The lead medal's card as an image, and its page, whose link unfurls to the same card.
+  const medalUrl = username ? webUrl(medalSharePath(username, lead.key)) : null;
   const openProfile = () => {
     if (!username) return;
     clear();
@@ -110,13 +108,25 @@ function MedalMoment() {
             )}
             <View style={{ alignSelf: "stretch", gap: 8, marginTop: 4 }}>
               <Button title="Lovely" onPress={clear} />
-              {username && <Button title="Share" variant="outline" icon={<Share2 size={16} color={colors.foreground} />} onPress={share} />}
+              {medalUrl && <Button title="Save or share" variant="outline" icon={<Share2 size={16} color={colors.foreground} />} onPress={() => setSharing(true)} />}
               <Button title="See all medals" variant="outline" onPress={() => { clear(); router.push("/achievements" as never); }} />
             </View>
           </View>
         </View>
         <Confetti colours={Array.from(new Set(moment.medals.map((m) => getMedalColour(m.achievementKey))))} />
       </View>
+      {sharing && medalUrl && (
+        <ShareImageSheet
+          onClose={() => setSharing(false)}
+          image={{
+            title: lead.title,
+            imagePath: `/api/achievements/image?medal=${medalSlug(lead.key)}`,
+            fileName: `bookmark-medal-${medalSlug(lead.key)}`,
+            aspect: 1200 / 630,
+            link: { label: "Share the link to this medal", url: medalUrl, message: `I just earned ${lead.title} on Bookmark ${medalUrl}` },
+          }}
+        />
+      )}
     </Modal>
   );
 }
@@ -181,7 +191,7 @@ function Confetti({ colours }: { colours: string[] }) {
 function FinishBanner() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { note, clearNote } = useEarnMoment();
+  const { note, noteTitle = "Finished", clearNote } = useEarnMoment();
   useEffect(() => {
     if (!note) return;
     const timer = setTimeout(clearNote, 5000);
@@ -191,11 +201,11 @@ function FinishBanner() {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Finished. ${note}. Dismiss`}
+      accessibilityLabel={`${noteTitle}. ${note}. Dismiss`}
       onPress={clearNote}
       style={[styles.banner, { bottom: insets.bottom + 16, backgroundColor: colors.foreground }]}
     >
-      <Text style={{ color: colors.background, fontWeight: "600" }}>Finished</Text>
+      <Text style={{ color: colors.background, fontWeight: "600" }}>{noteTitle}</Text>
       <Text style={{ color: colors.background, opacity: 0.85, fontSize: 13 }}>{note}</Text>
     </Pressable>
   );

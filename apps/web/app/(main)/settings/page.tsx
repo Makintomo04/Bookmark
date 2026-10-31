@@ -5,6 +5,7 @@ import getCurrentUser from '@/app/actions/getCurrentUser'
 import ProfileShortcut from '@/app/components/settings/ProfileShortcut'
 import AppearanceSettings from '@/app/components/settings/AppearanceSettings'
 import PlusSettings from '@/app/components/settings/PlusSettings'
+import NotificationSettings from '@/app/components/settings/NotificationSettings'
 import GenreSettings from '@/app/components/settings/GenreSettings'
 import PrivacySettings from '@/app/components/settings/PrivacySettings'
 import DataExport from '@/app/components/settings/DataExport'
@@ -31,6 +32,7 @@ const Page = async () => {
             <ProfileShortcut />
             <section id="appearance" className="scroll-mt-6"><AppearanceSettings /></section>
             <section id="genres" className="scroll-mt-6"><GenreSettings /></section>
+            <section id="notifications" className="scroll-mt-6"><NotificationSettings /></section>
             <section id="plus" className="scroll-mt-6"><PlusSettings /></section>
             <section id="privacy" className="scroll-mt-6 flex flex-col gap-6"><PrivacySettings /></section>
             <section id="data" className="scroll-mt-6"><DataExport /></section>

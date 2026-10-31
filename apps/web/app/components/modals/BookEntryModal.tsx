@@ -1,7 +1,9 @@
 "use client"
 import { FC, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lock, Search, Users } from 'lucide-react'
+import { BookPlus, Lock, Search, Users } from 'lucide-react'
+import { askToCatalogue } from '../books/catalogueRequest'
+import CoverLinkInput from '../books/CoverLinkInput'
 import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
@@ -9,6 +11,8 @@ import { notify, apiError } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
+import { Textarea } from '../ui/textarea'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { Button } from '../ui/button'
@@ -50,13 +54,20 @@ const defaultValues = {
   editionKey: "",
   isbn13: "",
   isbn10: "",
+  // A book typed in by hand has no blurb to fetch, so the reader may write one.
+  blurb: "",
 }
+
+// The server keeps the first 3,000 characters (lib/openLibrary.ts DESCRIPTION_MAX).
+const BLURB_MAX = 3000
 
 const BookEntryModal: FC = () => {
   const { user } = useUser()
   const router = useRouter()
   const bookEntryModal = useBookEntryModal()
   const [isLoading, setIsLoading] = useState(false)
+  // isLoading also covers a cover upload; this is only the add itself, so the spinner sits on the right button.
+  const [isAdding, setIsAdding] = useState(false)
   const submitting = useRef(false)
   // Print by default; an audiobook logs minutes listened instead of pages.
   const [format, setFormat] = useState<FormatChoice>("PRINT")
@@ -64,9 +75,13 @@ const BookEntryModal: FC = () => {
   const [startCircle, setStartCircle] = useState(false)
   // Private: on the reader's shelf as usual, but left off their profile and out of followers' feeds.
   const [isPrivate, setIsPrivate] = useState(false)
+  // A hand-typed, shared book: ask a librarian to add it to the catalogue once it's on the shelf.
+  const [askToAdd, setAskToAdd] = useState(false)
 
   // "search" until a book is picked (or the user opts to type one in), then "shelf".
   const [stage, setStage] = useState<"search" | "shelf">("search")
+  // Typed in by hand rather than picked from search.
+  const [isManual, setIsManual] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [shelf, setShelf] = useState<Shelf>("NOT_STARTED")
   // A finished book's dates: today by default, or the day picked, or undated.
@@ -94,10 +109,12 @@ const BookEntryModal: FC = () => {
   const resetAll = () => {
     reset(defaultValues)
     setStage("search")
+    setIsManual(false)
     setIsEditing(false)
     setFormat("PRINT")
     setStartCircle(false)
     setIsPrivate(false)
+    setAskToAdd(false)
     setShelf("NOT_STARTED")
     setFinishDates(defaultFinishDates())
     setRating(0)
@@ -136,6 +153,7 @@ const BookEntryModal: FC = () => {
     setGivenBlurb(result.description ?? null)
     setHardcoverId(result.hardcoverId ?? null)
     setFormat("PRINT")
+    setIsManual(false)
     // Open Library doesn't always know the page count. Only progress needs it, so ask only when starting.
     setIsEditing(!result.pages && onShelf === "STARTED")
     setStage("shelf")
@@ -157,6 +175,7 @@ const BookEntryModal: FC = () => {
     setPublished(null)
     setGivenBlurb(null)
     setHardcoverId(null)
+    setIsManual(true)
     setIsEditing(true)
     setStage("shelf")
   }
@@ -176,6 +195,7 @@ const BookEntryModal: FC = () => {
     if (submitting.current) return
     submitting.current = true
     setIsLoading(true)
+    setIsAdding(true)
     axios.post("/api/books", {
       title: data.title,
       author: data.author,
@@ -189,7 +209,7 @@ const BookEntryModal: FC = () => {
       isbn13: data.isbn13 || undefined,
       isbn10: data.isbn10 || undefined,
       hardcoverId: hardcoverId || undefined,
-      description: description || undefined,
+      description: (isManual ? data.blurb?.trim() : description) || undefined,
       status: shelf,
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
       ...(shelf === "COMPLETED" && finishDatesBody(finishDates)),
@@ -198,6 +218,9 @@ const BookEntryModal: FC = () => {
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
       celebrate(saved?.earnMoment, { message: isPrivate ? `Added to ${label}, privately` : `Added to ${label}` })
+      if (isManual && askToAdd && !isPrivate && saved?.workId) {
+        askToCatalogue(saved.workId).catch(() => notify.error("Added, but your request didn't send. Ask again from the book."))
+      }
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()
@@ -207,6 +230,7 @@ const BookEntryModal: FC = () => {
     }).finally(() => {
       submitting.current = false
       setIsLoading(false)
+      setIsAdding(false)
     })
   }
 
@@ -216,8 +240,8 @@ const BookEntryModal: FC = () => {
   const searchBody = (
     <div className="w-full h-full px-6 self-start">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
-        <input
+        <Search className="pointer-events-none absolute z-10 left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
+        <ClearableInput
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -265,7 +289,7 @@ const BookEntryModal: FC = () => {
         </div>
       </div>
 
-      <BookBlurb description={description} headline={headline} isLoading={isDescriptionLoading} />
+      {!isManual && <BookBlurb description={description} headline={headline} isLoading={isDescriptionLoading} />}
 
       <FormatPicker value={format} onChange={chooseFormat} disabled={isLoading} />
 
@@ -305,6 +329,12 @@ const BookEntryModal: FC = () => {
             {GENRES.map((g) => <option key={g} value={g} />)}
           </datalist>
         </div>
+        {isManual && (
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <Label htmlFor="blurb">Description <span className="font-normal text-muted-foreground">· optional</span></Label>
+            <Textarea register={register} errors={errors} id="blurb" rows={4} maxLength={BLURB_MAX} placeholder="What's it about? The blurb from the back cover will do." disabled={isLoading} />
+          </div>
+        )}
         <div className="flex flex-col gap-2 sm:col-span-2">
           <Label>Cover <span className="font-normal text-muted-foreground">· optional</span></Label>
           <UploadButton
@@ -321,6 +351,7 @@ const BookEntryModal: FC = () => {
               setIsLoading(false)
             }}
           />
+          <CoverLinkInput onCopied={(url) => setValue("coverImgSrc", url)} disabled={isLoading} />
         </div>
       </div>
 
@@ -364,6 +395,27 @@ const BookEntryModal: FC = () => {
             <span className="block text-sm text-muted-foreground">It stays off your profile and out of your followers&apos; feeds. You can share it later.</span>
           </span>
         </button>
+        {isManual && !isPrivate && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={askToAdd}
+            onClick={() => setAskToAdd((v) => !v)}
+            disabled={isLoading}
+            className="flex items-start gap-3 text-left w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <span
+              className={cn("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", !askToAdd && "bg-neutral-300 dark:bg-neutral-700")}
+              style={askToAdd ? { background: user?.favColour || "#D92D2D" } : undefined}
+            >
+              <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", askToAdd && "translate-x-5")} />
+            </span>
+            <span>
+              <span className="flex items-center gap-1.5 text-sm font-medium"><BookPlus size={14} aria-hidden /> Ask to add it to Bookmark</span>
+              <span className="block text-sm text-muted-foreground">A librarian checks it&apos;s a published book, then gives it a page other readers can find.</span>
+            </span>
+          </button>
+        )}
       </div>
 
       {shelf === "STARTED" && !isAudio && (
@@ -424,7 +476,7 @@ const BookEntryModal: FC = () => {
       <div className="flex items-center gap-3 justify-end mt-auto">
         <Button onClick={bookEntryModal.onClose} variant="outline" className="border-neutral-700 rounded-md py-2" disabled={isLoading}>Cancel</Button>
         {stage === "shelf" && (
-          <Button style={{ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading}>
+          <Button style={{ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading} loading={isAdding}>
             {SHELVES.find((s) => s.value === shelf)?.action}
           </Button>
         )}

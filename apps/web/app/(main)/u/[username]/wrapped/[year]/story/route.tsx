@@ -1,16 +1,16 @@
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { handleOf } from '@/lib/handle'
 import { getWrapped, getWrappedOwner, isWrappedPublic, parseWrappedYear } from '@/lib/stats'
-import { wrappedStoryImage } from '@/app/components/wrapped/wrappedImage'
+import { hidesRatings, wrappedStoryImage } from '@/app/components/wrapped/wrappedImage'
 
 // Drawing a story image (reading data, fonts from Google, a cover fetch, then Satori) can run past
 // Vercel's default 10 seconds: the current year's story was timing out with a 504.
 export const maxDuration = 30
 
 // The 1080×1920 story image, as a download. The owner can always get theirs; anyone else only
-// while the Wrapped is public.
+// while the Wrapped is public. ?ratings=hide leaves the stars off.
 export async function GET(
-  _req: Request,
+  req: Request,
   props: { params: Promise<{ username: string; year: string }> }
 ) {
   const params = await props.params;
@@ -25,7 +25,7 @@ export async function GET(
   // A story image is made to be posted, so private books stay out of it even for the owner.
   const wrapped = await getWrapped(owner.id, year, null, { sharedOnly: true })
   return wrappedStoryImage(
-    { wrapped, username: owner.username, displayName: owner.displayName, favColour: owner.favColour },
+    { wrapped, username: owner.username, displayName: owner.displayName, favColour: owner.favColour, hideRatings: hidesRatings(req.url) },
     {
       'Content-Disposition': `attachment; filename="bookmark-wrapped-${year}.png"`,
       // It changes as the reader finishes books, so don't let a cache hold it for long.

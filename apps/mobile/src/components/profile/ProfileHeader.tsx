@@ -1,13 +1,15 @@
-import { StyleSheet, View } from "react-native";
+import { Linking, Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
+import { Link2 } from "lucide-react-native";
 import { bannerPresetOf, resolveBanner } from "@bookmark/shared/banners";
-import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
+import { DEFAULT_COLOUR, profileLinkLabel, readerName } from "@bookmark/shared/profile";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
 import { MedalShowcase } from "@/components/achievements/MedalShowcase";
 import { BannerPattern } from "@/components/profile/BannerPattern";
 import { Text } from "@/components/ui/Text";
+import { useTheme } from "@/lib/theme";
 
 export interface ProfileUser {
   id: string;
@@ -18,6 +20,8 @@ export interface ProfileUser {
   image: string | null;
   banner: string | null;
   bio: string | null;
+  // Their links (TikTok, a newsletter…), as chips under the bio. Missing on older payloads.
+  profileLinks?: string[];
   favColour: string | null;
   _count?: { books?: number };
 }
@@ -30,6 +34,7 @@ export function ProfileHeader({ user, staffBadge, medals }: {
   staffBadge?: StaffBadgeKind | null;
   medals?: { earned: { key: string }[]; onPress: () => void };
 }) {
+  const { colors } = useTheme();
   const colour = user.favColour || DEFAULT_COLOUR;
   const banner = resolveBanner(user.banner, user.id);
   const preset = bannerPresetOf(banner);
@@ -50,6 +55,22 @@ export function ProfileHeader({ user, staffBadge, medals }: {
           {user.username && <Text variant="muted">@{user.username}{booksRead !== undefined ? ` · ${booksRead.toLocaleString("en-GB")} ${booksRead === 1 ? "book" : "books"} read` : ""}</Text>}
         </View>
         {user.bio ? <Text>{user.bio}</Text> : null}
+        {user.profileLinks && user.profileLinks.length > 0 && (
+          <View style={styles.links} accessibilityLabel="Links">
+            {user.profileLinks.map((link) => (
+              <Pressable
+                key={link}
+                accessibilityRole="link"
+                accessibilityHint="Opens outside Bookmark"
+                onPress={() => void Linking.openURL(link).catch(() => {})}
+                style={({ pressed }) => [styles.link, { backgroundColor: pressed ? colors.border : colors.muted }]}
+              >
+                <Link2 size={14} color={colors.foreground} />
+                <Text variant="label">{profileLinkLabel(link)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
         {medals && <MedalShowcase earned={medals.earned} onPress={medals.onPress} />}
       </View>
     </View>
@@ -61,4 +82,6 @@ const styles = StyleSheet.create({
   identity: { marginTop: -42, gap: 10 },
   avatar: { alignSelf: "flex-start" },
   seal: { position: "absolute", right: 0, bottom: 5 },
+  links: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  link: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 999 },
 });

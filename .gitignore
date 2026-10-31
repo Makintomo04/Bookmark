@@ -10,6 +10,7 @@ node_modules/
 **/coverage
 # Playwright (apps/web/e2e): captured mail, traces and reports
 **/e2e/.outbox/
+**/e2e/.screenshots/
 **/test-results/
 **/playwright-report/
 

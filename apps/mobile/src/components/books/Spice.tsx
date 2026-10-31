@@ -23,6 +23,16 @@ export function SpiceFlames({ level, size = 14 }: { level: SpiceLevel; size?: nu
 export function SpiceLine({ spice }: { spice: SpiceSummary | undefined }) {
   const { colors } = useTheme();
   if (!spice || spice.reports === 0) return null;
+  if (spice.level === null && spice.early !== null) {
+    return (
+      <View style={styles.row} accessible accessibilityLabel={`Early spice reading: ${spice.early} of ${SPICE_MAX}, ${SPICE_LABEL[spice.early]}, from ${spice.reports} readers`}>
+        <SpiceFlames level={spice.early} size={16} />
+        <Text variant="muted" style={{ flex: 1 }}>
+          <Text variant="label">Early: spice {spice.early} of {SPICE_MAX}</Text> · {SPICE_LABEL[spice.early]}, from {spice.reports} readers
+        </Text>
+      </View>
+    );
+  }
   if (spice.level === null) {
     return (
       <View style={styles.row}>

@@ -6,7 +6,7 @@ import { GENRES } from '@/lib/genres'
 import type { Option } from '@bookmark/shared/settingsCopy'
 
 // The options and hints live in packages/shared, so the mobile app's settings say the same.
-export { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS, type Option } from '@bookmark/shared/settingsCopy'
+export { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_COMMENT_HINT, REVIEW_COMMENT_OPTIONS, REVIEW_OPTIONS, type Option } from '@bookmark/shared/settingsCopy'
 
 export const Segmented = <T extends string>({ id, label, options, value, onChange, disabled }: {
   id: string

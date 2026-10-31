@@ -21,12 +21,14 @@ export const PERMISSIONS = [
   "plus.grant",
   "roles.assign",
   "staff.log",
+  // A librarian's view of the log: their own actions, and the edit history of any book (lib/staffLog.ts).
+  "log.own",
   // Creating quests and other seasonal content, when it comes back.
   "content.quests",
 ] as const
 export type Permission = (typeof PERMISSIONS)[number]
 
-const LIBRARIAN: readonly Permission[] = ["catalogue.edit", "lists.curate", "reports.review", "users.view", "content.quests"]
+const LIBRARIAN: readonly Permission[] = ["catalogue.edit", "lists.curate", "reports.review", "users.view", "log.own", "content.quests"]
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   READER: [],

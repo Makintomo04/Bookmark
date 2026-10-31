@@ -7,10 +7,11 @@ import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
 import { shareableCover, uploadersOf } from "@/lib/uploads";
 import { librarianCover } from "@/lib/catalogueFixRules";
 import { normaliseWorkKey } from "@/lib/workKey";
-import { workIdsWithPages } from "@/lib/workPages";
 import { DESCRIPTION_MAX, workDescription } from "@/lib/openLibrary";
 import { RATING_ERROR, optionalDaySchema, ratingSchema, readFromBook } from "@/lib/readHistory";
 import { EditionFormat, Status } from "@prisma/client";
+import { SHELF_STATUS, filterOptions, pageShelf, parseShelfParams, sortBooks, type ShelfKey } from "@/lib/shelfFilter";
+import { rereadingIds, shelfBooks, withFormat } from "@/lib/shelfBooks";
 import { z } from "zod";
 import { parseAudioMinutes } from "@/lib/bookInput";
 import { fillWorkSeriesQuietly } from "@/lib/seriesFill";
@@ -36,34 +37,104 @@ export const maxDuration = 30;
 
 // Covers are copied to UploadThing afterwards, by /api/books/[bookId]/cover.
 
+// What search, sort and filter look at (ShelfBook in lib/shelfFilter.ts): enough to page a shelf of thousands
+// without loading the books themselves.
+const shelfBookSelect = {
+  id: true, title: true, author: true, status: true, rating: true, pages: true, genre: true, tags: true,
+  createdAt: true, startedAt: true, completedAt: true, stoppedAt: true, progressUnit: true, audioMinutes: true,
+  edition: { select: { format: true } },
+} as const
+
+//   GET /api/books
+// The reader's whole shelf, as an array. The web's useBooks reads it for search, sort and filter in the
+// browser (lib/shelfFilter.ts), and phone builds from before paging read it too, so it stays as it is.
+//
+//   GET /api/books?shelves=20
+// The newest of each shelf (in each shelf's own order) and how many each holds, with which books being read are
+// re-reads: the phone's Library tab, which shows a row of each with See all. { shelves, counts, rereading }.
+//
+//   GET /api/books?select=finished
+// Every book on one shelf, as select mode needs them (Select all on a shelf the Library shows only the start
+// of): { books: [{ id, status, isPrivate }] }.
+//
+//   GET /api/books?take=60&cursor=60&shelf=finished&sort=title&q=le+guin&year=2024&genre=…&facets=1
+// One page of it, searched, filtered and sorted on the server by the same rules (the phone's shelf screens):
+// { books, total, nextCursor, options?, counts? }. `cursor` is the nextCursor of the page before, `shelf` and
+// the filters are lib/shelfFilter.ts's URL params, and `facets=1` adds the filter menus' options (from the
+// shelf asked for, unfiltered) and how many books each shelf holds.
 export async function GET(req:Request) {
 
 const { user: currentUser, response } = await requireUser();
 if (response) return response;
 
-// The whole shelf goes to the browser for search, sort and filter (lib/shelfFilter.ts), so the blurb stays
-// behind: it can run to a few KB a book, and the book's panel loads it from /api/books/[bookId] when opened.
+const params = new URL(req.url).searchParams
+if (params.has("take")) return shelfPage(currentUser.id, params)
+if (params.has("shelves")) return shelfPreviews(currentUser.id, Number(params.get("shelves")))
+if (params.has("select")) return shelfSelection(currentUser.id, params.get("select"))
+
+// The blurb stays behind: it can run to a few KB a book, and the book's panel loads it from
+// /api/books/[bookId] when opened.
 const rows = await prisma.book.findMany({
   where:{
     userId: currentUser.id
   },
-  include: { edition: { select: { format: true } } },
+  include: withFormat,
 })
-const books = rows.map(({ edition, description, ...b }) => ({ ...b, format: edition?.format ?? null }))
-// "Recommended by" is shown to the reader only: a Bookmark user by @username, otherwise the name they typed.
-const recommenderIds = Array.from(new Set(books.flatMap((b) => (b.recommendedById ? [b.recommendedById] : []))))
-const recommenders = recommenderIds.length > 0
-  ? await prisma.user.findMany({ where: { id: { in: recommenderIds } }, select: { id: true, username: true } })
-  : []
-const usernameById = new Map(recommenders.map((u) => [u.id, u.username]))
-// A book without an Open Library key links to its page by catalogue Work id, when the work has one (bookHref).
-const withPages = await workIdsWithPages(books.map((b) => (b.workKey ? null : b.workId)))
-return NextResponse.json(books.map((b) => {
-  const username = b.recommendedById ? usernameById.get(b.recommendedById) : null
-  const pageWorkId = !b.workKey && b.workId && withPages.has(b.workId) ? b.workId : null
-  return { ...b, recommendedBy: username ? `@${username}` : b.recommendedByName ?? null, pageWorkId }
-}))
+return NextResponse.json(await shelfBooks(rows))
 }
+
+async function shelfPage(userId: string, params: URLSearchParams) {
+  const filter = parseShelfParams(params)
+  // In id order, so the same shelf always reaches pageShelf the same way (its sort breaks ties on id as well).
+  const light = (await prisma.book.findMany({ where: { userId }, select: shelfBookSelect, orderBy: { id: "asc" } }))
+    .map(({ edition, ...b }) => ({ ...b, format: edition?.format ?? null }))
+  const page = pageShelf(light, filter, { take: Number(params.get("take")), cursor: params.get("cursor") })
+  const ids = page.books.map((b) => b.id)
+  const rows = ids.length > 0
+    ? await prisma.book.findMany({ where: { userId, id: { in: ids } }, include: { edition: { select: { format: true } } } })
+    : []
+  const byId = new Map((await shelfBooks(rows)).map((b) => [b.id, b]))
+  const facets = params.get("facets") === "1"
+  const onShelf = filter.shelf ? light.filter((b) => b.status === SHELF_STATUS[filter.shelf!]) : light
+  return NextResponse.json({
+    books: ids.flatMap((id) => byId.get(id) ?? []),
+    total: page.total,
+    nextCursor: page.nextCursor,
+    ...(facets && {
+      options: filterOptions(onShelf),
+      counts: Object.fromEntries((Object.keys(SHELF_STATUS) as ShelfKey[]).map((k) => [k, light.filter((b) => b.status === SHELF_STATUS[k]).length])),
+    }),
+  })
+}
+
+
+// The most of each shelf ?shelves= sends.
+const PREVIEW_MAX = 60
+
+async function shelfPreviews(userId: string, size: number) {
+  const take = Math.min(Math.max(Math.floor(size) || 20, 1), PREVIEW_MAX)
+  const light = (await prisma.book.findMany({ where: { userId }, select: shelfBookSelect, orderBy: { id: "asc" } }))
+    .map(({ edition, ...b }) => ({ ...b, format: edition?.format ?? null }))
+  const keys = Object.keys(SHELF_STATUS) as ShelfKey[]
+  const firstIds = Object.fromEntries(keys.map((k) => [k, sortBooks(light.filter((b) => b.status === SHELF_STATUS[k]), "recent").slice(0, take).map((b) => b.id)]))
+  const ids = Object.values(firstIds).flat()
+  const rows = ids.length > 0 ? await prisma.book.findMany({ where: { userId, id: { in: ids } }, include: withFormat }) : []
+  const byId = new Map((await shelfBooks(rows)).map((b) => [b.id, b]))
+  const reading = rows.filter((b) => b.status === "STARTED")
+  return NextResponse.json({
+    shelves: Object.fromEntries(keys.map((k) => [k, firstIds[k].flatMap((id) => byId.get(id) ?? [])])),
+    counts: Object.fromEntries(keys.map((k) => [k, light.filter((b) => b.status === SHELF_STATUS[k]).length])),
+    rereading: Array.from(await rereadingIds(userId, reading)),
+  })
+}
+
+async function shelfSelection(userId: string, shelf: string | null) {
+  const status = shelf && shelf in SHELF_STATUS ? SHELF_STATUS[shelf as ShelfKey] : null
+  if (!status) return NextResponse.json({ error: "Unknown shelf" }, { status: 400 })
+  const books = await prisma.book.findMany({ where: { userId, status }, select: { id: true, status: true, isPrivate: true } })
+  return NextResponse.json({ books })
+}
+
 export async function POST(req:Request) {
 
 const { user: currentUser, response } = await requireUser();

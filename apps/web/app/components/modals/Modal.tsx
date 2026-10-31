@@ -22,6 +22,8 @@ interface ModalProps {
   bare?: boolean;
   // Beside the close button, e.g. book details' "Open book page".
   headerAction?: React.ReactNode;
+  // On a phone, a sheet docked to the bottom at its own height (the join prompt), not the full screen.
+  sheet?: boolean;
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
@@ -39,7 +41,7 @@ function lockPageScroll() {
   }
 }
 
-const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default",bare = false,headerAction}) => {
+const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default",bare = false,headerAction,sheet = false}) => {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -118,7 +120,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         outline-none
         focus:outline-none
         overscroll-contain
-        bg-neutral-800/70
+        bg-black/40
 
       "
     >
@@ -129,7 +131,11 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={cn("flex flex-col mb-auto sm:my-auto w-full h-full max-h-dvh sm:max-h-[85dvh] overflow-hidden sm:rounded-lg sm:h-auto", size === "sm" ? "sm:w-[520px]" : "sm:w-[650px] md:w-[800px] lg:w-[900px]", " bg-background shadow-md relative outline-none", !compact && "sm:min-h-[min(580px,85dvh)]")}
+        // The page's own background with a thin neutral edge, as the Update sheet has (profile-head/UpdateSheet.tsx),
+        // over a dimmed page. Full screen on a phone, so the edge and corners are from sm up; a `sheet` instead rises
+        // from the bottom at its own height, with a top edge and corners.
+        className={cn("flex flex-col sm:my-auto w-full sm:max-h-[85dvh] overflow-hidden sm:rounded-xl sm:h-auto",
+          sheet ? "mt-auto h-auto max-h-[85dvh] rounded-t-2xl border-t border-neutral-200 dark:border-neutral-800" : "mb-auto h-full max-h-dvh", size === "sm" ? "sm:w-[520px]" : "sm:w-[650px] md:w-[800px] lg:w-[900px]", "bg-background sm:border sm:border-neutral-200 sm:dark:border-neutral-800 shadow-2xl relative outline-none", !compact && "sm:min-h-[min(580px,85dvh)]")}
       >
         {bare ? (
           <>

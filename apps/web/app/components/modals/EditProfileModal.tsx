@@ -9,9 +9,10 @@ import { useForm } from 'react-hook-form'
 import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import { Button } from '../ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cn } from '@/lib/utils'
 import { readableInk, toHex } from '@/lib/colour'
-import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, usernameProblem } from '@/lib/profile'
+import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, PROFILE_LINKS_MAX, displayNameProblem, normaliseDisplayName, normaliseProfileLink, normaliseUsername, usernameProblem } from '@/lib/profile'
 import { bannerPresetOf, bannerPresetValue, isBannerPresetValue, resolveBanner } from '@/lib/banners'
 import BannerPattern from '../profile/BannerPattern'
 import BannerPresetPicker from '../profile/BannerPresetPicker'
@@ -25,10 +26,14 @@ type ProfileForm = {
   username: string
   displayName: string
   bio: string
+  // Always PROFILE_LINKS_MAX rows; blank ones are dropped on save.
+  links: string[]
   imageSrc: string
   bannerSrc: string
   color: string
 }
+
+const linkRows = (links: string[] = []) => [...links, ...Array(PROFILE_LINKS_MAX).fill("")].slice(0, PROFILE_LINKS_MAX)
 
 const fieldClass = "w-full rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
 const overlayButtonClass = "inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium bg-black/60 text-white backdrop-blur-sm hover:bg-black/75 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
@@ -43,10 +48,10 @@ const EditProfileModal: FC = () => {
   const bannerInput = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors, isDirty } } = useForm<ProfileForm>({
-    defaultValues: { username: "", displayName: "", bio: "", imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR },
+    defaultValues: { username: "", displayName: "", bio: "", links: linkRows(), imageSrc: "", bannerSrc: "", color: DEFAULT_COLOUR },
   })
 
-  const setField = (name: keyof ProfileForm, value: string) =>
+  const setField = (name: Exclude<keyof ProfileForm, "links">, value: string) =>
     setValue(name, value, { shouldDirty: true, shouldValidate: true })
 
   const avatar = useImageUpload((url) => setField("imageSrc", url))
@@ -61,6 +66,7 @@ const EditProfileModal: FC = () => {
       username: user.username ?? "",
       displayName: user.displayName ?? "",
       bio: user.bio ?? "",
+      links: linkRows(user.profileLinks),
       imageSrc: user.image ?? "",
       bannerSrc: user.banner ?? "",
       color: toHex(user.favColour ?? "") ?? DEFAULT_COLOUR,
@@ -86,7 +92,9 @@ const EditProfileModal: FC = () => {
   const onSubmit = async (profile: ProfileForm) => {
     setIsSaving(true)
     try {
-      const res = await axios.post("/api/user", { ...profile, username: normaliseUsername(profile.username), displayName: normaliseDisplayName(profile.displayName), imageSrc: profile.imageSrc || null, bannerSrc: profile.bannerSrc || null })
+      const { links, ...rest } = profile
+      const profileLinks = links.map((l) => l.trim()).filter(Boolean).map((l) => normaliseProfileLink(l) ?? l)
+      const res = await axios.post("/api/user", { ...rest, profileLinks, username: normaliseUsername(profile.username), displayName: normaliseDisplayName(profile.displayName), imageSrc: profile.imageSrc || null, bannerSrc: profile.bannerSrc || null })
       // Revalidated: the POST reply lacks the counts GET adds (books read and the like).
       if (res.data?.id) mutate(res.data)
       onClose()
@@ -189,7 +197,7 @@ const EditProfileModal: FC = () => {
             {displayName?.length ?? 0}/{DISPLAY_NAME_MAX}
           </span>
         </div>
-        <input
+        <ClearableInput
           id="displayName"
           autoComplete="name"
           disabled={isSaving}
@@ -206,7 +214,7 @@ const EditProfileModal: FC = () => {
 
       <div className="flex flex-col gap-2">
         <label htmlFor="username" className="text-sm font-medium">Username</label>
-        <input
+        <ClearableInput
           id="username"
           autoComplete="off"
           spellCheck={false}
@@ -246,6 +254,26 @@ const EditProfileModal: FC = () => {
         />
         {errors.bio && <p role="alert" className="text-sm text-danger">{errors.bio.message}</p>}
       </div>
+
+      <fieldset className="flex flex-col gap-2" disabled={isSaving}>
+        <legend className="text-sm font-medium">Links <span className="font-normal text-muted-foreground">· optional</span></legend>
+        <p className="text-xs text-muted-foreground">Up to {PROFILE_LINKS_MAX}, like your TikTok, Instagram or newsletter, so your profile can be your link in bio. They show to whoever can see your profile.</p>
+        {linkRows().map((_, i) => (
+          <div key={i} className="flex flex-col gap-1">
+            <input
+              type="text"
+              inputMode="url"
+              autoComplete="url"
+              aria-label={`Link ${i + 1}`}
+              placeholder={["tiktok.com/@you", "instagram.com/you", "you.substack.com", "yourwebsite.com"][i]}
+              aria-invalid={!!errors.links?.[i]}
+              className={cn(fieldClass, "h-10", errors.links?.[i] ? "border-danger" : "border-input")}
+              {...register(`links.${i}` as const, { validate: (v) => !v.trim() || normaliseProfileLink(v) !== null || "That doesn't look like a web address." })}
+            />
+            {errors.links?.[i] && <p role="alert" className="text-sm text-danger">{errors.links[i]?.message}</p>}
+          </div>
+        ))}
+      </fieldset>
 
       <div className="flex flex-col gap-2">
         <span id="colour-label" className="text-sm font-medium">Colour</span>
@@ -301,6 +329,7 @@ const EditProfileModal: FC = () => {
         type="submit"
         form="edit-profile-form"
         disabled={!isDirty || isBusy}
+        loading={isBusy}
         style={{ background: accent, color: accentInk }}
         className="transition-colors"
       >

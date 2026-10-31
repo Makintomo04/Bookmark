@@ -17,13 +17,12 @@ import { warmCoverConnections } from '@/utils/helpers'
 import useUser from '@/app/hooks/useUser'
 import useBookSearch from '@/app/hooks/useBookSearch'
 import DiscoverBookCard from './DiscoverBookCard'
+import PeopleYouMayKnow from '../people/PeopleYouMayKnow'
 import BookCover from '../cards/BookCover'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
-import useSearchHistory, { historyEntryId, SearchHistoryEntry, SearchMode } from '@/app/hooks/useSearchHistory'
+import useSearchHistory, { historyEntryId, SearchHistoryEntry } from '@/app/hooks/useSearchHistory'
 import { bookHref } from '@/lib/workKey'
 import type { DiscoverBook } from '@/lib/openLibrary'
-
-type Mode = SearchMode
 
 interface SearchUser {
   username: string
@@ -34,9 +33,15 @@ interface SearchUser {
   bio: string | null
   isFollowing: boolean
   _count?: { books?: number }
+  // Why they might be someone you know: "Follows you", "Followed by Sam and 2 others". Signed in only.
+  reason?: string | null
 }
 
-const MIN_CHARS: Record<Mode, number> = { books: 3, people: 2 }
+// Readers match on a couple of letters; the book catalogue needs three to say anything useful.
+const MIN_CHARS = 2
+const MIN_BOOK_CHARS = 3
+// Readers sit above the books, so only a few show until asked for the rest.
+const PEOPLE_SHOWN = 3
 
 const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { user } = useUser()
@@ -46,11 +51,15 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const urlQuery = searchParams?.get("q") ?? ""
   // "Find people" links (e.g. from the empty "From people you follow" section) land on /discover?find=people.
   const find = searchParams?.get("find")
-  const [mode, setMode] = useState<Mode>(searchParams?.get("mode") === "people" || find === "people" ? "people" : "books")
+  // Kept from the link, since the URL loses ?find= once the search is written back to it.
+  const [findingPeople] = useState(find === "people")
   const [query, setQuery] = useState(urlQuery)
   const [people, setPeople] = useState<SearchUser[]>([])
+  const [morePeople, setMorePeople] = useState(false)
+  const [loadingMorePeople, setLoadingMorePeople] = useState(false)
   const [isSearchingPeople, setIsSearchingPeople] = useState(false)
   const [peopleFailed, setPeopleFailed] = useState(false)
+  const [allPeople, setAllPeople] = useState(false)
   const [searchAttempt, setSearchAttempt] = useState(0)
   const [followState, setFollowState] = useState<Record<string, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
@@ -60,13 +69,15 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     if (find !== "people") return
-    setMode("people")
     inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" })
     inputRef.current?.focus({ preventScroll: true })
   }, [find])
 
   const q = query.trim()
-  const isActive = q.length >= MIN_CHARS[mode]
+  const isActive = q.length >= MIN_CHARS
+  const booksOn = q.length >= MIN_BOOK_CHARS
+  // Signed out, readers search finds public profiles only (the API decides).
+  const peopleOn = isActive
 
   // The search lives in the URL, so Back from a book's page (or a reload) lands on the same results. It's
   // replaced rather than pushed, so typing doesn't fill the history, and without a router round trip.
@@ -76,8 +87,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       const params = new URLSearchParams(window.location.search)
       if (q) params.set("q", q)
       else params.delete("q")
-      if (mode === "people") params.set("mode", "people")
-      else params.delete("mode")
+      // Left over from when books and people had a tab each.
+      params.delete("mode")
       params.delete("find")
       const search = params.toString()
       writtenQuery.current = q
@@ -86,7 +97,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       }
     }, 300)
     return () => clearTimeout(timeout)
-  }, [q, mode])
+  }, [q])
 
   // The URL changed under us (e.g. the header's Discover link while already here): follow it.
   useEffect(() => {
@@ -95,35 +106,35 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
     setQuery(urlQuery)
   }, [urlQuery])
 
-  const bookSearch = useBookSearch(q, { enabled: mode === "books", limit: 12, attempt: searchAttempt })
+  const bookSearch = useBookSearch(q, { enabled: booksOn, limit: 12, attempt: searchAttempt })
   const books = bookSearch.results
-  const isSearching = mode === "books" ? bookSearch.isSearching : isSearchingPeople
-  const searchFailed = mode === "books" ? bookSearch.searchFailed : peopleFailed
+  const isSearching = bookSearch.isSearching || isSearchingPeople
 
   // A search is remembered once the reader has settled on it: they pressed Enter, opened a result, or
   // stopped typing with results on screen.
-  const hasResults = mode === "books" ? books.length > 0 : people.length > 0
-  const rememberSearch = () => { if (isActive) addToHistory({ kind: "query", q, mode }) }
+  const hasResults = books.length > 0 || people.length > 0
+  const rememberSearch = () => { if (isActive) addToHistory({ kind: "query", q }) }
   useEffect(() => {
     if (!isActive || isSearching || !hasResults) return
-    const timeout = setTimeout(() => addToHistory({ kind: "query", q, mode }), 1500)
+    const timeout = setTimeout(() => addToHistory({ kind: "query", q }), 1500)
     return () => clearTimeout(timeout)
-  }, [q, mode, isActive, isSearching, hasResults, addToHistory])
+  }, [q, isActive, isSearching, hasResults, addToHistory])
 
   const openRecent = (entry: SearchHistoryEntry) => {
     addToHistory(entry)
-    if (entry.kind === "book") return
-    setMode(entry.mode)
-    setQuery(entry.q)
+    if (entry.kind === "query") setQuery(entry.q)
   }
 
   useEffect(() => {
-    if (mode === "books" && isActive) warmCoverConnections()
-  }, [mode, isActive])
+    if (booksOn) warmCoverConnections()
+  }, [booksOn])
+
+  useEffect(() => { setAllPeople(false) }, [q])
 
   useEffect(() => {
-    if (mode !== "people" || !isActive || !signedIn) {
+    if (!peopleOn) {
       setPeople([])
+      setMorePeople(false)
       setIsSearchingPeople(false)
       setPeopleFailed(false)
       return
@@ -134,12 +145,21 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
     setPeopleFailed(false)
     const timeout = setTimeout(() => {
       axios.get(`/api/users/search?q=${encodeURIComponent(q)}`)
-        .then((res) => { if (current) setPeople(res.data) })
-        .catch(() => { if (current) { setPeople([]); setPeopleFailed(true) } })
+        .then((res) => { if (current) { setPeople(res.data.readers); setMorePeople(res.data.hasMore) } })
+        .catch(() => { if (current) { setPeople([]); setMorePeople(false); setPeopleFailed(true) } })
         .finally(() => { if (current) setIsSearchingPeople(false) })
     }, 400)
     return () => { current = false; clearTimeout(timeout) }
-  }, [q, mode, isActive, signedIn, searchAttempt])
+  }, [q, peopleOn, searchAttempt])
+
+  // The next page of readers, after the ones already shown.
+  const loadMorePeople = () => {
+    setLoadingMorePeople(true)
+    axios.get(`/api/users/search?q=${encodeURIComponent(q)}&offset=${people.length}`)
+      .then((res) => { setPeople((shown) => [...shown, ...res.data.readers.filter((r: SearchUser) => !shown.some((s) => s.username === r.username))]); setMorePeople(res.data.hasMore) })
+      .catch(() => notify.error("Couldn't load more readers. Try again."))
+      .finally(() => setLoadingMorePeople(false))
+  }
 
   const handleFollow = (username: string, current: boolean) => {
     axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
@@ -149,96 +169,119 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       .catch(() => notify.error(current ? "Couldn't unfollow. Try again." : "Couldn't follow. Try again.", { retry: () => handleFollow(username, current) }))
   }
 
-  const tabs = (
-    <div role="tablist" aria-label="Search for" className="inline-flex self-start rounded-full bg-neutral-100 dark:bg-neutral-900 p-1">
-      {(["books", "people"] as Mode[]).map((m) => (
-        <button
-          key={m}
-          type="button"
-          role="tab"
-          aria-selected={mode === m}
-          onClick={() => setMode(m)}
-          className={cn(
-            "h-8 px-4 rounded-full text-sm font-medium capitalize transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            mode === m ? "bg-background dark:bg-neutral-700 shadow-sm" : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {m}
-        </button>
-      ))}
-    </div>
-  )
+  const retry = <button type="button" onClick={() => setSearchAttempt((n) => n + 1)} className="font-medium text-foreground underline underline-offset-4">Try again</button>
+  const heading = "text-xs font-semibold uppercase tracking-widest text-muted-foreground"
 
   let results: React.ReactNode = null
   if (isActive) {
-    if (mode === "people" && !signedIn) {
-      results = <p className="text-sm text-muted-foreground"><Link href="/signin" className="font-medium text-foreground underline underline-offset-4">Sign in</Link> to find readers.</p>
-    } else if (isSearching) {
-      results = <p className="text-sm text-muted-foreground" aria-live="polite">Searching…</p>
-    } else if (searchFailed) {
-      results = (
-        <p role="alert" className="text-sm text-muted-foreground">
-          {mode === "books" ? "Couldn't reach the book catalogue." : "Couldn't search for readers."}{" "}
-          <button type="button" onClick={() => setSearchAttempt((n) => n + 1)} className="font-medium text-foreground underline underline-offset-4">Try again</button>
+    const shownPeople = allPeople ? people : people.slice(0, PEOPLE_SHOWN)
+    const peopleSection = people.length > 0 && (
+      <section aria-labelledby="people-results-heading" className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-4">
+          <h2 id="people-results-heading" className={heading}>Readers</h2>
+          {(people.length > PEOPLE_SHOWN || morePeople) && (
+            <button type="button" onClick={() => setAllPeople((all) => !all)} className="text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-4">
+              {allPeople ? "Show fewer" : morePeople ? "See more" : `See all ${people.length}`}
+            </button>
+          )}
+        </div>
+        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {shownPeople.map((person) => {
+            const following = followState[person.username] ?? person.isFollowing
+            return (
+              <li key={person.username} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3">
+                <Link href={`/u/${person.username}`} onClick={rememberSearch} className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <div className="relative size-10 shrink-0 overflow-hidden rounded-[14px]" style={{ background: person.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(person.username, booksReadOf(person))) }}>
+                    {person.image
+                      ? <Image src={person.image} alt="" fill sizes="40px" className="object-cover" />
+                      : <InitialAvatar username={person.username} favColour={person.favColour} />}
+                  </div>
+                  <div className="min-w-0">
+                    {/* Inside the profile link, so the seal only marks the role. */}
+                    <p className="truncate font-medium"><ReaderName reader={person} badge={person.staffBadge && <StaffSeal kind={person.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} /></p>
+                    {person.reason
+                      ? <p className="truncate text-xs text-muted-foreground">{person.reason}</p>
+                      : person.bio && <p className="truncate text-xs text-muted-foreground">{person.bio}</p>}
+                  </div>
+                </Link>
+                {/* Signed out, the profile itself offers to join and follow. */}
+                {signedIn && <button
+                  type="button"
+                  onClick={() => handleFollow(person.username, following)}
+                  className={cn(
+                    "shrink-0 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    following ? "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900" : "bg-foreground text-background hover:opacity-90"
+                  )}
+                >
+                  {following ? "Following" : "Follow"}
+                </button>}
+              </li>
+            )
+          })}
+        </ul>
+        {allPeople && morePeople && (
+          <button type="button" onClick={loadMorePeople} disabled={loadingMorePeople} className="self-start h-9 px-4 rounded-md text-sm font-medium border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60">
+            {loadingMorePeople ? "Loading…" : "Show more readers"}
+          </button>
+        )}
+      </section>
+    )
+
+    let booksBody: React.ReactNode = null
+    if (bookSearch.isSearching) booksBody = <p className="text-sm text-muted-foreground" aria-live="polite">Searching…</p>
+    else if (bookSearch.searchFailed) booksBody = <p role="alert" className="text-sm text-muted-foreground">Couldn&apos;t reach the book catalogue. {retry}</p>
+    else if (books.length > 0) {
+      booksBody = (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-8">
+          {books.map((book, i) => (
+            <DiscoverBookCard
+              key={book.workKey ?? i}
+              book={book}
+              onOpen={() => { rememberSearch(); addToHistory({ kind: "book", book }) }}
+            />
+          ))}
+        </div>
+      )
+    }
+    const booksSection = booksBody && (
+      <section aria-labelledby="book-results-heading" className="flex flex-col gap-3">
+        <h2 id="book-results-heading" className={heading}>Books</h2>
+        {booksBody}
+      </section>
+    )
+
+    // Whatever the two sections can't say between them: a failed reader search, nothing at all, or too
+    // few letters for the catalogue yet.
+    let note: React.ReactNode = null
+    if (peopleFailed) {
+      note = <p role="alert" className="text-sm text-muted-foreground">Couldn&apos;t search for readers. {retry}</p>
+    } else if (isSearchingPeople && !booksOn) {
+      note = <p className="text-sm text-muted-foreground" aria-live="polite">Searching…</p>
+    } else if (!isSearching && !hasResults && !bookSearch.searchFailed) {
+      note = (
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {booksOn
+            ? <>Nothing matches &ldquo;{q}&rdquo;. Try the title, the author&apos;s surname or a reader&apos;s name.</>
+            : "Keep typing to search for books."}
         </p>
       )
-    } else if (mode === "books") {
-      results = books.length === 0
-        ? <p className="text-sm text-muted-foreground" aria-live="polite">No books match &ldquo;{q}&rdquo;. Try the title or the author&apos;s surname.</p>
-        : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-8">
-            {books.map((book, i) => (
-              <DiscoverBookCard
-                key={book.workKey ?? i}
-                book={book}
-                onOpen={() => { rememberSearch(); addToHistory({ kind: "book", book }) }}
-              />
-            ))}
-          </div>
-        )
-    } else {
-      results = people.length === 0
-        ? <p className="text-sm text-muted-foreground" aria-live="polite">No readers called &ldquo;{q}&rdquo;.</p>
-        : (
-          <ul className="grid sm:grid-cols-2 gap-3">
-            {people.map((person) => {
-              const following = followState[person.username] ?? person.isFollowing
-              return (
-                <li key={person.username} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3">
-                  <Link href={`/u/${person.username}`} onClick={rememberSearch} className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <div className="relative size-10 shrink-0 overflow-hidden rounded-[14px]" style={{ background: person.favColour || "#D92D2D", ...tierRingStyle(booksReadFor(person.username, booksReadOf(person))) }}>
-                      {person.image
-                        ? <Image src={person.image} alt="" fill sizes="40px" className="object-cover" />
-                        : <InitialAvatar username={person.username} favColour={person.favColour} />}
-                    </div>
-                    <div className="min-w-0">
-                      {/* Inside the profile link, so the seal only marks the role. */}
-                      <p className="truncate font-medium"><ReaderName reader={person} badge={person.staffBadge && <StaffSeal kind={person.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} /></p>
-                      {person.bio && <p className="truncate text-xs text-muted-foreground">{person.bio}</p>}
-                    </div>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleFollow(person.username, following)}
-                    className={cn(
-                      "shrink-0 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      following ? "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900" : "bg-foreground text-background hover:opacity-90"
-                    )}
-                  >
-                    {following ? "Following" : "Follow"}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )
     }
+
+    results = (
+      <div className="flex flex-col gap-8">
+        {peopleSection}
+        {booksSection}
+        {note}
+        {!signedIn && people.length > 0 && (
+          <p className="text-sm text-muted-foreground">Readers with public profiles show here. <Link href="/signin" className="font-medium text-foreground underline underline-offset-4">Sign in</Link> to follow them and find more.</p>
+        )}
+      </div>
+    )
   }
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
-        {tabs}
         <div className="relative max-w-2xl">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
           <input
@@ -247,8 +290,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") rememberSearch() }}
-            placeholder={mode === "books" ? "Search by title or author" : "Search readers by name or username"}
-            aria-label={mode === "books" ? "Search for books" : "Search for readers"}
+            placeholder="Search books, authors or readers"
+            aria-label="Search for books, authors or readers"
             autoComplete="off"
             className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-11 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-search-cancel-button]:hidden"
           />
@@ -264,6 +307,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       </div>
 
       {/* While searching, results replace the browse sections so the page doesn't get long and confusing. */}
+      {/* Find people (?find=people) offers readers to follow before anything's typed (BOO-81). */}
+      {!isActive && signedIn && findingPeople && <PeopleYouMayKnow variant="find" />}
       {isActive ? <section aria-label="Search results">{results}</section> : children}
     </div>
   )
@@ -284,13 +329,8 @@ const RecentSearches: FC<RecentSearchesProps> = ({ entries, onOpen, onOpenBook, 
 
   return (
     <section aria-labelledby="recent-searches-heading" className="flex max-w-2xl flex-col gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <h2 id="recent-searches-heading" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Recent</h2>
-        <button type="button" onClick={onClear} className="text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-4">
-          Clear
-        </button>
-      </div>
-      <ul className="flex flex-wrap gap-2">
+      <h2 id="recent-searches-heading" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Recent</h2>
+      <ul className="flex flex-wrap items-center gap-2">
         {entries.map((entry) => {
           const label = entry.kind === "query" ? entry.q : entry.book.title
           const href = entry.kind === "book" ? bookHref(entry.book) : null
@@ -298,7 +338,6 @@ const RecentSearches: FC<RecentSearchesProps> = ({ entries, onOpen, onOpenBook, 
             <>
               <History size={14} className="shrink-0 text-muted-foreground" aria-hidden />
               <span className="truncate">{entry.q}</span>
-              {entry.mode === "people" && <span className="shrink-0 text-xs text-muted-foreground">in people</span>}
             </>
           ) : (
             <>
@@ -335,6 +374,15 @@ const RecentSearches: FC<RecentSearchesProps> = ({ entries, onOpen, onOpenBook, 
             </li>
           )
         })}
+        <li>
+          <button
+            type="button"
+            onClick={onClear}
+            className="h-8 rounded-full px-3 text-sm text-muted-foreground transition hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Clear all
+          </button>
+        </li>
       </ul>
     </section>
   )

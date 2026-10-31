@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRight, Feather } from 'lucide-react'
+import { ArrowRight, Compass, Feather } from 'lucide-react'
 import Container from '@/app/components/Container'
 import DiscoverSearch from '@/app/components/discover/DiscoverSearch'
 import GenreTile from '@/app/components/discover/GenreTile'
@@ -10,17 +10,22 @@ import ListCard from '@/app/components/discover/ListCard'
 import FollowingPicks from '@/app/components/discover/FollowingPicks'
 import GenrePicks from '@/app/components/discover/GenrePicks'
 import { NewPickButton } from '@/app/components/discover/ListButtons'
+import UpcomingSection from '@/app/components/discover/Upcoming'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { GENRES, favouritesFirst } from '@/lib/genres'
 import { findLists, ListSummary } from '@/lib/lists'
 import { isOpenLibraryCover } from '@/utils/helpers'
+import { zoneOf } from '@/lib/jobs/common'
+import { localClock } from '@bookmark/shared/reminders'
 
 export const metadata: Metadata = {
   title: "Discover",
-  description: "Find your next read: browse genres, hand-picked lists from the Bookmark team, and readers with taste like yours.",
+  description: "Find your next read: browse genres, books on the way, hand-picked lists from the Bookmark team, and readers with taste like yours.",
 }
 
-const Spotlight = ({ list }: { list: ListSummary }) => (
+const COMMUNITY_SHOWN = 9
+
+const Spotlight =({ list }: { list: ListSummary }) => (
   <Link
     href={`/lists/${list.id}`}
     className="group relative flex flex-col sm:flex-row sm:items-center gap-6 overflow-hidden rounded-2xl bg-neutral-950 text-white p-6 sm:p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -61,12 +66,29 @@ const AskShelfEntry = () => (
   </Link>
 )
 
+// The first-book picker (BOO-52), for anyone stuck on what to read next: no AI, so it sits beside Ask the
+// shelf as the plain option.
+const PickerEntry = () => (
+  <Link
+    href="/first-book"
+    className="group flex items-center gap-4 rounded-2xl border border-neutral-300 dark:border-neutral-700 p-5 transition hover:bg-neutral-50 dark:hover:bg-neutral-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+  >
+    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand/10 text-brand"><Compass size={20} aria-hidden /></span>
+    <span className="min-w-0 flex-1">
+      <span className="font-semibold">Help me pick a book</span>
+      <span className="mt-0.5 block text-sm text-muted-foreground">From your Want to read, what people you follow loved, the team&apos;s picks and your genres.</span>
+    </span>
+    <ArrowRight size={18} aria-hidden className="shrink-0 transition-transform group-hover:translate-x-1" />
+  </Link>
+)
+
 const Page = async () => {
   const viewer = await getCurrentUser()
   const [featured, picks, community, reported] = await Promise.all([
     findLists({ featured: true, limit: 1 }, viewer),
     findLists({ pick: true, limit: 12 }, viewer),
-    findLists({ community: true, limit: 12 }, viewer),
+    // Nine fill three rows of three; the tenth only tells us whether to link to the rest.
+    findLists({ community: true, limit: COMMUNITY_SHOWN + 1 }, viewer),
     findLists({ reported: true, limit: 24 }, viewer),
   ])
 
@@ -84,7 +106,12 @@ const Page = async () => {
         <DiscoverSearch>
           <div className="flex flex-col gap-12">
             {featured[0] && <Spotlight list={featured[0]} />}
-            <AskShelfEntry />
+            {viewer ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <PickerEntry />
+                <AskShelfEntry />
+              </div>
+            ) : <AskShelfEntry />}
 
             <section aria-labelledby="genres-heading">
               <h2 id="genres-heading" className="text-xl font-bold">Browse by genre</h2>
@@ -104,6 +131,11 @@ const Page = async () => {
               </Suspense>
             )}
 
+            {/* Books not out yet; followed authors and series first when signed in. */}
+            <Suspense fallback={null}>
+              <UpcomingSection viewerId={viewer?.id ?? null} today={localClock(new Date(), zoneOf(viewer?.timeZone)).day} />
+            </Suspense>
+
             {picks.length > 0 && (
               <section aria-labelledby="picks-heading">
                 <h2 id="picks-heading" className="text-xl font-bold">Bookmark Picks</h2>
@@ -119,9 +151,14 @@ const Page = async () => {
               <section aria-labelledby="community-heading">
                 <h2 id="community-heading" className="text-xl font-bold">From readers</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Lists made by the Bookmark community. Like one? Follow the reader behind it.</p>
-                <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
-                  {community.map((list) => <ListCard key={list.id} list={list} className="w-60 shrink-0 sm:w-auto snap-start" />)}
+                <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
+                  {community.slice(0, COMMUNITY_SHOWN).map((list) => <ListCard key={list.id} list={list} className="w-60 shrink-0 sm:w-auto snap-start" />)}
                 </div>
+                {community.length > COMMUNITY_SHOWN && (
+                  <Link href="/lists" className="mt-4 inline-flex items-center gap-2 text-sm font-medium rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    See all lists from readers <ArrowRight size={16} aria-hidden />
+                  </Link>
+                )}
               </section>
             )}
 
@@ -129,7 +166,7 @@ const Page = async () => {
             {reported.length > 0 && (
               <section aria-labelledby="review-heading" className="rounded-2xl border border-danger/30 p-5">
                 <h2 id="review-heading" className="text-xl font-bold">Reported lists</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Only the Bookmark team sees this. Open a list and switch on Hidden in its editor to take it down.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Lists with open reports, seen only by the Bookmark team. Deal with them in the <Link href="/staff/reports" className="font-medium text-foreground underline underline-offset-4">reports queue</Link>, so each report is closed and logged.</p>
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
                   {reported.map((list) => <ListCard key={list.id} list={list} />)}
                 </div>

@@ -11,7 +11,7 @@ export async function staffSend<T = unknown>(url: string, method: "POST" | "PUT"
   return data as T
 }
 
-export const fieldClass = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+export const fieldClass = "w-full rounded-md border border-input bg-background px-3 py-2 text-base pointer-fine:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
 
 export const cardClass = "rounded-lg border border-neutral-200 dark:border-neutral-800 p-4"
 

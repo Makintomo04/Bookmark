@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 import { create } from "zustand";
 import { mutate } from "swr";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ApiError, api, clearTokens, postPublic, saveTokens, setSessionEndedHandler, storedRefreshToken, type TokenResponse } from "@/lib/api";
+import { ApiError, SUSPENDED, api, clearTokens, postPublic, saveTokens, setSessionEndedHandler, storedRefreshToken, type TokenResponse } from "@/lib/api";
 import { endPurchases } from "@/lib/purchases";
 import { currentPushToken } from "@/lib/push";
 
@@ -79,6 +79,12 @@ export const useAuth = create<AuthState>()((set, get) => ({
     } catch (error) {
       // The session was ended (signed out elsewhere, account deleted): sign in again.
       if (error instanceof ApiError && error.status === 401) return set({ status: "signedOut", user: null });
+      // Suspended while the app was closed: apiFetch has dropped the tokens; say why on the welcome screen
+      // (the server's message says until when, why, and who to email).
+      if (error instanceof ApiError && error.status === 403 && error.body?.code === SUSPENDED) {
+        await clearCache();
+        return set({ status: "signedOut", user: null, notice: error.message });
+      }
       // Offline: carry on as the last reader seen; screens show what SWR has and retry when back online.
       const cached = await lastUser();
       set(cached ? { status: "signedIn", user: cached } : { status: "signedOut", user: null });

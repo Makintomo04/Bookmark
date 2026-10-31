@@ -9,11 +9,15 @@ import { can } from "./roles"
 import { QUALITY_MIN_ACCOUNT_DAYS } from "./genreListRules"
 import { openReportWhere } from "./staffReports"
 import { staffBadgeOf, staffBadgeSelect } from "./staffBadge"
+import { logStaffAction } from "./staffLog"
+import type { ListFlagChange } from "./listStaffRules"
 import type { DiscoverBook } from "./openLibrary"
 import { withoutUploadedCovers } from "./uploads"
+import { workIdsWithPages } from "./workPages"
 import { LIST_DESCRIPTION_MAX, LIST_ITEMS_MAX, LIST_NOTE_MAX, LIST_TAGS_MAX, LIST_TITLE_MAX, OWN_LISTS_MAX, canSeeListOf, type Curator } from "./listRules"
 
 export * from "./listRules"
+export * from "./listStaffRules"
 
 type Viewer = { id: string, role?: string | null, isStaff?: boolean, username?: string | null } | null
 
@@ -30,7 +34,7 @@ const withSeal = <P extends { role: string | null, isStaff: boolean | null, hide
 const visibleTo = (viewer: Viewer): Prisma.ListWhereInput =>
   curates(viewer) ? {} : {
     OR: [
-      { visibility: "PUBLIC", hidden: false, owner: notSuspendedWhere },
+      { visibility: "PUBLIC", hidden: false, owner: notSuspendedWhere() },
       ...(viewer ? [{ ownerId: viewer.id }] : []),
     ],
   }
@@ -44,7 +48,7 @@ export interface ListFilters {
   workKey?: string
   featured?: boolean
   owner?: string
-  // Staff only: lists with at least one report, of any visibility, for review.
+  // Staff only: lists with at least one open report, of any visibility, for review.
   reported?: boolean
   // Editors' choices only (List.chosenAt), most recently chosen first.
   chosen?: boolean
@@ -70,7 +74,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
       ...(filters.workKey ? [{ items: { some: { workKey: filters.workKey } } }] : []),
       ...(filters.featured ? [{ featuredFrom: { lte: now }, featuredUntil: { gte: now } }] : []),
       ...(filters.owner ? [{ owner: { username: usernameEquals(filters.owner) } }] : []),
-      ...(filters.reported ? [{ reports: { some: {} } }] : []),
+      ...(filters.reported ? [{ reports: { some: openReportWhere } }] : []),
       ...(filters.chosen ? [{ chosenAt: { not: null } }] : []),
       ...(filters.quality ? [{
         description: { not: null },
@@ -89,7 +93,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
     include: {
       owner: { select: { ...ownerSelect, ...privacySelect, ...staffBadgeSelect } },
       items: { orderBy: { position: "asc" }, take: 4, select: { title: true, author: true, coverUrl: true } },
-      _count: { select: { items: true, reports: true } },
+      _count: { select: { items: true, reports: { where: openReportWhere } } },
     },
   })
   const lists = (await visibleLists(found, viewer)).slice(0, limit)
@@ -99,6 +103,15 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
     itemCount: _count.items,
     reportCount: curates(viewer) ? _count.reports : 0,
   }))
+}
+
+// Genre slugs that at least one public reader list carries, so a filter never leads to an empty page.
+export async function communityGenres(): Promise<Set<string>> {
+  const rows = await prisma.list.findMany({
+    where: { AND: [publicOnly, { isPick: false, items: { some: {} }, genres: { isEmpty: false } }] },
+    select: { genres: true },
+  })
+  return new Set(rows.flatMap((r) => r.genres))
 }
 
 // The lists whose owners' profiles the viewer can see (canSeeListOf). One query for the viewer's
@@ -160,7 +173,7 @@ export async function findList(id: string, viewer: Viewer) {
   // Remixes keep the original curator's notes; everyone else's notes are the owner's.
   const noteAuthorIds = Array.from(new Set(list.items.flatMap((i) => (i.note && i.noteAuthorId && i.noteAuthorId !== list.ownerId ? [i.noteAuthorId] : []))))
   const [reportCount, hasReported, remixCount, forkedFrom, noteAuthors, canCopy] = await Promise.all([
-    curates(viewer) ? prisma.listReport.count({ where: { listId: list.id } }) : 0,
+    curates(viewer) ? prisma.listReport.count({ where: { listId: list.id, ...openReportWhere } }) : 0,
     viewer && !isOwner
       ? prisma.listReport.findUnique({ where: { listId_reporterId: { listId: list.id, reporterId: viewer.id } } }).then(Boolean)
       : false,
@@ -265,6 +278,8 @@ const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "")
 // The editor works on plain JSON, so dates travel as yyyy-mm-dd.
 export const toEditableList = (list: ListDetail) => ({
   id: list.id,
+  // Staff editing someone else's list see a reason field, and don't get a Delete button.
+  isOwner: list.isOwner,
   title: list.title,
   description: list.description ?? "",
   visibility: list.visibility,
@@ -300,6 +315,24 @@ export function carryOverItems(existing: StoredItem[], items: Prisma.ListItemCre
     const keepsAuthor = !!before.noteAuthorId && !!item.note && before.note === item.note
     return { ...item, createdAt: before.createdAt, noteAuthorId: keepsAuthor ? before.noteAuthorId : null }
   })
+}
+
+// A curator's save of someone else's list: one staff log entry per flag it changed. Hiding the list
+// closes its open reports the way the reports queue's "Hide list" does (lib/staffReports.ts).
+export async function recordListFlagChanges(actorId: string, listId: string, changes: ListFlagChange[], reason?: unknown) {
+  const note = typeof reason === "string" ? reason.trim().slice(0, 500) || null : null
+  for (const change of changes) {
+    let after: Prisma.InputJsonValue = change.after
+    if (change.action === "list.hide") {
+      // Escalated reports stay for an admin to close (lib/staffReportRules.ts mayActOnReport).
+      const closed = await prisma.listReport.updateMany({
+        where: { listId, OR: [{ status: { isSet: false } }, { status: null }, { status: "OPEN" }] },
+        data: { status: "ACTIONED", resolvedById: actorId, resolvedAt: new Date(), resolutionNote: note },
+      })
+      after = { ...after, reports: closed.count }
+    }
+    await logStaffAction({ actorId, action: change.action, targetType: "list", targetId: listId, before: change.before, after, reason: note })
+  }
 }
 
 type CopyResult = { id: string } | { error: string, status: number }
@@ -423,7 +456,10 @@ export interface PersonPick {
 export async function peoplePicksForBook(viewerId: string, book: { workKey: string | null, title: string, author: string }) {
   const { followsAnyone, people } = await followedPeople(viewerId)
   if (people.size === 0) return { followsAnyone, picks: [] as PersonPick[] }
-  const ids = Array.from(people.keys())
+  // A suspended reader's picks are hidden until the suspension ends or is lifted, like their reviews.
+  const active = await prisma.user.findMany({ where: { id: { in: Array.from(people.keys()) }, AND: [notSuspendedWhere()] }, select: { id: true } })
+  const ids = active.map((u) => u.id)
+  if (ids.length === 0) return { followsAnyone, picks: [] as PersonPick[] }
   // The work key is indexed on both collections. Books without one fall back to an exact title,
   // narrowed by the followed readers' own lists and shelves, then checked with sameBook.
   const match = book.workKey ? { workKey: book.workKey } : { title: book.title }
@@ -506,9 +542,11 @@ export async function followingPicks(viewerId: string) {
       where: { userId: { in: ids }, status: "COMPLETED", rating: { gte: 4 }, ...sharedBookWhere, AND: [countedRatingWhere] },
       orderBy: { completedAt: "desc" },
       take: 40,
-      select: { id: true, userId: true, workKey: true, title: true, author: true, coverImage: true, pages: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, completedAt: true, createdAt: true },
+      select: { id: true, userId: true, workKey: true, workId: true, title: true, author: true, coverImage: true, pages: true, rating: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true, completedAt: true, createdAt: true },
     }),
   ])
+  // A rated book without an Open Library key links to its page by catalogue Work id, when the work has one (bookHref).
+  const withPages = await workIdsWithPages(rated.map((b) => (b.workKey ? null : b.workId)))
 
   const candidates: FollowingPick[] = []
   for (const item of items) {
@@ -530,7 +568,7 @@ export async function followingPicks(viewerId: string) {
     if (!person) continue
     candidates.push({
       key: `book-${book.id}`,
-      book: { workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverImage || null, pages: book.pages || null },
+      book: { workKey: book.workKey, pageWorkId: !book.workKey && book.workId && withPages.has(book.workId) ? book.workId : null, title: book.title, author: book.author, coverUrl: book.coverImage || null, pages: book.pages || null },
       person: publicPerson(person),
       reason: reviewSnippet(book, person),
       rating: book.rating,
@@ -553,3 +591,35 @@ export async function followingPicks(viewerId: string) {
   return { followsAnyone, picks }
 }
 
+
+const TEAM_PICK_LISTS = 6
+
+// First book (BOO-52): the top few books from the team's most recently updated public pick lists, with
+// the list each came from and its note.
+export async function teamPickBooks() {
+  const lists = await prisma.list.findMany({
+    where: { ...publicOnly, isPick: true, owner: notSuspendedWhere() },
+    orderBy: { updatedAt: "desc" },
+    take: TEAM_PICK_LISTS,
+    select: {
+      id: true,
+      title: true,
+      items: { orderBy: { position: "asc" }, take: 4, select: { id: true, workKey: true, title: true, author: true, coverUrl: true, pages: true, note: true } },
+    },
+  })
+  // Taken a list at a time in turn, so one long list doesn't fill the row.
+  const books: { key: string, list: { id: string, title: string }, book: DiscoverBook, note: string | null }[] = []
+  for (let i = 0; i < 4; i++) {
+    for (const list of lists) {
+      const item = list.items[i]
+      if (!item) continue
+      books.push({
+        key: `team-${item.id}`,
+        list: { id: list.id, title: list.title },
+        book: { workKey: item.workKey, title: item.title, author: item.author, coverUrl: item.coverUrl, pages: item.pages },
+        note: item.note || null,
+      })
+    }
+  }
+  return books
+}

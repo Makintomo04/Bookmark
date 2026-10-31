@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isCronAuthorised } from "@/lib/cronAuth";
 import { recheckSeries } from "@/lib/seriesRecheck";
 
 // Run hourly by Vercel Cron (vercel.json): records new series, asks Hardcover about series due their weekly
@@ -9,8 +10,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!isCronAuthorised(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
   const result = await recheckSeries();

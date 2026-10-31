@@ -12,6 +12,7 @@ import { authorAbout, authorBooksPage, findAuthor } from '@/lib/authors'
 import { authorHref, authorSlug } from '@/lib/authorNames'
 import { canFollow, isFollowingAuthor } from '@/lib/authorFollows'
 import { authorSeries } from '@/lib/seriesFollows'
+import { can } from '@/lib/roles'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -62,6 +63,13 @@ const Page = async (props: PageProps) => {
               <FollowAuthorButton slug={author.slug} name={author.name} initialFollowing={following} signedIn={!!user} />
             )}
           </div>
+          {/* Librarians only: rename the author or merge their spellings (/staff/catalogue/authors). */}
+          {can(user, 'catalogue.edit') && (
+            <Link href={`/staff/catalogue/authors?q=${encodeURIComponent(author.name)}`}
+              className="mt-2 inline-flex min-h-11 pointer-fine:min-h-0 items-center text-sm text-brand-text hover:underline">
+              Edit author
+            </Link>
+          )}
         </div>
         <AboutAuthor name={author.name} about={about} bookCount={first.total} />
         <AuthorSeriesList series={series} signedIn={!!user} returnTo={authorHref(author.slug)} />

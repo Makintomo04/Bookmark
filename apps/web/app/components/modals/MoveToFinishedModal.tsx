@@ -17,7 +17,8 @@ import { notify } from '@/lib/notify'
 // A book on the wrong shelf that the reader has actually read: the same questions adding it to Finished asks.
 const MoveToFinishedModal: FC = () => {
   const { user } = useUser()
-  const { mutate } = useBooks()
+  // Only refreshes the shelf, so it never needs to load it.
+  const { mutate } = useBooks({ onlyWhen: false })
   const { isOpen, bookId, bookTitle, onClose } = useMoveToFinishedModal()
   const [dates, setDates] = useState<FinishDatesValue>(defaultFinishDates)
   const [rating, setRating] = useState(0)
@@ -36,7 +37,7 @@ const MoveToFinishedModal: FC = () => {
     setIsSaving(true)
     reshelveBook(bookId, "COMPLETED", { ...finishDatesBody(dates), rating: rating > 0 ? rating : undefined }).then((saved) => {
       if (!saved) return
-      celebrate(saved.earnMoment, { message: "Moved to Finished" })
+      celebrate(saved.earnMoment, { message: "Moved to Finished" }, saved.askReminders)
       mutate()
       refreshAfterBookChange()
       onClose()
@@ -56,7 +57,7 @@ const MoveToFinishedModal: FC = () => {
   const footer = (
     <div className="w-full p-6 flex items-center justify-end gap-3">
       <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
-      <Button style={{ background: colour, color: readableInk(colour) }} onClick={move} disabled={isSaving}>Move to Finished</Button>
+      <Button style={{ background: colour, color: readableInk(colour) }} onClick={move} loading={isSaving}>Move to Finished</Button>
     </div>
   )
 

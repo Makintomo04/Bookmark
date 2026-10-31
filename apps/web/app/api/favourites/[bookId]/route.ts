@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { withFavourite } from "@/lib/favourites";
 
 export async function POST(request: Request, props: { params: Promise<{ bookId: string }> }) {
   const params = await props.params;
@@ -36,7 +37,7 @@ export async function POST(request: Request, props: { params: Promise<{ bookId: 
       id:currentUser.id
     },
     data:{
-      favouriteIds: user.favouriteIds.includes(bookId) ? user.favouriteIds.filter(favId => favId !== bookId) : [...user.favouriteIds,bookId]
+      favouriteIds: user.favouriteIds.includes(bookId) ? user.favouriteIds.filter(favId => favId !== bookId) : withFavourite(user.favouriteIds, bookId)
     }
   })
 

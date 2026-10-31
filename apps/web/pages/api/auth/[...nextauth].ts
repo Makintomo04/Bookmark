@@ -13,7 +13,7 @@ import { consumeVerificationToken } from "@/lib/emailVerification";
 import { MAGIC_LINK_MAX_AGE_SECONDS, sendMagicLink } from "@/lib/magicLink";
 import type { Adapter, AdapterUser } from "next-auth/adapters";
 import { appleClientSecret, appleWebConfig } from "@/lib/appleSignIn";
-import { isUserSuspended } from "@/lib/suspension";
+import { isSuspended } from "@/lib/suspension";
 
 const apple = appleWebConfig()
 
@@ -101,7 +101,13 @@ export const authOptions: AuthOptions = {
     async signIn({ user, account, email }) {
       // A suspended account can't sign in by any route (lib/suspension.ts). A brand-new OAuth or magic-link
       // user has no row yet, so there's nothing to look up.
-      if (user?.id && /^[a-f0-9]{24}$/.test(user.id) && (await isUserSuspended(user.id))) return "/signin?error=suspended"
+      // The end date rides along so the page can say when; the reason stays out of the URL. Not when a magic
+      // link is only being requested: anyone can type an address, and only its owner should learn the date.
+      if (user?.id && /^[a-f0-9]{24}$/.test(user.id)) {
+        const stored = await prisma.user.findUnique({ where: { id: user.id }, select: { suspendedAt: true, suspendedUntil: true } })
+        const until = stored?.suspendedUntil && !email?.verificationRequest ? `&until=${encodeURIComponent(stored.suspendedUntil.toISOString())}` : ""
+        if (isSuspended(stored)) return `/signin?error=suspended${until}`
+      }
       // Opening a magic link proves the inbox is theirs, and NextAuth then marks the user verified. If the
       // account was unverified and has a password, that password was set by whoever registered the
       // address, maybe not this person, so drop it before verification would let it sign in.

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR, { mutate as globalMutate } from "swr";
-import { Plus } from "lucide-react-native";
+import { Compass, Plus, Search } from "lucide-react-native";
 import { GENRE_PICKS_SHELF_LIMIT } from "@bookmark/shared/genres";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { GenrePicks } from "@/components/discover/GenrePicks";
@@ -12,15 +12,17 @@ import { OwnAuthors } from "@/components/authors/ProfileAuthors";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { GoalCard } from "@/components/library/GoalCard";
 import { NotificationBell } from "@/components/social/NotificationBell";
+import { SelectionBar } from "@/components/library/SelectionBar";
 import { SeriesTracker } from "@/components/library/SeriesTracker";
-import { Shelves } from "@/components/library/Shelves";
+import { Shelves, openShelf, useBookSelection } from "@/components/library/Shelves";
 import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHeader";
+import { AiLabel } from "@/components/ui/AiLabel";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
 import { api } from "@/lib/api";
 import { FOLLOWED_AUTHORS_KEY } from "@/lib/authors";
-import { useBooks } from "@/lib/books";
+import { useLibrary } from "@/lib/books";
 import { SERIES_TRACKER_KEY } from "@/lib/series";
 import { useTheme } from "@/lib/theme";
 
@@ -29,14 +31,18 @@ import { useTheme } from "@/lib/theme";
 export default function Library() {
   const { colors } = useTheme();
   const { data: user, mutate: refreshUser } = useSWR<ProfileUser & { role?: string | null; isStaff?: boolean | null; hideStaffBadge?: boolean | null }>("/api/user");
-  const { data: books, error, isLoading, mutate } = useBooks();
+  // The start of each shelf and the counts, not the whole shelf (useLibrary).
+  const { data: library, error, isLoading, mutate } = useLibrary();
+  const bookCount = library ? Object.values(library.counts).reduce((a, b) => a + b, 0) : undefined;
   const accent = user?.favColour || DEFAULT_COLOUR;
   const refreshing = false;
+  const selection = useBookSelection();
+  const picked = Array.from(selection.picked.values());
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[styles.fill, { backgroundColor: colors.background }]}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, selection.selecting && { paddingBottom: 200 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); void globalMutate(FOLLOWED_AUTHORS_KEY); void globalMutate(SERIES_TRACKER_KEY); }} tintColor={colors.mutedForeground} />}
       >
         <View style={styles.topBar}>
@@ -56,18 +62,54 @@ export default function Library() {
             <Button title="Try again" variant="outline" onPress={() => mutate()} />
           </View>
         )}
-        {books && books.length === 0 && (
-          <View style={{ gap: 6 }}>
-            <Text variant="title">Your shelves are empty</Text>
-            <Text variant="muted">Add the book you{"’"}re reading, or import your Goodreads or StoryGraph shelves from the web.</Text>
+        {bookCount === 0 && <EmptyLibrary />}
+        <NewShelfPicks bookCount={bookCount} />
+        {library && bookCount! > 0 && (
+          <View style={{ gap: 12 }}>
+            <View style={styles.shelfBar}>
+              {/* Looks like a search box; the shelf screen has the real one, with sort and filters. */}
+              <Pressable
+                accessibilityRole="search"
+                accessibilityLabel="Search your shelves"
+                onPress={() => openShelf("all")}
+                style={({ pressed }) => [styles.search, { borderRadius: 999, borderColor: colors.input, backgroundColor: pressed ? colors.muted : "transparent" }]}
+              >
+                <Search size={16} color={colors.mutedForeground} />
+                <Text variant="muted" numberOfLines={1}>Search your shelves</Text>
+              </Pressable>
+              <Button title={selection.selecting ? "Done" : "Select"} variant="ghost" onPress={selection.selecting ? selection.stop : selection.start} />
+            </View>
+            <Shelves library={library} accent={accent} selection={selection} />
           </View>
         )}
-        <NewShelfPicks bookCount={books?.length} />
-        {books && books.length > 0 && <Shelves books={books} accent={accent} />}
-        {books && books.length > 0 && <SeriesTracker accent={accent} />}
+        {bookCount! > 0 && <SeriesTracker accent={accent} />}
         <OwnAuthors />
       </ScrollView>
+      {selection.selecting && <SelectionBar selected={picked} onDone={selection.clear} onCancel={selection.stop} />}
     </SafeAreaView>
+  );
+}
+
+// An empty library points somewhere to start, not only to import (BOO-52): the first-book picker, Discover,
+// and Ask the shelf, which is labelled as AI.
+function EmptyLibrary() {
+  const { colors } = useTheme();
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ gap: 4 }}>
+        <Text variant="title">Your shelves are empty</Text>
+        <Text variant="muted">Not sure what to read? We{"’"}ll suggest a few from the genres you picked and the people you follow. Or bring your Goodreads or StoryGraph shelves over.</Text>
+      </View>
+      <Button title="Help me pick a book" icon={<Compass size={18} color={colors.onBrand} />} onPress={() => router.push("/first-book")} />
+      <View style={styles.actions}>
+        <View style={{ flex: 1 }}><Button title="Browse Discover" variant="outline" onPress={() => router.navigate("/discover")} /></View>
+        <View style={{ flex: 1 }}><Button title="Import" variant="outline" onPress={() => router.push("/import")} /></View>
+      </View>
+      <Pressable accessibilityRole="link" accessibilityLabel="Ask the shelf, uses AI" onPress={() => router.push("/discover/ask")} style={styles.ask} hitSlop={6}>
+        <Text variant="small">Or ask the shelf in your own words</Text>
+        <AiLabel />
+      </Pressable>
+    </View>
   );
 }
 
@@ -96,6 +138,9 @@ function NewShelfPicks({ bookCount }: { bookCount: number | undefined }) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   actions: { flexDirection: "row", gap: 10 },
+  shelfBar: { flexDirection: "row", alignItems: "center", gap: 12 },
+  search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, borderWidth: 1, paddingHorizontal: 14 },
+  ask: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
   // Sits over the banner's top-right corner.
   topBar: { position: "absolute", top: 8, right: 8, zIndex: 1, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.35)" },
   content: { width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40, gap: 20 },

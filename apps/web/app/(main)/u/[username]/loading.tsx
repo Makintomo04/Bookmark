@@ -1,20 +1,13 @@
-import Container, { BLEED } from '@/app/components/Container'
-import { Skeleton } from '@/app/components/ui/skeleton'
+import Container from '@/app/components/Container'
+import ProfileSkeleton from '@/app/components/profile-head/ProfileSkeleton'
 
-// Shaped like the profile header, so client-side navigation to a profile doesn't drop to the full-screen loader.
+// Shaped like the profile, so client-side navigation to one doesn't drop to the full-screen loader. It doesn't
+// know whose profile it is yet, so it's the shape of someone else's.
 export default function Loading() {
   return (
-    <div className="pt-4 pb-24 min-h-[calc(100vh_-_180px)] bg-background" aria-busy="true" aria-label="Loading profile">
+    <div className="pt-4 pb-24 min-h-[calc(100vh_-_180px)] bg-background">
       <Container>
-        <Skeleton className={`h-24 sm:h-44 sm:rounded-2xl ${BLEED}`} />
-        <div>
-          <Skeleton className="-mt-9 sm:-mt-14 size-20 sm:size-28 rounded-[32px] border-4 border-background" />
-          <Skeleton className="mt-4 h-8 w-48" />
-          <Skeleton className="mt-3 h-4 w-72 max-w-full" />
-          <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-5 gap-y-8">
-            {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="aspect-[2/3] rounded-md" />)}
-          </div>
-        </div>
+        <ProfileSkeleton />
       </Container>
     </div>
   )

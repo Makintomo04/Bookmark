@@ -5,6 +5,7 @@ import { notify } from '@/lib/notify'
 import { BookCheck, CalendarOff, Check, Copy, CopyX, ExternalLink, Feather, FileUp, HelpCircle, Loader2, Search, Upload } from 'lucide-react'
 import type { Status } from '@prisma/client'
 import { Button } from '@/app/components/ui/button'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import Medal from '@/app/components/achievements/Medal'
 import { cn } from '@/lib/utils'
 import type { ImportJobView } from '@/lib/import/job'
@@ -669,11 +670,12 @@ const WorkSearch: FC<{ id: string; initialQuery: string; others?: ImportCandidat
     <div className="flex flex-col gap-3">
       <form onSubmit={(e) => { e.preventDefault(); search(query) }} className="flex gap-2">
         <label htmlFor={`q-${id}`} className="sr-only">Search for the book</label>
-        <input
+        <ClearableInput
           id={`q-${id}`}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="flex-1 min-w-0 rounded-md border bg-background px-3 py-1.5 text-sm"
+          wrapperClassName="flex-1"
+          className="h-full w-full rounded-md border bg-background px-3 py-1.5 text-sm"
         />
         <Button type="submit" size="sm" disabled={searching || busy}>{searching ? <Loader2 size={14} className="animate-spin" aria-label="Searching" /> : "Search"}</Button>
       </form>

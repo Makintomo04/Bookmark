@@ -23,7 +23,7 @@ interface NotificationBellProps {
 
 // The kinds that also get a toast when they arrive: other people's doing, at a moment the reader can't
 // predict. Achievements have their own celebration and unlocked comments follow the reader's own save.
-const TOASTED = new Set(["NEW_FOLLOWER", "FOLLOW_REQUEST", "BUDDY_READ_INVITE", "BOOK_RECOMMENDED", "BUDDY_READ_HOSTED", "BUDDY_READ_HOST_INHERITED"])
+const TOASTED = new Set(["NEW_FOLLOWER", "FOLLOW_REQUEST", "BUDDY_READ_INVITE", "BOOK_RECOMMENDED", "BUDDY_READ_HOSTED", "BUDDY_READ_HOST_INHERITED", "CLUB_CIRCLE_ADDED"])
 
 const toastCopy = (n: NotificationLike) =>
   n.type === "BUDDY_READ_HOST_INHERITED"
@@ -99,7 +99,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
         )}
         {notifications.map((n: any) => (
           <div key={n.id} className="flex flex-col">
-            <DropdownMenuItem asChild className="items-center gap-3 p-2 rounded-md cursor-pointer">
+            <DropdownMenuItem asChild className="items-start gap-3 p-2 rounded-md cursor-pointer">
               <Link href={notificationHref(n)} onClick={() => { followedLink.current = true }}>
                 <NotificationLead n={n} size="sm" />
                 <NotificationText n={n} />

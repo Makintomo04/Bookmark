@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { updateBuddyReadSchema } from "@/lib/buddyReads";
+import { CIRCLE_SLOTS_MESSAGE, circleSlotsLeft } from "@/lib/clubs";
 import { buddyReadError, canHostAnotherCircle, canInheritAnotherCircle, hostingRefusal, loadBuddyReadView, markCircleSeen, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 
 // The reading circle page polls this. Comments past the viewer's progress come back as locked stubs.
@@ -17,14 +18,15 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
   return NextResponse.json(view, { headers: { "Cache-Control": "private, no-store" } });
 }
 
-// Host only: the start date, the schedule, and finishing or archiving it.
+// Host only (and in a club's circle, the club's host and co-hosts): the start date, the schedule, and
+// finishing or archiving it.
 export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
   const { membership, response: notMember } = await requireMembership(params.id, currentUser.id);
   if (notMember) return notMember;
-  if (!membership.isHost) return buddyReadError("Only the host can change this reading circle.", 403);
+  if (!membership.canManage) return buddyReadError("Only the host can change this reading circle.", 403);
 
   const parsed = await parseBody(req, updateBuddyReadSchema);
   if (parsed.response) return parsed.response;
@@ -32,7 +34,13 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
 
   // Reopening a finished or archived circle makes it active again, so it counts against the hosting limit:
   // the inherited cap for one handed on to them, the usual one for a circle they started.
-  if (status === "ACTIVE" && membership.buddyRead.status !== "ACTIVE") {
+  if (status === "ACTIVE" && membership.buddyRead.status !== "ACTIVE" && membership.buddyRead.clubId) {
+    // A club's circle counts against the club's open books instead, and only while the club is active.
+    const club = await prisma.club.findUnique({ where: { id: membership.buddyRead.clubId }, select: { status: true } });
+    if (club?.status !== "ACTIVE") return buddyReadError("This club is archived. Reopen the club to reopen its books.", 409);
+    const open = await prisma.buddyRead.count({ where: { clubId: membership.buddyRead.clubId, status: "ACTIVE" } });
+    if (circleSlotsLeft(open) === 0) return buddyReadError(CIRCLE_SLOTS_MESSAGE, 409);
+  } else if (status === "ACTIVE" && membership.buddyRead.status !== "ACTIVE") {
     const hosting = membership.buddyRead.inheritedAt
       ? await canInheritAnotherCircle(currentUser.id)
       : await canHostAnotherCircle(currentUser.id);

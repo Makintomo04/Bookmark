@@ -1,5 +1,5 @@
 import Container from '@/app/components/Container'
-import FavBookList from '@/app/components/books/FavBookList'
+import FavouritesRanking from '@/app/components/books/FavouritesRanking'
 import useBooks from '@/app/hooks/useBooks'
 import { Book } from 'lucide-react'
 import Link from 'next/link'
@@ -16,7 +16,7 @@ const Page: FC<pageProps> = ({}) => {
 {/* <Link href="/">Home</Link> */}
    <h1 className='page-title'>Favourites</h1>
    <div className="mt-6">
-    <FavBookList/>
+    <FavouritesRanking/>
     </div>
     </Container>
 

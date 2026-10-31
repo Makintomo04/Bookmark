@@ -11,6 +11,7 @@ import {
 } from "../../lib/catalog/normalise.ts";
 import { type CatalogLookup, resolveMany, resolveOne } from "../../lib/catalog/resolve.ts";
 import { MemoryCatalogStore } from "../../lib/catalog/memoryStore.ts";
+import { mergedKey } from "../../lib/catalogueMergeRules.ts";
 import { type BackfillBook, backfillCatalog } from "../../lib/catalog/backfill.ts";
 import { parseImport } from "../../lib/import/formats.ts";
 import { buildRecords, newObjectId } from "../../lib/import/records.ts";
@@ -73,6 +74,20 @@ test("the same ISBN, in either form, from different readers, is one Edition", as
   assert.equal(b.edition.format, "PAPERBACK", "a null field is filled in by a later reader");
   assert.equal(b.edition.pages, 300, "but a set field is never overwritten");
   assert.equal(b.work.title, "The Hobbit", "the work keeps its first title");
+});
+
+test("an Open Library key whose work was merged files under the book it went into", async () => {
+  const store = new MemoryCatalogStore();
+  const survivor = await resolveOne({ workKey: "OL1W", title: "Fourth Wing", author: "Rebecca Yarros" }, { store });
+  const duplicate = await resolveOne({ workKey: "OL2W", title: "Empyrean One", author: "Rebecca Yarros" }, { store });
+  // What lib/catalogueMerge.ts mergeWorks leaves: the duplicate keeps its Open Library key under a merged key.
+  store.works.delete(duplicate.work.key);
+  store.works.set(mergedKey(survivor.work.id, duplicate.work.id), { ...duplicate.work, key: mergedKey(survivor.work.id, duplicate.work.id), matchKey: null, description: null });
+  const later = await resolveOne({ workKey: "OL2W", isbn13: "9781649374042", title: "Empyrean One", author: "Rebecca Yarros", description: "Dragons." }, { store });
+  assert.equal(later.work.id, survivor.work.id);
+  assert.equal(Array.from(store.works.keys()).includes("ol:OL2W"), false, "no new work under the old key, so the merge can still be undone");
+  assert.equal(later.edition.workId, survivor.work.id);
+  assert.equal(store.works.get("ol:OL1W")!.description, null, "the survivor isn't filled in from the duplicate's key");
 });
 
 test("two editions of one book share one Work; a copy with no identifier gets a generic edition", async () => {

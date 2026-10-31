@@ -3,17 +3,25 @@ import { FC } from 'react'
 import { readerName } from '@/lib/profile'
 import ReaderName from '@/app/components/profile/ReaderName'
 import Link from 'next/link'
-import { X } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { formatPercent, type BuddyReadSchedule } from '@/lib/buddyReads'
 import type { BuddyReadView } from '@/lib/buddyReadsServer'
 import MemberAvatar, { memberColour } from './MemberAvatar'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
 
 interface ProgressTrackProps {
   members: BuddyReadView["members"]
   schedule: BuddyReadSchedule
-  // Shown to the host on everyone else's row.
+  // Shown to the host on the rows they can remove (each member's `removable`, worked out on the server).
   onRemove?: (userId: string, username: string | null) => void
+}
+
+// In a club's book the club's roles come first (its host, then co-hosts), then whoever started this book.
+function roleLabel(m: BuddyReadView["members"][number]) {
+  if (m.clubRole === "host") return "Club host"
+  if (m.clubRole === "cohost") return "Co-host"
+  return m.isHost ? "Host" : null
 }
 
 // Everyone's progress on one shared scale: a bar per reader in their own colour, with the
@@ -39,7 +47,7 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
               <div className="min-w-0">
                 <p className="flex items-baseline gap-2 text-sm leading-tight">
                   <span className="truncate font-medium">{m.isYou ? "You" : <ReaderName reader={m} badge={m.staffBadge && <StaffSeal kind={m.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />} />}</span>
-                  {m.isHost && <span className="shrink-0 text-xs text-muted-foreground">Host</span>}
+                  {roleLabel(m) && <span className="shrink-0 text-xs text-muted-foreground">{roleLabel(m)}</span>}
                   {m.finishedAt && <span className="shrink-0 text-xs text-muted-foreground">Finished</span>}
                 </p>
                 <div
@@ -58,15 +66,23 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-12 text-right text-sm font-semibold tabular-nums">{formatPercent(m.progress)}</span>
-                {onRemove && !m.isYou && (
-                  <button
-                    type="button"
-                    onClick={() => onRemove(m.userId, readerName(m) || null)}
-                    aria-label={`Remove ${readerName(m)}`}
-                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <X size={14} aria-hidden />
-                  </button>
+                {/* Rows without the menu keep an empty slot so every bar ends at the same place. */}
+                {onRemove && !m.removable && <span aria-hidden className="w-9" />}
+                {onRemove && m.removable && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Options for ${readerName(m)}`}
+                        className="grid size-9 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <MoreHorizontal size={16} aria-hidden />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => onRemove(m.userId, readerName(m) || null)} className="text-danger">Remove from circle</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
             </li>

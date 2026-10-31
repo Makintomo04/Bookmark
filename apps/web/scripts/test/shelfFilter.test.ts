@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EMPTY_FILTER, filterOptions, isNarrowed, matchesFilter, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
+  EMPTY_FILTER, SHELF_PAGE_MAX, SHELF_SORTS, filterOptions, isNarrowed, matchesFilter, pageShelf, pagedBooks, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
   type ShelfBook, type ShelfFilter,
 } from "@/lib/shelfFilter";
 
@@ -87,4 +87,54 @@ test("each shelf has its own page, and the page link carries the filters but not
   assert.equal(shelfPageHref("a b", "want", { sort: "rating", shelf: "want", year: 2021 }), "/u/a%20b/shelf/want-to-read?sort=rating&year=2021");
   assert.equal(shelfFromSlug("did-not-finish"), "dnf");
   assert.equal(shelfFromSlug("nope"), null);
+});
+
+test("pageShelf pages the matching books in order, with a cursor until the last page", () => {
+  const finished = f({ shelf: "finished", sort: "title" });
+  const first = pageShelf(books, finished, { take: 2 });
+  assert.deepEqual(titles(first.books), ["Jane Eyre", "Mort"]);
+  assert.equal(first.total, 3);
+  assert.equal(first.nextCursor, "2");
+  const last = pageShelf(books, finished, { take: 2, cursor: first.nextCursor });
+  assert.deepEqual(titles(last.books), ["The Left Hand of Darkness"]);
+  assert.equal(last.nextCursor, null);
+  // Search runs before paging, across every shelf when none is asked for.
+  assert.deepEqual(titles(pageShelf(books, f({ q: "weir" }), { take: 10 }).books), ["Project Hail Mary"]);
+});
+
+test("pageShelf keeps take and cursor in range", () => {
+  const many = Array.from({ length: 250 }, (_, i) => book({ id: `b${i}`, title: `Book ${i}`, completedAt: "2024-01-01T12:00:00Z" }));
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 1000 }).books.length, SHELF_PAGE_MAX);
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 0 }).books.length, 1);
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "-5" }).books[0].id, pageShelf(many, EMPTY_FILTER, { take: 10 }).books[0].id);
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "nonsense" }).nextCursor, "10");
+  assert.deepEqual(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "900" }), { books: [], total: 250, nextCursor: null });
+});
+
+test("books that sort as equal keep one order whatever order they arrive in, so paging never repeats or skips", () => {
+  // An import's undated finishes: same status, no dates, no rating, same length, and a few same-name authors.
+  const tied = Array.from({ length: 37 }, (_, i) => book({ id: `id${String(i).padStart(3, "0")}`, title: i % 3 ? "Same" : `Title ${i}`, author: i % 2 ? "A. Writer" : "B. Writer" }));
+  const shuffled = (seed: number) => tied.map((b, i) => [((i + 1) * seed) % 97, b] as const).sort((a, b) => a[0] - b[0]).map(([, b]) => b);
+  for (const sort of SHELF_SORTS) {
+    const orders = [1, 7, 31, 53].map((seed) => sortBooks(shuffled(seed), sort).map((b) => b.id));
+    for (const order of orders) assert.deepEqual(order, orders[0], `${sort} depends on arrival order`);
+    // Page through, with each request seeing the shelf in a different arrival order.
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let seed = 2;
+    do {
+      const page: ReturnType<typeof pageShelf<ShelfBook>> = pageShelf(shuffled(seed++), f({ sort }), { take: 10, cursor });
+      seen.push(...page.books.map((b) => b.id));
+      cursor = page.nextCursor;
+    } while (cursor);
+    assert.equal(new Set(seen).size, tied.length, `${sort} repeated or skipped a book`);
+    assert.equal(seen.length, tied.length);
+  }
+});
+
+test("pages loaded by offset show each book once when the shelf shifts between them", () => {
+  // A book finished mid-scroll moves every later offset by one, so the second page repeats "b".
+  const pages = [{ books: [{ id: "a" }, { id: "b" }] }, { books: [{ id: "b" }, { id: "c" }] }, { books: [] }];
+  assert.deepEqual(pagedBooks(pages).map((b) => b.id), ["a", "b", "c"]);
+  assert.deepEqual(pagedBooks([]), []);
 });

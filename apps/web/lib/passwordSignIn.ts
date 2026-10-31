@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import { EMAIL_NOT_VERIFIED } from "@/lib/authSchemas";
 import { findUserByEmail } from "@/lib/findUserByEmail";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
-import { isSuspended, SUSPENDED_MESSAGE } from "@/lib/suspension";
+import { isSuspended, suspensionNotice } from "@/lib/suspension";
 
 type HeaderSource = Parameters<typeof clientIp>[0];
 
@@ -32,6 +32,6 @@ export async function checkPasswordSignIn(rawEmail: string, password: string, he
     throw new Error(EMAIL_NOT_VERIFIED)
   }
   // Also after the password, for the same reason.
-  if (isSuspended(user)) throw new Error(SUSPENDED_MESSAGE)
+  if (isSuspended(user)) throw new Error(suspensionNotice(user).message)
   return user
 }

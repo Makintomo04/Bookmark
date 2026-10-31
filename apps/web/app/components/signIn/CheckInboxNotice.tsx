@@ -30,7 +30,7 @@ const CheckInboxNotice = ({ email, title = "Check your inbox" }: CheckInboxNotic
       <p className="font-semibold text-base">{title}</p>
       <p>We sent a link to <span className="font-semibold break-all">{email}</span>. Open it to confirm your email and you&apos;ll be signed in.</p>
       <p className="text-muted-foreground">The link expires in 24 hours. Can&apos;t find it? Check your spam folder or send a new one.</p>
-      <Button type="button" onClick={resend} disabled={sending} className="rounded-md py-2 self-start">
+      <Button type="button" onClick={resend} loading={sending} className="rounded-md py-2 self-start">
         {sending ? "Sending…" : "Resend link"}
       </Button>
       {status && <p className={status.tone === "error" ? "text-danger" : "text-muted-foreground"}>{status.text}</p>}

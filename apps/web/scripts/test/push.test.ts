@@ -4,7 +4,7 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/push.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PUSH_GROUPS, pushContentFor, pushGroupOf } from "@bookmark/shared/push";
+import { OPT_IN_PUSH_GROUPS, PUSH_GROUPS, pushContentFor, pushGroupOf, pushGroupsFor, type PushGroup } from "@bookmark/shared/push";
 
 const base = { actorUsername: "ana", bookTitle: "The Hobbit", buddyReadId: "6560f1c2a1b2c3d4e5f60718", count: null };
 
@@ -16,13 +16,24 @@ test("achievements and quests stay in the bell", () => {
 });
 
 test("every pushed type has words and a screen", () => {
-  for (const types of Object.values(PUSH_GROUPS)) {
+  // Reminders are worded by the cron job that sends them (reminders.test.ts), not from a notification.
+  for (const [group, types] of Object.entries(PUSH_GROUPS) as [PushGroup, readonly string[]][]) {
+    if (OPT_IN_PUSH_GROUPS.includes(group)) continue;
     for (const type of types) {
       const content = pushContentFor({ ...base, type });
       assert.ok(content, type);
       assert.ok(content.title && content.body && content.path.startsWith("/"), type);
     }
   }
+});
+
+test("reminders are opt-in: never in the on-unless-off toggles, and never sent from a notification", () => {
+  for (const group of OPT_IN_PUSH_GROUPS) {
+    assert.ok(!pushGroupsFor(false).includes(group) && !pushGroupsFor(true).includes(group), group);
+    for (const type of PUSH_GROUPS[group]) assert.equal(pushContentFor({ ...base, type }), null, type);
+  }
+  assert.equal(pushGroupOf("STREAK_ALERT"), "reminders");
+  assert.equal(pushGroupOf("CHECKPOINT_DUE"), "checkpoints");
 });
 
 test("circle pushes open the circle; comments to read are counted, never quoted", () => {

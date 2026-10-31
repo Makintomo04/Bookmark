@@ -4,7 +4,7 @@ import { notify } from "@/lib/notify"
 import { useSWRConfig } from "swr"
 import useUser from "@/app/hooks/useUser"
 import { privacyOf, type PrivacySettings } from "@/lib/privacyRules"
-import { preferencesOf, type CommunityPreferences } from "@/lib/preferences"
+import { preferencesOf, storedSetting, type CommunityPreferences } from "@/lib/preferences"
 import { isProfileSection, type ProfileSection } from "@/lib/profileSections"
 
 export type Settings = PrivacySettings & CommunityPreferences & { favGenres: string[]; hideShelfPicks: boolean; collapsedSections: ProfileSection[] }
@@ -26,7 +26,7 @@ export default function useSettings() {
   const save = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     if (!user) return
     setPending(key)
-    mutate({ ...user, [key]: value }, { revalidate: false })
+    mutate({ ...user, ...storedSetting(key, value) }, { revalidate: false })
     axios.patch("/api/user/privacy", { [key]: value })
       .then((res) => {
         mutate({ ...user, ...res.data }, { revalidate: false })

@@ -16,6 +16,7 @@ import { Text } from "@/components/ui/Text";
 import { ACTIVITY_COPY, timeAgo, type Activity } from "@/lib/social";
 import { useTheme } from "@/lib/theme";
 import { StaffSeal } from "@/components/profile/StaffSeal";
+import { PeopleYouMayKnow } from "@/components/social/PeopleYouMayKnow";
 
 // What the people you follow are reading (the web's /feed): started, finished, rated and reviewed.
 export default function Feed() {
@@ -44,6 +45,8 @@ export default function Feed() {
               <Text variant="display">Feed</Text>
               <NotificationBell />
             </View>
+            {/* While you follow only a few people (BOO-81). */}
+            <PeopleYouMayKnow variant="feed" />
             {isLoading && <ActivityIndicator color={colors.mutedForeground} />}
             {error && (
               <View style={{ gap: 8 }}>

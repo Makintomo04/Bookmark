@@ -1,4 +1,4 @@
-import type { BuddyReadInviteAudience, ListVisibility, ProfileVisibility, ReviewVisibility } from "./enums";
+import type { BuddyReadInviteAudience, ListVisibility, ProfileVisibility, ReviewCommentAudience, ReviewVisibility } from "./enums";
 
 // The words for the privacy and community settings, shared by the web's settings and onboarding and the
 // mobile app's, so both say exactly the same thing.
@@ -15,6 +15,16 @@ export const REVIEW_OPTIONS: Option<ReviewVisibility>[] = [
   { value: "FOLLOWERS", label: "Followers" },
   { value: "ONLY_ME", label: "Only me" },
 ];
+export const REVIEW_COMMENT_OPTIONS: Option<ReviewCommentAudience>[] = [
+  { value: "EVERYONE", label: "Anyone who can read it" },
+  { value: "FRIENDS", label: "Friends" },
+  { value: "OFF", label: "Off" },
+];
+export const REVIEW_COMMENT_HINT: Record<ReviewCommentAudience, string> = {
+  EVERYONE: "Anyone who can read a review can comment on it.",
+  FRIENDS: "Only readers you follow who follow you back can comment. Anyone who can read the review can still read the comments.",
+  OFF: "Nobody can add new comments. Comments already there stay until you delete them.",
+};
 export const INVITE_OPTIONS: Option<BuddyReadInviteAudience>[] = [
   { value: "EVERYONE", label: "Anyone" },
   { value: "FOLLOWING", label: "People I follow" },

@@ -77,10 +77,10 @@ const ErrorState: FC<ErrorStateProps> = ({ error, reset, fullScreen }) => {
         </p>
 
         <div className="mt-8 flex flex-col-reverse sm:flex-row gap-3 w-full sm:w-auto">
-          <Link href="/" className={cn(secondaryButtonClass, 'h-10')}>
+          <Link href="/" className={cn(secondaryButtonClass, 'h-11 pointer-fine:h-10')}>
             <Home size={16} aria-hidden />Back to home
           </Link>
-          <button type="button" onClick={retry} disabled={isPending} className={cn(primaryButtonClass, 'h-10')}>
+          <button type="button" onClick={retry} disabled={isPending} className={cn(primaryButtonClass, 'h-11 pointer-fine:h-10')}>
             {isPending
               ? <Loader2 size={16} className="animate-spin" aria-hidden />
               : <RotateCcw size={16} aria-hidden />}

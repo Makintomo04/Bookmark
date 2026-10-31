@@ -1,7 +1,7 @@
 import { booksReadCount } from "@/lib/readerTier";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
-import { blockedUserIds, canView, privacyOf, privacySelect, visibleReview, type Relation } from "@/lib/privacy";
+import { blockedUserIds, canView, notSuspendedWhere, privacyOf, privacySelect, visibleReview, type Relation } from "@/lib/privacy";
 import { NextResponse } from "next/server";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge"
 
@@ -29,7 +29,13 @@ export async function GET(req: Request) {
   ])
   // Blocking removes follows, but leave blocked users out here too in case one slipped through.
   const blockedIds = new Set(blocked)
-  const followingIds = follows.map(f => f.followingId).filter(id => !blockedIds.has(id))
+  const followed = follows.map(f => f.followingId).filter(id => !blockedIds.has(id))
+  // A suspended reader's activity is hidden until the suspension ends or is lifted, like their reviews.
+  // Filtered before the query, so paging isn't thrown off by rows dropped after it.
+  const active = followed.length
+    ? await prisma.user.findMany({ where: { id: { in: followed }, AND: [notSuspendedWhere()] }, select: { id: true } })
+    : []
+  const followingIds = active.map(u => u.id)
 
   if (followingIds.length === 0) {
     return NextResponse.json({ activities: [], hasMore: false, next: null })

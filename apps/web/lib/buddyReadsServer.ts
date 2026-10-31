@@ -14,6 +14,7 @@ import { booksReadCount, booksReadOf } from "@/lib/readerTier";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { sameBook } from "@/lib/workKey";
 import { coverToShare } from "@/lib/uploads";
+import { hiddenWhileSuspended } from "@/lib/suspension";
 import {
   BUDDY_READ_MAX_MEMBERS,
   circleProgress,
@@ -30,7 +31,8 @@ import {
   type HostingAllowance,
   type HostingPlan,
 } from "@/lib/buddyReads";
-import { progressSelect, unitOf } from "@/lib/progress";
+import { progressScale, progressSelect, unitOf } from "@/lib/progress";
+import { CLUB_COPY_STATUS, canRemoveFromClubBook, clubRole, inviteFaces } from "@/lib/clubs";
 import { EntitlementError, entitlementsOf, entitlementsSelect } from "@/lib/entitlements";
 import { entitlementResponse } from "@/lib/entitlementsServer";
 
@@ -90,6 +92,7 @@ export async function newInviteCode() {
 }
 
 const userSelect = { id: true, username: true, displayName: true, image: true, favColour: true, ...booksReadCount } as const
+const suspensionSelect = { suspendedAt: true, suspendedUntil: true } as const
 
 type ProgressBook = Pick<Book, "id" | "status" | "currentPage" | "pages" | "progressUnit" | "currentMinute" | "audioMinutes">
 const progressBookSelect = { id: true, ...progressSelect } as const
@@ -97,10 +100,12 @@ const progressBookSelect = { id: true, ...progressSelect } as const
 // ---- Hosting ------------------------------------------------------------------------------
 
 // MongoDB: `inheritedAt: null` alone misses circles that never had the field set, which is most of them.
-const startedByHost = { OR: [{ inheritedAt: null }, { inheritedAt: { isSet: false } }] } satisfies Prisma.BuddyReadWhereInput
-const inheritedByHost = { inheritedAt: { not: null } } satisfies Prisma.BuddyReadWhereInput
+// A club's circles count against the club's limits instead (lib/clubs.ts), so neither cap counts them.
+const notInClub = { OR: [{ clubId: null }, { clubId: { isSet: false } }] } satisfies Prisma.BuddyReadWhereInput
+const startedByHost = { AND: [{ OR: [{ inheritedAt: null }, { inheritedAt: { isSet: false } }] }, notInClub] } satisfies Prisma.BuddyReadWhereInput
+const inheritedByHost = { AND: [{ inheritedAt: { not: null } }, notInClub] } satisfies Prisma.BuddyReadWhereInput
 
-async function hostingPlanOf(userId: string): Promise<HostingPlan> {
+export async function hostingPlanOf(userId: string): Promise<HostingPlan> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: entitlementsSelect })
   return entitlementsOf(user ?? {}).canHostUnlimited ? "plus" : "free"
 }
@@ -145,7 +150,34 @@ export async function findMembership(buddyReadId: string, userId: string) {
   const book = await prisma.book.findUnique({ where: { id: member.bookId }, select: { ...progressBookSelect, userId: true } })
   // A book removed from the shelf, or a re-read back at page 1, keeps everything the member already reached.
   const progress = circleProgress(book && book.userId === userId ? progressPercent(book) : 0, member.notifiedProgress)
-  return { member, buddyRead: member.buddyRead, progress, isHost: member.buddyRead.hostId === userId }
+  const isHost = member.buddyRead.hostId === userId
+  const club = member.buddyRead.clubId && !isHost ? await clubManagerOf(member.buddyRead.clubId, userId) : null
+  // In a club's circle the club's host and co-hosts can run it too: the schedule, finishing it, inviting.
+  const canManage = isHost || (!!club?.manager && club.active)
+  // Moderating (deleting comments, removing readers) outlasts the club: an archived club's books stay open
+  // for talk (lib/clubLimits.ts finishClubBooks), so its host and co-hosts keep these powers there.
+  const canModerate = isHost || !!club?.manager
+  return { member, buddyRead: member.buddyRead, progress, isHost, canManage, canModerate }
+}
+
+// Whether this reader is the club's host or one of its co-hosts (lib/clubs.ts canManageClub), and whether
+// the club is still active.
+export async function clubManagerOf(clubId: string, userId: string) {
+  const club = await prisma.club.findUnique({ where: { id: clubId }, select: { hostId: true, status: true } })
+  if (!club) return { manager: false, active: false }
+  const active = club.status === "ACTIVE"
+  if (club.hostId === userId) return { manager: true, active }
+  const coHost = await prisma.clubMember.findFirst({ where: { clubId, userId, coHost: true }, select: { id: true } })
+  return { manager: !!coHost, active }
+}
+
+// Everyone's role in the club, by user id. Someone no longer in the club isn't in the map.
+async function clubRolesOf(clubId: string) {
+  const [club, members] = await Promise.all([
+    prisma.club.findUnique({ where: { id: clubId }, select: { hostId: true } }),
+    prisma.clubMember.findMany({ where: { clubId }, select: { userId: true, coHost: true } }),
+  ])
+  return new Map(club ? members.map((m) => [m.userId, clubRole(m, club.hostId)] as const) : [])
 }
 
 async function isOwnBook(bookId: string, userId: string) {
@@ -156,15 +188,21 @@ async function isOwnBook(bookId: string, userId: string) {
 export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const membership = await findMembership(buddyReadId, viewerId)
   if (!membership) return null
-  const { buddyRead, progress, isHost } = membership
+  const { buddyRead, progress, isHost, canManage, canModerate } = membership
 
   const memberRows = await prisma.buddyReadMember.findMany({ where: { buddyReadId }, orderBy: { joinedAt: "asc" } })
-  const [users, books] = await Promise.all([
-    prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect } }),
+  const [users, books, clubRoles] = await Promise.all([
+    prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect, ...suspensionSelect } }),
     prisma.book.findMany({ where: { id: { in: memberRows.map((m) => m.bookId) } }, select: { ...progressBookSelect, userId: true } }),
+    buddyRead.clubId ? clubRolesOf(buddyRead.clubId) : Promise.resolve(null),
   ])
   const userById = new Map(users.map((u) => [u.id, u]))
   const bookById = new Map(books.map((b) => [b.id, b]))
+  // Who the viewer may remove, as the removal route decides it (app/api/buddy-reads/[id]/members/[userId]):
+  // never the book's host, and in a club's book only as the club's roles allow.
+  const viewerClubRole = clubRoles?.get(viewerId) ?? null
+  const removable = (userId: string) => canModerate && userId !== viewerId && userId !== buddyRead.hostId
+    && (!clubRoles || canRemoveFromClubBook(viewerClubRole, clubRoles.get(userId) ?? null, false))
 
   const rows = await prisma.buddyReadComment.findMany({
     where: { buddyReadId },
@@ -177,7 +215,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const pastWriterIds = Array.from(new Set(rows.map((r) => r.userId).filter((id) => !userById.has(id))))
   const [pastWriters, blocked] = await Promise.all([
     pastWriterIds.length > 0
-      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, displayName: true, image: true, favColour: true, ...staffBadgeSelect } })
+      ? prisma.user.findMany({ where: { id: { in: pastWriterIds } }, select: { id: true, username: true, displayName: true, image: true, favColour: true, ...staffBadgeSelect, ...suspensionSelect } })
       : Promise.resolve([]),
     blockedAmong(viewerId, [...memberRows.map((m) => m.userId), ...pastWriterIds]),
   ])
@@ -197,6 +235,9 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       booksRead: booksReadOf(user),
       progress: circleProgress(book && book.userId === m.userId ? progressPercent(book) : 0, m.notifiedProgress),
       isHost: m.userId === buddyRead.hostId,
+      // In a club's book: their role in the club ("host" is the club's host, not whoever started the book).
+      clubRole: clubRoles?.get(m.userId) ?? null,
+      removable: removable(m.userId),
       isYou: m.userId === viewerId,
       joinedAt: m.joinedAt.toISOString(),
       finishedAt: m.finishedAt?.toISOString() ?? null,
@@ -211,8 +252,16 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
     const u = pastWriterById.get(id)
     authors.set(id, u ? { username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u) } : null)
   }
+  // A suspended writer's comments drop out for everyone else, like a blocked one's, until it ends.
+  for (const u of [...users, ...pastWriters]) {
+    if (hiddenWhileSuspended(u, viewerId)) authors.delete(u.id)
+  }
   // The lock runs here, on the server: bodies past the viewer's progress never leave this function.
   const comments = serializeComments(rows, { userId: viewerId, progress }, authors)
+  // A club's circle is shared through the club's link, so new readers join the club and every book after.
+  const club = buddyRead.clubId
+    ? await prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { id: true, name: true, inviteCode: true, status: true } })
+    : null
 
   return {
     buddyRead: {
@@ -231,41 +280,87 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       // Members can share the link; anyone with it can join.
       inviteCode: buddyRead.inviteCode,
     },
-    viewer: { userId: viewerId, progress, isHost, bookId: membership.member.bookId, muted: !!membership.member.mutedAt },
+    club: club && { id: club.id, name: club.name, inviteCode: club.status === "ACTIVE" ? club.inviteCode : null },
+    viewer: { userId: viewerId, progress, isHost, canManage, canModerate, bookId: membership.member.bookId, muted: !!membership.member.mutedAt },
     members,
     comments,
   }
 }
 export type BuddyReadView = NonNullable<Awaited<ReturnType<typeof loadBuddyReadView>>>
 
-// What the invite page and its OG image show: no comments, nothing behind the lock.
-export async function loadInvite(code: string) {
+// What the invite page and its OG image show: no comments, nothing behind the lock. Like a club's invite
+// (lib/clubsServer.ts loadClubInvite), it names only members a stranger could see anyway (lib/clubs.ts
+// inviteFaces), since anyone with the link sees it, signed out included; everyone is counted in memberCount.
+export async function loadInvite(code: string, viewerId?: string | null) {
   if (!/^[a-z0-9]{6,20}$/.test(code)) return null
   const buddyRead = await prisma.buddyRead.findUnique({ where: { inviteCode: code } })
   if (!buddyRead || buddyRead.status === "ARCHIVED") return null
   const memberRows = await prisma.buddyReadMember.findMany({ where: { buddyReadId: buddyRead.id }, orderBy: { joinedAt: "asc" }, select: { userId: true } })
-  const users = await prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect } })
+  const [users, blocked] = await Promise.all([
+    prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect, ...suspensionSelect, profileVisibility: true } }),
+    viewerId ? blockedAmong(viewerId, memberRows.map((m) => m.userId)) : Promise.resolve(new Set<string>()),
+  ])
   const userById = new Map(users.map((u) => [u.id, u]))
-  const members = memberRows.flatMap((m) => {
+  const everyone = memberRows.flatMap((m) => {
     const u = userById.get(m.userId)
-    return u ? [{ userId: u.id, username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u), booksRead: booksReadOf(u) }] : []
+    return u ? [{
+      userId: u.id, username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u), booksRead: booksReadOf(u),
+      profileVisibility: u.profileVisibility, suspended: hiddenWhileSuspended(u, viewerId),
+    }] : []
   })
-  const host = members.find((m) => m.userId === buddyRead.hostId) ?? null
-  return { buddyRead, host, members }
+  const strip = ({ profileVisibility: _v, suspended: _s, ...m }: (typeof everyone)[number]) => m
+  const members = inviteFaces(everyone, { hostId: buddyRead.hostId, viewerId, blocked }).map(strip)
+  // Named on the invite whatever their settings, since the link is theirs; not to someone they've blocked.
+  const hostRow = everyone.find((m) => m.userId === buddyRead.hostId)
+  const host = hostRow && !blocked.has(hostRow.userId) ? strip(hostRow) : null
+  return { buddyRead, host, members, memberCount: everyone.length }
+}
+
+// ---- Starting -----------------------------------------------------------------------------
+
+// A new circle for a book on the host's shelf, with the host as its first member. POST /api/buddy-reads
+// starts one on its own; a club starts its next book through here too (lib/clubsServer.ts), with clubId.
+export async function createCircle(book: Book, hostId: string, opts: { startsAt?: string, schedule?: BuddyReadSchedule, clubId?: string }) {
+  // A book with no page count can host too: its members log a percent (lib/progress.ts entersPercent),
+  // and circles only ever compare percents.
+  const scale = progressScale(book)
+  const buddyRead = await prisma.buddyRead.create({
+    data: {
+      workKey: book.workKey,
+      title: book.title,
+      author: book.author,
+      // Every member sees this cover, so it's never the host's own upload: the catalogue's instead.
+      coverImage: await coverToShare(book.coverImage, book, null),
+      cardColour: book.cardColour,
+      pages: book.pages,
+      audioMinutes: scale.unit === "MINUTES" ? book.audioMinutes : null,
+      hostId,
+      startsAt: opts.startsAt ? new Date(opts.startsAt) : new Date(),
+      schedule: opts.schedule && opts.schedule.length > 0 ? opts.schedule : undefined,
+      inviteCode: await newInviteCode(),
+      ...(opts.clubId && { clubId: opts.clubId }),
+    },
+  })
+  await prisma.buddyReadMember.create({
+    data: { buddyReadId: buddyRead.id, userId: hostId, bookId: book.id, notifiedProgress: progressPercent(book) },
+  })
+  return buddyRead
 }
 
 // ---- Joining ------------------------------------------------------------------------------
 
 // The member's own copy: the one already on their shelf (same Open Library work, or same title and
 // author), or a new one in Currently reading using the host's page count, which they can change.
-export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
+// `byClub`: a club's book (lib/clubs.ts CLUB_COPY_STATUS) goes in Want to read instead, and a copy already on
+// the shelf is left as the reader has it.
+export async function shelfBookFor(userId: string, buddyRead: BuddyRead, opts: { byClub?: boolean } = {}) {
   const shelf = await prisma.book.findMany({
     where: { userId },
     select: { id: true, title: true, author: true, workKey: true, status: true },
   })
   const existing = shelf.find((b) => sameBook(b, buddyRead))
   // Joining a circle overrides an earlier "will not read".
-  if (existing?.status === "NOT_INTERESTED") await prisma.book.update({ where: { id: existing.id }, data: { status: "NOT_STARTED" } })
+  if (existing?.status === "NOT_INTERESTED" && !opts.byClub) await prisma.book.update({ where: { id: existing.id }, data: { status: "NOT_STARTED" } })
   if (existing) return { bookId: existing.id, added: false }
 
   const now = new Date()
@@ -285,12 +380,13 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
       // The host's scale: a joiner of an audiobook circle starts on minutes too, and can change it.
       audioMinutes: buddyRead.audioMinutes,
       progressUnit: unitOf({ progressUnit: "MINUTES", audioMinutes: buddyRead.audioMinutes }),
-      status: "STARTED",
-      startedAt: now,
+      status: opts.byClub ? CLUB_COPY_STATUS : "STARTED",
+      ...(!opts.byClub && { startedAt: now }),
       currentPage: 0,
       currentMinute: 0,
     },
   })
+  if (opts.byClub) return { bookId: book.id, added: true }
   const firstRead = readFromBook(book)
   if (firstRead) await prisma.bookRead.create({ data: firstRead })
   await prisma.activity.create({ data: { userId, bookId: book.id, type: "STARTED_BOOK" } })
@@ -301,6 +397,21 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
 export const REMOVED_MESSAGE = "You were removed from this reading circle, so the invite link won't let you back in."
 export async function wasRemoved(buddyReadId: string, userId: string) {
   return !!(await prisma.buddyReadRemoval.findUnique({ where: { buddyReadId_userId: { buddyReadId, userId } }, select: { id: true } }))
+}
+
+// A club's book is joined through the club (app/api/buddy-reads/join joins the club first while it's active),
+// so its own link and invites never get round the club: someone removed from the club stays out, and once the
+// club is archived only its members can still come in (say, back to a book they left).
+export const CLUB_CLOSED_MESSAGE = "This club has closed, so its books can't take new readers."
+export async function clubBookRefusal(clubId: string, userId: string): Promise<{ error: string, status: number } | null> {
+  const [club, member, removal] = await Promise.all([
+    prisma.club.findUnique({ where: { id: clubId }, select: { status: true } }),
+    prisma.clubMember.findUnique({ where: { clubId_userId: { clubId, userId } }, select: { id: true } }),
+    prisma.clubRemoval.findUnique({ where: { clubId_userId: { clubId, userId } }, select: { id: true } }),
+  ])
+  if (removal) return { error: "You were removed from this club, so the invite link won't let you back in.", status: 403 }
+  if (!member && club?.status !== "ACTIVE") return { error: CLUB_CLOSED_MESSAGE, status: 410 }
+  return null
 }
 
 export type JoinResult =
@@ -314,7 +425,7 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
   if (existing) {
     // Re-joining after removing the book from the shelf links a fresh copy.
     if (!(await isOwnBook(existing.bookId, userId))) {
-      const { bookId, added } = await shelfBookFor(userId, buddyRead)
+      const { bookId, added } = await shelfBookFor(userId, buddyRead, { byClub: !!buddyRead.clubId })
       await prisma.buddyReadMember.update({ where: { id: existing.id }, data: { bookId } })
       return { ok: true, buddyReadId: buddyRead.id, alreadyMember: true, addedToShelf: added }
     }
@@ -323,10 +434,14 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
 
   if (await isBlockedEitherWay(userId, buddyRead.hostId)) return { ok: false, error: "You can't join this reading circle.", status: 403 }
   if (await wasRemoved(buddyRead.id, userId)) return { ok: false, error: REMOVED_MESSAGE, status: 403 }
+  if (buddyRead.clubId) {
+    const refusal = await clubBookRefusal(buddyRead.clubId, userId)
+    if (refusal) return { ok: false, ...refusal }
+  }
   const count = await prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } })
   if (count >= BUDDY_READ_MAX_MEMBERS) return { ok: false, error: `This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, status: 409 }
 
-  const { bookId, added } = await shelfBookFor(userId, buddyRead)
+  const { bookId, added } = await shelfBookFor(userId, buddyRead, { byClub: !!buddyRead.clubId })
   const book = await prisma.book.findUnique({ where: { id: bookId }, select: progressBookSelect })
   try {
     await prisma.buddyReadMember.create({

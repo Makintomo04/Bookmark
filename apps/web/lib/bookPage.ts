@@ -8,6 +8,8 @@ import { hasPageWhere } from "./workPages"
 import { hardcoverRecord } from "./bookSearch"
 import { topUp } from "./bookSearchRules"
 import { librarianCover } from "./catalogueFixRules"
+import { MERGED_PREFIX, mergedInto } from "./catalogueMergeRules"
+import { survivorOf } from "./catalogueMerge"
 
 // What a book page (app/(main)/books/[slug]) shows about the book itself. The shared catalog's Work
 // comes first, since it's already cached and holds series; a book nobody on Bookmark has shelved yet
@@ -15,7 +17,7 @@ import { librarianCover } from "./catalogueFixRules"
 // request, so the metadata and the page share one lookup.
 //
 // A book Open Library doesn't have is addressed by its catalogue Work's id instead (bookHref), and only
-// when the Work came from Hardcover (lib/workPages.ts).
+// when the Work came from Hardcover or a librarian approved it (lib/workPages.ts).
 
 const GENRES_SHOWN = 4
 
@@ -32,6 +34,9 @@ export interface BookPageData {
   // Credited to the work's first author, the half of the series' identity a name alone doesn't give.
   series: { name: string, author: string, position: number | null } | null
   editionCount: number | null
+  // A hand-typed work a librarian gave a page. Neither Open Library nor Hardcover has it, so nothing is
+  // topped up from Hardcover: a search by its title would only find some other book.
+  handTyped: boolean
 }
 
 // Open Library subjects run from "Fantasy" to "nyt:hardcover-fiction=2023-05-21" in several languages;
@@ -43,7 +48,7 @@ const genresOf = (subjects: string[]) =>
 // been matched to Open Library comes back keyed by its work key, so its page redirects there.
 export const bookPageData = cache(async (bookKey: string): Promise<BookPageData | null> => {
   const data = await catalogOrOpenLibrary(bookKey)
-  if (!data || (data.book.coverUrl && data.description && data.book.pages)) return data
+  if (!data || data.handTyped || (data.book.coverUrl && data.description && data.book.pages)) return data
   const found = await hardcoverRecord(data.book.title, data.book.author)
   if (!found) return data
   return {
@@ -54,17 +59,25 @@ export const bookPageData = cache(async (bookKey: string): Promise<BookPageData 
   }
 })
 
-async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | null> {
+async function catalogOrOpenLibrary(bookKey: string, hops = 0): Promise<BookPageData | null> {
   const olKey = normaliseWorkKey(bookKey)
-  const work = await prisma.work.findFirst({
-    where: olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere },
-    select: {
-      id: true, openLibraryKey: true,
-      title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
-      coverUrl: true, firstPublishYear: true, olEditionCount: true, curatedFields: true,
-      editions: { select: { pages: true, coverUrl: true, curatedFields: true }, take: 20 },
-    },
-  })
+  const select = {
+    id: true, key: true, openLibraryKey: true, hardcoverId: true,
+    title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
+    coverUrl: true, firstPublishYear: true, releaseDate: true, olEditionCount: true, curatedFields: true,
+    editions: { select: { pages: true, coverUrl: true, curatedFields: true }, take: 20 },
+  } as const
+  const where = olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere }
+  // A duplicate a librarian merged (lib/catalogueMerge.ts) keeps its Open Library key, which the book it
+  // was merged into may share: prefer the live work, and only fall back to the merged one.
+  const work = await prisma.work.findFirst({ where: { ...where, NOT: { key: { startsWith: MERGED_PREFIX } } }, select })
+    ?? await prisma.work.findFirst({ where, select })
+
+  // The merged one shows the book it went into; the page's slug check then redirects to that address.
+  if (work && mergedInto(work.key)) {
+    const survivor = hops < 2 ? await survivorOf(work.id) : null
+    return survivor ? catalogOrOpenLibrary(survivor.openLibraryKey ?? survivor.id, hops + 1) : null
+  }
 
   const workKey = olKey ?? work?.openLibraryKey ?? null
   if (work) {
@@ -86,12 +99,14 @@ async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | nul
         pages: pages.length ? pages[Math.floor(pages.length / 2)] : null,
         coverUrl,
         year: work.firstPublishYear,
+        releaseDate: work.releaseDate,
         authorKey: work.authorKeys[0] ?? null,
       },
       description: work.description ?? (workKey ? await workDescription(workKey).catch(() => null) : null),
       genres: genresOf(work.subjects),
       series: work.seriesName && work.authors[0] ? { name: work.seriesName, author: work.authors[0], position: work.seriesPosition } : null,
       editionCount: work.olEditionCount,
+      handTyped: !work.openLibraryKey && !work.hardcoverId,
     }
   }
 
@@ -118,5 +133,6 @@ async function catalogOrOpenLibrary(bookKey: string): Promise<BookPageData | nul
     genres: genresOf(ol.subjects),
     series: null,
     editionCount: null,
+    handTyped: false,
   }
 }

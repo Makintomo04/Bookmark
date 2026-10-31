@@ -4,6 +4,7 @@ import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { COMMENT_MAX, LABEL_MAX, formatPercent } from '@/lib/buddyReads'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 
 interface CommentComposerProps {
   buddyReadId: string
@@ -100,11 +101,11 @@ const CommentComposer: FC<CommentComposerProps> = ({ buddyReadId, progress, pare
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label htmlFor={`${id}-chapter`} className="text-xs font-medium text-muted-foreground">Chapter <span className="font-normal">· optional</span></label>
-              <input id={`${id}-chapter`} value={chapterLabel} onChange={(e) => setChapterLabel(e.target.value)} maxLength={LABEL_MAX} placeholder="e.g. 3" disabled={isSaving} className={inputClass} />
+              <ClearableInput id={`${id}-chapter`} value={chapterLabel} onChange={(e) => setChapterLabel(e.target.value)} maxLength={LABEL_MAX} placeholder="e.g. 3" disabled={isSaving} className={inputClass} />
             </div>
             <div>
               <label htmlFor={`${id}-page`} className="text-xs font-medium text-muted-foreground">Page <span className="font-normal">· optional</span></label>
-              <input id={`${id}-page`} value={pageLabel} onChange={(e) => setPageLabel(e.target.value)} maxLength={LABEL_MAX} placeholder="in your edition" disabled={isSaving} className={inputClass} />
+              <ClearableInput id={`${id}-page`} value={pageLabel} onChange={(e) => setPageLabel(e.target.value)} maxLength={LABEL_MAX} placeholder="in your edition" disabled={isSaving} className={inputClass} />
             </div>
           </div>
         </div>

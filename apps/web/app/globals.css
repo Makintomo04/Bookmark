@@ -198,8 +198,8 @@ progress { color: black;width: 100%; }
   to { transform: translateX(36px); }
 }
 
-/* A band of light that sweeps across a gold, platinum or diamond avatar frame,
-   then rests. The avatar sits on top, so only the frame shows it. */
+/* A band of light that sweeps once across a gold, platinum or diamond avatar frame when the page
+   opens, and again on hover (.tier-frame, TierAvatar). The avatar sits on top, so only the frame shows it. */
 .tier-shimmer {
   background-image: linear-gradient(115deg, transparent 43%, rgba(255, 255, 255, 0.55) 47%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0.55) 53%, transparent 57%);
   background-size: 300% 100%;
@@ -210,36 +210,15 @@ progress { color: black;width: 100%; }
   background-image: linear-gradient(115deg, transparent 40%, rgba(150, 232, 255, 0.9) 45%, rgba(255, 255, 255, 1) 50%, rgba(200, 170, 255, 0.9) 55%, transparent 60%);
 }
 @media (prefers-reduced-motion: no-preference) {
-  .tier-shimmer { animation: tier-shimmer 2.5s ease-in-out infinite; }
-  .tier-shimmer-diamond { animation-duration: 1.8s; }
+  .tier-shimmer { animation: tier-shimmer 1.6s ease-in-out 0.4s both; }
+  /* A second name with the same frames, so hovering restarts the sweep. */
+  .tier-frame:hover .tier-shimmer { animation: tier-shimmer-again 1.2s ease-in-out both; }
 }
 @keyframes tier-shimmer {
-  0% { background-position: 120% 0; }
-  85%, 100% { background-position: -20% 0; }
+  from { background-position: 120% 0; }
+  to { background-position: -20% 0; }
 }
-
-/* Loading skeletons (app/components/ui/skeleton.tsx): a soft band of light sweeping across,
-   or a gentle pulse for readers who've asked for less motion. */
-.skeleton {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-}
-.skeleton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background-image: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.07) 50%, transparent);
-  animation: skeleton-shimmer 1.6s ease-in-out infinite;
-}
-@keyframes skeleton-shimmer {
-  100% { transform: translateX(100%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .skeleton { animation: skeleton-pulse 2s ease-in-out infinite; }
-  .skeleton::after { display: none; }
-}
-@keyframes skeleton-pulse {
-  50% { opacity: 0.55; }
+@keyframes tier-shimmer-again {
+  from { background-position: 120% 0; }
+  to { background-position: -20% 0; }
 }

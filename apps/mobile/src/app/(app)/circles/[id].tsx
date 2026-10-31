@@ -20,12 +20,14 @@ import { ApiError, api } from "@/lib/api";
 import { goBack } from "@/lib/navigation";
 import { formatDay } from "@/lib/books";
 import { shareInvite, type CircleMember, type CircleView } from "@/lib/circles";
+import { shareClubInvite } from "@/lib/clubs";
 import { useTheme } from "@/lib/theme";
 
 // One reading circle (the web's /circles/<id>): everyone's progress, the invite link, and the
 // discussion. The lock is the server's: a comment past your progress arrives without its words or its
 // author, so the app can only show where it is. Refreshes every 20 seconds while open, like the web.
-// Handing over hosting and removing readers stay on the web for now.
+// Handing over hosting and removing readers stay on the web for now. A club's book (BOO-49) names its club,
+// shares the club's link (whoever joins is in for every book), and the club's host and co-hosts can run it.
 
 export default function CircleScreen() {
   const { id, invite } = useLocalSearchParams<{ id: string; invite?: string }>();
@@ -46,7 +48,8 @@ export default function CircleScreen() {
     );
   }
 
-  const { buddyRead, viewer, members, comments } = view;
+  const { buddyRead, club, viewer, members, comments } = view;
+  const share = () => (club?.inviteCode ? shareClubInvite(club.inviteCode, club.name) : shareInvite(buddyRead.inviteCode, buddyRead.title));
   const ordered = [...members].sort((a, b) => b.progress - a.progress);
 
   return (
@@ -54,6 +57,11 @@ export default function CircleScreen() {
       <View style={styles.bookRow}>
         <BookCover book={buddyRead} width={76} />
         <View style={{ flex: 1, gap: 4 }}>
+          {club && (
+            <Pressable accessibilityRole="link" accessibilityLabel={club.name} hitSlop={6} onPress={() => router.push(`/clubs/${club.id}`)}>
+              <Text variant="small" style={{ color: colors.foreground, textDecorationLine: "underline" }}>{club.name}</Text>
+            </Pressable>
+          )}
           <Text variant="small" style={{ letterSpacing: 1 }}>READING CIRCLE{buddyRead.status !== "ACTIVE" ? ` · ${buddyRead.status === "FINISHED" ? "FINISHED" : "ARCHIVED"}` : ""}</Text>
           <Text variant="title" style={{ fontSize: 20, lineHeight: 26 }}>{buddyRead.title}</Text>
           <Text variant="muted">{buddyRead.author}</Text>
@@ -62,7 +70,8 @@ export default function CircleScreen() {
       </View>
 
       {invite === "1" && members.length === 1 && <Notice message="Your circle is ready. Share the link so friends can join; anyone with it can read along." />}
-      <Button title="Share invite link" variant={members.length === 1 ? "primary" : "outline"} icon={<Share2 size={18} color={members.length === 1 ? colors.onBrand : colors.foreground} />} onPress={() => shareInvite(buddyRead.inviteCode, buddyRead.title)} />
+      <Button title={club?.inviteCode ? "Share the club's invite link" : "Share invite link"} variant={members.length === 1 ? "primary" : "outline"} icon={<Share2 size={18} color={members.length === 1 ? colors.onBrand : colors.foreground} />} onPress={share} />
+      {club?.inviteCode && <Text variant="small">Whoever joins with it joins the club, so they{"’"}re in for this book and the next.</Text>}
       {buddyRead.status !== "ARCHIVED" && members.length < BUDDY_READ_MAX_MEMBERS && (
         <Button title="Invite friends" variant="outline" icon={<UserPlus size={18} color={colors.foreground} />} onPress={() => setPickingFriends(true)} />
       )}
@@ -83,9 +92,9 @@ export default function CircleScreen() {
         {ordered.map((m) => <MemberRow key={m.userId} member={m} />)}
       </View>
 
-      <Schedule schedule={buddyRead.schedule ?? []} progress={viewer.progress} canEdit={viewer.isHost} circleId={buddyRead.id} />
+      <Schedule schedule={buddyRead.schedule ?? []} progress={viewer.progress} canEdit={viewer.canManage} circleId={buddyRead.id} />
 
-      <Discussion circleId={buddyRead.id} comments={comments} progress={viewer.progress} isHost={viewer.isHost} onReply={setReplyTo} onChange={() => mutate()} />
+      <Discussion circleId={buddyRead.id} comments={comments} progress={viewer.progress} isHost={viewer.canModerate ?? viewer.canManage} onReply={setReplyTo} onChange={() => mutate()} />
       {buddyRead.status === "ACTIVE" && (
         <Composer circleId={buddyRead.id} progress={viewer.progress} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onPosted={() => { setReplyTo(null); void mutate(); }} />
       )}

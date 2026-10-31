@@ -80,8 +80,8 @@ export function reshelvedFields(
 
 // ---- Dates the reader picks ------------------------------------------------------------------------
 
-// A day from a date picker ("2024-03-01"), stored at noon UTC so it lands on that day in every time zone
-// stats and Wrapped count in (lib/timeZone.ts localDay). Not before 1900, and not after tomorrow (a reader
+// A day from a date picker ("2024-03-01"), stored at noon UTC. Stats and Wrapped count it on that UTC day
+// wherever the reader is (lib/timeZone.ts finishDay), since at UTC+13 or +14 noon UTC is the next morning. Not before 1900, and not after tomorrow (a reader
 // ahead of UTC can already be on it).
 export const dayInputSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2024-03-01")
   .transform((s) => new Date(`${s}T12:00:00.000Z`))

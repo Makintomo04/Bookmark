@@ -10,6 +10,7 @@ import { positionFromBody } from "@/lib/progressPayload";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { ASK_HABIT_DAYS, type AskReason } from "@bookmark/shared/reminders";
 
 const ACTIONS = ["start", "progress", "complete", "rate", "pause", "resume", "dnf", "restart", "wantToRead", "notInterested", "reshelve"] as const
 type Action = typeof ACTIONS[number]
@@ -72,6 +73,13 @@ const bodySchema = z.object({
   currentPercent: z.number().min(0).max(100).optional(),
   // Remember percent entry for this book, on every device.
   logsPercent: z.boolean().optional(),
+  // Chapters and Kindle locations: sent with the percent they mean (currentPercent), and stored as said, with
+  // the totals for this edition. logsIn remembers how the reader logs this book.
+  logsIn: z.enum(["PAGES", "PERCENT", "CHAPTERS", "LOCATION"]).optional(),
+  chapters: z.number().int().min(1).max(1000).optional(),
+  currentChapter: z.number().int().min(1).max(1000).optional(),
+  locations: z.number().int().min(1).max(1_000_000).optional(),
+  currentLocation: z.number().int().min(0).max(1_000_000).optional(),
   rating: ratingInputSchema.optional(),
   review: z.string().max(2000, "Review must be 2000 characters or fewer").optional(),
   // Spoiler reviews show collapsed behind a click-to-reveal; private ones only to the reader (lib/privacy.ts).
@@ -263,6 +271,15 @@ export async function POST(req: Request) {
       // When the reader last moved their place in the book (lib/recap.ts tells a book left untouched by it).
       if (action === "start" || action === "restart" || action === "progress" || action === "resume") data.progressAt = now
       if (body.logsPercent !== undefined) data.logsPercent = body.logsPercent
+      if (body.logsIn !== undefined) {
+        data.logsIn = body.logsIn
+        // The old update form opens in percent for anything logged as a percent.
+        data.logsPercent = body.logsIn !== "PAGES"
+      }
+      if (body.chapters !== undefined) data.chapters = body.chapters
+      if (body.currentChapter !== undefined) data.currentChapter = body.currentChapter
+      if (body.locations !== undefined) data.locations = body.locations
+      if (body.currentLocation !== undefined) data.currentLocation = body.currentLocation
       if (rating !== undefined && action !== "reshelve") data.rating = rating
       if (review !== undefined) data.review = review
       if (reviewSpoiler !== undefined) data.reviewSpoiler = reviewSpoiler
@@ -306,6 +323,16 @@ export async function POST(req: Request) {
     }),
   })
   // What this save earned, sent back with the book so the app can celebrate it there and then.
-  const earnMoment = await earnMomentFor(currentUser, synced, { finished: (action === "complete" || (action === "reshelve" && to === "COMPLETED")) && finishedThisYear })
-  return NextResponse.json({ ...updated, earnMoment })
+  const finished = action === "complete" || (action === "reshelve" && to === "COMPLETED")
+  const earnMoment = await earnMomentFor(currentUser, synced, { finished: finished && finishedThisYear })
+  // The first book they finish this year, the app offers reminders (BOO-48), once: the sheet's answer, either
+  // way, sets remindersPromptedAt (PATCH /api/push/settings).
+  // Or on the third day they've logged reading, if that comes first: by then there's a habit to keep.
+  let askReminders: AskReason | false = false
+  if (!currentUser.remindersPromptedAt) {
+    if (finished && finishedThisYear) askReminders = "finished"
+    // Days in the last week, so a long-time reader isn't greeted with "three days already".
+    else if (action === "progress" && (await prisma.readingDay.count({ where: { userId: currentUser.id, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } })) >= ASK_HABIT_DAYS) askReminders = "habit"
+  }
+  return NextResponse.json({ ...updated, earnMoment, askReminders })
 }

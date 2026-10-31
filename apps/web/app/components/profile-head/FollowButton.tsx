@@ -43,6 +43,8 @@ const FollowButton: FC<FollowButtonProps> = ({ username, initialFollowing, initi
   return (
     <button
       type="button"
+      // WelcomeBack focuses it when someone lands here straight after joining.
+      data-follow-button
       disabled={isLoading}
       aria-pressed={isFollowing || requested}
       onClick={toggle}

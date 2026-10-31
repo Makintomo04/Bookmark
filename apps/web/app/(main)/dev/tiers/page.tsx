@@ -32,7 +32,7 @@ const Page = async () => {
         <ul className="mt-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8">
           {samples.map((s) => (
             <li key={s.label} className="flex flex-col items-center gap-3 text-center">
-              <TierAvatar image={image} username={user?.username} colour={colour} alt="" booksRead={s.minBooks} className="w-24 sm:w-28" />
+              <TierAvatar image={image} username={user?.username} colour={colour} alt="" booksRead={s.minBooks} className="size-24 sm:size-28" />
               <div>
                 <p className="font-medium">{s.label}</p>
                 <p className="text-sm text-muted-foreground">{s.minBooks === 0 ? "Under 10 books" : `${s.minBooks}+ books`}</p>

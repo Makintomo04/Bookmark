@@ -8,6 +8,7 @@ import FetchErrorState from '../FetchErrorState'
 import { pillClass } from '../books/ShelfToolbar'
 import ActivityFeedItem, { ActivityFeedItemData } from './ActivityFeedItem'
 import { FeedEmpty, FeedList } from './FeedRow'
+import PeopleYouMayKnow from '../people/PeopleYouMayKnow'
 
 const PAGE = 20
 
@@ -31,12 +32,16 @@ const ActivityFeed: FC = () => {
   const hasMore = data[data.length - 1]?.hasMore
   const loadingMore = isValidating && size > data.length
 
+  // While you follow only a few people, suggestions sit above the feed (BOO-81). Nothing shows otherwise.
+  const suggestions = <PeopleYouMayKnow variant="feed" className="mb-6" />
+
   if (all.length === 0) {
-    return <FeedEmpty>No activity yet. Follow some readers from <Link href="/discover" className="underline">Discover</Link> to see what they&apos;re reading here.</FeedEmpty>
+    return <>{suggestions}<FeedEmpty>No activity yet. Follow some readers from <Link href="/discover" className="underline">Discover</Link> to see what they&apos;re reading here.</FeedEmpty></>
   }
 
   return (
     <>
+      {suggestions}
       <FeedList>
         {all.map((activity) => (
           <ActivityFeedItem key={activity.id} activity={activity} />

@@ -49,5 +49,22 @@ test("no Plus line calls AI opt-in, and Plus says it can be switched off", () =>
 });
 
 test("the unbuilt perks are gone", () => {
-  for (const line of [...FREE, ...PLUS]) assert.doesNotMatch(line, /roadmap|early access|Wrap card designs/i, line);
+  for (const line of [...FREE, ...PLUS]) assert.doesNotMatch(line, /roadmap|early access/i, line);
+});
+
+// Built in BOO-50: the cover grid and stats cards are free, the extra designs are Plus.
+test("Wrap cards are free, their extra designs are Plus", () => {
+  assert.ok(FREE.some((l) => /cover grid/i.test(l)));
+  assert.ok(PLUS.some((l) => /designs for your Wrap cards/i.test(l)));
+});
+
+// BOO-82: never take away a stat that's free. Plus adds ways to explore them: the explorer is a Plus line,
+// and the free column still promises the whole stats page and Wrapped.
+test("every stat stays free, and the stats explorer is Plus", () => {
+  assert.ok(FREE.includes("Every stat on your stats page, and your Wrapped"));
+  assert.ok(FREE.some((l) => /yearly goal and your monthly pace/i.test(l)));
+  assert.ok(PLUS.some((l) => /^Explore your stats/.test(l)));
+  assert.ok(PLUS.some((l) => /saved stat views/i.test(l) && /CSV/.test(l)));
+  assert.doesNotMatch(FEATURE_COPY.statsExplorer.title, /stats are/i);
+  assert.match(FEATURE_COPY.statsExplorer.message, /stays free/);
 });

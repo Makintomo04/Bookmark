@@ -17,6 +17,7 @@ import { GENRES, isOpenLibraryCover } from '@/utils/helpers'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import FormatPicker, { type FormatChoice, formatPayload } from '../books/FormatPicker'
 import { readableInk } from '@/lib/colour'
+import CoverLinkInput from '../books/CoverLinkInput'
 
 interface BookEditModalProps {
 
@@ -28,9 +29,10 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
   const { user } = useUser()
   const accent = user?.favColour || '#D92D2D'
   const accentInk = readableInk(accent)
-  const { mutate: booksMutate } = useBooks()
   const bookEditModal = useBookEditModal()
   const { book, isOpen, onClose } = bookEditModal
+  // Only refreshes the shelf, so it never needs to load it.
+  const { mutate: booksMutate } = useBooks({ onlyWhen: false })
   const [format, setFormat] = useState<FormatChoice>("PRINT")
 
   const {
@@ -157,6 +159,9 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
                   notify.error(error.message || "Upload failed. Try another image.")
                 }}
               />
+              <div className="mt-2 max-w-sm">
+                <CoverLinkInput onCopied={(url) => setCustomValue("coverImgSrc", url)} />
+              </div>
             </div>
           </div>
         </div>

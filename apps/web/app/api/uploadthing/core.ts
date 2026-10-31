@@ -1,6 +1,7 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { recordUpload } from "@/lib/uploads";
+import { can } from "@/lib/roles";
 
 const f = createUploadthing();
 
@@ -25,6 +26,15 @@ export const ourFileRouter = {
       await recordUpload({ key: file.key, url: file.url, userId: metadata.userId });
       return { uploadedBy: metadata.userId };
     }),
+  // A librarian's cover for the shared catalogue (/staff/catalogue). Not recorded as a reader's upload, which
+  // is what lets it be every reader's cover (lib/catalogueFix.ts catalogueCoverFrom refuses readers' ones).
+  catalogueCover: f({ image: { maxFileSize: "4MB" } })
+    .middleware(async () => {
+      const user = await getCurrentUser();
+      if (!user?.id || !can(user, "catalogue.edit")) throw new Error("Unauthorized");
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ metadata }) => ({ uploadedBy: metadata.userId })),
 } satisfies FileRouter;
  
 export type OurFileRouter = typeof ourFileRouter;

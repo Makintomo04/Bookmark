@@ -1,6 +1,6 @@
-import { createContext, useContext, useId, type ComponentProps, type ReactNode } from "react";
+import { createContext, useContext, useId, useState, type ComponentProps, type ReactNode } from "react";
 import { readerName } from "@bookmark/shared/profile";
-import { ActivityIndicator, Pressable, Share, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
@@ -11,6 +11,7 @@ import type { WrappedData } from "@bookmark/shared/statsTypes";
 import * as copy from "@bookmark/shared/wrappedCopy";
 import { Medal } from "@/components/achievements/Medal";
 import { BookCover } from "@/components/books/BookCover";
+import { ShareImageSheet } from "@/components/share/ShareImageSheet";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -32,6 +33,7 @@ export default function Wrapped() {
   const { colors } = useTheme();
   const key = `/api/wrapped/${year}${username ? `?username=${encodeURIComponent(username)}` : ""}`;
   const { data, error, isLoading } = useSWR<WrappedResponse>(key);
+  const [sharing, setSharing] = useState(false);
 
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !data) {
@@ -92,7 +94,9 @@ export default function Wrapped() {
 
   const busiest = w.busiestMonth;
   const peak = Math.max(1, ...w.months.map((m) => m.books));
-  const shareUrl = webUrl(`/u/${encodeURIComponent(name)}/wrapped/${w.year}`);
+  // The address is the username: `name` is the display name when there is one.
+  const handle = encodeURIComponent(data.owner.username ?? name);
+  const shareUrl = webUrl(`/u/${handle}/wrapped/${w.year}`);
 
   return (
     <Screen edges={["left", "right"]}>
@@ -219,12 +223,26 @@ export default function Wrapped() {
         <Text variant="display" style={{ color: "#FAFAFA", textAlign: "center", marginTop: 12 }}>{copy.outroLine(w, voice)}</Text>
         {own && (
           <View style={{ marginTop: 24, alignSelf: "stretch" }}>
-            <Button title="Share your Wrapped" onPress={() => void Share.share({ message: `My ${w.year} in books ${shareUrl}`, url: shareUrl })} />
+            <Button title="Save or share your Wrapped" onPress={() => setSharing(true)} />
           </View>
         )}
       </Card>
 
       {yearLinks}
+      {sharing && (
+        <ShareImageSheet
+          onClose={() => setSharing(false)}
+          image={{
+            title: `Your ${w.year} Wrapped`,
+            imagePath: `/u/${handle}/wrapped/${w.year}/story`,
+            fileName: `bookmark-wrapped-${w.year}`,
+            aspect: 9 / 16,
+            hasRatings: !!w.topRated,
+            leftOutPath: `/api/wrap/left-out?year=${w.year}`,
+            link: { label: "Share the link to your Wrapped", url: shareUrl, message: `My ${w.year} in books ${shareUrl}` },
+          }}
+        />
+      )}
     </Screen>
   );
 }

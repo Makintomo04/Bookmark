@@ -4,6 +4,7 @@ import Modal from './Modal'
 import useUser from '@/app/hooks/useUser'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { Textarea } from '../ui/textarea'
 import { Button } from '../ui/button'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
@@ -29,7 +30,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
   const { isOpen, bookId, bookTitle, onClose } = bookNotesModal
   const { notes, isLoading, mutate } = useBookNotes(isOpen ? bookId : undefined)
   const [isSaving, setIsSaving] = useState(false)
-  const { books, mutate: booksMutate } = useBooks()
+  const { books, mutate: booksMutate } = useBooks({ onlyWhen: isOpen })
   const savedRecommender = recommendedByOf((books ?? []).find((b: { id: string }) => b.id === bookId) ?? {}) ?? ""
   const [recommender, setRecommender] = useState(savedRecommender)
   useEffect(() => { if (isOpen) setRecommender(savedRecommender) }, [isOpen, bookId, savedRecommender])
@@ -77,7 +78,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
       <div className="flex flex-col gap-4 w-full">
         <div className="flex flex-col gap-2">
           <Label className="text-md font-bold" htmlFor="recommended-by">Recommended by</Label>
-          <input id="recommended-by" value={recommender} maxLength={RECOMMENDED_BY_MAX} autoComplete="off"
+          <ClearableInput id="recommended-by" value={recommender} maxLength={RECOMMENDED_BY_MAX} autoComplete="off"
             onChange={(e) => setRecommender(e.target.value)} onBlur={saveRecommender}
             onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
             placeholder="A friend, a podcast, a bookshop..."
@@ -93,7 +94,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
           <Label className="text-md font-bold" htmlFor="content">Note or Quote</Label>
           <Textarea register={register} errors={errors} name="content" id="content" autoComplete='off' placeholder="Jot something down..."/>
         </div>
-        <Button disabled={isSaving} style={{ background: accent, color: readableInk(accent) }} onClick={handleSubmit(onSubmit)} className="w-fit">Add</Button>
+        <Button loading={isSaving} style={{ background: accent, color: readableInk(accent) }} onClick={handleSubmit(onSubmit)} className="w-fit">Add</Button>
         <hr className='my-2'/>
         <div className="flex flex-col gap-3 max-h-64 overflow-y-auto">
           {isLoading && <p className='text-sm text-muted-foreground'>Loading...</p>}

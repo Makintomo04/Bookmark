@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { ApiError } from "@/lib/api";
-import { setBlocked, toggleFollow } from "@/lib/social";
+import { profileKey, setBlocked, toggleFollow } from "@/lib/social";
 import { useTheme } from "@/lib/theme";
 
 // Another reader's profile (the web's /u/<username>), as far as their privacy settings let you see it:
@@ -49,8 +49,16 @@ type Profile = {
   favColour: string | null;
   staffBadge?: StaffBadgeKind | null;
   bio?: string | null;
+  profileLinks?: string[];
   banner?: string;
+  // With ?books=preview: everything they're reading, the newest of Finished and Want to read, and the newest
+  // reviewed books (review text is null on the rest). The counts below say how many there are in all.
   books?: PublicBook[];
+  // Finished, re-reads included; reviews written; and each shelf's size. Absent on a restricted profile, and
+  // from a server older than the preview.
+  booksRead?: number;
+  reviewCount?: number;
+  shelfCounts?: { finished: number; want: number };
   followedAuthors?: { name: string; slug: string }[];
   // Earned milestone keys; absent on a restricted profile.
   achievements?: { key: string; earnedAt: string }[];
@@ -68,7 +76,7 @@ type Profile = {
 export default function ReaderProfile() {
   const { username } = useLocalSearchParams<{ username: string }>();
   const { colors } = useTheme();
-  const { data: profile, error, isLoading, mutate } = useSWR<Profile>(`/api/users/${encodeURIComponent(username ?? "")}`);
+  const { data: profile, error, isLoading, mutate } = useSWR<Profile>(profileKey(username ?? ""));
 
   useEffect(() => {
     if (profile?.isSelf) router.replace("/");
@@ -92,7 +100,7 @@ export default function ReaderProfile() {
     <Screen>
       <Stack.Screen options={{ title: readerName(profile) }} />
       <ProfileHeader
-        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
+        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, profileLinks: profile.profileLinks ?? [], favColour: profile.favColour, _count: profile.restricted ? undefined : { books: profile.booksRead ?? (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
         staffBadge={profile.staffBadge}
         medals={profile.restricted ? undefined : { earned: profile.achievements ?? [], onPress: openAchievements }}
       />
@@ -233,11 +241,12 @@ function Reading({ profile }: { profile: Profile }) {
           ))}
         </View>
       )}
-      <CoverRow title="Finished" books={finished} accent={accent} />
-      <CoverRow title="Want to read" books={wantToRead} accent={accent} />
+      <CoverRow title="Finished" books={finished} total={profile.shelfCounts?.finished} accent={accent} onSeeAll={() => router.push(`/shelf/finished?reader=${encodeURIComponent(profile.username)}`)} />
+      <CoverRow title="Want to read" books={wantToRead} total={profile.shelfCounts?.want} accent={accent} onSeeAll={() => router.push(`/shelf/want?reader=${encodeURIComponent(profile.username)}`)} />
       {reviews.length > 0 && (
         <View style={{ gap: 14 }}>
-          <Text variant="title">Reviews</Text>
+          {/* The newest few arrive; See all pages through the rest. */}
+          <SectionHeading title="Reviews" total={profile.reviewCount ?? reviews.length} onSeeAll={(profile.reviewCount ?? 0) > reviews.length ? () => router.push(`/u/${encodeURIComponent(profile.username)}/reviews`) : undefined} />
           {reviews.map((b) => (
             <View key={b.id} style={{ gap: 6 }}>
               <View style={styles.readingRow}>
@@ -257,20 +266,45 @@ function Reading({ profile }: { profile: Profile }) {
   );
 }
 
-function CoverRow({ title, books, accent }: { title: string; books: PublicBook[]; accent: string }) {
+const COVER = 84;
+const COVER_GAP = 12;
+
+// A heading with its count, and See all when the profile carries only the newest of the list.
+function SectionHeading({ title, total, onSeeAll }: { title: string; total: number; onSeeAll?: () => void }) {
+  return (
+    <View style={styles.heading}>
+      <Text variant="title">{title} <Text variant="muted">{total.toLocaleString("en-GB")}</Text></Text>
+      {onSeeAll && (
+        <Pressable accessibilityRole="link" accessibilityLabel={`See all ${total.toLocaleString("en-GB")} in ${title}`} onPress={onSeeAll} hitSlop={8} style={{ marginLeft: "auto" }}>
+          <Text variant="small" style={{ textDecorationLine: "underline" }}>See all {total.toLocaleString("en-GB")}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+// `total` is the whole shelf's size; `books` only the newest of it, so See all opens the rest, a page at a time.
+function CoverRow({ title, books, total, accent, onSeeAll }: { title: string; books: PublicBook[]; total?: number; accent: string; onSeeAll: () => void }) {
   if (books.length === 0) return null;
+  const all = total ?? books.length;
   return (
     <View style={{ gap: 10 }}>
-      <Text variant="title">{title} <Text variant="muted">{books.length}</Text></Text>
+      <SectionHeading title={title} total={all} onSeeAll={all > books.length ? onSeeAll : undefined} />
       <FlatList
         horizontal
         data={books}
         keyExtractor={(b) => b.id}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 12 }}
+        contentContainerStyle={{ gap: COVER_GAP }}
+        // Every cover is the same width, so the row can skip measuring them.
+        getItemLayout={(_, index) => ({ length: COVER + COVER_GAP, offset: (COVER + COVER_GAP) * index, index })}
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={3}
+        removeClippedSubviews
         renderItem={({ item }) => (
-          <View style={{ width: 84, gap: 4 }} accessible accessibilityLabel={`${item.title} by ${item.author}`}>
-            <BookCover book={item} width={84} fallbackColour={accent} />
+          <View style={{ width: COVER, gap: 4 }} accessible accessibilityLabel={`${item.title} by ${item.author}`}>
+            <BookCover book={item} width={COVER} fallbackColour={accent} />
             <Text variant="small" numberOfLines={2}>{item.title}</Text>
           </View>
         )}
@@ -280,6 +314,7 @@ function CoverRow({ title, books, accent }: { title: string; books: PublicBook[]
 }
 
 const styles = StyleSheet.create({
+  heading: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   row: { flexDirection: "row", gap: 10, alignItems: "center" },
   more: { width: 48, height: 48, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   locked: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 8 },

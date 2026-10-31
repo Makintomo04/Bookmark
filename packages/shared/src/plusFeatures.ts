@@ -6,8 +6,9 @@ import { MONTHLY_ALLOWANCES } from "./entitlements";
 // built and switched off; scripts/test/plusFeatures.test.ts holds them empty until then.
 export const FREE = [
   'Import from Goodreads and StoryGraph',
-  'Every personal stat, your Wrapped and a yearly goal',
-  'A monthly Wrap card for any month, and your monthly pace',
+  'Every stat on your stats page, and your Wrapped',
+  'A yearly goal and your monthly pace',
+  'Wrap cards for any month or year: your cover grid and your stats, in 9:16, 4:5 and 1:1',
   'Join any circle: every comment, reply and reaction',
   'Host one active reading circle at a time',
   'Reviews, notes, lists, feed, follows and privacy controls',
@@ -18,13 +19,16 @@ export const FREE = [
 ]
 export const FREE_SOON: string[] = []
 
-// Supporting Bookmark leads, then hosting and goals. AI comes last. It's on by default with Plus
+// Supporting Bookmark leads, then digging into your stats, hosting and goals. AI comes last. It's on by default with Plus
 // (preferences.ts), so these lines never call it opt-in.
 export const PLUS = [
   'Everything in Free',
   'Keep Bookmark independent and ad-free, with a supporter badge on your profile',
+  'Explore your stats: any dates, two periods side by side, and filters by format, genre, mood, spice, author and re-reads',
+  'Saved stat views, a CSV of any chart, and Wrap cards for any dates you pick',
   'Host as many active circles as you like',
   'A page goal and your own monthly target',
+  'Two more designs for your Wrap cards: Paper and your own colour',
   `Ask the shelf: up to ${MONTHLY_ALLOWANCES.askShelfSearches.plus} mood searches a month`,
   `Catch me up: recaps of the story so far, up to ${MONTHLY_ALLOWANCES.recaps.plus} a month`,
   'AI features are on with Plus. Switch them off any time in Settings.',

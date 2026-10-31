@@ -50,14 +50,14 @@ const ReaderTierCard: FC<{ achievements: AchievementItem[]; reader?: { username:
       </div>
 
       {/* One segment per tier, each filling from the tier before it, so a reader with four books still sees
-          progress instead of a sliver of a 500-book bar. */}
+          progress instead of a sliver of a 500-book bar. Labels sit at the end of each segment, where the tier is earned. */}
       <ol className="mt-5 grid grid-cols-5 gap-1.5">
         {READER_TIERS.map((t, i) => {
           const from = i === 0 ? 0 : READER_TIERS[i - 1].minBooks
           const fill = Math.max(0, Math.min(1, (booksRead - from) / (t.minBooks - from)))
           const reached = booksRead >= t.minBooks
           return (
-            <li key={t.key} aria-current={t.key === tier?.key ? "step" : undefined}>
+            <li key={t.key} aria-current={t.key === tier?.key ? "step" : undefined} className="text-right">
               <div className="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
                 {fill > 0 && <div className="h-full rounded-full" style={{ width: `${fill * 100}%`, background: metal(t) }} />}
               </div>

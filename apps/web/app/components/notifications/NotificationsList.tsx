@@ -79,7 +79,7 @@ const NotificationsList: FC = () => {
     <>
       <FeedList>
         {all.map((n) => (
-          <FeedRow key={n.id} href={notificationHref(n)} actions={actionsFor(n)}>
+          <FeedRow key={n.id} href={notificationHref(n)} actions={actionsFor(n)} align={n.type === "BOOK_RECOMMENDED" && n.book ? "start" : "center"}>
             <NotificationLead n={n} />
             <NotificationText n={n} full />
             {!n.read && <span aria-label="New" className="ml-auto size-2 shrink-0 rounded-full bg-brand-fill" />}
