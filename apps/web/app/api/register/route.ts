@@ -4,6 +4,7 @@ import { registerSchema } from '@/lib/authSchemas';
 import { sendVerificationEmail } from '@/lib/emailVerification';
 import { findUserByEmail } from '@/lib/findUserByEmail';
 import { safeCallbackPath } from '@/lib/callbackUrl';
+import { signupSourceFrom } from '@bookmark/shared/signupSource';
 import { clientIp, rateLimit, tooManyRequestsMessage } from '@/lib/rateLimit';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
@@ -45,10 +46,13 @@ export async function POST(req: Request) {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
+  // Where they were when they chose to join, e.g. a profile reached from a Wrap card (?from=card).
+  const signupSource = signupSourceFrom(callbackPath);
   const user = await prisma.user.create({
     data: {
       email,
-      hashedPassword
+      hashedPassword,
+      ...(signupSource && { signupSource }),
     },
   });
   // The account can't sign in until the emailed link is followed, so nobody can claim an inbox they don't own.

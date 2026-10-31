@@ -75,3 +75,15 @@ export async function openAppeals(): Promise<{ count: number; oldestAt: string |
   ]);
   return { count, oldestAt: oldest?.createdAt.toISOString() ?? null };
 }
+
+// Sign-ups this week (from Monday, UTC, like the activity table) and how many came through a Wrap card's
+// link (User.signupSource, packages/shared/src/signupSource.ts), this week and in all.
+export async function signupCounts(now = new Date()): Promise<{ week: number; cardsWeek: number; cardsAll: number }> {
+  const { week: since } = activityWindows(now);
+  const [week, cardsWeek, cardsAll] = await Promise.all([
+    prisma.user.count({ where: { createdAt: { gte: since } } }),
+    prisma.user.count({ where: { signupSource: "card", createdAt: { gte: since } } }),
+    prisma.user.count({ where: { signupSource: "card" } }),
+  ]);
+  return { week, cardsWeek, cardsAll };
+}

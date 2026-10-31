@@ -12,6 +12,8 @@ import NotificationBell from './NotificationBell'
 import Link from 'next/link'
 import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, ShieldCheck, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { withCallback } from '@/lib/callbackUrl'
+import { signupSourceFrom } from '@bookmark/shared/signupSource'
 import { isWrappedSeason } from '@/lib/wrappedSeason'
 import { tierPreviewEnabled } from '@/app/hooks/useTierPreview'
 import { isStaffRole } from '@/lib/roles'
@@ -69,6 +71,14 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [showMenu])
+  // A page reached from a Wrap card's link (?from=card) goes through sign-up and sign-in as the callback, so a
+  // sign-up from here is counted (packages/shared/src/signupSource.ts) and they come back to it. Read after
+  // mount: the address isn't known on the server.
+  const [marked, setMarked] = useState<string | null>(null)
+  useEffect(() => {
+    const here = `${window.location.pathname}${window.location.search}`
+    setMarked(signupSourceFrom(here) ? here : null)
+  }, [pathname])
   if (user) {
     const booksRead = booksReadFor(user.username, booksReadOf(user))
     const { tier, next, remaining, progress } = tierProgress(booksRead)
@@ -178,10 +188,10 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
   const onProfile = pathname?.startsWith('/u/') ?? false
   return (
     <div className="flex items-center gap-2 sm:gap-4">
-      <Link href="/signin" className="inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <Link href={withCallback("/signin", marked)} className="inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         Sign in
       </Link>
-      <Link href="/register" className={cn("inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      <Link href={withCallback("/register", marked)} className={cn("inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         onProfile ? "border border-neutral-300 text-foreground hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900" : "text-white bg-brand-fill hover:bg-brand-fill-hover")}>
         Sign up
       </Link>

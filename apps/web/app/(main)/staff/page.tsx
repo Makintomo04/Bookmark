@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { cardClass } from '@/app/components/staff/staffApi'
 import { can } from '@/lib/roles'
-import { oldestOpenReportAt, openAppeals, reportCounts, staffActivity } from '@/lib/staffOverview'
+import { oldestOpenReportAt, openAppeals, reportCounts, signupCounts, staffActivity } from '@/lib/staffOverview'
 import { REPORT_KINDS, timeAgo, type ReportKind } from '@/lib/staffReportRules'
 
 const KIND_COUNTS: Record<ReportKind, [string, string]> = {
@@ -19,9 +19,9 @@ const Page = async () => {
   const user = await getCurrentUser()
   if (!can(user, 'reports.review')) return <p className="text-muted-foreground">Nothing to look at here yet.</p>
 
-  const [counts, oldestOpenAt, activity, appeals] = await Promise.all([
+  const [counts, oldestOpenAt, activity, appeals, signups] = await Promise.all([
     reportCounts(), oldestOpenReportAt(), can(user, 'staff.log') ? staffActivity() : null,
-    can(user, 'users.suspend') ? openAppeals() : null,
+    can(user, 'users.suspend') ? openAppeals() : null, can(user, 'staff.log') ? signupCounts() : null,
   ])
   const byKind = REPORT_KINDS.filter((kind) => counts.open[kind] > 0)
     .map((kind) => `${counts.open[kind]} ${KIND_COUNTS[kind][counts.open[kind] === 1 ? 0 : 1]}`)
@@ -67,6 +67,25 @@ const Page = async () => {
               <span className="text-sm text-muted-foreground">{appeals.oldestAt ? `Oldest logged ${timeAgo(appeals.oldestAt)}` : 'Nothing to decide'}</span>
             </Link>
           </div>
+        </section>
+      )}
+
+      {signups && (
+        <section aria-labelledby="overview-signups">
+          <h2 id="overview-signups" className="font-semibold">Sign-ups</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className={`${cardClass} flex flex-col gap-1`}>
+              <span className="text-sm text-muted-foreground">This week</span>
+              <span className="text-3xl font-semibold tabular-nums">{signups.week}</span>
+              <span className="text-sm text-muted-foreground">New accounts</span>
+            </div>
+            <div className={`${cardClass} flex flex-col gap-1`}>
+              <span className="text-sm text-muted-foreground">From Wrap cards</span>
+              <span className="text-3xl font-semibold tabular-nums">{signups.cardsWeek}</span>
+              <span className="text-sm text-muted-foreground">This week, {signups.cardsAll} in all</span>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">From Wrap cards: joined from a card&apos;s link, on the web. Visits aren&apos;t tracked, only sign-ups.</p>
         </section>
       )}
 

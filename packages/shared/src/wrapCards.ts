@@ -52,6 +52,13 @@ export function cardFileName({ kind, size, year, month }: { kind: CardKind; size
   return `bookmark-${kind}-${year}${month === null ? "" : `-${String(month).padStart(2, "0")}`}-${size}`
 }
 
+// Where a card sends people: the reader's profile, marked so a sign-up that starts there is counted
+// (signupSource.ts). The share message links here.
+export const cardProfilePath = (handle: string) => `/u/${encodeURIComponent(handle)}?from=card`
+
+// Printed on the card, so short enough to type; the web sends it on to cardProfilePath (apps/web/middleware.ts).
+export const cardShortPath = (handle: string) => `/w/${handle}`
+
 // ---- Words -----------------------------------------------------------------------------------
 
 const fmt = (n: number) => n.toLocaleString("en-GB")
