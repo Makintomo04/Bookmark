@@ -191,7 +191,7 @@ function Confetti({ colours }: { colours: string[] }) {
 function FinishBanner() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { note, clearNote } = useEarnMoment();
+  const { note, noteTitle = "Finished", clearNote } = useEarnMoment();
   useEffect(() => {
     if (!note) return;
     const timer = setTimeout(clearNote, 5000);
@@ -201,11 +201,11 @@ function FinishBanner() {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Finished. ${note}. Dismiss`}
+      accessibilityLabel={`${noteTitle}. ${note}. Dismiss`}
       onPress={clearNote}
       style={[styles.banner, { bottom: insets.bottom + 16, backgroundColor: colors.foreground }]}
     >
-      <Text style={{ color: colors.background, fontWeight: "600" }}>Finished</Text>
+      <Text style={{ color: colors.background, fontWeight: "600" }}>{noteTitle}</Text>
       <Text style={{ color: colors.background, opacity: 0.85, fontSize: 13 }}>{note}</Text>
     </Pressable>
   );

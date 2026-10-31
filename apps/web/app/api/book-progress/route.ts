@@ -10,6 +10,7 @@ import { positionFromBody } from "@/lib/progressPayload";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { ASK_HABIT_DAYS, type AskReason } from "@bookmark/shared/reminders";
 
 const ACTIONS = ["start", "progress", "complete", "rate", "pause", "resume", "dnf", "restart", "wantToRead", "notInterested", "reshelve"] as const
 type Action = typeof ACTIONS[number]
@@ -324,8 +325,14 @@ export async function POST(req: Request) {
   // What this save earned, sent back with the book so the app can celebrate it there and then.
   const finished = action === "complete" || (action === "reshelve" && to === "COMPLETED")
   const earnMoment = await earnMomentFor(currentUser, synced, { finished: finished && finishedThisYear })
-  // The first book they finish here, the app offers reminders (BOO-48), once: the sheet's answer, either
+  // The first book they finish this year, the app offers reminders (BOO-48), once: the sheet's answer, either
   // way, sets remindersPromptedAt (PATCH /api/push/settings).
-  const askReminders = finished && !currentUser.remindersPromptedAt
+  // Or on the third day they've logged reading, if that comes first: by then there's a habit to keep.
+  let askReminders: AskReason | false = false
+  if (!currentUser.remindersPromptedAt) {
+    if (finished && finishedThisYear) askReminders = "finished"
+    // Days in the last week, so a long-time reader isn't greeted with "three days already".
+    else if (action === "progress" && (await prisma.readingDay.count({ where: { userId: currentUser.id, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } })) >= ASK_HABIT_DAYS) askReminders = "habit"
+  }
   return NextResponse.json({ ...updated, earnMoment, askReminders })
 }

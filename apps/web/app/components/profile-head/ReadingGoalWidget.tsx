@@ -10,11 +10,13 @@ import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
 import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, monthTarget } from '@/lib/goals'
+import { streakText } from '@bookmark/shared/goals'
 import { Input as RawInput } from '../ui/input'
 import { Skeleton } from '../ui/skeleton'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import { useForm, FieldValues, SubmitHandler } from 'react-hook-form'
 import { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
+import { useRemindersPrompt } from '@/app/hooks/useEarnMoment'
 
 const RING_RADIUS = 22
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS
@@ -146,6 +148,8 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
   // Counted on the server from finished reads, as /stats counts them. Nothing yet reads as nothing finished.
   const progress = counted ?? { books: 0, pages: 0, thisMonth: 0, month: new Date().getMonth() }
   const completedThisYear = progress.books
+  // Their streak under the goal, so "ends tonight" is in sight before the evening alert.
+  const streakLine = streakText(counted?.streak)
 
   const startEditing = () => {
     reset({
@@ -162,9 +166,11 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
     // A free account only sends the book count, so a goal set while on Plus stays put.
     const extras = canExtra ? { targetPages: extraValue(data.targetPages), targetBooksPerMonth: extraValue(data.targetBooksPerMonth) } : {}
     axios.post("/api/reading-goal", { year, targetBooks: data.targetBooks, ...extras })
-      .then(() => {
+      .then((res) => {
         mutate()
         setIsEditing(false)
+        // Setting a goal is one of the moments reminders are offered, once.
+        if (res.data?.askReminders) useRemindersPrompt.getState().ask(res.data.askReminders)
       })
       .catch((err) => {
         if (isUpgradeRequired(err?.response?.data)) return setRefused(true)
@@ -319,6 +325,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
         <div className="min-w-0 flex-1 leading-snug">
           <p className="text-sm tabular-nums"><span className="font-medium">{fmt(completedThisYear)} of {fmt(target)}</span> · {token}{nextStep && <span className="text-muted-foreground"> · {nextStep}</span>}</p>
           <p className="text-xs tabular-nums text-muted-foreground">{second}</p>
+          {streakLine && <p className="text-xs tabular-nums text-muted-foreground">{streakLine}</p>}
         </div>
         <div className="-mr-2 -mt-1.5">{editButton}</div>
       </section>
@@ -336,6 +343,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
           <span className="text-muted-foreground sm:hidden"> · {monthGoal.perMonth > progress.thisMonth ? `${fmt(monthGoal.perMonth - progress.thisMonth)} more this month` : "on track this month"}</span>
         )}
       </span>
+      {streakLine && <span className="block truncate text-xs tabular-nums text-muted-foreground">{streakLine}</span>}
     </>
   )
 

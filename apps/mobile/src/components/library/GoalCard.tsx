@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import useSWR, { mutate } from "swr";
-import { GOAL_BOOKS_MAX, type GoalProgress } from "@bookmark/shared/goals";
+import { GOAL_BOOKS_MAX, streakText, type GoalProgress } from "@bookmark/shared/goals";
 import { Chip } from "@/components/ui/Chip";
 import { Text } from "@/components/ui/Text";
 import { ApiError, api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { useRemindersPrompt } from "@/lib/earnMoment";
+import type { AskReason } from "@bookmark/shared/reminders";
 
 // This year's reading goal: progress against it, or a quick way to set one (the web's ReadingGoalWidget,
 // book count only; page and monthly goals are Plus and come with settings).
@@ -25,7 +27,9 @@ export function GoalCard({ accent }: { accent: string }) {
     setSaving(targetBooks);
     setError(null);
     try {
-      await api.post("/api/reading-goal", { year, targetBooks });
+      const saved = await api.post<{ askReminders?: AskReason | false }>("/api/reading-goal", { year, targetBooks });
+      // Setting a goal is one of the moments reminders are offered, once.
+      if (saved?.askReminders) useRemindersPrompt.setState({ asked: saved.askReminders });
       await mutate((key) => typeof key === "string" && key.startsWith("/api/reading-goal"));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't save your goal. Try again.");
@@ -35,6 +39,8 @@ export function GoalCard({ accent }: { accent: string }) {
   };
 
   const box = [styles.box, { borderRadius: radii.lg, borderColor: colors.border }];
+  // Their streak, so "ends tonight" is in sight before the evening alert (BOO-48).
+  const streak = streakText(progress?.streak);
   if (!goal) {
     return (
       <View style={box}>
@@ -44,6 +50,7 @@ export function GoalCard({ accent }: { accent: string }) {
           {PRESETS.map((n) => <Chip key={n} label={saving === n ? "…" : String(n)} selected={false} disabled={saving !== null} onPress={() => set(n)} />)}
         </View>
         {error && <Text variant="small" style={{ color: colors.danger }}>{error}</Text>}
+        {streak && <Text variant="muted">{streak}</Text>}
       </View>
     );
   }
@@ -60,6 +67,7 @@ export function GoalCard({ accent }: { accent: string }) {
         <View style={[styles.fill, { width: `${percent}%`, backgroundColor: accent }]} />
       </View>
       {done >= goal.targetBooks && <Text variant="muted">Goal reached. Every book from here is a bonus.</Text>}
+      {streak && <Text variant="muted">{streak}</Text>}
     </View>
   );
 }
