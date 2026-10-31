@@ -3,7 +3,6 @@ import { FC, useState } from 'react'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { Pencil, Crown, Target } from 'lucide-react'
-import useGoalProgress from '@/app/hooks/useGoalProgress'
 import useReadingGoal from '@/app/hooks/useReadingGoal'
 import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
@@ -12,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
 import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, monthTarget } from '@/lib/goals'
 import { Input as RawInput } from '../ui/input'
+import { Skeleton } from '../ui/skeleton'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import { useForm, FieldValues, SubmitHandler } from 'react-hook-form'
 import { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
@@ -21,17 +21,22 @@ const RING_LENGTH = 2 * Math.PI * RING_RADIUS
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const fmt = (n: number) => n.toLocaleString('en-GB')
 
-// How far through the year we are, 0–1, so progress can be judged against the date.
-const yearFraction = (now: Date) => {
-  const start = new Date(now.getFullYear(), 0, 1).getTime()
-  const end = new Date(now.getFullYear() + 1, 0, 1).getTime()
-  return (now.getTime() - start) / (end - start)
+// Where the pace says you should be by now. It runs from 1 January, or from the day the goal was set if that was
+// later, starting from the books already read by then: so a reader who joins in October isn't told they're ten
+// behind on day one, and one who sets a goal with 150 read isn't told they're 150 ahead.
+const expectedBooks = (year: number, target: number, setAt?: string | Date | null, before = 0) => {
+  const yearStart = new Date(year, 0, 1).getTime()
+  const end = new Date(year + 1, 0, 1).getTime()
+  const start = Math.min(end, Math.max(yearStart, setAt ? new Date(setAt).getTime() : yearStart))
+  const from = start > yearStart ? Math.min(before, target) : 0
+  const fraction = start >= end ? 1 : Math.min(1, Math.max(0, (Date.now() - start) / (end - start)))
+  return from + (target - from) * fraction
 }
 
-const pace = (completed: number, target: number) => {
+const pace = (completed: number, target: number, expected: number) => {
   const left = target - completed
   if (left <= 0) return { text: completed > target ? `Goal smashed · ${completed - target} over` : "Goal reached", toGo: null, tone: "good" as const }
-  const diff = Math.round(completed - target * yearFraction(new Date()))
+  const diff = Math.round(completed - expected)
   // "to go" is kept apart: a phone drops it to fit this month on the same line.
   const toGo = `${left} to go`
   if (diff > 0) return { text: `${diff} ahead of pace`, toGo, tone: "good" as const }
@@ -89,12 +94,46 @@ interface ReadingGoalWidgetProps {
 // The most books a month the goal can ask you to catch up with before it suggests changing the goal instead.
 const CATCH_UP_MAX = 4
 
+// The goal's shape while it loads, the same size as each variant, so the header doesn't grow when it lands.
+const GoalSkeleton: FC<{ variant: NonNullable<ReadingGoalWidgetProps['variant']> }> = ({ variant }) => {
+  if (variant === 'block') {
+    return (
+      <div aria-hidden className="mt-5 flex items-start gap-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 p-3.5">
+        <Skeleton className="size-10 shrink-0 rounded-full" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-0.5">
+          <Skeleton className="h-4 w-3/5" />
+          <Skeleton className="h-3 w-2/5" />
+          <Skeleton className="mt-3 h-3 w-4/5" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      </div>
+    )
+  }
+  if (variant === 'lines') {
+    return (
+      <div aria-hidden className="mt-3 flex flex-col gap-1.5 py-0.5">
+        <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-3 w-3/5" />
+      </div>
+    )
+  }
+  return (
+    <div aria-hidden className="mt-4 flex items-center gap-x-3 rounded-xl border border-neutral-200 dark:border-neutral-800 py-2 pl-2.5 pr-1.5">
+      <Skeleton className="size-9 shrink-0 rounded-full" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <Skeleton className="h-4 w-2/5" />
+        <Skeleton className="h-3 w-1/4" />
+      </div>
+      <div className="h-[34px]" />
+    </div>
+  )
+}
+
 const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) => {
   const { user } = useUser()
   const { books } = useBooks()
   const year = new Date().getFullYear()
-  const { progress: counted, isLoading: progressLoading } = useGoalProgress(year)
-  const { goal, isLoading, mutate } = useReadingGoal(year)
+  const { goal, progress: counted, isLoading, mutate } = useReadingGoal(year)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [refused, setRefused] = useState(false)
@@ -134,7 +173,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
       .finally(() => setIsSaving(false))
   }
 
-  if (isLoading || progressLoading) return null
+  if (isLoading) return <GoalSkeleton variant={variant} />
 
   const target = goal?.targetBooks
   const colour = user?.favColour || "#F13C3C"
@@ -197,7 +236,8 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
   }
 
   const ratio = Math.min(1, completedThisYear / target)
-  const status = pace(completedThisYear, target)
+  const expected = expectedBooks(year, target, goal?.createdAt, counted?.beforeGoal)
+  const status = pace(completedThisYear, target, expected)
   // The page goal shows while on Plus; a lapsed account keeps it for when it comes back. The monthly
   // target is a stat everyone gets: whole books this month to stay on track, or the Plus custom target.
   const pagesTarget = canExtra ? goal?.targetPages : null
@@ -243,7 +283,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
   // green when ahead, so "behind" never sits beside a green "hit your target". It ends with what to do
   // next: the books that put you back on pace this month, or (when that's more than CATCH_UP_MAX) a nudge
   // to change the goal. The second is grey: this month, your page goal and your average rating.
-  const gap = Math.round(completedThisYear - target * ((Date.now() - new Date(year, 0, 1).getTime()) / (new Date(year + 1, 0, 1).getTime() - new Date(year, 0, 1).getTime())))
+  const gap = Math.round(completedThisYear - expected)
   const token = completedThisYear >= target
     ? <span className={toneClass.good}>{completedThisYear > target ? `${completedThisYear - target} over` : "goal reached"}</span>
     : gap < 0 ? <span className={toneClass.behind}>{-gap} behind</span>
