@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  checkpointMinute,
   checkpointPush,
   clockLabel,
   DEFAULT_QUIET_END,
@@ -113,8 +114,17 @@ test("the streak alert needs a streak of three days or more", () => {
 
 test("an evening reminder becomes the streak alert when a streak is at risk", () => {
   assert.equal(nudge({ minute: at("20:00"), reminderMinute: at("20:00"), streakAlerts: true, streak: 5 }), "streak");
-  // A morning reminder stays a reminder; the shared ledger key means no second nudge that evening.
+});
+
+test("a morning reminder doesn't stop the evening streak alert", () => {
+  // The job keeps them apart in the ledger ("nudge" and "streak"), so both go out on an at-risk day.
   assert.equal(nudge({ minute: at("08:00"), reminderMinute: at("08:00"), streakAlerts: true, streak: 5 }), "reminder");
+  assert.equal(nudge({ minute: at("19:00"), reminderMinute: at("08:00"), streakAlerts: true, streak: 5 }), "streak");
+});
+
+test("checkpoint reminders wait for quiet hours to end", () => {
+  assert.equal(checkpointMinute(quiet), at("09:00"));
+  assert.equal(checkpointMinute({ start: at("23:00"), end: at("10:30") }), at("10:30"));
 });
 
 test("nothing is sent inside quiet hours", () => {

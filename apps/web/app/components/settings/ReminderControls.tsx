@@ -26,6 +26,8 @@ const ReminderControls: FC<{ settings: NotificationSettings; save: (change: Noti
   const quiet = quietHoursOf(quietStart, quietEnd)
   const times = reminderTimes(quiet)
   const daily = reminders.dailyAt
+  // Without the app on a phone a push reminder has nowhere to go: it can be switched off, not on.
+  const pushLocked = (on: boolean) => disabled || (!settings.hasPhone && !on)
 
   return (
     <div className="flex flex-col gap-5">
@@ -36,7 +38,7 @@ const ReminderControls: FC<{ settings: NotificationSettings; save: (change: Noti
           hint={REMINDER_COPY.daily.hint}
           checked={daily !== null}
           onChange={(on) => save({ reminders: { dailyAt: on ? (times.includes(parseMinute(DEFAULT_REMINDER_AT)!) ? DEFAULT_REMINDER_AT : formatMinute(times[0] ?? 0)) : null } })}
-          disabled={disabled}
+          disabled={pushLocked(daily !== null)}
         />
         {daily !== null && (
           <label className="flex items-center gap-2 text-sm">
@@ -45,8 +47,8 @@ const ReminderControls: FC<{ settings: NotificationSettings; save: (change: Noti
           </label>
         )}
       </div>
-      <Toggle label={REMINDER_COPY.streak.title} hint={REMINDER_COPY.streak.hint} checked={reminders.streak} onChange={(on) => save({ reminders: { streak: on } })} disabled={disabled} />
-      <Toggle label={REMINDER_COPY.checkpoints.title} hint={REMINDER_COPY.checkpoints.hint} checked={reminders.checkpoints} onChange={(on) => save({ reminders: { checkpoints: on } })} disabled={disabled} />
+      <Toggle label={REMINDER_COPY.streak.title} hint={REMINDER_COPY.streak.hint} checked={reminders.streak} onChange={(on) => save({ reminders: { streak: on } })} disabled={pushLocked(reminders.streak)} />
+      <Toggle label={REMINDER_COPY.checkpoints.title} hint={REMINDER_COPY.checkpoints.hint} checked={reminders.checkpoints} onChange={(on) => save({ reminders: { checkpoints: on } })} disabled={pushLocked(reminders.checkpoints)} />
       {showQuiet && (
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium">{REMINDER_COPY.quiet.title}</span>

@@ -7,10 +7,10 @@ import { Text } from "./Text";
 // the allowed quarter hours instead.
 const QUARTERS = Array.from({ length: (24 * 60) / REMINDER_STEP }, (_, i) => i * REMINDER_STEP);
 
-export function TimeField({ label, value, onChange, options = QUARTERS }: { label: string; value: string; onChange: (value: string) => void; options?: number[] }) {
+export function TimeField({ label, value, onChange, options = QUARTERS, disabled }: { label: string; value: string; onChange: (value: string) => void; options?: number[]; disabled?: boolean }) {
   const { colors } = useTheme();
   const at = Math.max(0, options.indexOf(parseMinute(value) ?? 0));
-  const step = (by: number) => options.length && onChange(formatMinute(options[(at + by + options.length) % options.length]));
+  const step = (by: number) => !disabled && options.length && onChange(formatMinute(options[(at + by + options.length) % options.length]));
   return (
     <View style={styles.row}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${label} earlier`} onPress={() => step(-1)} hitSlop={8}><Text style={{ color: colors.brandText }}>‹</Text></Pressable>

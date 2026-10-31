@@ -5,7 +5,7 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/digest.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildWeeklyDigest, goalLine, type DigestData } from "@bookmark/shared/digest";
+import { buildWeeklyDigest, goalLine, goalPace, type DigestData } from "@bookmark/shared/digest";
 import { unsubscribeToken, verifyUnsubscribeToken } from "@/lib/unsubscribeToken";
 import { isCronAuthorised } from "@/lib/cronAuth";
 
@@ -26,6 +26,10 @@ const empty: DigestData = {
 
 test("an empty week sends nothing", () => {
   assert.equal(buildWeeklyDigest(empty), null);
+  // A goal and an old streak aren't news on their own: a quiet reader isn't told "30 behind" each Sunday.
+  assert.equal(buildWeeklyDigest({ ...empty, streak: 4, goal: { year: 2026, books: 10, target: 40, pace: 33 } }), null);
+  // Once something happened, the goal line comes along.
+  assert.match(buildWeeklyDigest({ ...empty, readingDays: 1, goal: { year: 2026, books: 10, target: 40, pace: 33 } })!.text, /23 behind pace/);
   // A circle with nothing new is no news either.
   assert.equal(buildWeeklyDigest({ ...empty, circles: [{ title: "Dune", newComments: 0, finished: 0 }] }), null);
 });
@@ -52,6 +56,15 @@ test("circles, checkpoints, friends and series", () => {
   assert.match(email.text, /Book Two, new in The Saga/);
   // At most five friends.
   assert.equal((email.text.match(/finished Piranesi/g) ?? []).length, 5);
+});
+
+test("pace counts from when the goal was set, not 1 January", () => {
+  // Half way through the year: 12 books should be about 6.
+  assert.equal(goalPace(12, "2026-07-02"), 6);
+  // Set on 1 November, on 1 November nobody is behind yet.
+  assert.equal(goalPace(12, "2026-11-01", "2026-11-01"), 0);
+  // A goal set last year counts from this January.
+  assert.equal(goalPace(12, "2026-07-02", "2025-12-01"), 6);
 });
 
 test("goal pace says ahead, behind or reached", () => {

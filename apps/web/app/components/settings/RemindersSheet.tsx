@@ -24,7 +24,10 @@ const RemindersSheet: FC = () => {
     if (!asked || celebrating || !settings) return
     if (settings.prompted) return done()
     const timer = setTimeout(() => {
-      setDraft(withChange(settings, { reminders: { dailyAt: settings.reminders.dailyAt ?? DEFAULT_REMINDER_AT, streak: true, checkpoints: true } }))
+      // Suggest what can reach them: the phone reminders when they have the app, otherwise the weekly email.
+      setDraft(settings.hasPhone
+        ? withChange(settings, { reminders: { dailyAt: settings.reminders.dailyAt ?? DEFAULT_REMINDER_AT, streak: true, checkpoints: true } })
+        : withChange(settings, { email: { weekly: true } }))
       setOpen(true)
     }, 800)
     return () => clearTimeout(timer)
@@ -39,7 +42,9 @@ const RemindersSheet: FC = () => {
     if (!ok && turnOn) return
     setOpen(false)
     done()
-    if (turnOn) notify.success("Reminders are on", { description: "Change them any time in Settings." })
+    const pushOn = draft.hasPhone && (draft.reminders.dailyAt !== null || draft.reminders.streak || draft.reminders.checkpoints)
+    const title = pushOn ? "Reminders are on" : draft.email.weekly ? "The weekly email is on" : null
+    if (turnOn && title) notify.success(title, { description: "Change it any time in Settings." })
   }
 
   const quietFrom = clockLabel(parseMinute(draft.reminders.quietStart) ?? 0)

@@ -8,9 +8,10 @@ import { appUrl } from "@/lib/siteUrl";
 import { getGoalProgress } from "@/lib/stats";
 import { unsubscribeToken } from "@/lib/unsubscribeToken";
 import { circleProgress, progressPercent } from "@bookmark/shared/buddyReads";
-import { buildWeeklyDigest, DIGEST_FRIENDS_MAX, type DigestData, type DigestFriend } from "@bookmark/shared/digest";
+import { buildWeeklyDigest, DIGEST_FRIENDS_MAX, goalPace, type DigestData, type DigestFriend } from "@bookmark/shared/digest";
 import { progressSelect } from "@bookmark/shared/progress";
-import { addDays, DIGEST_MINUTE, DIGEST_WEEKDAY, isDue, isoWeekKey, localClock } from "@bookmark/shared/reminders";
+import { addDays, DIGEST_MINUTE, DIGEST_WEEKDAY, isoWeekKey, localClock } from "@bookmark/shared/reminders";
+import { visibleComments, visibleFinishers } from "./circleCounts";
 import { claimSend } from "./ledger";
 import { pageArgs, pages, zoneOf, type JobContext } from "./common";
 
@@ -23,16 +24,7 @@ import { pageArgs, pages, zoneOf, type JobContext } from "./common";
 export const DIGEST_BUDGET = 300;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-const liveComment = { OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] };
 const notPrivate = { OR: [{ isPrivate: { isSet: false } }, { isPrivate: null }, { isPrivate: false }] };
-
-// Books ahead of, or behind, where an even pace through the year would have them by `day`.
-function paceBy(target: number, day: string): number {
-  const year = Number(day.slice(0, 4));
-  const start = Date.UTC(year, 0, 1);
-  const through = (Date.parse(`${day}T12:00:00Z`) - start) / (Date.UTC(year + 1, 0, 1) - start);
-  return Math.round(target * through);
-}
 
 // What friends did this week that they'd let a follower see: finishing or starting a book (the feed's
 // rules, app/api/feed/route.ts), and books they sent this reader.
@@ -92,25 +84,25 @@ async function friendsWeek(userId: string, since: Date): Promise<DigestFriend[]>
 // Circle news: sections due in the next week, and per circle the new comments the reader's progress
 // already reaches (never one past it, BOO-43's rule) and members who finished.
 async function circlesWeek(userId: string, today: string, since: Date) {
+  // A muted circle stays quiet here too, as in the bell and the checkpoint push.
   const memberships = await prisma.buddyReadMember.findMany({
-    where: { userId, buddyRead: { status: "ACTIVE" } },
-    select: { bookId: true, notifiedProgress: true, mutedAt: true, buddyRead: { select: { id: true, title: true, schedule: true } } },
+    where: { userId, buddyRead: { status: "ACTIVE" }, OR: [{ mutedAt: null }, { mutedAt: { isSet: false } }] },
+    select: { bookId: true, notifiedProgress: true, buddyRead: { select: { id: true, title: true, schedule: true } } },
   });
   const weekEnd = addDays(today, 6);
   const checkpoints: DigestData["checkpoints"] = [];
   const circles: DigestData["circles"] = [];
   for (const m of memberships) {
-    for (const c of parseSchedule(m.buddyRead.schedule)) {
-      if (c.due && c.due >= today && c.due <= weekEnd) checkpoints.push({ circleTitle: m.buddyRead.title, label: c.label, due: c.due });
-    }
     const book = await prisma.book.findUnique({ where: { id: m.bookId }, select: { userId: true, ...progressSelect } });
     const progress = circleProgress(book && book.userId === userId ? progressPercent(book) : 0, m.notifiedProgress);
+    for (const c of parseSchedule(m.buddyRead.schedule)) {
+      // Only sections still ahead of them: one they've read past isn't "due".
+      const ahead = c.until == null || progress < c.until;
+      if (c.due && c.due >= today && c.due <= weekEnd && ahead) checkpoints.push({ circleTitle: m.buddyRead.title, label: c.label, due: c.due });
+    }
     const [newComments, finished] = await Promise.all([
-      // A muted circle sends no comment news, here as in the bell.
-      m.mutedAt
-        ? 0
-        : prisma.buddyReadComment.count({ where: { buddyReadId: m.buddyRead.id, userId: { not: userId }, createdAt: { gte: since }, position: { lte: progress }, ...liveComment } }),
-      prisma.buddyReadMember.count({ where: { buddyReadId: m.buddyRead.id, userId: { not: userId }, finishedAt: { gte: since } } }),
+      visibleComments(userId, m.buddyRead.id, { createdAt: { gte: since }, position: { lte: progress } }),
+      visibleFinishers(userId, m.buddyRead.id, since),
     ]);
     circles.push({ title: m.buddyRead.title, newComments, finished });
   }
@@ -130,7 +122,7 @@ export async function digestFor(
     prisma.readingDay.count({ where: { userId: user.id, day: { gte: addDays(today, -6) } } }),
     prisma.activity.count({ where: { userId: user.id, type: "COMPLETED_BOOK", createdAt: { gte: since } } }),
     readingStreakState(user.id, zone, 1000, now),
-    prisma.readingGoal.findFirst({ where: { userId: user.id, year, targetBooks: { gt: 0 } }, select: { targetBooks: true } }),
+    prisma.readingGoal.findFirst({ where: { userId: user.id, year, targetBooks: { gt: 0 } }, select: { targetBooks: true, createdAt: true } }),
     friendsWeek(user.id, since),
     circlesWeek(user.id, today, since),
     prisma.notification.findMany({ where: { userId: user.id, type: "NEW_IN_SERIES", createdAt: { gte: since } }, select: { workId: true }, take: 5 }),
@@ -144,7 +136,7 @@ export async function digestFor(
     readingDays,
     finished,
     streak: streak.streak,
-    goal: goal ? { year, books: (await getGoalProgress(user.id, year)).books, target: goal.targetBooks, pace: paceBy(goal.targetBooks, today) } : null,
+    goal: goal ? { year, books: (await getGoalProgress(user.id, year)).books, target: goal.targetBooks, pace: goalPace(goal.targetBooks, today, localClock(goal.createdAt, zone).day) } : null,
     ...circleNews,
     friends,
     series: works.map((w) => ({ title: w.title, seriesName: w.seriesName })),
@@ -176,13 +168,16 @@ export async function runWeeklyDigest(ctx: JobContext): Promise<{ digests: numbe
       if (result.digests >= DIGEST_BUDGET) return result;
       const zone = zoneOf(user.timeZone);
       const clock = localClock(ctx.now, zone);
-      if (clock.weekday !== DIGEST_WEEKDAY || !isDue(DIGEST_MINUTE, clock.minute)) continue;
+      // Any time on Sunday from 9am: the ledger keeps it to one a week, and the long window means a busy
+      // Sunday that runs past a tick's budget still reaches everyone on a later tick.
+      if (clock.weekday !== DIGEST_WEEKDAY || clock.minute < DIGEST_MINUTE) continue;
       const week = isoWeekKey(clock.day);
       // Already sent this week: skip before building, which is the costly part.
       if (await prisma.scheduledSend.findUnique({ where: { userId_kind_key: { userId: user.id, kind: "digest", key: week } }, select: { id: true } })) continue;
-      // Built before claiming, so an empty week stays unclaimed; it is looked at again next tick, inside the window.
       const email = buildWeeklyDigest(await digestFor(user, zone, ctx.now));
       if (!email) {
+        // An empty week is settled too, so the rest of Sunday's ticks don't build it again.
+        await claimSend(user.id, "digest", week, "none");
         result.emptyWeeks++;
         continue;
       }

@@ -62,6 +62,17 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const weekdayOf = (day: string) => WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()];
 
+// Where an even pace would have them by `day`, counted from when they set the goal (`since`, a local day)
+// or 1 January if earlier: someone who joins in November with a 12-book goal isn't 10 behind.
+export function goalPace(target: number, day: string, since?: string): number {
+  const year = Number(day.slice(0, 4));
+  const yearStart = Date.UTC(year, 0, 1);
+  const end = Date.UTC(year + 1, 0, 1);
+  const start = since && since.startsWith(`${year}-`) ? Math.max(yearStart, Date.parse(`${since}T00:00:00Z`)) : yearStart;
+  const through = Math.min(1, Math.max(0, (Date.parse(`${day}T12:00:00Z`) - start) / (end - start)));
+  return Math.round(target * through);
+}
+
 // "23 of 40 this year, 2 ahead of pace". Behind is said plainly: it's the reader's own email.
 export function goalLine(goal: NonNullable<DigestData["goal"]>): string {
   const gap = goal.books - goal.pace;
@@ -84,8 +95,17 @@ interface Section {
   lines: string[];
 }
 
-// The email, or null when there's nothing to say: an empty week sends nothing.
+// The email, or null when there's nothing to say: an empty week sends nothing. A goal's pace and an old
+// streak aren't news on their own, so a reader who's gone quiet isn't sent "30 behind pace" every Sunday.
 export function buildWeeklyDigest(data: DigestData): DigestEmail | null {
+  const happened =
+    data.readingDays > 0 ||
+    data.finished > 0 ||
+    data.checkpoints.length > 0 ||
+    data.circles.some((c) => c.newComments > 0 || c.finished > 0) ||
+    data.friends.length > 0 ||
+    data.series.length > 0;
+  if (!happened) return null;
   const you = [
     data.readingDays > 0 && `You read on ${plural(data.readingDays, "day")} this week`,
     data.finished > 0 && `${plural(data.finished, "book")} finished`,

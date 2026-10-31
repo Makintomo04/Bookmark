@@ -192,6 +192,9 @@ export function streakAlertMinute(quiet: QuietHours): number {
   return STREAK_ALERT_MINUTE;
 }
 
+// 9am, or when quiet hours end if they cover 9am: someone who sleeps until 10 still hears about it.
+export const checkpointMinute = (quiet: QuietHours): number => (inQuietHours(CHECKPOINT_MINUTE, quiet) ? quiet.end : CHECKPOINT_MINUTE);
+
 // ---- The streak -----------------------------------------------------------------------------
 
 // The run of reading days ending today, or ending yesterday while today isn't over: the same count as
@@ -207,7 +210,7 @@ export function streakState(active: Set<string>, today: string, cap = Infinity):
   return { streak, readToday };
 }
 
-// ---- The one reading nudge a day -------------------------------------------------------------
+// ---- The reading nudges ----------------------------------------------------------------------
 
 export interface NudgeInput {
   minute: number;
@@ -220,8 +223,9 @@ export interface NudgeInput {
 }
 
 // What to send this tick, if anything. A reader who has already read today gets nothing: "time to read"
-// after reading is noise. At most one nudge a day (the jobs share one ledger key), and when the streak is
-// at risk the streak alert takes the reminder's place: at its own time, or at an evening reminder's.
+// after reading is noise. Each is sent once a day (its own ledger key). An earlier reminder doesn't stop
+// the evening streak alert, since the streak is still at risk; an evening reminder at or after the alert's
+// time becomes the alert, so that evening brings one nudge, not two.
 export function nudgeFor(n: NudgeInput): "reminder" | "streak" | null {
   if (n.readToday || inQuietHours(n.minute, n.quiet)) return null;
   const atRisk = n.streakAlerts && n.streak >= STREAK_ALERT_MIN_DAYS;

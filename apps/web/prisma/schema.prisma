@@ -836,7 +836,7 @@ model ReadingDay {
 model ScheduledSend {
   id      String   @id @default(auto()) @map("_id") @db.ObjectId
   userId  String   @db.ObjectId
-  // "nudge" (the daily reminder or streak alert), "checkpoint" or "digest".
+  // "nudge" (the daily reminder), "streak" (the streak alert), "checkpoint" or "digest".
   kind    String
   // Once per what: the local day ("2026-10-31"), the circle and due date, or the ISO week ("2026-W44").
   key     String

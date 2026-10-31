@@ -6,7 +6,8 @@ import { Prisma } from "@prisma/client";
 // send the same reminder twice. A send that fails after claiming isn't retried: one reminder too few is
 // better than two.
 
-export type SendKind = "nudge" | "checkpoint" | "digest";
+// "nudge" is the daily reminder and "streak" the streak alert, one of each per local day at most.
+export type SendKind = "nudge" | "streak" | "checkpoint" | "digest";
 
 export interface LedgerDb {
   scheduledSend: {
@@ -15,8 +16,9 @@ export interface LedgerDb {
   };
 }
 
-// True when this call claimed the send; false when it was already sent (or is being sent).
-export async function claimSend(userId: string, kind: SendKind, key: string, channel: "push" | "email", db: LedgerDb = prisma): Promise<boolean> {
+// True when this call claimed the send; false when it was already sent (or is being sent). Channel "none"
+// settles a send that turned out to have nothing to say (an empty week), so it isn't built again.
+export async function claimSend(userId: string, kind: SendKind, key: string, channel: "push" | "email" | "none", db: LedgerDb = prisma): Promise<boolean> {
   try {
     await db.scheduledSend.create({ data: { userId, kind, key, channel } });
     return true;

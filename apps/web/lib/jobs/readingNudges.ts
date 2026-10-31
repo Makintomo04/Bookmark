@@ -17,8 +17,9 @@ import {
 import { claimSend } from "./ledger";
 import { pageArgs, pages, zoneOf, type JobContext } from "./common";
 
-// The daily reading reminder and the evening streak alert: one reading nudge a day at most, sharing the
-// "nudge" ledger key for the reader's local day. Push only, to readers with the app on a phone.
+// The daily reading reminder and the evening streak alert, each at most once per local day (ledger kinds
+// "nudge" and "streak"). A morning reminder and a 7pm streak alert can both arrive on a day the streak is at
+// risk; an evening reminder is replaced by the alert. Push only, to readers with the app on a phone.
 
 // Enough days back to name any streak a reader has: the alert says how long it is.
 const STREAK_CAP = 1000;
@@ -86,7 +87,7 @@ export async function runReadingNudges(ctx: JobContext): Promise<NudgeResult> {
         readToday,
       });
       if (!nudge) continue;
-      if (!(await claimSend(user.id, "nudge", clock.day, "push"))) continue;
+      if (!(await claimSend(user.id, nudge === "streak" ? "streak" : "nudge", clock.day, "push"))) continue;
 
       const content = nudge === "streak" && streak >= STREAK_ALERT_MIN_DAYS ? streakAlertPush(streak) : readingReminderPush(await reminderBook(user.id));
       await sendSystemPushes([{ tokens: user.pushTokens.map((t) => t.token), content }]);

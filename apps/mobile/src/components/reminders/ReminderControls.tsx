@@ -18,7 +18,7 @@ export function ReminderControls({ settings, save, disabled, showQuiet = true }:
     <View style={{ gap: 16 }}>
       <View style={{ gap: 8 }}>
         <Toggle label={REMINDER_COPY.daily.title} hint={REMINDER_COPY.daily.hint} value={reminders.dailyAt !== null} onChange={(on) => save({ reminders: { dailyAt: on ? firstTime : null } })} disabled={disabled} />
-        {reminders.dailyAt !== null && <TimeField label="Reminder time" value={reminders.dailyAt} options={times} onChange={(v) => save({ reminders: { dailyAt: v } })} />}
+        {reminders.dailyAt !== null && <TimeField label="Reminder time" value={reminders.dailyAt} options={times} onChange={(v) => save({ reminders: { dailyAt: v } })} disabled={disabled} />}
       </View>
       <Toggle label={REMINDER_COPY.streak.title} hint={REMINDER_COPY.streak.hint} value={reminders.streak} onChange={(on) => save({ reminders: { streak: on } })} disabled={disabled} />
       <Toggle label={REMINDER_COPY.checkpoints.title} hint={REMINDER_COPY.checkpoints.hint} value={reminders.checkpoints} onChange={(on) => save({ reminders: { checkpoints: on } })} disabled={disabled} />
@@ -29,9 +29,9 @@ export function ReminderControls({ settings, save, disabled, showQuiet = true }:
             <Text variant="small">{REMINDER_COPY.quiet.hint}</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <TimeField label="Quiet hours start" value={reminders.quietStart} onChange={(v) => save({ reminders: { quietStart: v } })} />
+            <TimeField label="Quiet hours start" value={reminders.quietStart} onChange={(v) => save({ reminders: { quietStart: v } })} disabled={disabled} />
             <Text variant="small">to</Text>
-            <TimeField label="Quiet hours end" value={reminders.quietEnd} onChange={(v) => save({ reminders: { quietEnd: v } })} />
+            <TimeField label="Quiet hours end" value={reminders.quietEnd} onChange={(v) => save({ reminders: { quietEnd: v } })} disabled={disabled} />
           </View>
         </View>
       )}
