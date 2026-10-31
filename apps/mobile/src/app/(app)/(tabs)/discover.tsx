@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import useSWR from "swr";
 import { ChevronRight, ListOrdered, Search, Feather, Star, UserRound } from "lucide-react-native";
 import { genreBySlug } from "@bookmark/shared/genres";
+import { formatReleaseDate } from "@bookmark/shared/releases";
 import { BookCover } from "@/components/books/BookCover";
 import { GenrePicks } from "@/components/discover/GenrePicks";
 import { ListCard } from "@/components/discover/ListCard";
@@ -17,7 +18,8 @@ import { addBook, type DiscoverHome, type FollowingPick, type ListSummary } from
 import { useTheme } from "@/lib/theme";
 
 // Discover (the web's /discover): searching, Ask the shelf, the spotlight list, genres (your favourites
-// first) and what's popular in them, what people you follow listed or loved, Bookmark's picks and readers' lists.
+// first) and what's popular in them, books on the way, what people you follow listed or loved, Bookmark's
+// picks and readers' lists.
 export default function Discover() {
   const { colors, radii } = useTheme();
   const { data, error, isLoading, mutate } = useSWR<DiscoverHome>("/api/discover");
@@ -69,6 +71,7 @@ export default function Discover() {
             </View>
           </Section>
           <GenrePicks placement="discover" />
+          <UpcomingRow />
           {data.following.picks.length > 0 && (
             <Section title="From people you follow">
               <FlatList horizontal data={data.following.picks} keyExtractor={(p) => p.key} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }} renderItem={({ item }) => <PickCard pick={item} />} />
@@ -122,6 +125,48 @@ function Spotlight({ list }: { list: ListSummary }) {
       </View>
       <Text style={{ color: "#ffffff" }}>See all {list.itemCount} books</Text>
     </Pressable>
+  );
+}
+
+interface UpcomingBook {
+  workKey: string | null;
+  pageWorkId: string | null;
+  title: string;
+  author: string;
+  coverUrl: string | null;
+  releaseDate: string;
+  followed: boolean;
+}
+
+// Upcoming (the web's Discover row): books not out yet, soonest first, followed authors and series first.
+// Pressing one adds it, so it's on Want to read for the morning it comes out.
+function UpcomingRow() {
+  const { colors, radii } = useTheme();
+  const { data } = useSWR<{ books: UpcomingBook[] }>("/api/discover/upcoming?limit=12");
+  if (!data?.books.length) return null;
+  return (
+    <Section title="Upcoming">
+      <FlatList
+        horizontal
+        data={data.books}
+        keyExtractor={(b) => b.pageWorkId ?? b.workKey ?? b.title}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 12 }}
+        renderItem={({ item }) => (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title} by ${item.author}, out ${formatReleaseDate(item.releaseDate)}. Add it.`}
+            onPress={() => addBook(item)}
+            style={[styles.pick, { borderRadius: radii.lg, borderColor: colors.border }]}
+          >
+            <BookCover book={{ title: item.title, author: item.author, coverImage: item.coverUrl ?? "" }} width={96} />
+            <Text numberOfLines={2} style={{ fontSize: 14 }}>{item.title}</Text>
+            <Text variant="small" numberOfLines={1}>{item.author}</Text>
+            <Text variant="small" numberOfLines={1}>{formatReleaseDate(item.releaseDate)}{item.followed ? " · You follow this" : ""}</Text>
+          </Pressable>
+        )}
+      />
+    </Section>
   );
 }
 

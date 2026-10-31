@@ -64,7 +64,7 @@ async function catalogOrOpenLibrary(bookKey: string, hops = 0): Promise<BookPage
   const select = {
     id: true, key: true, openLibraryKey: true, hardcoverId: true,
     title: true, authors: true, authorKeys: true, description: true, subjects: true, seriesName: true, seriesPosition: true,
-    coverUrl: true, firstPublishYear: true, olEditionCount: true, curatedFields: true,
+    coverUrl: true, firstPublishYear: true, releaseDate: true, olEditionCount: true, curatedFields: true,
     editions: { select: { pages: true, coverUrl: true, curatedFields: true }, take: 20 },
   } as const
   const where = olKey ? { openLibraryKey: olKey } : { id: bookKey, ...hasPageWhere }
@@ -99,6 +99,7 @@ async function catalogOrOpenLibrary(bookKey: string, hops = 0): Promise<BookPage
         pages: pages.length ? pages[Math.floor(pages.length / 2)] : null,
         coverUrl,
         year: work.firstPublishYear,
+        releaseDate: work.releaseDate,
         authorKey: work.authorKeys[0] ?? null,
       },
       description: work.description ?? (workKey ? await workDescription(workKey).catch(() => null) : null),

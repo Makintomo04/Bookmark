@@ -316,6 +316,8 @@ model AuthorFollow {
   @@unique([userId, authorKey])
   // Everyone following an author, for telling them about a new book later.
   @@index([authorKey])
+  // The same by slug, which is how an author is checked on Hardcover (AuthorCheck) and named on a work.
+  @@index([slug])
 }
 
 // A reader following a series (lib/seriesFollows.ts), keyed by its name and first author
@@ -359,6 +361,33 @@ model SeriesCheck {
   // The cron takes the series asked about longest ago.
   @@index([checkedAt])
   @@index([announceAfter])
+}
+
+// An author as Hardcover knows them, for spotting new books (lib/authorNews.ts). Recorded by the cron
+// (app/api/cron/authors) once someone follows the author, or a series of theirs, and asked about again weekly.
+model AuthorCheck {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  // lib/authorNames.ts authorSlug, as AuthorFollow.slug has it.
+  slug              String   @unique
+  name              String
+  // Null until Hardcover was asked, or when it didn't know them; looked up again at the next weekly check.
+  hardcoverAuthorId Int?
+  // Hardcover's ids for the author's books out lately or coming, as last seen. A book not among them is new.
+  seenBookIds       Int[]
+  // New books whose readers are still being told: the cron tells them in batches, then clears it.
+  announcing        AuthorNewBook[]
+  checkedAt         DateTime
+  createdAt         DateTime @default(now())
+
+  // The cron takes the authors asked about longest ago.
+  @@index([checkedAt])
+}
+
+// One of an AuthorCheck's new books: the catalogue work, and the series Hardcover puts it in, so the series'
+// followers are told too.
+type AuthorNewBook {
+  workId     String  @db.ObjectId
+  seriesName String?
 }
 
 model ReadingGoal {
@@ -517,6 +546,10 @@ model Work {
   seriesCheckedAt     DateTime?
   coverUrl            String?
   firstPublishYear    Int?
+  // "YYYY-MM-DD": the day the book first came out, or comes out (lib/releases.ts). From Hardcover, or an
+  // Open Library edition from its first year. Unset when only the year is known. Upcoming in Discover and
+  // the publication-day alert read it, so text compares do for dates.
+  releaseDate         String?
   // When staff last looked at a burst of ratings on the book (lib/ratingSpikes.ts): only ratings after it
   // can flag the book again.
   ratingsReviewedAt   DateTime?
@@ -546,6 +579,8 @@ model Work {
   @@index([matchKey])
   // A series' books, for the series cron (lib/seriesRecheck.ts).
   @@index([seriesName])
+  // Upcoming in Discover, and the books coming out today (lib/jobs/publicationDay.ts).
+  @@index([releaseDate])
 }
 
 // ---- Moods and content warnings -----------------------------------------------------------
@@ -610,6 +645,9 @@ model Edition {
   audioMinutes   Int?
   publisher      String?
   publishedYear  Int?
+  // "YYYY-MM-DD", when the edition's full date is known (an Open Library publish date, a Hardcover release).
+  // publishedYear is set alongside it, so year-only readers of an edition keep working.
+  releaseDate    String?
   coverUrl       String?
   // Fields a librarian corrected (pages, coverUrl). lib/catalog never overwrites them.
   curatedFields  String[]       @db.String
@@ -753,6 +791,7 @@ model Notification {
   message        String?
   // NEW_IN_SERIES: the catalogue Work that's new, the first of `count` new books in its series.
   workId         String?          @db.ObjectId
+  // NEW_BOOK and PUBLICATION_DAY: the catalogue Work, the first of `count` for NEW_BOOK.
   // REVIEW_COMMENT / REVIEW_REPLY: the comment (bookId is the reviewer's copy of the book).
   commentId      String?          @db.ObjectId
   read           Boolean          @default(false)
@@ -791,6 +830,12 @@ enum NotificationType {
   // A new book came out in a series you follow or have started (lib/seriesNews.ts). actorId is you, since
   // nobody did it; workId is the new book, count how many came out at once.
   NEW_IN_SERIES
+  // A new book was announced, or has just come out, by an author you follow or in a series you follow
+  // (lib/authorNews.ts). actorId is you, as NEW_IN_SERIES; workId is the book, count how many at once.
+  NEW_BOOK
+  // A book on your Want to read, or by an author or in a series you follow, is out today
+  // (lib/jobs/publicationDay.ts). Sent in the morning of your own day. actorId is you; workId is the book.
+  PUBLICATION_DAY
   // Staff (lib/staffNotify.ts). Reports are waiting in the queue: at most one unread per librarian or admin,
   // refreshed with count (what's waiting on them) as more come in. actorId is the recipient.
   STAFF_REPORT
@@ -839,7 +884,8 @@ model ReadingDay {
 model ScheduledSend {
   id      String   @id @default(auto()) @map("_id") @db.ObjectId
   userId  String   @db.ObjectId
-  // "nudge" (the daily reminder), "streak" (the streak alert), "checkpoint" or "digest".
+  // "nudge" (the daily reminder), "streak" (the streak alert), "checkpoint", "digest" or "release" (a
+  // publication-day alert, keyed by the work).
   kind    String
   // Once per what: the local day ("2026-10-31"), the circle and due date, or the ISO week ("2026-W44").
   key     String

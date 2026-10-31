@@ -97,20 +97,24 @@ export async function GET(req: Request) {
   const reviewById = new Map(reviewCopies.map((b) => [b.id, { title: b.title, href: b.user.username ? `/u/${encodeURIComponent(b.user.username)}/reviews/${b.id}` : null }]))
   const withReviewComments = withHiddenReviews.map((n) => (isReviewComment(n) ? { ...n, review: n.bookId ? reviewById.get(n.bookId) ?? null : null } : n))
 
-  // A new book in a series names the book, its series and place, and links to its page.
-  const workIds = Array.from(new Set(notifications.flatMap((n) => (n.type === "NEW_IN_SERIES" && n.workId ? [n.workId] : []))))
+  // A new book in a series names the book, its series and place, and links to its page. A new book
+  // announced, or one out today, names the book, its author and its date.
+  const aboutWork = (n: (typeof notifications)[number]) => n.type === "NEW_IN_SERIES" || n.type === "NEW_BOOK" || n.type === "PUBLICATION_DAY"
+  const workIds = Array.from(new Set(notifications.flatMap((n) => (aboutWork(n) && n.workId ? [n.workId] : []))))
   const works = workIds.length > 0
-    ? await prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, coverUrl: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, seriesName: true, seriesPosition: true } })
+    ? await prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, authors: true, coverUrl: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, seriesName: true, seriesPosition: true, releaseDate: true } })
     : []
   const workById = new Map(works.map((w) => [w.id, {
     title: w.title,
+    author: w.authors[0] ?? null,
     coverUrl: w.coverUrl,
     seriesName: w.seriesName,
     seriesPosition: w.seriesPosition,
+    releaseDate: w.releaseDate,
     // Series books are filed from Hardcover, so nearly all have a page (lib/workPages.ts).
     href: bookHref({ workKey: w.openLibraryKey, pageWorkId: hasPage(w) ? w.id : null, title: w.title }),
   }]))
-  const withWorks = withReviewComments.map((n) => (n.type === "NEW_IN_SERIES" ? { ...n, work: n.workId ? workById.get(n.workId) ?? null : null } : n))
+  const withWorks = withReviewComments.map((n) => (aboutWork(n) ? { ...n, work: n.workId ? workById.get(n.workId) ?? null : null } : n))
 
   // The actor's staff seal, if any, instead of the role fields it came from: hideStaffBadge says a librarian
   // is one, so it never leaves the server.

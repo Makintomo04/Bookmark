@@ -53,7 +53,7 @@ test("circles, checkpoints, friends and series", () => {
   })!;
   assert.match(email.text, /Part 2 in Dune, due Sunday/);
   assert.match(email.text, /Dune: 3 new comments you can read, 1 member finished/);
-  assert.match(email.text, /Book Two, new in The Saga/);
+  assert.match(email.text, /Book Two is out in The Saga/);
   // At most five friends.
   assert.equal((email.text.match(/finished Piranesi/g) ?? []).length, 5);
 });

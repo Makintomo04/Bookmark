@@ -2,18 +2,19 @@ import { NextResponse } from "next/server";
 import { isCronAuthorised } from "@/lib/cronAuth";
 import { runCheckpointReminders } from "@/lib/jobs/checkpointReminders";
 import { clearOldSends } from "@/lib/jobs/ledger";
+import { runPublicationDay } from "@/lib/jobs/publicationDay";
 import { runReadingNudges } from "@/lib/jobs/readingNudges";
 import { runWeeklyDigest } from "@/lib/jobs/weeklyDigest";
 
-// Every 15 minutes (vercel.json): the scheduled sends that bring readers back (BOO-48), each due at a time
-// in the reader's own zone, so every tick looks for who is due now. Jobs run one after another, each
-// stopping at a share of the run's time; what's left is still due next tick. Called by Vercel Cron with
-// CRON_SECRET as a bearer token, or by hand with the same header on a preview.
+// Every 15 minutes (vercel.json): the scheduled sends that bring readers back (BOO-48), and publication-day
+// alerts (BOO-8), each due at a time in the reader's own zone, so every tick looks for who is due now. Jobs
+// run one after another, each stopping at a share of the run's time; what's left is still due next tick.
+// Called by Vercel Cron with CRON_SECRET as a bearer token, or by hand with the same header on a preview.
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 // Seconds each job may run for, in order, out of maxDuration with room to spare.
-const BUDGET_S = { nudges: 90, checkpoints: 60, digest: 120 };
+const BUDGET_S = { nudges: 80, checkpoints: 50, publicationDays: 40, digest: 100 };
 
 export async function GET(req: Request) {
   if (!isCronAuthorised(req.headers.get("authorization"))) {
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
   const result = {
     ...(await runReadingNudges(until(BUDGET_S.nudges))),
     ...(await runCheckpointReminders(until(BUDGET_S.checkpoints))),
+    ...(await runPublicationDay(until(BUDGET_S.publicationDays))),
     ...(await runWeeklyDigest(until(BUDGET_S.digest))),
     cleared: await clearOldSends(now),
   };

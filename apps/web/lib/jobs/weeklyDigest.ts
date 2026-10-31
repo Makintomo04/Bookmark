@@ -118,18 +118,36 @@ export async function digestFor(
   const today = localClock(now, zone).day;
   const since = new Date(now.getTime() - WEEK_MS);
   const year = Number(today.slice(0, 4));
-  const [readingDays, finished, streak, goal, friends, circleNews, series] = await Promise.all([
+  const [readingDays, finished, streak, goal, friends, circleNews, news] = await Promise.all([
     prisma.readingDay.count({ where: { userId: user.id, day: { gte: addDays(today, -6) } } }),
     prisma.activity.count({ where: { userId: user.id, type: "COMPLETED_BOOK", createdAt: { gte: since } } }),
     readingStreakState(user.id, zone, 1000, now),
     prisma.readingGoal.findFirst({ where: { userId: user.id, year, targetBooks: { gt: 0 } }, select: { targetBooks: true, createdAt: true } }),
     friendsWeek(user.id, since),
     circlesWeek(user.id, today, since),
-    prisma.notification.findMany({ where: { userId: user.id, type: "NEW_IN_SERIES", createdAt: { gte: since } }, select: { workId: true }, take: 5 }),
+    // The week's book news from the bell, newest first: series, new books announced, and books out.
+    prisma.notification.findMany({
+      where: { userId: user.id, type: { in: ["NEW_IN_SERIES", "NEW_BOOK", "PUBLICATION_DAY"] }, createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      select: { type: true, workId: true, count: true },
+      take: 30,
+    }),
   ]);
-  const works = series.length
-    ? await prisma.work.findMany({ where: { id: { in: series.flatMap((n) => (n.workId ? [n.workId] : [])) } }, select: { title: true, seriesName: true } })
+  const workIds = Array.from(new Set(news.flatMap((n) => (n.workId ? [n.workId] : []))));
+  const works = workIds.length
+    ? await prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, releaseDate: true } })
     : [];
+  const workById = new Map(works.map((w) => [w.id, w]));
+  // Five of each, the work named once per kind.
+  const newsOf = (type: string) => {
+    const seen = new Set<string>();
+    return news.flatMap((n) => {
+      const work = n.type === type && n.workId ? workById.get(n.workId) : undefined;
+      if (!work || seen.has(work.id)) return [];
+      seen.add(work.id);
+      return [{ work, count: n.count }];
+    }).slice(0, 5);
+  };
   const token = unsubscribeToken(user.id);
   return {
     name: user.displayName || user.username,
@@ -139,7 +157,10 @@ export async function digestFor(
     goal: goal ? { year, books: (await getGoalProgress(user.id, year)).books, target: goal.targetBooks, pace: goalPace(goal.targetBooks, today, localClock(goal.createdAt, zone).day) } : null,
     ...circleNews,
     friends,
-    series: works.map((w) => ({ title: w.title, seriesName: w.seriesName })),
+    series: newsOf("NEW_IN_SERIES").map(({ work, count }) => ({ title: work.title, seriesName: work.seriesName, seriesPosition: work.seriesPosition, count })),
+    newBooks: newsOf("NEW_BOOK").map(({ work, count }) => ({ title: work.title, author: work.authors[0] ?? null, releaseDate: work.releaseDate, count })),
+    released: newsOf("PUBLICATION_DAY").map(({ work }) => ({ title: work.title, author: work.authors[0] ?? null })),
+    today,
     logUrl: `${appUrl}/`,
     settingsUrl: `${appUrl}/settings#notifications`,
     unsubscribeUrl: `${appUrl}/email/unsubscribe?t=${encodeURIComponent(token)}`,

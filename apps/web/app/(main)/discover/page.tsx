@@ -10,14 +10,17 @@ import ListCard from '@/app/components/discover/ListCard'
 import FollowingPicks from '@/app/components/discover/FollowingPicks'
 import GenrePicks from '@/app/components/discover/GenrePicks'
 import { NewPickButton } from '@/app/components/discover/ListButtons'
+import UpcomingSection from '@/app/components/discover/Upcoming'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { GENRES, favouritesFirst } from '@/lib/genres'
 import { findLists, ListSummary } from '@/lib/lists'
 import { isOpenLibraryCover } from '@/utils/helpers'
+import { zoneOf } from '@/lib/jobs/common'
+import { localClock } from '@bookmark/shared/reminders'
 
 export const metadata: Metadata = {
   title: "Discover",
-  description: "Find your next read: browse genres, hand-picked lists from the Bookmark team, and readers with taste like yours.",
+  description: "Find your next read: browse genres, books on the way, hand-picked lists from the Bookmark team, and readers with taste like yours.",
 }
 
 const COMMUNITY_SHOWN = 9
@@ -106,6 +109,11 @@ const Page = async () => {
                 <FollowingPicks viewerId={viewer.id} />
               </Suspense>
             )}
+
+            {/* Books not out yet; followed authors and series first when signed in. */}
+            <Suspense fallback={null}>
+              <UpcomingSection viewerId={viewer?.id ?? null} today={localClock(new Date(), zoneOf(viewer?.timeZone)).day} />
+            </Suspense>
 
             {picks.length > 0 && (
               <section aria-labelledby="picks-heading">

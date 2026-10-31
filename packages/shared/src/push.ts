@@ -2,7 +2,7 @@
 // app's settings let a reader switch them off (User.pushOff), and the words they carry.
 //
 // What's pushed is the social side, the things that bring someone back to a reading circle or a friend,
-// and a new book in a series they read. Staff also hear of reports waiting and escalations, which they
+// a new book in a series they read, and news of books from authors and series they follow (BOO-8). Staff also hear of reports waiting and escalations, which they
 // can switch off; readers never see that setting (STAFF_PUSH_GROUPS).
 // Reminders (BOO-48) are pushes the reader turns on themselves: a daily nudge, a streak about to end and
 // a circle checkpoint coming up. The cron tick sends them, not a notification, and they have their own
@@ -11,6 +11,7 @@
 // reviews, a recommendation's note): a lock screen is read over shoulders, and a comment's words are only
 // shown once the reader's progress has reached it.
 
+import { newBookText, publicationDayText } from "./releases";
 import { seriesNewsText } from "./series";
 import { escalationCopy, reviewRestoredText, roleChangedTo, roleChangedText, staffReportText } from "./staffNotices";
 
@@ -21,6 +22,8 @@ export const PUSH_GROUPS = {
   reviews: ["REVIEW_COMMENT", "REVIEW_REPLY"],
   account: ["REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED"],
   series: ["NEW_IN_SERIES"],
+  newBooks: ["NEW_BOOK"],
+  publicationDay: ["PUBLICATION_DAY"],
   reminders: ["READING_REMINDER", "STREAK_ALERT"],
   checkpoints: ["CHECKPOINT_DUE"],
   // Librarians and admins only. The app has no staff console, so these open the notifications screen;
@@ -38,6 +41,8 @@ export const PUSH_GROUP_LABELS: Record<PushGroup, { title: string; description: 
   reviews: { title: "Review comments", description: "When someone comments on your review or replies to your comment." },
   account: { title: "Your account", description: "When the Bookmark team hides or puts back something you posted, or changes your role." },
   series: { title: "New books in your series", description: "When a new book comes out in a series you follow or have started." },
+  newBooks: { title: "New books announced", description: "When an author you follow, or a series you follow, has a new book on the way." },
+  publicationDay: { title: "Publication days", description: "On the morning a book you want to read comes out, or one by an author or in a series you follow." },
   reminders: { title: "Reading reminders", description: "A daily nudge at your time, and a warning before a streak ends." },
   checkpoints: { title: "Circle checkpoints", description: "Two days before a section is due, if you're behind." },
   staff: { title: "Staff work", description: "Reports waiting in the queue, and reports passed to admins." },
@@ -52,9 +57,9 @@ export const pushGroupsFor = (isStaff: boolean): PushGroup[] =>
   (Object.keys(PUSH_GROUPS) as PushGroup[]).filter((g) => (isStaff || !STAFF_PUSH_GROUPS.includes(g)) && !OPT_IN_PUSH_GROUPS.includes(g));
 
 // Pushed even though the reader is the notification's actor: nobody did it, so actorId is the reader
-// (lib/seriesNews.ts), or the team did and isn't named (lib/staffNotify.ts), or it's a count of the
+// (lib/seriesNews.ts, lib/authorNews.ts, lib/jobs/publicationDay.ts), or the team did and isn't named (lib/staffNotify.ts), or it's a count of the
 // queue (STAFF_REPORT). Every other notification you're the actor of is something you did, and isn't pushed.
-const TO_SELF: readonly string[] = ["NEW_IN_SERIES", "REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED", "STAFF_REPORT"];
+const TO_SELF: readonly string[] = ["NEW_IN_SERIES", "NEW_BOOK", "PUBLICATION_DAY", "REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED", "STAFF_REPORT"];
 export const pushedToSelf = (type: string) => TO_SELF.includes(type);
 
 export const isPushGroup = (value: unknown): value is PushGroup => typeof value === "string" && value in PUSH_GROUPS;
@@ -76,6 +81,11 @@ export interface PushContext {
   // NEW_IN_SERIES: the new book's series and place (bookTitle is the book).
   seriesName?: string | null;
   seriesPosition?: number | null;
+  // NEW_BOOK and PUBLICATION_DAY: the book's author and release date (bookTitle is the book), and the
+  // reader's own day, "YYYY-MM-DD", to say whether it's out yet.
+  author?: string | null;
+  releaseDate?: string | null;
+  today?: string;
   // ROLE_CHANGED: the new role. REVIEW_RESTORED: the book's title, kept in case the copy has gone.
   message?: string | null;
 }
@@ -129,6 +139,15 @@ export function pushContentFor(n: PushContext): PushContent | null {
         body: `${seriesNewsText({ title: n.bookTitle, seriesName: n.seriesName ?? null, position: n.seriesPosition ?? null, count: n.count })}.`,
         path: "/notifications",
       };
+    // Title, author and date only, like every release alert. The list says which book, as for a series.
+    case "NEW_BOOK":
+      return {
+        title: n.author && (n.count ?? 1) === 1 ? `New from ${n.author}` : "New books announced",
+        body: `${newBookText({ title: n.bookTitle, author: n.author ?? null, releaseDate: n.releaseDate ?? null, count: n.count }, n.today ?? new Date().toISOString().slice(0, 10))}.`,
+        path: "/notifications",
+      };
+    case "PUBLICATION_DAY":
+      return { title: "Out today", body: `${publicationDayText({ title: n.bookTitle, author: n.author ?? null })}.`, path: "/notifications" };
     case "REVIEW_HIDDEN":
       return { title: "Your review was hidden", body: `We've hidden your review of ${book(n.bookTitle)}. Only you can still see it.`, path: "/notifications" };
     case "REVIEW_RESTORED":
