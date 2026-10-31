@@ -2,14 +2,15 @@
 // lists, its page shows and the reviews stat counts, so the number always matches the list. A plain module
 // (not the "use client" ProfileReviews) so server pages can call it too.
 
-type Reviewable = { review: string | null; completedAt: string | Date | null };
+type Reviewable = { id: string; review: string | null; completedAt: string | Date | null };
 
 const time = (date: string | Date | null) => (date ? new Date(date).getTime() : 0);
 
 export function reviewedBooks<T extends Reviewable>(books: T[]): (T & { review: string })[] {
   return books
     .filter((b): b is T & { review: string } => !!b.review)
-    .sort((a, b) => time(b.completedAt) - time(a.completedAt));
+    // Same-day finishes (and undated imports) by id, so paging (/api/users/<username>/reviews) never repeats or skips.
+    .sort((a, b) => (time(b.completedAt) - time(a.completedAt)) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 // The owner's reviews stat: their finished books with a review (ProfileHead counts the same from their shelf).

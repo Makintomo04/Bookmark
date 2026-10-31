@@ -4,6 +4,7 @@ import { workMatchKey } from "@/lib/catalog/normalise"
 import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf, type HardcoverSeriesBook } from "@/lib/hardcover"
 import { seriesKey } from "@/lib/series"
 import { recordSeriesCheck } from "@/lib/seriesNews"
+import { placeWhileUpcoming, takesSeriesPlace } from "@/lib/releaseRules"
 
 // Gives catalogue works their series, from Hardcover. Open Library's search results carry no series, so a
 // book added from search was filed without one, and the series tracker, Follow series and Catch me up had
@@ -32,7 +33,7 @@ const seriesCurated = (w: { curatedFields: string[] }) => w.curatedFields.includ
 export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> {
   const work = await prisma.work.findUnique({
     where: { id: workId },
-    select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, seriesCheckedAt: true, curatedFields: true },
+    select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, seriesCheckedAt: true, curatedFields: true, releaseDate: true },
   })
   const author = work?.authors[0]
   if (!work || !author || work.seriesCheckedAt || seriesCurated(work) || !hardcoverConfigured()) return "skipped"
@@ -46,6 +47,10 @@ export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> 
   const name = work.seriesName ?? found.name
   const companions = await hardcoverSeriesBooks(found.id, author)
   const checkedAt = new Date()
+  // A book not out yet (shelved from Upcoming, say) takes its series but not its place: the tracker's "next"
+  // is a book you can read, and counting its place would tell the series' readers it's out
+  // (lib/seriesNews.ts). The weekly re-check gives it its place once Hardcover lists it as released.
+  const position = placeWhileUpcoming(found.position, work.releaseDate, checkedAt.toISOString().slice(0, 10))
   // The work's own place is taken by the work, whatever Hardcover titles it ("Mistborn: The Final Empire").
   await fileSeriesBooks(name, author, companions.filter((b) => b.position !== found.position), checkedAt)
 
@@ -54,11 +59,11 @@ export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> 
     data: {
       seriesCheckedAt: checkedAt,
       ...(!work.seriesName && { seriesName: name }),
-      ...(work.seriesPosition == null && found.position != null && { seriesPosition: found.position }),
+      ...(work.seriesPosition == null && position != null && { seriesPosition: position }),
     },
   })
   try {
-    await recordSeriesCheck({ key: seriesKey(name, author), name, author }, found.id, [...companions.map((b) => b.position), found.position], { checkedAt })
+    await recordSeriesCheck({ key: seriesKey(name, author), name, author }, found.id, [...companions.map((b) => b.position), position], { checkedAt })
   } catch (err) {
     // The work has its series either way; the next fill or re-check of the series records it.
     console.warn(`series: couldn't record series "${name}":`, err instanceof Error ? err.message : err)
@@ -80,7 +85,7 @@ export async function fileSeriesBooks(name: string, author: string, companions: 
   const existing = keyed.length
     ? await prisma.work.findMany({
       where: { OR: [{ matchKey: { in: keyed.map((k) => k.matchKey) } }, { authors: { has: author } }] },
-      select: { id: true, title: true, authors: true, matchKey: true, seriesName: true, curatedFields: true },
+      select: { id: true, title: true, authors: true, matchKey: true, seriesName: true, seriesPosition: true, curatedFields: true },
       take: 1000,
     })
     : []
@@ -89,10 +94,11 @@ export async function fileSeriesBooks(name: string, author: string, companions: 
     const key = w.matchKey ?? workMatchKey(w.title, w.authors[0])
     if (key) byMatch.set(key, [...(byMatch.get(key) ?? []), w])
   }
-  // A companion's series is now known, so it counts as checked and isn't asked about again.
+  // A companion's series is now known, so it counts as checked and isn't asked about again. A work filed in
+  // this series without a place (announced before it was out, lib/authorNews.ts) takes its place now.
   for (const { book, matchKey } of keyed) {
     for (const had of byMatch.get(matchKey) ?? []) {
-      if (!had.seriesName && !seriesCurated(had)) await prisma.work.update({ where: { id: had.id }, data: { seriesName: name, seriesPosition: book.position, seriesCheckedAt: checkedAt } })
+      if (takesSeriesPlace(had, name, author)) await prisma.work.update({ where: { id: had.id }, data: { seriesName: had.seriesName ?? name, seriesPosition: book.position, seriesCheckedAt: checkedAt } })
     }
   }
   const missing = keyed.filter((k) => !byMatch.has(k.matchKey)).map((k) => k.book)

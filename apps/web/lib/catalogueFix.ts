@@ -39,7 +39,7 @@ import {
 
 const editionSelect = { id: true, key: true, format: true, pages: true, isbn13: true, isbn10: true, publisher: true, publishedYear: true, coverUrl: true, curatedFields: true } as const;
 const workFields = {
-  id: true, key: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, title: true, authors: true, description: true, coverUrl: true, seriesName: true, seriesPosition: true, firstPublishYear: true, curatedFields: true,
+  id: true, key: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, title: true, authors: true, description: true, coverUrl: true, seriesName: true, seriesPosition: true, firstPublishYear: true, releaseDate: true, curatedFields: true,
 } as const;
 // Every edition: most works have a handful, and a fix to the work's cover has to see them all.
 const workSelect = { ...workFields, editions: { select: editionSelect, orderBy: { createdAt: "asc" } }, _count: { select: { books: true } } } as const;

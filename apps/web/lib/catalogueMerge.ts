@@ -46,7 +46,7 @@ const logIn = (tx: Tx, input: StaffActionInput) => tx.staffAction.create({ data:
 
 const mergeWorkSelect = {
   id: true, key: true, matchKey: true, openLibraryKey: true, title: true, authors: true, authorKeys: true, description: true,
-  coverUrl: true, seriesName: true, seriesPosition: true, firstPublishYear: true, curatedFields: true,
+  coverUrl: true, seriesName: true, seriesPosition: true, firstPublishYear: true, releaseDate: true, curatedFields: true,
 } as const;
 
 const copySelect = {

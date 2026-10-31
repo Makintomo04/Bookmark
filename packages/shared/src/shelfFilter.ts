@@ -222,8 +222,11 @@ const byText = (a: string, b: string) => a.localeCompare(b, "en-GB", { sensitivi
 
 export function sortBooks<T extends ShelfBook>(books: T[], sort: ShelfSort): T[] {
   const sorted = books.slice();
-  // Ties fall back to the shelf's own order, so a sort never shuffles books it considers equal.
-  const recent = (a: T, b: T) => recentTime(b) - recentTime(a);
+  // Ties fall back to the shelf's own order, and then to the id, so equal books always come in the same order.
+  // Paging (pageShelf) relies on it: an import's undated finishes all tie, and without a last word they could
+  // swap places between one page's request and the next, repeating some books and skipping others.
+  const byId = (a: T, b: T) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const recent = (a: T, b: T) => (recentTime(b) - recentTime(a)) || byId(a, b);
   const compare: Record<ShelfSort, (a: T, b: T) => number> = {
     recent,
     // Undated finishes (and unfinished books) go last.
@@ -231,7 +234,7 @@ export function sortBooks<T extends ShelfBook>(books: T[], sort: ShelfSort): T[]
     added: (a, b) => (time(b.createdAt) - time(a.createdAt)) || recent(a, b),
     rating: (a, b) => ((b.rating ?? 0) - (a.rating ?? 0)) || recent(a, b),
     title: (a, b) => byText(a.title, b.title) || recent(a, b),
-    author: (a, b) => byText(surname(a.author), surname(b.author)) || byText(a.author, b.author) || byText(a.title, b.title),
+    author: (a, b) => byText(surname(a.author), surname(b.author)) || byText(a.author, b.author) || byText(a.title, b.title) || recent(a, b),
     length: (a, b) => (lengthOf(b) - lengthOf(a)) || recent(a, b),
   };
   return sorted.sort(compare[sort]);

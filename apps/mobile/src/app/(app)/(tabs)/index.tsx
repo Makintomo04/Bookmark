@@ -22,7 +22,7 @@ import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
 import { api } from "@/lib/api";
 import { FOLLOWED_AUTHORS_KEY } from "@/lib/authors";
-import { useBooks } from "@/lib/books";
+import { useLibrary } from "@/lib/books";
 import { SERIES_TRACKER_KEY } from "@/lib/series";
 import { useTheme } from "@/lib/theme";
 
@@ -31,11 +31,13 @@ import { useTheme } from "@/lib/theme";
 export default function Library() {
   const { colors } = useTheme();
   const { data: user, mutate: refreshUser } = useSWR<ProfileUser & { role?: string | null; isStaff?: boolean | null; hideStaffBadge?: boolean | null }>("/api/user");
-  const { data: books, error, isLoading, mutate } = useBooks();
+  // The start of each shelf and the counts, not the whole shelf (useLibrary).
+  const { data: library, error, isLoading, mutate } = useLibrary();
+  const bookCount = library ? Object.values(library.counts).reduce((a, b) => a + b, 0) : undefined;
   const accent = user?.favColour || DEFAULT_COLOUR;
   const refreshing = false;
   const selection = useBookSelection();
-  const picked = (books ?? []).filter((b) => selection.picked.has(b.id));
+  const picked = Array.from(selection.picked.values());
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[styles.fill, { backgroundColor: colors.background }]}>
@@ -60,9 +62,9 @@ export default function Library() {
             <Button title="Try again" variant="outline" onPress={() => mutate()} />
           </View>
         )}
-        {books && books.length === 0 && <EmptyLibrary />}
-        <NewShelfPicks bookCount={books?.length} />
-        {books && books.length > 0 && (
+        {bookCount === 0 && <EmptyLibrary />}
+        <NewShelfPicks bookCount={bookCount} />
+        {library && bookCount! > 0 && (
           <View style={{ gap: 12 }}>
             <View style={styles.shelfBar}>
               {/* Looks like a search box; the shelf screen has the real one, with sort and filters. */}
@@ -77,10 +79,10 @@ export default function Library() {
               </Pressable>
               <Button title={selection.selecting ? "Done" : "Select"} variant="ghost" onPress={selection.selecting ? selection.stop : selection.start} />
             </View>
-            <Shelves books={books} accent={accent} selection={selection} />
+            <Shelves library={library} accent={accent} selection={selection} />
           </View>
         )}
-        {books && books.length > 0 && <SeriesTracker accent={accent} />}
+        {bookCount! > 0 && <SeriesTracker accent={accent} />}
         <OwnAuthors />
       </ScrollView>
       {selection.selecting && <SelectionBar selected={picked} onDone={selection.clear} onCancel={selection.stop} />}

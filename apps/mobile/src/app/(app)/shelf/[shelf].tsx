@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import { ArrowUpDown, Check, ChevronDown, Search, X } from "lucide-react-native";
-import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
+import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
 import { ratingGlyphs } from "@bookmark/shared/rating";
 import {
   EMPTY_FILTER, FORMAT_LABEL, SHELF_SORTS, SHELF_STATUS, SHELF_TITLE, SORT_LABEL, isNarrowed, parseShelfParams, shelfOf,
@@ -23,6 +23,8 @@ import { useTheme } from "@/lib/theme";
 // search. The server searches, sorts and filters (GET /api/books?take=…, lib/shelfFilter.ts's rules), and
 // the grid loads 60 books at a time as it scrolls, so a shelf of thousands opens as fast as one of ten.
 // Filters can arrive in the link too (/shelf/finished?year=2024), as the web's shelf pages take them.
+// With ?reader=<username> it's another reader's Finished or Want to read instead (their profile's See all), from
+// /api/users/<username>/shelf by the same rules: read-only, as their profile shows it to you.
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const SHELVES = Object.keys(SHELF_STATUS) as ShelfKey[];
@@ -40,13 +42,16 @@ export default function ShelfScreen() {
   const { colors, fonts } = useTheme();
   const { width } = useWindowDimensions();
   const { data: user } = useSWR<{ favColour: string | null }>("/api/user");
-  const accent = user?.favColour || DEFAULT_COLOUR;
-  // "all" is every shelf; the shelf pill can then narrow it to one.
-  const everyShelf = !isShelf(params.shelf);
+  // Someone else's shelf: only Finished and Want to read, the two their profile shows.
+  const reader = typeof params.reader === "string" && params.reader ? params.reader : null;
+  const { data: owner } = useSWR<{ username: string; displayName?: string | null; favColour: string | null }>(reader ? `/api/users/${encodeURIComponent(reader)}?books=0` : null);
+  const accent = (reader ? owner?.favColour : user?.favColour) || DEFAULT_COLOUR;
+  // "all" is every shelf; the shelf pill can then narrow it to one. Another reader's is always one shelf.
+  const everyShelf = !reader && !isShelf(params.shelf);
 
   const [filter, setFilter] = useState<ShelfFilter>(() => ({
     ...parseShelfParams({ get: (name) => (name === "shelf" ? null : typeof params[name] === "string" ? params[name] : null) }),
-    shelf: isShelf(params.shelf) ? params.shelf : null,
+    shelf: isShelf(params.shelf) ? params.shelf : reader ? "finished" : null,
   }));
   const set = (patch: Partial<ShelfFilter>) => setFilter((f) => ({ ...f, ...patch }));
   // What's typed, sent once typing pauses.
@@ -56,7 +61,7 @@ export default function ShelfScreen() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<ShelfPage>(shelfPageKey(filter));
+  const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<ShelfPage>(shelfPageKey(filter, reader));
   // A new search starts from an empty first page: keep showing the last results (and menus) until it lands,
   // so the grid doesn't blank between keystrokes.
   const last = useRef<{ pages: ShelfPage[]; options: ShelfOptions | null; counts: ShelfPage["counts"] | null }>({ pages: [], options: null, counts: null });
@@ -74,9 +79,9 @@ export default function ShelfScreen() {
   // A book changed on its own page: refreshAfterBookChange can't reach an infinite list, so look again on return.
   const seen = useRef(false);
   useFocusEffect(useCallback(() => {
-    if (seen.current) void mutate();
+    if (seen.current && !reader) void mutate();
     seen.current = true;
-  }, [mutate]));
+  }, [mutate, reader]));
 
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {
@@ -93,7 +98,8 @@ export default function ShelfScreen() {
   const inner = Math.min(width, 720) - GUTTER * 2;
   const coverWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
 
-  const title = everyShelf ? "Your shelves" : SHELF_TITLE[filter.shelf!];
+  const shelfTitle = everyShelf ? "Your shelves" : SHELF_TITLE[filter.shelf!];
+  const title = reader ? (owner ? `${readerName(owner)}: ${shelfTitle}` : shelfTitle) : shelfTitle;
   const any = (label: string): Option => ({ value: "", label });
   const by = options && options.tags.length > 0 ? "title, author or tag" : "title or author";
 
@@ -182,9 +188,9 @@ export default function ShelfScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder={everyShelf ? `Search your shelves by ${by}` : `Search ${title} by ${by}`}
+          placeholder={everyShelf ? `Search your shelves by ${by}` : `Search ${shelfTitle} by ${by}`}
           placeholderTextColor={colors.mutedForeground}
-          accessibilityLabel="Search your shelves"
+          accessibilityLabel={reader ? `Search ${shelfTitle}` : "Search your shelves"}
           autoFocus={everyShelf && !narrowed}
           autoCorrect={false}
           returnKeyType="search"
@@ -224,7 +230,7 @@ export default function ShelfScreen() {
   ) : total === 0 ? (
     <View style={{ gap: 8, alignItems: "flex-start" }}>
       <Text variant="title">{narrowed ? "No matches" : everyShelf ? "Your shelves are empty" : "Nothing on this shelf"}</Text>
-      <Text variant="muted">{narrowed ? "Nothing on your shelf matches that. Try fewer words, or clear the filters." : "Books you add will show up here."}</Text>
+      <Text variant="muted">{narrowed ? `Nothing on ${reader ? "this" : "your"} shelf matches that. Try fewer words, or clear the filters.` : reader ? "Nothing they've shared here yet." : "Books you add will show up here."}</Text>
       {narrowed && <Button title="Clear search and filters" variant="outline" onPress={clear} />}
     </View>
   ) : undefined;
@@ -251,7 +257,7 @@ export default function ShelfScreen() {
         onEndReachedThreshold={0.6}
         onEndReached={() => { if (more && !isValidating) void setSize(size + 1); }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.mutedForeground} />}
-        renderItem={({ item }) => <Tile book={item} width={coverWidth} accent={accent} showShelf={everyShelf && !filter.shelf} />}
+        renderItem={({ item }) => <Tile book={item} width={coverWidth} accent={accent} showShelf={everyShelf && !filter.shelf} readOnly={!!reader} />}
       />
       {picker && (
         <Sheet title={picker.title} onClose={() => setPicker(null)}>
@@ -276,9 +282,18 @@ export default function ShelfScreen() {
   );
 }
 
-// A cover and its title; searching every shelf, the shelf it's on as well.
-function Tile({ book, width, accent, showShelf }: { book: Book; width: number; accent: string; showShelf: boolean }) {
+// A cover and its title; searching every shelf, the shelf it's on as well. Another reader's books don't open
+// (book pages are for your own copies), as on their profile.
+function Tile({ book, width, accent, showShelf, readOnly }: { book: Book; width: number; accent: string; showShelf: boolean; readOnly: boolean }) {
   const shelf = SHELF_TITLE[shelfOf(book.status)];
+  if (readOnly) {
+    return (
+      <View style={{ width, gap: 6 }} accessible accessibilityLabel={`${book.title} by ${book.author}`}>
+        <BookCover book={book} width={width} fallbackColour={accent} />
+        <Text variant="small" numberOfLines={2}>{book.title}</Text>
+      </View>
+    );
+  }
   return (
     <Pressable
       accessibilityRole="button"

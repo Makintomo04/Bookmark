@@ -14,10 +14,10 @@ const joinSchema = z.object({ code: z.string().trim().regex(/^[a-z0-9]{6,20}$/, 
 // someone already in it, so the app can open it instead.
 export async function GET(req: Request) {
   const code = new URL(req.url).searchParams.get("code") ?? "";
-  const invite = await loadClubInvite(code);
-  if (!invite) return clubError("This invite link isn't valid any more.", 404);
-  const { club, host, members, current, next, booksRead, full } = invite;
   const viewer = await getCurrentUser();
+  const invite = await loadClubInvite(code, viewer?.id);
+  if (!invite) return clubError("This invite link isn't valid any more.", 404);
+  const { club, host, members, memberCount, current, next, booksRead, full } = invite;
   const isMember = !!viewer && members.some((m) => m.userId === viewer.id);
   const removed = !!viewer && !isMember && (await wasRemovedFromClub(club.id, viewer.id));
   return NextResponse.json({
@@ -27,6 +27,8 @@ export async function GET(req: Request) {
     current,
     next,
     booksRead,
+    // Members a stranger can't see (private or followers-only profiles, blocks) are only counted.
+    memberCount,
     full,
     viewer: { isMember, clubId: isMember ? club.id : null, removed, removedMessage: removed ? CLUB_REMOVED_MESSAGE : null },
   });

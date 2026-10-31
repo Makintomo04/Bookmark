@@ -35,7 +35,9 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
   // Reopening a finished or archived circle makes it active again, so it counts against the hosting limit:
   // the inherited cap for one handed on to them, the usual one for a circle they started.
   if (status === "ACTIVE" && membership.buddyRead.status !== "ACTIVE" && membership.buddyRead.clubId) {
-    // A club's circle counts against the club's open books instead.
+    // A club's circle counts against the club's open books instead, and only while the club is active.
+    const club = await prisma.club.findUnique({ where: { id: membership.buddyRead.clubId }, select: { status: true } });
+    if (club?.status !== "ACTIVE") return buddyReadError("This club is archived. Reopen the club to reopen its books.", 409);
     const open = await prisma.buddyRead.count({ where: { clubId: membership.buddyRead.clubId, status: "ACTIVE" } });
     if (circleSlotsLeft(open) === 0) return buddyReadError(CIRCLE_SLOTS_MESSAGE, 409);
   } else if (status === "ACTIVE" && membership.buddyRead.status !== "ACTIVE") {

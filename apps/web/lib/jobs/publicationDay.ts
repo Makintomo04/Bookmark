@@ -5,7 +5,7 @@ import { createNotifications } from "@/lib/notifications";
 import { notSuspendedWhere } from "@/lib/privacy";
 import { seriesKey } from "@/lib/series";
 import { addDays, checkpointMinute, inQuietHours, localClock, quietHoursOf } from "@bookmark/shared/reminders";
-import { isFirstRelease, publicationDayReaders } from "@/lib/releaseRules";
+import { HEADS_UP_TYPES, isFirstRelease, publicationDayReaders } from "@/lib/releaseRules";
 import { claimSend } from "./ledger";
 import { outOfTime, zoneOf, type JobContext } from "./common";
 
@@ -19,7 +19,8 @@ import { outOfTime, zoneOf, type JobContext } from "./common";
 
 // Alerts a tick may send; the rest go on the next tick, the same day.
 export const PUBLICATION_DAY_BUDGET = 2000;
-// A reader told the book was announced this recently (NEW_BOOK, often on the day itself) isn't told again.
+// A reader given a heads-up about the book this recently (announced, or new in its series, often on the day
+// itself) isn't told again. An older heads-up still gets publication day: that's the pair a reader expects.
 const ANNOUNCED_WITHIN_DAYS = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -28,8 +29,12 @@ async function readersOf(work: { id: string; authors: string[]; authorKeys: stri
   const [shelf, authorFollows, seriesFollows, told] = await Promise.all([
     prisma.book.findMany({ where: { workId: work.id }, select: { userId: true, status: true } }),
     prisma.authorFollow.findMany({ where: { OR: [{ slug: { in: slugs } }, ...(work.authorKeys.length ? [{ authorKey: { in: work.authorKeys } }] : [])] }, select: { userId: true } }),
-    work.seriesName && work.authors[0] ? prisma.seriesFollow.findMany({ where: { seriesKey: seriesKey(work.seriesName, work.authors[0]) }, select: { userId: true } }) : [],
-    prisma.notification.findMany({ where: { type: "NEW_BOOK", workId: work.id, createdAt: { gte: new Date(now.getTime() - ANNOUNCED_WITHIN_DAYS * DAY_MS) } }, select: { userId: true } }),
+    // Under any of its authors: a series is followed under its first author as the catalogue spells it, which
+    // for a co-written book may not be the one listed first here.
+    work.seriesName && work.authors.length
+      ? prisma.seriesFollow.findMany({ where: { seriesKey: { in: work.authors.map((a) => seriesKey(work.seriesName!, a)) } }, select: { userId: true } })
+      : [],
+    prisma.notification.findMany({ where: { type: { in: [...HEADS_UP_TYPES] }, workId: work.id, createdAt: { gte: new Date(now.getTime() - ANNOUNCED_WITHIN_DAYS * DAY_MS) } }, select: { userId: true } }),
   ]);
   return publicationDayReaders({
     shelf,

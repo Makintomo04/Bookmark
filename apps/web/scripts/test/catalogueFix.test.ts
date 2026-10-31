@@ -11,7 +11,7 @@ import {
 import { resolveOne } from "../../lib/catalog/resolve.ts";
 import { MemoryCatalogStore } from "../../lib/catalog/memoryStore.ts";
 
-const work: WorkValues = { title: "Dune", authors: ["Frank Herbert"], description: null, coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg", seriesName: null, seriesPosition: null, firstPublishYear: 1965 };
+const work: WorkValues = { title: "Dune", authors: ["Frank Herbert"], description: null, coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg", seriesName: null, seriesPosition: null, firstPublishYear: 1965, releaseDate: null };
 
 test("a work fix takes only the fields sent, cleaned, and refuses empty titles, authors and non-https covers", () => {
   assert.deepEqual(parseWorkFix({ title: "  Dune Messiah ", other: "ignored" }, 3000), { ok: true, patch: { title: "Dune Messiah" } });

@@ -6,6 +6,7 @@ import { hardcoverAuthorId, hardcoverAuthorReleases, hardcoverConfigured, type H
 import { authorSlug } from "@/lib/authorNames"
 import { seriesKey } from "@/lib/series"
 import { addDays } from "@bookmark/shared/reminders"
+import { BOOK_NEWS_TYPES } from "@/lib/releaseRules"
 
 // Telling readers when an author they follow, or a series they follow, has a new book (BOO-8). Each such
 // author is remembered as an AuthorCheck, with the Hardcover ids of their books out lately or coming; once a
@@ -84,10 +85,12 @@ export interface AuthorNewBookRow {
   releaseDate: string | null
 }
 
-// One notification per reader: the new books they'd want, earliest out first, counted, with the first named.
-// An author's followers hear of all of them, a series' followers of that series' books. A book already on
-// their shelf (any status, an advance copy included) isn't news. A reader told about any of these books
-// already (`alreadyTold`, "<userId>|<workId>") isn't told again, as for a series.
+// One notification per reader for one check's new books (a batch): the books they'd want, earliest out
+// first, counted, with the first named. An author's followers hear of all of them, a series' followers of
+// that series' books. A book already on their shelf (any status, an advance copy included) isn't news. A
+// reader already told about any of these books (`alreadyTold`, "<userId>|<workId>": announced, new in its
+// series, or out) isn't told again: a notification names only the first book it counts, so being told about
+// one is taken as being told about the batch. Later checks' books are their own batch.
 export function authorNewsNotifications({ authorFollowers, seriesFollowers, books, shelved = new Set(), alreadyTold = new Set() }: {
   authorFollowers: string[]
   // Readers following each series, by seriesKey.
@@ -153,9 +156,10 @@ export async function queueAuthors(now = new Date()): Promise<{ queued: number, 
 // ---- Filing new books -------------------------------------------------------------------------------
 
 // Files the new books in the catalogue, so they have a book page and a release date, and returns them as
-// the check's announcements. Not given their series: the series tracker's "next" is a book you can read, and
-// the series re-check files a series book once it's out.
-async function fileReleases(releases: HardcoverRelease[], author: string) {
+// the check's announcements, tagged with `batch`. Each is filed in its series without a place: the series'
+// followers then get its publication day and see it first in Upcoming, while the tracker's "next" (books
+// with a place) stays a book you can read. The series re-check gives it its place once it's out.
+async function fileReleases(releases: HardcoverRelease[], author: string, batch: string) {
   if (releases.length === 0) return []
   const filed = await resolveCatalogMany(releases.map((r) => ({
     hardcoverId: r.hardcoverId,
@@ -166,8 +170,9 @@ async function fileReleases(releases: HardcoverRelease[], author: string) {
     year: r.year ?? null,
     releaseDate: r.releaseDate,
     pages: r.pages,
+    series: r.seriesName ? { name: r.seriesName, position: null } : null,
   })))
-  return filed.map((f, i) => ({ workId: f.work.id, seriesName: releases[i].seriesName }))
+  return filed.map((f, i) => ({ workId: f.work.id, seriesName: releases[i].seriesName, batch }))
 }
 
 // Hardcover moves a date when a publisher does: works filed from it take the new date, unless a librarian
@@ -204,7 +209,7 @@ export async function announceAuthorBooks(check: { slug: string, name: string, a
     prisma.authorFollow.findMany({ where: { slug: check.slug }, select: { userId: true } }),
     seriesKeys.length ? prisma.seriesFollow.findMany({ where: { seriesKey: { in: seriesKeys } }, select: { userId: true, seriesKey: true } }) : [],
     prisma.book.findMany({ where: { workId: { in: workIds } }, select: { userId: true, workId: true } }),
-    prisma.notification.findMany({ where: { type: "NEW_BOOK", workId: { in: workIds } }, select: { userId: true, workId: true } }),
+    prisma.notification.findMany({ where: { type: { in: [...BOOK_NEWS_TYPES] }, workId: { in: workIds } }, select: { userId: true, workId: true } }),
   ])
   const dateOf = new Map(works.map((w) => [w.id, w.releaseDate]))
   const seriesFollowers = new Map<string, string[]>()
@@ -221,7 +226,16 @@ export async function announceAuthorBooks(check: { slug: string, name: string, a
   return { told: Math.min(rows.length, limit), done: rows.length <= limit }
 }
 
+// A check's queued books split into the batches they were found in, oldest first. Books queued before
+// batches existed are one batch. No database.
+export function announcementBatches<T extends { batch?: string | null }>(announcing: T[]): T[][] {
+  const batches = new Map<string, T[]>()
+  for (const b of announcing) batches.set(b.batch ?? "", [...(batches.get(b.batch ?? "") ?? []), b])
+  return Array.from(batches.values())
+}
+
 // Tells readers about every check's queued books, a batch at a time, until `deadline` (ms since the epoch).
+// A batch whose readers have all been told leaves the queue; the rest carry on next run.
 export async function sendAuthorNews({ deadline }: { deadline: number }): Promise<{ told: number, announcing: number }> {
   const queued = await prisma.authorCheck.findMany({
     where: { announcing: { isEmpty: false } },
@@ -230,20 +244,24 @@ export async function sendAuthorNews({ deadline }: { deadline: number }): Promis
   let told = 0
   let announcing = 0
   for (const check of queued) {
-    let done = false
-    try {
-      while (!done && Date.now() < deadline) {
-        const batch = await announceAuthorBooks({ ...check, announcing: check.announcing.map((b) => ({ workId: b.workId, seriesName: b.seriesName ?? null })) })
-        told += batch.told
-        done = batch.done
+    const left: typeof check.announcing = []
+    for (const books of announcementBatches(check.announcing)) {
+      let done = false
+      try {
+        while (!done && Date.now() < deadline) {
+          const batch = await announceAuthorBooks({ ...check, announcing: books.map((b) => ({ workId: b.workId, seriesName: b.seriesName ?? null })) })
+          told += batch.told
+          done = batch.done
+        }
+      } catch (err) {
+        // Left queued; readers not yet told are told next run.
+        console.warn(`author news: couldn't tell readers of ${check.name}:`, err instanceof Error ? err.message : err)
       }
-    } catch (err) {
-      // Left queued; readers not yet told are told next run.
-      console.warn(`author news: couldn't tell readers of ${check.name}:`, err instanceof Error ? err.message : err)
+      if (!done) left.push(...books)
     }
-    // Only this run adds announcements, and it already has, so clearing can't lose a newer one.
-    if (done) await prisma.authorCheck.update({ where: { id: check.id }, data: { announcing: [] } })
-    else announcing++
+    // Only this run adds announcements, and it already has, so rewriting the queue can't lose a newer one.
+    if (left.length < check.announcing.length) await prisma.authorCheck.update({ where: { id: check.id }, data: { announcing: left } })
+    if (left.length) announcing++
   }
   return { told, announcing }
 }
@@ -306,14 +324,14 @@ async function checkDue(result: AuthorNewsResult, followed: Set<string>, { now, 
         if (id == null) result.notOnHardcover++
         else {
           result.datesMoved += await moveReleaseDates(releases, today)
-          result.filedComing += (await fileReleases(releases.filter((r) => r.releaseDate > today), check.name)).length
+          result.filedComing += (await fileReleases(releases.filter((r) => r.releaseDate > today), check.name, now.toISOString())).length
         }
         await prisma.authorCheck.update({ where: { id: check.id }, data: { hardcoverAuthorId: id, seenBookIds: seenIdsOf(releases), checkedAt: now } })
       } else {
         if (!(await room(1))) return
         const releases = (await hardcoverAuthorReleases(check.hardcoverAuthorId, check.name, from)).filter((r) => isAnnounced(r, today))
         const fresh = freshReleases(releases, check.seenBookIds, today)
-        const filed = await fileReleases(fresh, check.name)
+        const filed = await fileReleases(fresh, check.name, now.toISOString())
         result.newBooks += filed.length
         result.datesMoved += await moveReleaseDates(releases, today)
         await prisma.authorCheck.update({

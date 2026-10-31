@@ -52,9 +52,10 @@ const BookLine = ({ label, book }: { label: string, book: InviteBook }) => (
 
 const Page = async (props: PageProps) => {
   const params = await props.params;
-  const [viewer, invite] = await Promise.all([getCurrentUser(), loadClubInvite(params.code)])
+  const viewer = await getCurrentUser()
+  const invite = await loadClubInvite(params.code, viewer?.id)
   if (!invite) notFound()
-  const { club, host, members, current, next, booksRead, full } = invite
+  const { club, host, members, memberCount, current, next, booksRead, full } = invite
 
   if (viewer) {
     const isMember = await prisma.clubMember.findUnique({ where: { clubId_userId: { clubId: club.id, userId: viewer.id } }, select: { id: true } })
@@ -63,7 +64,7 @@ const Page = async (props: PageProps) => {
   const removed = viewer ? await wasRemovedFromClub(club.id, viewer.id) : false
   // Back here after signing up or in, where joining is one tap.
   const back = encodeURIComponent(`/clubs/join/${params.code}`)
-  const others = members.length - 1
+  const others = memberCount - 1
 
   return (
     <div className="mt-10 sm:mt-16">
@@ -107,7 +108,7 @@ const Page = async (props: PageProps) => {
           ) : viewer ? (
             <div className="flex flex-col items-center gap-2">
               <ClubJoinButton code={params.code} />
-              {current && <p className="text-xs text-muted-foreground">Not on your shelf yet? It&apos;ll be added to Currently reading.</p>}
+              {current && <p className="text-xs text-muted-foreground">Not on your shelf yet? It&apos;ll be added to Want to read until you start.</p>}
             </div>
           ) : (
             <div className="flex flex-wrap justify-center gap-3">

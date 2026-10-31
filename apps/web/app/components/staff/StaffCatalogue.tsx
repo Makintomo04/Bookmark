@@ -233,11 +233,12 @@ export const Cover = ({ url, className }: { url: string | null, className: strin
     : <span className={`${className} shrink-0 rounded bg-neutral-100 dark:bg-neutral-800`} aria-hidden />
 )
 
-type WorkForm = { title: string, authors: string, description: string, coverUrl: string, seriesName: string, seriesPosition: string, firstPublishYear: string }
+type WorkForm = { title: string, authors: string, description: string, coverUrl: string, seriesName: string, seriesPosition: string, firstPublishYear: string, releaseDate: string }
 
 const workFormOf = (w: StaffWork): WorkForm => ({
   title: w.title, authors: w.authors.join(', '), description: w.description ?? '', coverUrl: w.coverUrl ?? '',
   seriesName: w.seriesName ?? '', seriesPosition: w.seriesPosition?.toString() ?? '', firstPublishYear: w.firstPublishYear?.toString() ?? '',
+  releaseDate: w.releaseDate ?? '',
 })
 
 type History = { history: BookHistoryEntry[], merges?: MergeHistoryEntry[], openReports: number }
@@ -328,12 +329,12 @@ const WorkEditor = ({ id, onBack, onOpen }: { id: string, onBack: () => void, on
     )
   }
 
-  const field = (key: keyof WorkForm, label: string, multiline = false, inputMode?: 'numeric' | 'decimal') => (
+  const field = (key: keyof WorkForm, label: string, multiline = false, inputMode?: 'numeric' | 'decimal', placeholder?: string) => (
     <label className="flex flex-col gap-1.5 text-sm font-medium">
       {label}
       {multiline
         ? <textarea className={fieldClass} rows={5} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
-        : <ClearableInput className={fieldClass} inputMode={inputMode} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
+        : <ClearableInput className={fieldClass} inputMode={inputMode} placeholder={placeholder} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
     </label>
   )
 
@@ -363,6 +364,10 @@ const WorkEditor = ({ id, onBack, onOpen }: { id: string, onBack: () => void, on
           {field('firstPublishYear', 'First published', false, 'numeric')}
         </div>
         <p className="-mt-2 text-xs text-muted-foreground">Spell the series as its other books have it, so they show together. Use 2.5 for a novella between books 2 and 3. Hardcover&apos;s series check leaves a series set here alone. First published is the year of the first edition anywhere.</p>
+        <div className="grid gap-4 sm:grid-cols-[200px_minmax(0,1fr)]">
+          {field('releaseDate', 'Release date', false, undefined, '2027-04-09')}
+        </div>
+        <p className="-mt-2 text-xs text-muted-foreground">The day the first edition came out, or comes out. A date ahead puts the book in Upcoming, and readers who want it hear on the morning it&apos;s out. Use it for a book Hardcover doesn&apos;t list, like a self-published one: Hardcover never changes a date set here. Setting it sets the first published year to match.</p>
         <ClearableInput className={fieldClass} placeholder="What was wrong (optional, for the log)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
         {openReports > 0 && dirty && (
           <p className="text-sm text-muted-foreground">Saving also closes {counted(openReports, 'open report', 'open reports')} about this book.</p>

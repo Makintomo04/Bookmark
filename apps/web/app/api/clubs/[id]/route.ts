@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { canEditClubSettings, clubAbout, updateClubSchema } from "@/lib/clubs";
 import { hostingRefusal, parseBody } from "@/lib/buddyReadsServer";
-import { canHostAnotherClub, clubError, loadClubView, requireClubMembership } from "@/lib/clubsServer";
+import { canHostAnotherClub, clubError, finishClubBooks, loadClubView, requireClubMembership } from "@/lib/clubsServer";
 
 // The club page: members, roles, and what it's reading, what's next and what it's read.
 export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
@@ -17,7 +17,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
 }
 
 // Host only: the name, the line about it, and archiving or reopening it. Archiving closes the link and
-// leaves its circles as they are.
+// marks its open books finished (lib/clubsServer.ts finishClubBooks); their discussions stay open.
 export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { user: currentUser, response } = await requireUser();
@@ -36,6 +36,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     if (!hosting.allowed) return hostingRefusal(hosting);
   }
 
+  if (status === "ARCHIVED" && membership.club.status !== "ARCHIVED") await finishClubBooks(membership.club.id, prisma);
   const updated = await prisma.club.update({
     where: { id: membership.club.id },
     data: {
