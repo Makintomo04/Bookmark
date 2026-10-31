@@ -40,20 +40,24 @@ export function timeAgo(iso: string) {
   return "just now";
 }
 
-const profileKey = (username: string) => `/api/users/${encodeURIComponent(username)}`;
+const profilePath = (username: string) => `/api/users/${encodeURIComponent(username)}`;
+// The profile screen's SWR key: ?books=preview sends what the screen shows (all they're reading, the newest of
+// Finished and Want to read, the newest reviews) and the counts, not a shelf of thousands. Anything that
+// refreshes a profile must use this same key.
+export const profileKey = (username: string) => `${profilePath(username)}?books=preview`;
 
 // Follow, unfollow, ask to follow (a followers-only or private profile) or withdraw the request: the
 // web's FollowButton, one toggle on the server.
 export async function toggleFollow(username: string) {
-  const result = await api.post<{ isFollowing: boolean; requested: boolean }>(`${profileKey(username)}/follow`);
+  const result = await api.post<{ isFollowing: boolean; requested: boolean }>(`${profilePath(username)}/follow`);
   await Promise.all([mutate(profileKey(username)), mutate("/api/feed")]);
   return result;
 }
 
 // Blocking hides the two readers from each other everywhere (feeds, circles, search) and ends any follow.
 export async function setBlocked(username: string, blocked: boolean) {
-  if (blocked) await api.post(`${profileKey(username)}/block`);
-  else await api.delete(`${profileKey(username)}/block`);
+  if (blocked) await api.post(`${profilePath(username)}/block`);
+  else await api.delete(`${profilePath(username)}/block`);
   await Promise.all([mutate(profileKey(username)), mutate("/api/feed"), mutate("/api/buddy-reads")]);
 }
 

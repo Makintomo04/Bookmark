@@ -48,6 +48,7 @@ export default function AppLayout() {
         <Stack.Screen name="book/[id]" options={{ title: "" }} />
         <Stack.Screen name="add-book" options={{ title: "Add a book", presentation: "modal" }} />
         <Stack.Screen name="book/edit/[id]" options={{ title: "Edit details" }} />
+        <Stack.Screen name="shelf/[shelf]" options={{ title: "" }} />
         <Stack.Screen name="profile/edit" options={{ title: "Edit profile" }} />
         <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
         <Stack.Screen name="search" options={{ title: "Find readers" }} />

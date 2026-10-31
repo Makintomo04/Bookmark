@@ -9,6 +9,7 @@ import { seriesPlaceLabel } from "@bookmark/shared/series";
 import { AuthorNames } from "@/components/authors/AuthorNames";
 import { BookCover } from "@/components/books/BookCover";
 import { CatchMeUp } from "@/components/books/CatchMeUp";
+import { ReadHistory } from "@/components/books/ReadHistory";
 import { SpiceLine, SpicePicker } from "@/components/books/Spice";
 import { StarRating } from "@/components/books/StarRating";
 import { FollowSeries } from "@/components/series/FollowSeries";
@@ -26,7 +27,7 @@ import { formatDay, groupShelf, isRereading, saveBook, useBooks, type Book, type
 import { useTheme } from "@/lib/theme";
 
 // The book page: what the web's BookUpdateModal does, as a screen. Start a book, log progress, finish,
-// pause or stop it, rate and review it, report its spice, and see earlier reads. Moods and warnings,
+// pause or stop it, rate and review it, report its spice, and see and fix its reads. Moods and warnings,
 // sending it to a friend and its reading circles follow in the port.
 
 const REVIEW_MAX = 2000;
@@ -66,7 +67,7 @@ export default function BookPage() {
 function BookEditor({ book, books }: { book: Book; books: Book[] }) {
   const { colors, radii, fonts } = useTheme();
   const { data: user } = useSWR<{ favColour: string | null }>("/api/user");
-  const { data: reads } = useSWR<BookRead[]>(`/api/books/${book.id}/reads`);
+  const { data: reads, mutate: mutateReads } = useSWR<BookRead[]>(`/api/books/${book.id}/reads`);
   const { data: tags, mutate: tagsMutate } = useSWR<TagAggregate>(`/api/works/tags?bookId=${book.id}`);
   const accent = user?.favColour || DEFAULT_COLOUR;
 
@@ -103,6 +104,8 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startPage, book.currentPercent, book.logsPercent]);
   useEffect(() => setSpice(tags?.mine?.spice ?? null), [tags]);
+  // A read's rating fixed in the history below can change the book's own: start again from it.
+  useEffect(() => setRating(book.rating ?? 0), [book.rating]);
 
   const status = book.status;
   const typed = parseInt(pageInput, 10);
@@ -220,8 +223,6 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
     : status === "PAUSED" ? (onMinutes ? "Resume listening" : "Resume reading")
     : "Save progress";
   const showPrimary = status !== "NOT_INTERESTED" && (!isClosed || hasChanges);
-  const history = (reads ?? []).slice().reverse();
-  const showHistory = history.length > 1 || (history.length === 1 && status === "NOT_STARTED");
 
   const pageField = (
     <TextInput
@@ -394,27 +395,8 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
         </View>
       )}
 
-      {showHistory && (
-        <View style={{ gap: 6 }}>
-          <Text variant="label">Reading history</Text>
-          {history.map((read) => (
-            <View key={read.id} style={[styles.historyRow, { borderBottomColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.sansMedium }}>
-                  {read.status === "COMPLETED" ? "Finished"
-                    : read.status === "DNF" ? `Did not finish${read.currentPercent != null ? ` · ${Math.round(read.currentPercent)}%` : read.stoppedAtMinute !== null ? ` · ${formatMinutes(read.stoppedAtMinute)}` : read.stoppedAtPage !== null ? ` · page ${read.stoppedAtPage}` : ""}`
-                    : read.status === "PAUSED" ? "Paused" : "Reading now"}
-                </Text>
-                <Text variant="small">
-                  {read.startedAt && read.finishedAt ? `${formatDay(read.startedAt)} – ${formatDay(read.finishedAt)}`
-                    : read.startedAt ? `Started ${formatDay(read.startedAt)}` : read.finishedAt ? formatDay(read.finishedAt) : "No dates"}
-                </Text>
-              </View>
-              {read.rating ? <StarRating value={read.rating} size={14} label="Rating" /> : null}
-            </View>
-          ))}
-        </View>
-      )}
+      {/* Every read, so even a single read's dates can be put right. */}
+      {reads && <ReadHistory bookId={book.id} bookStatus={status} reads={reads} onChange={(next) => void mutateReads(next, { revalidate: false })} />}
 
       <View style={{ gap: 10, marginTop: 8 }}>
         {showPrimary && <Button title={primaryLabel} loading={saving} disabled={!canSave} onPress={save} />}
@@ -439,7 +421,6 @@ const styles = StyleSheet.create({
   quick: { minWidth: 56, minHeight: 40, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 },
   links: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  historyRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
 });
 
 // "Book 2 of The Empyrean" under the title. Nothing when the book isn't in a series.

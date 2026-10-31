@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EMPTY_FILTER, filterOptions, isNarrowed, matchesFilter, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
+  EMPTY_FILTER, SHELF_PAGE_MAX, filterOptions, isNarrowed, matchesFilter, pageShelf, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
   type ShelfBook, type ShelfFilter,
 } from "@/lib/shelfFilter";
 
@@ -87,4 +87,26 @@ test("each shelf has its own page, and the page link carries the filters but not
   assert.equal(shelfPageHref("a b", "want", { sort: "rating", shelf: "want", year: 2021 }), "/u/a%20b/shelf/want-to-read?sort=rating&year=2021");
   assert.equal(shelfFromSlug("did-not-finish"), "dnf");
   assert.equal(shelfFromSlug("nope"), null);
+});
+
+test("pageShelf pages the matching books in order, with a cursor until the last page", () => {
+  const finished = f({ shelf: "finished", sort: "title" });
+  const first = pageShelf(books, finished, { take: 2 });
+  assert.deepEqual(titles(first.books), ["Jane Eyre", "Mort"]);
+  assert.equal(first.total, 3);
+  assert.equal(first.nextCursor, "2");
+  const last = pageShelf(books, finished, { take: 2, cursor: first.nextCursor });
+  assert.deepEqual(titles(last.books), ["The Left Hand of Darkness"]);
+  assert.equal(last.nextCursor, null);
+  // Search runs before paging, across every shelf when none is asked for.
+  assert.deepEqual(titles(pageShelf(books, f({ q: "weir" }), { take: 10 }).books), ["Project Hail Mary"]);
+});
+
+test("pageShelf keeps take and cursor in range", () => {
+  const many = Array.from({ length: 250 }, (_, i) => book({ id: `b${i}`, title: `Book ${i}`, completedAt: "2024-01-01T12:00:00Z" }));
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 1000 }).books.length, SHELF_PAGE_MAX);
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 0 }).books.length, 1);
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "-5" }).books[0].id, pageShelf(many, EMPTY_FILTER, { take: 10 }).books[0].id);
+  assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "nonsense" }).nextCursor, "10");
+  assert.deepEqual(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "900" }), { books: [], total: 250, nextCursor: null });
 });

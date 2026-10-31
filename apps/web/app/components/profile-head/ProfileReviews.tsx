@@ -41,6 +41,9 @@ interface ProfileReviewsProps {
   collapsible?: boolean
   // How many show before "Show more": fewer in bands, where reviews sit above the shelves.
   first?: number
+  // Every review, when `books` holds only the newest (someone else's profile, profilePreview): past those,
+  // "See all" opens the reviews page.
+  total?: number
 }
 
 // The newest few show straight away; a reader with hundreds of reviews pages through the rest.
@@ -48,12 +51,15 @@ const FIRST = 5
 const MORE = 20
 
 // The reviews on a profile, newest finish first. Renders nothing when there are none to show.
-const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", href, bare = false, collapsible = false, first = FIRST }) => {
+const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = "Reviews", href, bare = false, collapsible = false, first = FIRST, total }) => {
   const [shown, setShown] = useState(first)
   const collapse = useCollapsedSections()
   const reviewed = reviewedBooks(books)
   if (reviewed.length === 0) return null
   const left = reviewed.length - shown
+  const count = Math.max(total ?? 0, reviewed.length)
+  // More than the page carries: the rest are on the reviews page.
+  const elsewhere = left <= 0 && count > reviewed.length && !!href
   const reviewHref = (id: string) => `${href}/${id}`
 
   const list = (
@@ -93,12 +99,17 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
           <button type="button" onClick={() => setShown((n) => n + MORE)} className={pillClass}>Show more</button>
         </div>
       )}
+      {elsewhere && href && (
+        <div className="mt-4 flex justify-center">
+          <Link href={href} className={`${pillClass} inline-flex items-center`}>See all {count.toLocaleString('en-GB')}</Link>
+        </div>
+      )}
     </>
   )
   if (bare) return list
   return (
-    <ShelfSection id="profile-reviews" title={title} count={reviewed.length} {...(collapsible ? collapse("profile-reviews") : {})}
-      action={left > 0 ? (href ? <SeeAllLink href={href} /> : <SeeAllLink onClick={() => setShown(reviewed.length)} />) : undefined}>
+    <ShelfSection id="profile-reviews" title={title} count={count} {...(collapsible ? collapse("profile-reviews") : {})}
+      action={left > 0 || elsewhere ? (href ? <SeeAllLink href={href} /> : <SeeAllLink onClick={() => setShown(reviewed.length)} />) : undefined}>
       {list}
     </ShelfSection>
   )

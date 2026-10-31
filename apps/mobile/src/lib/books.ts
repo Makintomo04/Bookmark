@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import type { EarnMoment } from "@bookmark/shared/earnMoment";
 import type { AskReason } from "@bookmark/shared/reminders";
 import { BULK_MAX } from "@bookmark/shared/bulkRules";
+import { shelfParams, type ShelfFilter, type ShelfKey, type filterOptions } from "@bookmark/shared/shelfFilter";
 import { celebrate } from "@/lib/earnMoment";
 
 // The reader's own shelf, from /api/books (the same list the web's useBooks reads), and the moves the
@@ -46,6 +47,29 @@ export interface BookRead {
 }
 
 export const useBooks = () => useSWR<Book[]>("/api/books");
+
+// One page of the shelf, searched, sorted and filtered on the server (GET /api/books?take=…), for the shelf
+// screen. The first page also carries the filter menus' options and how many books each shelf holds.
+export type ShelfOptions = ReturnType<typeof filterOptions>;
+export interface ShelfPage {
+  books: Book[];
+  total: number;
+  nextCursor: string | null;
+  options?: ShelfOptions;
+  counts?: Record<ShelfKey, number>;
+}
+
+const SHELF_PAGE_SIZE = 60;
+
+// useSWRInfinite's key for a filter: page after page until the server says there are no more.
+export const shelfPageKey = (filter: ShelfFilter) => (index: number, previous: ShelfPage | null) => {
+  if (previous && !previous.nextCursor) return null;
+  const params = shelfParams(filter);
+  params.set("take", String(SHELF_PAGE_SIZE));
+  if (previous?.nextCursor) params.set("cursor", previous.nextCursor);
+  if (index === 0) params.set("facets", "1");
+  return `/api/books?${params.toString()}`;
+};
 
 const time = (date: string | null) => (date ? new Date(date).getTime() : 0);
 const same = (s: string) => s.trim().toLowerCase();

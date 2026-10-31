@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { ApiError } from "@/lib/api";
-import { setBlocked, toggleFollow } from "@/lib/social";
+import { profileKey, setBlocked, toggleFollow } from "@/lib/social";
 import { useTheme } from "@/lib/theme";
 
 // Another reader's profile (the web's /u/<username>), as far as their privacy settings let you see it:
@@ -51,7 +51,14 @@ type Profile = {
   bio?: string | null;
   profileLinks?: string[];
   banner?: string;
+  // With ?books=preview: everything they're reading, the newest of Finished and Want to read, and the newest
+  // reviewed books (review text is null on the rest). The counts below say how many there are in all.
   books?: PublicBook[];
+  // Finished, re-reads included; reviews written; and each shelf's size. Absent on a restricted profile, and
+  // from a server older than the preview.
+  booksRead?: number;
+  reviewCount?: number;
+  shelfCounts?: { finished: number; want: number };
   followedAuthors?: { name: string; slug: string }[];
   // Earned milestone keys; absent on a restricted profile.
   achievements?: { key: string; earnedAt: string }[];
@@ -69,7 +76,7 @@ type Profile = {
 export default function ReaderProfile() {
   const { username } = useLocalSearchParams<{ username: string }>();
   const { colors } = useTheme();
-  const { data: profile, error, isLoading, mutate } = useSWR<Profile>(`/api/users/${encodeURIComponent(username ?? "")}`);
+  const { data: profile, error, isLoading, mutate } = useSWR<Profile>(profileKey(username ?? ""));
 
   useEffect(() => {
     if (profile?.isSelf) router.replace("/");
@@ -93,7 +100,7 @@ export default function ReaderProfile() {
     <Screen>
       <Stack.Screen options={{ title: readerName(profile) }} />
       <ProfileHeader
-        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, profileLinks: profile.profileLinks ?? [], favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
+        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, profileLinks: profile.profileLinks ?? [], favColour: profile.favColour, _count: profile.restricted ? undefined : { books: profile.booksRead ?? (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
         staffBadge={profile.staffBadge}
         medals={profile.restricted ? undefined : { earned: profile.achievements ?? [], onPress: openAchievements }}
       />
@@ -234,11 +241,12 @@ function Reading({ profile }: { profile: Profile }) {
           ))}
         </View>
       )}
-      <CoverRow title="Finished" books={finished} accent={accent} />
-      <CoverRow title="Want to read" books={wantToRead} accent={accent} />
+      <CoverRow title="Finished" books={finished} total={profile.shelfCounts?.finished} accent={accent} />
+      <CoverRow title="Want to read" books={wantToRead} total={profile.shelfCounts?.want} accent={accent} />
       {reviews.length > 0 && (
         <View style={{ gap: 14 }}>
-          <Text variant="title">Reviews</Text>
+          {/* The newest few arrive; the count is all of them (there's no reviews screen on the phone yet). */}
+          <Text variant="title">Reviews <Text variant="muted">{(profile.reviewCount ?? reviews.length).toLocaleString("en-GB")}</Text></Text>
           {reviews.map((b) => (
             <View key={b.id} style={{ gap: 6 }}>
               <View style={styles.readingRow}>
@@ -258,20 +266,30 @@ function Reading({ profile }: { profile: Profile }) {
   );
 }
 
-function CoverRow({ title, books, accent }: { title: string; books: PublicBook[]; accent: string }) {
+const COVER = 84;
+const COVER_GAP = 12;
+
+// `total` is the whole shelf's size; `books` only the newest of it.
+function CoverRow({ title, books, total, accent }: { title: string; books: PublicBook[]; total?: number; accent: string }) {
   if (books.length === 0) return null;
   return (
     <View style={{ gap: 10 }}>
-      <Text variant="title">{title} <Text variant="muted">{books.length}</Text></Text>
+      <Text variant="title">{title} <Text variant="muted">{(total ?? books.length).toLocaleString("en-GB")}</Text></Text>
       <FlatList
         horizontal
         data={books}
         keyExtractor={(b) => b.id}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 12 }}
+        contentContainerStyle={{ gap: COVER_GAP }}
+        // Every cover is the same width, so the row can skip measuring them.
+        getItemLayout={(_, index) => ({ length: COVER + COVER_GAP, offset: (COVER + COVER_GAP) * index, index })}
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={3}
+        removeClippedSubviews
         renderItem={({ item }) => (
-          <View style={{ width: 84, gap: 4 }} accessible accessibilityLabel={`${item.title} by ${item.author}`}>
-            <BookCover book={item} width={84} fallbackColour={accent} />
+          <View style={{ width: COVER, gap: 4 }} accessible accessibilityLabel={`${item.title} by ${item.author}`}>
+            <BookCover book={item} width={COVER} fallbackColour={accent} />
             <Text variant="small" numberOfLines={2}>{item.title}</Text>
           </View>
         )}

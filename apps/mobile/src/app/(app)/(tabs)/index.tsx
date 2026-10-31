@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, V
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR, { mutate as globalMutate } from "swr";
-import { Compass, Plus } from "lucide-react-native";
+import { Compass, Plus, Search } from "lucide-react-native";
 import { GENRE_PICKS_SHELF_LIMIT } from "@bookmark/shared/genres";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { GenrePicks } from "@/components/discover/GenrePicks";
@@ -14,7 +14,7 @@ import { GoalCard } from "@/components/library/GoalCard";
 import { NotificationBell } from "@/components/social/NotificationBell";
 import { SelectionBar } from "@/components/library/SelectionBar";
 import { SeriesTracker } from "@/components/library/SeriesTracker";
-import { Shelves, useBookSelection } from "@/components/library/Shelves";
+import { Shelves, openShelf, useBookSelection } from "@/components/library/Shelves";
 import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHeader";
 import { AiLabel } from "@/components/ui/AiLabel";
 import { Button } from "@/components/ui/Button";
@@ -64,7 +64,17 @@ export default function Library() {
         <NewShelfPicks bookCount={books?.length} />
         {books && books.length > 0 && (
           <View style={{ gap: 12 }}>
-            <View style={{ alignItems: "flex-end" }}>
+            <View style={styles.shelfBar}>
+              {/* Looks like a search box; the shelf screen has the real one, with sort and filters. */}
+              <Pressable
+                accessibilityRole="search"
+                accessibilityLabel="Search your shelves"
+                onPress={() => openShelf("all")}
+                style={({ pressed }) => [styles.search, { borderRadius: 999, borderColor: colors.input, backgroundColor: pressed ? colors.muted : "transparent" }]}
+              >
+                <Search size={16} color={colors.mutedForeground} />
+                <Text variant="muted" numberOfLines={1}>Search your shelves</Text>
+              </Pressable>
               <Button title={selection.selecting ? "Done" : "Select"} variant="ghost" onPress={selection.selecting ? selection.stop : selection.start} />
             </View>
             <Shelves books={books} accent={accent} selection={selection} />
@@ -126,6 +136,8 @@ function NewShelfPicks({ bookCount }: { bookCount: number | undefined }) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   actions: { flexDirection: "row", gap: 10 },
+  shelfBar: { flexDirection: "row", alignItems: "center", gap: 12 },
+  search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, borderWidth: 1, paddingHorizontal: 14 },
   ask: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
   // Sits over the banner's top-right corner.
   topBar: { position: "absolute", top: 8, right: 8, zIndex: 1, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.35)" },

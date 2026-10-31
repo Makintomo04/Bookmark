@@ -6,7 +6,7 @@ import { parseShelfParams, shelfPageHref } from '@/lib/shelfFilter'
 import { hasRequested, needsFollowApproval } from '@/lib/followRequests'
 import { followsBack, restrictedViewerFlags } from '@/lib/friends'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { currentBook, getProfileView, getPublicProfile, readingCounts, serializeProfile } from '@/lib/publicProfile'
+import { currentBook, getProfileView, getPublicProfile, profilePreview, readingCounts, serializeProfile } from '@/lib/publicProfile'
 import Container from '@/app/components/Container'
 import PublicProfile from '@/app/components/profile-head/PublicProfile'
 import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
@@ -105,7 +105,8 @@ export default async function Page(props: PageProps) {
   } else {
     content = (
       <PublicProfile
-        profile={serializeProfile(data.profile)}
+        // Previews of their shelves and reviews, with the counts: the rest loads when the viewer asks for it.
+        profile={serializeProfile(profilePreview(data.profile))}
         layout={layout}
         // In bands, a circle the viewer shares with them pins its book first on their reading cards.
         sharedCircles={viewer && layout === 'bands' ? await sharedCircles(viewer.id, data.userId) : []}

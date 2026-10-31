@@ -11,6 +11,7 @@ import { resolveBanner } from "@/lib/banners";
 import { supporterOf, supporterSelect } from "@/lib/supporter";
 import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
 import { workIdsWithPages } from "@/lib/workPages";
+import { profilePreview } from "@/lib/profilePreview";
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
@@ -241,6 +242,9 @@ export function readingCounts(books: Pick<PublicBook, "status" | "completedAt" |
   };
 }
 
+// Someone else's profile as its page carries it: lib/profilePreview.ts.
+export { PROFILE_REVIEWS, PROFILE_SHELF_PREVIEW, profilePreview } from "@/lib/profilePreview";
+
 // The book they're reading now: the most recently started of their in-progress books.
 export function currentBook<T extends Pick<PublicBook, "status" | "startedAt" | "createdAt">>(books: T[]): T | null {
   const time = (b: T) => new Date(b.startedAt ?? b.createdAt).getTime();
@@ -251,13 +255,15 @@ export function currentBook<T extends Pick<PublicBook, "status" | "startedAt" | 
 export { topMedals } from "@bookmark/shared/medals";
 
 // Plain JSON for client components and the API: dates as ISO strings, as the API has always sent them.
-export function serializeProfile(profile: PublicProfileData) {
+export function serializeProfile<P extends PublicProfileData>(profile: P) {
   type Dated<T> = Omit<T, "createdAt" | "startedAt" | "completedAt"> & { createdAt: string; startedAt: string | null; completedAt: string | null };
-  return JSON.parse(JSON.stringify(profile)) as Omit<PublicProfileData, "createdAt" | "books" | "achievements" | "favourites"> & {
+  return JSON.parse(JSON.stringify(profile)) as Omit<P, "createdAt" | "books" | "achievements" | "favourites"> & {
     createdAt: string;
     books: Dated<PublicBook>[];
     favourites: Dated<PublicProfileData["favourites"][number]>[];
     achievements: { key: string; earnedAt: string }[];
   };
 }
-export type SerializedProfile = ReturnType<typeof serializeProfile>;
+export type SerializedProfile = ReturnType<typeof serializeProfile<PublicProfileData>>;
+// Someone else's profile as their page carries it (profilePreview).
+export type SerializedPreview = ReturnType<typeof serializeProfile<ReturnType<typeof profilePreview<PublicBook, PublicProfileData>>>>;
