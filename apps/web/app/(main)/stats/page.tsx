@@ -9,10 +9,11 @@ import MonthlyWrapCards from '@/app/components/wrapped/MonthlyWrapCards'
 import WrapCardMaker from '@/app/components/wrapped/WrapCardMaker'
 import { entitlementsOf } from '@/lib/entitlements'
 import { cardToday } from '@bookmark/shared/wrapCards'
+import ExploreLink from '@/app/components/stats/ExploreLink'
 
 export const metadata: Metadata = {
   title: 'Reading stats',
-  description: 'Every reading stat, free: books and pages by year and month, ratings, genres, authors, re-reads and your streak.',
+  description: 'Every stat here is free: books and pages by year and month, ratings, genres, authors, re-reads and your streak.',
   robots: { index: false },
 }
 
@@ -37,7 +38,8 @@ const Page = async (props: PageProps) => {
     <div className={`mt-8 sm:mt-12 ${ACCENT_SCOPE}`} style={accentVars(readerAccent(user.favColour))}>
       <Container>
         <h1 className="page-title">Your reading stats</h1>
-        <p className="mt-2 mb-8 text-muted-foreground">All of it, free. No upgrade, no paywall: it&apos;s your data.</p>
+        <p className="mt-2 text-muted-foreground">Every stat on this page is free, and always will be. It&apos;s your data.</p>
+        <ExploreLink isPlus={entitlementsOf(user).statsExplorer} />
         {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<><WrapCardMaker canPickDesigns={entitlementsOf(user).customWrapDesigns} today={cardToday(user.timeZone)} years={stats.years.map((y) => y.year)} /><MonthlyWrapCards /></>} />}
       </Container>
     </div>

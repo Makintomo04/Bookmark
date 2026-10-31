@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 import type { WrapCardBook, WrapCardData } from '@bookmark/shared/statsTypes'
-import { CARD_SIZES, cardKicker, cardStats, cardTitle, gridLayout, moodMix, type CardDesign, type CardKind, type CardSize } from '@bookmark/shared/wrapCards'
+import { CARD_SIZES, cardStats, cardWords, gridLayout, moodMix, type CardDesign, type CardKind, type CardSize } from '@bookmark/shared/wrapCards'
 import { ratingGlyphs, starClip } from '@bookmark/shared/rating'
 import { readableInk, shade, toHex } from '@/lib/colour'
 import { BG, BRAND, INK, MUTED, STAR_PATH, Logo, clip, fmt, googleFont, imageData, siteHost } from './wrappedImage'
@@ -252,9 +252,8 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
   const p = palette(design, input.favColour)
   const handle = clip(input.username, 24)
   const contentWidth = W - m.side * 2
-  const title = cardTitle(card.year, card.month, card.isCurrent)
+  const { title, kicker } = cardWords(card)
   const titleSize = fitTitle(title, contentWidth, m.title)
-  const kicker = cardKicker(card.year, card.month)
   // Books, not reads: a re-read in the period is one cover on the grid, so it's one book here too.
   const stats = cardStats({ books: card.books.length, pages: card.pages, minutes: card.minutes })
   const moods = moodMix(card.moods)

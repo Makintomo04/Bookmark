@@ -3,7 +3,8 @@ import { BUDDY_READ_MAX_MEMBERS } from "./buddyReads";
 
 // Bookmark Plus: what a plan may do. Pure, so client components and tests can read it off a user
 // with nothing but `plan`. The rule from the strategy: charge for convenience and power;
-// gate the host, never the guest; never gate stats or import. Every gated feature
+// gate the host, never the guest; never gate import. Never take away a stat that's free: Plus adds
+// ways to explore your stats, never the stats themselves. Every gated feature
 // checks these on the server through lib/entitlementsServer.ts, not only in the UI.
 
 // Final prices: the Stripe prices are tax-inclusive (tax_behavior "inclusive"), so readers pay
@@ -38,7 +39,7 @@ export type AllowanceKey = keyof typeof MONTHLY_ALLOWANCES;
 export const BIG_CLUB_MAX_MEMBERS = 150;
 export const CLUB_MEMBER_LIMIT = { free: BUDDY_READ_MAX_MEMBERS, plus: BIG_CLUB_MAX_MEMBERS } as const;
 
-export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns" | "bigClubs";
+export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns" | "bigClubs" | "statsExplorer";
 
 export interface Entitlements {
   plan: Plan;
@@ -55,6 +56,10 @@ export interface Entitlements {
   bigClubs: boolean;
   // How many readers a club this account hosts takes (CLUB_MEMBER_LIMIT). It's the host's plan that counts.
   clubMemberLimit: number;
+  // The stats explorer (packages/shared/src/statsExplorer.ts): any date range, comparing two periods,
+  // filters, saved views, a CSV of a chart and Wrap cards for a custom range. Every stat on /stats, Wrapped
+  // and the monthly and yearly cards stays free.
+  statsExplorer: boolean;
   // Per calendar month; null is unlimited.
   allowances: Record<AllowanceKey, number | null>;
 }
@@ -153,6 +158,7 @@ export function entitlementsOf(user: StoredPlan, now = new Date()): Entitlements
     customWrapDesigns: isPlus,
     bigClubs: isPlus,
     clubMemberLimit: CLUB_MEMBER_LIMIT[tier],
+    statsExplorer: isPlus,
     allowances: {
       askShelfSearches: MONTHLY_ALLOWANCES.askShelfSearches[tier],
       recaps: MONTHLY_ALLOWANCES.recaps[tier],
@@ -188,6 +194,10 @@ export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string
   bigClubs: {
     title: "Bigger clubs",
     message: `Clubs on a free account take ${CLUB_MEMBER_LIMIT.free} readers. With Plus, the clubs you host take up to ${CLUB_MEMBER_LIMIT.plus}. Members never pay, and votes are free for every club.`,
+  },
+  statsExplorer: {
+    title: "Dig deeper into your stats",
+    message: "Pick any dates, set two periods side by side, filter by format, genre, mood, spice, author or re-reads, and save the views you come back to. Every stat on your stats page stays free.",
   },
   askShelfSearches: {
     title: "More Ask the shelf searches",
