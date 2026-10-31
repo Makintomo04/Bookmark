@@ -11,6 +11,7 @@ import { isWrappedSeason } from "@/lib/wrappedSeason";
 import { isProfilePublic, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
 import type { Mood } from "@bookmark/shared/workTags";
+import { cardPeriodKeys } from "@bookmark/shared/wrapCards";
 export type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData };
 
 export { isWrappedSeason };
@@ -492,6 +493,13 @@ export async function getWrapCard(userId: string, year: number, month: number | 
     genres: tally(finished.map((b) => b.genre), 3),
     moods,
   };
+}
+
+// The years and months a Wrap card has books for (packages/shared/src/wrapCards.ts cardPeriodKeys): shared
+// finishes only, as getWrapCard draws them, so a year of only private books isn't offered.
+export async function getCardPeriods(userId: string): Promise<string[]> {
+  const { finishes } = await readingData(userId, true);
+  return cardPeriodKeys(finishes.flatMap((f) => (f.outcome === "COMPLETED" && f.year !== null && f.month !== null ? [{ year: f.year, month: f.month + 1 }] : [])));
 }
 
 // The year and month (0 to 11) a monthly card URL names, if that month has started: 2000 up to now.

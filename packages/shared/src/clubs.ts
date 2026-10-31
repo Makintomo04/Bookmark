@@ -64,6 +64,16 @@ export function canRemoveFromClub(actor: ClubRole, target: ClubRole) {
 // Only the host names co-hosts, and renames or archives the club.
 export const canEditClubSettings = (role: ClubRole | null | undefined) => role === "host"
 
+// An archived club's host and co-hosts keep moderating its finished books (apps/web/lib/buddyReadsServer.ts
+// canModerate), so the host can still change who that is without reopening the club: they can take co-host
+// away and remove anyone. Nobody is made a co-host, and co-hosts remove no one, until it's reopened.
+export function canRemoveFromClubNow(actor: ClubRole, target: ClubRole, active: boolean) {
+  return (active || actor === "host") && canRemoveFromClub(actor, target)
+}
+export function canSetCoHost(actor: ClubRole | null | undefined, coHost: boolean, active: boolean) {
+  return canEditClubSettings(actor) && (active || !coHost)
+}
+
 // Removing a reader from one of the club's books follows the club's roles, whoever started the book: a co-host
 // can't remove the club's host or another co-host from it (and so lock them out of it). Nobody removes the
 // book's own host. Someone no longer in the club counts as a member. `actor` is null when they've left the
@@ -88,8 +98,8 @@ export function admittedWithinCap(joinOrder: string[], userId: string, cap: numb
 }
 
 // Who the public invite shows, to anyone with the link, signed out included: members with a public profile
-// who haven't blocked the viewer (or been blocked by them), and who aren't suspended. The host is named on the
-// invite whatever their settings, since the link is theirs. Everyone counts towards "N others".
+// who haven't blocked the viewer (or been blocked by them), and who aren't suspended. Everyone counts towards
+// "N others".
 export type InviteMember = { userId: string, profileVisibility?: string | null, suspended?: boolean }
 export function inviteFaces<T extends InviteMember>(members: T[], opts: { hostId: string, viewerId?: string | null, blocked: Set<string> }) {
   return members.filter((m) => {
@@ -97,6 +107,15 @@ export function inviteFaces<T extends InviteMember>(members: T[], opts: { hostId
     if (opts.blocked.has(m.userId) || m.suspended) return false
     return (m.profileVisibility ?? "PUBLIC") === "PUBLIC"
   })
+}
+
+// The host an invite names ("<host> invited you"), on the same terms as the faces: never while suspended or
+// blocked either way, and not a private profile, since members forward the link beyond anyone the host chose.
+// `hostId` is the club's host for a club's book, not whoever started it (a co-host, perhaps private). Null
+// names nobody, and the invite says "A reader".
+export function inviteHost<T extends InviteMember>(members: T[], hostId: string | null, opts: { viewerId?: string | null, blocked: Set<string> }): T | null {
+  const row = hostId ? members.find((m) => m.userId === hostId) : undefined
+  return row && inviteFaces([row], { hostId: row.userId, ...opts }).length > 0 ? row : null
 }
 
 // ---- The club's books ---------------------------------------------------------------------

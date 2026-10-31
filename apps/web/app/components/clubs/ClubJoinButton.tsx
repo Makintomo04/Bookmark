@@ -6,6 +6,7 @@ import { useSWRConfig } from 'swr'
 import { notify, apiError } from '@/lib/notify'
 import { primaryButtonClass } from '../profile-head/ProfileHeader'
 import { cn } from '@/lib/utils'
+import { useRemindersPrompt } from '@/app/hooks/useEarnMoment'
 
 const ClubJoinButton: FC<{ code: string }> = ({ code }) => {
   const router = useRouter()
@@ -19,6 +20,8 @@ const ClubJoinButton: FC<{ code: string }> = ({ code }) => {
       // Its circles find your copy in the cached shelf, which the layout keeps mounted: refresh it first.
       await mutate("/api/books/")
       router.push(`/clubs/${data.clubId}`)
+      // Never offered reminders yet: checkpoints are what a new member needs (RemindersSheet, in the root layout).
+      if (data.askReminders) useRemindersPrompt.getState().ask(data.askReminders)
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't join. Try again."), { retry: join })
       setIsJoining(false)

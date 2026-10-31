@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { AppState, Linking, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import { api } from "@/lib/api";
+import { secureStorage } from "@/lib/secureStorage";
 
 // Push notifications. The server decides what's pushed and words it (packages/shared/src/push.ts); the
 // app registers this phone's Expo push token, shows pushes while open, and opens the screen a tapped
@@ -12,6 +13,10 @@ import { api } from "@/lib/api";
 
 let token: string | null = null;
 export const currentPushToken = () => token;
+
+// The token this phone last registered, kept across launches, so it can be taken back once notifications are
+// switched off for Bookmark (syncPushPermission) even in a session that never registered it.
+const TOKEN_KEY = "bookmark.pushToken";
 
 const supported = Platform.OS === "ios" || Platform.OS === "android";
 
@@ -38,20 +43,64 @@ export async function registerForPush() {
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId: projectId() });
     token = data;
     await api.post("/api/push/tokens", { token: data, platform: Platform.OS });
+    await secureStorage.set(TOKEN_KEY, data);
   } catch (error) {
     console.warn("[push] couldn't register", error);
   }
 }
 
+// Each time the app comes back: with notifications allowed, the token is registered (again, if they were just
+// switched back on); without, this phone's token is taken back, so the server stops counting it as a way to
+// reach the reader and sends what has an email form (circle checkpoints, apps/web/lib/jobs/checkpointReminders.ts)
+// by email instead. Never asks: only registerForPush does, once.
+export async function syncPushPermission() {
+  if (!supported || !Device.isDevice || !projectId()) return;
+  try {
+    const { granted } = await Notifications.getPermissionsAsync();
+    if (granted) {
+      if (!token) await registerForPush();
+      return;
+    }
+    const stored = token ?? (await secureStorage.get(TOKEN_KEY));
+    if (!stored) return;
+    await api.delete("/api/push/tokens", { token: stored });
+    await secureStorage.remove(TOKEN_KEY);
+    token = null;
+  } catch (error) {
+    console.warn("[push] couldn't check permission", error);
+  }
+}
+
+// Runs syncPushPermission whenever the app comes back to the front (from the phone's settings, say).
+export function usePushPermissionSync() {
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void syncPushPermission();
+    });
+    return () => sub.remove();
+  }, []);
+}
+
+// The phone's settings page for Bookmark, where notifications are switched back on.
+export const openNotificationSettings = () => void Linking.openSettings().catch(() => {});
+
 // Whether the reader has switched notifications off for Bookmark in the phone's settings, so the app can't
-// ask again and pushes can't arrive. Reminders then say so and suggest email instead.
+// ask again and pushes can't arrive. Reminders then say so, offer the phone's settings and suggest email.
+// Checked again whenever the app comes back to the front, so coming back from Settings clears it.
 export function usePushBlocked(): boolean {
   const [blocked, setBlocked] = useState(false);
   useEffect(() => {
     if (!supported || !Device.isDevice) return;
-    Notifications.getPermissionsAsync()
-      .then((p) => setBlocked(!p.granted && !p.canAskAgain))
-      .catch(() => setBlocked(false));
+    const check = () => {
+      Notifications.getPermissionsAsync()
+        .then((p) => setBlocked(!p.granted && !p.canAskAgain))
+        .catch(() => setBlocked(false));
+    };
+    check();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") check();
+    });
+    return () => sub.remove();
   }, []);
   return blocked;
 }

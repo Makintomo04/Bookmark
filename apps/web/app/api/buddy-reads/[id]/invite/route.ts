@@ -51,9 +51,10 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } }),
   ]);
   if (isMember) return buddyReadError("They're already reading along.", 409);
-  // Someone the host removed only comes back if the host asks them to; inviting them lifts the removal.
+  // Someone the host removed only comes back if the host asks them to; inviting them lifts the removal. In an
+  // archived club's book its host and co-hosts can still remove readers (canModerate), so they can lift it too.
   const removal = await prisma.buddyReadRemoval.findUnique({ where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId: invitee.id } }, select: { id: true } });
-  if (removal && !membership.canManage) return buddyReadError("The host removed them from this reading circle. Only the host can invite them back.", 403);
+  if (removal && !membership.canModerate) return buddyReadError("The host removed them from this reading circle. Only the host can invite them back.", 403);
   if (count >= BUDDY_READ_MAX_MEMBERS) return buddyReadError(`This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, 409);
   // In a club's circle, accepting joins the club (the join route), so a removal from the club counts the same way.
   const clubRemoval = buddyRead.clubId

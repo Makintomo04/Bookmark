@@ -11,6 +11,17 @@ export async function finishClubBooks(clubId: string, db: Pick<Prisma.Transactio
   return count
 }
 
+// Starting the club's next book checks the club is active when the request starts, but the host can archive it
+// before the book is written. So the club is read again once it is: archived by then, its books are finished
+// again, the new one with them. The archive route finishes them once more after it commits, so whichever of
+// the two lands second catches the new book. Whether the club was still active.
+export async function settleNewClubBook(clubId: string, db: Pick<Prisma.TransactionClient, "club" | "buddyRead">) {
+  const club = await db.club.findUnique({ where: { id: clubId }, select: { status: true } })
+  if (club?.status === "ACTIVE") return true
+  await finishClubBooks(clubId, db)
+  return false
+}
+
 // Whether this member is among the first CLUB_MAX_MEMBERS to join (lib/clubs.ts admittedWithinCap). Joins
 // count after they're written, so two at once can't both pass the cap. Ties on joinedAt fall back to the
 // id, which is the order the rows were written.

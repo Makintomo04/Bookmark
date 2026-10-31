@@ -8,8 +8,9 @@ export const metadata: Metadata = {
   title: "Help me pick a book",
 }
 
-// "Help me pick my first book" (BOO-52): onboarding's option for a reader who doesn't know what to read
-// yet, and where an empty shelf, a Library with nothing on the go and Discover point.
+// The book picker (BOO-52): "Help me pick my first book" in onboarding, and "Can't decide? Help me pick a book"
+// from an empty shelf, a Library with nothing on the go and Discover, for any reader who doesn't know what to
+// read next.
 const Page = async () => {
   const user = await getCurrentUser()
   if (!user) redirect('/signin?callbackUrl=/first-book')

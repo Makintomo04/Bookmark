@@ -14,6 +14,7 @@ import {
   cardFileName,
   cardMonths,
   cardPath,
+  cardPeriodKey,
   cardYears,
   type CardDesign,
   type CardKind,
@@ -23,14 +24,15 @@ import {
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const button = 'inline-flex h-9 items-center gap-2 rounded-md px-3.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
-type Period = { year: number; month: number | null; label: string }
+type Period = { year: number; month: number | null; label: string; empty: boolean }
 
 // Every year back to the reader's first finish, newest first, each as the whole year and then its months, in
 // the profile's time zone (`today`, packages/shared/src/wrapCards.ts cardToday), as the server counts them.
-function periods(today: { year: number; month: number }, years: number[]): Period[] {
+// A period with no shared finishes (`filled`, cardPeriodKeys) is listed, but can't be picked.
+function periods(today: { year: number; month: number }, years: number[], filled: Set<string>): Period[] {
   return cardYears(today, years).flatMap((year) => [
-    { year, month: null, label: year === today.year ? `${year} so far` : `All of ${year}` },
-    ...cardMonths(year, today).map((month) => ({ year, month, label: `${MONTHS[month - 1]} ${year}` })),
+    { year, month: null, label: year === today.year ? `${year} so far` : `All of ${year}`, empty: !filled.has(cardPeriodKey(year, null)) },
+    ...cardMonths(year, today).map((month) => ({ year, month, label: `${MONTHS[month - 1]} ${year}`, empty: !filled.has(cardPeriodKey(year, month)) })),
   ])
 }
 
@@ -62,11 +64,15 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
 
 // Wrap cards on /stats (BOO-50): the cover grid or the stats card for a month or a year, in 9:16, 4:5 or
 // 1:1, drawn by /api/wrap/card. Midnight is free; the other designs are Plus.
-// `years`: the years with stats (lib/stats.ts), for how far back to offer.
-const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month: number }; years: number[] }> = ({ canPickDesigns, today, years }) => {
-  const options = useMemo(() => periods(today, years), [today, years])
-  // This month first, as before.
-  const [picked, setPicked] = useState(() => Math.max(0, options.findIndex((o) => o.month !== null)))
+// `filled`: the periods with shared finishes (lib/stats.ts getCardPeriods), for how far back to offer and which to grey out.
+const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month: number }; filled: string[] }> = ({ canPickDesigns, today, filled }) => {
+  const years = useMemo(() => filled.filter((k) => k.length === 4).map(Number), [filled])
+  const options = useMemo(() => periods(today, years, new Set(filled)), [today, years, filled])
+  // The latest month with books first, else the latest year with any, else this month.
+  const [picked, setPicked] = useState(() => {
+    const first = [options.findIndex((o) => o.month !== null && !o.empty), options.findIndex((o) => !o.empty), options.findIndex((o) => o.month !== null)].find((i) => i >= 0)
+    return first ?? 0
+  })
   const [kind, setKind] = useState<CardKind>('grid')
   const [size, setSize] = useState<CardSize>('story')
   const [design, setDesign] = useState<CardDesign>(DEFAULT_CARD_DESIGN)
@@ -142,7 +148,7 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
             >
               {cardYears(today, years).map((y) => (
                 <optgroup key={y} label={String(y)}>
-                  {options.map((o, i) => (o.year === y ? <option key={o.label} value={i}>{o.label}</option> : null))}
+                  {options.map((o, i) => (o.year === y ? <option key={o.label} value={i} disabled={o.empty && i !== picked}>{o.empty ? `${o.label} · no books` : o.label}</option> : null))}
                 </optgroup>
               ))}
             </select>

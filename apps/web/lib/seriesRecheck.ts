@@ -2,7 +2,7 @@ import prisma from "@/lib/db"
 import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf } from "@/lib/hardcover"
 import { seriesKey } from "@/lib/series"
 import { fileSeriesBooks } from "@/lib/seriesFill"
-import { placedPositions } from "@/lib/releaseRules"
+import { placeWhileUpcoming, placedPositions } from "@/lib/releaseRules"
 import { highestPosition, recordSeriesCheck, sendSeriesNews, type SeriesId } from "@/lib/seriesNews"
 
 // The hourly cron's work (app/api/cron/series), in three parts:
@@ -63,7 +63,7 @@ async function worksBySeries(names: string[]) {
   const works = names.length
     ? await prisma.work.findMany({
       where: { seriesName: { in: Array.from(new Set(names)) } },
-      select: { id: true, title: true, seriesName: true, seriesPosition: true, authors: true },
+      select: { id: true, title: true, seriesName: true, seriesPosition: true, authors: true, releaseDate: true },
     })
     : []
   const bySeries = new Map<string, typeof works>()
@@ -102,7 +102,7 @@ async function wantedKeys(due: { seriesKey: string, name: string }[]) {
 
 export interface UnrecordedSeries extends SeriesId {
   // The series' books in the catalogue, earliest first: the first is what Hardcover is asked about.
-  works: { title: string, seriesPosition: number | null }[]
+  works: { title: string, seriesPosition: number | null, releaseDate?: string | null }[]
 }
 
 // Series someone follows, or has a started book in, with no SeriesCheck. `activeSince` narrows them to
@@ -136,7 +136,7 @@ export async function unrecordedSeries({ activeSince }: { activeSince?: Date } =
   const recorded = new Set((await prisma.seriesCheck.findMany({ where: { seriesKey: { in: keys } }, select: { seriesKey: true } })).map((c) => c.seriesKey))
   return keys.filter((key) => !recorded.has(key)).map((key) => {
     const works = byPosition(bySeries.get(key)!)
-    return { key, name: works[0].seriesName!, author: works[0].authors[0], works: works.map((w) => ({ title: w.title, seriesPosition: w.seriesPosition })) }
+    return { key, name: works[0].seriesName!, author: works[0].authors[0], works: works.map((w) => ({ title: w.title, seriesPosition: w.seriesPosition, releaseDate: w.releaseDate })) }
   })
 }
 
@@ -170,7 +170,9 @@ export async function queueSeries(series: UnrecordedSeries[], now = new Date()):
 // furthest book again when it still doesn't know it. Nobody is told. Four Hardcover requests; throws like
 // lib/hardcover.ts. Returns whether Hardcover knew it.
 export async function lookUpSeries(series: UnrecordedSeries, now = new Date()): Promise<boolean> {
-  const catalogue = series.works.map((w) => w.seriesPosition)
+  // A book a librarian filed in its place ahead of its release date isn't the series' highest yet, or it would
+  // never be news once it's out (lib/seriesFill.ts fileSeriesBooks holds such places back the same way).
+  const catalogue = series.works.map((w) => placeWhileUpcoming(w.seriesPosition, w.releaseDate, now.toISOString().slice(0, 10)))
   const found = await hardcoverSeriesOf(series.works[0].title, series.author)
   const books = found ? await hardcoverSeriesBooks(found.id, series.author, now) : []
   await recordSeriesCheck(series, found?.id ?? null, [...catalogue, ...books.map((b) => b.position)], { checkedAt: now, announce: false })

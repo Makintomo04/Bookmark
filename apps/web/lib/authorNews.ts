@@ -89,11 +89,12 @@ export interface AuthorNewBookRow {
 
 // One notification per reader for one check's new books (a batch): the books they'd want, earliest out
 // first, counted, with the first named. An author's followers hear of all of them, a series' followers of
-// that series' books. A book already on their shelf (any status, an advance copy included) isn't news. A
-// reader already told about any of these books (`alreadyTold`, "<userId>|<workId>": announced, new in its
-// series, or out) isn't told again: a notification names only the first book it counts, so being told about
-// one is taken as being told about the batch. Later checks' books are their own batch.
-export function authorNewsNotifications({ authorFollowers, seriesFollowers, books, shelved = new Set(), alreadyTold = new Set() }: {
+// that series' books. A book already on their shelf (any status, an advance copy included) isn't news, and
+// nor is one they were told about before the batch was queued (`alreadyTold`, "<userId>|<workId>": announced,
+// new in its series, or out): they hear of the rest. A reader told about any of the batch's books since it was
+// queued (`toldByBatch`) isn't told again: that's this batch's own notification from an earlier run, which
+// names only the first book it counts. Later checks' books are their own batch.
+export function authorNewsNotifications({ authorFollowers, seriesFollowers, books, shelved = new Set(), alreadyTold = new Set(), toldByBatch = new Set() }: {
   authorFollowers: string[]
   // Readers following each series, by seriesKey.
   seriesFollowers: Map<string, string[]>
@@ -101,6 +102,7 @@ export function authorNewsNotifications({ authorFollowers, seriesFollowers, book
   // "<userId>|<workId>"
   shelved?: Set<string>
   alreadyTold?: Set<string>
+  toldByBatch?: Set<string>
 }): Prisma.NotificationUncheckedCreateInput[] {
   const inOrder = [...books].sort((a, b) => (a.releaseDate ?? "9999").localeCompare(b.releaseDate ?? "9999"))
   const wanted = new Map<string, Set<string>>()
@@ -108,8 +110,8 @@ export function authorNewsNotifications({ authorFollowers, seriesFollowers, book
   for (const userId of authorFollowers) for (const b of books) want(userId, b.workId)
   for (const b of books) for (const userId of (b.seriesKey && seriesFollowers.get(b.seriesKey)) || []) want(userId, b.workId)
   return Array.from(wanted.entries()).flatMap(([userId, ids]) => {
-    if (books.some((b) => alreadyTold.has(`${userId}|${b.workId}`))) return []
-    const fresh = inOrder.filter((b) => ids.has(b.workId) && !shelved.has(`${userId}|${b.workId}`))
+    if (books.some((b) => toldByBatch.has(`${userId}|${b.workId}`))) return []
+    const fresh = inOrder.filter((b) => ids.has(b.workId) && !shelved.has(`${userId}|${b.workId}`) && !alreadyTold.has(`${userId}|${b.workId}`))
     if (fresh.length === 0) return []
     return [{ userId, actorId: userId, type: "NEW_BOOK" as const, workId: fresh[0].workId, count: fresh.length }]
   })
@@ -198,21 +200,27 @@ async function moveReleaseDates(releases: HardcoverRelease[], today: string): Pr
 }
 
 // A book a librarian dates ahead (lib/catalogueFix.ts) is news like one Hardcover announces: it's queued on
-// its first author's check, as its own batch, and told by the next run (sendAuthorNews). Hardcover never
-// sees a self-published book that only a librarian has entered, so without this its author's followers would
-// get Upcoming and publication day but no heads-up. Readers already told about it, or who have it, are
-// skipped as usual. Returns whether it was queued.
+// each of its authors' checks, as its own batch, and told by the next run (sendAuthorNews), so a co-author's
+// followers hear too, as they do on publication day. Hardcover never sees a self-published book that only a
+// librarian has entered, so without this its authors' followers would get Upcoming and publication day but no
+// heads-up. Readers already told about it, or who have it, are skipped as usual, so a reader following two of
+// its authors hears once. Returns whether it was queued for anyone.
 export async function announceDatedByHand(work: { id: string, authors: string[], seriesName: string | null }, now = new Date()): Promise<boolean> {
-  const name = work.authors[0]
-  const slug = name ? authorSlug(name) : null
-  if (!name || !slug) return false
   const book = { workId: work.id, seriesName: work.seriesName, batch: `librarian:${now.toISOString()}` }
-  const check = await prisma.authorCheck.findUnique({ where: { slug }, select: { id: true, announcing: true } })
-  if (check?.announcing.some((b) => b.workId === work.id)) return false
-  if (check) await prisma.authorCheck.update({ where: { id: check.id }, data: { announcing: { push: book } } })
-  // Just past a week old, so the next run looks them up on Hardcover too, as queueAuthors would.
-  else await prisma.authorCheck.create({ data: { slug, name, seenBookIds: [], announcing: [book], checkedAt: new Date(now.getTime() - RECHECK_AFTER_DAYS * DAY_MS - 60_000) } })
-  return true
+  const authors = new Map(work.authors.flatMap((name) => {
+    const slug = authorSlug(name)
+    return slug ? [[slug, name] as const] : []
+  }))
+  let queued = false
+  for (const [slug, name] of Array.from(authors)) {
+    const check = await prisma.authorCheck.findUnique({ where: { slug }, select: { id: true, announcing: true } })
+    if (check?.announcing.some((b) => b.workId === work.id)) continue
+    if (check) await prisma.authorCheck.update({ where: { id: check.id }, data: { announcing: { push: book } } })
+    // Just past a week old, so the next run looks them up on Hardcover too, as queueAuthors would.
+    else await prisma.authorCheck.create({ data: { slug, name, seenBookIds: [], announcing: [book], checkedAt: new Date(now.getTime() - RECHECK_AFTER_DAYS * DAY_MS - 60_000) } })
+    queued = true
+  }
+  return queued
 }
 
 // Books an author check filed before it gave them a series have none, so the series' followers never heard
@@ -241,7 +249,14 @@ async function fillSeriesNames(releases: HardcoverRelease[]): Promise<number> {
 
 // Tells an author's followers, and the followers of each book's series, about the check's new books, up
 // to `limit` readers. Readers already told are skipped, so calling it again carries on where it stopped.
-export async function announceAuthorBooks(check: { slug: string, name: string, announcing: { workId: string, seriesName: string | null }[] }, limit = ANNOUNCE_BATCH): Promise<{ told: number, done: boolean }> {
+// When a batch was queued, from its key ("<ISO>", or "librarian:<ISO>" for announceDatedByHand). Null for books
+// queued before batches, so anyone told about any of them counts as told by it, as it always did. No database.
+export function batchQueuedAt(batch: string | null | undefined): Date | null {
+  const at = batch ? new Date(batch.replace(/^librarian:/, "")) : null
+  return at && !Number.isNaN(at.getTime()) ? at : null
+}
+
+export async function announceAuthorBooks(check: { slug: string, name: string, announcing: { workId: string, seriesName: string | null, batch?: string | null }[] }, limit = ANNOUNCE_BATCH): Promise<{ told: number, done: boolean }> {
   const books = check.announcing.map((b) => ({ workId: b.workId, seriesKey: b.seriesName ? seriesKey(b.seriesName, check.name) : null }))
   if (books.length === 0) return { told: 0, done: true }
   const workIds = books.map((b) => b.workId)
@@ -251,9 +266,13 @@ export async function announceAuthorBooks(check: { slug: string, name: string, a
     prisma.authorFollow.findMany({ where: { slug: check.slug }, select: { userId: true } }),
     seriesKeys.length ? prisma.seriesFollow.findMany({ where: { seriesKey: { in: seriesKeys } }, select: { userId: true, seriesKey: true } }) : [],
     prisma.book.findMany({ where: { workId: { in: workIds } }, select: { userId: true, workId: true } }),
-    prisma.notification.findMany({ where: { type: { in: [...BOOK_NEWS_TYPES] }, workId: { in: workIds } }, select: { userId: true, workId: true } }),
+    prisma.notification.findMany({ where: { type: { in: [...BOOK_NEWS_TYPES] }, workId: { in: workIds } }, select: { userId: true, workId: true, type: true, createdAt: true } }),
   ])
   const dateOf = new Map(works.map((w) => [w.id, w.releaseDate]))
+  // Told before the batch was queued: that book isn't news, but the rest are. A heads-up since: this batch's own.
+  const queuedAt = batchQueuedAt(check.announcing[0]?.batch)
+  const byBatch = (n: (typeof told)[number]) => !queuedAt || (n.type === "NEW_BOOK" && n.createdAt >= queuedAt)
+  const key = (n: (typeof told)[number]) => `${n.userId}|${n.workId}`
   const seriesFollowers = new Map<string, string[]>()
   for (const f of seriesFollows) seriesFollowers.set(f.seriesKey, [...(seriesFollowers.get(f.seriesKey) ?? []), f.userId])
   const rows = authorNewsNotifications({
@@ -262,7 +281,8 @@ export async function announceAuthorBooks(check: { slug: string, name: string, a
     // A work merged away since isn't news any more.
     books: books.filter((b) => dateOf.has(b.workId)).map((b) => ({ ...b, releaseDate: dateOf.get(b.workId) ?? null })),
     shelved: new Set(shelf.map((b) => `${b.userId}|${b.workId}`)),
-    alreadyTold: new Set(told.map((n) => `${n.userId}|${n.workId}`)),
+    alreadyTold: new Set(told.filter((n) => !byBatch(n)).map(key)),
+    toldByBatch: new Set(told.filter(byBatch).map(key)),
   })
   await createNotifications(rows.slice(0, limit))
   return { told: Math.min(rows.length, limit), done: rows.length <= limit }
@@ -276,6 +296,14 @@ export function announcementBatches<T extends { batch?: string | null }>(announc
   return Array.from(batches.values())
 }
 
+// Which queued books a told batch is, to take out of the queue: its books in that batch only, so the same book
+// queued again since (a new batch) stays. Books queued before batches have none. No database.
+export function sentBatchWhere(books: { workId: string, batch?: string | null }[]): Prisma.AuthorNewBookWhereInput {
+  const workId = { in: books.map((b) => b.workId) }
+  const batch = books[0]?.batch
+  return batch ? { workId, batch } : { workId, OR: [{ batch: null }, { batch: { isSet: false } }] }
+}
+
 // Tells readers about every check's queued books, a batch at a time, until `deadline` (ms since the epoch).
 // A batch whose readers have all been told leaves the queue; the rest carry on next run.
 export async function sendAuthorNews({ deadline }: { deadline: number }): Promise<{ told: number, announcing: number }> {
@@ -286,12 +314,13 @@ export async function sendAuthorNews({ deadline }: { deadline: number }): Promis
   let told = 0
   let announcing = 0
   for (const check of queued) {
-    const left: typeof check.announcing = []
+    const sent: Prisma.AuthorNewBookWhereInput[] = []
+    let left = 0
     for (const books of announcementBatches(check.announcing)) {
       let done = false
       try {
         while (!done && Date.now() < deadline) {
-          const batch = await announceAuthorBooks({ ...check, announcing: books.map((b) => ({ workId: b.workId, seriesName: b.seriesName ?? null })) })
+          const batch = await announceAuthorBooks({ ...check, announcing: books.map((b) => ({ workId: b.workId, seriesName: b.seriesName ?? null, batch: b.batch ?? null })) })
           told += batch.told
           done = batch.done
         }
@@ -299,11 +328,13 @@ export async function sendAuthorNews({ deadline }: { deadline: number }): Promis
         // Left queued; readers not yet told are told next run.
         console.warn(`author news: couldn't tell readers of ${check.name}:`, err instanceof Error ? err.message : err)
       }
-      if (!done) left.push(...books)
+      if (done) sent.push(sentBatchWhere(books))
+      else left += books.length
     }
-    // Only this run adds announcements, and it already has, so rewriting the queue can't lose a newer one.
-    if (left.length < check.announcing.length) await prisma.authorCheck.update({ where: { id: check.id }, data: { announcing: left } })
-    if (left.length) announcing++
+    // Only the batches told are taken out. A librarian's date, or an overlapping check, can queue more while this
+    // runs (announceDatedByHand, checkDue), so the queue is never rewritten from what was read at the start.
+    if (sent.length) await prisma.authorCheck.update({ where: { id: check.id }, data: { announcing: { deleteMany: { where: { OR: sent } } } } })
+    if (left) announcing++
   }
   return { told, announcing }
 }
@@ -383,7 +414,8 @@ async function checkDue(result: AuthorNewsResult, followed: Set<string>, { now, 
           data: {
             // Kept with what was seen before, so a book Hardcover drops for a week isn't new when it's back.
             seenBookIds: Array.from(new Set([...seenIdsOf(releases), ...check.seenBookIds])).slice(0, 200),
-            ...(filed.length && { announcing: [...check.announcing, ...filed] }),
+            // Pushed, not rewritten, so a librarian's date queued since the run read this check isn't lost.
+            ...(filed.length && { announcing: { push: filed } }),
             checkedAt: now,
           },
         })

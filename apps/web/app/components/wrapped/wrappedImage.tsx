@@ -4,6 +4,7 @@ import { readableInk, shade, toHex } from '@/lib/colour'
 import { MONTHS } from './copy'
 import { siteUrl } from '@/lib/siteUrl'
 import { starClip } from '@bookmark/shared/rating'
+import { shareImageData } from '@/lib/shareImages'
 
 // Wrapped share images, in the reader card's visual language (app/(main)/u/[username]/opengraph-image.tsx):
 // the near-black ground with the reader's colour glowing from a corner, the accent rule, Inter, and the
@@ -17,43 +18,11 @@ export const MUTED = '#A1A1AA'
 const BOOKMARK_PATH = 'M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 28.7452 0.943359 26.536L0.943358 4.61413C0.943358 2.40504 2.73414 0.614201 4.94324 0.614134L25.5092 0.613509C28.7291 0.613412 30.6295 4.22392 28.8065 6.87812L24.3892 13.3096C23.4521 14.6739 23.4521 16.4745 24.3892 17.8388L28.8068 24.2708C30.6297 26.9249 28.7296 30.5353 25.5097 30.5354Z'
 export const STAR_PATH = 'M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7.1L12 17.3 5.8 21l1.6-7.1L2 9.2l7.1-.6z'
 
-// Same rules as the reader card: Satori only draws images it can decode, its fetches have no
-// timeout, and covers are user-set strings, so fetch only from the hosts we serve images from.
-const DRAWABLE = ['image/png', 'image/jpeg', 'image/gif']
-// assets.hardcover.app: covers of books found through the Hardcover fallback (lib/hardcover.ts, next.config.mjs).
-const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'assets.hardcover.app', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
+// Covers are fetched as the other share images fetch them (lib/shareImages.ts): only from the hosts we serve
+// images from, with a timeout, and only kinds Satori can draw.
+export const imageData = shareImageData
 
-// Not the request's Host header, which the client controls.
-const siteOrigin = siteUrl
-export const siteHost = new URL(siteOrigin).host
-
-function imageUrl(url: string | null | undefined) {
-  if (!url) return null
-  if (url.startsWith('/') && !url.startsWith('//')) return new URL(url, siteOrigin)
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'https:' && IMAGE_HOSTS.includes(parsed.hostname) ? parsed : null
-  } catch {
-    return null
-  }
-}
-
-// `timeout` in ms: a Wrap card fetches dozens of covers at once and Open Library is slow to answer them all.
-export async function imageData(url: string | null | undefined, timeout = 3000) {
-  const target = imageUrl(url)
-  if (!target) return null
-  try {
-    const res = await fetch(target, { signal: AbortSignal.timeout(timeout) })
-    const type = res.headers.get('content-type')?.split(';')[0].trim() ?? ''
-    if (!res.ok || !DRAWABLE.includes(type)) return null
-    const bytes = Buffer.from(await res.arrayBuffer())
-    // Open Library answers a missing cover with a 1×1 GIF of a few dozen bytes: no cover, not a blank one.
-    if (bytes.length < 200) return null
-    return `data:${type};base64,${bytes.toString('base64')}`
-  } catch {
-    return null
-  }
-}
+export const siteHost = new URL(siteUrl).host
 
 // A Google font, subset to the image's text: Inter, or Literata for a card's title.
 export async function googleFont(family: 'Inter' | 'Literata', weight: 400 | 600 | 700 | 800, text: string) {

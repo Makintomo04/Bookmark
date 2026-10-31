@@ -1,6 +1,6 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
-import { clockLabel, parseMinute, SHEET_INTRO, withChange, type NotificationSettings } from '@bookmark/shared/reminders'
+import { clockLabel, parseMinute, SHEET_INTRO, suggestedReminders, withChange, type NotificationSettings } from '@bookmark/shared/reminders'
 import { useEarnMoment, useRemindersPrompt } from '@/app/hooks/useEarnMoment'
 import useNotificationSettings from '@/app/hooks/useNotificationSettings'
 import { notify } from '@/lib/notify'
@@ -24,11 +24,9 @@ const RemindersSheet: FC = () => {
     if (!asked || celebrating || !settings) return
     if (settings.prompted) return done()
     const timer = setTimeout(() => {
-      // Suggest what can reach them: the phone reminders when they have the app, otherwise the weekly email
-      // and checkpoint emails.
-      setDraft(settings.hasPhone
-        ? withChange(settings, { reminders: { dailyAt: settings.reminders.dailyAt ?? DEFAULT_REMINDER_AT, streak: true, checkpoints: true } })
-        : withChange(settings, { reminders: { checkpoints: true }, email: { weekly: true } }))
+      // Suggest what can reach them: the phone reminders when they have the app (just checkpoints after joining
+      // a circle or club), otherwise the weekly email and checkpoint emails.
+      setDraft(withChange(settings, suggestedReminders(asked, settings.hasPhone, settings.reminders.dailyAt, DEFAULT_REMINDER_AT)))
       setOpen(true)
     }, 800)
     return () => clearTimeout(timer)

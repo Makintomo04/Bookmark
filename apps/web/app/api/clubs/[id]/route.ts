@@ -48,5 +48,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       },
     });
   });
+  // A book started while this ran isn't in what the transaction read: finish it now (lib/clubLimits.ts settleNewClubBook).
+  if (status === "ARCHIVED" && membership.club.status !== "ARCHIVED") await finishClubBooks(membership.club.id, prisma);
   return NextResponse.json({ id: updated.id, status: updated.status });
 }

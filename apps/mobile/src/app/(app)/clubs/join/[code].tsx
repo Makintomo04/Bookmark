@@ -14,6 +14,8 @@ import { ApiError, api } from "@/lib/api";
 import { refreshAfterBookChange } from "@/lib/books";
 import type { ClubInvite, ClubInviteBook } from "@/lib/clubs";
 import { useTheme } from "@/lib/theme";
+import { useRemindersPrompt } from "@/lib/earnMoment";
+import type { AskReason } from "@bookmark/shared/reminders";
 
 // A club's invite link (https://<site>/clubs/join/<code>, handed to the app): the club, its host, who's in,
 // and what it's reading and what's next, then Join. Members go straight to the club, as on the web.
@@ -47,12 +49,14 @@ export default function JoinClub() {
     setJoining(true);
     setJoinError(null);
     try {
-      const result = await api.post<{ ok: boolean; clubId: string; alreadyMember: boolean; circleIds: string[] }>("/api/clubs/join", { code });
+      const result = await api.post<{ ok: boolean; clubId: string; alreadyMember: boolean; circleIds: string[]; askReminders?: AskReason | false }>("/api/clubs/join", { code });
       // The club's books went on the shelf; its circles find your copy there.
       await refreshAfterBookChange();
       void mutate("/api/clubs");
       void mutate("/api/buddy-reads");
       router.replace(`/clubs/${result.clubId}`);
+      // Never offered reminders yet: checkpoints are what a new member needs (RemindersSheet, in the app layout).
+      if (result.askReminders) useRemindersPrompt.setState({ asked: result.askReminders });
     } catch (e) {
       setJoinError(e instanceof ApiError ? e.message : "Couldn't join. Try again.");
       setJoining(false);

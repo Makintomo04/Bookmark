@@ -161,18 +161,34 @@ export const REMINDER_COPY = {
   phoneOnly: "The daily reminder and streak alert arrive on your phone through the Bookmark app.",
   unverified: "Confirm your email address first: Bookmark only emails a confirmed address.",
   // Push is switched off for Bookmark in the phone's settings.
-  blocked: "Notifications are off for Bookmark on this phone. Turn them on in your phone's settings, or use the weekly email.",
+  blocked: "Notifications are off for Bookmark on this phone. Turn them on in your phone's settings, or use the weekly email. Circle checkpoints come by email meanwhile, once your address is confirmed.",
+  openSettings: "Open phone settings",
 } as const;
 
 // Why the reminders sheet is offered, once (User.remindersPromptedAt): the first book finished here, a
 // third day of reading, or a reading goal set. Whichever comes first; never at sign-up.
-export type AskReason = "finished" | "habit" | "goal";
+export type AskReason = "finished" | "habit" | "goal" | "joined";
 export const ASK_HABIT_DAYS = 3;
 export const SHEET_INTRO: Record<AskReason, string> = {
   finished: "Well done on finishing.",
   habit: "Three days of reading already.",
   goal: "Your goal is set.",
+  joined: "You're in. A circle checkpoint can tell you two days before a section is due.",
 };
+
+// Joining a club or a reading circle (not one you were in already) is a moment to offer reminders too, if
+// they've never been offered: checkpoints are what a member needs. No database.
+export const askOnJoin = (joined: { alreadyMember: boolean }, promptedAt: Date | null | undefined): AskReason | false =>
+  !joined.alreadyMember && !promptedAt ? "joined" : false;
+
+// What the reminders sheet suggests turning on. After joining, circle checkpoints first; otherwise the daily
+// reminder and streak alert too. Without the app, or with notifications off on this phone, what can still
+// reach them by email: checkpoints and the weekly email.
+export function suggestedReminders(asked: AskReason, canPush: boolean, dailyAt: string | null, defaultAt: string): NotificationChange {
+  if (!canPush) return { reminders: { checkpoints: true }, email: { weekly: true } };
+  if (asked === "joined") return { reminders: { checkpoints: true } };
+  return { reminders: { dailyAt: dailyAt ?? defaultAt, streak: true, checkpoints: true } };
+}
 
 // Every time the daily reminder may be set to: quarter hours outside quiet hours.
 export const reminderTimes = (quiet: QuietHours): number[] =>

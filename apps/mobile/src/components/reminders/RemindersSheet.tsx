@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { clockLabel, parseMinute, SHEET_INTRO, withChange, type NotificationSettings } from "@bookmark/shared/reminders";
+import { clockLabel, parseMinute, SHEET_INTRO, suggestedReminders, withChange, type NotificationSettings } from "@bookmark/shared/reminders";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Sheet } from "@/components/ui/Sheet";
@@ -23,10 +23,9 @@ export function RemindersSheet() {
   useEffect(() => {
     if (!asked || celebrating || !settings) return;
     if (settings.prompted) return done();
-    // With notifications switched off for Bookmark, suggest what can still reach them: email.
-    const suggestion = blocked
-      ? { reminders: { checkpoints: true }, email: { weekly: true } }
-      : { reminders: { dailyAt: settings.reminders.dailyAt ?? DEFAULT_REMINDER_AT, streak: true, checkpoints: true } };
+    // With notifications switched off for Bookmark, suggest what can still reach them: email. After joining a
+    // circle or club, checkpoints first.
+    const suggestion = suggestedReminders(asked, !blocked, settings.reminders.dailyAt, DEFAULT_REMINDER_AT);
     const timer = setTimeout(() => setDraft(withChange(settings, suggestion)), 800);
     return () => clearTimeout(timer);
   }, [asked, celebrating, settings, done, blocked]);

@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
 import { Check, Ellipsis, Plus, Share2 } from "lucide-react-native";
 import { formatPercent } from "@bookmark/shared/buddyReads";
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX, canRemoveFromClub, circleSlotsLeft, type ClubRole } from "@bookmark/shared/clubs";
+import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, type ClubRole } from "@bookmark/shared/clubs";
 import { isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { readerName } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
@@ -274,8 +274,10 @@ function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const who = readerName(member) || "this reader";
-  const canRemove = !member.isYou && !archived && canRemoveFromClub(viewerRole, member.role);
-  const canPromote = !member.isYou && !archived && viewerRole === "host";
+  const canRemove = !member.isYou && canRemoveFromClubNow(viewerRole, member.role, !archived);
+  // An archived club's host can still take co-host away and remove readers, but makes no new co-hosts.
+  const canPromote = !member.isYou && member.role === "member" && canSetCoHost(viewerRole, true, !archived);
+  const canDemote = !member.isYou && member.role === "cohost" && canSetCoHost(viewerRole, false, !archived);
   const label = ROLE_LABEL[member.role];
 
   const setCoHost = async (coHost: boolean) => {
@@ -321,7 +323,7 @@ function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId:
           </Text>
         </Pressable>
         {label && <Text variant="small">{label}</Text>}
-        {(canRemove || canPromote) && (
+        {(canRemove || canPromote || canDemote) && (
           <Pressable accessibilityRole="button" accessibilityLabel={`Options for ${who}`} hitSlop={8} onPress={() => setMode(mode === "view" ? "menu" : "view")} style={styles.more}>
             <Ellipsis size={18} color={colors.mutedForeground} />
           </Pressable>
@@ -329,8 +331,8 @@ function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId:
       </View>
       {mode === "menu" && (
         <View style={styles.actionRow}>
-          {canPromote && member.role === "member" && <Button title="Make co-host" variant="ghost" disabled={busy} onPress={() => setCoHost(true)} />}
-          {canPromote && member.role === "cohost" && <Button title="Remove as co-host" variant="ghost" disabled={busy} onPress={() => setCoHost(false)} />}
+          {canPromote && <Button title="Make co-host" variant="ghost" disabled={busy} onPress={() => setCoHost(true)} />}
+          {canDemote && <Button title="Remove as co-host" variant="ghost" disabled={busy} onPress={() => setCoHost(false)} />}
           {canRemove && <Button title="Remove from club" variant="ghost" disabled={busy} onPress={() => setMode("remove")} />}
         </View>
       )}

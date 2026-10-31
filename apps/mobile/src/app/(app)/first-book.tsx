@@ -15,7 +15,7 @@ import { saveBook } from "@/lib/books";
 import { addBook } from "@/lib/discover";
 import { useTheme } from "@/lib/theme";
 
-// "Help me pick my first book" (the web's /first-book, BOO-52): your Want to read, what people you follow
+// The book picker (the web's /first-book, BOO-52), from onboarding or "Help me pick a book": your Want to read, what people you follow
 // loved, the team's picks and what's popular in your genres (packages/shared/src/firstBook.ts). No AI;
 // Ask the shelf comes after, labelled, and says it's off until they turn it on.
 export default function FirstBook() {

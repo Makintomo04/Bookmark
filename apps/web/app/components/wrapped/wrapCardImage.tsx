@@ -255,8 +255,9 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
   const title = cardTitle(card.year, card.month, card.isCurrent)
   const titleSize = fitTitle(title, contentWidth, m.title)
   const kicker = cardKicker(card.year, card.month)
-  // Books, not reads: a re-read in the period is one cover on the grid, so it's one book here too.
-  const stats = cardStats({ books: card.books.length, pages: card.pages, minutes: card.minutes })
+  // Books, not reads: a re-read in the period is one cover on the grid, so it's one book here too. The reads
+  // are said beside it when they differ, as /stats counts them.
+  const stats = cardStats({ books: card.books.length, reads: card.finishes, pages: card.pages, minutes: card.minutes })
   const moods = moodMix(card.moods)
   const rated = !hideRatings && card.books.some((b) => b.rating !== null)
 
@@ -325,7 +326,7 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
 // there's room.
 async function statsBody({ card, size, m, p, rated, textBits }: { card: WrapCardData; size: CardSize; m: typeof METRICS[CardSize]; p: Palette; rated: boolean; textBits: string[] }) {
   const numbers = [
-    ...cardStats({ books: card.books.length, pages: card.pages, minutes: card.minutes }),
+    ...cardStats({ books: card.books.length, reads: card.finishes, pages: card.pages, minutes: card.minutes }),
     ...(rated && card.averageRating !== null ? [{ value: `${card.averageRating.toFixed(1)}`, label: 'average rating' }] : []),
   ].slice(0, 4)
   const most = Math.max(1, ...card.ratings)

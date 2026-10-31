@@ -6,6 +6,7 @@ import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { parseBody } from "@/lib/buddyReadsServer";
 import { CLUB_REMOVED_MESSAGE, clubError, joinClub, loadClubInvite, wasRemovedFromClub } from "@/lib/clubsServer";
 import getCurrentUser from "@/app/actions/getCurrentUser";
+import { askOnJoin } from "@bookmark/shared/reminders";
 
 const joinSchema = z.object({ code: z.string().trim().regex(/^[a-z0-9]{6,20}$/, "That invite link doesn't look right.") });
 
@@ -52,5 +53,5 @@ export async function POST(req: Request) {
 
   const result = await joinClub(club, currentUser.id);
   if (!result.ok) return clubError(result.error, result.status);
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, askReminders: askOnJoin(result, currentUser.remindersPromptedAt) });
 }
