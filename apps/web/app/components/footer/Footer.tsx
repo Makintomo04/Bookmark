@@ -19,7 +19,7 @@ const Footer: FC = () => {
         <Link href="/terms" className={linkClassName}>Terms</Link>
         <Link href="/privacy" className={linkClassName}>Privacy</Link>
       </nav>
-    <p className='uppercase text-center pb-4 sm:pb-0 text-xs text-muted-foreground'>Designed and built by <a className={linkClassName} href="https://www.michaelakintomo.com" target="_blank" rel="noreferrer">Michael Akintomo</a></p>
+    <p className='text-center pb-4 sm:pb-0 text-xs text-muted-foreground'>Designed and built by <a className={linkClassName} href="https://www.michaelakintomo.com" target="_blank" rel="noreferrer">Michael Akintomo</a></p>
       </div>
       </div>
     </Container>
