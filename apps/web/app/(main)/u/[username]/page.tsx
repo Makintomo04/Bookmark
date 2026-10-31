@@ -123,11 +123,9 @@ export default async function Page(props: PageProps) {
 
   return (
     <div className="pt-4 pb-24 min-h-[calc(100vh_-_180px)] bg-background">
-      <Container>
-        {/* Signed out, the profile is also the reader's invite link (BOO-53). */}
-        {!viewer && <JoinBanner username={data.profile.username} name={readerName(data.profile)} />}
-        {content}
-      </Container>
+      {/* Signed out, the profile is also the reader's invite link (BOO-53): a full-width bar under the header. */}
+      {!viewer && <JoinBanner username={data.profile.username} name={readerName(data.profile)} />}
+      <Container>{content}</Container>
     </div>
   )
 }
