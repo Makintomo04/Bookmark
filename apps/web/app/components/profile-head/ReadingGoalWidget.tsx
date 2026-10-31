@@ -10,7 +10,7 @@ import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { entitlementsOf, isUpgradeRequired } from '@/lib/entitlements'
 import { GOAL_MONTHLY_MAX, GOAL_PAGES_MAX, monthTarget } from '@/lib/goals'
-import { streakText } from '@bookmark/shared/goals'
+import { expectedBooks, goalPace, streakText } from '@bookmark/shared/goals'
 import { Input as RawInput } from '../ui/input'
 import { Skeleton } from '../ui/skeleton'
 import UpgradePrompt from '../plus/UpgradePrompt'
@@ -22,29 +22,6 @@ const RING_RADIUS = 22
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const fmt = (n: number) => n.toLocaleString('en-GB')
-
-// Where the pace says you should be by now. It runs from 1 January, or from the day the goal was set if that was
-// later, starting from the books already read by then: so a reader who joins in October isn't told they're ten
-// behind on day one, and one who sets a goal with 150 read isn't told they're 150 ahead.
-const expectedBooks = (year: number, target: number, setAt?: string | Date | null, before = 0) => {
-  const yearStart = new Date(year, 0, 1).getTime()
-  const end = new Date(year + 1, 0, 1).getTime()
-  const start = Math.min(end, Math.max(yearStart, setAt ? new Date(setAt).getTime() : yearStart))
-  const from = start > yearStart ? Math.min(before, target) : 0
-  const fraction = start >= end ? 1 : Math.min(1, Math.max(0, (Date.now() - start) / (end - start)))
-  return from + (target - from) * fraction
-}
-
-const pace = (completed: number, target: number, expected: number) => {
-  const left = target - completed
-  if (left <= 0) return { text: completed > target ? `Goal smashed · ${completed - target} over` : "Goal reached", toGo: null, tone: "good" as const }
-  const diff = Math.round(completed - expected)
-  // "to go" is kept apart: a phone drops it to fit this month on the same line.
-  const toGo = `${left} to go`
-  if (diff > 0) return { text: `${diff} ahead of pace`, toGo, tone: "good" as const }
-  if (diff < 0) return { text: `${-diff} behind pace`, toGo, tone: "behind" as const }
-  return { text: "On pace", toGo, tone: "neutral" as const }
-}
 
 const toneClass = {
   good: "text-emerald-600 dark:text-emerald-400",
@@ -243,7 +220,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
 
   const ratio = Math.min(1, completedThisYear / target)
   const expected = expectedBooks(year, target, goal?.createdAt, counted?.beforeGoal)
-  const status = pace(completedThisYear, target, expected)
+  const status = goalPace(completedThisYear, target, expected)
   // The page goal shows while on Plus; a lapsed account keeps it for when it comes back. The monthly
   // target is a stat everyone gets: whole books this month to stay on track, or the Plus custom target.
   const pagesTarget = canExtra ? goal?.targetPages : null

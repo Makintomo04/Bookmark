@@ -6,7 +6,8 @@ import Loader from '../Loader';
 import { Book } from '@prisma/client';
 import useBooks from '@/app/hooks/useBooks';
 import Link from 'next/link';
-import { FileUp, Plus } from 'lucide-react';
+import { Compass, FileUp, Plus } from 'lucide-react';
+import { AiLabel } from '../discover/AskShelf';
 import { readableInk } from '@/lib/colour';
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader';
 import BookGrid from './BookGrid';
@@ -35,28 +36,34 @@ if(isErrorBooks) return <FetchErrorState error={isErrorBooks} what="your books" 
 // The shelf isn't in the server render, so until it arrives, its outline rather than an empty Currently reading.
 if(!books) return <ShelvesSkeleton own label="Loading your shelf"/>
 
-// Matches the Lists empty state below it. The header already has Add a book, so this card's
-// main job is the import nudge: most new readers have a shelf somewhere else already.
+// Matches the Lists empty state below it. The header already has Add a book, but most new readers either
+// have a shelf somewhere else (import) or don't know what to read yet (the first-book picker, Discover and,
+// labelled as AI, Ask the shelf), so it offers both.
 if(sortedBooks?.length === 0) return (
   <>
-  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
+  <div className="flex flex-col gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
     <div>
       <p className="font-medium">Your shelf is empty</p>
-      <p className="mt-1 text-sm text-muted-foreground">Add the book you&apos;re reading now, or bring your whole history over from Goodreads or StoryGraph in about a minute.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Not sure what to read? We&apos;ll suggest a few from the genres you picked and the people you follow. Or bring your whole history over from Goodreads or StoryGraph in about a minute.</p>
     </div>
-    <div className="flex flex-wrap gap-2 shrink-0">
-      <button
-        type="button"
-        onClick={() => bookEntryModal.onOpen()}
+    <div className="flex flex-wrap gap-2">
+      <Link
+        href="/first-book"
         className={primaryButtonClass}
         style={user?.favColour ? { background: user.favColour, color: readableInk(user.favColour) } : undefined}
       >
+        <Compass size={16} aria-hidden />Help me pick a book
+      </Link>
+      <button type="button" onClick={() => bookEntryModal.onOpen()} className={secondaryButtonClass}>
         <Plus size={16} aria-hidden />Add a book
       </button>
       <Link href="/import" className={secondaryButtonClass}>
         <FileUp size={15} aria-hidden />Import your books
       </Link>
     </div>
+    <p className="text-sm text-muted-foreground">
+      Or <Link href="/discover" className="font-medium text-foreground underline-offset-4 hover:underline">browse Discover</Link>, or <Link href="/discover/ask" className="font-medium text-foreground underline-offset-4 hover:underline">ask the shelf</Link> <AiLabel className="align-[1px]" /> in your own words.
+    </p>
   </div>
   </>
   )

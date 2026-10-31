@@ -26,7 +26,7 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { chromium } from "@playwright/test"
 
-const SEEDED = { "circle-host@bookmark.test": "read-together-2026", "circle-guest@bookmark.test": "read-together-2026" }
+const SEEDED = { "circle-host@bookmark.test": "read-together-2026", "circle-guest@bookmark.test": "read-together-2026", "first-run@bookmark.test": "read-together-2026" }
 const SIZES = {
   desktop: { viewport: { width: 1280, height: 800 } },
   mobile: { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true },
