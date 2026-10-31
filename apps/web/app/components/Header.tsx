@@ -5,8 +5,13 @@ import Link from 'next/link'
 import { Search } from 'lucide-react'
 import Container from './Container'
 import UserMenu from './header/UserMenu'
+import useUser from '@/app/hooks/useUser'
 
 const Header: FC = () => {
+  // Stats and Reading circles are a reader's own; signed out they only lead to sign-in (Stats) or an empty
+  // page (circles are invite-only), so a visitor sees Discover alone. Shown once we know who's here, like UserMenu.
+  const { user } = useUser()
+  const member = !!user?.id
   return (
     <Container>
       {/* 56px on a phone, 64px from sm: the bar is a way around, so it gives the page its height back. */}
@@ -24,12 +29,14 @@ const Header: FC = () => {
             <Search size={16} aria-hidden />
             Discover
           </Link>
-          <Link href="/stats" className="hidden md:inline-flex h-9 items-center px-2.5 lg:px-3 whitespace-nowrap rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            Stats
-          </Link>
-          <Link href="/circles" className="hidden md:inline-flex h-9 items-center px-2.5 lg:px-3 whitespace-nowrap rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            Reading circles
-          </Link>
+          {member && <>
+            <Link href="/stats" className="hidden md:inline-flex h-9 items-center px-2.5 lg:px-3 whitespace-nowrap rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Stats
+            </Link>
+            <Link href="/circles" className="hidden md:inline-flex h-9 items-center px-2.5 lg:px-3 whitespace-nowrap rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Reading circles
+            </Link>
+          </>}
           <UserMenu />
         </div>
       </header>

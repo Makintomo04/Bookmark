@@ -1,12 +1,12 @@
 "use client"
 import { FC, ReactNode, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSWRConfig } from 'swr'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { Copy } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
+import { askToJoin } from '@/app/hooks/useJoinPrompt'
 import { isListsKey } from '@/app/hooks/useLists'
 import type { EditableList } from '@/app/hooks/useListEditorModal'
 import { EditListButton } from '../discover/ListButtons'
@@ -19,8 +19,9 @@ export const CopyListButton: FC<{ listId: string }> = ({ listId }) => {
   const { user } = useUser()
   const [isBusy, setIsBusy] = useState(false)
 
+  // Signed out, it asks to join at this moment and brings them back to the list afterwards.
   if (!user?.id) {
-    return <Link href="/register" className={secondaryButtonClass}><Copy size={14} aria-hidden />Copy to my lists</Link>
+    return <button type="button" onClick={() => askToJoin("Join to copy this list")} className={secondaryButtonClass}><Copy size={14} aria-hidden />Copy to my lists</button>
   }
 
   const copy = () => {

@@ -1,6 +1,5 @@
 "use client"
 import { FC, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
@@ -14,6 +13,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useMoveToFinishedModal from '@/app/hooks/useMoveToFinishedModal'
 import useFavourite from '@/app/hooks/useFavourite'
+import { askToJoin } from '@/app/hooks/useJoinPrompt'
 import { moveBook, reshelveBook } from '../books/ShelfMenuItems'
 import { removeBookWithUndo } from '../books/removeBookWithUndo'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
@@ -50,7 +50,8 @@ const SHELVES = [
 ] as const
 type Shelf = (typeof SHELVES)[number]["status"]
 
-const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book, className }) => {
+// Signed out it asks to join: in place through `onJoin` inside a dialog (book details), else the join sheet.
+const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (heading: string) => void }> = ({ book, className, onJoin }) => {
   const router = useRouter()
   const { user } = useUser()
   const { books, mutate } = useBooks()
@@ -59,11 +60,13 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string }> = ({ book
   const { mutate: mutateFav } = useFavourite()
   const [isAdding, setIsAdding] = useState(false)
 
+  // Signed out, it asks to join at this moment, naming the book, and brings them back here afterwards.
   if (!user?.id) {
+    const heading = `Join to add ${book.title} to your shelf`
     return (
-      <Link href="/register" className={cn(base, outline, className)}>
+      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin(heading))} className={cn(base, outline, className)}>
         <Plus size={14} aria-hidden />Want to read
-      </Link>
+      </button>
     )
   }
 

@@ -13,6 +13,7 @@ import ListEditorModal from "../components/modals/ListEditorModal";
 import BookDetailsModal from "../components/modals/BookDetailsModal";
 import RecommendModal from "../components/modals/RecommendModal";
 import MoveToFinishedModal from "../components/modals/MoveToFinishedModal";
+import JoinPromptModal from "../components/modals/JoinPromptModal";
 import TierPreviewBadge from "../components/dev/TierPreviewBadge";
 import Footer from "../components/footer/Footer";
 import RoleWelcome from "../components/staff/RoleWelcome";
@@ -36,6 +37,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <BookDetailsModal/>
         <RecommendModal/>
         <MoveToFinishedModal/>
+        <JoinPromptModal/>
         <TierPreviewBadge/>
         <RoleWelcome/>
         {/* Reads the search params, so it sits in its own Suspense boundary rather than making every page dynamic. */}

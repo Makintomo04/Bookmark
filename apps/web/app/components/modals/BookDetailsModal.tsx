@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect } from 'react'
+import { FC, useEffect, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { Maximize2 } from 'lucide-react'
@@ -24,6 +24,7 @@ import AuthorLink from '@/app/components/AuthorLink'
 import { bookHref, bookKeyOf } from '@/lib/workKey'
 import BookProblemReport from '../books/BookProblemReport'
 import ModalSeries from '../series/ModalSeries'
+import InlineJoinPrompt from '../InlineJoinPrompt'
 
 // "12 reviews", linking to them on the book's page: the reason most people open the page, so the panel says
 // what's waiting there. Same request as the page's first page of reviews, so opening the page is quicker.
@@ -55,6 +56,10 @@ const BookDetailsModal: FC = () => {
     if (isOpen && (entryOpen || listEditorOpen)) onClose()
   }, [isOpen, entryOpen, listEditorOpen, onClose])
 
+  // Signed out, a members-only button here asks to join in place (InlineJoinPrompt), not in a second modal.
+  const [joinHeading, setJoinHeading] = useState<string | null>(null)
+  useEffect(() => { setJoinHeading(null) }, [isOpen, bookKey])
+
   const body = book ? (
     <div className="w-full self-start px-6 pb-2 grid gap-6 sm:grid-cols-[160px_1fr]">
       <div className="flex flex-col items-start">
@@ -77,9 +82,10 @@ const BookDetailsModal: FC = () => {
             {[book.year, book.pages && `${book.pages} pages`].filter(Boolean).map((part) => ` · ${part}`).join("")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-1.5">
-            <AddToShelfButton book={book} />
-            <StartCircleButton book={book} />
+            <AddToShelfButton book={book} onJoin={setJoinHeading} />
+            <StartCircleButton book={book} onJoin={setJoinHeading} />
             <AddToListButton book={book} />
+            {joinHeading && <InlineJoinPrompt key={joinHeading} heading={joinHeading} onClose={() => setJoinHeading(null)} />}
           </div>
         </div>
         <ReaderCounts bookKey={bookKey} />

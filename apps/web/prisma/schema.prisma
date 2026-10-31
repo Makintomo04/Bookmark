@@ -92,6 +92,9 @@ model User {
   // Shown in place of the username on their profile, cards and feed rows (packages/shared/src/profile.ts has the
   // rules). Unset shows the username.
   displayName            String?
+  // Up to four web addresses on the profile, so it works as a link in bio (packages/shared/src/profile.ts).
+  // Shown to whoever can see the profile, like the bio.
+  profileLinks           String[]                 @default([])
   email                  String?                  @unique
   emailVerified          DateTime?
   // IANA zone (e.g. "Europe/London") reported by the browser; reading-streak days roll over at its midnight.

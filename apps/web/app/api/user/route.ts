@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { User } from "@prisma/client";
-import { BIO_MAX, displayNameProblem, isAllowedImageUrl, isHexColour, normaliseDisplayName, normaliseUsername, usernameProblem } from "@/lib/profile";
+import { BIO_MAX, displayNameProblem, isAllowedImageUrl, isHexColour, normaliseDisplayName, normaliseProfileLink, normaliseUsername, profileLinksProblem, usernameProblem } from "@/lib/profile";
 import { isStorableBanner } from "@/lib/banners";
 import { SubscriptionCancelError, deleteAccount } from "@/lib/accountDeletion";
 import { deleteAccountUploads } from "@/lib/uploadedImagesServer";
@@ -75,8 +75,15 @@ if (imageSrc != null && imageSrc !== currentUser.image && !isAllowedImageUrl(ima
 if (color != null && !isHexColour(color)) {
   return NextResponse.json({ error: "Pick a colour from the list or the picker." }, { status: 400 });
 }
+// Optional like the display name: left out keeps them, an empty list clears them. Blank rows are dropped.
+const rawLinks = Array.isArray(body.profileLinks) ? body.profileLinks.filter((l: unknown) => typeof l !== "string" || l.trim() !== "") : body.profileLinks;
+const linksError = rawLinks === undefined ? null : profileLinksProblem(rawLinks);
+if (linksError) {
+  return NextResponse.json({ error: linksError }, { status: 400 });
+}
+const profileLinks = rawLinks === undefined ? undefined : (rawLinks as string[]).map((l) => normaliseProfileLink(l)!);
 
-const updatedData:Record<string,string | null> = {
+const updatedData:Record<string,string | string[] | null> = {
 };
 
 // Check for changed fields and update data accordingly
@@ -98,10 +105,13 @@ if (bio !== undefined && bio !== currentUser.bio) {
 if (color != null && color !== currentUser.favColour) {
   updatedData["favColour"] = color;
 }
+if (profileLinks !== undefined && profileLinks.join("\n") !== (currentUser.profileLinks ?? []).join("\n")) {
+  updatedData["profileLinks"] = profileLinks;
+}
 
-if (updatedData.username) {
+if (usernameChanged) {
   // Case-insensitive, so a new "alice" can't sit beside an older "Alice".
-  const existingUser = await prisma.user.findFirst({ where: { username: { equals: updatedData.username, mode: "insensitive" }, NOT: { id: currentUser.id } }, select: { id: true } });
+  const existingUser = await prisma.user.findFirst({ where: { username: { equals: username, mode: "insensitive" }, NOT: { id: currentUser.id } }, select: { id: true } });
   if (existingUser && existingUser.id !== currentUser.id) {
     return NextResponse.json({ error: "That username is already taken." }, { status: 409 });
   }

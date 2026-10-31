@@ -39,7 +39,8 @@ const ShareProfileButton: FC<ShareProfileButtonProps> = ({ username }) => {
   return (
     // An icon beside the display name, quiet until hovered; the label is for screen readers and the tooltip.
     <button type="button" onClick={share} aria-label={label} title={label}
-      className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-neutral-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-800">
+      // 44px on touch screens (the design system's minimum), compact with a mouse.
+      className="inline-flex size-11 pointer-fine:size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-neutral-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-800">
       {copied ? <Check size={18} aria-hidden /> : <Share2 size={18} aria-hidden />}
     </button>
   )
