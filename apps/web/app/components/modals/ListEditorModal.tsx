@@ -56,6 +56,8 @@ const ListEditorModal: FC = () => {
   const [tagInput, setTagInput] = useState("")
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  // Deleting also sets isSaving to lock the form; this says which button is busy.
+  const [isDeleting, setIsDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   // Staff editing someone else's list: an optional note for the staff log. Not part of the list itself.
   const [reason, setReason] = useState("")
@@ -149,6 +151,7 @@ const ListEditorModal: FC = () => {
 
   const remove = () => {
     setIsSaving(true)
+    setIsDeleting(true)
     axios.delete(`/api/lists/${draft.id}`).then(() => {
       notify.success("List deleted")
       onClose()
@@ -157,7 +160,7 @@ const ListEditorModal: FC = () => {
       router.refresh()
     }).catch(() => {
       notify.error("Couldn't delete this list. Try again.", { retry: remove })
-    }).finally(() => setIsSaving(false))
+    }).finally(() => { setIsSaving(false); setIsDeleting(false) })
   }
 
   const details = (
@@ -370,15 +373,15 @@ const ListEditorModal: FC = () => {
       {/* Only owners can delete. Staff hide someone else's list instead, so its reports stay on record. */}
       {!isNew && isOwner && (confirmDelete ? (
         <div className="mr-auto flex items-center gap-2">
-          <Button type="button" onClick={remove} disabled={isSaving} variant="destructive">Delete list</Button>
+          <Button type="button" onClick={remove} disabled={isSaving} loading={isDeleting} variant="destructive">Delete list</Button>
           <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)} disabled={isSaving}>Keep it</Button>
         </div>
       ) : (
         <Button type="button" variant="outline" onClick={() => setConfirmDelete(true)} disabled={isSaving} className="mr-auto text-danger hover:text-danger">Delete</Button>
       ))}
       <Button type="button" variant="outline" onClick={close} disabled={isSaving} className="hidden sm:inline-flex">{isDirty ? "Cancel" : "Close"}</Button>
-      <Button type="button" onClick={save} disabled={isSaving || !isDirty || !draft.title.trim()} style={{ background: accent, color: readableInk(accent) }}>
-        {isSaving ? "Saving…" : isNew ? "Create list" : "Save changes"}
+      <Button type="button" onClick={save} disabled={isSaving || !isDirty || !draft.title.trim()} loading={isSaving && !isDeleting} style={{ background: accent, color: readableInk(accent) }}>
+        {isSaving && !isDeleting ? "Saving…" : isNew ? "Create list" : "Save changes"}
       </Button>
     </div>
   )

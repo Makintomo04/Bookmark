@@ -57,7 +57,7 @@ const MoveToFinishedModal: FC = () => {
   const footer = (
     <div className="w-full p-6 flex items-center justify-end gap-3">
       <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
-      <Button style={{ background: colour, color: readableInk(colour) }} onClick={move} disabled={isSaving}>Move to Finished</Button>
+      <Button style={{ background: colour, color: readableInk(colour) }} onClick={move} loading={isSaving}>Move to Finished</Button>
     </div>
   )
 

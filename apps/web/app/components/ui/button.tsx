@@ -1,9 +1,9 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { on } from "events"
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
@@ -39,18 +39,34 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  // Disables the button and puts a spinner before its label while a request is in flight.
+  // Ignored with asChild, where the child owns its own content.
+  loading?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size,onClick, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading = false, disabled, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+    const busy = loading && !asChild
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        onClick={onClick}
+        className={cn(
+          buttonVariants({ variant, size, className }),
+          // A busy button is still the one the reader pressed, so it stays more solid than a disabled one.
+          busy && "disabled:opacity-80"
+        )}
         ref={ref}
+        disabled={disabled || busy}
+        aria-busy={busy || undefined}
         {...props}
-      />
+      >
+        {busy ? (
+          <>
+            <Loader2 size={size === "sm" ? 14 : 16} className="mr-2 shrink-0 animate-spin" aria-hidden />
+            {children}
+          </>
+        ) : children}
+      </Comp>
     )
   }
 )
