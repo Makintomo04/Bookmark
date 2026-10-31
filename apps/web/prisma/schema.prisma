@@ -1474,3 +1474,18 @@ model Appeal {
   @@index([status, createdAt])
   @@index([userId])
 }
+
+// ---- Saved stat views ------------------------------------------------------------------------
+// The stats explorer's saved views (BOO-82, Plus): a name and the explorer's query string
+// (packages/shared/src/statsExplorer.ts explorerSearch), so a view keeps its dates, comparison and
+// filters. Private to the reader. userId is a scalar, like ReaderTags. Kept if Plus lapses, so they
+// come back with it.
+model StatView {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  name      String
+  query     String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

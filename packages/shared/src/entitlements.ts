@@ -2,7 +2,8 @@ import type { Plan } from "./enums";
 
 // Bookmark Plus: what a plan may do. Pure, so client components and tests can read it off a user
 // with nothing but `plan`. The rule from the strategy: charge for convenience and power;
-// gate the host, never the guest; never gate stats or import. Every gated feature
+// gate the host, never the guest; never gate import. Never take away a stat that's free: Plus adds
+// ways to explore your stats, never the stats themselves. Every gated feature
 // checks these on the server through lib/entitlementsServer.ts, not only in the UI.
 
 // Final prices: the Stripe prices are tax-inclusive (tax_behavior "inclusive"), so readers pay
@@ -32,7 +33,7 @@ export const MONTHLY_ALLOWANCES = {
 
 export type AllowanceKey = keyof typeof MONTHLY_ALLOWANCES;
 
-export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns";
+export type EntitlementKey = "canHostUnlimited" | "extraGoalTypes" | "customWrapDesigns" | "statsExplorer";
 
 export interface Entitlements {
   plan: Plan;
@@ -45,6 +46,10 @@ export interface Entitlements {
   // The Paper and Your colour designs for Wrap cards (packages/shared/src/wrapCards.ts). Midnight, the
   // standard design, is free in every size.
   customWrapDesigns: boolean;
+  // The stats explorer (packages/shared/src/statsExplorer.ts): any date range, comparing two periods,
+  // filters, saved views, a CSV of a chart and Wrap cards for a custom range. Every stat on /stats, Wrapped
+  // and the monthly and yearly cards stays free.
+  statsExplorer: boolean;
   // Per calendar month; null is unlimited.
   allowances: Record<AllowanceKey, number | null>;
 }
@@ -141,6 +146,7 @@ export function entitlementsOf(user: StoredPlan, now = new Date()): Entitlements
     canHostUnlimited: isPlus,
     extraGoalTypes: isPlus,
     customWrapDesigns: isPlus,
+    statsExplorer: isPlus,
     allowances: {
       askShelfSearches: MONTHLY_ALLOWANCES.askShelfSearches[tier],
       recaps: MONTHLY_ALLOWANCES.recaps[tier],
@@ -172,6 +178,10 @@ export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string
   customWrapDesigns: {
     title: "Your Wrap, your way",
     message: "Paper and your own colour are Plus designs for your Wrap cards. Midnight stays free in every size, and so does your year-end Wrapped.",
+  },
+  statsExplorer: {
+    title: "Dig deeper into your stats",
+    message: "Pick any dates, set two periods side by side, filter by format, genre, mood, spice, author or re-reads, and save the views you come back to. Every stat on your stats page stays free.",
   },
   askShelfSearches: {
     title: "More Ask the shelf searches",
