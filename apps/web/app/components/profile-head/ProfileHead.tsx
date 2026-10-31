@@ -99,7 +99,7 @@ const NothingOnTheGo: FC = () => {
   return (
     <p className="mt-2 text-sm text-muted-foreground">
       Not reading anything right now ·{" "}
-      <button type="button" onClick={() => bookEntryModal.onOpen(undefined, { shelf: "STARTED" })} className="font-medium text-foreground hover:underline underline-offset-2">+ Start a book</button>
+      <button type="button" onClick={() => bookEntryModal.onOpen(undefined, { shelf: "STARTED" })} className="inline-flex items-center gap-1 font-medium text-foreground hover:underline underline-offset-2"><Plus size={14} aria-hidden />Start a book</button>
     </p>
   )
 }
