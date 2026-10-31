@@ -169,6 +169,9 @@ model User {
   aiFeatures             Boolean?
   // The old recaps switch, before aiFeatures. Read only: a Plus reader who switched it off stays off.
   showRecaps             Boolean?
+  // Out of other readers' People you may know (lib/peopleSuggest.ts). Unset reads as suggested. A private
+  // profile is never suggested either way.
+  hideFromSuggestions    Boolean?
   blocking               Block[]                  @relation("UserBlocks")
   blockedBy              Block[]                  @relation("UserBlockedBy")
   // Bookmark Plus. Stripe's webhook (app/api/billing/webhook) is the only writer of these; lib/entitlements.ts
@@ -1279,6 +1282,31 @@ model FollowRequest {
   @@index([targetId, createdAt])
 }
 
+// ---- People you may know (BOO-81) --------------------------------------------------------------
+// Someone the reader dismissed from their suggestions, so they don't come back. Scalar ids like
+// FollowRequest; account deletion clears both sides (lib/accountDeletion.ts).
+model SuggestionDismissal {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  dismissedId String   @db.ObjectId
+  createdAt   DateTime @default(now())
+
+  // One per pair; the prefix covers "everyone I've dismissed".
+  @@unique([userId, dismissedId])
+  @@index([dismissedId])
+}
+
+// The slow part of a reader's suggestions (friends of friends and shared books), kept for an hour so a
+// big account doesn't redo it on every visit. Only candidate ids and what links them: every privacy
+// filter, the clubs, the circles and who follows whom are looked up fresh on each read.
+model PeopleSuggestionCache {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @unique @db.ObjectId
+  // [{ id, via: [userId], books: [title] }] (lib/peopleSuggest.ts CachedCandidate).
+  candidates Json
+  computedAt DateTime @default(now())
+}
+
 // How often a reader used a metered AI feature in one period (lib/ai/usage.ts). One row per reader,
 // feature and period, counted up with a conditional increment so two requests can't both spend the
 // last of an allowance. Monthly rows: feature is an allowance key ("askShelfSearches", "recaps") and
@@ -1475,5 +1503,20 @@ model Appeal {
   decidedAt    DateTime?
 
   @@index([status, createdAt])
+  @@index([userId])
+}
+
+// ---- Saved stat views ------------------------------------------------------------------------
+// The stats explorer's saved views (BOO-82, Plus): a name and the explorer's query string
+// (packages/shared/src/statsExplorer.ts explorerSearch), so a view keeps its dates, comparison and
+// filters. Private to the reader. userId is a scalar, like ReaderTags. Kept if Plus lapses, so they
+// come back with it.
+model StatView {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  name      String
+  query     String
+  createdAt DateTime @default(now())
+
   @@index([userId])
 }

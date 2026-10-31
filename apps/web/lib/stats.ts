@@ -12,6 +12,7 @@ import { isProfilePublic, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
 import type { Mood } from "@bookmark/shared/workTags";
 import { cardPeriodKeys } from "@bookmark/shared/wrapCards";
+import type { DateRange, ExplorerFinish, ExplorerFormat } from "@bookmark/shared/statsExplorer";
 export type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData };
 
 export { isWrappedSeason };
@@ -38,7 +39,12 @@ interface Finish {
   published: number | null;
   year: number | null;
   month: number | null; // 0 to 11
+  // The reader's calendar day, "YYYY-MM-DD": what the stats explorer's ranges count in.
+  day: string | null;
   at: Date | null;
+  // How this read was taken in, for the explorer's format filter: minutes listened make it an audiobook,
+  // otherwise the shelved edition's format says ebook or print.
+  format: ExplorerFormat;
   rating: number | null;
   // What this read adds: pages if read on paper or screen, minutes if listened to. A re-read in another
   // format counts in that format, not in whatever the book is now.
@@ -66,6 +72,7 @@ const bookSelect = {
   startedAt: true,
   workId: true,
   work: { select: { firstPublishYear: true } },
+  edition: { select: { format: true } },
 } as const;
 
 // Four narrow queries, in parallel: the reader's zone, their books (no descriptions or reviews),
@@ -86,10 +93,12 @@ async function loadReadingData(userId: string, sharedOnly = false) {
 
   const timeZone = user?.timeZone && isValidTimeZone(user.timeZone) ? user.timeZone : DEFAULT_TIME_ZONE;
   const place = (at: Date | null) => {
-    if (!at) return { year: null, month: null };
+    if (!at) return { year: null, month: null, day: null };
     const day = finishDay(at, timeZone);
-    return { year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) - 1 };
+    return { year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) - 1, day };
   };
+  const formatOf = (length: { minutes: number }, edition: { format: string | null } | null): ExplorerFormat =>
+    length.minutes > 0 ? "AUDIOBOOK" : edition?.format === "EBOOK" ? "EBOOK" : "PRINT";
 
   const readsByBook = new Map<string, typeof reads>();
   for (const r of reads) {
@@ -116,19 +125,21 @@ async function loadReadingData(userId: string, sharedOnly = false) {
     const own = readsByBook.get(b.id);
     if (own) {
       for (const r of own) {
-        finishes.push({ book, outcome: r.status as Finish["outcome"], at: r.finishedAt, startedAt: r.startedAt, published, ...place(r.finishedAt), rating: r.rating ?? b.rating, ...readLength(r, b) });
+        const length = readLength(r, b);
+        finishes.push({ book, outcome: r.status as Finish["outcome"], at: r.finishedAt, startedAt: r.startedAt, published, ...place(r.finishedAt), rating: r.rating ?? b.rating, ...length, format: formatOf(length, b.edition) });
       }
       continue;
     }
     // No history rows yet: what the book's own fields imply.
     const length = readLength({}, b);
+    const format = formatOf(length, b.edition);
     const completed = Math.max(b.timesRead, b.status === "COMPLETED" ? 1 : 0);
     for (let i = 0; i < completed; i++) {
       const latest = i === completed - 1;
       const at = latest ? b.completedAt : null;
-      finishes.push({ book, outcome: "COMPLETED", at, startedAt: latest && b.status === "COMPLETED" ? b.startedAt : null, published, ...place(at), rating: b.rating, ...length });
+      finishes.push({ book, outcome: "COMPLETED", at, startedAt: latest && b.status === "COMPLETED" ? b.startedAt : null, published, ...place(at), rating: b.rating, ...length, format });
     }
-    if (b.status === "DNF") finishes.push({ book, outcome: "DNF", at: b.stoppedAt, startedAt: null, published, ...place(b.stoppedAt), rating: b.rating, ...length });
+    if (b.status === "DNF") finishes.push({ book, outcome: "DNF", at: b.stoppedAt, startedAt: null, published, ...place(b.stoppedAt), rating: b.rating, ...length, format });
   }
 
   return {
@@ -450,9 +461,24 @@ export async function getWrapped(userId: string, year: number, month: number | n
 // out, even for the reader. Each book appears once, in the order first finished, with the rating of
 // its latest read and the reader's own spice and moods for it.
 export async function getWrapCard(userId: string, year: number, month: number | null = null): Promise<WrapCardData> {
-  const { finishes, books, currentYear, currentMonth } = await readingData(userId, true);
+  const data = await readingData(userId, true);
+  const { currentYear, currentMonth } = data;
+  const card = await wrapCardOf(userId, data, (f) => f.year === year && (month === null || f.month === month));
+  return { ...card, year, month, isCurrent: year === currentYear && (month === null || month === currentMonth) };
+}
+
+// The same card for any range of days (the stats explorer, Plus): `range` carries its words.
+export async function getRangeWrapCard(userId: string, range: DateRange): Promise<WrapCardData> {
+  const data = await readingData(userId, true);
+  const card = await wrapCardOf(userId, data, (f) => f.day !== null && f.day >= range.from && f.day <= range.to);
+  const today = localDay(new Date(), data.timeZone);
+  return { ...card, year: Number(range.from.slice(0, 4)), month: null, isCurrent: range.to >= today, range };
+}
+
+async function wrapCardOf(userId: string, data: Awaited<ReturnType<typeof readingData>>, inPeriod: (f: Finish) => boolean): Promise<Omit<WrapCardData, "year" | "month" | "isCurrent">> {
+  const { finishes, books } = data;
   const completed = finishes
-    .filter((f) => f.outcome === "COMPLETED" && f.year === year && (month === null || f.month === month))
+    .filter((f) => f.outcome === "COMPLETED" && inPeriod(f))
     .sort((a, b) => a.at!.getTime() - b.at!.getTime());
 
   const rated = new Map<string, number | null>();
@@ -478,9 +504,6 @@ export async function getWrapCard(userId: string, year: number, month: number | 
   const ratingValues = Array.from(rated.values()).filter((r): r is number => !!r);
 
   return {
-    year,
-    month,
-    isCurrent: year === currentYear && (month === null || month === currentMonth),
     books: finished.map((b) => {
       const own = tagsByWork.get(workOf.get(b.id) ?? "");
       return { id: b.id, title: b.title, author: b.author, coverImage: b.coverImage, cardColour: b.cardColour, rating: rated.get(b.id) ?? null, spice: own?.spice ?? null };
@@ -500,6 +523,54 @@ export async function getWrapCard(userId: string, year: number, month: number | 
 export async function getCardPeriods(userId: string): Promise<string[]> {
   const { finishes } = await readingData(userId, true);
   return cardPeriodKeys(finishes.flatMap((f) => (f.outcome === "COMPLETED" && f.year !== null && f.month !== null ? [{ year: f.year, month: f.month + 1 }] : [])));
+}
+
+// ---- The stats explorer (Plus) ---------------------------------------------------------------
+
+// Every read that ended, as the stats explorer counts it (packages/shared/src/statsExplorer.ts), with the
+// reader's own moods and spice for each work. The reader's own view, so private books are in. The route
+// checks statsExplorer first; the stats themselves are the same finishes /stats counts.
+export async function explorerFinishes(userId: string): Promise<{ finishes: ExplorerFinish[]; today: string; timeZone: string }> {
+  const { finishes, books, timeZone } = await readingData(userId);
+  const workOf = new Map(books.map((b) => [b.id, b.workId]));
+  const tags = await prisma.readerTags.findMany({ where: { userId }, select: { workId: true, moods: true, spice: true } });
+  const tagsByWork = new Map(tags.map((t) => [t.workId, t]));
+
+  // A re-read is any completed read after the book's first: dated reads in order, undated ones first, as
+  // history shelved as already read comes before anything dated.
+  const ordered = finishes
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => (a.f.at?.getTime() ?? -Infinity) - (b.f.at?.getTime() ?? -Infinity) || a.i - b.i);
+  const seen = new Set<string>();
+  const reread = new Set<number>();
+  for (const { f, i } of ordered) {
+    if (f.outcome !== "COMPLETED") continue;
+    if (seen.has(f.book.id)) reread.add(i);
+    seen.add(f.book.id);
+  }
+
+  return {
+    timeZone,
+    today: localDay(new Date(), timeZone),
+    finishes: finishes.map((f, i) => {
+      const own = tagsByWork.get(workOf.get(f.book.id) ?? "");
+      return {
+        bookId: f.book.id,
+        title: f.book.title,
+        author: f.book.author,
+        genre: f.book.genre,
+        format: f.format,
+        outcome: f.outcome,
+        day: f.day,
+        pages: f.pages,
+        minutes: f.minutes,
+        rating: f.rating,
+        moods: own?.moods ?? [],
+        spice: own?.spice ?? null,
+        reread: reread.has(i),
+      };
+    }),
+  };
 }
 
 // The year and month (0 to 11) a monthly card URL names, if that month has started: 2000 up to now.

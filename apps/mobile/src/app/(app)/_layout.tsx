@@ -62,6 +62,7 @@ export default function AppLayout() {
         <Stack.Screen name="authors/[slug]" options={{ title: "" }} />
         <Stack.Screen name="discover/ask" options={{ title: "" }} />
         <Stack.Screen name="stats" options={{ title: "Stats" }} />
+        <Stack.Screen name="stats-explore" options={{ title: "Explore" }} />
         <Stack.Screen name="wrapped/[year]" options={{ title: "Wrapped" }} />
         <Stack.Screen name="plus" options={{ title: "Plus" }} />
         <Stack.Screen name="settings" options={{ title: "Settings" }} />

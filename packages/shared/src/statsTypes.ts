@@ -135,6 +135,8 @@ export interface WrapCardData {
   month: number | null;
   // The period isn't over yet ("My 2026 so far").
   isCurrent: boolean;
+  // A custom range (the stats explorer, Plus) instead of the year or month above: the card's words come from it.
+  range?: { from: string; to: string };
   // Each book once, in the order first finished.
   books: WrapCardBook[];
   // Reads finished, re-reads included; pages and minutes count every one.
