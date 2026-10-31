@@ -52,6 +52,11 @@ const Page = async (props: PageProps) => {
     })
     if (isMember) redirect(`/circles/${buddyRead.id}`)
   }
+  // A club's book is joined through the club, which brings this book and every one after.
+  if (buddyRead.clubId) {
+    const club = await prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { inviteCode: true, status: true } })
+    if (club?.status === "ACTIVE") redirect(`/clubs/join/${club.inviteCode}`)
+  }
   const removed = viewer ? await wasRemoved(buddyRead.id, viewer.id) : false
   const full = members.length >= BUDDY_READ_MAX_MEMBERS
 

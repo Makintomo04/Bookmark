@@ -15,7 +15,7 @@ import { seriesNewsText } from "./series";
 import { escalationCopy, reviewRestoredText, roleChangedTo, roleChangedText, staffReportText } from "./staffNotices";
 
 export const PUSH_GROUPS = {
-  circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED"],
+  circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED", "CLUB_CIRCLE_ADDED"],
   follows: ["NEW_FOLLOWER", "FOLLOW_REQUEST"],
   recommendations: ["BOOK_RECOMMENDED"],
   reviews: ["REVIEW_COMMENT", "REVIEW_REPLY"],
@@ -32,7 +32,7 @@ export type PushGroup = keyof typeof PUSH_GROUPS;
 export type PushType = (typeof PUSH_GROUPS)[PushGroup][number];
 
 export const PUSH_GROUP_LABELS: Record<PushGroup, { title: string; description: string }> = {
-  circles: { title: "Reading circles", description: "Invites, people joining, new comments you can read, and hosting handed to you." },
+  circles: { title: "Reading circles", description: "Invites, people joining, new comments you can read, your club's next book, and hosting handed to you." },
   follows: { title: "Followers", description: "New followers and follow requests." },
   recommendations: { title: "Books from friends", description: "When a friend sends you a book." },
   reviews: { title: "Review comments", description: "When someone comments on your review or replies to your comment." },
@@ -120,6 +120,8 @@ export function pushContentFor(n: PushContext): PushContent | null {
         path: circlePath,
       };
     }
+    case "CLUB_CIRCLE_ADDED":
+      return { title: "Your club's next book", body: `${who} started ${book(n.bookTitle)} for your club. You're in.`, path: circlePath };
     case "BUDDY_READ_HOSTED":
       return { title: "You're the host now", body: `${who} handed you the reading circle for ${book(n.bookTitle)}.`, path: circlePath };
     // The phone has no page for a book nobody's shelved, so this opens the list, which says which book.

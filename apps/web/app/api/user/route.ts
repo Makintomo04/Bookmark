@@ -10,6 +10,7 @@ import { SubscriptionCancelError, deleteAccount } from "@/lib/accountDeletion";
 import { deleteAccountUploads } from "@/lib/uploadedImagesServer";
 import { isStripeConfigured, stripeBillingApi } from "@/lib/stripe";
 import { deleteBuddyReadDataFor } from "@/lib/buddyReadsServer";
+import { deleteClubDataFor } from "@/lib/clubsServer";
 import { revenueCatApi } from "@/lib/storeBilling";
 export async function GET (req:Request) {
 const { user: currentUser, response } = await requireUser();
@@ -142,7 +143,8 @@ export async function DELETE(req: Request) {
     await deleteAccount(currentUser, {
       db: prisma,
       cancelSubscription: isStripeConfigured() ? (id) => stripeBillingApi().cancelSubscription(id) : undefined,
-      deleteCircleData: deleteBuddyReadDataFor,
+      // Clubs first: a club they host passes on before its circles do.
+      deleteCircleData: async (id, tx) => { await deleteClubDataFor(id, tx); await deleteBuddyReadDataFor(id, tx); },
       deleteStoreCustomer: (id) => revenueCatApi()?.deleteSubscriber(id) ?? Promise.resolve(),
       deleteUploads: deleteAccountUploads,
     });

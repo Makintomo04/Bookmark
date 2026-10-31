@@ -8,6 +8,8 @@ export const APP_LINK_PATHS = [
   "/open/*",
   "/circles/join/*",
   "/circles/*",
+  "/clubs/join/*",
+  "/clubs/*",
   "/u/*",
   "/lists/*",
   "/reset-password",

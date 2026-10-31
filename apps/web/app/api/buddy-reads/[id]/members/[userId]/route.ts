@@ -16,8 +16,10 @@ export async function DELETE(req: Request, props: { params: Promise<{ id: string
   const { buddyRead } = membership;
 
   const leaving = params.userId === currentUser.id;
-  if (!leaving && !membership.isHost) return buddyReadError("Only the host can remove readers.", 403);
+  if (!leaving && !membership.canManage) return buddyReadError("Only the host can remove readers.", 403);
   if (!isObjectId(params.userId)) return buddyReadError("Reader not found", 404);
+  // A club's co-host runs its circles alongside the host, but can't remove them.
+  if (!leaving && params.userId === buddyRead.hostId) return buddyReadError("The host can't be removed.", 403);
 
   if (leaving && membership.isHost) {
     const newHost = new URL(req.url).searchParams.get("newHost");

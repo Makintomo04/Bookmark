@@ -31,7 +31,7 @@ import {
   type HostingAllowance,
   type HostingPlan,
 } from "@/lib/buddyReads";
-import { progressSelect, unitOf } from "@/lib/progress";
+import { progressScale, progressSelect, unitOf } from "@/lib/progress";
 import { EntitlementError, entitlementsOf, entitlementsSelect } from "@/lib/entitlements";
 import { entitlementResponse } from "@/lib/entitlementsServer";
 
@@ -99,10 +99,12 @@ const progressBookSelect = { id: true, ...progressSelect } as const
 // ---- Hosting ------------------------------------------------------------------------------
 
 // MongoDB: `inheritedAt: null` alone misses circles that never had the field set, which is most of them.
-const startedByHost = { OR: [{ inheritedAt: null }, { inheritedAt: { isSet: false } }] } satisfies Prisma.BuddyReadWhereInput
-const inheritedByHost = { inheritedAt: { not: null } } satisfies Prisma.BuddyReadWhereInput
+// A club's circles count against the club's limits instead (lib/clubs.ts), so neither cap counts them.
+const notInClub = { OR: [{ clubId: null }, { clubId: { isSet: false } }] } satisfies Prisma.BuddyReadWhereInput
+const startedByHost = { AND: [{ OR: [{ inheritedAt: null }, { inheritedAt: { isSet: false } }] }, notInClub] } satisfies Prisma.BuddyReadWhereInput
+const inheritedByHost = { AND: [{ inheritedAt: { not: null } }, notInClub] } satisfies Prisma.BuddyReadWhereInput
 
-async function hostingPlanOf(userId: string): Promise<HostingPlan> {
+export async function hostingPlanOf(userId: string): Promise<HostingPlan> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: entitlementsSelect })
   return entitlementsOf(user ?? {}).canHostUnlimited ? "plus" : "free"
 }
@@ -147,7 +149,18 @@ export async function findMembership(buddyReadId: string, userId: string) {
   const book = await prisma.book.findUnique({ where: { id: member.bookId }, select: { ...progressBookSelect, userId: true } })
   // A book removed from the shelf, or a re-read back at page 1, keeps everything the member already reached.
   const progress = circleProgress(book && book.userId === userId ? progressPercent(book) : 0, member.notifiedProgress)
-  return { member, buddyRead: member.buddyRead, progress, isHost: member.buddyRead.hostId === userId }
+  const isHost = member.buddyRead.hostId === userId
+  // In a club's circle the club's host and co-hosts can run it too: the schedule, finishing it, removing readers.
+  const canManage = isHost || (!!member.buddyRead.clubId && (await isClubManager(member.buddyRead.clubId, userId)))
+  return { member, buddyRead: member.buddyRead, progress, isHost, canManage }
+}
+
+// The club's host or one of its co-hosts (lib/clubs.ts canManageClub), in an active club.
+export async function isClubManager(clubId: string, userId: string) {
+  const club = await prisma.club.findUnique({ where: { id: clubId }, select: { hostId: true, status: true } })
+  if (!club || club.status !== "ACTIVE") return false
+  if (club.hostId === userId) return true
+  return !!(await prisma.clubMember.findFirst({ where: { clubId, userId, coHost: true }, select: { id: true } }))
 }
 
 async function isOwnBook(bookId: string, userId: string) {
@@ -158,7 +171,7 @@ async function isOwnBook(bookId: string, userId: string) {
 export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const membership = await findMembership(buddyReadId, viewerId)
   if (!membership) return null
-  const { buddyRead, progress, isHost } = membership
+  const { buddyRead, progress, isHost, canManage } = membership
 
   const memberRows = await prisma.buddyReadMember.findMany({ where: { buddyReadId }, orderBy: { joinedAt: "asc" } })
   const [users, books] = await Promise.all([
@@ -219,6 +232,10 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   }
   // The lock runs here, on the server: bodies past the viewer's progress never leave this function.
   const comments = serializeComments(rows, { userId: viewerId, progress }, authors)
+  // A club's circle is shared through the club's link, so new readers join the club and every book after.
+  const club = buddyRead.clubId
+    ? await prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { id: true, name: true, inviteCode: true, status: true } })
+    : null
 
   return {
     buddyRead: {
@@ -237,7 +254,8 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       // Members can share the link; anyone with it can join.
       inviteCode: buddyRead.inviteCode,
     },
-    viewer: { userId: viewerId, progress, isHost, bookId: membership.member.bookId, muted: !!membership.member.mutedAt },
+    club: club && { id: club.id, name: club.name, inviteCode: club.status === "ACTIVE" ? club.inviteCode : null },
+    viewer: { userId: viewerId, progress, isHost, canManage, bookId: membership.member.bookId, muted: !!membership.member.mutedAt },
     members,
     comments,
   }
@@ -260,11 +278,43 @@ export async function loadInvite(code: string) {
   return { buddyRead, host, members }
 }
 
+// ---- Starting -----------------------------------------------------------------------------
+
+// A new circle for a book on the host's shelf, with the host as its first member. POST /api/buddy-reads
+// starts one on its own; a club starts its next book through here too (lib/clubsServer.ts), with clubId.
+export async function createCircle(book: Book, hostId: string, opts: { startsAt?: string, schedule?: BuddyReadSchedule, clubId?: string }) {
+  // A book with no page count can host too: its members log a percent (lib/progress.ts entersPercent),
+  // and circles only ever compare percents.
+  const scale = progressScale(book)
+  const buddyRead = await prisma.buddyRead.create({
+    data: {
+      workKey: book.workKey,
+      title: book.title,
+      author: book.author,
+      // Every member sees this cover, so it's never the host's own upload: the catalogue's instead.
+      coverImage: await coverToShare(book.coverImage, book, null),
+      cardColour: book.cardColour,
+      pages: book.pages,
+      audioMinutes: scale.unit === "MINUTES" ? book.audioMinutes : null,
+      hostId,
+      startsAt: opts.startsAt ? new Date(opts.startsAt) : new Date(),
+      schedule: opts.schedule && opts.schedule.length > 0 ? opts.schedule : undefined,
+      inviteCode: await newInviteCode(),
+      ...(opts.clubId && { clubId: opts.clubId }),
+    },
+  })
+  await prisma.buddyReadMember.create({
+    data: { buddyReadId: buddyRead.id, userId: hostId, bookId: book.id, notifiedProgress: progressPercent(book) },
+  })
+  return buddyRead
+}
+
 // ---- Joining ------------------------------------------------------------------------------
 
 // The member's own copy: the one already on their shelf (same Open Library work, or same title and
 // author), or a new one in Currently reading using the host's page count, which they can change.
-export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
+// `upcoming`: a club's next book, added before it starts, goes in Want to read instead.
+export async function shelfBookFor(userId: string, buddyRead: BuddyRead, opts: { upcoming?: boolean } = {}) {
   const shelf = await prisma.book.findMany({
     where: { userId },
     select: { id: true, title: true, author: true, workKey: true, status: true },
@@ -291,12 +341,13 @@ export async function shelfBookFor(userId: string, buddyRead: BuddyRead) {
       // The host's scale: a joiner of an audiobook circle starts on minutes too, and can change it.
       audioMinutes: buddyRead.audioMinutes,
       progressUnit: unitOf({ progressUnit: "MINUTES", audioMinutes: buddyRead.audioMinutes }),
-      status: "STARTED",
-      startedAt: now,
+      status: opts.upcoming ? "NOT_STARTED" : "STARTED",
+      ...(!opts.upcoming && { startedAt: now }),
       currentPage: 0,
       currentMinute: 0,
     },
   })
+  if (opts.upcoming) return { bookId: book.id, added: true }
   const firstRead = readFromBook(book)
   if (firstRead) await prisma.bookRead.create({ data: firstRead })
   await prisma.activity.create({ data: { userId, bookId: book.id, type: "STARTED_BOOK" } })
