@@ -71,12 +71,12 @@ const PeopleYouMayKnow: FC<Props> = ({ variant, className }) => {
         )}
       </div>
       {people.length > 0 ? (
-        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <ul className="grid sm:grid-cols-2 gap-3">
           {people.map((person) => {
             const s = state[person.username] ?? { isFollowing: false, requested: false }
             const done = s.isFollowing || s.requested
             return (
-              <li key={person.username} className="relative flex items-center justify-between gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 pr-9">
+              <li key={person.username} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 pr-2">
                 <Link href={`/u/${person.username}`} className="flex items-center gap-3 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <div className="relative size-10 shrink-0 overflow-hidden rounded-[14px]" style={{ background: person.favColour || "#D92D2D" }}>
                     {person.image
@@ -88,25 +88,28 @@ const PeopleYouMayKnow: FC<Props> = ({ variant, className }) => {
                     <p className="truncate text-xs text-muted-foreground">{person.reason}</p>
                   </div>
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => follow(person)}
-                  className={cn(
-                    "shrink-0 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    done ? "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900" : "bg-foreground text-background hover:opacity-90"
-                  )}
-                >
-                  {followButtonLabel({ ...s, needsApproval: person.needsApproval, followsYou: person.followsYou })}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dismiss(person)}
-                  aria-label={`Don't suggest ${person.displayName || person.username}`}
-                  title="Don't suggest"
-                  className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-full text-muted-foreground hover:bg-neutral-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-800"
-                >
-                  <X size={14} aria-hidden />
-                </button>
+                {/* Follow and ✕ sit together on the card's middle line. */}
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => follow(person)}
+                    className={cn(
+                      "shrink-0 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      done ? "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900" : "bg-foreground text-background hover:opacity-90"
+                    )}
+                  >
+                    {followButtonLabel({ ...s, needsApproval: person.needsApproval, followsYou: person.followsYou })}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dismiss(person)}
+                    aria-label={`Don't suggest ${person.displayName || person.username}`}
+                    title="Don't suggest"
+                    className="grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-neutral-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-800"
+                  >
+                    <X size={16} aria-hidden />
+                  </button>
+                </div>
               </li>
             )
           })}
