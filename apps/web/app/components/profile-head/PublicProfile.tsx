@@ -1,9 +1,11 @@
 import { FC } from 'react'
-import Link from 'next/link'
 import { Book } from '@prisma/client'
 import type { SerializedProfile } from '@/lib/publicProfile'
-import ProfileHeader, { primaryButtonClass, type ProfileStat } from './ProfileHeader'
+import { readerName } from '@/lib/profile'
+import ProfileHeader, { type ProfileStat } from './ProfileHeader'
 import FollowButton from './FollowButton'
+import JoinToFollow from './JoinToFollow'
+import WelcomeBack from './WelcomeBack'
 import ShareProfileButton from './ShareProfileButton'
 import ProfileMenu from './ProfileMenu'
 import ProfileReviews from './ProfileReviews'
@@ -34,6 +36,8 @@ interface PublicProfileProps {
   sharedCircles?: SharedCircle[]
   // They have lists this viewer can see. Lists load in the browser, so the server says whether there are any.
   hasLists?: boolean
+  // The viewer has just joined from this profile (?joined=1, JoinToFollow): welcome them and offer Follow.
+  justJoined?: boolean
 }
 
 // How many reviews and followed authors show in bands before "Show more" and "+N more".
@@ -43,8 +47,10 @@ const BANDS_AUTHORS = 8
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
 // and the profile's reading lists are client islands. The payload is already filtered for
 // this viewer (lib/publicProfile.ts): hidden shelves, reviews and counts never arrive.
-const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'bands', sharedCircles = [], hasLists = true }) => {
+const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'bands', sharedCircles = [], hasLists = true, justJoined = false }) => {
   const bands = layout === 'bands'
+  const name = readerName(profile)
+  const reviewCount = reviewedBooks(profile.books).length
   const favourites = profile.favourites as unknown as Book[]
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`
   // The cards take a Book; the public payload is the subset of it they read.
@@ -77,24 +83,25 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         </section>
       )}
       {hasLists && <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>}
-      {/* Below lg the reviews follow the lists; from lg up they end the header's column (identityFooter, below). */}
-      <div className="flex flex-col gap-12 lg:hidden empty:hidden">
-        <div className="empty:hidden"><ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
-      </div>
+      {/* Below lg the reviews follow the lists; from lg up they end the header's column (identityFooter, below).
+          Only when there are some: an empty wrapper still takes a gap in this column, a band of nothing on a phone. */}
+      {reviewCount > 0 && (
+        <div className="flex flex-col gap-12 lg:hidden">
+          <ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
+        </div>
+      )}
       {shelvesBeside && <><div className="empty:hidden">{shelves}</div>{phoneAuthors}</>}
     </div>
   )
   // Re-reads sit under Currently reading but still count as read.
   const completedCount = profile.books.filter(isFinishedBook).length
   const achievementCount = profile.achievements.length
-  const reviewCount = reviewedBooks(profile.books).length
 
-  const actions = (
+  // Signed out, the way to join sits in the identity column instead (JoinToFollow, below the stats).
+  const actions = viewer && (
     <>
-      {viewer
-        ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval={viewer.needsApproval} followsYou={viewer.followsYou} />
-        : <Link href={`/register?callbackUrl=${encodeURIComponent(`/u/${encodeURIComponent(profile.username)}`)}`} className={primaryButtonClass}>Sign up to follow</Link>}
-      {viewer && <ProfileMenu username={profile.username} isBlocked={false} />}
+      <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval={viewer.needsApproval} followsYou={viewer.followsYou} />
+      <ProfileMenu username={profile.username} isBlocked={false} />
     </>
   )
 
@@ -139,7 +146,8 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
       >
-        {bands && reading.length === 0 && <p className="mt-2 text-sm text-muted-foreground">Not reading anything right now.</p>}
+        {!viewer && <JoinToFollow username={profile.username} name={name} />}
+        {viewer && justJoined && !viewer.isFollowing && <WelcomeBack username={profile.username} name={name} />}
       </ProfileHeader>
       {bands ? (
         // In bands, everything else sits beside the header (besides, above), so this is the shelves, unless

@@ -11,7 +11,6 @@ import Container from '@/app/components/Container'
 import PublicProfile from '@/app/components/profile-head/PublicProfile'
 import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
-import JoinBanner from '@/app/components/profile-head/JoinBanner'
 import { profileLayoutOf } from '@/app/components/profile-head/Band'
 import { sharedCircles } from '@/lib/sharedCircles'
 import { findLists } from '@/lib/lists'
@@ -111,6 +110,7 @@ export default async function Page(props: PageProps) {
         // In bands, a circle the viewer shares with them pins its book first on their reading cards.
         sharedCircles={viewer && layout === 'bands' ? await sharedCircles(viewer.id, data.userId) : []}
         hasLists={(await findLists({ owner: data.profile.username, limit: 1 }, viewer)).length > 0}
+        justJoined={one('joined') === '1'}
         viewer={viewer ? {
           isFollowing: data.relation.isFollower,
           requested: !data.relation.isFollower && (await hasRequested(viewer.id, data.userId)),
@@ -123,8 +123,6 @@ export default async function Page(props: PageProps) {
 
   return (
     <div className="pt-4 pb-24 min-h-[calc(100vh_-_180px)] bg-background">
-      {/* Signed out, the profile is also the reader's invite link (BOO-53): a full-width bar under the header. */}
-      {!viewer && <JoinBanner username={data.profile.username} name={readerName(data.profile)} />}
       <Container>{content}</Container>
     </div>
   )

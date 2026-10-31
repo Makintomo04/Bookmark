@@ -1,7 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { askToJoin } from '@/app/hooks/useJoinPrompt'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { Loader2, Users } from 'lucide-react'
@@ -20,7 +20,8 @@ const outline = "border border-neutral-300 dark:border-neutral-700 hover:bg-neut
 
 // "Start a circle for this book" from a Discover book page: the book goes on the shelf (Want to read)
 // if it isn't there, then straight to the new-circle form with it chosen.
-const StartCircleButton: FC<{ book: DiscoverBook, className?: string }> = ({ book, className }) => {
+// Signed out it asks to join: in place through `onJoin` inside a dialog (book details), else the join sheet.
+const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (heading: string) => void }> = ({ book, className, onJoin }) => {
   const { user } = useUser()
   const router = useRouter()
   const { books, mutate } = useBooks()
@@ -29,10 +30,11 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string }> = ({ boo
   const [isWorking, setIsWorking] = useState(false)
 
   if (!user?.id) {
+    const heading = `Join to start a reading circle for ${book.title}`
     return (
-      <Link href="/register" className={cn(base, outline, className)}>
+      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin("circle", heading))} className={cn(base, outline, className)}>
         <Users size={14} aria-hidden />Start a reading circle
-      </Link>
+      </button>
     )
   }
 
