@@ -32,6 +32,8 @@ time. Set them as EAS environment variables.
 | `APP_DOMAIN` | The site's host, for universal and app links |
 | `IOS_BUNDLE_ID`, `ANDROID_PACKAGE` | Default `app.bookmark.mobile` |
 | `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | RevenueCat's public SDK keys. Without them, the Plus screen has no paywall |
+| `EXPO_PUBLIC_SENTRY_DSN` | Where crash and error reports go. Without it, nothing is sent |
+| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` (secret) | Uploading source maps and debug symbols to Sentry during preview and production builds. See `docs/ops/error-monitoring.md` |
 
 RevenueCat's current offering needs a monthly package, an annual package, and a custom package whose
 identifier contains `founding`, all on the `plus` entitlement. On the server, `REVENUECAT_SECRET_API_KEY`
