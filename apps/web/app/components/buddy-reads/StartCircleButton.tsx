@@ -32,7 +32,7 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (
   if (!user?.id) {
     const heading = `Join to start a reading circle for ${book.title}`
     return (
-      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin("circle", heading))} className={cn(base, outline, className)}>
+      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin(heading))} className={cn(base, outline, className)}>
         <Users size={14} aria-hidden />Start a reading circle
       </button>
     )

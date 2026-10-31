@@ -21,7 +21,7 @@ export const CopyListButton: FC<{ listId: string }> = ({ listId }) => {
 
   // Signed out, it asks to join at this moment and brings them back to the list afterwards.
   if (!user?.id) {
-    return <button type="button" onClick={() => askToJoin("list", "Join to copy this list")} className={secondaryButtonClass}><Copy size={14} aria-hidden />Copy to my lists</button>
+    return <button type="button" onClick={() => askToJoin("Join to copy this list")} className={secondaryButtonClass}><Copy size={14} aria-hidden />Copy to my lists</button>
   }
 
   const copy = () => {

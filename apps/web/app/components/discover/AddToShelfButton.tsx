@@ -64,7 +64,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (h
   if (!user?.id) {
     const heading = `Join to add ${book.title} to your shelf`
     return (
-      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin("shelf", heading))} className={cn(base, outline, className)}>
+      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin(heading))} className={cn(base, outline, className)}>
         <Plus size={14} aria-hidden />Want to read
       </button>
     )

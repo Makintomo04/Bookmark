@@ -10,7 +10,7 @@ import { primaryButtonClass } from './ProfileHeader'
 const JoinToFollow: FC<{ username: string; name: string }> = ({ username, name }) => (
   <button
     type="button"
-    onClick={() => askToJoin('follow', `Join to follow ${name}`, `/u/${encodeURIComponent(username)}?joined=1`)}
+    onClick={() => askToJoin(`Join to follow ${name}`, `/u/${encodeURIComponent(username)}?joined=1`)}
     className={primaryButtonClass}
   >
     Follow
