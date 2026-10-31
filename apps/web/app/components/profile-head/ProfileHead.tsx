@@ -3,6 +3,7 @@ import { FC, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
+import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
@@ -71,6 +72,13 @@ const BooksTop: FC = () => {
       {searching ? <BookList slot="results" /> : reading.length > 0
         ? <><ContinueReading books={reading} finished={finished} accentColour={user?.favColour} /><div className="lg:hidden"><UpNext /></div></>
         : <UpNext bare />}
+      {/* Nothing on the go and something on the shelf: the first-book picker, which starts with your Want to read
+          (BOO-52). An empty shelf has its own card pointing there. */}
+      {!searching && reading.length === 0 && books.length > 0 && (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Can&apos;t decide? <Link href="/first-book" className="font-medium text-foreground underline-offset-4 hover:underline">Help me pick a book</Link>
+        </p>
+      )}
       {/* From lg up the rest of this column is Up next (three) beside your lists, so they sit beside your reviews
           rather than under them. Below lg they stay bands of their own (OwnerProfile). */}
       {!searching && user && (

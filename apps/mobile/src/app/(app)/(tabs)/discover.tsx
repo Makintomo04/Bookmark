@@ -2,7 +2,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-
 import { readerName } from "@bookmark/shared/profile";
 import { router } from "expo-router";
 import useSWR from "swr";
-import { ChevronRight, ListOrdered, Search, Feather, Star, UserRound } from "lucide-react-native";
+import { ChevronRight, Compass, ListOrdered, Search, Feather, Star, UserRound } from "lucide-react-native";
 import { genreBySlug } from "@bookmark/shared/genres";
 import { formatReleaseDate } from "@bookmark/shared/releases";
 import { BookCover } from "@/components/books/BookCover";
@@ -31,6 +31,20 @@ export default function Discover() {
         <SearchButton icon={Search} label="Find a book" onPress={() => router.push("/add-book")} />
         <SearchButton icon={UserRound} label="Find readers" onPress={() => router.push("/search")} />
       </View>
+
+      {/* The first-book picker (BOO-52), for anyone stuck on what to read next. No AI, so it comes first. */}
+      <Pressable
+        accessibilityRole="link"
+        onPress={() => router.push("/first-book")}
+        style={({ pressed }) => [styles.ask, { borderRadius: radii.lg, borderColor: colors.border, backgroundColor: pressed ? colors.muted : colors.card }]}
+      >
+        <Compass size={20} color={colors.brand} />
+        <View style={{ flex: 1 }}>
+          <Text variant="title">Help me pick a book</Text>
+          <Text variant="muted">From your Want to read, what people you follow loved, the team{"’"}s picks and your genres.</Text>
+        </View>
+        <ChevronRight size={18} color={colors.mutedForeground} />
+      </Pressable>
 
       {/* The way into Ask the shelf: a search the reader starts, never a feed of AI picks. */}
       <Pressable

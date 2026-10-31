@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRight, Feather } from 'lucide-react'
+import { ArrowRight, Compass, Feather } from 'lucide-react'
 import Container from '@/app/components/Container'
 import DiscoverSearch from '@/app/components/discover/DiscoverSearch'
 import GenreTile from '@/app/components/discover/GenreTile'
@@ -66,6 +66,22 @@ const AskShelfEntry = () => (
   </Link>
 )
 
+// The first-book picker (BOO-52), for anyone stuck on what to read next: no AI, so it sits beside Ask the
+// shelf as the plain option.
+const PickerEntry = () => (
+  <Link
+    href="/first-book"
+    className="group flex items-center gap-4 rounded-2xl border border-neutral-300 dark:border-neutral-700 p-5 transition hover:bg-neutral-50 dark:hover:bg-neutral-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+  >
+    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand/10 text-brand"><Compass size={20} aria-hidden /></span>
+    <span className="min-w-0 flex-1">
+      <span className="font-semibold">Help me pick a book</span>
+      <span className="mt-0.5 block text-sm text-muted-foreground">From your Want to read, what people you follow loved, the team&apos;s picks and your genres.</span>
+    </span>
+    <ArrowRight size={18} aria-hidden className="shrink-0 transition-transform group-hover:translate-x-1" />
+  </Link>
+)
+
 const Page = async () => {
   const viewer = await getCurrentUser()
   const [featured, picks, community, reported] = await Promise.all([
@@ -90,7 +106,12 @@ const Page = async () => {
         <DiscoverSearch>
           <div className="flex flex-col gap-12">
             {featured[0] && <Spotlight list={featured[0]} />}
-            <AskShelfEntry />
+            {viewer ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <PickerEntry />
+                <AskShelfEntry />
+              </div>
+            ) : <AskShelfEntry />}
 
             <section aria-labelledby="genres-heading">
               <h2 id="genres-heading" className="text-xl font-bold">Browse by genre</h2>

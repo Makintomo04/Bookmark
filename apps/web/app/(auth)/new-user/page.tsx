@@ -361,6 +361,8 @@ const GoalOption = () => {
     setTarget(value)
     setSaving(true)
     try {
+      // askReminders is ignored here on purpose, as in the app's sign-up: the reader has enough to take in
+      // already, and reminders are offered on their third reading day or when they next set a goal (BOO-48).
       await axios.post("/api/reading-goal", { year, targetBooks: value })
       setSaved(value)
     } catch (err) {

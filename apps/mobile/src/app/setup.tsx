@@ -246,6 +246,8 @@ function GoalOption() {
     setError(null);
     setSaving(value);
     try {
+      // askReminders is ignored here on purpose, as on the web's sign-up: the reader has enough to take in
+      // already, and reminders are offered on their third reading day or when they next set a goal (BOO-48).
       await api.post("/api/reading-goal", { year, targetBooks: value });
       setSaved(value);
     } catch (e) {

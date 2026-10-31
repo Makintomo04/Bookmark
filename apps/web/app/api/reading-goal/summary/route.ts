@@ -5,7 +5,7 @@ import { getGoalProgress } from "@/lib/stats";
 import { NextResponse } from "next/server";
 
 // The goal widget's one request: the year's goal and the progress toward it, fetched together so the
-// profile waits on one HTTP request, not two. The app still reads them apart (/api/reading-goal, /progress).
+// profile waits on one HTTP request, not two. The app's goal card (GoalCard.tsx) reads it too.
 // Progress carries the reader's own streak, for the line under the goal (BOO-48).
 export async function GET(req: Request) {
   const { user: currentUser, response } = await requireUser();
