@@ -241,12 +241,12 @@ function Reading({ profile }: { profile: Profile }) {
           ))}
         </View>
       )}
-      <CoverRow title="Finished" books={finished} total={profile.shelfCounts?.finished} accent={accent} />
-      <CoverRow title="Want to read" books={wantToRead} total={profile.shelfCounts?.want} accent={accent} />
+      <CoverRow title="Finished" books={finished} total={profile.shelfCounts?.finished} accent={accent} onSeeAll={() => router.push(`/shelf/finished?reader=${encodeURIComponent(profile.username)}`)} />
+      <CoverRow title="Want to read" books={wantToRead} total={profile.shelfCounts?.want} accent={accent} onSeeAll={() => router.push(`/shelf/want?reader=${encodeURIComponent(profile.username)}`)} />
       {reviews.length > 0 && (
         <View style={{ gap: 14 }}>
-          {/* The newest few arrive; the count is all of them (there's no reviews screen on the phone yet). */}
-          <Text variant="title">Reviews <Text variant="muted">{(profile.reviewCount ?? reviews.length).toLocaleString("en-GB")}</Text></Text>
+          {/* The newest few arrive; See all pages through the rest. */}
+          <SectionHeading title="Reviews" total={profile.reviewCount ?? reviews.length} onSeeAll={(profile.reviewCount ?? 0) > reviews.length ? () => router.push(`/u/${encodeURIComponent(profile.username)}/reviews`) : undefined} />
           {reviews.map((b) => (
             <View key={b.id} style={{ gap: 6 }}>
               <View style={styles.readingRow}>
@@ -269,12 +269,27 @@ function Reading({ profile }: { profile: Profile }) {
 const COVER = 84;
 const COVER_GAP = 12;
 
-// `total` is the whole shelf's size; `books` only the newest of it.
-function CoverRow({ title, books, total, accent }: { title: string; books: PublicBook[]; total?: number; accent: string }) {
+// A heading with its count, and See all when the profile carries only the newest of the list.
+function SectionHeading({ title, total, onSeeAll }: { title: string; total: number; onSeeAll?: () => void }) {
+  return (
+    <View style={styles.heading}>
+      <Text variant="title">{title} <Text variant="muted">{total.toLocaleString("en-GB")}</Text></Text>
+      {onSeeAll && (
+        <Pressable accessibilityRole="link" accessibilityLabel={`See all ${total.toLocaleString("en-GB")} in ${title}`} onPress={onSeeAll} hitSlop={8} style={{ marginLeft: "auto" }}>
+          <Text variant="small" style={{ textDecorationLine: "underline" }}>See all {total.toLocaleString("en-GB")}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+// `total` is the whole shelf's size; `books` only the newest of it, so See all opens the rest, a page at a time.
+function CoverRow({ title, books, total, accent, onSeeAll }: { title: string; books: PublicBook[]; total?: number; accent: string; onSeeAll: () => void }) {
   if (books.length === 0) return null;
+  const all = total ?? books.length;
   return (
     <View style={{ gap: 10 }}>
-      <Text variant="title">{title} <Text variant="muted">{(total ?? books.length).toLocaleString("en-GB")}</Text></Text>
+      <SectionHeading title={title} total={all} onSeeAll={all > books.length ? onSeeAll : undefined} />
       <FlatList
         horizontal
         data={books}
@@ -299,6 +314,7 @@ function CoverRow({ title, books, total, accent }: { title: string; books: Publi
 }
 
 const styles = StyleSheet.create({
+  heading: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   row: { flexDirection: "row", gap: 10, alignItems: "center" },
   more: { width: 48, height: 48, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   locked: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 8 },

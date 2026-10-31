@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EMPTY_FILTER, SHELF_PAGE_MAX, filterOptions, isNarrowed, matchesFilter, pageShelf, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
+  EMPTY_FILTER, SHELF_PAGE_MAX, SHELF_SORTS, filterOptions, isNarrowed, matchesFilter, pageShelf, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
   type ShelfBook, type ShelfFilter,
 } from "@/lib/shelfFilter";
 
@@ -109,4 +109,25 @@ test("pageShelf keeps take and cursor in range", () => {
   assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "-5" }).books[0].id, pageShelf(many, EMPTY_FILTER, { take: 10 }).books[0].id);
   assert.equal(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "nonsense" }).nextCursor, "10");
   assert.deepEqual(pageShelf(many, EMPTY_FILTER, { take: 10, cursor: "900" }), { books: [], total: 250, nextCursor: null });
+});
+
+test("books that sort as equal keep one order whatever order they arrive in, so paging never repeats or skips", () => {
+  // An import's undated finishes: same status, no dates, no rating, same length, and a few same-name authors.
+  const tied = Array.from({ length: 37 }, (_, i) => book({ id: `id${String(i).padStart(3, "0")}`, title: i % 3 ? "Same" : `Title ${i}`, author: i % 2 ? "A. Writer" : "B. Writer" }));
+  const shuffled = (seed: number) => tied.map((b, i) => [((i + 1) * seed) % 97, b] as const).sort((a, b) => a[0] - b[0]).map(([, b]) => b);
+  for (const sort of SHELF_SORTS) {
+    const orders = [1, 7, 31, 53].map((seed) => sortBooks(shuffled(seed), sort).map((b) => b.id));
+    for (const order of orders) assert.deepEqual(order, orders[0], `${sort} depends on arrival order`);
+    // Page through, with each request seeing the shelf in a different arrival order.
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let seed = 2;
+    do {
+      const page: ReturnType<typeof pageShelf<ShelfBook>> = pageShelf(shuffled(seed++), f({ sort }), { take: 10, cursor });
+      seen.push(...page.books.map((b) => b.id));
+      cursor = page.nextCursor;
+    } while (cursor);
+    assert.equal(new Set(seen).size, tied.length, `${sort} repeated or skipped a book`);
+    assert.equal(seen.length, tied.length);
+  }
 });

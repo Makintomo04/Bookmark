@@ -13,7 +13,7 @@ import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
-import { copyCoverLater, refreshAfterBookChange, useBooks, type Book } from "@/lib/books";
+import { copyCoverLater, refreshAfterBookChange, useBook, type Book } from "@/lib/books";
 import { goBack } from "@/lib/navigation";
 import { pickAndUploadImage } from "@/lib/upload";
 import { useTheme } from "@/lib/theme";
@@ -23,9 +23,8 @@ import { useTheme } from "@/lib/theme";
 
 export default function EditBook() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: books, isLoading } = useBooks();
+  const { data: book, isLoading } = useBook(id);
   const { colors } = useTheme();
-  const book = books?.find((b) => b.id === id);
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (!book) return <Screen><Text variant="display">Book not found</Text></Screen>;
   return <EditForm book={book} />;

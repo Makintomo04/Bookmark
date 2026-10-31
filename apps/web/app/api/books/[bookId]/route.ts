@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/apiAuth";
 import { sanitizeUser } from "@/lib/sanitizeUser";
 import { NextResponse } from "next/server";
+import { rereadingIds, shelfBooks, withFormat } from "@/lib/shelfBooks";
 import prisma from "@/lib/db";
 import { EditionFormat } from "@prisma/client";
 import { convertPosition, percentToPosition, progressScale, readLengthsAfterEdit } from "@/lib/progress";
@@ -18,7 +19,8 @@ export async function GET(request: Request, props: { params: Promise<{ bookId: s
   const book = await prisma.book.findUnique({
     where: {
       id: bookId
-    }
+    },
+    include: withFormat,
   })
   if(!book){
     return NextResponse.json({ error: 'No Book Found' }, { status: 404 });
@@ -26,7 +28,11 @@ export async function GET(request: Request, props: { params: Promise<{ bookId: s
   if(book.userId !== currentUser.id){
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  return NextResponse.json(book)
+  // As the shelf sends it (shelfBooks), plus its blurb and whether it's a re-read, so the phone's book page
+  // needs this one book and not the whole shelf.
+  const [shelved] = await shelfBooks([book])
+  const rereading = book.status === "STARTED" && (await rereadingIds(currentUser.id, [book])).has(book.id)
+  return NextResponse.json({ ...shelved, description: book.description, rereading })
 }
 export async function PATCH(request: Request, props: { params: Promise<{ bookId: string }> }) {
   const params = await props.params;
