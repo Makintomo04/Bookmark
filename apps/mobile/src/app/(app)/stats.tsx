@@ -8,6 +8,7 @@ import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { ratingGlyphs } from "@bookmark/shared/rating";
 import type { ReadingStats } from "@bookmark/shared/statsTypes";
 import { MonthlyWrapCard } from "@/components/share/MonthlyWrapCard";
+import { WrapCardPicker } from "@/components/share/WrapCardPicker";
 import { ColumnChart, RankedBars, type Datum } from "@/components/stats/Charts";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -22,7 +23,8 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 const fmt = (n: number) => n.toLocaleString("en-GB");
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`;
 
-type StatsResponse = { stats: ReadingStats; wrappedYears: number[]; accent: string | null };
+// wrapDesigns: the Plus Wrap card designs are open to this reader.
+type StatsResponse = { stats: ReadingStats; wrappedYears: number[]; accent: string | null; wrapDesigns?: boolean };
 
 export default function Stats() {
   const { colors } = useTheme();
@@ -78,6 +80,7 @@ export default function Stats() {
         </View>
       )}
 
+      <WrapCardPicker accent={accent} wrapDesigns={data.wrapDesigns ?? false} />
       <MonthlyWrapCard accent={accent} />
 
       <Section title="Books per year"><ColumnChart data={yearBooks} accent={accent} label="Books finished per year" /></Section>

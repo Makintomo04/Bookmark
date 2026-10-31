@@ -9,8 +9,9 @@ import { getReaderTier } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, isValidTimeZone, localDay } from "@/lib/timeZone";
 import { isWrappedSeason } from "@/lib/wrappedSeason";
 import { isProfilePublic, sharedBookWhere } from "@/lib/privacy";
-import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData } from "@bookmark/shared/statsTypes";
-export type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData };
+import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
+import type { Mood } from "@bookmark/shared/workTags";
+export type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData };
 
 export { isWrappedSeason };
 
@@ -62,6 +63,7 @@ const bookSelect = {
   completedAt: true,
   stoppedAt: true,
   startedAt: true,
+  workId: true,
   work: { select: { firstPublishYear: true } },
 } as const;
 
@@ -437,6 +439,58 @@ export async function getWrapped(userId: string, year: number, month: number | n
     tier: tier && { key: tier.key, label: tier.label, light: tier.light, colour: tier.colour, shade: tier.shade },
     tierBooks,
     goal: target ? { target, completed: completed.length, met: completed.length >= target } : null,
+  };
+}
+
+// ---- Wrap cards ------------------------------------------------------------------------------
+
+// What a cover grid or stats card draws for a year, or with `month` (0 to 11) one month of it
+// (packages/shared/src/wrapCards.ts). A card is made to be posted, so private books are always left
+// out, even for the reader. Each book appears once, in the order first finished, with the rating of
+// its latest read and the reader's own spice and moods for it.
+export async function getWrapCard(userId: string, year: number, month: number | null = null): Promise<WrapCardData> {
+  const { finishes, books, currentYear, currentMonth } = await readingData(userId, true);
+  const completed = finishes
+    .filter((f) => f.outcome === "COMPLETED" && f.year === year && (month === null || f.month === month))
+    .sort((a, b) => a.at!.getTime() - b.at!.getTime());
+
+  const rated = new Map<string, number | null>();
+  for (const f of completed) rated.set(f.book.id, f.rating && f.rating > 0 ? f.rating : rated.get(f.book.id) ?? null);
+  const finished = distinctBooks(completed);
+
+  const workOf = new Map(books.map((b) => [b.id, b.workId]));
+  const workIds = Array.from(new Set(finished.map((b) => workOf.get(b.id)).filter((id): id is string => !!id)));
+  const tags = workIds.length
+    ? await prisma.readerTags.findMany({ where: { userId, workId: { in: workIds } }, select: { workId: true, moods: true, spice: true } })
+    : [];
+  const tagsByWork = new Map(tags.map((t) => [t.workId, t]));
+
+  const moods: Partial<Record<Mood, number>> = {};
+  for (const b of finished) {
+    const own = tagsByWork.get(workOf.get(b.id) ?? "");
+    for (const m of own?.moods ?? []) moods[m] = (moods[m] ?? 0) + 1;
+  }
+
+  // Whole stars, rounded down: a 4¾ counts with the fours.
+  const ratings = [0, 0, 0, 0, 0];
+  for (const r of rated.values()) if (r) ratings[Math.min(5, Math.max(1, Math.floor(r))) - 1]++;
+  const ratingValues = Array.from(rated.values()).filter((r): r is number => !!r);
+
+  return {
+    year,
+    month,
+    isCurrent: year === currentYear && (month === null || month === currentMonth),
+    books: finished.map((b) => {
+      const own = tagsByWork.get(workOf.get(b.id) ?? "");
+      return { id: b.id, title: b.title, author: b.author, coverImage: b.coverImage, cardColour: b.cardColour, rating: rated.get(b.id) ?? null, spice: own?.spice ?? null };
+    }),
+    finishes: completed.length,
+    pages: completed.reduce((sum, f) => sum + f.pages, 0),
+    minutes: completed.reduce((sum, f) => sum + f.minutes, 0),
+    ratings,
+    averageRating: ratingValues.length ? Math.round((ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length) * 100) / 100 : null,
+    genres: tally(finished.map((b) => b.genre), 3),
+    moods,
   };
 }
 

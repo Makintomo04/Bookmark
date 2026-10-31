@@ -22,7 +22,7 @@ interface StatsViewProps {
   yearHref: (year: number) => string
   // Wrapped years that can be linked from here.
   wrappedYears: number[]
-  // Under the Wrapped links: the monthly Wrap cards (Plus), or the prompt for them.
+  // Under the Wrapped links: the Wrap cards (cover grid and stats) and the monthly summary card.
   monthlyCards?: ReactNode
 }
 
