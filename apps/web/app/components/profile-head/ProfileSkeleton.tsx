@@ -33,14 +33,14 @@ export const FavouritesSkeleton: FC<{ headingOnly?: boolean }> = ({ headingOnly 
   </div>
 )
 
-// What they're reading: the tiles are 98px (cover, title, author), one on a phone and two from sm up. On your own
+// What they're reading: the tiles are 96px (cover, title, author), one on a phone and two from sm up. On your own
 // profile (`progress`) each also has where you are and its bar, which makes the card taller.
 export const ReadingNowSkeleton: FC<{ title?: boolean; progress?: boolean; heading?: string }> = ({ title = true, progress = false, heading = "w-28" }) => (
   <div>
     {title && <Heading className={heading} />}
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {[0, 1].map((i) => (
-        <div key={i} className={cn("flex items-center gap-4 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800", progress ? "min-h-[146px]" : "min-h-[98px]", i === 1 && "max-sm:hidden")}>
+        <div key={i} className={cn("flex items-center gap-4 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800", progress ? "min-h-36" : "min-h-24", i === 1 && "max-sm:hidden")}>
           <Skeleton className={cn("self-stretch rounded-md", progress ? "w-20" : "w-12")} />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <Skeleton className="h-4 w-3/5" />
@@ -113,8 +113,8 @@ const ColumnFooterSkeleton: FC = () => (
       </div>
     </div>
     <div>
-      <div className="mb-2 flex h-5 items-center"><Skeleton className="h-3.5 w-24" /></div>
-      <div className="flex flex-col gap-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-[62px] rounded-xl" />)}</div>
+      <Heading className="w-32" />
+      <div className="flex flex-col gap-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-[66px] rounded-xl" />)}</div>
     </div>
   </div>
 )

@@ -41,8 +41,8 @@ const ExtraGoal: FC<{ label: string; done: string; value: number; target: number
       <span className="font-medium">{label}</span>
       <span className="tabular-nums text-muted-foreground">{done}</span>
     </div>
-    <div role="progressbar" aria-label={`${label}: ${done}. ${note}`} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(value, target)} className="mt-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800">
-      <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.min(100, (value / target) * 100)}%`, background: colour }} />
+    <div role="progressbar" aria-label={`${label}: ${done}. ${note}`} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(value, target)} className="mt-1 h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+      <div className="h-full rounded-full transition-transform duration-700 ease-out" style={{ transform: `translateX(${Math.min(100, (value / target) * 100) - 100}%)`, background: colour }} />
     </div>
     <p className={cn("mt-1 text-[11px] leading-none tabular-nums", value >= target ? "font-medium text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>{note}</p>
   </div>
@@ -77,7 +77,7 @@ const CATCH_UP_MAX = 4
 const GoalSkeleton: FC<{ variant: NonNullable<ReadingGoalWidgetProps['variant']> }> = ({ variant }) => {
   if (variant === 'block') {
     return (
-      <div aria-hidden className="mt-5 flex items-start gap-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 p-3.5">
+      <div aria-hidden className="mt-5 flex items-start gap-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 p-4">
         <Skeleton className="size-10 shrink-0 rounded-full" />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-0.5">
           <Skeleton className="h-4 w-3/5" />
@@ -210,7 +210,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
       <button
         type="button"
         onClick={startEditing}
-        className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-neutral-400 dark:hover:border-neutral-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-neutral-400 dark:hover:border-neutral-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Target size={15} aria-hidden />
         Set a {year} reading goal
@@ -294,7 +294,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
   )
 
   if (variant === 'block') {
-    return <section aria-label={`${year} reading goal`} className="mt-5 rounded-xl bg-neutral-100 dark:bg-neutral-900 p-3.5">{twoLines}</section>
+    return <section aria-label={`${year} reading goal`} className="mt-5 rounded-xl bg-neutral-100 dark:bg-neutral-900 p-4">{twoLines}</section>
   }
   if (variant === 'lines') {
     return (
@@ -330,7 +330,7 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
     <section aria-label={`${year} reading goal`} className="mt-4 flex items-center gap-x-3 rounded-xl border border-neutral-200 dark:border-neutral-800 py-2 pl-2.5 pr-1.5">
       {ring(36)}
       <div className="min-w-0 flex-1 leading-tight">{yearLine}</div>
-      <div className="hidden sm:flex shrink-0 flex-col gap-2.5 w-52">
+      <div className="hidden sm:flex shrink-0 flex-col gap-3 w-52">
         {monthGoal.perMonth > 0 && (
           <ExtraGoal label={month} done={`${fmt(progress.thisMonth)} read`} value={progress.thisMonth} target={monthGoal.perMonth}
             note={monthNote(progress.thisMonth, monthGoal.perMonth, monthGoal.custom, target)} colour={colour} />

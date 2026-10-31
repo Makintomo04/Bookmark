@@ -76,7 +76,7 @@ const FollowsLine: FC<{ authors: { name: string; slug: string }[] }> = ({ author
   const rest = authors.length - named.length
   const linkClass = "text-foreground hover:underline underline-offset-2"
   return (
-    <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+    <p className="mt-2 max-w-xl text-sm text-muted-foreground">
       Follows{" "}
       {named.map((a, i) => (
         <span key={a.slug}>
@@ -103,7 +103,7 @@ export const secondaryButtonClass = "inline-flex items-center justify-center gap
 const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   const content = (
     <>
-      {stat.value !== null && <><span className="font-semibold text-foreground tabular-nums">{stat.value}</span> </>}{stat.label}
+      {stat.value !== null && <><span className="font-medium text-foreground tabular-nums">{stat.value}</span> </>}{stat.label}
     </>
   )
   const className = "text-sm text-muted-foreground whitespace-nowrap"
@@ -116,7 +116,7 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
   <Link
     href="/plus"
     title={BADGE[kind].title}
-    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2.5 py-0.5 align-middle text-xs font-semibold text-brand-fill dark:text-brand transition hover:bg-brand/15"
+    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 align-middle text-xs font-medium text-brand-fill dark:text-brand transition hover:bg-brand/15"
   >
     <Crown size={12} aria-hidden /> {BADGE[kind].label}
   </Link>
@@ -125,7 +125,7 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
 // A reader's links, labelled by where they go. They lead off Bookmark, so they open in a new tab and
 // carry no endorsement (nofollow ugc); `me` lets sites that check it verify the profile.
 const ProfileLinks: FC<{ links: string[] }> = ({ links }) => (
-  <ul aria-label="Links" className="mt-2.5 flex flex-wrap gap-2">
+  <ul aria-label="Links" className="mt-3 flex flex-wrap gap-2">
     {links.map((link) => (
       <li key={link}>
         <a href={link} target="_blank" rel="me nofollow ugc noopener noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-neutral-100 px-3 text-sm font-medium text-foreground transition hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-neutral-800 dark:hover:bg-neutral-700">
@@ -187,16 +187,16 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, lin
             )}
           </div>
           {/* The handle, under a display name: it's the /u/ address and how friends find them. */}
-          {displayName && <p className="mt-2.5 text-sm text-muted-foreground break-all">@{username}</p>}
-          {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
+          {displayName && <p className="mt-1 text-sm text-muted-foreground break-all">@{username}</p>}
+          {bio && <p className="mt-2 max-w-xl text-sm text-muted-foreground">{bio}</p>}
           {links && links.length > 0 && <ProfileLinks links={links} />}
           {follows && follows.length > 0 && <FollowsLine authors={follows} />}
           {follows && follows.length === 0 && followsPrompt && (
-            <Link href="/discover" className="mt-1.5 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/discover" className="mt-2 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">
               Follow authors you love<ChevronRight size={14} aria-hidden />
             </Link>
           )}
-          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
             {stats.map((stat) => <Stat key={stat.label} stat={stat} />)}
           </div>
         </div>

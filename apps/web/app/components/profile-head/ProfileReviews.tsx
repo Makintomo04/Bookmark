@@ -71,7 +71,7 @@ const ProfileReviews: FC<ProfileReviewsProps> = ({ books, accentColour, title = 
             <BookCover book={book} variant="thumb" sizes="48px" className="w-12 shrink-0 self-start shadow-sm" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <Link href={reviewHref(book.id)} className="font-semibold leading-snug break-words after:absolute after:inset-0 group-hover:underline underline-offset-4 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:rounded-md">
+                <Link href={reviewHref(book.id)} className="font-medium leading-snug break-words after:absolute after:inset-0 group-hover:underline underline-offset-4 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:rounded-md">
                   <span className="sr-only">Read the review of </span>{book.title}
                 </Link>
                 <span className="relative z-10 text-sm text-muted-foreground"><AuthorLink author={book.author} /></span>
