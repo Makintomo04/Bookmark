@@ -49,11 +49,18 @@ export type BookSelection = ReturnType<typeof useBookSelection>;
 // Currently reading, as cards with progress; the other shelves as rows of covers (the web's BookList).
 export function Shelves({ books, accent, selection }: { books: Book[]; accent: string; selection: BookSelection }) {
   const shelf = groupShelf(books);
+  const { colors } = useTheme();
   return (
     <View style={{ gap: 28 }}>
       <Section title="Currently reading" shelf="reading" books={shelf.reading} selection={selection}>
         {shelf.reading.length === 0 ? (
-          <Text variant="muted">Nothing on the go. Add a book or start one from Want to read.</Text>
+          <View style={{ gap: 6 }}>
+            <Text variant="muted">Nothing on the go. Add a book or start one from Want to read.</Text>
+            {/* Not sure which? The first-book picker starts with your Want to read (BOO-52). */}
+            <Pressable accessibilityRole="link" onPress={() => router.push("/first-book")} hitSlop={6} style={{ alignSelf: "flex-start" }}>
+              <Text variant="small" style={{ color: colors.brandText }}>Help me pick a book</Text>
+            </Pressable>
+          </View>
         ) : (
           <View style={{ gap: 12 }}>
             {shelf.reading.slice(0, PREVIEW).map((book) => <ReadingCard key={book.id} book={book} accent={accent} rereading={isRereading(book, shelf.finished)} selection={selection} />)}

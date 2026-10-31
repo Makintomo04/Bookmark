@@ -24,7 +24,7 @@ export default function FirstBook() {
   return (
     <Screen>
       <View style={{ gap: 6 }}>
-        <Text variant="display">Pick your first book</Text>
+        <Text variant="display">Help me pick a book</Text>
         <Text variant="muted">A few places to start, from what you{"’"}ve saved, the people you follow, the Bookmark team and the genres you picked.</Text>
       </View>
       {isLoading && <ActivityIndicator />}
