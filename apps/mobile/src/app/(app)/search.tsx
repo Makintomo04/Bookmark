@@ -4,6 +4,7 @@ import { ActivityIndicator, FlatList, Pressable, Share, StyleSheet, View } from 
 import { router } from "expo-router";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
+import { PeopleYouMayKnow } from "@/components/social/PeopleYouMayKnow";
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
@@ -73,6 +74,8 @@ export default function SearchReaders() {
         keyExtractor={(r) => r.username}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={q.length >= 2 && !searching ? <Text variant="muted">Nobody by that name. Private profiles don't show up here.</Text> : undefined}
+        // Before anything's typed, readers you may know (BOO-81).
+        ListHeaderComponent={q.length < 2 ? <PeopleYouMayKnow variant="find" /> : undefined}
         ListFooterComponent={
           <View style={styles.footer}>
             {hasMore && <Button title="Show more readers" variant="outline" loading={loadingMore} onPress={loadMore} />}

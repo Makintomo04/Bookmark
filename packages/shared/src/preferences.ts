@@ -13,6 +13,8 @@ export interface CommunityPreferences {
   // on Plus; an explicit choice either way sticks. Import matching isn't one of them: it never shows
   // AI text and only picks among search results.
   aiFeatures: boolean;
+  // Turning up in other readers' People you may know (peopleSuggest.ts). Stored as hideFromSuggestions; unset is on.
+  suggestMe: boolean;
 }
 
 // The User fields these need. Spread into a Prisma `select`. The plan fields decide aiFeatures' default.
@@ -22,6 +24,7 @@ export const preferencesSelect = {
   defaultListVisibility: true,
   aiFeatures: true,
   showRecaps: true,
+  hideFromSuggestions: true,
   ...entitlementsSelect,
 } as const;
 
@@ -32,6 +35,7 @@ type StoredPreferences = {
   aiFeatures?: boolean | null;
   // The old recaps switch, from before aiFeatures. Only its "off" still counts, while aiFeatures is unset.
   showRecaps?: boolean | null;
+  hideFromSuggestions?: boolean | null;
 } & Parameters<typeof planOf>[0];
 
 // Unset reads as the defaults, which match how things worked before these existed, except AI, which
@@ -42,8 +46,14 @@ export function preferencesOf(user: StoredPreferences, now = new Date()): Commun
     showSpoilers: user.showSpoilers ?? false,
     defaultListVisibility: user.defaultListVisibility ?? "PRIVATE",
     aiFeatures: user.aiFeatures ?? (planOf(user, now) === "PLUS" && user.showRecaps !== false),
+    suggestMe: !user.hideFromSuggestions,
   };
 }
+
+// The user fields a settings change writes, for the settings screens' optimistic update: suggestMe is
+// stored the other way round, as hideFromSuggestions.
+export const storedSetting = (key: string, value: unknown): Record<string, unknown> =>
+  key === "suggestMe" ? { hideFromSuggestions: !value } : { [key]: value };
 
 // How the inviter stands with the invitee, as far as invites care: `inviteeFollowsInviter` only matters
 // for FOLLOWING, `friends` (an accepted friendship, friendRules.ts) only for FRIENDS.

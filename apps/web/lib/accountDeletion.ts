@@ -99,6 +99,8 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.follow.deleteMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } });
     await tx.block.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } });
     await tx.followRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } });
+    await tx.suggestionDismissal.deleteMany({ where: { OR: [{ userId }, { dismissedId: userId }] } });
+    await tx.peopleSuggestionCache.deleteMany({ where: { userId } });
     await tx.account.deleteMany({ where: { userId } });
     await tx.session.deleteMany({ where: { userId } });
     // Signed-in phones and their push tokens.

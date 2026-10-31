@@ -17,6 +17,7 @@ import { warmCoverConnections } from '@/utils/helpers'
 import useUser from '@/app/hooks/useUser'
 import useBookSearch from '@/app/hooks/useBookSearch'
 import DiscoverBookCard from './DiscoverBookCard'
+import PeopleYouMayKnow from '../people/PeopleYouMayKnow'
 import BookCover from '../cards/BookCover'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useSearchHistory, { historyEntryId, SearchHistoryEntry } from '@/app/hooks/useSearchHistory'
@@ -50,6 +51,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const urlQuery = searchParams?.get("q") ?? ""
   // "Find people" links (e.g. from the empty "From people you follow" section) land on /discover?find=people.
   const find = searchParams?.get("find")
+  // Kept from the link, since the URL loses ?find= once the search is written back to it.
+  const [findingPeople] = useState(find === "people")
   const [query, setQuery] = useState(urlQuery)
   const [people, setPeople] = useState<SearchUser[]>([])
   const [morePeople, setMorePeople] = useState(false)
@@ -304,6 +307,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       </div>
 
       {/* While searching, results replace the browse sections so the page doesn't get long and confusing. */}
+      {/* Find people (?find=people) offers readers to follow before anything's typed (BOO-81). */}
+      {!isActive && signedIn && findingPeople && <PeopleYouMayKnow variant="find" />}
       {isActive ? <section aria-label="Search results">{results}</section> : children}
     </div>
   )
