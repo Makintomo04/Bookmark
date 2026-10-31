@@ -110,6 +110,7 @@ export default async function Page(props: PageProps) {
         // In bands, a circle the viewer shares with them pins its book first on their reading cards.
         sharedCircles={viewer && layout === 'bands' ? await sharedCircles(viewer.id, data.userId) : []}
         hasLists={(await findLists({ owner: data.profile.username, limit: 1 }, viewer)).length > 0}
+        justJoined={one('joined') === '1'}
         viewer={viewer ? {
           isFollowing: data.relation.isFollower,
           requested: !data.relation.isFollower && (await hasRequested(viewer.id, data.userId)),

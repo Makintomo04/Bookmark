@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import useSWR, { mutate } from "swr";
 import { Image } from "expo-image";
 import { bannerPresetOf, bannerPresetValue, resolveBanner, type BannerPresetId } from "@bookmark/shared/banners";
-import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, usernameProblem } from "@bookmark/shared/profile";
+import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, PROFILE_LINKS_MAX, displayNameProblem, normaliseDisplayName, normaliseProfileLink, normaliseUsername, usernameProblem } from "@bookmark/shared/profile";
 import { BannerPattern } from "@/components/profile/BannerPattern";
 import { BannerPicker, ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
 import type { ProfileUser } from "@/components/profile/ProfileHeader";
@@ -17,8 +17,9 @@ import { useAuth } from "@/lib/auth";
 import { goBack } from "@/lib/navigation";
 import { useTheme } from "@/lib/theme";
 
-// Edit profile (the web's EditProfileModal): picture, username, bio, colour and banner. A banner photo
-// uploaded on the web is kept unless a pattern is chosen here.
+// Edit profile (the web's EditProfileModal): picture, username, bio, links, colour and banner. A banner
+// photo uploaded on the web is kept unless a pattern is chosen here.
+const LINK_HINTS = ["tiktok.com/@you", "instagram.com/you", "you.substack.com", "yourwebsite.com"];
 export default function EditProfile() {
   const { colors } = useTheme();
   const { data: user } = useSWR<ProfileUser>("/api/user");
@@ -32,6 +33,8 @@ function ProfileForm({ user }: { user: ProfileUser }) {
   const [username, setUsername] = useState(user.username ?? "");
   const [displayName, setDisplayName] = useState(user.displayName ?? "");
   const [bio, setBio] = useState(user.bio ?? "");
+  // Always PROFILE_LINKS_MAX rows; blank ones are dropped on save.
+  const [links, setLinks] = useState<string[]>([...(user.profileLinks ?? []), ...Array(PROFILE_LINKS_MAX).fill("")].slice(0, PROFILE_LINKS_MAX));
   const [colour, setColour] = useState(user.favColour || DEFAULT_COLOUR);
   const [image, setImage] = useState<string | null>(user.image || null);
   const savedBanner = resolveBanner(user.banner, user.id);
@@ -44,15 +47,18 @@ function ProfileForm({ user }: { user: ProfileUser }) {
   const problem = name ? usernameProblem(name) : "Choose a username.";
   const availability = useUsernameAvailability(username, user.username);
   const displayNameError = displayNameProblem(normaliseDisplayName(displayName));
+  const linkErrors = links.map((l) => (!l.trim() || normaliseProfileLink(l) ? null : "That doesn't look like a web address."));
 
   const save = async () => {
     if (problem && name !== user.username?.toLowerCase()) return setError(problem);
     if (availability === "taken") return setError("That username is already taken.");
     if (displayNameError) return setError(displayNameError);
+    if (linkErrors.some(Boolean)) return setError("Fix the links marked below, or clear them.");
     setSaving(true);
     setError(null);
     try {
-      await api.post("/api/user", { username: name, displayName: normaliseDisplayName(displayName), bio, color: colour, imageSrc: image, bannerSrc: banner });
+      const profileLinks = links.map((l) => l.trim()).filter(Boolean).map((l) => normaliseProfileLink(l) ?? l);
+      await api.post("/api/user", { username: name, displayName: normaliseDisplayName(displayName), bio, profileLinks, color: colour, imageSrc: image, bannerSrc: banner });
       await mutate("/api/user");
       await refreshUser();
       goBack();
@@ -80,6 +86,24 @@ function ProfileForm({ user }: { user: ProfileUser }) {
       <View style={{ gap: 6 }}>
         <TextField label="Bio · optional" value={bio} onChangeText={(t) => setBio(t.slice(0, BIO_MAX))} multiline textAlignVertical="top" style={{ minHeight: 90, paddingTop: 12 }} />
         <Text variant="small">{bio.length} / {BIO_MAX}</Text>
+      </View>
+      <View style={{ gap: 8 }}>
+        <Text variant="label">Links · optional</Text>
+        <Text variant="small">Up to {PROFILE_LINKS_MAX}, like your TikTok, Instagram or newsletter, so your profile can be your link in bio. They show to whoever can see your profile.</Text>
+        {links.map((link, i) => (
+          <TextField
+            key={i}
+            label={`Link ${i + 1}`}
+            value={link}
+            onChangeText={(t) => setLinks((all) => all.map((l, j) => (j === i ? t : l)))}
+            placeholder={LINK_HINTS[i]}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            textContentType="URL"
+            error={linkErrors[i]}
+          />
+        ))}
       </View>
       <ColourPicker value={colour} onChange={setColour} />
       <BannerPicker value={preset as BannerPresetId | null} colour={colour} onChange={(id) => setBanner(bannerPresetValue(id))} />

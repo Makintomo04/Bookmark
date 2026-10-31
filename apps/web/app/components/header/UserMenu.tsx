@@ -172,13 +172,17 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
     }
   // Until we know who's here, show nothing: a signed-in reader shouldn't see Sign in flash past.
   if (isLoading) return <div className="h-9" aria-hidden />
-  // Sign in reads like the page links beside it, so Sign up is the one thing in the row that stands out.
+  // Sign in reads like the page links beside it, so Sign up is the one thing in the row that stands out. On a
+  // reader's profile the action is theirs (Follow, which asks to join: JoinToFollow), so Sign up steps back to
+  // an outline.
+  const onProfile = pathname?.startsWith('/u/') ?? false
   return (
     <div className="flex items-center gap-2 sm:gap-4">
       <Link href="/signin" className="inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         Sign in
       </Link>
-      <Link href="/register" className="inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <Link href="/register" className={cn("inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        onProfile ? "border border-neutral-300 text-foreground hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900" : "text-white bg-brand-fill hover:bg-brand-fill-hover")}>
         Sign up
       </Link>
     </div>
