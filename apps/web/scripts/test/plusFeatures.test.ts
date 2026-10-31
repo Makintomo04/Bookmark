@@ -49,5 +49,11 @@ test("no Plus line calls AI opt-in, and Plus says it can be switched off", () =>
 });
 
 test("the unbuilt perks are gone", () => {
-  for (const line of [...FREE, ...PLUS]) assert.doesNotMatch(line, /roadmap|early access|Wrap card designs/i, line);
+  for (const line of [...FREE, ...PLUS]) assert.doesNotMatch(line, /roadmap|early access/i, line);
+});
+
+// Built in BOO-50: the cover grid and stats cards are free, the extra designs are Plus.
+test("Wrap cards are free, their extra designs are Plus", () => {
+  assert.ok(FREE.some((l) => /cover grid/i.test(l)));
+  assert.ok(PLUS.some((l) => /designs for your Wrap cards/i.test(l)));
 });

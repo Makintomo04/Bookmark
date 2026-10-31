@@ -1,5 +1,6 @@
 // The shapes of reading stats and Wrapped, shared by the web (lib/stats.ts builds them) and the mobile
 // app (which reads them from /api/stats and /api/wrapped/<year>).
+import type { Mood } from "./workTags";
 
 export interface BookSummary {
   id: string;
@@ -112,4 +113,38 @@ export interface WrappedData {
   tierBooks: number;
   // The yearly book goal; for a month, the monthly pace if one is set.
   goal: { target: number; completed: number; met: boolean } | null;
+}
+
+// A cover grid or stats card (packages/shared/src/wrapCards.ts, lib/stats.ts getWrapCard). Private
+// books are never in it.
+export interface WrapCardBook {
+  id: string;
+  title: string;
+  author: string;
+  coverImage: string | null;
+  cardColour: string | null;
+  // The latest read's rating, if it had one.
+  rating: number | null;
+  // The reader's own spice for it (0 to 5), only ever asked about romance.
+  spice: number | null;
+}
+
+export interface WrapCardData {
+  year: number;
+  // 0 to 11, or null for the whole year.
+  month: number | null;
+  // The period isn't over yet ("My 2026 so far").
+  isCurrent: boolean;
+  // Each book once, in the order first finished.
+  books: WrapCardBook[];
+  // Reads finished, re-reads included; pages and minutes count every one.
+  finishes: number;
+  pages: number;
+  minutes: number;
+  // Rated books by whole star, one to five.
+  ratings: number[];
+  averageRating: number | null;
+  genres: Tally[];
+  // How many of these books the reader tagged with each mood.
+  moods: Partial<Record<Mood, number>>;
 }

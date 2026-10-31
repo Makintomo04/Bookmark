@@ -10,12 +10,12 @@ import { starClip } from '@bookmark/shared/rating'
 // red bookmark. Two formats: the 1200×630 link preview and a 1080×1920 story for Instagram and friends.
 // Node runtime, since Prisma doesn't run on the edge.
 
-const BRAND = '#F13C3C'
-const BG = '#0B0B0C'
-const INK = '#FAFAFA'
-const MUTED = '#A1A1AA'
+export const BRAND = '#F13C3C'
+export const BG = '#0B0B0C'
+export const INK = '#FAFAFA'
+export const MUTED = '#A1A1AA'
 const BOOKMARK_PATH = 'M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 28.7452 0.943359 26.536L0.943358 4.61413C0.943358 2.40504 2.73414 0.614201 4.94324 0.614134L25.5092 0.613509C28.7291 0.613412 30.6295 4.22392 28.8065 6.87812L24.3892 13.3096C23.4521 14.6739 23.4521 16.4745 24.3892 17.8388L28.8068 24.2708C30.6297 26.9249 28.7296 30.5353 25.5097 30.5354Z'
-const STAR_PATH = 'M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7.1L12 17.3 5.8 21l1.6-7.1L2 9.2l7.1-.6z'
+export const STAR_PATH = 'M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7.1L12 17.3 5.8 21l1.6-7.1L2 9.2l7.1-.6z'
 
 // Same rules as the reader card: Satori only draws images it can decode, its fetches have no
 // timeout, and covers are user-set strings, so fetch only from the hosts we serve images from.
@@ -24,7 +24,7 @@ const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-
 
 // Not the request's Host header, which the client controls.
 const siteOrigin = siteUrl
-const siteHost = new URL(siteOrigin).host
+export const siteHost = new URL(siteOrigin).host
 
 function imageUrl(url: string | null | undefined) {
   if (!url) return null
@@ -37,34 +37,40 @@ function imageUrl(url: string | null | undefined) {
   }
 }
 
-async function imageData(url: string | null | undefined) {
+// `timeout` in ms: a Wrap card fetches dozens of covers at once and Open Library is slow to answer them all.
+export async function imageData(url: string | null | undefined, timeout = 3000) {
   const target = imageUrl(url)
   if (!target) return null
   try {
-    const res = await fetch(target, { signal: AbortSignal.timeout(3000) })
+    const res = await fetch(target, { signal: AbortSignal.timeout(timeout) })
     const type = res.headers.get('content-type')?.split(';')[0].trim() ?? ''
     if (!res.ok || !DRAWABLE.includes(type)) return null
-    return `data:${type};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`
+    const bytes = Buffer.from(await res.arrayBuffer())
+    // Open Library answers a missing cover with a 1×1 GIF of a few dozen bytes: no cover, not a blank one.
+    if (bytes.length < 200) return null
+    return `data:${type};base64,${bytes.toString('base64')}`
   } catch {
     return null
   }
 }
 
-// Inter, subset to the image's text.
-async function interFont(weight: 400 | 600 | 800, text: string) {
+// A Google font, subset to the image's text: Inter, or Literata for a card's title.
+export async function googleFont(family: 'Inter' | 'Literata', weight: 400 | 600 | 700 | 800, text: string) {
   try {
-    const css = await fetch(`https://fonts.googleapis.com/css2?family=Inter:wght@${weight}&text=${encodeURIComponent(text)}`, { signal: AbortSignal.timeout(3000) }).then((r) => r.text())
+    const css = await fetch(`https://fonts.googleapis.com/css2?family=${family}:wght@${weight}&text=${encodeURIComponent(text)}`, { signal: AbortSignal.timeout(3000) }).then((r) => r.text())
     const src = css.match(/src: url\((.+?)\) format\('(opentype|truetype)'\)/)?.[1]
     if (!src) return null
     const data = await fetch(src, { signal: AbortSignal.timeout(3000) }).then((r) => r.arrayBuffer())
-    return { name: 'Inter', data, weight, style: 'normal' as const }
+    return { name: family, data, weight, style: 'normal' as const }
   } catch {
     return null
   }
 }
 
-const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s)
-const fmt = (n: number) => n.toLocaleString('en-GB')
+const interFont = (weight: 400 | 600 | 800, text: string) => googleFont('Inter', weight, text)
+
+export const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s)
+export const fmt = (n: number) => n.toLocaleString('en-GB')
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 interface ImageInput {
@@ -142,7 +148,7 @@ async function assets(input: ImageInput, f: ReturnType<typeof facts>) {
   return { cover, fonts }
 }
 
-const Logo = ({ size, label }: { size: number; label: string }) => (
+export const Logo = ({ size, label }: { size: number; label: string }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: size * 0.45 }}>
     <svg width={size} height={size * 1.03} viewBox="0 0 30 31"><path d={BOOKMARK_PATH} fill={BRAND} /></svg>
     <span style={{ fontSize: size, fontWeight: 800, letterSpacing: -0.5 }}>{label}</span>

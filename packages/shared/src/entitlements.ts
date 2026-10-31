@@ -42,7 +42,8 @@ export interface Entitlements {
   // A page goal and a custom monthly target beside the yearly count. The pace worked out from the
   // yearly goal is a stat, so it's free.
   extraGoalTypes: boolean;
-  // Alternative Wrap card designs (planned). The standard monthly Wrap card is free.
+  // The Paper and Your colour designs for Wrap cards (packages/shared/src/wrapCards.ts). Midnight, the
+  // standard design, is free in every size.
   customWrapDesigns: boolean;
   // Per calendar month; null is unlimited.
   allowances: Record<AllowanceKey, number | null>;
@@ -170,7 +171,7 @@ export const FEATURE_COPY: Record<EntitlementKey | AllowanceKey, { title: string
   },
   customWrapDesigns: {
     title: "Your Wrap, your way",
-    message: "Pick other designs for your Wrap cards. The standard monthly card and your year-end Wrapped stay free.",
+    message: "Paper and your own colour are Plus designs for your Wrap cards. Midnight stays free in every size, and so does your year-end Wrapped.",
   },
   askShelfSearches: {
     title: "More Ask the shelf searches",
