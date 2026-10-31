@@ -173,8 +173,8 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
   // Until we know who's here, show nothing: a signed-in reader shouldn't see Sign in flash past.
   if (isLoading) return <div className="h-9" aria-hidden />
   // Sign in reads like the page links beside it, so Sign up is the one thing in the row that stands out. On a
-  // reader's profile the red action is theirs ("Join to follow …", JoinToFollow), so Sign up steps back to an
-  // outline: one red action per view.
+  // reader's profile the action is theirs (Follow, which asks to join: JoinToFollow), so Sign up steps back to
+  // an outline.
   const onProfile = pathname?.startsWith('/u/') ?? false
   return (
     <div className="flex items-center gap-2 sm:gap-4">

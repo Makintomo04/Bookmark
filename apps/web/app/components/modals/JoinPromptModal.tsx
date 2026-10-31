@@ -11,10 +11,10 @@ import { cn } from '@/lib/utils'
 // tries something members-only, never on arrival, on scroll or on a timer. A sheet on a phone and a small
 // dialog from sm up (Modal), naming what they tried. Sign-up and sign-in bring them back to this page.
 const JoinPromptModal: FC = () => {
-  const { isOpen, kind, heading, onClose } = useJoinPrompt()
+  const { isOpen, kind, heading, back: backTo, onClose } = useJoinPrompt()
   if (!isOpen) return null
 
-  const back = hereForCallback()
+  const back = backTo ? encodeURIComponent(backTo) : hereForCallback()
   const notNow = () => {
     quietJoinPrompt(kind)
     onClose()

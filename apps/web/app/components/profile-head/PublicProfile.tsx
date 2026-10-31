@@ -97,13 +97,13 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   const completedCount = profile.books.filter(isFinishedBook).length
   const achievementCount = profile.achievements.length
 
-  // Signed out, the way to join sits in the identity column instead (JoinToFollow, below the stats).
-  const actions = viewer && (
+  // Signed out, the same Follow button, which asks them to join (JoinToFollow).
+  const actions = viewer ? (
     <>
       <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval={viewer.needsApproval} followsYou={viewer.followsYou} />
       <ProfileMenu username={profile.username} isBlocked={false} />
     </>
-  )
+  ) : <JoinToFollow username={profile.username} name={name} />
 
   // Counts come as null when the reader hides them (calm social).
   const followStats: ProfileStat[] = profile.followerCount === null || profile.followingCount === null ? [] : [
@@ -146,7 +146,6 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
           { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
       >
-        {!viewer && <JoinToFollow username={profile.username} name={name} />}
         {viewer && justJoined && !viewer.isFollowing && <WelcomeBack username={profile.username} name={name} />}
       </ProfileHeader>
       {bands ? (
