@@ -6,14 +6,14 @@ import assert from "node:assert/strict";
 import { acceptsBuddyReadInvite, preferencesOf } from "@/lib/preferences";
 
 test("unset preferences read as the old behaviour, with AI off on free", () => {
-  assert.deepEqual(preferencesOf({}), { buddyReadInvites: "EVERYONE", showSpoilers: false, defaultListVisibility: "PRIVATE", aiFeatures: false });
-  assert.deepEqual(preferencesOf({ buddyReadInvites: null, showSpoilers: null, defaultListVisibility: null, aiFeatures: null, showRecaps: null }), preferencesOf({}));
+  assert.deepEqual(preferencesOf({}), { buddyReadInvites: "EVERYONE", showSpoilers: false, defaultListVisibility: "PRIVATE", aiFeatures: false, suggestMe: true });
+  assert.deepEqual(preferencesOf({ buddyReadInvites: null, showSpoilers: null, defaultListVisibility: null, aiFeatures: null, showRecaps: null, hideFromSuggestions: null }), preferencesOf({}));
 });
 
 test("stored preferences win over the defaults", () => {
   assert.deepEqual(
-    preferencesOf({ buddyReadInvites: "NOBODY", showSpoilers: true, defaultListVisibility: "PUBLIC", aiFeatures: true }),
-    { buddyReadInvites: "NOBODY", showSpoilers: true, defaultListVisibility: "PUBLIC", aiFeatures: true },
+    preferencesOf({ buddyReadInvites: "NOBODY", showSpoilers: true, defaultListVisibility: "PUBLIC", aiFeatures: true, hideFromSuggestions: true }),
+    { buddyReadInvites: "NOBODY", showSpoilers: true, defaultListVisibility: "PUBLIC", aiFeatures: true, suggestMe: false },
   );
 });
 

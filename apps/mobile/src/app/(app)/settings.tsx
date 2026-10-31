@@ -6,10 +6,11 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Download, FileUp } from "lucide-react-native";
 import { GENRES } from "@bookmark/shared/genres";
-import { preferencesOf, type CommunityPreferences } from "@bookmark/shared/preferences";
+import { preferencesOf, storedSetting, type CommunityPreferences } from "@bookmark/shared/preferences";
 import { privacyOf, type PrivacySettings } from "@bookmark/shared/privacyRules";
 import { PUSH_GROUP_LABELS, type PushGroup } from "@bookmark/shared/push";
 import { roleOf } from "@bookmark/shared/roles";
+import { SUGGEST_ME_HINT, SUGGEST_ME_LABEL } from "@bookmark/shared/peopleSuggest";
 import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS } from "@bookmark/shared/settingsCopy";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { Button } from "@/components/ui/Button";
@@ -29,7 +30,7 @@ import { useTheme, useThemePreference, type ThemePreference } from "@/lib/theme"
 // deleting the account. Every control saves as soon as it changes.
 
 type Settings = PrivacySettings & CommunityPreferences & { favGenres: string[]; hideShelfPicks: boolean };
-type SettingsUser = Partial<Settings> & { id: string; username: string | null; role?: string | null; isStaff?: boolean | null };
+type SettingsUser = Partial<Settings> & { hideFromSuggestions?: boolean | null; id: string; username: string | null; role?: string | null; isStaff?: boolean | null };
 type PlanResponse = { status: { plan: "FREE" | "PLUS"; store: "APP_STORE" | "PLAY_STORE" | null; source: string | null } | null };
 
 const APPEARANCE: { value: ThemePreference; label: string }[] = [
@@ -54,7 +55,7 @@ export default function SettingsScreen() {
   const save = async <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setPending(key);
     setError(null);
-    void mutate({ ...user, [key]: value }, { revalidate: false });
+    void mutate({ ...user, ...storedSetting(key, value) }, { revalidate: false });
     try {
       const saved = await api.patch<Partial<Settings>>("/api/user/privacy", { [key]: value });
       void mutate({ ...user, ...saved }, { revalidate: false });
@@ -134,6 +135,7 @@ export default function SettingsScreen() {
         </View>
         <Segmented label="New lists start as" options={LIST_OPTIONS} value={settings.defaultListVisibility} onChange={(v) => void save("defaultListVisibility", v)} disabled={busy} />
         <Toggle label="Show spoilers in reviews" hint="Reviews marked as spoilers open straight away instead of staying covered." value={settings.showSpoilers} onChange={(v) => void save("showSpoilers", v)} disabled={busy} />
+        <Toggle label={SUGGEST_ME_LABEL} hint={SUGGEST_ME_HINT} value={settings.suggestMe} onChange={(v) => void save("suggestMe", v)} disabled={busy} />
       </Card>
 
       <Card title="AI features" hint="Only ever for something you ask for, always labelled, and never about you.">
