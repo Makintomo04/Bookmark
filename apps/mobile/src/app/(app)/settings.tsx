@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Switch, TextInput, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
 import { File, Paths } from "expo-file-system";
@@ -18,6 +18,9 @@ import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Segmented } from "@/components/ui/Segmented";
 import { Text } from "@/components/ui/Text";
+import { Toggle } from "@/components/ui/Toggle";
+import { ReminderControls } from "@/components/reminders/ReminderControls";
+import { useNotificationSettings } from "@/lib/notificationSettings";
 import { ApiError, api, apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTheme, useThemePreference, type ThemePreference } from "@/lib/theme";
@@ -163,51 +166,25 @@ function Card({ title, hint, children, danger }: { title: string; hint?: string;
   );
 }
 
-function Toggle({ label, hint, value, onChange, disabled }: { label: string; hint: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.toggle}>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="label">{label}</Text>
-        <Text variant="small">{hint}</Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        accessibilityLabel={label}
-        trackColor={{ true: colors.foreground, false: colors.input }}
-        thumbColor={colors.background}
-      />
-    </View>
-  );
-}
-
-// Which pushes arrive (GET/PATCH /api/push/settings). The bell keeps every notification either way. The
-// server only sends the groups this person has (staff work is for staff), so only those are shown.
+// Reminders and the weekly email, then which pushes arrive (GET/PATCH /api/push/settings). The bell keeps
+// every notification either way. The server only sends the groups this person has (staff work is for
+// staff), so only those are shown.
 function PushSettings() {
-  const { data, mutate } = useSWR<{ push: Partial<Record<PushGroup, boolean>> }>("/api/push/settings");
-  const [failed, setFailed] = useState(false);
-  if (!data) return null;
-
-  const set = async (group: PushGroup, on: boolean) => {
-    setFailed(false);
-    void mutate({ push: { ...data.push, [group]: on } }, { revalidate: false });
-    try {
-      await mutate(api.patch<{ push: Partial<Record<PushGroup, boolean>> }>("/api/push/settings", { push: { [group]: on } }), { revalidate: false });
-    } catch {
-      void mutate(data, { revalidate: false });
-      setFailed(true);
-    }
-  };
+  const { settings, save, pending, error } = useNotificationSettings();
+  if (!settings) return null;
 
   return (
-    <Card title="Notifications" hint="Choose what arrives as a push. Everything still shows under the bell.">
-      {failed && <Notice tone="error" message="Couldn't save that setting. Try again." />}
-      {(Object.keys(PUSH_GROUP_LABELS) as PushGroup[]).filter((group) => group in data.push).map((group) => (
-        <Toggle key={group} label={PUSH_GROUP_LABELS[group].title} hint={PUSH_GROUP_LABELS[group].description} value={!!data.push[group]} onChange={(v) => void set(group, v)} />
-      ))}
-    </Card>
+    <>
+      <Card title="Reminders" hint="All off until you turn them on, and all free.">
+        {error && <Notice tone="error" message={error} />}
+        <ReminderControls settings={settings} save={(c) => void save(c)} disabled={pending} />
+      </Card>
+      <Card title="Notifications" hint="Choose what arrives as a push. Everything still shows under the bell.">
+        {(Object.keys(PUSH_GROUP_LABELS) as PushGroup[]).filter((group) => group in settings.push).map((group) => (
+          <Toggle key={group} label={PUSH_GROUP_LABELS[group].title} hint={PUSH_GROUP_LABELS[group].description} value={!!settings.push[group]} onChange={(v) => void save({ push: { [group]: v } })} />
+        ))}
+      </Card>
+    </>
   );
 }
 

@@ -4,6 +4,9 @@
 // What's pushed is the social side, the things that bring someone back to a reading circle or a friend,
 // and a new book in a series they read. Staff also hear of reports waiting and escalations, which they
 // can switch off; readers never see that setting (STAFF_PUSH_GROUPS).
+// Reminders (BOO-48) are pushes the reader turns on themselves: a daily nudge, a streak about to end and
+// a circle checkpoint coming up. The cron tick sends them, not a notification, and they have their own
+// switches (User.readingReminderMinute and the rest), so they're left out of the on-unless-off toggles.
 // Achievements stay in the bell. No push ever carries what someone wrote (comments,
 // reviews, a recommendation's note): a lock screen is read over shoulders, and a comment's words are only
 // shown once the reader's progress has reached it.
@@ -18,6 +21,8 @@ export const PUSH_GROUPS = {
   reviews: ["REVIEW_COMMENT", "REVIEW_REPLY"],
   account: ["REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED"],
   series: ["NEW_IN_SERIES"],
+  reminders: ["READING_REMINDER", "STREAK_ALERT"],
+  checkpoints: ["CHECKPOINT_DUE"],
   // Librarians and admins only. The app has no staff console, so these open the notifications screen;
   // the queue itself is on the web. ESCALATION_RESOLVED stays in the bell.
   staff: ["STAFF_REPORT", "STAFF_ESCALATION"],
@@ -33,13 +38,18 @@ export const PUSH_GROUP_LABELS: Record<PushGroup, { title: string; description: 
   reviews: { title: "Review comments", description: "When someone comments on your review or replies to your comment." },
   account: { title: "Your account", description: "When the Bookmark team hides or puts back something you posted, or changes your role." },
   series: { title: "New books in your series", description: "When a new book comes out in a series you follow or have started." },
+  reminders: { title: "Reading reminders", description: "A daily nudge at your time, and a warning before a streak ends." },
+  checkpoints: { title: "Circle checkpoints", description: "Two days before a section is due, if you're behind." },
   staff: { title: "Staff work", description: "Reports waiting in the queue, and reports passed to admins." },
 };
 
 // Groups only staff have. A reader's settings leave them out, and a reader can't change them.
 export const STAFF_PUSH_GROUPS: readonly PushGroup[] = ["staff"];
+// Off until the reader turns them on, with their own settings, so never in pushOff.
+export const OPT_IN_PUSH_GROUPS: readonly PushGroup[] = ["reminders", "checkpoints"];
+// The on-unless-off groups this reader's settings list.
 export const pushGroupsFor = (isStaff: boolean): PushGroup[] =>
-  (Object.keys(PUSH_GROUPS) as PushGroup[]).filter((g) => isStaff || !STAFF_PUSH_GROUPS.includes(g));
+  (Object.keys(PUSH_GROUPS) as PushGroup[]).filter((g) => (isStaff || !STAFF_PUSH_GROUPS.includes(g)) && !OPT_IN_PUSH_GROUPS.includes(g));
 
 // Pushed even though the reader is the notification's actor: nobody did it, so actorId is the reader
 // (lib/seriesNews.ts), or the team did and isn't named (lib/staffNotify.ts), or it's a count of the

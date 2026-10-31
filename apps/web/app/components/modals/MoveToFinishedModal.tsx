@@ -37,7 +37,7 @@ const MoveToFinishedModal: FC = () => {
     setIsSaving(true)
     reshelveBook(bookId, "COMPLETED", { ...finishDatesBody(dates), rating: rating > 0 ? rating : undefined }).then((saved) => {
       if (!saved) return
-      celebrate(saved.earnMoment, { message: "Moved to Finished" })
+      celebrate(saved.earnMoment, { message: "Moved to Finished" }, saved.askReminders)
       mutate()
       refreshAfterBookChange()
       onClose()

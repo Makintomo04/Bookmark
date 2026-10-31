@@ -98,6 +98,22 @@ export async function sendPushes(rows: PushableNotification[]) {
   }
 }
 
+// Pushes that aren't a notification: the reminders the cron tick sends (lib/jobs). Nobody did anything, so
+// there's no actor or bell row; the words are already written (packages/shared/src/reminders.ts). Each
+// recipient's tokens are passed in, since the job loaded them when choosing who's due. Returns how many
+// readers had a phone to send to; never throws.
+export async function sendSystemPushes(sends: { tokens: string[]; content: PushContent }[]): Promise<number> {
+  const messages: ExpoMessage[] = sends.flatMap(({ tokens, content }) =>
+    tokens.map((to) => ({ to, title: content.title, body: content.body, data: { path: content.path }, sound: "default" as const }))
+  );
+  try {
+    for (let i = 0; i < messages.length; i += BATCH) await deliver(messages.slice(i, i + BATCH));
+  } catch (error) {
+    console.error("[push] couldn't send", error);
+  }
+  return sends.filter((s) => s.tokens.length > 0).length;
+}
+
 async function deliver(messages: ExpoMessage[]) {
   const res = await fetch(EXPO_PUSH_URL, {
     method: "POST",

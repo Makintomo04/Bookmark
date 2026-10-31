@@ -18,7 +18,15 @@ export const useEarnMoment = create<EarnMomentStore>((set) => ({
   clearNote: () => set({ note: null }),
 }));
 
-export function celebrate(moment: EarnMoment | null | undefined) {
+// The reminders sheet (components/reminders/RemindersSheet.tsx) waiting to open: once, after the first book a
+// reader finishes here, when the server says so (askReminders). It waits for the celebration to close.
+export const useRemindersPrompt = create<{ asked: boolean; done: () => void }>((set) => ({
+  asked: false,
+  done: () => set({ asked: false }),
+}));
+
+export function celebrate(moment: EarnMoment | null | undefined, askReminders?: boolean) {
+  if (askReminders) useRemindersPrompt.setState({ asked: true });
   if (!moment) return;
   if (moment.medals.length > 0) return useEarnMoment.setState({ moment, note: null });
   const line = finishLine(moment);

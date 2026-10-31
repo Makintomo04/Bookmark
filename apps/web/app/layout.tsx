@@ -10,6 +10,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { siteUrl } from "@/lib/siteUrl";
 import Toaster from "./components/ui/toaster";
 import EarnCelebration from './components/achievements/EarnCelebration'
+import RemindersSheet from './components/settings/RemindersSheet'
 
 const font = Inter({ subsets: ["latin"], variable: "--font-sans" });
 // The display face: page titles, heroes, Wrapped, big numbers and quotes. Never for UI controls.
@@ -53,6 +54,7 @@ export default function RootLayout({
         <Providers>
         <Toaster />
         <EarnCelebration />
+        <RemindersSheet />
         <SpeedInsights/>
         <NextSSRPlugin
           routerConfig={extractRouterConfig(ourFileRouter)}

@@ -103,6 +103,8 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     // Signed-in phones and their push tokens.
     await tx.mobileSession.deleteMany({ where: { userId } });
     await tx.pushToken.deleteMany({ where: { userId } });
+    // What the reminders and weekly email have sent them.
+    await tx.scheduledSend.deleteMany({ where: { userId } });
     await tx.upload.deleteMany({ where: { userId } });
     await tx.user.delete({ where: { id: userId } });
   }, { timeout: 30_000 });
