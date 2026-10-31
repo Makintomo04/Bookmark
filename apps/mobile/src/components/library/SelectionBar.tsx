@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
-import { bulkBooks, type Book } from "@/lib/books";
+import { bulkBooks, type PickedBook } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
 
 const plural = (n: number) => `${n.toLocaleString("en-GB")} ${n === 1 ? "book" : "books"}`;
@@ -21,7 +21,7 @@ const confirmRemove = (count: number) =>
 
 // The action bar for the shelf's select mode (the web's BulkBar). Only moves with no read history are offered
 // here; starting or finishing a book stays one book at a time. A big selection goes in batches behind one tap.
-export function SelectionBar({ selected, onDone, onCancel }: { selected: Book[]; onDone: () => void; onCancel: () => void }) {
+export function SelectionBar({ selected, onDone, onCancel }: { selected: PickedBook[]; onDone: () => void; onCancel: () => void }) {
   const { colors, radii } = useTheme();
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);

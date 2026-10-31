@@ -68,7 +68,8 @@ async function loadProfileRecord(username: string) {
       ...staffBadgeSelect,
       books: {
         where: { status: { in: ["STARTED", "COMPLETED", "NOT_STARTED"] } },
-        orderBy: { createdAt: "desc" },
+        // Newest first, and by id within an import's shared timestamps, so the order never changes between requests.
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: { ...publicBookSelect, isPrivate: true, review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true },
       },
       _count: { select: { followers: true, following: true } },

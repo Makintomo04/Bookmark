@@ -23,7 +23,7 @@ import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
 import { goBack } from "@/lib/navigation";
 import { bookSeriesKey, type BookSeries } from "@/lib/series";
-import { formatDay, groupShelf, isRereading, saveBook, useBooks, type Book, type BookAction, type BookRead } from "@/lib/books";
+import { formatDay, saveBook, useBook, type Book, type BookAction, type BookRead } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
 
 // The book page: what the web's BookUpdateModal does, as a screen. Start a book, log progress, finish,
@@ -47,8 +47,8 @@ const TITLES: Record<Book["status"], [string, string]> = {
 
 export default function BookPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: books, isLoading } = useBooks();
-  const book = books?.find((b) => b.id === id);
+  // This one book (with whether it's a re-read), not the whole shelf.
+  const { data: book, isLoading } = useBook(id);
   const { colors } = useTheme();
 
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
@@ -61,10 +61,10 @@ export default function BookPage() {
       </Screen>
     );
   }
-  return <BookEditor key={book.id} book={book} books={books ?? []} />;
+  return <BookEditor key={book.id} book={book} />;
 }
 
-function BookEditor({ book, books }: { book: Book; books: Book[] }) {
+function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
   const { colors, radii, fonts } = useTheme();
   const { data: user } = useSWR<{ favColour: string | null }>("/api/user");
   const { data: reads, mutate: mutateReads } = useSWR<BookRead[]>(`/api/books/${book.id}/reads`);
@@ -195,7 +195,8 @@ function BookEditor({ book, books }: { book: Book; books: Book[] }) {
     return run({ action: "rate", ...ratingAndReview });
   };
 
-  const rereading = status === "STARTED" && isRereading(book, groupShelf(books).finished);
+  // The server works it out (restarted, or an earlier copy on Finished); an older one says only timesRead.
+  const rereading = status === "STARTED" && (book.rereading ?? book.timesRead > 0);
   const meta = status === "STARTED" && book.startedAt ? `${rereading ? "Rereading since" : "Started"} ${formatDay(book.startedAt)}`
     : status === "COMPLETED" && book.completedAt ? `Finished ${formatDay(book.completedAt)}`
     : status === "PAUSED" ? `Paused${book.stoppedAt ? ` since ${formatDay(book.stoppedAt)}` : ""}`

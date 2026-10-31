@@ -46,7 +46,27 @@ export interface BookRead {
   currentPercent?: number | null;
 }
 
+// The whole shelf. Only for what really needs every book (choosing a circle's book); the Library reads
+// useLibrary and a book page useBook, so neither downloads a shelf of thousands.
 export const useBooks = () => useSWR<Book[]>("/api/books");
+
+// The Library tab: the newest of each shelf (LIBRARY_PREVIEW books), how many each holds, and which books being
+// read are re-reads (GET /api/books?shelves=). See all opens the rest, a page at a time.
+export const LIBRARY_PREVIEW = 20;
+export interface Library {
+  shelves: Record<ShelfKey, Book[]>;
+  counts: Record<ShelfKey, number>;
+  rereading: string[];
+}
+export const useLibrary = () => useSWR<Library>(`/api/books?shelves=${LIBRARY_PREVIEW}`);
+
+// One of your books, with its blurb and whether it's a re-read (GET /api/books/<id>).
+export const useBook = (id: string | undefined) => useSWR<Book & { rereading?: boolean }>(id ? `/api/books/${encodeURIComponent(id)}` : null);
+
+// What select mode keeps of each picked book: enough for SelectionBar's actions.
+export type PickedBook = Pick<Book, "id" | "status" | "isPrivate">;
+// Every book on one shelf, for Select all on a shelf the Library shows only the start of.
+export const shelfSelection = (shelf: ShelfKey) => api.get<{ books: PickedBook[] }>(`/api/books?select=${shelf}`).then((d) => d.books);
 
 // One page of the shelf, searched, sorted and filtered on the server (GET /api/books?take=…), for the shelf
 // screen. The first page also carries the filter menus' options and how many books each shelf holds.
@@ -61,14 +81,15 @@ export interface ShelfPage {
 
 const SHELF_PAGE_SIZE = 60;
 
-// useSWRInfinite's key for a filter: page after page until the server says there are no more.
-export const shelfPageKey = (filter: ShelfFilter) => (index: number, previous: ShelfPage | null) => {
+// useSWRInfinite's key for a filter: page after page until the server says there are no more. Your own shelf,
+// or with `reader` another reader's Finished or Want to read (/api/users/<reader>/shelf, the same rules).
+export const shelfPageKey = (filter: ShelfFilter, reader?: string | null) => (index: number, previous: ShelfPage | null) => {
   if (previous && !previous.nextCursor) return null;
   const params = shelfParams(filter);
   params.set("take", String(SHELF_PAGE_SIZE));
   if (previous?.nextCursor) params.set("cursor", previous.nextCursor);
   if (index === 0) params.set("facets", "1");
-  return `/api/books?${params.toString()}`;
+  return `${reader ? `/api/users/${encodeURIComponent(reader)}/shelf` : "/api/books"}?${params.toString()}`;
 };
 
 const time = (date: string | null) => (date ? new Date(date).getTime() : 0);
