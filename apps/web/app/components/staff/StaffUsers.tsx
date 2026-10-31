@@ -97,7 +97,7 @@ const StaffUsers = ({ viewerId, initialQuery, initialAppeals, canSuspend, canGra
         <>
           <label className="relative block">
             <span className="sr-only">Search readers</span>
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Search size={16} className="pointer-events-none absolute z-10 left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <ClearableInput className={`${fieldClass} pl-9 h-10`} placeholder={canSuspend ? 'Username, name, email or id' : 'Username, name or id'} value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
           </label>
           <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Show by role">

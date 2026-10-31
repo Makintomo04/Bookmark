@@ -236,7 +236,7 @@ const BookEntryModal: FC = () => {
   const searchBody = (
     <div className="w-full h-full px-6 self-start">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
+        <Search className="pointer-events-none absolute z-10 left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} aria-hidden />
         <ClearableInput
           autoFocus
           value={query}
