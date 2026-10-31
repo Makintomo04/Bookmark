@@ -8,7 +8,7 @@ import {
   copyClashes, duplicateGroups, duplicatePairs, isMerged, mergeCopies, mergeWorkValues, mergedInto, mergedKey, unmergeConflicts, unmergeCopyPatch, type CopyRow,
 } from "../../lib/catalogueMergeRules.ts";
 
-const work = { title: "Dune", authors: ["Frank Herbert"], description: null, coverUrl: "https://utfs.io/f/a.jpg", seriesName: null, seriesPosition: null, firstPublishYear: null, curatedFields: [] as string[] };
+const work = { title: "Dune", authors: ["Frank Herbert"], description: null, coverUrl: "https://utfs.io/f/a.jpg", seriesName: null, seriesPosition: null, firstPublishYear: null, releaseDate: null as string | null, curatedFields: [] as string[] };
 
 const copy = (over: Partial<CopyRow> = {}): CopyRow => ({
   id: "c", status: "NOT_STARTED", rating: null, review: null, reviewSpoiler: null, reviewPrivate: null, reviewHiddenAt: null, ratingHiddenAt: null,

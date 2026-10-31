@@ -1,4 +1,5 @@
-import { releaseYear } from "@bookmark/shared/releases";
+import { isUpcoming, releaseYear } from "@bookmark/shared/releases";
+import { seriesKey } from "@bookmark/shared/series";
 
 // Who hears that a book is out on publication day (lib/jobs/publicationDay.ts), kept apart from the job so
 // the tests load it without the database.
@@ -22,3 +23,50 @@ export function publicationDayReaders({ shelf, followers, recentlyTold = new Set
 // reissue's date isn't publication day.
 export const isFirstRelease = (work: { releaseDate: string; firstPublishYear: number | null }) =>
   work.firstPublishYear == null || work.firstPublishYear === releaseYear(work.releaseDate);
+
+// One book, at most one heads-up (a new book announced, or new in a series), plus its publication day.
+// Each alert checks the others before telling a reader, so a series follower who heard a book was
+// announced isn't told again that it's new in the series, and nobody hears a book is new after it's out.
+export const HEADS_UP_TYPES = ["NEW_BOOK", "NEW_IN_SERIES"] as const;
+export const BOOK_NEWS_TYPES = [...HEADS_UP_TYPES, "PUBLICATION_DAY"] as const;
+
+export interface BookNewsRow {
+  type: string;
+  workId: string | null;
+  count: number | null;
+}
+
+// The weekly email's book news (lib/jobs/weeklyDigest.ts): up to `max` books per section, newest first, and
+// each book in one section only. Out this week beats new in a series, which beats announced, so a book
+// announced and out in the same week is said once, as out. No database.
+export function bookNewsSections<W extends { id: string }>(news: BookNewsRow[], workById: Map<string, W>, max = 5) {
+  const seen = new Set<string>();
+  const section = (type: string) => {
+    const out: { work: W; count: number | null }[] = [];
+    for (const n of news) {
+      const work = n.type === type && n.workId ? workById.get(n.workId) : undefined;
+      if (!work || seen.has(work.id) || out.length >= max) continue;
+      seen.add(work.id);
+      out.push({ work, count: n.count });
+    }
+    return out;
+  };
+  const released = section("PUBLICATION_DAY");
+  const series = section("NEW_IN_SERIES");
+  const newBooks = section("NEW_BOOK");
+  return { released, series, newBooks };
+}
+
+// A book's place in its series, as the series fill records it (lib/seriesFill.ts): none while it's not out,
+// so it isn't the tracker's "next" and its series' readers aren't told it's out before it is. No database.
+export const placeWhileUpcoming = (position: number | null, releaseDate: string | null | undefined, today: string) =>
+  isUpcoming(releaseDate, today) ? null : position;
+
+// Whether a catalogue work takes a place Hardcover gives for a series' book (lib/seriesFill.ts
+// fileSeriesBooks): one with no series yet, or one filed in this series without a place (announced before it
+// was out). Never a series a librarian set. No database.
+export function takesSeriesPlace(had: { seriesName: string | null; seriesPosition: number | null; curatedFields: string[] }, name: string, author: string): boolean {
+  if (had.curatedFields.includes("seriesName")) return false;
+  if (!had.seriesName) return true;
+  return had.seriesPosition == null && seriesKey(had.seriesName, author) === seriesKey(name, author);
+}

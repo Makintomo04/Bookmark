@@ -62,6 +62,13 @@ export const pushGroupsFor = (isStaff: boolean): PushGroup[] =>
 const TO_SELF: readonly string[] = ["NEW_IN_SERIES", "NEW_BOOK", "PUBLICATION_DAY", "REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED", "STAFF_REPORT"];
 export const pushedToSelf = (type: string) => TO_SELF.includes(type);
 
+// Book news a cron finds at whatever hour it runs, with nobody waiting on it: written to the bell at once,
+// but pushed only outside the reader's quiet hours (apps/web/lib/notifications.ts, lib/jobs/heldPushes.ts).
+// Publication day is timed to the reader's morning already, and everything else is someone's doing, sent as
+// it happens.
+const HELD_IN_QUIET_HOURS: readonly string[] = ["NEW_IN_SERIES", "NEW_BOOK"];
+export const heldInQuietHours = (type: string) => HELD_IN_QUIET_HOURS.includes(type);
+
 export const isPushGroup = (value: unknown): value is PushGroup => typeof value === "string" && value in PUSH_GROUPS;
 
 export function pushGroupOf(type: string): PushGroup | null {
