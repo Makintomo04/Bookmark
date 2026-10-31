@@ -8,7 +8,7 @@ const Page = () => {
   return (
     <div className="w-full min-h-dvh bg-background">
       <Container>
-        <div className="w-full min-h-dvh flex justify-center items-start sm:items-center sm:py-10">
+        <div className="w-full min-h-dvh flex justify-center items-center py-10">
           <Suspense fallback={null}>
             <UnsubscribeLanding/>
           </Suspense>

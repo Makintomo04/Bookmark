@@ -25,7 +25,7 @@ const UnsubscribeLanding = () => {
   }
 
   return (
-    <div className='w-full min-h-dvh sm:w-[500px] sm:min-h-0 rounded-none py-10 sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
+    <div className='w-full max-w-sm sm:max-w-none sm:w-[500px] sm:p-6 bg-background sm:bg-popover sm:border sm:rounded-xl'>
       <div className="flex justify-center items-center gap-3 mb-6">
         <Link href="/" className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Image src='/logo.svg' width={40} height={40} alt='Bookmark home'/></Link>
       </div>
@@ -37,10 +37,15 @@ const UnsubscribeLanding = () => {
           <p className="text-center">This link isn’t working. You can turn {kind.name} off in <Link href="/settings#notifications" className='text-brand-text font-semibold hover:underline'>Settings</Link> instead.</p>
         ) : (
           <>
-            <p className="text-center">{kind.what}</p>
-            <Button type="button" loading={state === 'sending'} onClick={stop} className="rounded-md py-2">
-              {state === 'sending' ? 'Stopping…' : `Stop ${kind.name}`}
-            </Button>
+            <p className="text-center text-muted-foreground">{kind.what}</p>
+            <div className="flex flex-col gap-2 mt-2">
+              <Button type="button" loading={state === 'sending'} onClick={stop} className="rounded-md py-2">
+                {state === 'sending' ? 'Stopping…' : `Stop ${kind.name}`}
+              </Button>
+              <Button asChild variant="ghost" className="rounded-md py-2 text-muted-foreground">
+                <Link href="/">Keep {kind.name}</Link>
+              </Button>
+            </div>
           </>
         )}
       </div>
