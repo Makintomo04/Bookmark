@@ -9,7 +9,9 @@
 //     storage (lib/covers.ts mirrorCover), so a copy of the wrong cover rarely has the old URL. Only a
 //     reader's own upload is kept (lib/uploads.ts); the caller filters those out.
 
-export const WORK_FIELDS = ["title", "authors", "description", "coverUrl", "seriesName", "seriesPosition", "firstPublishYear"] as const
+import { releaseDateFrom, releaseYear } from "@bookmark/shared/releases"
+
+export const WORK_FIELDS = ["title", "authors", "description", "coverUrl", "seriesName", "seriesPosition", "firstPublishYear", "releaseDate"] as const
 
 type CoverRow = { coverUrl: string | null, curatedFields?: string[] }
 
@@ -44,6 +46,9 @@ export interface WorkValues {
   // 1, 2, 2.5…
   seriesPosition: number | null
   firstPublishYear: number | null
+  // "YYYY-MM-DD": the day it first came out, or comes out (Work.releaseDate). A librarian's date is kept over
+  // Hardcover's (lib/authorNews.ts), so a self-published book Hardcover doesn't list can still have one.
+  releaseDate: string | null
 }
 
 export interface EditionValues {
@@ -108,6 +113,18 @@ export function parseWorkFix(body: Record<string, unknown>, descriptionMax: numb
     const year = yearOf(body.firstPublishYear)
     if (!year.ok) return { ok: false, error: "The first publication year needs to be a year, like 1965." }
     patch.firstPublishYear = year.value
+  }
+  if ("releaseDate" in body) {
+    const raw = typeof body.releaseDate === "string" ? body.releaseDate.trim() : body.releaseDate
+    const date = raw === null || raw === "" ? null : typeof raw === "string" ? releaseDateFrom(raw) : null
+    if (raw !== null && raw !== "" && !date) return { ok: false, error: "The release date needs to be a full date, like 2027-04-09 or 9 April 2027." }
+    if (date && (releaseYear(date) < 1000 || releaseYear(date) > yearMax())) return { ok: false, error: `The release date needs to be before ${yearMax() + 1}.` }
+    // The first year follows the date, so publication day doesn't take it for a reissue (lib/releaseRules.ts).
+    if (date && "firstPublishYear" in body && patch.firstPublishYear != null && patch.firstPublishYear !== releaseYear(date)) {
+      return { ok: false, error: "The release date and the first publication year disagree." }
+    }
+    patch.releaseDate = date
+    if (date && !("firstPublishYear" in body)) patch.firstPublishYear = releaseYear(date)
   }
   // Out of a series means no place in one.
   if (patch.seriesName === null) patch.seriesPosition = null
@@ -277,7 +294,7 @@ const BOOKKEEPING = new Set(["copies", "reports", "reportIds", "wasCurated", "re
 
 export const FIELD_LABELS: Record<string, string> = {
   title: "Title", authors: "Authors", description: "Description", coverUrl: "Cover", seriesName: "Series",
-  seriesPosition: "Number in series", firstPublishYear: "First published", pages: "Pages", isbn13: "ISBN-13",
+  seriesPosition: "Number in series", firstPublishYear: "First published", releaseDate: "Release date", pages: "Pages", isbn13: "ISBN-13",
   isbn10: "ISBN-10", publisher: "Publisher", publishedYear: "Published", format: "Format",
 }
 

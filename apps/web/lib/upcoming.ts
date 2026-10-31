@@ -16,8 +16,10 @@ export interface UpcomingBook extends DiscoverBook {
   followed: boolean
 }
 
-// Works read to rank; far more than a page shows, so followed books further off still come first.
+// Works read to rank, soonest first; far more than a page shows. Books the reader follows are read on their
+// own as well (FOLLOWED_CANDIDATES), so one a year off still comes first however full the catalogue gets.
 const CANDIDATES = 300
+const FOLLOWED_CANDIDATES = 120
 
 export interface UpcomingWork {
   id: string
@@ -37,12 +39,16 @@ export interface ReaderFollows {
   authorKeys: Set<string>
   authorSlugs: Set<string>
   seriesKeys: Set<string>
+  // As followed, for finding their books in the catalogue: author names and series names.
+  authorNames?: string[]
+  seriesNames?: string[]
 }
 
 export const followsWork = (w: Pick<UpcomingWork, "authors" | "authorKeys" | "seriesName">, f: ReaderFollows) =>
   w.authorKeys.some((k) => f.authorKeys.has(k)) ||
   w.authors.some((a) => f.authorSlugs.has(authorSlug(a))) ||
-  (!!w.seriesName && !!w.authors[0] && f.seriesKeys.has(seriesKey(w.seriesName, w.authors[0])))
+  // Under any of its authors: a co-written series is followed under whichever author the catalogue lists first.
+  (!!w.seriesName && w.authors.some((a) => f.seriesKeys.has(seriesKey(w.seriesName!, a))))
 
 // Only books still to come on `today`, followed ones first, each group soonest first. No database.
 export function rankUpcoming(works: UpcomingWork[], follows: ReaderFollows | null, today: string): UpcomingBook[] {
@@ -65,28 +71,38 @@ export function rankUpcoming(works: UpcomingWork[], follows: ReaderFollows | nul
 
 async function readerFollows(userId: string): Promise<ReaderFollows> {
   const [authors, series] = await Promise.all([
-    prisma.authorFollow.findMany({ where: { userId }, select: { authorKey: true, slug: true } }),
-    prisma.seriesFollow.findMany({ where: { userId }, select: { seriesKey: true } }),
+    prisma.authorFollow.findMany({ where: { userId }, select: { authorKey: true, slug: true, name: true } }),
+    prisma.seriesFollow.findMany({ where: { userId }, select: { seriesKey: true, name: true } }),
   ])
   return {
     authorKeys: new Set(authors.map((a) => a.authorKey)),
     authorSlugs: new Set(authors.map((a) => a.slug)),
     seriesKeys: new Set(series.map((s) => s.seriesKey)),
+    authorNames: authors.map((a) => a.name),
+    seriesNames: series.map((s) => s.name),
   }
 }
 
+const upcomingSelect = { id: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, title: true, authors: true, authorKeys: true, seriesName: true, coverUrl: true, firstPublishYear: true, releaseDate: true } as const
+
 // `today` is the reader's day, "YYYY-MM-DD". Books the reader marked Not interested are left out.
 export async function upcomingBooks(viewerId: string | null, { today, limit = 48 }: { today: string, limit?: number }): Promise<UpcomingBook[]> {
-  const [works, follows, notInterested] = await Promise.all([
-    prisma.work.findMany({
-      where: { releaseDate: { gt: today }, AND: [hasPageWhere, { NOT: { key: { startsWith: MERGED_PREFIX } } }] },
-      orderBy: { releaseDate: "asc" },
-      take: CANDIDATES,
-      select: { id: true, openLibraryKey: true, hardcoverId: true, pageApprovedAt: true, title: true, authors: true, authorKeys: true, seriesName: true, coverUrl: true, firstPublishYear: true, releaseDate: true },
-    }),
-    viewerId ? readerFollows(viewerId) : null,
+  const ahead = { releaseDate: { gt: today }, AND: [hasPageWhere, { NOT: { key: { startsWith: MERGED_PREFIX } } }] }
+  const follows = viewerId ? await readerFollows(viewerId) : null
+  // Names as followed; followsWork below has the final say, with keys and slugs.
+  const followedWhere = follows && [
+    ...(follows.authorKeys.size ? [{ authorKeys: { hasSome: Array.from(follows.authorKeys) } }] : []),
+    ...(follows.authorNames?.length ? [{ authors: { hasSome: follows.authorNames } }] : []),
+    ...(follows.seriesNames?.length ? [{ seriesName: { in: follows.seriesNames } }] : []),
+  ]
+  const [soonest, followed, notInterested] = await Promise.all([
+    prisma.work.findMany({ where: ahead, orderBy: { releaseDate: "asc" }, take: CANDIDATES, select: upcomingSelect }),
+    followedWhere?.length
+      ? prisma.work.findMany({ where: { ...ahead, OR: followedWhere }, orderBy: { releaseDate: "asc" }, take: FOLLOWED_CANDIDATES, select: upcomingSelect })
+      : [],
     viewerId ? prisma.book.findMany({ where: { userId: viewerId, status: "NOT_INTERESTED", workId: { not: null } }, select: { workId: true } }) : [],
   ])
   const hidden = new Set(notInterested.map((b) => b.workId))
+  const works = Array.from(new Map([...followed, ...soonest].map((w) => [w.id, w])).values())
   return rankUpcoming(works.filter((w) => !hidden.has(w.id)), follows, today).slice(0, limit)
 }

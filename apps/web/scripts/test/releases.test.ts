@@ -8,11 +8,14 @@ import assert from "node:assert/strict";
 import {
   firstReleaseDate, formatReleaseDate, isUpcoming, newBookText, publicationDayText, publishedFact, releaseDateFrom,
 } from "@bookmark/shared/releases";
-import { pushContentFor, pushGroupOf, pushGroupsFor, pushedToSelf } from "@bookmark/shared/push";
+import { heldInQuietHours, pushContentFor, pushGroupOf, pushGroupsFor, pushedToSelf } from "@bookmark/shared/push";
 import { buildWeeklyDigest, type DigestData } from "@bookmark/shared/digest";
-import { authorNewsNotifications, freshReleases, isAnnounced, seenIdsOf } from "@/lib/authorNews";
-import { isFirstRelease, publicationDayReaders } from "@/lib/releaseRules";
-import { rankUpcoming, type UpcomingWork } from "@/lib/upcoming";
+import { announcementBatches, authorNewsNotifications, freshReleases, isAnnounced, seenIdsOf } from "@/lib/authorNews";
+import { BOOK_NEWS_TYPES, HEADS_UP_TYPES, bookNewsSections, isFirstRelease, placeWhileUpcoming, publicationDayReaders, takesSeriesPlace } from "@/lib/releaseRules";
+import { heldPushPlan } from "@/lib/jobs/heldPushes";
+import { isQuietFor } from "@/lib/notifications";
+import { parseWorkFix } from "@/lib/catalogueFixRules";
+import { followsWork, rankUpcoming, type UpcomingWork } from "@/lib/upcoming";
 import { resolveOne } from "../../lib/catalog/resolve.ts";
 import { MemoryCatalogStore } from "../../lib/catalog/memoryStore.ts";
 
@@ -189,4 +192,105 @@ test("a work takes a release date from Hardcover, or an edition from its first y
   assert.equal(reprint.work.releaseDate, null);
   const first = await resolveOne({ isbn13: "9781250178619", title: "Fourth Wing", author: "Rebecca Yarros", year: 2023 }, { store, lookup: isbnLookup("2023-05-02", 2023) });
   assert.equal(first.work.releaseDate, "2023-05-02");
+});
+
+// ---- Round 9 fixes -----------------------------------------------------------------------------------
+
+test("one heads-up per book: every alert checks the other kinds before telling a reader", () => {
+  // Announced, then new in its series: the series alert's alreadyTold covers all three kinds.
+  assert.deepEqual([...BOOK_NEWS_TYPES].sort(), ["NEW_BOOK", "NEW_IN_SERIES", "PUBLICATION_DAY"]);
+  // Publication day still follows an older heads-up of either kind; only a recent one skips it.
+  assert.deepEqual([...HEADS_UP_TYPES].sort(), ["NEW_BOOK", "NEW_IN_SERIES"]);
+  // A reader told the book is out isn't told it was announced.
+  const rows = authorNewsNotifications({
+    authorFollowers: ["sawItOut", "fresh"], seriesFollowers: new Map(),
+    books: [{ workId: "w4", seriesKey: null, releaseDate: "2026-10-30" }],
+    alreadyTold: new Set(["sawItOut|w4"]),
+  });
+  assert.deepEqual(rows.map((r) => r.userId), ["fresh"]);
+});
+
+test("a later check's books are their own batch, so a reader told about the first still hears of the second", () => {
+  const queued = [
+    { workId: "a", seriesName: null, batch: "2026-10-24T00:30:00.000Z" },
+    { workId: "b", seriesName: null, batch: "2026-10-31T00:30:00.000Z" },
+    { workId: "c", seriesName: null, batch: "2026-10-31T00:30:00.000Z" },
+    { workId: "old", seriesName: null },
+  ];
+  assert.deepEqual(announcementBatches(queued).map((b) => b.map((x) => x.workId)), [["a"], ["b", "c"], ["old"]]);
+  const second = authorNewsNotifications({
+    authorFollowers: ["reader"], seriesFollowers: new Map(),
+    books: [{ workId: "b", seriesKey: null, releaseDate: "2027-01-01" }, { workId: "c", seriesKey: null, releaseDate: "2027-02-01" }],
+    alreadyTold: new Set(["reader|a"]),
+  });
+  assert.deepEqual(second.map((r) => [r.workId, r.count]), [["b", 2]]);
+});
+
+test("a book not out yet takes its series but not its place, until it's out", () => {
+  assert.equal(placeWhileUpcoming(4, "2027-06-01", TODAY), null);
+  assert.equal(placeWhileUpcoming(4, "2026-10-01", TODAY), 4);
+  assert.equal(placeWhileUpcoming(4, null, TODAY), 4);
+  // Once Hardcover lists it as out, the work filed in the series without a place takes it.
+  assert.equal(takesSeriesPlace({ seriesName: "Riftwake", seriesPosition: null, curatedFields: [] }, "Riftwake", "Brandon Sanderson"), true);
+  assert.equal(takesSeriesPlace({ seriesName: null, seriesPosition: null, curatedFields: [] }, "Riftwake", "Brandon Sanderson"), true);
+  // Not one placed already, one in another series, or a librarian's series.
+  assert.equal(takesSeriesPlace({ seriesName: "Riftwake", seriesPosition: 1, curatedFields: [] }, "Riftwake", "Brandon Sanderson"), false);
+  assert.equal(takesSeriesPlace({ seriesName: "Mistborn", seriesPosition: null, curatedFields: [] }, "Riftwake", "Brandon Sanderson"), false);
+  assert.equal(takesSeriesPlace({ seriesName: null, seriesPosition: null, curatedFields: ["seriesName"] }, "Riftwake", "Brandon Sanderson"), false);
+});
+
+test("the weekly email names a book in one section only: out, then new in a series, then announced", () => {
+  const works = new Map(["w1", "w2", "w3"].map((id) => [id, { id }]));
+  const sections = bookNewsSections([
+    { type: "PUBLICATION_DAY", workId: "w1", count: null },
+    { type: "NEW_IN_SERIES", workId: "w1", count: 1 },
+    { type: "NEW_BOOK", workId: "w1", count: 1 },
+    { type: "NEW_IN_SERIES", workId: "w2", count: 1 },
+    { type: "NEW_BOOK", workId: "w2", count: 1 },
+    { type: "NEW_BOOK", workId: "w3", count: 1 },
+  ], works);
+  assert.deepEqual(sections.released.map((n) => n.work.id), ["w1"]);
+  assert.deepEqual(sections.series.map((n) => n.work.id), ["w2"]);
+  assert.deepEqual(sections.newBooks.map((n) => n.work.id), ["w3"]);
+});
+
+test("book news found during quiet hours is pushed when they end, unless read or a day old", () => {
+  assert.ok(heldInQuietHours("NEW_BOOK") && heldInQuietHours("NEW_IN_SERIES"));
+  // Publication day is timed already; someone's doing is sent as it happens.
+  assert.ok(!heldInQuietHours("PUBLICATION_DAY") && !heldInQuietHours("NEW_FOLLOWER"));
+  // 03:30 in New York is quiet by default (22:00 to 08:00); 13:30 isn't. Settings move it.
+  const newYork = { timeZone: "America/New_York", quietStartMinute: null, quietEndMinute: null };
+  assert.equal(isQuietFor(newYork, new Date("2026-10-31T07:30:00Z")), true);
+  assert.equal(isQuietFor(newYork, new Date("2026-10-31T17:30:00Z")), false);
+  assert.equal(isQuietFor({ ...newYork, quietStartMinute: 0, quietEndMinute: 0 }, new Date("2026-10-31T07:30:00Z")), false);
+
+  const now = new Date("2026-10-31T13:00:00Z");
+  const row = (id: string, userId: string, hoursAgo: number, read = false) => ({ id, userId, read, createdAt: new Date(now.getTime() - hoursAgo * 3600_000) });
+  const plan = heldPushPlan([row("awake", "a", 5), row("asleep", "b", 5), row("read", "a", 5, true), row("stale", "a", 30)], (u) => u === "b", now);
+  assert.deepEqual(plan.push.map((r) => r.id), ["awake"]);
+  assert.deepEqual(plan.drop.map((r) => r.id).sort(), ["read", "stale"]);
+});
+
+test("a series follower's book counts as followed under any of its authors", () => {
+  const follows = { authorKeys: new Set<string>(), authorSlugs: new Set<string>(), seriesKeys: new Set(["the-expanse|james-s-a-corey"]) };
+  // Filed by the author check with its series and no place, the co-author first.
+  assert.equal(followsWork({ authors: ["Daniel Abraham", "James S. A. Corey"], authorKeys: [], seriesName: "The Expanse" }, follows), true);
+  assert.equal(followsWork({ authors: ["Daniel Abraham"], authorKeys: [], seriesName: "The Expanse" }, follows), false);
+  assert.equal(followsWork({ authors: ["James S. A. Corey"], authorKeys: [], seriesName: null }, follows), false);
+});
+
+test("a librarian can date a book, and the first year follows", () => {
+  assert.deepEqual(parseWorkFix({ releaseDate: "2027-04-09" }, 3000), { ok: true, patch: { releaseDate: "2027-04-09", firstPublishYear: 2027 } });
+  assert.deepEqual(parseWorkFix({ releaseDate: "9 April 2027" }, 3000), { ok: true, patch: { releaseDate: "2027-04-09", firstPublishYear: 2027 } });
+  // Cleared, the year stays as it was.
+  assert.deepEqual(parseWorkFix({ releaseDate: "" }, 3000), { ok: true, patch: { releaseDate: null } });
+  assert.equal(parseWorkFix({ releaseDate: "April 2027" }, 3000).ok, false);
+  assert.equal(parseWorkFix({ releaseDate: "2027-04-09", firstPublishYear: "2026" }, 3000).ok, false);
+  assert.deepEqual(parseWorkFix({ releaseDate: "2027-04-09", firstPublishYear: "2027" }, 3000), { ok: true, patch: { firstPublishYear: 2027, releaseDate: "2027-04-09" } });
+});
+
+test("the author check files a new book in its series without a place", async () => {
+  const filed = await resolveOne({ hardcoverId: "2235778", title: "Blightfall", author: "Brandon Sanderson", releaseDate: "2027-01-10", series: { name: "Riftwake", position: null } }, { store: new MemoryCatalogStore() });
+  assert.equal(filed.work.seriesName, "Riftwake");
+  assert.equal(filed.work.seriesPosition, null);
 });

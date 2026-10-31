@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorised } from "@/lib/cronAuth";
 import { runCheckpointReminders } from "@/lib/jobs/checkpointReminders";
+import { runHeldPushes } from "@/lib/jobs/heldPushes";
 import { clearOldSends } from "@/lib/jobs/ledger";
 import { runPublicationDay } from "@/lib/jobs/publicationDay";
 import { runReadingNudges } from "@/lib/jobs/readingNudges";
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 // Seconds each job may run for, in order, out of maxDuration with room to spare.
-const BUDGET_S = { nudges: 80, checkpoints: 50, publicationDays: 40, digest: 100 };
+const BUDGET_S = { nudges: 75, checkpoints: 45, publicationDays: 35, heldPushes: 20, digest: 95 };
 
 export async function GET(req: Request) {
   if (!isCronAuthorised(req.headers.get("authorization"))) {
@@ -26,6 +27,8 @@ export async function GET(req: Request) {
     ...(await runReadingNudges(until(BUDGET_S.nudges))),
     ...(await runCheckpointReminders(until(BUDGET_S.checkpoints))),
     ...(await runPublicationDay(until(BUDGET_S.publicationDays))),
+    // Book news found during readers' quiet hours, pushed now they've ended (lib/notifications.ts).
+    ...(await runHeldPushes(until(BUDGET_S.heldPushes))),
     ...(await runWeeklyDigest(until(BUDGET_S.digest))),
     cleared: await clearOldSends(now),
   };

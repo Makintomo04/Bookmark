@@ -388,6 +388,9 @@ model AuthorCheck {
 type AuthorNewBook {
   workId     String  @db.ObjectId
   seriesName String?
+  // The check that found it ("<checkedAt ISO>"). Each check's books are announced as one batch, so a reader
+  // told about an earlier batch still hears about a later one. Unset on books queued before batches.
+  batch      String?
 }
 
 model ReadingGoal {
@@ -795,6 +798,9 @@ model Notification {
   // REVIEW_COMMENT / REVIEW_REPLY: the comment (bookId is the reviewer's copy of the book).
   commentId      String?          @db.ObjectId
   read           Boolean          @default(false)
+  // Book news written during the reader's quiet hours (packages/shared/src/push.ts HELD_IN_QUIET_HOURS): in
+  // the bell at once, pushed by the cron tick once quiet hours end (lib/jobs/heldPushes.ts), then unset.
+  pushHeld       Boolean?
   createdAt      DateTime         @default(now())
 
   user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
@@ -802,6 +808,8 @@ model Notification {
 
   // Bell: unread count and mark-all-read (userId + read), and the list (userId, sorted by createdAt).
   @@index([userId, read, createdAt])
+  // Pushes waiting for quiet hours to end.
+  @@index([pushHeld])
 }
 
 enum NotificationType {

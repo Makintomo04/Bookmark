@@ -12,6 +12,7 @@ import { progressSelect } from "@bookmark/shared/progress";
 import { addDays, DIGEST_MINUTE, DIGEST_WEEKDAY, isoWeekKey, localClock } from "@bookmark/shared/reminders";
 import { visibleComments, visibleFinishers } from "./circleCounts";
 import { unsubscribeLinks } from "./emailLinks";
+import { bookNewsSections } from "@/lib/releaseRules";
 import { claimSend } from "./ledger";
 import { pageArgs, pages, zoneOf, type JobContext } from "./common";
 
@@ -140,15 +141,12 @@ export async function digestFor(
     ? await prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, releaseDate: true } })
     : [];
   const workById = new Map(works.map((w) => [w.id, w]));
-  // Five of each, the work named once per kind.
-  const newsOf = (type: string) => {
-    const seen = new Set<string>();
-    return news.flatMap((n) => {
-      const work = n.type === type && n.workId ? workById.get(n.workId) : undefined;
-      if (!work || seen.has(work.id)) return [];
-      seen.add(work.id);
-      return [{ work, count: n.count }];
-    }).slice(0, 5);
+  // Five of each, and each book in one section only (lib/releaseRules.ts).
+  const sections = bookNewsSections(news, workById);
+  const bookNews = {
+    series: sections.series.map(({ work, count }) => ({ title: work.title, seriesName: work.seriesName, seriesPosition: work.seriesPosition, count })),
+    newBooks: sections.newBooks.map(({ work, count }) => ({ title: work.title, author: work.authors[0] ?? null, releaseDate: work.releaseDate, count })),
+    released: sections.released.map(({ work }) => ({ title: work.title, author: work.authors[0] ?? null })),
   };
   return {
     name: user.displayName || user.username,
@@ -158,9 +156,7 @@ export async function digestFor(
     goal: goal ? { year, books: (await getGoalProgress(user.id, year)).books, target: goal.targetBooks, pace: goalPace(goal.targetBooks, today, localClock(goal.createdAt, zone).day) } : null,
     ...circleNews,
     friends,
-    series: newsOf("NEW_IN_SERIES").map(({ work, count }) => ({ title: work.title, seriesName: work.seriesName, seriesPosition: work.seriesPosition, count })),
-    newBooks: newsOf("NEW_BOOK").map(({ work, count }) => ({ title: work.title, author: work.authors[0] ?? null, releaseDate: work.releaseDate, count })),
-    released: newsOf("PUBLICATION_DAY").map(({ work }) => ({ title: work.title, author: work.authors[0] ?? null })),
+    ...bookNews,
     today,
     logUrl: `${appUrl}/`,
     settingsUrl: `${appUrl}/settings#notifications`,

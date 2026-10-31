@@ -32,7 +32,7 @@ type CuratedWork = WorkValues & { curatedFields: string[] }
 export function mergeWorkValues(survivor: CuratedWork, duplicate: CuratedWork): { patch: Partial<WorkValues>; curatedFields: string[] } {
   const patch: Partial<WorkValues> = {}
   const empty = (v: unknown) => v === null || v === undefined || v === ""
-  for (const field of ["description", "coverUrl", "firstPublishYear"] as const) {
+  for (const field of ["description", "coverUrl", "firstPublishYear", "releaseDate"] as const) {
     if (empty(survivor[field]) && !empty(duplicate[field])) Object.assign(patch, { [field]: duplicate[field] })
   }
   // A series is a pair: the name and the place in it come together, or not at all.
