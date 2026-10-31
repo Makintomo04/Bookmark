@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import { ACHIEVEMENTS, AchievementKey, AchievementDefinition, LEGACY_KEYS, Milestone, milestoneKey } from "@/lib/achievements-catalog";
 import { finishedBookWhere } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, TIME_ZONE_COOKIE, TIME_ZONE_HEADER, isValidTimeZone, localDay, previousDay } from "@/lib/timeZone";
+import { streakState } from "@bookmark/shared/reminders";
 
 export { ACHIEVEMENTS, getAchievementTitle } from "@/lib/achievements-catalog";
 export type { AchievementKey, AchievementDefinition } from "@/lib/achievements-catalog";
@@ -50,7 +51,7 @@ export interface AwardOptions {
 
 // The `tz` cookie set by the browser (VerifyEmailBanner), or the X-Time-Zone header the mobile app sends.
 // Only meaningful inside the signed-in user's own request, which is where awardNewAchievements runs.
-async function requestTimeZone(): Promise<string | undefined> {
+export async function requestTimeZone(): Promise<string | undefined> {
   try {
     const raw = (await cookies()).get(TIME_ZONE_COOKIE)?.value ?? (await headers()).get(TIME_ZONE_HEADER) ?? undefined;
     const zone = raw ? decodeURIComponent(raw) : undefined;
@@ -62,7 +63,7 @@ async function requestTimeZone(): Promise<string | undefined> {
 }
 
 // Stored zone, updated when the client reports a different valid one; UTC when there's neither.
-async function resolveTimeZone(userId: string, clientZone: string | undefined): Promise<string> {
+export async function resolveTimeZone(userId: string, clientZone: string | undefined): Promise<string> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { timeZone: true } });
   if (clientZone && clientZone !== user?.timeZone) {
     await prisma.user.update({ where: { id: userId }, data: { timeZone: clientZone } });
@@ -93,7 +94,13 @@ export async function recordReadingDay(userId: string, timeZone: string, at = ne
 // covers history from before ReadingDay existed). Adding, rating or reviewing a book doesn't count.
 // `cap` stops counting there, so awarding only reads as many days as the next milestone needs.
 async function readingStreak(userId: string, timeZone: string, cap = Infinity): Promise<number> {
-  const today = localDay(new Date(), timeZone);
+  return (await readingStreakState(userId, timeZone, cap)).streak;
+}
+
+// The streak and whether today is already in it: a streak with `readToday` false ends at the reader's
+// midnight unless they read. The reminders (lib/jobs/readingNudges.ts) use both.
+export async function readingStreakState(userId: string, timeZone: string, cap = Infinity, now = new Date()) {
+  const today = localDay(now, timeZone);
   let since: string | undefined;
   let sinceDate: Date | undefined;
   if (Number.isFinite(cap)) {
@@ -115,13 +122,7 @@ async function readingStreak(userId: string, timeZone: string, cap = Infinity): 
   for (const a of completions) active.add(localDay(a.createdAt, timeZone));
 
   // Today isn't over, so a streak that reached yesterday is still alive until the reader's midnight.
-  let cursor = active.has(today) ? today : previousDay(today);
-  let streak = 0;
-  while (streak < cap && active.has(cursor)) {
-    streak++;
-    cursor = previousDay(cursor);
-  }
-  return streak;
+  return streakState(active, today, cap);
 }
 
 // ---- Stats -------------------------------------------------------------------------------

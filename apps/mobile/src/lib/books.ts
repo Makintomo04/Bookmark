@@ -77,9 +77,9 @@ export type BookAction = "start" | "progress" | "complete" | "rate" | "pause" | 
 
 // Celebrates whatever the save earned (lib/earnMoment.ts).
 export async function saveBook(payload: { id: string; action: BookAction } & Record<string, unknown>) {
-  const saved = await api.post<{ earnMoment?: EarnMoment | null }>("/api/book-progress", payload);
+  const saved = await api.post<{ earnMoment?: EarnMoment | null; askReminders?: boolean }>("/api/book-progress", payload);
   await refreshAfterBookChange();
-  celebrate(saved?.earnMoment);
+  celebrate(saved?.earnMoment, saved?.askReminders);
 }
 
 // One action over any number of books: /api/books/bulk takes BULK_MAX at a time, so a bigger selection goes in

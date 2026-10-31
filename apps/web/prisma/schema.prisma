@@ -204,6 +204,20 @@ model User {
   pushOff                String[]                 @db.String
   mobileSessions         MobileSession[]
   pushTokens             PushToken[]
+  // Reminders the reader turned on (BOO-48, packages/shared/src/reminders.ts). All off unless set.
+  // The daily reminder's time in minutes past local midnight, in 15-minute steps; null is off.
+  readingReminderMinute  Int?
+  streakAlerts           Boolean?
+  checkpointReminders    Boolean?
+  // Quiet hours in local minutes; unset is 22:00 to 08:00. Reminders never go out inside them.
+  quietStartMinute       Int?
+  quietEndMinute         Int?
+  // The weekly email, and when they said yes to it (the consent record).
+  weeklyEmail            Boolean?
+  weeklyEmailConsentAt   DateTime?
+  // When the reminders sheet was shown after their first finished book, so it's only asked once.
+  remindersPromptedAt    DateTime?
+  scheduledSends         ScheduledSend[]
 
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
@@ -817,6 +831,26 @@ model ReadingDay {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, day])
+}
+
+// One row per scheduled message sent (lib/jobs/ledger.ts): a reminder, a checkpoint push, a weekly email.
+// The row is claimed before sending, so a retried or overlapping cron tick can't send twice. Rows older
+// than 60 days are cleared by the tick.
+model ScheduledSend {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String   @db.ObjectId
+  // "nudge" (the daily reminder), "streak" (the streak alert), "checkpoint" or "digest".
+  kind    String
+  // Once per what: the local day ("2026-10-31"), the circle and due date, or the ISO week ("2026-W44").
+  key     String
+  // "push" or "email"
+  channel String
+  sentAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, key])
+  @@index([sentAt])
 }
 
 enum ListVisibility {

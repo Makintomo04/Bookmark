@@ -322,6 +322,10 @@ export async function POST(req: Request) {
     }),
   })
   // What this save earned, sent back with the book so the app can celebrate it there and then.
-  const earnMoment = await earnMomentFor(currentUser, synced, { finished: (action === "complete" || (action === "reshelve" && to === "COMPLETED")) && finishedThisYear })
-  return NextResponse.json({ ...updated, earnMoment })
+  const finished = action === "complete" || (action === "reshelve" && to === "COMPLETED")
+  const earnMoment = await earnMomentFor(currentUser, synced, { finished: finished && finishedThisYear })
+  // The first book they finish here, the app offers reminders (BOO-48), once: the sheet's answer, either
+  // way, sets remindersPromptedAt (PATCH /api/push/settings).
+  const askReminders = finished && !currentUser.remindersPromptedAt
+  return NextResponse.json({ ...updated, earnMoment, askReminders })
 }

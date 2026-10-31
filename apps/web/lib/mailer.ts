@@ -62,7 +62,8 @@ function getTransporter(): Promise<Transporter> {
   return transporterPromise;
 }
 
-export async function sendMail(options: { to: string; subject: string; html: string; text: string }) {
+// `headers` for the weekly email's List-Unsubscribe pair (lib/jobs/weeklyDigest.ts).
+export async function sendMail(options: { to: string; subject: string; html: string; text: string; headers?: Record<string, string> }) {
   const transporter = await getTransporter();
   const info = await transporter.sendMail({
     from: process.env.EMAIL_FROM || "Bookmark <no-reply@bookmark.app>",

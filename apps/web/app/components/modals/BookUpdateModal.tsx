@@ -295,7 +295,7 @@ const BookUpdateModal: FC = () => {
     setSavingAction("save")
     axios.post("/api/book-progress", payload).then(async ({ data: saved }) => {
       await saveTags()
-      celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null)
+      celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null, saved?.askReminders)
       mutate()
       refreshAfterBookChange()
       readsMutate()

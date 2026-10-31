@@ -1,5 +1,5 @@
 "use client"
-import { FC, FormEvent, useEffect, useState } from 'react'
+import { FC, FormEvent, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import type { Book } from '@prisma/client'
 import { Check, Loader2, Minus, Plus, X } from 'lucide-react'
@@ -10,6 +10,7 @@ import {
 } from '@/lib/progress'
 import useBooks from '@/app/hooks/useBooks'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
+import { useRemindersPrompt } from '@/app/hooks/useEarnMoment'
 import StarRating from '../StarRating'
 import UpNext from './UpNext'
 import { primaryButtonClass } from './ProfileHeader'
@@ -65,6 +66,9 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) =
   const [step, setStep] = useState<'log' | 'rate' | 'next'>(startAt)
   const [rating, setRating] = useState<number>(book.rating ?? 0)
   const [saving, setSaving] = useState(false)
+  // A first finish offers reminders (RemindersSheet), once this sheet has closed rather than over Up next.
+  const askReminders = useRef(false)
+  useEffect(() => () => { if (askReminders.current) useRemindersPrompt.getState().ask() }, [])
 
   // Each unit opens on where you are now, said its way.
   useEffect(() => {
@@ -138,7 +142,8 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) =
   const finish = async (withRating: boolean) => {
     setSaving(true)
     try {
-      await post({ action: 'complete', ...(withRating && rating > 0 ? { rating } : {}) })
+      const { data } = await post({ action: 'complete', ...(withRating && rating > 0 ? { rating } : {}) })
+      askReminders.current = !!data?.askReminders
       await refresh()
       setStep('next')
     } catch (err) {
