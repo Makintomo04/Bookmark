@@ -152,3 +152,39 @@ export function buildWeeklyDigest(data: DigestData): DigestEmail | null {
 
   return { subject: "Your week in books", html, text };
 }
+
+// ---- Checkpoint email ------------------------------------------------------------------------
+
+// A circle checkpoint reminder for a member without the app (lib/jobs/checkpointReminders.ts sends the push
+// to everyone else): the same words as the push, counts only, never anyone's comment.
+export interface CheckpointEmailData {
+  circleTitle: string;
+  label: string;
+  // "YYYY-MM-DD"
+  due: string;
+  progress: number;
+  until: number;
+  waiting: number;
+  // Absolute URLs.
+  circleUrl: string;
+  settingsUrl: string;
+  unsubscribeUrl: string;
+}
+
+export function buildCheckpointEmail(d: CheckpointEmailData): DigestEmail {
+  const subject = `${d.label} of ${d.circleTitle} is due ${weekdayOf(d.due)}`;
+  const where = `You're at ${Math.round(d.progress)}% and ${d.label} ends at ${Math.round(d.until)}%.`;
+  const waiting = d.waiting > 0 ? ` ${d.waiting === 1 ? "A comment is" : `${plural(d.waiting, "comment")} are`} waiting there.` : "";
+  const footer = "You get this because you turned on circle checkpoint reminders.";
+  const text = [subject, "", `${where}${waiting}`, "", `Open the circle: ${d.circleUrl}`, "", footer, `Change your emails: ${d.settingsUrl}`, `Stop checkpoint emails: ${d.unsubscribeUrl}`].join("\n");
+  const font = "font-family:Inter,-apple-system,'Segoe UI',Roboto,sans-serif";
+  const html = [
+    `<div style="${font};color:#1a1a1a;max-width:560px;margin:0 auto;padding:24px 16px;line-height:1.5">`,
+    `<h1 style="font-family:Literata,Georgia,serif;font-weight:600;font-size:22px;margin:0 0 12px">${escapeHtml(subject)}</h1>`,
+    `<p style="margin:0 0 24px">${escapeHtml(where + waiting)}</p>`,
+    `<p style="margin:0 0 32px"><a href="${escapeHtml(d.circleUrl)}" style="background:#1a1a1a;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600">Open the circle</a></p>`,
+    `<p style="font-size:12px;color:#777;margin:0">${escapeHtml(footer)} <a href="${escapeHtml(d.settingsUrl)}" style="color:#777">Change your emails</a> or <a href="${escapeHtml(d.unsubscribeUrl)}" style="color:#777">stop checkpoint emails</a>.</p>`,
+    `</div>`,
+  ].join("");
+  return { subject, html, text };
+}

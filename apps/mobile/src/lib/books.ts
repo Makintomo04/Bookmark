@@ -2,6 +2,7 @@ import useSWR, { mutate } from "swr";
 import type { ProgressBook } from "@bookmark/shared/progress";
 import { api } from "@/lib/api";
 import type { EarnMoment } from "@bookmark/shared/earnMoment";
+import type { AskReason } from "@bookmark/shared/reminders";
 import { BULK_MAX } from "@bookmark/shared/bulkRules";
 import { celebrate } from "@/lib/earnMoment";
 
@@ -77,7 +78,7 @@ export type BookAction = "start" | "progress" | "complete" | "rate" | "pause" | 
 
 // Celebrates whatever the save earned (lib/earnMoment.ts).
 export async function saveBook(payload: { id: string; action: BookAction } & Record<string, unknown>) {
-  const saved = await api.post<{ earnMoment?: EarnMoment | null; askReminders?: boolean }>("/api/book-progress", payload);
+  const saved = await api.post<{ earnMoment?: EarnMoment | null; askReminders?: AskReason | false }>("/api/book-progress", payload);
   await refreshAfterBookChange();
   celebrate(saved?.earnMoment, saved?.askReminders);
 }

@@ -48,7 +48,7 @@ const ReminderControls: FC<{ settings: NotificationSettings; save: (change: Noti
         )}
       </div>
       <Toggle label={REMINDER_COPY.streak.title} hint={REMINDER_COPY.streak.hint} checked={reminders.streak} onChange={(on) => save({ reminders: { streak: on } })} disabled={pushLocked(reminders.streak)} />
-      <Toggle label={REMINDER_COPY.checkpoints.title} hint={REMINDER_COPY.checkpoints.hint} checked={reminders.checkpoints} onChange={(on) => save({ reminders: { checkpoints: on } })} disabled={pushLocked(reminders.checkpoints)} />
+      <Toggle label={REMINDER_COPY.checkpoints.title} hint={REMINDER_COPY.checkpoints.hint} checked={reminders.checkpoints} onChange={(on) => save({ reminders: { checkpoints: on } })} disabled={disabled} />
       {showQuiet && (
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium">{REMINDER_COPY.quiet.title}</span>
@@ -62,7 +62,7 @@ const ReminderControls: FC<{ settings: NotificationSettings; save: (change: Noti
       )}
       <div className="flex flex-col gap-1.5">
         <Toggle label={REMINDER_COPY.weekly.title} hint={REMINDER_COPY.weekly.hint} checked={email.weekly} onChange={(on) => save({ email: { weekly: on } })} disabled={disabled} />
-        {email.weekly && !email.verified && <p className="text-xs text-muted-foreground">{REMINDER_COPY.unverified}</p>}
+        {(email.weekly || (!settings.hasPhone && reminders.checkpoints)) && !email.verified && <p className="text-xs text-muted-foreground">{REMINDER_COPY.unverified}</p>}
       </div>
     </div>
   )

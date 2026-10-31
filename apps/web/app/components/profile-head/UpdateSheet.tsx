@@ -11,6 +11,7 @@ import {
 import useBooks from '@/app/hooks/useBooks'
 import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { useRemindersPrompt } from '@/app/hooks/useEarnMoment'
+import type { AskReason } from '@bookmark/shared/reminders'
 import StarRating from '../StarRating'
 import UpNext from './UpNext'
 import { primaryButtonClass } from './ProfileHeader'
@@ -66,9 +67,9 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) =
   const [step, setStep] = useState<'log' | 'rate' | 'next'>(startAt)
   const [rating, setRating] = useState<number>(book.rating ?? 0)
   const [saving, setSaving] = useState(false)
-  // A first finish offers reminders (RemindersSheet), once this sheet has closed rather than over Up next.
-  const askReminders = useRef(false)
-  useEffect(() => () => { if (askReminders.current) useRemindersPrompt.getState().ask() }, [])
+  // When the server offers reminders (RemindersSheet), they wait until this sheet has closed, not over Up next.
+  const askReminders = useRef<AskReason | false>(false)
+  useEffect(() => () => { if (askReminders.current) useRemindersPrompt.getState().ask(askReminders.current) }, [])
 
   // Each unit opens on where you are now, said its way.
   useEffect(() => {
@@ -126,7 +127,8 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) =
     const before = placeOf(book)
     setSaving(true)
     try {
-      await post({ action: 'progress', logsIn: ENTRY_OF[unit], ...body })
+      const { data } = await post({ action: 'progress', logsIn: ENTRY_OF[unit], ...body })
+      askReminders.current = data?.askReminders || false
       await refresh()
       onClose()
       notify.success(`${book.title}: saved`, {
@@ -143,7 +145,7 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) =
     setSaving(true)
     try {
       const { data } = await post({ action: 'complete', ...(withRating && rating > 0 ? { rating } : {}) })
-      askReminders.current = !!data?.askReminders
+      askReminders.current = data?.askReminders || false
       await refresh()
       setStep('next')
     } catch (err) {

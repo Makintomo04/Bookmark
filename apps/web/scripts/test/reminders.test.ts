@@ -116,6 +116,13 @@ test("an evening reminder becomes the streak alert when a streak is at risk", ()
   assert.equal(nudge({ minute: at("20:00"), reminderMinute: at("20:00"), streakAlerts: true, streak: 5 }), "streak");
 });
 
+test("a reminder within the hour before the streak alert becomes the alert", () => {
+  // 6:15pm with a 7pm alert: one nudge, the alert, not two a few minutes apart.
+  assert.equal(nudge({ minute: at("18:15"), reminderMinute: at("18:15"), streakAlerts: true, streak: 5 }), "streak");
+  // Not at risk: it stays an ordinary reminder.
+  assert.equal(nudge({ minute: at("18:15"), reminderMinute: at("18:15"), streakAlerts: true, streak: 1 }), "reminder");
+});
+
 test("a morning reminder doesn't stop the evening streak alert", () => {
   // The job keeps them apart in the ledger ("nudge" and "streak"), so both go out on an at-risk day.
   assert.equal(nudge({ minute: at("08:00"), reminderMinute: at("08:00"), streakAlerts: true, streak: 5 }), "reminder");
@@ -138,10 +145,14 @@ test("the words use only the reader's own book and numbers", () => {
     body: "You're on page 112 of 310 of The Hobbit.",
     path: "/book/b1",
   });
-  assert.equal(readingReminderPush({ id: "b1", title: "Dune", at: 95, of: 1260, unit: "MINUTES" }).body, "You're 1h 35m into Dune.");
+  // Audiobooks: time listened and time to go, with no "0m" on the hour.
+  assert.equal(readingReminderPush({ id: "b1", title: "Dune", at: 95, of: 1260, unit: "MINUTES" }).body, "You're 1h 35m into Dune, 19h 25m to go.");
+  assert.equal(readingReminderPush({ id: "b1", title: "Dune", at: 300, of: null, unit: "MINUTES" }).body, "You're 5h into Dune.");
+  // Kindle, chapter and location readers are told a percent, never a page they didn't type.
+  assert.equal(readingReminderPush({ id: "b1", title: "Fourth Wing", at: 41, of: 100, unit: "PERCENT" }).body, "You're 41% through Fourth Wing.");
   assert.equal(readingReminderPush({ id: "b1", title: "Dune", at: 0, of: 400, unit: "PAGES" }).body, "Dune is waiting for you.");
   assert.equal(readingReminderPush(null).body, "Pick something from Want to read.");
-  assert.deepEqual(streakAlertPush(6), { title: "Your 6-day streak ends tonight", body: "Log a page to keep it going.", path: "/" });
+  assert.deepEqual(streakAlertPush(6), { title: "Your 6-day streak ends tonight", body: "Log today's reading to keep it going.", path: "/" });
   assert.deepEqual(checkpointPush({ circleId: "c1", label: "Part 2", due: "2026-11-01", progress: 41.2, until: 55, waiting: 3 }), {
     title: "Part 2 is due Sunday",
     body: "You're at 41% and it ends at 55%. 3 comments are waiting there.",

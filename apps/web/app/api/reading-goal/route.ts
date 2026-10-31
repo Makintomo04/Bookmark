@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import { guardEntitlement } from "@/lib/entitlementsServer";
 import { goalInputSchema, setsExtraGoals } from "@/lib/goals";
 import { NextResponse } from "next/server";
+import type { AskReason } from "@bookmark/shared/reminders";
 
 export async function GET(req: Request) {
   const { user: currentUser, response } = await requireUser();
@@ -46,5 +47,7 @@ export async function POST(req: Request) {
     create: { userId: currentUser.id, year, targetBooks, ...extras },
   });
 
-  return NextResponse.json(goal);
+  // Setting a goal is a moment to offer reminders (BOO-48), once; sign-up's goal step ignores it.
+  const askReminders: AskReason | false = currentUser.remindersPromptedAt ? false : "goal";
+  return NextResponse.json({ ...goal, askReminders });
 }
