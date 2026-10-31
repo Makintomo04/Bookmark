@@ -11,12 +11,13 @@
 // reviews, a recommendation's note): a lock screen is read over shoulders, and a comment's words are only
 // shown once the reader's progress has reached it.
 
+import { clubVoteText } from "./clubVotes";
 import { newBookText, publicationDayText } from "./releases";
 import { seriesNewsText } from "./series";
 import { escalationCopy, reviewRestoredText, roleChangedTo, roleChangedText, staffReportText } from "./staffNotices";
 
 export const PUSH_GROUPS = {
-  circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED", "CLUB_CIRCLE_ADDED"],
+  circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED", "CLUB_CIRCLE_ADDED", "CLUB_VOTE_OPENED", "CLUB_VOTE_PICKED", "CLUB_VOTE_TIED"],
   follows: ["NEW_FOLLOWER", "FOLLOW_REQUEST"],
   recommendations: ["BOOK_RECOMMENDED"],
   reviews: ["REVIEW_COMMENT", "REVIEW_REPLY"],
@@ -35,7 +36,7 @@ export type PushGroup = keyof typeof PUSH_GROUPS;
 export type PushType = (typeof PUSH_GROUPS)[PushGroup][number];
 
 export const PUSH_GROUP_LABELS: Record<PushGroup, { title: string; description: string }> = {
-  circles: { title: "Reading circles", description: "Invites, people joining, new comments you can read, your club's next book, and hosting handed to you." },
+  circles: { title: "Reading circles", description: "Invites, people joining, new comments you can read, your club's votes and next book, and hosting handed to you." },
   follows: { title: "Followers", description: "New followers and follow requests." },
   recommendations: { title: "Books from friends", description: "When a friend sends you a book." },
   reviews: { title: "Review comments", description: "When someone comments on your review or replies to your comment." },
@@ -59,7 +60,8 @@ export const pushGroupsFor = (isStaff: boolean): PushGroup[] =>
 // Pushed even though the reader is the notification's actor: nobody did it, so actorId is the reader
 // (lib/seriesNews.ts, lib/authorNews.ts, lib/jobs/publicationDay.ts), or the team did and isn't named (lib/staffNotify.ts), or it's a count of the
 // queue (STAFF_REPORT). Every other notification you're the actor of is something you did, and isn't pushed.
-const TO_SELF: readonly string[] = ["NEW_IN_SERIES", "NEW_BOOK", "PUBLICATION_DAY", "REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED", "STAFF_REPORT"];
+// Club votes are the club's, not one person's (lib/clubVotesServer.ts), so they're sent the same way.
+const TO_SELF: readonly string[] = ["NEW_IN_SERIES", "NEW_BOOK", "PUBLICATION_DAY", "REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED", "STAFF_REPORT", "CLUB_VOTE_OPENED", "CLUB_VOTE_PICKED", "CLUB_VOTE_TIED"];
 export const pushedToSelf = (type: string) => TO_SELF.includes(type);
 
 // Book news a cron finds at whatever hour it runs, with nobody waiting on it: written to the bell at once,
@@ -85,6 +87,9 @@ export interface PushContext {
   bookTitle: string | null;
   buddyReadId: string | null;
   count: number | null;
+  // CLUB_VOTE_*: the club, and its name.
+  clubId?: string | null;
+  clubName?: string | null;
   // NEW_IN_SERIES: the new book's series and place (bookTitle is the book).
   seriesName?: string | null;
   seriesPosition?: number | null;
@@ -137,6 +142,14 @@ export function pushContentFor(n: PushContext): PushContent | null {
         path: circlePath,
       };
     }
+    case "CLUB_VOTE_OPENED":
+    case "CLUB_VOTE_PICKED":
+    case "CLUB_VOTE_TIED":
+      return {
+        title: n.type === "CLUB_VOTE_OPENED" ? "Your club is voting" : n.type === "CLUB_VOTE_TIED" ? "A tie to break" : "Your club's next book",
+        body: clubVoteText(n.type, n.clubName ?? null, n.message) ?? "",
+        path: n.clubId ? `/clubs/${n.clubId}` : "/circles",
+      };
     case "CLUB_CIRCLE_ADDED":
       return { title: "Your club's next book", body: `${who} started ${book(n.bookTitle)} for your club. You're in.`, path: circlePath };
     case "BUDDY_READ_HOSTED":

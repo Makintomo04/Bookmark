@@ -8,6 +8,21 @@ export const BUDDY_READ_MAX_MEMBERS = 15
 export const COMMENT_MAX = 2000
 export const LABEL_MAX = 40
 export const SCHEDULE_MAX = 30
+// "Where everyone is" in a big club's book (BOO-79): past a few more than TRACK_SHOWN readers, the track
+// shows you, the book's host and the club's host, then whoever's nearest you in the book, and "Show
+// everyone" for the rest. Kept in joining order.
+export const TRACK_SHOWN = 12
+export type TrackMember = { userId: string, isYou: boolean, isHost: boolean, clubRole?: string | null, progress: number }
+export function trackRows<T extends TrackMember>(members: T[], max: number = TRACK_SHOWN) {
+  if (members.length <= max + 3) return { shown: members, hidden: 0 }
+  const at = members.find((m) => m.isYou)?.progress ?? 0
+  const pinned = members.filter((m) => m.isYou || m.isHost || m.clubRole === "host")
+  const nearest = members.filter((m) => !pinned.includes(m)).sort((a, b) => Math.abs(a.progress - at) - Math.abs(b.progress - at))
+  const keep = new Set([...pinned, ...nearest.slice(0, Math.max(0, max - pinned.length))])
+  const shown = members.filter((m) => keep.has(m))
+  return { shown, hidden: members.length - shown.length }
+}
+
 // How often an open reading circle page polls. There's no realtime service; this keeps running costs near zero.
 export const BUDDY_READ_REFRESH_MS = 20_000
 
