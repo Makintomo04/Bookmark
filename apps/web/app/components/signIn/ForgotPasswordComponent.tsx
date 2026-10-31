@@ -50,8 +50,6 @@ const ForgotPasswordComponent = () => {
     {isSubmitted ? (
       <div role="status" className='text-center text-sm flex flex-col gap-3'>
         <p>If an account exists for that email, we&apos;ve sent you an email. Check your inbox.</p>
-        {/* Google/GitHub accounts have no password, so they get a reminder of how they sign in instead. */}
-        <p className='text-muted-foreground'>Signed up with Google or GitHub? There&apos;s no password to reset, so the email says how you sign in. You can also email yourself a sign-in link from the sign-in page.</p>
       </div>
     ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 w-full">
