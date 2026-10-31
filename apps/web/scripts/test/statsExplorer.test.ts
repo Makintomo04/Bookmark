@@ -185,6 +185,6 @@ test("the explorer is Plus, and nothing free moves", () => {
   const plus = entitlementsOf({ plan: "PLUS" });
   assert.equal(free.statsExplorer, false);
   assert.equal(plus.statsExplorer, true);
-  // The keys that were gated before BOO-82, and only those, plus this one.
-  assert.deepEqual(Object.keys(free).filter((k) => typeof (free as unknown as Record<string, unknown>)[k] === "boolean" && k !== "isPlus").sort(), ["canHostUnlimited", "customWrapDesigns", "extraGoalTypes", "statsExplorer"]);
+  // The keys that were gated before BOO-82, and only those, plus this one and big clubs (BOO-79, a host gate).
+  assert.deepEqual(Object.keys(free).filter((k) => typeof (free as unknown as Record<string, unknown>)[k] === "boolean" && k !== "isPlus").sort(), ["bigClubs", "canHostUnlimited", "customWrapDesigns", "extraGoalTypes", "statsExplorer"]);
 });

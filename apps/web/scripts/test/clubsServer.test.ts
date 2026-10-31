@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { finishClubBooks, settleNewClubBook, withinClubCap } from "@/lib/clubLimits";
-import { CLUB_MAX_MEMBERS } from "@bookmark/shared/clubs";
+import { BIG_CLUB_MAX_MEMBERS, CLUB_MAX_MEMBERS } from "@bookmark/shared/clubs";
 
 test("archiving a club finishes its open books, so none run outside every hosting limit", async () => {
   const calls: unknown[] = [];
@@ -34,4 +34,16 @@ test("a join that races past the cap backs out: the later of two simultaneous jo
   assert.equal(await withinClubCap("club1", `u${CLUB_MAX_MEMBERS}`, db as never), false);
   // In joining order, with the id breaking ties.
   assert.deepEqual((query as { orderBy: unknown }).orderBy, [{ joinedAt: "asc" }, { id: "asc" }]);
+});
+
+test("a Plus host's club checks the race against its own cap (BOO-79)", async () => {
+  const order = Array.from({ length: BIG_CLUB_MAX_MEMBERS + 1 }, (_, i) => ({ userId: `u${i}` }));
+  const db = { clubMember: { findMany: async () => order } };
+  // The 16th is in a big club...
+  assert.equal(await withinClubCap("club1", "u15", db as never, BIG_CLUB_MAX_MEMBERS), true);
+  assert.equal(await withinClubCap("club1", `u${BIG_CLUB_MAX_MEMBERS - 1}`, db as never, BIG_CLUB_MAX_MEMBERS), true);
+  // ...and the 151st isn't.
+  assert.equal(await withinClubCap("club1", `u${BIG_CLUB_MAX_MEMBERS}`, db as never, BIG_CLUB_MAX_MEMBERS), false);
+  // Left out, the cap is the free one.
+  assert.equal(await withinClubCap("club1", "u15", db as never), false);
 });

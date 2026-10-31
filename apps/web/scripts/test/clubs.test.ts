@@ -25,11 +25,82 @@ import {
   inviteFaces,
   inviteHost,
   updateClubSchema,
+  BIG_CLUB_MAX_MEMBERS,
+  MEMBERS_SHOWN,
+  canMuteInClub,
+  clubBookAdditions,
+  clubFullMessage,
+  clubMemberCap,
+  matchesMember,
 } from "@bookmark/shared/clubs";
-import { BUDDY_READ_MAX_MEMBERS } from "@bookmark/shared/buddyReads";
+import { BUDDY_READ_MAX_MEMBERS, TRACK_SHOWN, trackRows } from "@bookmark/shared/buddyReads";
+import { FEATURE_COPY, entitlementsOf } from "@bookmark/shared/entitlements";
 
-test("a club can't outgrow a circle, since everyone is added to each book", () => {
+test("a free host's club holds a circle's 15; a Plus host's up to 150 (BOO-79)", () => {
   assert.equal(CLUB_MAX_MEMBERS, BUDDY_READ_MAX_MEMBERS);
+  // The limit is the host's entitlement, so the 402 copy and the cap come from one place.
+  assert.equal(clubMemberCap(entitlementsOf({})), 15);
+  assert.equal(clubMemberCap(entitlementsOf({ plan: "PLUS" })), BIG_CLUB_MAX_MEMBERS);
+  assert.equal(entitlementsOf({ plan: "PLUS" }).bigClubs, true);
+  assert.equal(entitlementsOf({}).bigClubs, false);
+  assert.equal(BIG_CLUB_MAX_MEMBERS, 150);
+  assert.match(FEATURE_COPY.bigClubs.message, /150/);
+  assert.match(FEATURE_COPY.bigClubs.message, /votes are free/);
+  assert.equal(clubFullMessage(150), "This club is full (150 readers).");
+});
+
+test("two joins at once at a big club's cap: only the first 150 in joining order stay", () => {
+  const order = Array.from({ length: BIG_CLUB_MAX_MEMBERS + 1 }, (_, i) => `u${i}`);
+  const plus = clubMemberCap(entitlementsOf({ plan: "PLUS" }));
+  assert.equal(admittedWithinCap(order, `u${BIG_CLUB_MAX_MEMBERS - 1}`, plus), true);
+  assert.equal(admittedWithinCap(order, `u${BIG_CLUB_MAX_MEMBERS}`, plus), false);
+  // The same order under a free host: the 16th is out.
+  assert.equal(admittedWithinCap(order, "u15", clubMemberCap(entitlementsOf({}))), false);
+});
+
+test("a new club book takes members in joining order, skipping blocked and removed, up to the club's size", () => {
+  const ids = ["a", "b", "c", "d", "e"];
+  assert.deepEqual(clubBookAdditions(ids, { skip: new Set(["b"]), already: ["host"], cap: 4 }), ["a", "c", "d"]);
+  // Nobody's added twice.
+  assert.deepEqual(clubBookAdditions(ids, { skip: new Set(), already: ["a", "c"], cap: 10 }), ["b", "d", "e"]);
+  // A club over its cap (the host dropped Plus) keeps its readers but adds nobody new.
+  assert.deepEqual(clubBookAdditions(ids, { skip: new Set(), already: ["x", "y", "z"], cap: 2 }), []);
+});
+
+test("muting follows removing: the host mutes anyone else, a co-host only members", () => {
+  assert.equal(canMuteInClub("host", "cohost"), true);
+  assert.equal(canMuteInClub("host", "member"), true);
+  assert.equal(canMuteInClub("cohost", "member"), true);
+  assert.equal(canMuteInClub("cohost", "cohost"), false);
+  assert.equal(canMuteInClub("cohost", "host"), false);
+  assert.equal(canMuteInClub("member", "member"), false);
+});
+
+test("the members search matches names and @usernames, ignoring case and accents", () => {
+  const zoe = { username: "zoereads", displayName: "Zoë Adeyemi" };
+  assert.equal(matchesMember(zoe, "zoe"), true);
+  assert.equal(matchesMember(zoe, "ADEY"), true);
+  assert.equal(matchesMember(zoe, "@zoereads"), true);
+  assert.equal(matchesMember(zoe, "kofi"), false);
+  assert.equal(matchesMember({ username: null, displayName: null }, "a"), false);
+  assert.equal(matchesMember(zoe, "  "), true);
+  assert.equal(MEMBERS_SHOWN, 20);
+});
+
+test("a big club's progress track shows you, the hosts and the readers nearest you", () => {
+  const members = Array.from({ length: 40 }, (_, i) => ({ userId: `u${i}`, isYou: i === 20, isHost: i === 0, clubRole: i === 1 ? "host" : null, progress: i * 2 }));
+  const { shown, hidden } = trackRows(members);
+  assert.equal(shown.length, TRACK_SHOWN);
+  assert.equal(hidden, 40 - TRACK_SHOWN);
+  const ids = shown.map((m) => m.userId);
+  for (const pinned of ["u0", "u1", "u20"]) assert.ok(ids.includes(pinned));
+  // The rest are the nearest to you (40%): u19 and u21 before u30.
+  assert.ok(ids.includes("u19") && ids.includes("u21"));
+  assert.ok(!ids.includes("u39"));
+  // Kept in joining order.
+  assert.deepEqual(ids, [...ids].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))));
+  // A small circle shows everyone.
+  assert.equal(trackRows(members.slice(0, 15)).hidden, 0);
 });
 
 test("roles: the host is Club.hostId, a co-host is flagged, everyone else is a member", () => {

@@ -44,7 +44,15 @@ export async function GET(req: Request) {
     ? await prisma.buddyRead.findMany({ where: { id: { in: buddyReadIds } }, select: { id: true, title: true, inviteCode: true, status: true } })
     : []
   const buddyReadById = new Map(buddyReads.map((b) => [b.id, b]))
-  const withBuddyReads = notifications.map((n) => (n.buddyReadId ? { ...n, buddyRead: buddyReadById.get(n.buddyReadId) ?? null } : n))
+  // Club votes name the club. A club the reader has left still has a name; the page itself will say they're out.
+  const clubIds = Array.from(new Set(notifications.flatMap((n) => (n.clubId ? [n.clubId] : []))))
+  const clubs = clubIds.length > 0 ? await prisma.club.findMany({ where: { id: { in: clubIds } }, select: { id: true, name: true } }) : []
+  const clubById = new Map(clubs.map((c) => [c.id, c]))
+  const withBuddyReads = notifications.map((n) => ({
+    ...n,
+    ...(n.buddyReadId && { buddyRead: buddyReadById.get(n.buddyReadId) ?? null }),
+    ...(n.clubId && { club: clubById.get(n.clubId) ?? null }),
+  }))
 
   // Recommendations name the sender's copy of the book, or the catalogue Work when they sent it from its page
   // without shelving it, link to its page, and say whether it's already on the reader's shelf.

@@ -8,6 +8,7 @@ import { getAchievementTitle } from "@bookmark/shared/achievements-catalog";
 import { reviewHiddenMessage } from "@bookmark/shared/reviewReports";
 import { seriesNewsText } from "@bookmark/shared/series";
 import { newBookText, publicationDayText } from "@bookmark/shared/releases";
+import { clubVoteText, isClubVoteNotification } from "@bookmark/shared/clubVotes";
 import { escalationCopy, escalationResolvedText, reviewRestoredText, roleChangedText, staffNoticeWebPath, staffReportText } from "@bookmark/shared/staffNotices";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
@@ -33,6 +34,8 @@ interface Notification {
   bookId?: string | null;
   actor: Person & { username: string };
   buddyRead: { id: string; title: string; inviteCode: string; status?: string } | null;
+  // CLUB_VOTE_*: the club.
+  club?: { id: string; name: string } | null;
   book: { id: string; title: string; author: string; coverImage: string; onShelf: boolean } | null;
   // NEW_IN_SERIES, NEW_BOOK and PUBLICATION_DAY: the book.
   work?: { title: string; author?: string | null; seriesName: string | null; seriesPosition: number | null; releaseDate?: string | null } | null;
@@ -71,6 +74,7 @@ function pathOf(n: Notification): string | null {
   if (n.type === "REVIEW_RESTORED") return n.bookId ? `/book/${n.bookId}` : null;
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`;
   if (n.buddyRead) return `/circles/${n.buddyRead.id}`;
+  if (isClubVoteNotification(n.type)) return n.club ? `/clubs/${n.club.id}` : null;
   return `/u/${encodeURIComponent(n.actor.username)}`;
 }
 
@@ -141,7 +145,9 @@ function Row({ n, onChange }: { n: Notification; onChange: () => void }) {
   };
 
   const text =
-    n.type === "COMMENTS_UNLOCKED" ? `${n.count ?? 1} ${n.count === 1 ? "comment" : "comments"} to read in ${n.buddyRead?.title ?? "your reading circle"}`
+    // The club's vote, not one person's doing, so nobody is named.
+    isClubVoteNotification(n.type) ? clubVoteText(n.type, n.club?.name ?? null, n.message)
+    : n.type === "COMMENTS_UNLOCKED" ? `${n.count ?? 1} ${n.count === 1 ? "comment" : "comments"} to read in ${n.buddyRead?.title ?? "your reading circle"}`
     : n.type === "BUDDY_READ_HOST_INHERITED"
       ? n.buddyRead?.status === "ARCHIVED"
         ? `The host of ${n.buddyRead?.title ?? "a reading circle"} closed their account. It's yours now, archived until you have room to reopen it.`

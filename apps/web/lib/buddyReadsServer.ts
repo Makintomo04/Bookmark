@@ -2,7 +2,7 @@
 // live in lib/buddyReads.ts (pure, so they can be checked without a database).
 import { randomBytes } from "crypto";
 import prisma from "@/lib/db";
-import { createNotification } from "@/lib/notifications";
+import { createNotification, createNotifications } from "@/lib/notifications";
 import { sendPushes } from "@/lib/push";
 import { Prisma, type Book, type BuddyRead, type NotificationType } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -160,6 +160,29 @@ export async function findMembership(buddyReadId: string, userId: string) {
   return { member, buddyRead: member.buddyRead, progress, isHost, canManage, canModerate }
 }
 
+// How many readers a club takes: its host's entitlement (lib/entitlements.ts clubMemberLimit, BOO-79), so a
+// Plus host's club takes up to 150 and a free host's 15.
+export async function clubMemberLimitOf(hostId: string) {
+  const user = await prisma.user.findUnique({ where: { id: hostId }, select: entitlementsSelect })
+  return entitlementsOf(user ?? {}).clubMemberLimit
+}
+
+// How many readers a circle takes: a circle on its own BUDDY_READ_MAX_MEMBERS, a club's book the club's size,
+// so everyone in a big club fits in each book.
+export async function circleCapOf(buddyRead: Pick<BuddyRead, "clubId">) {
+  if (!buddyRead.clubId) return BUDDY_READ_MAX_MEMBERS
+  const club = await prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { hostId: true } })
+  return club ? clubMemberLimitOf(club.hostId) : BUDDY_READ_MAX_MEMBERS
+}
+
+// Whether a club's host or a co-host muted this reader in the club the circle belongs to (BOO-79): they can
+// read along, but not comment. False for a circle on its own.
+export async function mutedInCircleClub(buddyRead: Pick<BuddyRead, "clubId">, userId: string) {
+  if (!buddyRead.clubId) return false
+  const member = await prisma.clubMember.findUnique({ where: { clubId_userId: { clubId: buddyRead.clubId, userId } }, select: { hostMutedAt: true } })
+  return !!member?.hostMutedAt
+}
+
 // Whether this reader is the club's host or one of its co-hosts (lib/clubs.ts canManageClub), and whether
 // the club is still active.
 export async function clubManagerOf(clubId: string, userId: string) {
@@ -191,10 +214,12 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const { buddyRead, progress, isHost, canManage, canModerate } = membership
 
   const memberRows = await prisma.buddyReadMember.findMany({ where: { buddyReadId }, orderBy: { joinedAt: "asc" } })
-  const [users, books, clubRoles] = await Promise.all([
+  const [users, books, clubRoles, memberCap, clubMuted] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect, ...suspensionSelect } }),
     prisma.book.findMany({ where: { id: { in: memberRows.map((m) => m.bookId) } }, select: { ...progressBookSelect, userId: true } }),
     buddyRead.clubId ? clubRolesOf(buddyRead.clubId) : Promise.resolve(null),
+    circleCapOf(buddyRead),
+    mutedInCircleClub(buddyRead, viewerId),
   ])
   const userById = new Map(users.map((u) => [u.id, u]))
   const bookById = new Map(books.map((b) => [b.id, b]))
@@ -281,7 +306,9 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
       inviteCode: buddyRead.inviteCode,
     },
     club: club && { id: club.id, name: club.name, inviteCode: club.status === "ACTIVE" ? club.inviteCode : null },
-    viewer: { userId: viewerId, progress, isHost, canManage, canModerate, bookId: membership.member.bookId, muted: !!membership.member.mutedAt },
+    // clubMuted: a club host muted them (BOO-79), so the page swaps the composer for a note.
+    viewer: { userId: viewerId, progress, isHost, canManage, canModerate, bookId: membership.member.bookId, muted: !!membership.member.mutedAt, clubMuted },
+    memberCap,
     members,
     comments,
   }
@@ -354,7 +381,9 @@ export async function createCircle(book: Book, hostId: string, opts: { startsAt?
 // author), or a new one in Currently reading using the host's page count, which they can change.
 // `byClub`: a club's book (lib/clubs.ts CLUB_COPY_STATUS) goes in Want to read instead, and a copy already on
 // the shelf is left as the reader has it.
-export async function shelfBookFor(userId: string, buddyRead: BuddyRead, opts: { byClub?: boolean } = {}) {
+// A club vote's winning nomination (lib/clubVotesServer.ts) has the same snapshot, so it uses this too.
+export type SharedBook = Pick<BuddyRead, "workKey" | "title" | "author" | "pages" | "audioMinutes" | "coverImage" | "cardColour">
+export async function shelfBookFor(userId: string, buddyRead: SharedBook, opts: { byClub?: boolean } = {}) {
   const shelf = await prisma.book.findMany({
     where: { userId },
     select: { id: true, title: true, author: true, workKey: true, status: true },
@@ -439,8 +468,8 @@ export async function joinBuddyRead(buddyRead: BuddyRead, userId: string): Promi
     const refusal = await clubBookRefusal(buddyRead.clubId, userId)
     if (refusal) return { ok: false, ...refusal }
   }
-  const count = await prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } })
-  if (count >= BUDDY_READ_MAX_MEMBERS) return { ok: false, error: `This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, status: 409 }
+  const [count, cap] = await Promise.all([prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } }), circleCapOf(buddyRead)])
+  if (count >= cap) return { ok: false, error: `This reading circle is full (${cap} readers).`, status: 409 }
 
   const { bookId, added } = await shelfBookFor(userId, buddyRead, { byClub: !!buddyRead.clubId })
   const book = await prisma.book.findUnique({ where: { id: bookId }, select: progressBookSelect })
@@ -489,6 +518,31 @@ export async function bumpNotification(n: { userId: string, actorId: string, typ
     if (n.push === false) await prisma.notification.create({ data })
     else await createNotification(data)
   }
+}
+
+// Many readers at once, as bumpNotification for each, for a circle the size of a big club (BOO-79): one query
+// finds who already has an unread row (bumped, not pushed), and the rest get a new row, pushed unless
+// they're in `noPush` (they have the circle open).
+export async function bumpNotifications(n: { userIds: string[], actorId: string, type: NotificationType, buddyReadId: string, noPush?: Set<string> }) {
+  if (n.userIds.length === 0) return
+  const unread = await prisma.notification.findMany({
+    where: { userId: { in: n.userIds }, read: false, type: n.type, buddyReadId: n.buddyReadId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, userId: true },
+  })
+  // Each reader's newest unread row, as bumpNotification picks it.
+  const bumping = new Map<string, string>()
+  for (const row of unread) if (!bumping.has(row.userId)) bumping.set(row.userId, row.id)
+  if (bumping.size > 0) {
+    await prisma.notification.updateMany({
+      where: { id: { in: Array.from(bumping.values()) } },
+      data: { count: { increment: 1 }, actorId: n.actorId, createdAt: new Date() },
+    })
+  }
+  const fresh = n.userIds.filter((id) => !bumping.has(id)).map((userId) => ({ userId, actorId: n.actorId, type: n.type, buddyReadId: n.buddyReadId, count: 1 }))
+  const quiet = fresh.filter((r) => n.noPush?.has(r.userId))
+  if (quiet.length > 0) await prisma.notification.createMany({ data: quiet })
+  await createNotifications(fresh.filter((r) => !n.noPush?.has(r.userId)))
 }
 
 // Called by /api/book-progress after a reader's page or status changes. For each reading circle the book
@@ -549,11 +603,9 @@ export async function notifyNewComment(buddyReadId: string, comment: { userId: s
     const blocked = await blockedAmong(comment.userId, members.map((m) => m.userId))
     const recipients = new Set(newCommentRecipients(comment, members, blocked))
     const openSince = Date.now() - CIRCLE_OPEN_MS
-    for (const m of members) {
-      if (!recipients.has(m.userId)) continue
-      const open = !!m.lastSeenAt && m.lastSeenAt.getTime() > openSince
-      await bumpNotification({ userId: m.userId, actorId: comment.userId, type: "COMMENTS_UNLOCKED", buddyReadId, by: 1, push: !open })
-    }
+    const open = new Set(members.filter((m) => !!m.lastSeenAt && m.lastSeenAt.getTime() > openSince).map((m) => m.userId))
+    // All at once: a big club's book (BOO-79) has up to 150 readers to tell.
+    await bumpNotifications({ userIds: members.filter((m) => recipients.has(m.userId)).map((m) => m.userId), actorId: comment.userId, type: "COMMENTS_UNLOCKED", buddyReadId, noPush: open })
   } catch (e) {
     console.error("Couldn't notify the circle about a new comment", e)
   }

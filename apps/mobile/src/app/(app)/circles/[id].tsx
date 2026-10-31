@@ -4,7 +4,8 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { Check, Ellipsis, Lock, Share2, UserPlus } from "lucide-react-native";
-import { BUDDY_READ_EMOJI, BUDDY_READ_MAX_MEMBERS, BUDDY_READ_REFRESH_MS, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, type BuddyReadSchedule, type SerializedComment, type UnlockedComment } from "@bookmark/shared/buddyReads";
+import { BUDDY_READ_EMOJI, BUDDY_READ_MAX_MEMBERS, BUDDY_READ_REFRESH_MS, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, trackRows, type BuddyReadSchedule, type SerializedComment, type UnlockedComment } from "@bookmark/shared/buddyReads";
+import { CLUB_MUTED_MESSAGE } from "@bookmark/shared/clubs";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
 import { FriendsPicker } from "@/components/circles/FriendsPicker";
@@ -36,6 +37,7 @@ export default function CircleScreen() {
   const { data: view, error, isLoading, mutate } = useSWR<CircleView>(`/api/buddy-reads/${id}`, { refreshInterval: BUDDY_READ_REFRESH_MS });
   const [replyTo, setReplyTo] = useState<UnlockedComment | null>(null);
   const [pickingFriends, setPickingFriends] = useState(false);
+  const [everyone, setEveryone] = useState(false);
 
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !view) {
@@ -50,11 +52,14 @@ export default function CircleScreen() {
   }
 
   const { buddyRead, club, viewer, members, comments } = view;
+  const memberCap = view.memberCap ?? BUDDY_READ_MAX_MEMBERS;
   const share = () => (club?.inviteCode ? shareClubInvite(club.inviteCode, club.name) : shareInvite(buddyRead.inviteCode, buddyRead.title));
   // An archived club's books take only its members (the server's clubBookRefusal), so there's nothing to share.
   const clubClosed = !!club && !club.inviteCode;
   const archived = buddyRead.status === "ARCHIVED";
-  const ordered = [...members].sort((a, b) => b.progress - a.progress);
+  // A big club's book (BOO-79) shows the readers nearest you until you ask for everyone.
+  const { shown, hidden } = everyone ? { shown: members, hidden: 0 } : trackRows(members);
+  const ordered = [...shown].sort((a, b) => b.progress - a.progress);
 
   return (
     <Screen>
@@ -76,14 +81,14 @@ export default function CircleScreen() {
       {invite === "1" && members.length === 1 && <Notice message="Your circle is ready. Share the link so friends can join; anyone with it can read along." />}
       {!clubClosed && !archived && <Button title={club?.inviteCode ? "Share the club's invite link" : "Share invite link"} variant={members.length === 1 ? "primary" : "outline"} icon={<Share2 size={18} color={members.length === 1 ? colors.onBrand : colors.foreground} />} onPress={share} />}
       {club?.inviteCode && <Text variant="small">Whoever joins with it joins the club, so they{"’"}re in for this book and the next.</Text>}
-      {!archived && !clubClosed && members.length < BUDDY_READ_MAX_MEMBERS && (
+      {!archived && !clubClosed && members.length < memberCap && (
         <Button title="Invite friends" variant="outline" icon={<UserPlus size={18} color={colors.foreground} />} onPress={() => setPickingFriends(true)} />
       )}
       {pickingFriends && (
         <FriendsPicker
           circleId={buddyRead.id}
           memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))}
-          room={BUDDY_READ_MAX_MEMBERS - members.length}
+          room={memberCap - members.length}
           onClose={() => setPickingFriends(false)}
         />
       )}
@@ -94,13 +99,15 @@ export default function CircleScreen() {
           <Button title="Update yours" variant="ghost" onPress={() => router.push(`/book/${viewer.bookId}`)} />
         </View>
         {ordered.map((m) => <MemberRow key={m.userId} circleId={buddyRead.id} member={m} onChange={() => mutate()} />)}
+        {hidden > 0 && <Button title={`Show everyone (${hidden} more)`} variant="ghost" style={{ alignSelf: "flex-start" }} onPress={() => setEveryone(true)} />}
       </View>
 
       <Schedule schedule={buddyRead.schedule ?? []} progress={viewer.progress} canEdit={viewer.canManage} circleId={buddyRead.id} />
 
       <Discussion circleId={buddyRead.id} comments={comments} progress={viewer.progress} isHost={viewer.canModerate ?? viewer.canManage} onReply={setReplyTo} onChange={() => mutate()} />
       {/* A finished book stays open for talk, as on the web; only an archived one is closed. */}
-      {!archived && (
+      {!archived && viewer.clubMuted && <Notice message={CLUB_MUTED_MESSAGE} />}
+      {!archived && !viewer.clubMuted && (
         <Composer circleId={buddyRead.id} progress={viewer.progress} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onPosted={() => { setReplyTo(null); void mutate(); }} />
       )}
 

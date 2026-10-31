@@ -6,9 +6,8 @@ import prisma from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
-import { BUDDY_READ_MAX_MEMBERS } from "@/lib/buddyReads";
 import { acceptsBuddyReadInvite, preferencesOf, preferencesSelect } from "@/lib/preferences";
-import { CLUB_CLOSED_MESSAGE, buddyReadError, isBlockedEitherWay, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { CLUB_CLOSED_MESSAGE, buddyReadError, circleCapOf, isBlockedEitherWay, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 import { areFriends } from "@/lib/friends";
 
 const inviteSchema = z.object({ username: z.string().trim().min(1, "Enter a username").max(60) });
@@ -46,16 +45,17 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     return buddyReadError("They aren't taking invites from you. Send them the invite link instead.", 403);
   }
 
-  const [isMember, count] = await Promise.all([
+  const [isMember, count, cap] = await Promise.all([
     prisma.buddyReadMember.findUnique({ where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId: invitee.id } }, select: { id: true } }),
     prisma.buddyReadMember.count({ where: { buddyReadId: buddyRead.id } }),
+    circleCapOf(buddyRead),
   ]);
   if (isMember) return buddyReadError("They're already reading along.", 409);
   // Someone the host removed only comes back if the host asks them to; inviting them lifts the removal. In an
   // archived club's book its host and co-hosts can still remove readers (canModerate), so they can lift it too.
   const removal = await prisma.buddyReadRemoval.findUnique({ where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId: invitee.id } }, select: { id: true } });
   if (removal && !membership.canModerate) return buddyReadError("The host removed them from this reading circle. Only the host can invite them back.", 403);
-  if (count >= BUDDY_READ_MAX_MEMBERS) return buddyReadError(`This reading circle is full (${BUDDY_READ_MAX_MEMBERS} readers).`, 409);
+  if (count >= cap) return buddyReadError(`This reading circle is full (${cap} readers).`, 409);
   // In a club's circle, accepting joins the club (the join route), so a removal from the club counts the same way.
   const clubRemoval = buddyRead.clubId
     ? await prisma.clubRemoval.findUnique({ where: { clubId_userId: { clubId: buddyRead.clubId, userId: invitee.id } }, select: { id: true } })
