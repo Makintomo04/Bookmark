@@ -77,7 +77,8 @@ test("every model that holds a reader's data is cleared", async () => {
   assert.ok(models.length > 15, `expected the schema to have many user-owned models, found ${models.length}`);
 
   // Reading-circle models are cleared by deleteBuddyReadDataFor, which runs first, inside the transaction.
-  const circleModels = models.filter((m) => m.startsWith("buddyRead"));
+  // Club models too: the route's deleteCircleData runs lib/clubsServer.ts deleteClubDataFor first.
+  const circleModels = models.filter((m) => m.startsWith("buddyRead") || m.startsWith("club"));
   assert.deepEqual(calls.find((c) => c.op === "circles")?.args, { userId: USER_ID, inTx: true });
   assert.equal(ops(calls).find((op) => op !== "stripe.cancel"), "circles");
 

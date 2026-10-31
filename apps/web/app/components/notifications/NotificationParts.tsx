@@ -45,6 +45,7 @@ export const notificationCopy = (n: NotificationLike) => {
     case "BOOK_RECOMMENDED": return `thinks you'd like ${n.book?.title ?? "a book"}`
     case "BUDDY_READ_JOINED": return `${others > 0 ? `and ${others} ${others === 1 ? "other" : "others"} ` : ""}joined your reading circle for ${book}`
     case "BUDDY_READ_HOSTED": return `handed you the reading circle for ${book}. You're the host now`
+    case "CLUB_CIRCLE_ADDED": return `started ${book} for your club. You're in`
     case "FOLLOW_REQUEST": return "asked to follow you"
     case "REVIEW_COMMENT": return n.review ? `commented on your review of ${n.review.title}` : "commented on your review"
     case "REVIEW_REPLY": return n.review ? `replied to your comment on a review of ${n.review.title}` : "replied to your comment on a review"

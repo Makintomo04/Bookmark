@@ -22,7 +22,7 @@ import { celebrate } from "@/lib/earnMoment";
 
 // Adding a book, after the web's BookEntryModal: search by title or author (or type it in), choose the
 // shelf, add. Opened with ?shelf=STARTED to start on Reading, and ?startCircle=1 to go straight on to
-// starting a reading circle with it. Details can be corrected afterwards from the book (Edit details).
+// starting a reading circle with it (with &clubId=, a club's next book). Details can be corrected afterwards from the book (Edit details).
 
 type Shelf = "NOT_STARTED" | "STARTED" | "COMPLETED";
 const SHELVES: { value: Shelf; label: string }[] = [
@@ -35,7 +35,7 @@ const ADDED: Record<Shelf, string> = { NOT_STARTED: "Want to read", STARTED: "Re
 type Draft = { title: string; author: string; pages: string; coverUrl: string | null; found: FoundBook | null };
 
 export default function AddBook() {
-  const params = useLocalSearchParams<{ shelf?: string; startCircle?: string; title?: string; author?: string; coverUrl?: string; pages?: string; workKey?: string }>();
+  const params = useLocalSearchParams<{ shelf?: string; startCircle?: string; clubId?: string; title?: string; author?: string; coverUrl?: string; pages?: string; workKey?: string }>();
   const startCircle = params.startCircle === "1";
   const [query, setQuery] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -50,7 +50,7 @@ export default function AddBook() {
   const { colors, radii } = useTheme();
 
   if (draft) {
-    return <ShelfStep draft={draft} setDraft={setDraft} initialShelf={(SHELVES.some((s) => s.value === params.shelf) ? params.shelf : "NOT_STARTED") as Shelf} startCircle={startCircle} onBack={() => setDraft(null)} />;
+    return <ShelfStep draft={draft} setDraft={setDraft} initialShelf={(SHELVES.some((s) => s.value === params.shelf) ? params.shelf : "NOT_STARTED") as Shelf} startCircle={startCircle} clubId={params.clubId} onBack={() => setDraft(null)} />;
   }
 
   return (
@@ -105,7 +105,7 @@ export default function AddBook() {
   );
 }
 
-function ShelfStep({ draft, setDraft, initialShelf, startCircle, onBack }: { draft: Draft; setDraft: (d: Draft) => void; initialShelf: Shelf; startCircle: boolean; onBack: () => void }) {
+function ShelfStep({ draft, setDraft, initialShelf, startCircle, clubId, onBack }: { draft: Draft; setDraft: (d: Draft) => void; initialShelf: Shelf; startCircle: boolean; clubId?: string; onBack: () => void }) {
   const [shelf, setShelf] = useState<Shelf>(startCircle && initialShelf === "COMPLETED" ? "STARTED" : initialShelf);
   const [currentPage, setCurrentPage] = useState("");
   const [rating, setRating] = useState(0);
@@ -147,7 +147,7 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, onBack }: { dra
       await refreshAfterBookChange();
       celebrate(saved.earnMoment);
       copyCoverLater(saved?.id);
-      if (startCircle && saved?.id) router.replace(`/circles/new?bookId=${saved.id}`);
+      if (startCircle && saved?.id) router.replace(`/circles/new?bookId=${saved.id}${clubId ? `&clubId=${clubId}` : ""}`);
       else goBack();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't add that book. Try again.");

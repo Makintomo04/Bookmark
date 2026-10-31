@@ -16,7 +16,8 @@ export interface AccountDeletionDeps {
   // isn't configured.
   cancelSubscription?: (id: string) => Promise<void>;
   // Reading circles (lib/buddyReadsServer.ts deleteBuddyReadDataFor): hosted circles pass to another member,
-  // and the reader's comments stay as a former member's. Runs first, inside the transaction.
+  // and the reader's comments stay as a former member's; the route runs lib/clubsServer.ts deleteClubDataFor
+  // before it, for their clubs. Runs first, inside the transaction.
   deleteCircleData: (userId: string, tx: Tx) => Promise<void>;
   // Removes the reader from RevenueCat (lib/storeBilling.ts revenueCatApi). App Store and Google Play
   // subscriptions can only be cancelled by the reader in the store, which the app tells them before they
