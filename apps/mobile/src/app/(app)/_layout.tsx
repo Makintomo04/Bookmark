@@ -62,6 +62,7 @@ export default function AppLayout() {
         <Stack.Screen name="plus" options={{ title: "Plus" }} />
         <Stack.Screen name="settings" options={{ title: "Settings" }} />
         <Stack.Screen name="import" options={{ title: "Import" }} />
+        <Stack.Screen name="first-book" options={{ title: "" }} />
         <Stack.Screen name="achievements" options={{ title: "Achievements" }} />
         <Stack.Screen name="circles/[id]" options={{ title: "Reading circle" }} />
         <Stack.Screen name="circles/new" options={{ title: "Start a reading circle", presentation: "modal" }} />

@@ -591,3 +591,35 @@ export async function followingPicks(viewerId: string) {
   return { followsAnyone, picks }
 }
 
+
+const TEAM_PICK_LISTS = 6
+
+// First book (BOO-52): the top few books from the team's most recently updated public pick lists, with
+// the list each came from and its note.
+export async function teamPickBooks() {
+  const lists = await prisma.list.findMany({
+    where: { ...publicOnly, isPick: true, owner: notSuspendedWhere() },
+    orderBy: { updatedAt: "desc" },
+    take: TEAM_PICK_LISTS,
+    select: {
+      id: true,
+      title: true,
+      items: { orderBy: { position: "asc" }, take: 4, select: { id: true, workKey: true, title: true, author: true, coverUrl: true, pages: true, note: true } },
+    },
+  })
+  // Taken a list at a time in turn, so one long list doesn't fill the row.
+  const books: { key: string, list: { id: string, title: string }, book: DiscoverBook, note: string | null }[] = []
+  for (let i = 0; i < 4; i++) {
+    for (const list of lists) {
+      const item = list.items[i]
+      if (!item) continue
+      books.push({
+        key: `team-${item.id}`,
+        list: { id: list.id, title: list.title },
+        book: { workKey: item.workKey, title: item.title, author: item.author, coverUrl: item.coverUrl, pages: item.pages },
+        note: item.note || null,
+      })
+    }
+  }
+  return books
+}

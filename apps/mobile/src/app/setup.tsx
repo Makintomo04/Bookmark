@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import useSWR from "swr";
-import { BookOpen, ChevronRight, Target, Upload, UsersRound } from "lucide-react-native";
+import { BookOpen, ChevronRight, Compass, Target, Upload, UsersRound } from "lucide-react-native";
 import { bannerPresetValue, defaultBannerPreset, type BannerPresetId } from "@bookmark/shared/banners";
 import { GENRES } from "@bookmark/shared/genres";
 import { GOAL_BOOKS_MAX } from "@bookmark/shared/goals";
@@ -21,11 +20,11 @@ import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { webUrl } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
 
 // Onboarding, after the web's /new-user: 1. username, colour and banner; 2. favourite genres and who can
-// see the profile; 3. ways to start (a reading circle first, as on the landing page), and a yearly goal.
+// see the profile; 3. ways to start (a reading circle first, as on the landing page, then the first-book
+// picker for a reader who doesn't know what to read yet), and a yearly goal.
 // Saving step 1 finishes onboarding on the server, but the app only moves on to the tabs when the reader
 // leaves step 3 (refreshUser), so steps 2 and 3 aren't skipped.
 
@@ -200,11 +199,12 @@ function StartStep() {
     <View style={styles.step}>
       <View style={styles.intro}>
         <Text variant="display" style={styles.center}>Welcome, {me ? readerName(me) : username}</Text>
-        <Text variant="muted" style={styles.center}>Your profile is ready. Start a circle with friends, or put a few books on your shelf.</Text>
+        <Text variant="muted" style={styles.center}>Your profile is ready. Here are a few ways to start.</Text>
       </View>
-      <Option icon={UsersRound} title="Start a reading circle" description="Pick a book, share one link, and talk about it as you go." onPress={() => finish("/add-book?shelf=STARTED&startCircle=1")} />
+      <Option icon={UsersRound} title="Start a reading circle" description="Read one book with friends: pick it, share one link, and talk about it as you go." onPress={() => finish("/add-book?shelf=STARTED&startCircle=1")} />
+      <Option icon={Compass} title="Help me pick my first book" description="Popular books in the genres you picked, and what the Bookmark team and people you follow recommend." onPress={() => finish("/first-book")} />
       <Option icon={BookOpen} title="Add the book you're reading" description="Search by title or author." onPress={() => finish("/add-book?shelf=STARTED")} />
-      <Option icon={Upload} title="Import from Goodreads or StoryGraph" description="Bring your shelves, ratings and dates in about a minute." onPress={() => WebBrowser.openBrowserAsync(webUrl("/import"))} />
+      <Option icon={Upload} title="Import from Goodreads or StoryGraph" description="Bring your shelves, ratings and dates in about a minute." onPress={() => finish("/import")} />
       <GoalOption />
       <Button title="Go to my library" variant="outline" loading={leaving} onPress={() => finish()} />
     </View>

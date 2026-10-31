@@ -99,3 +99,29 @@ export function goalProgress(finishes: GoalFinish[], year: number, month: number
     month,
   };
 }
+
+// Where the pace says you should be by now. It runs from 1 January, or from the day the goal was set if that was
+// later, starting from the books already read by then: so a reader who joins in October isn't told they're ten
+// behind on day one, and one who sets a goal with 150 read isn't told they're 150 ahead.
+export function expectedBooks(year: number, target: number, setAt?: string | Date | null, before = 0, now = Date.now()): number {
+  const yearStart = new Date(year, 0, 1).getTime();
+  const end = new Date(year + 1, 0, 1).getTime();
+  const start = Math.min(end, Math.max(yearStart, setAt ? new Date(setAt).getTime() : yearStart));
+  const from = start > yearStart ? Math.min(before, target) : 0;
+  const fraction = start >= end ? 1 : Math.min(1, Math.max(0, (now - start) / (end - start)));
+  return from + (target - from) * fraction;
+}
+
+export type PaceTone = "good" | "behind" | "neutral";
+
+// The goal's standing in words, for the web widget and the app's goal card. "to go" is kept apart: a
+// phone drops it to fit this month on the same line.
+export function goalPace(completed: number, target: number, expected: number): { text: string; toGo: string | null; tone: PaceTone } {
+  const left = target - completed;
+  if (left <= 0) return { text: completed > target ? `Goal smashed · ${completed - target} over` : "Goal reached", toGo: null, tone: "good" };
+  const diff = Math.round(completed - expected);
+  const toGo = `${left} to go`;
+  if (diff > 0) return { text: `${diff} ahead of pace`, toGo, tone: "good" };
+  if (diff < 0) return { text: `${-diff} behind pace`, toGo, tone: "behind" };
+  return { text: "On pace", toGo, tone: "neutral" };
+}
