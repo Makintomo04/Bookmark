@@ -7,3 +7,5 @@ export type ReviewVisibility = "EVERYONE" | "FOLLOWERS" | "ONLY_ME";
 export type ReviewCommentAudience = "EVERYONE" | "FRIENDS" | "OFF";
 export type BuddyReadInviteAudience = "EVERYONE" | "FOLLOWING" | "FRIENDS" | "NOBODY";
 export type ListVisibility = "PRIVATE" | "PUBLIC";
+export type Status = "NOT_STARTED" | "STARTED" | "COMPLETED" | "DNF" | "PAUSED" | "NOT_INTERESTED";
+export type EditionFormat = "PAPERBACK" | "HARDCOVER" | "EBOOK" | "AUDIOBOOK";

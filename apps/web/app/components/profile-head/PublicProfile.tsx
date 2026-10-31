@@ -1,6 +1,6 @@
 import { FC } from 'react'
 import { Book } from '@prisma/client'
-import type { SerializedProfile } from '@/lib/publicProfile'
+import type { SerializedPreview } from '@/lib/publicProfile'
 import { readerName } from '@/lib/profile'
 import ProfileHeader, { type ProfileStat } from './ProfileHeader'
 import FollowButton from './FollowButton'
@@ -9,7 +9,6 @@ import WelcomeBack from './WelcomeBack'
 import ShareProfileButton from './ShareProfileButton'
 import ProfileMenu from './ProfileMenu'
 import ProfileReviews from './ProfileReviews'
-import { reviewedBooks } from '@/lib/reviewedBooks'
 import { cn } from '@/lib/utils'
 import CurrentlyReadingCard from '../cards/CurrentlyReadingCard'
 import { ShelfSection, groupShelf, isRereading, readingGridCols } from '../books/shelf'
@@ -18,7 +17,6 @@ import ProfileShowcase from './ProfileShowcase'
 import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileAuthors from './ProfileAuthors'
 import PublicShelves from './PublicShelves'
-import { isFinishedBook } from '@/lib/readerTier'
 import { type ProfileLayout } from './Band'
 import ContinueReading from './ContinueReading'
 import MedalShowcase from '../achievements/MedalShowcase'
@@ -27,7 +25,8 @@ import FavouritesRow from './FavouritesRow'
 import ProfileLists from '../discover/ProfileLists'
 
 interface PublicProfileProps {
-  profile: SerializedProfile
+  // Previews of their shelves and reviews, with the counts (profilePreview).
+  profile: SerializedPreview
   // null when signed out.
   // followsYou: they follow the viewer, so the button can say "Follow back" or "Friends" (lib/followRules.ts).
   viewer: { isFollowing: boolean; requested: boolean; needsApproval: boolean; followsYou: boolean } | null
@@ -46,20 +45,21 @@ const BANDS_AUTHORS = 8
 
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
 // and the profile's reading lists are client islands. The payload is already filtered for
-// this viewer (lib/publicProfile.ts): hidden shelves, reviews and counts never arrive.
+// this viewer (lib/publicProfile.ts): hidden shelves, reviews and counts never arrive. It carries the newest
+// of each shelf and of their reviews, and the counts; the rest loads when the viewer asks for it.
 const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'bands', sharedCircles = [], hasLists = true, justJoined = false }) => {
   const bands = layout === 'bands'
   const name = readerName(profile)
-  const reviewCount = reviewedBooks(profile.books).length
+  const { reviewCount, shelfCounts } = profile
   const favourites = profile.favourites as unknown as Book[]
   const achievementsHref = `/u/${encodeURIComponent(profile.username)}/achievements`
   // The cards take a Book; the public payload is the subset of it they read.
   const { reading, finished, wantToRead } = groupShelf(profile.books as unknown as Book[])
   // The shelves, as tabs.
-  const shelves = finished.length === 0 && wantToRead.length === 0 && reading.length === 0 ? (
+  const shelves = shelfCounts.finished === 0 && shelfCounts.want === 0 && reading.length === 0 ? (
     <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
   ) : (
-    <PublicShelves wantToRead={wantToRead} finished={finished} accentColour={profile.favColour} />
+    <PublicShelves username={profile.username} wantToRead={wantToRead} finished={finished} counts={shelfCounts} accentColour={profile.favColour} />
   )
   // With nothing to put beside the header (no reading, favourites or lists), the shelves take that space rather
   // than leaving it empty, and nothing sits under the header.
@@ -87,14 +87,14 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
           Only when there are some: an empty wrapper still takes a gap in this column, a band of nothing on a phone. */}
       {reviewCount > 0 && (
         <div className="flex flex-col gap-12 lg:hidden">
-          <ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
+          <ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
         </div>
       )}
       {shelvesBeside && <><div className="empty:hidden">{shelves}</div>{phoneAuthors}</>}
     </div>
   )
   // Re-reads sit under Currently reading but still count as read.
-  const completedCount = profile.books.filter(isFinishedBook).length
+  const completedCount = profile.booksRead
   const achievementCount = profile.achievements.length
 
   // Signed out, the same Follow button, which asks them to join (JoinToFollow).
@@ -131,7 +131,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         // From lg up the column ends with their reviews, the authors they follow, then their top medals, as on your own profile.
         identityFooter={bands ? (
           <div className="flex flex-col gap-8 pt-8">
-            <div className="empty:hidden"><ProfileReviews books={profile.books} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
+            <div className="empty:hidden"><ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
             <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
             <div className="[&>section]:!mt-0"><MedalShowcase earned={profile.achievements} href={achievementsHref} stacked /></div>
           </div>
@@ -155,7 +155,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
       ) : (
       <div className="mt-8">
         <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} />
-        {reading.length === 0 && finished.length === 0 && wantToRead.length === 0 ? (
+        {reading.length === 0 && shelfCounts.finished === 0 && shelfCounts.want === 0 ? (
           <p className="text-sm text-muted-foreground">No books on their shelf yet.</p>
         ) : (
           <>
@@ -166,13 +166,13 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
                 </div>
               </ShelfSection>
             )}
-            {finished.length > 0 && (
-              <CappedShelf id="public-shelf-finished" title="Finished" books={finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
+            {shelfCounts.finished > 0 && (
+              <CappedShelf id="public-shelf-finished" title="Finished" books={finished} count={shelfCounts.finished} accentColour={profile.favColour} href={shelfPageHref(profile.username, "finished")} />
             )}
-            {wantToRead.length > 0 && (
-              <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
+            {shelfCounts.want > 0 && (
+              <CappedShelf id="public-shelf-want" title="Want to read" books={wantToRead} count={shelfCounts.want} accentColour={profile.favColour} href={shelfPageHref(profile.username, "want")} />
             )}
-            <ProfileReviews books={profile.books} accentColour={profile.favColour} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
+            <ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
           </>
         )}
         <div className="mt-12"><ProfileAuthors authors={profile.followedAuthors} /></div>

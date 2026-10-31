@@ -12,4 +12,6 @@ export const sharedEnumsMatchSchema: [
   Same<Db.ReviewCommentAudience, Shared.ReviewCommentAudience>,
   Same<Db.BuddyReadInviteAudience, Shared.BuddyReadInviteAudience>,
   Same<Db.ListVisibility, Shared.ListVisibility>,
-] = [true, true, true, true, true, true];
+  Same<Db.Status, Shared.Status>,
+  Same<Db.EditionFormat, Shared.EditionFormat>,
+] = [true, true, true, true, true, true, true, true];
