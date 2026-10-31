@@ -15,6 +15,7 @@ import {
   canRemoveFromClubBook,
   canRemoveFromClubNow,
   canSetCoHost,
+  clubReadingEmpty,
   circleSlotsLeft,
   clubAbout,
   clubAllowance,
@@ -149,6 +150,15 @@ test("two joins at once: only the first CLUB_MAX_MEMBERS in joining order stay",
   assert.equal(admittedWithinCap(order, `u${CLUB_MAX_MEMBERS}`), false);
   // Not written at all (the other request removed it): not admitted.
   assert.equal(admittedWithinCap(order, "nobody"), false);
+});
+
+test("an archived club's Reading now doesn't promise a next book", () => {
+  const archived = { archived: true, canManage: false, upcoming: 0 };
+  assert.equal(clubReadingEmpty({ ...archived, isHost: true }), "The club is archived. Reopen it to start the next book.");
+  assert.match(clubReadingEmpty({ ...archived, isHost: false }), /^The club is archived/);
+  // An active club, as before.
+  assert.equal(clubReadingEmpty({ archived: false, isHost: false, canManage: false, upcoming: 0 }), "No book yet. The host will start one soon.");
+  assert.equal(clubReadingEmpty({ archived: false, isHost: true, canManage: true, upcoming: 1 }), "Nothing yet: the next book starts soon.");
 });
 
 test("the public invite shows only members a stranger could see", () => {

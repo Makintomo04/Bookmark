@@ -83,6 +83,14 @@ export function canRemoveFromClubBook(actor: ClubRole | null, target: ClubRole |
   return canRemoveFromClub(actor, target ?? "member")
 }
 
+// What "Reading now" says with nothing open. An archived club starts nothing until its host reopens it, so it
+// doesn't promise a next book: the host is told how, everyone else that its past reads are still there.
+export function clubReadingEmpty(c: { archived: boolean; isHost: boolean; canManage: boolean; upcoming: number }): string {
+  if (c.archived) return c.isHost ? "The club is archived. Reopen it to start the next book." : "The club is archived, so there's nothing on the go. Its past reads and their discussions are still here.";
+  if (c.upcoming > 0) return "Nothing yet: the next book starts soon.";
+  return c.canManage ? "No book yet. Start one, and everyone in the club is added to it." : "No book yet. The host will start one soon.";
+}
+
 // ---- Joining ------------------------------------------------------------------------------
 
 // The club never says you're reading something you haven't started. A copy it puts on your shelf, when a book

@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
 import { Check, Ellipsis, Plus, Share2 } from "lucide-react-native";
 import { formatPercent } from "@bookmark/shared/buddyReads";
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, type ClubRole } from "@bookmark/shared/clubs";
+import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty, type ClubRole } from "@bookmark/shared/clubs";
 import { isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { readerName } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
@@ -90,7 +90,7 @@ export default function ClubScreen() {
           ? reading.map((c) => <CircleRow key={c.id} circle={c} />)
           : (
             <Text variant="muted">
-              {upcoming.length > 0 ? "Nothing yet: the next book starts soon." : viewer.canManage ? "No book yet. Start one, and everyone in the club is added to it." : "No book yet. The host will start one soon."}
+              {clubReadingEmpty({ archived, isHost, canManage: viewer.canManage, upcoming: upcoming.length })}
             </Text>
           )}
         {viewer.canManage && slots > 0 && (

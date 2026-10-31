@@ -9,7 +9,7 @@ import { notify, apiError } from '@/lib/notify'
 import { readerName } from '@/lib/profile'
 import { isUpgradeRequired } from '@/lib/entitlements'
 import { formatPercent } from '@/lib/buddyReads'
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft } from '@/lib/clubs'
+import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty } from '@/lib/clubs'
 import type { ClubView as View } from '@/lib/clubsServer'
 import useClub from '@/app/hooks/useClub'
 import ReaderName from '@/app/components/profile/ReaderName'
@@ -178,7 +178,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
               <ul className="grid gap-4 md:grid-cols-2">{reading.map((c) => <li key={c.id}><CircleCard circle={c} /></li>)}</ul>
             ) : (
               <p className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6 text-sm text-muted-foreground">
-                {upcoming.length > 0 ? "Nothing yet: the next book starts soon." : viewer.canManage ? "No book yet. Start one, and everyone in the club is added to it." : "No book yet. The host will start one soon."}
+                {clubReadingEmpty({ archived, isHost, canManage: viewer.canManage, upcoming: upcoming.length })}
               </p>
             )}
           </section>
