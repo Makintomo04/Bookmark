@@ -11,6 +11,7 @@ import Container from '@/app/components/Container'
 import PublicProfile from '@/app/components/profile-head/PublicProfile'
 import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
+import JoinBanner from '@/app/components/profile-head/JoinBanner'
 import { profileLayoutOf } from '@/app/components/profile-head/Band'
 import { sharedCircles } from '@/lib/sharedCircles'
 import { findLists } from '@/lib/lists'
@@ -122,7 +123,11 @@ export default async function Page(props: PageProps) {
 
   return (
     <div className="pt-4 pb-24 min-h-[calc(100vh_-_180px)] bg-background">
-      <Container>{content}</Container>
+      <Container>
+        {/* Signed out, the profile is also the reader's invite link (BOO-53). */}
+        {!viewer && <JoinBanner username={data.profile.username} name={readerName(data.profile)} />}
+        {content}
+      </Container>
     </div>
   )
 }

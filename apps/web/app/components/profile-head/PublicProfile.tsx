@@ -93,7 +93,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
     <>
       {viewer
         ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval={viewer.needsApproval} followsYou={viewer.followsYou} />
-        : <Link href="/register" className={primaryButtonClass}>Sign up to follow</Link>}
+        : <Link href={`/register?callbackUrl=${encodeURIComponent(`/u/${encodeURIComponent(profile.username)}`)}`} className={primaryButtonClass}>Sign up to follow</Link>}
       {viewer && <ProfileMenu username={profile.username} isBlocked={false} />}
     </>
   )
@@ -111,6 +111,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         displayName={profile.displayName}
         booksRead={completedCount}
         bio={profile.bio}
+        links={profile.profileLinks}
         image={profile.image}
         banner={profile.banner}
         colour={profile.favColour}

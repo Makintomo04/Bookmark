@@ -49,6 +49,7 @@ type Profile = {
   favColour: string | null;
   staffBadge?: StaffBadgeKind | null;
   bio?: string | null;
+  profileLinks?: string[];
   banner?: string;
   books?: PublicBook[];
   followedAuthors?: { name: string; slug: string }[];
@@ -92,7 +93,7 @@ export default function ReaderProfile() {
     <Screen>
       <Stack.Screen options={{ title: readerName(profile) }} />
       <ProfileHeader
-        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
+        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, profileLinks: profile.profileLinks ?? [], favColour: profile.favColour, _count: profile.restricted ? undefined : { books: (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
         staffBadge={profile.staffBadge}
         medals={profile.restricted ? undefined : { earned: profile.achievements ?? [], onPress: openAchievements }}
       />

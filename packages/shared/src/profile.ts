@@ -92,6 +92,52 @@ export function displayNameProblem(name: string): string | null {
   return null
 }
 
+// Links on a profile (BOO-53), so it can serve as a link in bio: a few web addresses, each labelled from
+// where it points (TikTok, Instagram, a newsletter, else the site's name). Shown like the bio: to whoever
+// can see the profile.
+export const PROFILE_LINKS_MAX = 4
+const PROFILE_LINK_LENGTH_MAX = 200
+
+// An address as typed ("tiktok.com/@mei", "https://mei.blog"), made into a full https:// link, or null
+// when it isn't a plain web address. No other schemes, no logins in the address, and a dotted host.
+export function normaliseProfileLink(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed || trimmed.length > PROFILE_LINK_LENGTH_MAX) return null
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    const url = new URL(withScheme)
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+    if (url.username || url.password || !/\.[a-z]{2,}$/i.test(url.hostname)) return null
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+// Why a list of links can't be saved, or null when it can. Empty clears them.
+export function profileLinksProblem(links: unknown): string | null {
+  if (!Array.isArray(links) || links.some((l) => typeof l !== 'string')) return 'Invalid links.'
+  if (links.length > PROFILE_LINKS_MAX) return `Add up to ${PROFILE_LINKS_MAX} links.`
+  if (links.some((l) => normaliseProfileLink(l) === null)) return 'Each link needs to be a web address, like tiktok.com/@you.'
+  return null
+}
+
+const NEWSLETTER_HOSTS = ['substack.com', 'buttondown.com', 'buttondown.email', 'beehiiv.com', 'ghost.io', 'mailchimp.com', 'kit.com', 'convertkit.com']
+const LINK_LABELS: Record<string, string> = { 'tiktok.com': 'TikTok', 'instagram.com': 'Instagram', 'youtube.com': 'YouTube', 'threads.net': 'Threads', 'bsky.app': 'Bluesky', 'goodreads.com': 'Goodreads', 'thestorygraph.com': 'StoryGraph' }
+
+// What a profile link says on its chip.
+export function profileLinkLabel(link: string): string {
+  try {
+    const host = new URL(link).hostname.replace(/^www\./, '').toLowerCase()
+    const site = Object.keys(LINK_LABELS).find((h) => host === h || host.endsWith(`.${h}`))
+    if (site) return LINK_LABELS[site]
+    if (NEWSLETTER_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) return 'Newsletter'
+    return host
+  } catch {
+    return link
+  }
+}
+
 // What to call a reader: their display name when they've set one, else their username. Pass-through for
 // records from before display names existed.
 export function readerName(reader: { displayName?: string | null; username?: string | null }) {

@@ -48,6 +48,7 @@ async function loadProfileRecord(username: string) {
       username: true,
       displayName: true,
       bio: true,
+      profileLinks: true,
       image: true,
       banner: true,
       favColour: true,
@@ -130,6 +131,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     username: record.username,
     displayName: record.displayName,
     bio: record.bio,
+    // Shown like the bio, to whoever can see the profile.
+    profileLinks: record.profileLinks ?? [],
     image: record.image,
     // A reader who hasn't chosen a banner gets the preset seeded from their id, same as they see themselves.
     banner: resolveBanner(record.banner, record.id),

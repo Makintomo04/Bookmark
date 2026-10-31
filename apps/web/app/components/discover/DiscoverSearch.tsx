@@ -32,6 +32,8 @@ interface SearchUser {
   bio: string | null
   isFollowing: boolean
   _count?: { books?: number }
+  // Why they might be someone you know: "Follows you", "Followed by Sam and 2 others". Signed in only.
+  reason?: string | null
 }
 
 // Readers match on a couple of letters; the book catalogue needs three to say anything useful.
@@ -50,6 +52,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const find = searchParams?.get("find")
   const [query, setQuery] = useState(urlQuery)
   const [people, setPeople] = useState<SearchUser[]>([])
+  const [morePeople, setMorePeople] = useState(false)
+  const [loadingMorePeople, setLoadingMorePeople] = useState(false)
   const [isSearchingPeople, setIsSearchingPeople] = useState(false)
   const [peopleFailed, setPeopleFailed] = useState(false)
   const [allPeople, setAllPeople] = useState(false)
@@ -69,7 +73,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   const q = query.trim()
   const isActive = q.length >= MIN_CHARS
   const booksOn = q.length >= MIN_BOOK_CHARS
-  const peopleOn = isActive && signedIn
+  // Signed out, readers search finds public profiles only (the API decides).
+  const peopleOn = isActive
 
   // The search lives in the URL, so Back from a book's page (or a reload) lands on the same results. It's
   // replaced rather than pushed, so typing doesn't fill the history, and without a router round trip.
@@ -126,6 +131,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     if (!peopleOn) {
       setPeople([])
+      setMorePeople(false)
       setIsSearchingPeople(false)
       setPeopleFailed(false)
       return
@@ -136,12 +142,21 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
     setPeopleFailed(false)
     const timeout = setTimeout(() => {
       axios.get(`/api/users/search?q=${encodeURIComponent(q)}`)
-        .then((res) => { if (current) setPeople(res.data) })
-        .catch(() => { if (current) { setPeople([]); setPeopleFailed(true) } })
+        .then((res) => { if (current) { setPeople(res.data.readers); setMorePeople(res.data.hasMore) } })
+        .catch(() => { if (current) { setPeople([]); setMorePeople(false); setPeopleFailed(true) } })
         .finally(() => { if (current) setIsSearchingPeople(false) })
     }, 400)
     return () => { current = false; clearTimeout(timeout) }
   }, [q, peopleOn, searchAttempt])
+
+  // The next page of readers, after the ones already shown.
+  const loadMorePeople = () => {
+    setLoadingMorePeople(true)
+    axios.get(`/api/users/search?q=${encodeURIComponent(q)}&offset=${people.length}`)
+      .then((res) => { setPeople((shown) => [...shown, ...res.data.readers.filter((r: SearchUser) => !shown.some((s) => s.username === r.username))]); setMorePeople(res.data.hasMore) })
+      .catch(() => notify.error("Couldn't load more readers. Try again."))
+      .finally(() => setLoadingMorePeople(false))
+  }
 
   const handleFollow = (username: string, current: boolean) => {
     axios.post(`/api/users/${encodeURIComponent(username)}/follow`)
@@ -161,9 +176,9 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       <section aria-labelledby="people-results-heading" className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">
           <h2 id="people-results-heading" className={heading}>Readers</h2>
-          {people.length > PEOPLE_SHOWN && (
+          {(people.length > PEOPLE_SHOWN || morePeople) && (
             <button type="button" onClick={() => setAllPeople((all) => !all)} className="text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-4">
-              {allPeople ? "Show fewer" : `See all ${people.length}`}
+              {allPeople ? "Show fewer" : morePeople ? "See more" : `See all ${people.length}`}
             </button>
           )}
         </div>
@@ -181,10 +196,13 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
                   <div className="min-w-0">
                     {/* Inside the profile link, so the seal only marks the role. */}
                     <p className="truncate font-medium"><ReaderName reader={person} badge={person.staffBadge && <StaffSeal kind={person.staffBadge} size={18} pressable={false} className="ml-1 align-[-4px]" />} /></p>
-                    {person.bio && <p className="truncate text-xs text-muted-foreground">{person.bio}</p>}
+                    {person.reason
+                      ? <p className="truncate text-xs text-muted-foreground">{person.reason}</p>
+                      : person.bio && <p className="truncate text-xs text-muted-foreground">{person.bio}</p>}
                   </div>
                 </Link>
-                <button
+                {/* Signed out, the profile itself offers to join and follow. */}
+                {signedIn && <button
                   type="button"
                   onClick={() => handleFollow(person.username, following)}
                   className={cn(
@@ -193,11 +211,16 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
                   )}
                 >
                   {following ? "Following" : "Follow"}
-                </button>
+                </button>}
               </li>
             )
           })}
         </ul>
+        {allPeople && morePeople && (
+          <button type="button" onClick={loadMorePeople} disabled={loadingMorePeople} className="self-start h-9 px-4 rounded-md text-sm font-medium border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60">
+            {loadingMorePeople ? "Loading…" : "Show more readers"}
+          </button>
+        )}
       </section>
     )
 
@@ -235,7 +258,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
       note = (
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {booksOn
-            ? <>Nothing matches &ldquo;{q}&rdquo;. Try the title, the author&apos;s surname{signedIn ? " or a reader's username" : ""}.</>
+            ? <>Nothing matches &ldquo;{q}&rdquo;. Try the title, the author&apos;s surname or a reader&apos;s name.</>
             : "Keep typing to search for books."}
         </p>
       )
@@ -246,8 +269,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
         {peopleSection}
         {booksSection}
         {note}
-        {!signedIn && booksOn && !bookSearch.isSearching && (
-          <p className="text-sm text-muted-foreground"><Link href="/signin" className="font-medium text-foreground underline underline-offset-4">Sign in</Link> to find readers too.</p>
+        {!signedIn && people.length > 0 && (
+          <p className="text-sm text-muted-foreground">Readers with public profiles show here. <Link href="/signin" className="font-medium text-foreground underline underline-offset-4">Sign in</Link> to follow them and find more.</p>
         )}
       </div>
     )
@@ -264,8 +287,8 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") rememberSearch() }}
-            placeholder={signedIn ? "Search books, authors or readers" : "Search books or authors"}
-            aria-label={signedIn ? "Search for books, authors or readers" : "Search for books or authors"}
+            placeholder="Search books, authors or readers"
+            aria-label="Search for books, authors or readers"
             autoComplete="off"
             className="h-12 w-full rounded-full border border-input bg-background pl-11 pr-11 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-search-cancel-button]:hidden"
           />

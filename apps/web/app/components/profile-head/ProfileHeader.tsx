@@ -2,13 +2,13 @@ import { FC, ReactNode } from 'react'
 import { BLEED } from '../Container'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronRight, Crown } from 'lucide-react'
+import { ChevronRight, Crown, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
 import { bannerPresetOf, resolveBanner } from '@/lib/banners'
 import type { SupporterBadgeKind } from '@/lib/supporter'
 import type { StaffBadgeKind } from '@/lib/staffBadge'
-import { readerName } from '@/lib/profile'
+import { profileLinkLabel, readerName } from '@/lib/profile'
 import BannerPattern from '../profile/BannerPattern'
 import TierAvatar from './TierAvatar'
 import StaffSeal from './StaffSeal'
@@ -31,6 +31,8 @@ interface ProfileHeaderProps {
   // Heads the profile when set, with @username under it; otherwise the username heads it.
   displayName?: string | null
   bio?: string | null
+  // Their links (TikTok, a newsletter…), as chips under the bio.
+  links?: string[]
   image?: string | null
   // An uploaded image URL or a "preset:<id>" pattern. Callers resolve the seeded default from the
   // user's id; with nothing passed, the username seeds one so the header never renders bare.
@@ -120,7 +122,21 @@ export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind 
   </Link>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, image, banner, colour, stats, actions, share, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, identityFooter, follows, followsPrompt = false, compact = false }) => {
+// A reader's links, labelled by where they go. They lead off Bookmark, so they open in a new tab and
+// carry no endorsement (nofollow ugc); `me` lets sites that check it verify the profile.
+const ProfileLinks: FC<{ links: string[] }> = ({ links }) => (
+  <ul aria-label="Links" className="mt-2.5 flex flex-wrap gap-2">
+    {links.map((link) => (
+      <li key={link}>
+        <a href={link} target="_blank" rel="me nofollow ugc noopener noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-full bg-neutral-100 px-3 text-sm font-medium text-foreground transition hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-neutral-800 dark:hover:bg-neutral-700">
+          <Link2 size={14} aria-hidden /> {profileLinkLabel(link)}
+        </a>
+      </li>
+    ))}
+  </ul>
+)
+
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, links, image, banner, colour, stats, actions, share, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, identityFooter, follows, followsPrompt = false, compact = false }) => {
   const accent = colour || "#F13C3C"
   const shownBanner = resolveBanner(banner, username)
   const preset = bannerPresetOf(shownBanner)
@@ -173,6 +189,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, ima
           {/* The handle, under a display name: it's the /u/ address and how friends find them. */}
           {displayName && <p className="mt-2.5 text-sm text-muted-foreground break-all">@{username}</p>}
           {bio && <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">{bio}</p>}
+          {links && links.length > 0 && <ProfileLinks links={links} />}
           {follows && follows.length > 0 && <FollowsLine authors={follows} />}
           {follows && follows.length === 0 && followsPrompt && (
             <Link href="/discover" className="mt-1.5 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">

@@ -141,6 +141,7 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         displayName={user.displayName}
         booksRead={booksReadFor(user.username, booksRead)}
         bio={user.bio}
+        links={user.profileLinks}
         image={user.image}
         banner={resolveBanner(user.banner, user.id)}
         colour={user.favColour}
