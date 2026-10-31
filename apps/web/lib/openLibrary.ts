@@ -37,8 +37,11 @@ export interface DiscoverBook {
 
 // A reader's copy of a book, as the book details modal and the add buttons take it. Pages of 0 mean unknown.
 // An uploaded cover shows here as it does on their shelf; adding it swaps in the catalogue's (api/books).
-export const discoverBookOf = (book: { workKey?: string | null, title: string, author: string, pages?: number | null, coverImage?: string | null }): DiscoverBook => ({
+// A book Open Library lacks keeps its catalogue page (pageWorkId) when the payload carries it: the shelf API
+// and public profiles do, and without it the details have no key to load anything by.
+export const discoverBookOf = (book: { workKey?: string | null, pageWorkId?: string | null, title: string, author: string, pages?: number | null, coverImage?: string | null }): DiscoverBook => ({
   workKey: book.workKey ?? null,
+  ...(book.workKey ? {} : { pageWorkId: book.pageWorkId ?? null }),
   title: book.title,
   author: book.author,
   pages: book.pages || null,
