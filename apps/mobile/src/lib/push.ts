@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
@@ -41,6 +41,19 @@ export async function registerForPush() {
   } catch (error) {
     console.warn("[push] couldn't register", error);
   }
+}
+
+// Whether the reader has switched notifications off for Bookmark in the phone's settings, so the app can't
+// ask again and pushes can't arrive. Reminders then say so and suggest email instead.
+export function usePushBlocked(): boolean {
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    if (!supported || !Device.isDevice) return;
+    Notifications.getPermissionsAsync()
+      .then((p) => setBlocked(!p.granted && !p.canAskAgain))
+      .catch(() => setBlocked(false));
+  }, []);
+  return blocked;
 }
 
 // Opens the screen behind a tapped push, including the one that launched the app.

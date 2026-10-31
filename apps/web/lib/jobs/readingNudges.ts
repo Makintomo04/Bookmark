@@ -2,7 +2,7 @@ import prisma from "@/lib/db";
 import { readingStreakState } from "@/lib/achievements";
 import { notSuspendedWhere } from "@/lib/privacy";
 import { sendSystemPushes } from "@/lib/push";
-import { progressSelect } from "@bookmark/shared/progress";
+import { progressPercent, progressSelect } from "@bookmark/shared/progress";
 import {
   isDue,
   localClock,
@@ -35,9 +35,13 @@ async function reminderBook(userId: string): Promise<ReminderBook | null> {
   const book = await prisma.book.findFirst({
     where: { userId, status: "STARTED", OR: [{ isPrivate: { isSet: false } }, { isPrivate: null }, { isPrivate: false }] },
     orderBy: [{ progressAt: "desc" }, { startedAt: "desc" }],
-    select: { id: true, title: true, ...progressSelect },
+    select: { id: true, title: true, ...progressSelect, currentPercent: true, logsPercent: true, logsIn: true },
   });
   if (!book) return null;
+  // Said the way they log it: a Kindle, chapter or location reader thinks in percent, not a page they never typed.
+  if (book.logsPercent || (book.logsIn && book.logsIn !== "PAGES")) {
+    return { id: book.id, title: book.title, at: Math.floor(progressPercent(book)), of: 100, unit: "PERCENT" };
+  }
   const minutes = book.progressUnit === "MINUTES";
   return {
     id: book.id,

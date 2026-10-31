@@ -20,6 +20,8 @@ export const DUE_WINDOW = 45;
 // The streak alert only for a streak worth saving, and at 19:00 unless quiet hours start sooner.
 export const STREAK_ALERT_MIN_DAYS = 3;
 export const STREAK_ALERT_MINUTE = 19 * 60;
+// A daily reminder this close before the streak alert becomes the alert, rather than a second nudge.
+export const STREAK_FOLD_MINUTES = 60;
 // Checkpoint reminders: two days before the section is due, in the morning.
 export const CHECKPOINT_DAYS_AHEAD = 2;
 export const CHECKPOINT_MINUTE = 9 * 60;
@@ -152,13 +154,25 @@ export const withChange = (s: NotificationSettings, c: NotificationChange): Noti
 export const REMINDER_COPY = {
   daily: { title: "Daily reminder", hint: "A nudge at a time you pick. Skipped on days you've already read." },
   streak: { title: "Streak alert", hint: `One warning in the evening when a streak of ${STREAK_ALERT_MIN_DAYS} days or more is about to end.` },
-  checkpoints: { title: "Circle checkpoints", hint: "Two days before a section is due, if you're behind." },
-  weekly: { title: "Weekly email", hint: "“Your week in books” on Sunday mornings: your reading, your circles and your friends. One click to stop." },
+  checkpoints: { title: "Circle checkpoints", hint: "Two days before a section is due, if you're behind. On your phone, or by email if you don't have the app." },
+  weekly: { title: "Weekly email", hint: "“Your week in books” every Sunday: your reading, your circles and your friends. One click to stop." },
   quiet: { title: "Quiet hours", hint: "Reminders never arrive between these times." },
-  // On the web, where reminders can't reach.
-  phoneOnly: "Reminders arrive on your phone through the Bookmark app.",
-  unverified: "Confirm your email address first: the weekly email only goes to a confirmed address.",
+  // On the web, where the daily reminder and streak alert can't reach.
+  phoneOnly: "The daily reminder and streak alert arrive on your phone through the Bookmark app.",
+  unverified: "Confirm your email address first: Bookmark only emails a confirmed address.",
+  // Push is switched off for Bookmark in the phone's settings.
+  blocked: "Notifications are off for Bookmark on this phone. Turn them on in your phone's settings, or use the weekly email.",
 } as const;
+
+// Why the reminders sheet is offered, once (User.remindersPromptedAt): the first book finished here, a
+// third day of reading, or a reading goal set. Whichever comes first; never at sign-up.
+export type AskReason = "finished" | "habit" | "goal";
+export const ASK_HABIT_DAYS = 3;
+export const SHEET_INTRO: Record<AskReason, string> = {
+  finished: "Well done on finishing.",
+  habit: "Three days of reading already.",
+  goal: "Your goal is set.",
+};
 
 // Every time the daily reminder may be set to: quarter hours outside quiet hours.
 export const reminderTimes = (quiet: QuietHours): number[] =>
@@ -232,7 +246,8 @@ export function nudgeFor(n: NudgeInput): "reminder" | "streak" | null {
   const streakAt = streakAlertMinute(n.quiet);
   if (atRisk && isDue(streakAt, n.minute)) return "streak";
   if (n.reminderMinute !== null && isDue(n.reminderMinute, n.minute)) {
-    return atRisk && n.reminderMinute >= streakAt ? "streak" : "reminder";
+    // Within the hour before the alert, the reminder is the alert, so the evening doesn't bring two.
+    return atRisk && n.reminderMinute >= streakAt - STREAK_FOLD_MINUTES ? "streak" : "reminder";
   }
   return null;
 }
@@ -242,31 +257,40 @@ export function nudgeFor(n: NudgeInput): "reminder" | "streak" | null {
 export interface ReminderBook {
   id: string;
   title: string;
-  // Where they are and how long it is, in the book's unit; null when not known.
+  // Where they are and how long it is, the way they log it: pages, minutes listened, or a percent (Kindle,
+  // chapters and locations all store one). null when not known.
   at: number | null;
   of: number | null;
-  unit: "PAGES" | "MINUTES";
+  unit: "PAGES" | "MINUTES" | "PERCENT";
 }
 
-const placeIn = (b: ReminderBook) => {
-  if (b.at === null || b.at <= 0) return null;
-  if (b.unit === "MINUTES") return `${Math.floor(b.at / 60) > 0 ? `${Math.floor(b.at / 60)}h ` : ""}${b.at % 60}m into`;
-  return b.of ? `on page ${b.at} of ${b.of} of` : `on page ${b.at} of`;
-};
+// "5h", "1h 35m", "40m".
+export function listenTime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+}
 
-// The daily reminder: the book they're furthest into, or a nudge to pick one.
+// "You're on page 112 of 310 of The Hobbit." / "You're 1h 35m into Dune, 19h 25m to go." / "You're 41% through Fourth Wing."
+function placeLine(b: ReminderBook): string | null {
+  if (b.at === null || b.at <= 0) return null;
+  if (b.unit === "PERCENT") return `You're ${Math.floor(b.at)}% through ${b.title}.`;
+  if (b.unit === "MINUTES") {
+    const left = b.of && b.of > b.at ? `, ${listenTime(b.of - b.at)} to go` : "";
+    return `You're ${listenTime(b.at)} into ${b.title}${left}.`;
+  }
+  return `You're on page ${b.at}${b.of ? ` of ${b.of}` : ""} of ${b.title}.`;
+}
+
+// The daily reminder: the book they last logged progress on, or a nudge to pick one.
 export function readingReminderPush(book: ReminderBook | null): PushContent {
   if (!book) return { title: "Time to read?", body: "Pick something from Want to read.", path: "/" };
-  const place = placeIn(book);
-  return {
-    title: "Time to read?",
-    body: place ? `You're ${place} ${book.title}.` : `${book.title} is waiting for you.`,
-    path: `/book/${book.id}`,
-  };
+  return { title: "Time to read?", body: placeLine(book) ?? `${book.title} is waiting for you.`, path: `/book/${book.id}` };
 }
 
+// Pages, minutes and percent alike: whatever they log counts.
 export function streakAlertPush(days: number): PushContent {
-  return { title: `Your ${days}-day streak ends tonight`, body: "Log a page to keep it going.", path: "/" };
+  return { title: `Your ${days}-day streak ends tonight`, body: "Log today's reading to keep it going.", path: "/" };
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

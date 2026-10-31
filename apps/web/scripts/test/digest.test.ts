@@ -5,8 +5,9 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/digest.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildWeeklyDigest, goalLine, goalPace, type DigestData } from "@bookmark/shared/digest";
-import { unsubscribeToken, verifyUnsubscribeToken } from "@/lib/unsubscribeToken";
+import { buildCheckpointEmail, buildWeeklyDigest, goalLine, goalPace, type DigestData } from "@bookmark/shared/digest";
+import { streakText } from "@bookmark/shared/goals";
+import { unsubscribeKindOf, unsubscribeToken, verifyUnsubscribeToken } from "@/lib/unsubscribeToken";
 import { isCronAuthorised } from "@/lib/cronAuth";
 
 const empty: DigestData = {
@@ -110,4 +111,30 @@ test("cron routes need the exact bearer secret", () => {
   // No secret set refuses everyone, even a matching empty bearer.
   assert.equal(isCronAuthorised("Bearer ", ""), false);
   assert.equal(isCronAuthorised("Bearer undefined", undefined), false);
+});
+
+test("checkpoint emails for members without the app: counts only, and a way out", () => {
+  const email = buildCheckpointEmail({
+    circleTitle: "Dune", label: "Part 2", due: "2026-11-01", progress: 41.2, until: 55, waiting: 3,
+    circleUrl: "https://bookmark.test/circles/c1", settingsUrl: "https://bookmark.test/settings#notifications", unsubscribeUrl: "https://bookmark.test/email/unsubscribe?t=x",
+  });
+  assert.equal(email.subject, "Part 2 of Dune is due Sunday");
+  assert.ok(email.text.includes("You're at 41% and Part 2 ends at 55%. 3 comments are waiting there."));
+  assert.match(email.html, /Open the circle/);
+  assert.ok(email.text.includes("Stop checkpoint emails: https://bookmark.test/email/unsubscribe?t=x"));
+});
+
+test("an unsubscribe token says what it stops, and can't stop something else", () => {
+  const token = unsubscribeToken(USER, "checkpoints", SECRET);
+  assert.equal(unsubscribeKindOf(token), "checkpoints");
+  assert.equal(verifyUnsubscribeToken(token, "checkpoints", SECRET), USER);
+  assert.equal(verifyUnsubscribeToken(token.replace(".checkpoints.", ".weekly."), "weekly", SECRET), null);
+  assert.equal(unsubscribeKindOf("6560f1c2a1b2c3d4e5f60718.marketing.sig"), null);
+});
+
+test("the goal card's streak line", () => {
+  assert.equal(streakText({ days: 6, readToday: false }), "6-day streak · read today to keep it");
+  assert.equal(streakText({ days: 6, readToday: true }), "6-day streak");
+  assert.equal(streakText({ days: 1, readToday: true }), null);
+  assert.equal(streakText(undefined), null);
 });

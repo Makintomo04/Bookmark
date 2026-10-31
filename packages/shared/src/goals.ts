@@ -72,6 +72,20 @@ export interface GoalProgress {
   // Finishes so far in `month`.
   thisMonth: number;
   month: number;
+  // The reader's own streak, for their goal card (GET /api/reading-goal/progress). Not on public profiles.
+  streak?: StreakSummary;
+}
+
+export interface StreakSummary {
+  days: number;
+  readToday: boolean;
+}
+
+// "6-day streak", or "6-day streak · read today to keep it" while today isn't logged yet. Nothing for a
+// streak of one day: that's just having read.
+export function streakText(s: StreakSummary | null | undefined): string | null {
+  if (!s || s.days < 2) return null;
+  return s.readToday ? `${s.days}-day streak` : `${s.days}-day streak · read today to keep it`;
 }
 
 // Progress against a year's goal, counted the way the stats page counts it: every dated finished read,

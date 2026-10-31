@@ -6,12 +6,12 @@ import { canView, notSuspendedWhere, privacyOf, privacySelect, type Relation } f
 import { mutualFollowIds } from "@/lib/recommendations";
 import { appUrl } from "@/lib/siteUrl";
 import { getGoalProgress } from "@/lib/stats";
-import { unsubscribeToken } from "@/lib/unsubscribeToken";
 import { circleProgress, progressPercent } from "@bookmark/shared/buddyReads";
 import { buildWeeklyDigest, DIGEST_FRIENDS_MAX, goalPace, type DigestData, type DigestFriend } from "@bookmark/shared/digest";
 import { progressSelect } from "@bookmark/shared/progress";
 import { addDays, DIGEST_MINUTE, DIGEST_WEEKDAY, isoWeekKey, localClock } from "@bookmark/shared/reminders";
 import { visibleComments, visibleFinishers } from "./circleCounts";
+import { unsubscribeLinks } from "./emailLinks";
 import { claimSend } from "./ledger";
 import { pageArgs, pages, zoneOf, type JobContext } from "./common";
 
@@ -22,6 +22,8 @@ import { pageArgs, pages, zoneOf, type JobContext } from "./common";
 
 // Emails a tick may send; the rest go on the next tick, inside the due window.
 export const DIGEST_BUDGET = 300;
+// When an empty Sunday stops being looked at again (local time).
+const DIGEST_SETTLE_MINUTE = 20 * 60;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const notPrivate = { OR: [{ isPrivate: { isSet: false } }, { isPrivate: null }, { isPrivate: false }] };
@@ -130,7 +132,6 @@ export async function digestFor(
   const works = series.length
     ? await prisma.work.findMany({ where: { id: { in: series.flatMap((n) => (n.workId ? [n.workId] : [])) } }, select: { title: true, seriesName: true } })
     : [];
-  const token = unsubscribeToken(user.id);
   return {
     name: user.displayName || user.username,
     readingDays,
@@ -142,15 +143,10 @@ export async function digestFor(
     series: works.map((w) => ({ title: w.title, seriesName: w.seriesName })),
     logUrl: `${appUrl}/`,
     settingsUrl: `${appUrl}/settings#notifications`,
-    unsubscribeUrl: `${appUrl}/email/unsubscribe?t=${encodeURIComponent(token)}`,
+    unsubscribeUrl: unsubscribeLinks(user.id, "weekly").pageUrl,
   };
 }
 
-// The List-Unsubscribe pair Gmail and Yahoo require of bulk mail: one click from the inbox, a POST (RFC 8058).
-export function unsubscribeHeaders(userId: string): Record<string, string> {
-  const url = `${appUrl}/api/email/unsubscribe?t=${encodeURIComponent(unsubscribeToken(userId))}`;
-  return { "List-Unsubscribe": `<${url}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
-}
 
 export async function runWeeklyDigest(ctx: JobContext): Promise<{ digests: number; emptyWeeks: number }> {
   const result = { digests: 0, emptyWeeks: 0 };
@@ -176,14 +172,15 @@ export async function runWeeklyDigest(ctx: JobContext): Promise<{ digests: numbe
       if (await prisma.scheduledSend.findUnique({ where: { userId_kind_key: { userId: user.id, kind: "digest", key: week } }, select: { id: true } })) continue;
       const email = buildWeeklyDigest(await digestFor(user, zone, ctx.now));
       if (!email) {
-        // An empty week is settled too, so the rest of Sunday's ticks don't build it again.
-        await claimSend(user.id, "digest", week, "none");
+        // From the evening on, an empty week is settled, so the rest of Sunday's ticks don't build it again.
+        // Before that it's looked at again: some reading or a friend's finish later on Sunday still counts.
+        if (clock.minute >= DIGEST_SETTLE_MINUTE) await claimSend(user.id, "digest", week, "none");
         result.emptyWeeks++;
         continue;
       }
       if (!(await claimSend(user.id, "digest", week, "email"))) continue;
       try {
-        await sendMail({ to: user.email!, ...email, headers: unsubscribeHeaders(user.id) });
+        await sendMail({ to: user.email!, ...email, headers: unsubscribeLinks(user.id, "weekly").headers });
         result.digests++;
       } catch (error) {
         console.error("[digest] couldn't send", user.id, error);

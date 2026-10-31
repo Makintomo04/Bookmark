@@ -40,7 +40,9 @@ export function TimeField({ label, value, onChange, options, disabled }: { label
     if (Platform.OS === "android") {
       DateTimePickerAndroid.open({ value: toDate(current), mode: "time", minuteInterval: REMINDER_STEP, onChange: (event, date) => { if (event.type === "set" && date) commit(minuteOf(date)); } });
     } else {
-      setPicking(picking === null ? current : null);
+      // Tapping the field again closes the spinner and keeps what it shows, like Done.
+      if (picking === null) setPicking(current);
+      else done();
     }
   };
 
