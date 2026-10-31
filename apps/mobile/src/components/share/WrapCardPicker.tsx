@@ -12,6 +12,7 @@ import {
   DEFAULT_CARD_DESIGN,
   cardFileName,
   cardPath,
+  cardProfilePath,
   cardTitle,
   type CardDesign,
   type CardKind,
@@ -80,7 +81,8 @@ export function WrapCardPicker({ accent, wrapDesigns }: { accent: string; wrapDe
   const [open, setOpen] = useState(false);
 
   const { year, month, name, current } = options[picked];
-  const profileUrl = username ? webUrl(`/u/${encodeURIComponent(username)}`) : webUrl("/");
+  // Marked ?from=card, so a sign-up that starts from the shared link is counted (shared/signupSource.ts).
+  const profileUrl = username ? webUrl(cardProfilePath(username)) : webUrl("/");
   const { width, height } = CARD_SIZES[size];
   // "My October in books": the same words the card puts at its top.
   const title = cardTitle(year, month === null ? null : month - 1, current);

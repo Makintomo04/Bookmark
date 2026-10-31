@@ -107,6 +107,10 @@ model User {
   favColour              String?
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
+  // Where they were when they chose to join, from the ?from= mark on that page (packages/shared/src/signupSource.ts),
+  // e.g. "card" for a Wrap card's link. Set once, at sign-up or first onboarding; unset for everyone else.
+  // Counted on /staff. Carried in the address, never a cookie.
+  signupSource           String?
   favGenres              String[]                 @db.String
   // Hid the genre picks ("Somewhere to start") on their own shelf (it still shows on Discover). Unset reads as shown.
   hideShelfPicks         Boolean?

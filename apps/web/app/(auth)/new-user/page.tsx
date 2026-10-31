@@ -18,6 +18,7 @@ import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import { safeCallbackPath } from '@/lib/callbackUrl'
+import { signupSourceFrom } from '@bookmark/shared/signupSource'
 import { DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, suggestUsername, usernameProblem } from '@/lib/profile'
 import { BannerPresetId, defaultBannerPreset, bannerPresetValue } from '@/lib/banners'
 import BannerPattern from '@/app/components/profile/BannerPattern'
@@ -105,7 +106,7 @@ const Page = () => {
     }
     setSaving(true)
     try {
-      const res = await axios.post("/api/new-user", { username: normaliseUsername(data.username), displayName: normaliseDisplayName(data.displayName) || undefined, color: data.color, imageSrc: data.imageSrc || undefined, bannerSrc: bannerPresetValue(data.banner) })
+      const res = await axios.post("/api/new-user", { username: normaliseUsername(data.username), displayName: normaliseDisplayName(data.displayName) || undefined, color: data.color, imageSrc: data.imageSrc || undefined, bannerSrc: bannerPresetValue(data.banner), source: signupSourceFrom(nextPath) ?? undefined })
       mutate(res.data, { revalidate: false })
       if (nextPath) {
         router.push(nextPath)
