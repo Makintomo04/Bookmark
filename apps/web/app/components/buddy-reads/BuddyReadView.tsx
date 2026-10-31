@@ -132,19 +132,20 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="flex flex-col gap-10 min-w-0">
-          <ProgressTrack members={members} schedule={buddyRead.schedule} onRemove={viewer.canManage ? remove : undefined} />
+          <ProgressTrack members={members} schedule={buddyRead.schedule} onRemove={viewer.canModerate ? remove : undefined} />
           <Discussion
             buddyReadId={id}
             comments={comments}
             viewerProgress={viewer.progress}
-            isHost={viewer.canManage}
+            isHost={viewer.canModerate}
             canPost={!archived}
             onChange={() => mutate()}
           />
         </div>
 
         <aside className="flex flex-col gap-8 lg:sticky lg:top-6 lg:self-start">
-          {!archived && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))} isHost={viewer.canManage} onLinkReset={() => mutate()} clubInviteCode={club?.inviteCode} />}
+          {/* An archived club's books take no one new (lib/buddyReadsServer.ts clubBookRefusal), so there's no link to share. */}
+          {!archived && !(club && !club.inviteCode) && <InvitePanel buddyReadId={id} inviteCode={buddyRead.inviteCode} memberCount={members.length} memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))} isHost={viewer.canManage} onLinkReset={() => mutate()} clubInviteCode={club?.inviteCode} />}
           <section className="flex flex-col gap-2 text-sm">
             <h2 className="font-semibold">How it works</h2>
             <p className="text-muted-foreground">

@@ -15,19 +15,21 @@ const joinSchema = z.object({ code: z.string().trim().regex(/^[a-z0-9]{6,20}$/, 
 // someone already in it, so the app can open it instead.
 export async function GET(req: Request) {
   const code = new URL(req.url).searchParams.get("code") ?? "";
-  const invite = await loadInvite(code);
+  const viewer = await getCurrentUser();
+  const invite = await loadInvite(code, viewer?.id);
   if (!invite) return buddyReadError("This invite link isn't valid any more.", 404);
-  const { buddyRead, host, members } = invite;
+  const { buddyRead, host, members, memberCount } = invite;
   // A club's circle is joined through its club: the app opens the club's invite instead.
   const club = buddyRead.clubId ? await prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { inviteCode: true, status: true } }) : null;
-  const viewer = await getCurrentUser();
   const isMember = !!viewer && members.some((m) => m.userId === viewer.id);
   const removed = !!viewer && !isMember && (await wasRemoved(buddyRead.id, viewer.id));
   return NextResponse.json({
     buddyRead: { title: buddyRead.title, author: buddyRead.author, coverImage: buddyRead.coverImage, cardColour: buddyRead.cardColour },
     host: host && { username: host.username, displayName: host.displayName, staffBadge: host.staffBadge },
     members: members.map((m) => ({ username: m.username, displayName: m.displayName, image: m.image, favColour: m.favColour })),
-    full: members.length >= BUDDY_READ_MAX_MEMBERS,
+    // Everyone counts, named or not.
+    memberCount,
+    full: memberCount >= BUDDY_READ_MAX_MEMBERS,
     viewer: { isMember, buddyReadId: isMember ? buddyRead.id : null, removed, removedMessage: removed ? REMOVED_MESSAGE : null },
     clubInviteCode: club?.status === "ACTIVE" ? club.inviteCode : null,
   });

@@ -8,7 +8,7 @@ import { ArrowUpDown, Check, ChevronDown, Search, X } from "lucide-react-native"
 import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
 import { ratingGlyphs } from "@bookmark/shared/rating";
 import {
-  EMPTY_FILTER, FORMAT_LABEL, SHELF_SORTS, SHELF_STATUS, SHELF_TITLE, SORT_LABEL, isNarrowed, parseShelfParams, shelfOf,
+  EMPTY_FILTER, FORMAT_LABEL, SHELF_SORTS, SHELF_STATUS, SHELF_TITLE, SORT_LABEL, isNarrowed, pagedBooks, parseShelfParams, shelfOf,
   type ShelfFilter, type ShelfKey,
 } from "@bookmark/shared/shelfFilter";
 import { BookCover } from "@/components/books/BookCover";
@@ -71,7 +71,7 @@ export default function ShelfScreen() {
   const pages = data ?? last.current.pages;
   const options = last.current.options;
   const counts = last.current.counts;
-  const books = pages.flatMap((p) => p.books);
+  const books = pagedBooks(pages);
   const total = pages[0]?.total;
   const more = !!pages[pages.length - 1]?.nextCursor;
   const loadingMore = isValidating && !!data && size > data.length;

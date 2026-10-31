@@ -60,7 +60,7 @@ export async function DELETE(
   if (notMember) return notMember;
 
   const comment = await findComment(membership.buddyRead.id, params.commentId);
-  if (!comment || (comment.userId !== currentUser.id && !membership.canManage)) return buddyReadError("Comment not found", 404);
+  if (!comment || (comment.userId !== currentUser.id && !membership.canModerate)) return buddyReadError("Comment not found", 404);
 
   await prisma.buddyReadReaction.deleteMany({ where: { commentId: comment.id } });
   await prisma.buddyReadComment.update({

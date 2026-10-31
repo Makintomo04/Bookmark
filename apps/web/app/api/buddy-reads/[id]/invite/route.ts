@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { BUDDY_READ_MAX_MEMBERS } from "@/lib/buddyReads";
 import { acceptsBuddyReadInvite, preferencesOf, preferencesSelect } from "@/lib/preferences";
-import { buddyReadError, isBlockedEitherWay, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { CLUB_CLOSED_MESSAGE, buddyReadError, isBlockedEitherWay, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
 import { areFriends } from "@/lib/friends";
 
 const inviteSchema = z.object({ username: z.string().trim().min(1, "Enter a username").max(60) });
@@ -60,6 +60,14 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     ? await prisma.clubRemoval.findUnique({ where: { clubId_userId: { clubId: buddyRead.clubId, userId: invitee.id } }, select: { id: true } })
     : null;
   if (clubRemoval && !membership.canManage) return buddyReadError("They were removed from this club. Only the host or a co-host can invite them back.", 403);
+  // Once the club is archived its books take no one new (lib/buddyReadsServer.ts clubBookRefusal).
+  if (buddyRead.clubId) {
+    const [club, inClub] = await Promise.all([
+      prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { status: true } }),
+      prisma.clubMember.findUnique({ where: { clubId_userId: { clubId: buddyRead.clubId, userId: invitee.id } }, select: { id: true } }),
+    ]);
+    if (club?.status !== "ACTIVE" && !inClub) return buddyReadError(CLUB_CLOSED_MESSAGE, 409);
+  }
   if (clubRemoval) await prisma.clubRemoval.delete({ where: { id: clubRemoval.id } });
 
   // Inviting twice is a no-op, so nobody gets a second notification.

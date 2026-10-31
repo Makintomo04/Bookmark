@@ -94,7 +94,7 @@ export default function CircleScreen() {
 
       <Schedule schedule={buddyRead.schedule ?? []} progress={viewer.progress} canEdit={viewer.canManage} circleId={buddyRead.id} />
 
-      <Discussion circleId={buddyRead.id} comments={comments} progress={viewer.progress} isHost={viewer.canManage} onReply={setReplyTo} onChange={() => mutate()} />
+      <Discussion circleId={buddyRead.id} comments={comments} progress={viewer.progress} isHost={viewer.canModerate ?? viewer.canManage} onReply={setReplyTo} onChange={() => mutate()} />
       {buddyRead.status === "ACTIVE" && (
         <Composer circleId={buddyRead.id} progress={viewer.progress} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onPosted={() => { setReplyTo(null); void mutate(); }} />
       )}

@@ -123,7 +123,7 @@ const AddFromOpenLibrary = ({ olKey, onAdded }: { olKey: string, onAdded: (id: s
 // A book neither Open Library nor Hardcover has, filed with a book page straight away. Books already in the
 // catalogue under a similar title are listed first, since a second copy of a book splits its readers.
 const CreateByHand = ({ initialTitle, onBack, onOpen }: { initialTitle: string, onBack: () => void, onOpen: (id: string) => void }) => {
-  const [form, setForm] = useState({ title: initialTitle, authors: '', description: '', coverUrl: '', seriesName: '', seriesPosition: '' })
+  const [form, setForm] = useState({ title: initialTitle, authors: '', description: '', coverUrl: '', seriesName: '', seriesPosition: '', releaseDate: '' })
   const [debouncedTitle, setDebouncedTitle] = useState(initialTitle)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -141,7 +141,7 @@ const CreateByHand = ({ initialTitle, onBack, onOpen }: { initialTitle: string, 
     setFound(null)
     try {
       const body: Record<string, unknown> = { title: form.title, authors: form.authors }
-      for (const k of ['description', 'coverUrl', 'seriesName', 'seriesPosition'] as const) if (form[k].trim()) body[k] = form[k]
+      for (const k of ['description', 'coverUrl', 'seriesName', 'seriesPosition', 'releaseDate'] as const) if (form[k].trim()) body[k] = form[k]
       const { work, created } = await staffSend<{ work: StaffWork, created: boolean }>('/api/staff/works', 'POST', body)
       if (created) onOpen(work.id)
       else setFound(work)
@@ -152,12 +152,12 @@ const CreateByHand = ({ initialTitle, onBack, onOpen }: { initialTitle: string, 
     }
   }
 
-  const field = (key: keyof typeof form, label: string, multiline = false) => (
+  const field = (key: keyof typeof form, label: string, multiline = false, placeholder?: string) => (
     <label className="flex flex-col gap-1.5 text-sm font-medium">
       {label}
       {multiline
         ? <textarea className={fieldClass} rows={5} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
-        : <ClearableInput className={fieldClass} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
+        : <ClearableInput className={fieldClass} placeholder={placeholder} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}
     </label>
   )
 
@@ -191,6 +191,10 @@ const CreateByHand = ({ initialTitle, onBack, onOpen }: { initialTitle: string, 
           {field('seriesName', 'Series (optional)')}
           {field('seriesPosition', 'Number in series')}
         </div>
+        <div className="grid gap-4 sm:grid-cols-[200px_minmax(0,1fr)]">
+          {field('releaseDate', 'Release date (optional)', false, '2027-04-09')}
+        </div>
+        <p className="-mt-2 text-xs text-muted-foreground">For a book not out yet, the day it comes out: it goes in Upcoming, followers of its author hear it&apos;s coming, and readers who want it hear on the morning it&apos;s out.</p>
         <Button size="sm" className="self-start" onClick={create} disabled={pending || !form.title.trim() || !form.authors.trim()}>
           {pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Add to the catalogue
         </Button>
@@ -367,7 +371,7 @@ const WorkEditor = ({ id, onBack, onOpen }: { id: string, onBack: () => void, on
         <div className="grid gap-4 sm:grid-cols-[200px_minmax(0,1fr)]">
           {field('releaseDate', 'Release date', false, undefined, '2027-04-09')}
         </div>
-        <p className="-mt-2 text-xs text-muted-foreground">The day the first edition came out, or comes out. A date ahead puts the book in Upcoming, and readers who want it hear on the morning it&apos;s out. Use it for a book Hardcover doesn&apos;t list, like a self-published one: Hardcover never changes a date set here. Setting it sets the first published year to match.</p>
+        <p className="-mt-2 text-xs text-muted-foreground">The day the first edition came out, or comes out. A date ahead puts the book in Upcoming, tells followers of its author it&apos;s coming, and readers who want it hear on the morning it&apos;s out. Use it for a book Hardcover doesn&apos;t list, like a self-published one: Hardcover never changes a date set here. Setting it sets the first published year to match.</p>
         <ClearableInput className={fieldClass} placeholder="What was wrong (optional, for the log)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
         {openReports > 0 && dirty && (
           <p className="text-sm text-muted-foreground">Saving also closes {counted(openReports, 'open report', 'open reports')} about this book.</p>

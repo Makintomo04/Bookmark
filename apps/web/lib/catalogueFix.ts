@@ -15,6 +15,8 @@ import { workIdForOpenLibraryKey } from "@/lib/catalog/prismaStore";
 import { workKeyOfQuery } from "@/lib/workKey";
 import { searchCatalogue } from "@/lib/bookSearch";
 import { MERGED_PREFIX } from "@/lib/catalogueMergeRules";
+import { announceDatedByHand } from "@/lib/authorNews";
+import { newlyUpcoming } from "@/lib/releaseRules";
 import {
   EDITION_FIELDS,
   FIELD_LABELS,
@@ -137,7 +139,7 @@ export async function addWorkFromHardcover(actor: Actor, body: Record<string, un
 // hand-typed copy is (lib/catalog/resolve.ts, by title and first author), with a book page straight away.
 // A book already filed under that title and author is handed back instead, for the librarian to correct.
 export async function createWorkByHand(actor: Actor, body: Record<string, unknown>): Promise<StaffOutcome<{ work: StaffWork; created: boolean }>> {
-  const parsed = parseWorkFix({ title: body.title ?? "", authors: body.authors ?? "", ...pick(body, ["description", "coverUrl", "seriesName", "seriesPosition"]) }, DESCRIPTION_MAX);
+  const parsed = parseWorkFix({ title: body.title ?? "", authors: body.authors ?? "", ...pick(body, ["description", "coverUrl", "seriesName", "seriesPosition", "releaseDate"]) }, DESCRIPTION_MAX);
   if (!parsed.ok) return staffFail(400, parsed.error);
   const patch = parsed.patch as Partial<WorkValues> & { title: string; authors: string[] };
   const matchKey = workMatchKey(patch.title, patch.authors[0]);
@@ -148,13 +150,18 @@ export async function createWorkByHand(actor: Actor, body: Record<string, unknow
 
   const { work } = await resolveCatalog({
     title: patch.title, authors: patch.authors, author: patch.authors[0], description: patch.description, coverUrl: cover.url,
+    // A release date sets the first year with it (lib/catalogueFixRules.ts parseWorkFix).
+    releaseDate: patch.releaseDate, year: patch.firstPublishYear,
     series: patch.seriesName ? { name: patch.seriesName, position: patch.seriesPosition ?? null } : null,
   });
   const given = Object.keys(patch).filter((k) => patch[k as keyof WorkValues] != null);
   await prisma.work.update({ where: { id: work.id }, data: { pageApprovedAt: new Date(), curatedFields: curatedWorkFields(given) } });
   await logStaffAction({ actorId: actor.id, action: "work.create", targetType: "work", targetId: work.id, after: { title: patch.title, authors: patch.authors } });
+  if (newlyUpcoming(null, patch.releaseDate, today())) await announceDatedByHand({ id: work.id, authors: patch.authors, seriesName: patch.seriesName ?? null });
   return { ok: true, value: { work: (await findStaffWork(work.id))!, created: true } };
 }
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 const pick = (body: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter((k) => k in body).map((k) => [k, body[k]]));
 
@@ -271,6 +278,10 @@ export async function fixWork(actor: Actor, id: string, body: Record<string, unk
   });
   // Staff's "N reports waiting" notices follow the queue.
   if (reports > 0) await refreshStaffReportNotices();
+  // A date that makes the book one still to come tells its author's followers, as Hardcover's would.
+  if (changed.includes("releaseDate") && newlyUpcoming(work.releaseDate, patch.releaseDate, today())) {
+    await announceDatedByHand({ id, authors: patch.authors ?? work.authors, seriesName: "seriesName" in patch ? patch.seriesName ?? null : work.seriesName });
+  }
   return { ok: true, value: { work: (await findStaffWork(id))!, copies, reports } };
 }
 

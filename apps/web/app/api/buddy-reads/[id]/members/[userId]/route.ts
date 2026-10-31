@@ -18,7 +18,8 @@ export async function DELETE(req: Request, props: { params: Promise<{ id: string
   const { buddyRead } = membership;
 
   const leaving = params.userId === currentUser.id;
-  if (!leaving && !membership.canManage) return buddyReadError("Only the host can remove readers.", 403);
+  // Moderating, so it lasts after a club is archived (lib/buddyReadsServer.ts canModerate).
+  if (!leaving && !membership.canModerate) return buddyReadError("Only the host can remove readers.", 403);
   if (!isObjectId(params.userId)) return buddyReadError("Reader not found", 404);
   if (!leaving && params.userId === buddyRead.hostId) return buddyReadError("The host can't be removed.", 403);
   // In a club's book the club's roles decide, whoever started it: a co-host can't remove the club's host or

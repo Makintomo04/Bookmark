@@ -66,7 +66,8 @@ export type CircleView = {
   // A club's book: the club, and its link (null once the club is archived). New readers join through it.
   club: { id: string; name: string; inviteCode: string | null } | null;
   // canManage: the host, or in a club's circle the club's host or a co-host (the schedule, finishing it).
-  viewer: { userId: string; progress: number; isHost: boolean; canManage: boolean; bookId: string; muted: boolean };
+  // canModerate: deleting comments and removing readers, which a club's host and co-hosts keep once it's archived.
+  viewer: { userId: string; progress: number; isHost: boolean; canManage: boolean; canModerate?: boolean; bookId: string; muted: boolean };
   members: CircleMember[];
   comments: SerializedComment[];
 };

@@ -12,7 +12,9 @@ import {
   CARD_SIZE_KEYS,
   DEFAULT_CARD_DESIGN,
   cardFileName,
+  cardMonths,
   cardPath,
+  cardYears,
   type CardDesign,
   type CardKind,
   type CardSize,
@@ -23,14 +25,13 @@ const button = 'inline-flex h-9 items-center gap-2 rounded-md px-3.5 text-sm fon
 
 type Period = { year: number; month: number | null; label: string }
 
-// The last twelve months, newest first, then this year so far and last year, in the browser's calendar.
-function periods(now = new Date()): Period[] {
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    return { year: d.getFullYear(), month: d.getMonth() + 1, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}` }
-  })
-  const year = now.getFullYear()
-  return [...months, { year, month: null, label: `${year} so far` }, { year: year - 1, month: null, label: String(year - 1) }]
+// Every year back to the reader's first finish, newest first, each as the whole year and then its months, in
+// the profile's time zone (`today`, packages/shared/src/wrapCards.ts cardToday), as the server counts them.
+function periods(today: { year: number; month: number }, years: number[]): Period[] {
+  return cardYears(today, years).flatMap((year) => [
+    { year, month: null, label: year === today.year ? `${year} so far` : `All of ${year}` },
+    ...cardMonths(year, today).map((month) => ({ year, month, label: `${MONTHS[month - 1]} ${year}` })),
+  ])
 }
 
 type Preview = { kind: 'loading' } | { kind: 'ready'; url: string } | { kind: 'error'; message: string }
@@ -61,9 +62,11 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
 
 // Wrap cards on /stats (BOO-50): the cover grid or the stats card for a month or a year, in 9:16, 4:5 or
 // 1:1, drawn by /api/wrap/card. Midnight is free; the other designs are Plus.
-const WrapCardMaker: FC<{ canPickDesigns: boolean }> = ({ canPickDesigns }) => {
-  const options = useMemo(() => periods(), [])
-  const [picked, setPicked] = useState(0)
+// `years`: the years with stats (lib/stats.ts), for how far back to offer.
+const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month: number }; years: number[] }> = ({ canPickDesigns, today, years }) => {
+  const options = useMemo(() => periods(today, years), [today, years])
+  // This month first, as before.
+  const [picked, setPicked] = useState(() => Math.max(0, options.findIndex((o) => o.month !== null)))
   const [kind, setKind] = useState<CardKind>('grid')
   const [size, setSize] = useState<CardSize>('story')
   const [design, setDesign] = useState<CardDesign>(DEFAULT_CARD_DESIGN)
@@ -137,7 +140,11 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean }> = ({ canPickDesigns }) => {
               onChange={(e) => setPicked(Number(e.target.value))}
               className="h-9 w-full max-w-xs rounded-md border border-neutral-300 dark:border-neutral-700 bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {options.map((o, i) => <option key={o.label} value={i}>{o.label}</option>)}
+              {cardYears(today, years).map((y) => (
+                <optgroup key={y} label={String(y)}>
+                  {options.map((o, i) => (o.year === y ? <option key={o.label} value={i}>{o.label}</option> : null))}
+                </optgroup>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">

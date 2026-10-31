@@ -383,6 +383,14 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
           </p>
         )}
       </ShelfSection>}
+      {/* Once it's hidden, the picker is still a line away, as on the bands layout (ProfileHead), for a reader
+          who has finished a book or two and can't choose the next. The shelf after it keeps the first shelf's
+          spacing rather than a gap of its own. */}
+      {reading.length === 0 && coverShelves.length > 0 && finished.length > 0 && (
+        <p className="text-sm text-muted-foreground [&+section]:mt-4">
+          Can&apos;t decide? <Link href="/first-book" className="font-medium text-foreground underline-offset-4 hover:underline">Help me pick a book</Link>
+        </p>
+      )}
 
       {/* Empty shelves are hidden. Long ones show a preview; "See all" opens the shelf's own page. */}
       {coverShelves.map(({ key, items }) => (

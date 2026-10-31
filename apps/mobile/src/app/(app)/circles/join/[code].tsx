@@ -23,6 +23,7 @@ type Invite = {
   buddyRead: { title: string; author: string; coverImage: string | null; cardColour: string | null };
   host: { username: string | null; displayName?: string | null; staffBadge?: StaffBadgeKind | null } | null;
   members: { username: string | null; image: string | null; favColour: string | null }[];
+  memberCount?: number;
   full: boolean;
   viewer: { isMember: boolean; buddyReadId: string | null; removed: boolean; removedMessage: string | null };
   clubInviteCode?: string | null;
@@ -50,7 +51,7 @@ export default function JoinCircle() {
     );
   }
 
-  const others = data.members.length - 1;
+  const others = (data.memberCount ?? data.members.length) - 1;
   const join = async () => {
     setJoining(true);
     setJoinError(null);

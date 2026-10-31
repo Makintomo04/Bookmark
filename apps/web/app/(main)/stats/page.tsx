@@ -8,6 +8,7 @@ import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/a
 import MonthlyWrapCards from '@/app/components/wrapped/MonthlyWrapCards'
 import WrapCardMaker from '@/app/components/wrapped/WrapCardMaker'
 import { entitlementsOf } from '@/lib/entitlements'
+import { cardToday } from '@bookmark/shared/wrapCards'
 
 export const metadata: Metadata = {
   title: 'Reading stats',
@@ -37,7 +38,7 @@ const Page = async (props: PageProps) => {
       <Container>
         <h1 className="page-title">Your reading stats</h1>
         <p className="mt-2 mb-8 text-muted-foreground">All of it, free. No upgrade, no paywall: it&apos;s your data.</p>
-        {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<><WrapCardMaker canPickDesigns={entitlementsOf(user).customWrapDesigns} /><MonthlyWrapCards /></>} />}
+        {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<><WrapCardMaker canPickDesigns={entitlementsOf(user).customWrapDesigns} today={cardToday(user.timeZone)} years={stats.years.map((y) => y.year)} /><MonthlyWrapCards /></>} />}
       </Container>
     </div>
   )

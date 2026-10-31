@@ -5,7 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { QUEST_MEDAL_PREFIX } from "@/lib/achievements-catalog";
 import { ladders } from "@bookmark/shared/medals";
 import { computeAchievementStats } from "@/lib/achievements";
-import { canView, getRelation, privacyOf, privacySelect, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
+import { canView, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
 import { isFinishedBook } from "@/lib/readerTier";
 import { resolveBanner } from "@/lib/banners";
 import { supporterOf, supporterSelect } from "@/lib/supporter";
@@ -206,6 +206,48 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
     },
   };
 });
+
+// One shelf of a profile (Finished, Want to read, or the books with a review), by the same rules
+// profileForViewer applies, without loading the rest of it: the phone's See all pages
+// (app/api/users/<username>/shelf and /reviews) ask for one page at a time, so each reads only that shelf's
+// rows, with review text only for the reviews. null when there's no such reader; `unavailable` when they
+// blocked the viewer (said as not found); `restricted` (no books) when the viewer can't see the profile.
+export type ProfileShelf = "finished" | "want" | "reviews";
+export async function getProfileShelf(username: string, viewerId: string | null | undefined, shelf: ProfileShelf) {
+  if (!username) return null;
+  const owner = await findUserByUsername(username, { id: true, username: true, ...privacySelect });
+  if (!owner?.username) return null;
+  const [relation, privacy] = [await getRelation(viewerId, owner.id), privacyOf(owner)];
+  if (!canView(relation, privacy, "profile")) return { access: "restricted" as const, unavailable: relation.blocked === "byOwner" };
+
+  const showWantToRead = canView(relation, privacy, "wantToRead");
+  // Private books are the owner's alone, as on the profile.
+  const own: Prisma.BookWhereInput = { userId: owner.id, ...(!relation.isSelf && sharedBookWhere) };
+  const statuses = shelf === "finished" ? ["COMPLETED"] : shelf === "want" ? ["NOT_STARTED"] : ["STARTED", "COMPLETED", "NOT_STARTED"];
+  const shown = statuses.filter((s) => s !== "NOT_STARTED" || showWantToRead) as ("STARTED" | "COMPLETED" | "NOT_STARTED")[];
+  const reviews = shelf === "reviews";
+  const [rows, finished, want] = await Promise.all([
+    shown.length
+      ? prisma.book.findMany({
+        where: { AND: [own, { status: { in: shown } }, ...(reviews ? [{ review: { not: null } }] : [])] },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { ...publicBookSelect, isPrivate: true, ...(reviews && { review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true }) },
+      })
+      : Promise.resolve([]),
+    prisma.book.count({ where: { AND: [own, { status: "COMPLETED" }] } }),
+    showWantToRead ? prisma.book.count({ where: { AND: [own, { status: "NOT_STARTED" }] } }) : Promise.resolve(0),
+  ]);
+  const withPages = await workIdsWithPages(rows.map((b) => (b.workKey ? null : b.workId)));
+  const books = rows.map(({ isPrivate, ...row }) => {
+    const { review, reviewSpoiler, reviewPrivate, reviewHiddenAt, ...book } = row as typeof row & { review?: string | null; reviewSpoiler?: boolean | null; reviewPrivate?: boolean | null; reviewHiddenAt?: Date | null };
+    return {
+      ...pageWorkIdOf(book, withPages),
+      isPrivate: !!isPrivate,
+      ...(reviews ? visibleReview({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt }, relation, privacy) : {}),
+    };
+  });
+  return { access: "full" as const, books, counts: { finished, want } };
+}
 
 // The profile as a signed-out visitor (or a crawler) sees it: for metadata and the share image.
 export const getPublicProfile = (username: string) => getProfileView(username, null);

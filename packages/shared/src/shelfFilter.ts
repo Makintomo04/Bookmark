@@ -258,6 +258,14 @@ export function pageShelf<T extends ShelfBook>(books: T[], filter: ShelfFilter, 
   };
 }
 
+// The books of every page loaded so far, in order, each once. Pages are offsets, so a book moved or finished
+// while someone scrolls shifts the later pages by one, and the next page can repeat a book already shown (and
+// give a list two rows with one key). The first copy stays; a refresh puts the order right.
+export function pagedBooks<T extends { id: string }>(pages: { books: T[] }[]): T[] {
+  const seen = new Set<string>();
+  return pages.flatMap((p) => p.books.filter((b) => !seen.has(b.id) && !!seen.add(b.id)));
+}
+
 // ---- Filter options ------------------------------------------------------------------------------
 
 // What the filter menus offer: only values some book on the shelf has.

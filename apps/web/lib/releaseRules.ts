@@ -57,10 +57,20 @@ export function bookNewsSections<W extends { id: string }>(news: BookNewsRow[], 
   return { released, series, newBooks };
 }
 
+// A librarian's release date is announced ("New from <author>", lib/authorNews.ts announceDatedByHand) when it
+// makes the book one still to come: it had no date, or one already past. Moving one future date to another
+// isn't news again. No database.
+export const newlyUpcoming = (before: string | null | undefined, after: string | null | undefined, today: string) =>
+  isUpcoming(after, today) && !isUpcoming(before, today);
+
 // A book's place in its series, as the series fill records it (lib/seriesFill.ts): none while it's not out,
 // so it isn't the tracker's "next" and its series' readers aren't told it's out before it is. No database.
 export const placeWhileUpcoming = (position: number | null, releaseDate: string | null | undefined, today: string) =>
   isUpcoming(releaseDate, today) ? null : position;
+
+// The places a series fill or re-check records as the series' (lib/seriesNews.ts recordSeriesCheck): every
+// book's but those lib/seriesFill.ts fileSeriesBooks held back as not out yet. No database.
+export const placedPositions = (books: { position: number }[], held: Set<number>) => books.map((b) => b.position).filter((p) => !held.has(p));
 
 // Whether a catalogue work takes a place Hardcover gives for a series' book (lib/seriesFill.ts
 // fileSeriesBooks): one with no series yet, or one filed in this series without a place (announced before it

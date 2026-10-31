@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EMPTY_FILTER, SHELF_PAGE_MAX, SHELF_SORTS, filterOptions, isNarrowed, matchesFilter, pageShelf, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
+  EMPTY_FILTER, SHELF_PAGE_MAX, SHELF_SORTS, filterOptions, isNarrowed, matchesFilter, pageShelf, pagedBooks, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
   type ShelfBook, type ShelfFilter,
 } from "@/lib/shelfFilter";
 
@@ -130,4 +130,11 @@ test("books that sort as equal keep one order whatever order they arrive in, so 
     assert.equal(new Set(seen).size, tied.length, `${sort} repeated or skipped a book`);
     assert.equal(seen.length, tied.length);
   }
+});
+
+test("pages loaded by offset show each book once when the shelf shifts between them", () => {
+  // A book finished mid-scroll moves every later offset by one, so the second page repeats "b".
+  const pages = [{ books: [{ id: "a" }, { id: "b" }] }, { books: [{ id: "b" }, { id: "c" }] }, { books: [] }];
+  assert.deepEqual(pagedBooks(pages).map((b) => b.id), ["a", "b", "c"]);
+  assert.deepEqual(pagedBooks([]), []);
 });

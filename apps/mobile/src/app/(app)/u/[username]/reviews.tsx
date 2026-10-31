@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
+import { pagedBooks } from "@bookmark/shared/shelfFilter";
 import { BookCover } from "@/components/books/BookCover";
 import { StarRating } from "@/components/books/StarRating";
 import { ReviewText } from "@/components/social/ReviewText";
@@ -40,7 +41,7 @@ export default function ReaderReviewsScreen() {
     if (!username || (previous && !previous.nextCursor)) return null;
     return `/api/users/${name}/reviews?take=${PAGE}${previous?.nextCursor ? `&cursor=${previous.nextCursor}` : ""}`;
   });
-  const books = (data ?? []).flatMap((p) => p.books);
+  const books = pagedBooks(data ?? []);
   const total = data?.[0]?.total;
   const more = !!data?.[data.length - 1]?.nextCursor;
 

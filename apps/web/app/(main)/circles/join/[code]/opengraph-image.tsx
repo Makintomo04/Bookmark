@@ -19,7 +19,7 @@ const BOOKMARK_PATH = 'M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 
 // Satori only draws images it can decode, and only from hosts we serve images from (never an
 // arbitrary or internal address), fetched here with a timeout and passed in as data URLs.
 const DRAWABLE = ['image/png', 'image/jpeg', 'image/gif']
-const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
+const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'assets.hardcover.app', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
 
 const siteOrigin = siteUrl
 const siteHost = new URL(siteOrigin).host
@@ -65,14 +65,14 @@ const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1
 export default async function Image({ params }: { params: { code: string } }) {
   const invite = await loadInvite(params.code)
   if (!invite) return new Response('Not found', { status: 404 })
-  const { buddyRead, host, members } = invite
+  const { buddyRead, host, members, memberCount } = invite
 
   const accent = toHex(host?.favColour ?? '') ?? BRAND
   const coverColour = toHex(buddyRead.cardColour ?? '') ?? accent
   const title = clip(buddyRead.title, 60)
   const author = clip(buddyRead.author, 40)
   const hostName = clip((host && readerName(host)) || 'A reader', 24)
-  const others = members.length - 1
+  const others = memberCount - 1
   const line = others > 0 ? `and ${others} ${others === 1 ? 'other' : 'others'} are reading together` : 'is starting a reading circle'
   const footer = `${siteHost} · Comments stay hidden until you reach them`
 
