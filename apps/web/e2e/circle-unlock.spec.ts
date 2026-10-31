@@ -27,6 +27,12 @@ test("a second reader joins through the invite and posts; the host unlocks it by
   await guest.getByRole("button", { name: "Join the reading circle" }).click()
   await guest.waitForURL(`**${circleUrl}`)
   await expect(guest.getByRole("heading", { level: 1, name: title })).toBeVisible()
+  // Joining offers reminders once, checkpoints first; not now.
+  const reminders = guest.getByRole("dialog", { name: "Want a nudge to keep reading?" })
+  await expect(reminders).toBeVisible()
+  await expect(reminders).toContainText("You're in.")
+  await reminders.getByRole("button", { name: "Not now" }).click()
+  await expect(reminders).toBeHidden()
 
   // Halfway through, then a comment, which is pinned where the guest is.
   await logProgress(guest, 150)
