@@ -15,7 +15,7 @@ rollout is measured.
 - `apps/web/app/global-error.tsx:37-39` does `console.error(error)` and nothing else.
 - No `instrumentation.ts`. (Written against Next 14.2; main has since moved to Next 15.5, so the setup uses
   Next 15's `onRequestError` and `onRouterTransitionStart` hooks.) The Sentry build wrapper is applied to
-  builds only, because under `next dev` it caused constant Fast Refresh rebuilds.
+  production builds only, because under `next dev` it caused constant Fast Refresh rebuilds.
 - Only a handful of route handlers catch and return 500 themselves (`mobile/upload`, `mobile/auth/magic-link`,
   `register`, `user` DELETE). Everything else throws, which Sentry sees.
 - Expo SDK 58, `apps/mobile/src/app/_layout.tsx` is the root. EAS profiles `development`, `preview`,

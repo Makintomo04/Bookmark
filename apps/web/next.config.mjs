@@ -1,4 +1,3 @@
-import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
 import { withSentryConfig } from '@sentry/nextjs/config';
 
 /** @type {import('next').NextConfig} */
@@ -59,9 +58,10 @@ const nextConfig = {
 // Error monitoring (BOO-54, docs/ops/error-monitoring.md). Wraps server routes and pages so their errors
 // reach Sentry, tags the build with the git commit as its release, and, when SENTRY_AUTH_TOKEN is set (on
 // Vercel), uploads source maps and then deletes them from the deploy so they're never public.
-// Builds only: under `next dev` the wrapper kept triggering Fast Refresh rebuilds, which slowed the e2e
-// suite enough to time out, and there's no DSN in development anyway. instrumentation.ts still loads.
-// withSentryConfig changes the object it's given, so it only ever sees a copy.
+// Production builds only (`next build` sets NODE_ENV before reading this file): under `next dev` the
+// wrapper kept triggering Fast Refresh rebuilds, which slowed the e2e suite enough to time out, and there's
+// no DSN in development anyway. instrumentation.ts still loads. withSentryConfig changes the object it's
+// given, so it only ever sees a copy. The export stays an object: tests read it (shareImages.test.ts).
 const sentryOptions = {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
@@ -77,4 +77,4 @@ const sentryOptions = {
   telemetry: false,
 };
 
-export default (phase) => (phase === PHASE_DEVELOPMENT_SERVER ? nextConfig : withSentryConfig({ ...nextConfig }, sentryOptions));
+export default process.env.NODE_ENV === 'production' ? withSentryConfig({ ...nextConfig }, sentryOptions) : nextConfig;
