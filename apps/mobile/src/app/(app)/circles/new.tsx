@@ -68,7 +68,7 @@ export default function NewCircle() {
 
   const title = clubId ? <Stack.Screen options={{ title: "Start the next book" }} /> : null;
   const clubIntro = clubId ? (
-    <Text variant="muted">Everyone in {clubName ?? "the club"} is added to its reading circle, and the book goes on their shelf. If it starts later, it goes in Want to read until then.</Text>
+    <Text variant="muted">Everyone in {clubName ?? "the club"} is added to its reading circle, and the book goes in their Want to read until they start it.</Text>
   ) : null;
 
   if (isLoading) return <Screen>{title}<ActivityIndicator color={colors.mutedForeground} /></Screen>;

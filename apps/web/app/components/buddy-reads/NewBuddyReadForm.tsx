@@ -180,7 +180,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: 
           </Link>
           <h1 className="page-title">{club ? "Start the next book" : "Start a reading circle"}</h1>
           {club ? (
-            <p className="max-w-prose text-muted-foreground">Choose a book from your shelf or search for one. Everyone in {club.name} is added to its reading circle, and the book goes on their shelf. If it starts later, it goes in Want to read until then.</p>
+            <p className="max-w-prose text-muted-foreground">Choose a book from your shelf or search for one. Everyone in {club.name} is added to its reading circle, and the book goes in their Want to read until they start it.</p>
           ) : (
             <p className="max-w-prose text-muted-foreground">Choose a book from your shelf or search for one. You&apos;ll get a link to share; anyone with it can join, and the book goes on their shelf too.</p>
           )}

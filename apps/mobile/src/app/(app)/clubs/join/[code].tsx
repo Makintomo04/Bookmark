@@ -42,7 +42,7 @@ export default function JoinClub() {
     );
   }
 
-  const others = data.members.length - 1;
+  const others = (data.memberCount ?? data.members.length) - 1;
   const join = async () => {
     setJoining(true);
     setJoinError(null);
@@ -93,7 +93,7 @@ export default function JoinClub() {
         <>
           {joinError && <Notice tone="error" message={joinError} />}
           <Button title="Join the club" loading={joining} onPress={join} />
-          {data.current && <Text variant="small" style={{ textAlign: "center" }}>Not on your shelf yet? It{"’"}ll be added to Currently reading.</Text>}
+          {data.current && <Text variant="small" style={{ textAlign: "center" }}>Not on your shelf yet? It{"’"}ll be added to Want to read until you start.</Text>}
         </>
       )}
     </Screen>

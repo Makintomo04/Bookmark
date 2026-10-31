@@ -64,6 +64,41 @@ export function canRemoveFromClub(actor: ClubRole, target: ClubRole) {
 // Only the host names co-hosts, and renames or archives the club.
 export const canEditClubSettings = (role: ClubRole | null | undefined) => role === "host"
 
+// Removing a reader from one of the club's books follows the club's roles, whoever started the book: a co-host
+// can't remove the club's host or another co-host from it (and so lock them out of it). Nobody removes the
+// book's own host. Someone no longer in the club counts as a member. `actor` is null when they've left the
+// club, which leaves them nobody to remove.
+export function canRemoveFromClubBook(actor: ClubRole | null, target: ClubRole | null, targetHostsBook: boolean) {
+  if (targetHostsBook || !actor) return false
+  return canRemoveFromClub(actor, target ?? "member")
+}
+
+// ---- Joining ------------------------------------------------------------------------------
+
+// The club never says you're reading something you haven't started. A copy it puts on your shelf, when a book
+// starts or ahead of it, and whether you joined just now or were added, goes in Want to read; your first logged
+// page moves it to Currently reading. A copy already on your shelf is left as you have it (even "will not read").
+export const CLUB_COPY_STATUS = "NOT_STARTED" as const
+
+// Joins are counted after they're written, so two at the same moment can't both squeeze past the cap: the
+// members in joining order, and whether this one is among the first `cap`. A later one backs out.
+export function admittedWithinCap(joinOrder: string[], userId: string, cap: number = CLUB_MAX_MEMBERS) {
+  const at = joinOrder.indexOf(userId)
+  return at >= 0 && at < cap
+}
+
+// Who the public invite shows, to anyone with the link, signed out included: members with a public profile
+// who haven't blocked the viewer (or been blocked by them), and who aren't suspended. The host is named on the
+// invite whatever their settings, since the link is theirs. Everyone counts towards "N others".
+export type InviteMember = { userId: string, profileVisibility?: string | null, suspended?: boolean }
+export function inviteFaces<T extends InviteMember>(members: T[], opts: { hostId: string, viewerId?: string | null, blocked: Set<string> }) {
+  return members.filter((m) => {
+    if (m.userId === opts.viewerId) return true
+    if (opts.blocked.has(m.userId) || m.suspended) return false
+    return (m.profileVisibility ?? "PUBLIC") === "PUBLIC"
+  })
+}
+
 // ---- The club's books ---------------------------------------------------------------------
 
 export type ClubCircleLike = { id: string, status: "ACTIVE" | "FINISHED" | "ARCHIVED", startsAt: Date | string }
