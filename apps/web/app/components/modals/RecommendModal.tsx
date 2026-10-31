@@ -96,7 +96,7 @@ const RecommendModal: FC = () => {
     <div className="w-full p-6 flex items-center justify-end gap-3">
       <Button variant="outline" onClick={onClose} disabled={isSending}>Cancel</Button>
       {friends.length > 0 && (
-        <Button style={{ background: user?.favColour ?? undefined }} onClick={send} disabled={picked.length === 0 || isSending}>
+        <Button style={{ background: user?.favColour ?? undefined }} onClick={send} disabled={picked.length === 0} loading={isSending}>
           {picked.length > 1 ? `Send to ${picked.length} friends` : "Send"}
         </Button>
       )}

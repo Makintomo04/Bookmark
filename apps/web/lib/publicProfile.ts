@@ -10,6 +10,7 @@ import { isFinishedBook } from "@/lib/readerTier";
 import { resolveBanner } from "@/lib/banners";
 import { supporterOf, supporterSelect } from "@/lib/supporter";
 import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
+import { workIdsWithPages } from "@/lib/workPages";
 
 // The books a profile can show. Explicit fields so `userId` stays out of anything that leaves the
 // server. Review text is loaded too, but only leaves through visibleReview() in profileForViewer().
@@ -37,7 +38,15 @@ const publicBookSelect = {
   startedAt: true,
   completedAt: true,
   workKey: true,
+  // Server-only: leaves as pageWorkId (pageWorkIdOf), so a book Open Library lacks still opens its details.
+  workId: true,
 } as const;
+
+// A book without an Open Library key has its page (and its details) under its catalogue Work, when that
+// work has one (DiscoverBook.pageWorkId), as the shelf API sends it.
+function pageWorkIdOf<T extends { workKey: string | null; workId: string | null }>({ workId, ...book }: T, withPages: Set<string>) {
+  return { ...book, pageWorkId: !book.workKey && workId && withPages.has(workId) ? workId : null };
+}
 
 // Everything any viewer might be shown. Server-only: profileForViewer() decides what leaves.
 async function loadProfileRecord(username: string) {
@@ -103,7 +112,7 @@ type FavouriteBook = Prisma.BookGetPayload<{ select: typeof publicBookSelect & {
 // The reader's favourites as this viewer may see them, newest first: none when they hide them (or the
 // viewer can't see the profile), and never a private book except to its reader.
 async function favouritesForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings) {
-  if (!record.favouriteIds.length || !canView(relation, privacy, "favourites")) return [];
+  if (!record.favouriteIds.length || !canView(relation, privacy, "favourites")) return [] as FavouriteBook[];
   const books: FavouriteBook[] = await prisma.book.findMany({
     where: { userId: record.id, id: { in: record.favouriteIds } },
     select: { ...publicBookSelect, isPrivate: true },
@@ -115,7 +124,7 @@ async function favouritesForViewer(record: ProfileRecord, relation: Relation, pr
     .map(({ isPrivate, ...book }) => ({ ...book, isPrivate: !!isPrivate }));
 }
 
-function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings, favourites: Awaited<ReturnType<typeof favouritesForViewer>> = []) {
+function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings, favourites: Awaited<ReturnType<typeof favouritesForViewer>> = [], withPages: Set<string> = new Set()) {
   const showWantToRead = canView(relation, privacy, "wantToRead");
   const showCounts = canView(relation, privacy, "followCounts");
   const books = record.books
@@ -123,7 +132,7 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     .filter((b) => !b.isPrivate || relation.isSelf)
     .filter((b) => b.status !== "NOT_STARTED" || showWantToRead)
     .map(({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt, isPrivate, ...book }) => ({
-      ...book,
+      ...pageWorkIdOf(book, withPages),
       isPrivate: !!isPrivate,
       ...visibleReview({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt }, relation, privacy),
     }));
@@ -150,7 +159,7 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     followerCount: showCounts ? record._count.followers : null,
     followingCount: showCounts ? record._count.following : null,
     // Newest first. Empty when hidden from this viewer.
-    favourites,
+    favourites: favourites.map((book) => pageWorkIdOf(book, withPages)),
   };
 }
 
@@ -173,7 +182,8 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
 
   if (canView(relation, privacy, "profile")) {
     const favourites = await favouritesForViewer(record, relation, privacy);
-    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy, favourites) };
+    const withPages = await workIdsWithPages([...record.books, ...favourites].map((b) => (b.workKey ? null : b.workId)));
+    return { access: "full", userId, relation, privacy, profile: profileForViewer(record, relation, privacy, favourites, withPages) };
   }
   const reason: RestrictedReason = relation.blocked === "byOwner" ? "unavailable"
     : relation.blocked === "byViewer" ? "blockedByViewer"

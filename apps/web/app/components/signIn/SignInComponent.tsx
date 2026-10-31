@@ -217,8 +217,8 @@ const SignInComponent =  () => {
         </div>
         <PasswordInput register={register} errors={errors} inputValidation={{required:true, message:"Enter your password."}} name="password" id="password" autoComplete="current-password" className="w-full" required/>
       </div>
-      <Button type="submit" disabled={!mounted || isSubmitting || sendingLink} className="rounded-md py-2 mt-2">{isSubmitting ? "Signing in…" : "Sign in"}</Button>
-      <Button type="button" variant="outline" onClick={sendLink} disabled={!mounted || isSubmitting || sendingLink} className="rounded-md py-2 dark:border-neutral-100/50">
+      <Button type="submit" disabled={!mounted || sendingLink} loading={isSubmitting} className="rounded-md py-2 mt-2">{isSubmitting ? "Signing in…" : "Sign in"}</Button>
+      <Button type="button" variant="outline" onClick={sendLink} disabled={!mounted || isSubmitting} loading={sendingLink} className="rounded-md py-2 dark:border-neutral-100/50">
         {sendingLink ? "Sending link…" : "Email me a sign-in link instead"}
       </Button>
     </form>

@@ -118,6 +118,8 @@ const BookUpdateModal: FC = () => {
   // Asked a librarian to add this hand-typed book to the catalogue, this time the modal is open.
   const [askedToAdd, setAskedToAdd] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  // Which footer button started the save, so only that one shows the spinner.
+  const [savingAction, setSavingAction] = useState<"save" | ShelfAction | null>(null)
 
   useEffect(() => {
     if (books && books.length > 0) {
@@ -290,6 +292,7 @@ const BookUpdateModal: FC = () => {
       : undefined
 
     setIsSaving(true)
+    setSavingAction("save")
     axios.post("/api/book-progress", payload).then(async ({ data: saved }) => {
       await saveTags()
       celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null)
@@ -299,19 +302,20 @@ const BookUpdateModal: FC = () => {
       close()
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't save. Check your connection and try again."), { retry: save })
-    }).finally(() => setIsSaving(false))
+    }).finally(() => { setIsSaving(false); setSavingAction(null) })
   }
 
   // Pause keeps the page typed in; the other moves don't take one.
   const move = (action: ShelfAction) => {
     setIsSaving(true)
+    setSavingAction(action)
     moveBook(book.id, action, action === "pause" ? place() : {}).then((ok) => {
       if (!ok) return
       mutate()
       booksMutate()
       readsMutate()
       close()
-    }).finally(() => setIsSaving(false))
+    }).finally(() => { setIsSaving(false); setSavingAction(null) })
   }
 
   // Applies straight away, apart from the progress form: it's about who sees the book, not the read.
@@ -688,20 +692,20 @@ const BookUpdateModal: FC = () => {
     <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
       {isClosed && (
         <div className="contents sm:flex flex-wrap gap-3 sm:mr-auto">
-          <Button onClick={() => move("restart")} variant="outline" className={footerButton} disabled={isSaving}>Read again</Button>
+          <Button onClick={() => move("restart")} variant="outline" className={footerButton} disabled={isSaving} loading={savingAction === "restart"}>Read again</Button>
           {status === "DNF" && (
-            <Button onClick={() => move("wantToRead")} variant="outline" className={footerButton} disabled={isSaving}>Move to Want to read</Button>
+            <Button onClick={() => move("wantToRead")} variant="outline" className={footerButton} disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
           )}
         </div>
       )}
       {status === "NOT_INTERESTED" && (
-        <Button onClick={() => move("wantToRead")} variant="outline" className={cn(footerButton, "sm:mr-auto")} disabled={isSaving}>Move to Want to read</Button>
+        <Button onClick={() => move("wantToRead")} variant="outline" className={cn(footerButton, "sm:mr-auto")} disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
       )}
       <Button onClick={close} variant="outline" className={footerButton} disabled={isSaving}>
         {showPrimary ? "Cancel" : "Close"}
       </Button>
       {showPrimary && (
-        <Button style={{ background: accent, color: accentInk }} onClick={save} disabled={!canSave} className={footerButton}>
+        <Button style={{ background: accent, color: accentInk }} onClick={save} disabled={!canSave} loading={savingAction === "save"} className={footerButton}>
           {primaryLabel}
         </Button>
       )}

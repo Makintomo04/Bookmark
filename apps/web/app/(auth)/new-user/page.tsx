@@ -266,7 +266,7 @@ const Page = () => {
         </div>
       </div>
 
-      <Button type="submit" disabled={busy || availability === "checking"} className="mt-2 rounded-md py-2">
+      <Button type="submit" disabled={busy || availability === "checking"} loading={saving} className="mt-2 rounded-md py-2">
         {saving ? "Saving…" : nextPath ? "Save and continue" : "Continue"}
       </Button>
     </form>

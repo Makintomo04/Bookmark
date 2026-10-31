@@ -58,7 +58,7 @@ const DeleteAccount: FC = () => {
             className="h-10 w-full sm:max-w-xs rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
           />
           <div className="flex flex-wrap gap-2">
-            <Button type="button" disabled={isDeleting || typed !== user.username} variant="destructive" onClick={handleDelete}>
+            <Button type="button" disabled={typed !== user.username} loading={isDeleting} variant="destructive" onClick={handleDelete}>
               {isDeleting ? "Deleting…" : "Delete my account"}
             </Button>
             <Button type="button" variant="outline" disabled={isDeleting} onClick={cancel}>Keep my account</Button>

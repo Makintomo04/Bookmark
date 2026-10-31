@@ -1,7 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
 import Link from 'next/link'
-import { Loader2 } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
 import { can } from '@/lib/roles'
 import { Button } from '../ui/button'
@@ -63,7 +62,7 @@ const BookProblemReport: FC<{ workKey?: string | null, workId?: string | null }>
           <textarea rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder={reason === 'series' ? 'Which series, and which number? (optional)' : 'What should it be? (optional)'}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           <div className="flex gap-3">
-            <Button size="sm" disabled={pending}>{pending && <Loader2 size={14} className="mr-2 animate-spin" aria-hidden />}Send report</Button>
+            <Button size="sm" disabled={pending} loading={pending}>Send report</Button>
             <Button size="sm" variant="ghost" type="button" onClick={() => setOpen(false)}>Cancel</Button>
           </div>
           {error && <p role="alert" className="text-destructive">{error}</p>}

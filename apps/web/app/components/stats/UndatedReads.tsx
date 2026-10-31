@@ -52,7 +52,7 @@ const UndatedReads: FC<{ reads: UndatedRead[] }> = ({ reads }) => {
               <input id={`undated-${read.id}`} type="date" max={today} min={read.startedAt?.slice(0, 10) ?? "1900-01-01"}
                 value={days[read.id] ?? ""} onChange={(e) => setDays({ ...days, [read.id]: e.target.value })}
                 className={`${dateInputClass} w-40`} />
-              <Button type="submit" size="sm" variant="outline" disabled={!days[read.id] || saving === read.id}>Save</Button>
+              <Button type="submit" size="sm" variant="outline" disabled={!days[read.id]} loading={saving === read.id}>Save</Button>
             </form>
           </li>
         ))}

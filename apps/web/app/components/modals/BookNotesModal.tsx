@@ -94,7 +94,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
           <Label className="text-md font-bold" htmlFor="content">Note or Quote</Label>
           <Textarea register={register} errors={errors} name="content" id="content" autoComplete='off' placeholder="Jot something down..."/>
         </div>
-        <Button disabled={isSaving} style={{ background: accent, color: readableInk(accent) }} onClick={handleSubmit(onSubmit)} className="w-fit">Add</Button>
+        <Button loading={isSaving} style={{ background: accent, color: readableInk(accent) }} onClick={handleSubmit(onSubmit)} className="w-fit">Add</Button>
         <hr className='my-2'/>
         <div className="flex flex-col gap-3 max-h-64 overflow-y-auto">
           {isLoading && <p className='text-sm text-muted-foreground'>Loading...</p>}
