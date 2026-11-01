@@ -14,6 +14,8 @@ import BookPageReaders from '@/app/components/books/BookPageReaders'
 import RatingSummary from '@/app/components/books/RatingSummary'
 import BookReviews from '@/app/components/books/BookReviews'
 import BookProblemReport from '@/app/components/books/BookProblemReport'
+import BuyLinks from '@/app/components/books/BuyLinks'
+import AdSlot from '@/app/components/ads/AdSlot'
 import SeriesSection, { SeriesEyebrow } from '@/app/components/series/SeriesSection'
 import ListCard from '@/app/components/discover/ListCard'
 import getCurrentUser from '@/app/actions/getCurrentUser'
@@ -168,6 +170,10 @@ const Page = async (props: PageProps) => {
                 </ul>
               )}
             </section>
+
+            <div className={panel}><BuyLinks book={book} workId={data.workId} headingClassName={sectionHeading} /></div>
+
+            <AdSlot placement="book-page" viewer={viewer} className={panel} />
 
             <div className={panel}><BookReviews bookKey={key} initial={reviews} headingClassName={sectionHeading} /></div>
 
