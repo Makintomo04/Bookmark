@@ -9,7 +9,7 @@ import { GENRES } from "@bookmark/shared/genres";
 import { preferencesOf, storedSetting, type CommunityPreferences } from "@bookmark/shared/preferences";
 import { privacyOf, type PrivacySettings } from "@bookmark/shared/privacyRules";
 import { PUSH_GROUP_LABELS, type PushGroup } from "@bookmark/shared/push";
-import { roleOf } from "@bookmark/shared/roles";
+import { can, roleOf } from "@bookmark/shared/roles";
 import { SUGGEST_ME_HINT, SUGGEST_ME_LABEL } from "@bookmark/shared/peopleSuggest";
 import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_OPTIONS } from "@bookmark/shared/settingsCopy";
 import { FollowRequests } from "@/components/library/FollowRequests";
@@ -24,6 +24,7 @@ import { ReminderControls } from "@/components/reminders/ReminderControls";
 import { useNotificationSettings } from "@/lib/notificationSettings";
 import { ApiError, api, apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { SENTRY_DSN, sendTestError } from "@/lib/sentry";
 import { useTheme, useThemePreference, type ThemePreference } from "@/lib/theme";
 
 // Settings (the web's /settings): appearance, favourite genres, privacy, community, AI, push notifications, your data and
@@ -150,8 +151,20 @@ export default function SettingsScreen() {
 
       <PushSettings />
       <DataExport />
+      {can(user, "staff.log") && <MonitoringTest />}
       <DeleteAccount username={user.username} />
     </Screen>
+  );
+}
+
+// Admins only: checks a new build reports errors (BOO-54, docs/ops/error-monitoring.md).
+function MonitoringTest() {
+  const [sent, setSent] = useState(false);
+  return (
+    <Card title="Error monitoring" hint={SENTRY_DSN ? "Sends one test error from this phone to Sentry." : "Off in this build: EXPO_PUBLIC_SENTRY_DSN isn't set."}>
+      <Button title="Send a test error" variant="outline" disabled={!SENTRY_DSN} onPress={() => { sendTestError(); setSent(true); }} />
+      {sent && <Text variant="small">Sent. Look for it in Sentry in a minute or so.</Text>}
+    </Card>
   );
 }
 
