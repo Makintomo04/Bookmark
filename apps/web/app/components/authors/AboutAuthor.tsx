@@ -30,7 +30,10 @@ const LINK_NAMES: Record<AuthorLinkKind, string> = {
 // have are left out.
 const AboutAuthor: FC<{ name: string; about: AuthorAbout; bookCount: number | null }> = ({ name, about, bookCount }) => {
   const [open, setOpen] = useState(false)
-  const { photoUrl, bio, links } = about
+  // A photo Open Library hasn't got (a 404) falls back to the initials.
+  const [photoFailed, setPhotoFailed] = useState(false)
+  const { bio, links } = about
+  const photoUrl = photoFailed ? null : about.photoUrl
   const long = bio.length > 1 || (bio[0]?.length ?? 0) > 320
   // Nothing to say beyond the name already in the heading: leave the section out rather than show an empty box.
   if (!photoUrl && bio.length === 0 && !bookCount && links.length === 0) return null
@@ -40,7 +43,7 @@ const AboutAuthor: FC<{ name: string; about: AuthorAbout; bookCount: number | nu
       <h2 id="about-author-heading" className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">About the author</h2>
       <div className="flex items-center gap-4">
         {photoUrl ? (
-          <Image src={photoUrl} alt={`Photo of ${name}`} width={72} height={72} className="size-[72px] shrink-0 rounded-full object-cover bg-neutral-100 dark:bg-neutral-900" />
+          <Image src={photoUrl} alt={`Photo of ${name}`} width={72} height={72} onError={() => setPhotoFailed(true)} className="size-[72px] shrink-0 rounded-full object-cover bg-neutral-100 dark:bg-neutral-900" />
         ) : (
           <span aria-hidden className="grid size-[72px] shrink-0 place-items-center rounded-full bg-neutral-100 text-xl font-semibold text-muted-foreground dark:bg-neutral-900">{initials(name)}</span>
         )}

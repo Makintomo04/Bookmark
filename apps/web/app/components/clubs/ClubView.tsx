@@ -9,7 +9,7 @@ import { notify, apiError } from '@/lib/notify'
 import { readerName } from '@/lib/profile'
 import { isUpgradeRequired } from '@/lib/entitlements'
 import { formatPercent } from '@/lib/buddyReads'
-import { CLUB_ABOUT_MAX, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, canMuteInClub, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty, matchesMember } from '@/lib/clubs'
+import { CLUB_ABOUT_MAX, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, canMuteInClubNow, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty, matchesMember } from '@/lib/clubs'
 import type { ClubView as View } from '@/lib/clubsServer'
 import useClub from '@/app/hooks/useClub'
 import ReaderName from '@/app/components/profile/ReaderName'
@@ -263,7 +263,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
                 // An archived club's host can still take co-host away and remove readers, but makes no new co-hosts.
                 const canPromote = !m.isYou && m.role === "member" && canSetCoHost(viewer.role, true, !archived)
                 const canDemote = !m.isYou && m.role === "cohost" && canSetCoHost(viewer.role, false, !archived)
-                const canMute = !m.isYou && !archived && canMuteInClub(viewer.role, m.role)
+                const canMute = !m.isYou && canMuteInClubNow(viewer.role, m.role, !archived)
                 return (
                   <li key={m.userId} className="flex items-center gap-3">
                     <Link href={m.username ? `/u/${m.username}` : "#"} className="flex min-w-0 flex-1 items-center gap-3">

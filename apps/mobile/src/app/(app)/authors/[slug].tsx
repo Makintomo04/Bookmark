@@ -14,6 +14,8 @@ import { authorPageKey, setFollowingAuthor, type AuthorPage } from "@/lib/author
 import { addBook } from "@/lib/discover";
 import { useTheme } from "@/lib/theme";
 
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+
 // One author (the web's /authors/<slug>): Follow, about them, their series, and their books, most read first. Tap a
 // book to add it. The first page of books only; the web has the rest.
 export default function Author() {
@@ -21,6 +23,8 @@ export default function Author() {
   const { colors, radii } = useTheme();
   const { data, error, isLoading } = useSWR<AuthorPage>(slug ? authorPageKey(slug) : null);
   const [showBio, setShowBio] = useState(false);
+  // No photo, or one that won't load: their initials, as the web shows, never an empty block.
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !data) return <Screen><Notice tone="error" message={error instanceof ApiError && error.status === 404 ? "We couldn't find that author." : "Couldn't load this author. Try again."} /></Screen>;
@@ -31,7 +35,13 @@ export default function Author() {
     <Screen>
       <Stack.Screen options={{ title: "" }} />
       <View style={styles.header}>
-        {about?.photoUrl ? <Image source={{ uri: about.photoUrl }} accessibilityIgnoresInvertColors style={[styles.photo, { borderRadius: radii.md }]} /> : null}
+        {about?.photoUrl && !photoFailed ? (
+          <Image source={{ uri: about.photoUrl }} onError={() => setPhotoFailed(true)} accessibilityIgnoresInvertColors style={[styles.photo, { borderRadius: radii.md, backgroundColor: colors.muted }]} />
+        ) : (
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.photo, styles.initials, { borderRadius: radii.md, backgroundColor: colors.muted }]}>
+            <Text style={{ fontSize: 28, color: colors.mutedForeground }}>{initials(author.name)}</Text>
+          </View>
+        )}
         <View style={{ flex: 1, gap: 4 }}>
           <Text variant="small">Author</Text>
           <Text variant="display">{author.name}</Text>
@@ -113,6 +123,7 @@ function FollowAuthor({ slug, name, following }: { slug: string; name: string; f
 const styles = StyleSheet.create({
   header: { flexDirection: "row", gap: 16, alignItems: "flex-end" },
   photo: { width: 88, height: 120 },
+  initials: { alignItems: "center", justifyContent: "center" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   book: { width: 100, gap: 4 },
   seriesRow: { flexDirection: "row", alignItems: "center", gap: 12 },

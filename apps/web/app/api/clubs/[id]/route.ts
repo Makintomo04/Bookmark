@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/apiAuth";
 import { canEditClubSettings, clubAbout, updateClubSchema } from "@/lib/clubs";
 import { hostingRefusal, parseBody } from "@/lib/buddyReadsServer";
 import { canHostAnotherClub, clubError, finishClubBooks, loadClubView, requireClubMembership } from "@/lib/clubsServer";
+import { cancelClubVote } from "@/lib/clubVotesServer";
 
 // The club page: members, roles, and what it's reading, what's next and what it's read.
 export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
@@ -16,8 +17,9 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
   return NextResponse.json(view, { headers: { "Cache-Control": "private, no-store" } });
 }
 
-// Host only: the name, the line about it, and archiving or reopening it. Archiving closes the link and
-// marks its open books finished (lib/clubsServer.ts finishClubBooks); their discussions stay open.
+// Host only: the name, the line about it, and archiving or reopening it. Archiving closes the link, marks
+// its open books finished (lib/clubsServer.ts finishClubBooks; their discussions stay open) and calls off a
+// vote that's on.
 export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { user: currentUser, response } = await requireUser();
@@ -48,7 +50,11 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       },
     });
   });
-  // A book started while this ran isn't in what the transaction read: finish it now (lib/clubLimits.ts settleNewClubBook).
-  if (status === "ARCHIVED" && membership.club.status !== "ARCHIVED") await finishClubBooks(membership.club.id, prisma);
+  if (status === "ARCHIVED" && membership.club.status !== "ARCHIVED") {
+    // A book started while this ran isn't in what the transaction read: finish it now (lib/clubLimits.ts settleNewClubBook).
+    await finishClubBooks(membership.club.id, prisma);
+    // An archived club starts nothing, so a vote on (or a tie waiting) can't pick its next book: it's called off.
+    await cancelClubVote(membership.club.id);
+  }
   return NextResponse.json({ id: updated.id, status: updated.status });
 }

@@ -23,6 +23,10 @@ import {
   turnoutText,
   voteActionSchema,
   voteOutcome,
+  NO_VOTES_MESSAGE,
+  mayNominateMore,
+  nominationsEach,
+  settledVoteText,
 } from "@bookmark/shared/clubVotes";
 import { inviteFaces } from "@bookmark/shared/clubs";
 import { PUSH_GROUPS, pushContentFor, pushedToSelf } from "@bookmark/shared/push";
@@ -62,9 +66,13 @@ test("counting: one vote each, current members only, every book listed", () => {
 
 test("a clear winner wins; a level top is a tie for the host; no books cancels", () => {
   assert.deepEqual(voteOutcome(new Map([["n1", 3], ["n2", 1]])), { kind: "winner", nominationId: "n1" });
-  assert.deepEqual(voteOutcome(new Map([["n1", 2], ["n2", 2], ["n3", 1]])), { kind: "tied", nominationIds: ["n1", "n2"] });
-  // Nobody voted: every book is level.
-  assert.deepEqual(voteOutcome(new Map([["n1", 0], ["n2", 0]])), { kind: "tied", nominationIds: ["n1", "n2"] });
+  assert.deepEqual(voteOutcome(new Map([["n1", 2], ["n2", 2], ["n3", 1]])), { kind: "tied", nominationIds: ["n1", "n2"], unvoted: false });
+  // Nobody voted: every book is level, and it says so rather than calling it a tie.
+  assert.deepEqual(voteOutcome(new Map([["n1", 0], ["n2", 0]])), { kind: "tied", nominationIds: ["n1", "n2"], unvoted: true });
+  assert.equal(settledVoteText({ status: "TIED", voted: 0 }, true).heading, "Nobody voted");
+  assert.equal(settledVoteText({ status: "TIED", voted: 4 }, false).heading, "The vote’s a tie");
+  assert.match(clubVoteText("CLUB_VOTE_TIED", "Ash Club", NO_VOTES_MESSAGE)!, /^Nobody voted in Ash Club/);
+  assert.match(clubVoteText("CLUB_VOTE_TIED", "Ash Club", null)!, /is a tie/);
   // One book, no votes: it wins.
   assert.deepEqual(voteOutcome(new Map([["n1", 0]])), { kind: "winner", nominationId: "n1" });
   assert.deepEqual(voteOutcome(new Map()), { kind: "empty" });
@@ -141,4 +149,13 @@ test("vote notifications name nobody, are pushed in the circles group, and open 
   assert.equal(clubVoteText("CLUB_VOTE_PICKED", "Night Owls", "Piranesi"), "Night Owls picked Piranesi as its next book.");
   assert.equal(clubVoteText("CLUB_VOTE_OPENED", null), "Your club is voting on its next book. Put one up or cast your vote.");
   assert.equal(isClubVoteNotification("CLUB_CIRCLE_ADDED"), false);
+});
+
+test("a hosts-only shortlist lets a host put up several books; everyone else one each", () => {
+  assert.equal(nominationsEach(false), 1);
+  assert.equal(nominationsEach(true), VOTE_NOMINATIONS_MAX);
+  // A one-host club can still make a real shortlist.
+  assert.equal(mayNominateMore(true, 3), true);
+  assert.equal(mayNominateMore(true, VOTE_NOMINATIONS_MAX), false);
+  assert.equal(mayNominateMore(false, 1), false);
 });

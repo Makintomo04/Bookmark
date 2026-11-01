@@ -1,5 +1,6 @@
 import { MONTHS } from "./wrappedCopy"
 import { MOODS, MOOD_LABEL, SPICE_MAX, type Mood } from "./workTags"
+import { averageRating, latestRatingByBook } from "./rating"
 
 // The stats explorer (BOO-82, Plus): any date range, two periods side by side, and filters by format,
 // genre, mood, spice, author and re-reads. The rule (entitlements.ts): never take away a stat that's free.
@@ -354,13 +355,14 @@ export function explorePeriod(all: ExplorerFinish[], range: DateRange, filters: 
   const ended = all.filter((f) => inRange(f, range) && matchesFilters(f, filters))
   const done = ended.filter((f) => f.outcome === "COMPLETED")
   const dnf = ended.length - done.length
-  const rated = done.filter((f) => f.rating && f.rating > 0)
+  // Ratings follow the one rule (rating.ts latestRatingByBook): each book once, its latest rating in the range.
+  const rated = Array.from(latestRatingByBook([...done].sort((a, b) => (a.day ?? "").localeCompare(b.day ?? ""))).values())
   const byBook = new Map<string, ExplorerFinish>()
   for (const f of done) byBook.set(f.bookId, f)
   const sized = Array.from(byBook.values()).filter((f) => f.pages > 0)
 
   const spiceCounts = SPICE_LEVELS.map((level) => ({ name: String(level), count: done.filter((f) => f.spice === level).length }))
-  const ratings = [1, 2, 3, 4, 5].map((star) => ({ name: String(star), count: rated.filter((f) => Math.min(5, Math.max(1, Math.floor(f.rating!))) === star).length }))
+  const ratings = [1, 2, 3, 4, 5].map((star) => ({ name: String(star), count: rated.filter((r) => Math.min(5, Math.max(1, Math.floor(r))) === star).length }))
 
   return {
     range,
@@ -373,7 +375,7 @@ export function explorePeriod(all: ExplorerFinish[], range: DateRange, filters: 
     dnf,
     dnfRate: ended.length ? dnf / ended.length : null,
     ratedReads: rated.length,
-    averageRating: rated.length ? Math.round((rated.reduce((s, f) => s + f.rating!, 0) / rated.length) * 100) / 100 : null,
+    averageRating: averageRating(rated),
     averagePages: sized.length ? Math.round(sized.reduce((s, f) => s + f.pages, 0) / sized.length) : null,
     timeline: timelineOf(range, done),
     formats: EXPLORER_FORMATS.map((format) => ({ name: FORMAT_LABEL[format], count: done.filter((f) => f.format === format).length })),

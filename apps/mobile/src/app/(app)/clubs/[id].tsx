@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
 import { Check, Ellipsis, Plus, Share2 } from "lucide-react-native";
 import { formatPercent } from "@bookmark/shared/buddyReads";
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, canMuteInClub, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty, matchesMember, type ClubRole } from "@bookmark/shared/clubs";
+import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, canMuteInClubNow, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty, matchesMember, type ClubRole } from "@bookmark/shared/clubs";
 import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { readerName } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
@@ -301,7 +301,7 @@ function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId:
   // An archived club's host can still take co-host away and remove readers, but makes no new co-hosts.
   const canPromote = !member.isYou && member.role === "member" && canSetCoHost(viewerRole, true, !archived);
   const canDemote = !member.isYou && member.role === "cohost" && canSetCoHost(viewerRole, false, !archived);
-  const canMute = !member.isYou && !archived && canMuteInClub(viewerRole, member.role);
+  const canMute = !member.isYou && canMuteInClubNow(viewerRole, member.role, !archived);
   const label = ROLE_LABEL[member.role];
 
   const setMuted = async (muted: boolean) => {

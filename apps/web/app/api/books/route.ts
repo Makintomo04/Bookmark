@@ -1,7 +1,7 @@
 import { bookFieldsProblem } from "@/lib/bookInput";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
-import { syncAchievements } from "@/lib/achievements";
+import { requestTimeZone, resolveTimeZone, syncAchievements } from "@/lib/achievements";
 import { earnMomentFor } from "@/lib/earnMomentServer";
 import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
 import { shareableCover, uploadersOf } from "@/lib/uploads";
@@ -88,7 +88,9 @@ async function shelfPage(userId: string, params: URLSearchParams) {
   // In id order, so the same shelf always reaches pageShelf the same way (its sort breaks ties on id as well).
   const light = (await prisma.book.findMany({ where: { userId }, select: shelfBookSelect, orderBy: { id: "asc" } }))
     .map(({ edition, ...b }) => ({ ...b, format: edition?.format ?? null }))
-  const page = pageShelf(light, filter, { take: Number(params.get("take")), cursor: params.get("cursor") })
+  // "Finished in" counts on the reader's calendar, not the server's.
+  const zone = await resolveTimeZone(userId, await requestTimeZone())
+  const page = pageShelf(light, filter, { take: Number(params.get("take")), cursor: params.get("cursor"), zone })
   const ids = page.books.map((b) => b.id)
   const rows = ids.length > 0
     ? await prisma.book.findMany({ where: { userId, id: { in: ids } }, include: { edition: { select: { format: true } } } })
@@ -101,7 +103,7 @@ async function shelfPage(userId: string, params: URLSearchParams) {
     total: page.total,
     nextCursor: page.nextCursor,
     ...(facets && {
-      options: filterOptions(onShelf),
+      options: filterOptions(onShelf, zone),
       counts: Object.fromEntries((Object.keys(SHELF_STATUS) as ShelfKey[]).map((k) => [k, light.filter((b) => b.status === SHELF_STATUS[k]).length])),
     }),
   })

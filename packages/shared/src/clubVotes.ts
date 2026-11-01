@@ -29,6 +29,13 @@ export function canNominate(role: ClubRole | null | undefined, opts: { hostsOnly
   return opts.hostsOnly ? canManageClub(role) : true
 }
 
+// How many books one person may put up: one each when everyone nominates; on a hosts-only shortlist a host
+// (even the only one) may fill it, up to the vote's ten.
+export const nominationsEach = (hostsOnly: boolean) => (hostsOnly ? VOTE_NOMINATIONS_MAX : 1)
+export const mayNominateMore = (hostsOnly: boolean, mine: number) => mine < nominationsEach(hostsOnly)
+export const ONE_BOOK_EACH_MESSAGE = "You've already put a book up. Take it down to choose another."
+export const ALREADY_UP_MESSAGE = "That book's already up for the vote. Vote for it instead."
+
 export const NOMINATIONS_FULL_MESSAGE = `This vote already has ${VOTE_NOMINATIONS_MAX} books. Vote for one of them instead.`
 export const VOTE_ALREADY_OPEN_MESSAGE = "The club already has a vote on. Close it before opening another."
 export const VOTE_CLOSED_MESSAGE = "This vote has closed."
@@ -57,16 +64,16 @@ export function tallyVotes(nominationIds: string[], ballots: BallotLike[], membe
 
 export type VoteOutcome =
   | { kind: "winner", nominationId: string }
-  | { kind: "tied", nominationIds: string[] }
+  | { kind: "tied", nominationIds: string[], unvoted: boolean }
   | { kind: "empty" }
 
-// The winner, or the books level at the top for a host to choose between (every book, if nobody voted).
-// No books at all and the vote is cancelled.
+// The winner, or the books level at the top for a host to choose between (every book, if nobody voted:
+// `unvoted`, which is said as that rather than as a tie). No books at all and the vote is cancelled.
 export function voteOutcome(counts: Map<string, number>): VoteOutcome {
   if (counts.size === 0) return { kind: "empty" }
   const top = Math.max(...counts.values())
   const leaders = [...counts].filter(([, n]) => n === top).map(([id]) => id)
-  return leaders.length === 1 ? { kind: "winner", nominationId: leaders[0] } : { kind: "tied", nominationIds: leaders }
+  return leaders.length === 1 ? { kind: "winner", nominationId: leaders[0] } : { kind: "tied", nominationIds: leaders, unvoted: top === 0 }
 }
 
 // Like the club's member cap: nominations are counted after they're written, so two at the same moment can't
@@ -90,6 +97,8 @@ export const voteActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("close") }),
   z.object({ action: z.literal("cancel") }),
   z.object({ action: z.literal("pick"), nominationId: objectId }),
+  // Put the winner card away without starting the book.
+  z.object({ action: z.literal("dismiss") }),
 ])
 
 // ---- Copy -----------------------------------------------------------------------------------
@@ -108,14 +117,31 @@ export function closesInText(closesAt: Date | string, now: Date = new Date()) {
 // "12 of 40 have voted": turnout is shown while the vote is open; which book is ahead isn't.
 export const turnoutText = (voted: number, members: number) => `${voted} of ${members} ${voted === 1 ? "has" : "have"} voted`
 
+// The vote card's heading and the line under it once it's closed. A vote nobody voted in goes to the hosts to
+// pick like a tie, but isn't called one.
+export function settledVoteText(v: { status: ClubVoteStatus, voted: number }, canRun: boolean) {
+  if (v.status === "TIED" && v.voted === 0) {
+    return { heading: "Nobody voted", line: canRun ? "Pick the winner from the books put up." : "The host is picking from the books put up." }
+  }
+  if (v.status === "TIED") {
+    return { heading: "The vote’s a tie", line: canRun ? "Pick the winner from the books level at the top." : "The host is picking between the books level at the top." }
+  }
+  return { heading: "The club has picked", line: `${v.voted} ${v.voted === 1 ? "vote" : "votes"} counted.` }
+}
+
+// Kept in a CLUB_VOTE_TIED notification's message when nobody voted at all.
+export const NO_VOTES_MESSAGE = "no-votes"
+
 // The bell, the push and the phone's notifications list say the same. Nobody is named: a vote is the club's.
-// `title` is the winning book (CLUB_VOTE_PICKED keeps it in Notification.message).
-export function clubVoteText(type: string, club: string | null, title?: string | null) {
+// `message` is the winning book for CLUB_VOTE_PICKED, and NO_VOTES_MESSAGE on a CLUB_VOTE_TIED nobody voted in.
+export function clubVoteText(type: string, club: string | null, message?: string | null) {
   const name = club ?? "Your club"
   switch (type) {
     case "CLUB_VOTE_OPENED": return `${name} is voting on its next book. Put one up or cast your vote.`
-    case "CLUB_VOTE_PICKED": return title ? `${name} picked ${title} as its next book.` : `${name} has picked its next book.`
-    case "CLUB_VOTE_TIED": return `The vote in ${name} is a tie. Pick the winner from the books level at the top.`
+    case "CLUB_VOTE_PICKED": return message ? `${name} picked ${message} as its next book.` : `${name} has picked its next book.`
+    case "CLUB_VOTE_TIED": return message === NO_VOTES_MESSAGE
+      ? `Nobody voted in ${name}'s vote. Pick the winner from the books put up.`
+      : `The vote in ${name} is a tie. Pick the winner from the books level at the top.`
     default: return null
   }
 }

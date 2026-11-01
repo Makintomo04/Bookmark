@@ -28,10 +28,16 @@ if (supported) {
 
 const projectId = () => Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
 
+// Whether this build on this phone can get pushes at all: a real phone, and an EAS project id. Not on an
+// emulator, nor a build made before `eas init`; reminders then offer what can come by email.
+export const pushAvailable = () => supported && Device.isDevice && !!projectId();
+
 // Asks for permission (once; after a "Don't allow" only Settings can change it), then registers the
-// token with the server. Quiet when anything's missing.
-export async function registerForPush() {
-  if (!supported || !Device.isDevice || !projectId()) return;
+// token with the server. Quiet when anything's missing. Only the reminders sheet and Settings call it, when
+// the reader turns a reminder on, so the prompt comes after the sheet has said what it's for. Whether this
+// phone now has a token registered.
+export async function registerForPush(): Promise<boolean> {
+  if (!pushAvailable()) return false;
   try {
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", { name: "Notifications", importance: Notifications.AndroidImportance.DEFAULT });
@@ -39,22 +45,25 @@ export async function registerForPush() {
     const current = await Notifications.getPermissionsAsync();
     let granted = current.granted;
     if (!granted && current.canAskAgain) granted = (await Notifications.requestPermissionsAsync()).granted;
-    if (!granted) return;
+    if (!granted) return false;
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId: projectId() });
     token = data;
     await api.post("/api/push/tokens", { token: data, platform: Platform.OS });
     await secureStorage.set(TOKEN_KEY, data);
+    return true;
   } catch (error) {
     console.warn("[push] couldn't register", error);
+    return false;
   }
 }
 
 // Each time the app comes back: with notifications allowed, the token is registered (again, if they were just
 // switched back on); without, this phone's token is taken back, so the server stops counting it as a way to
 // reach the reader and sends what has an email form (circle checkpoints, apps/web/lib/jobs/checkpointReminders.ts)
-// by email instead. Never asks: only registerForPush does, once.
+// by email instead. Never asks: only registerForPush does, once. Also run when the signed-in app opens, so
+// a phone that already allowed notifications registers without a prompt.
 export async function syncPushPermission() {
-  if (!supported || !Device.isDevice || !projectId()) return;
+  if (!pushAvailable()) return;
   try {
     const { granted } = await Notifications.getPermissionsAsync();
     if (granted) {

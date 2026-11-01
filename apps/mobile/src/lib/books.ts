@@ -6,6 +6,7 @@ import type { AskReason } from "@bookmark/shared/reminders";
 import { BULK_MAX } from "@bookmark/shared/bulkRules";
 import { shelfParams, type ShelfFilter, type ShelfKey, type filterOptions } from "@bookmark/shared/shelfFilter";
 import { celebrate } from "@/lib/earnMoment";
+import { sameBook } from "@bookmark/shared/workKey";
 
 // The reader's own shelf, from /api/books (the same list the web's useBooks reads), and the moves the
 // book page makes through /api/book-progress.
@@ -49,6 +50,13 @@ export interface BookRead {
 // The whole shelf. Only for what really needs every book (choosing a circle's book); the Library reads
 // useLibrary and a book page useBook, so neither downloads a shelf of thousands.
 export const useBooks = () => useSWR<Book[]>("/api/books");
+
+// The reader's own copy of a book shown somewhere else (a list, the first-book picker), so its Add button can
+// say it's on the shelf once it is: adding one refreshes useBooks. Null while the shelf loads, or if it isn't there.
+export function useShelfCopy() {
+  const { data } = useBooks();
+  return (book: { title: string; author: string; workKey?: string | null }) => data?.find((own) => sameBook(own, book)) ?? null;
+}
 
 // The Library tab: the newest of each shelf (LIBRARY_PREVIEW books), how many each holds, and which books being
 // read are re-reads (GET /api/books?shelves=). See all opens the rest, a page at a time.

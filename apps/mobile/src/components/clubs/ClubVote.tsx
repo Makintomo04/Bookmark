@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
 import { Check, Plus, X } from "lucide-react-native";
-import { VOTE_DAYS_DEFAULT, VOTE_NOMINATIONS_MAX, closesInText, turnoutText } from "@bookmark/shared/clubVotes";
+import { VOTE_DAYS_DEFAULT, VOTE_NOMINATIONS_MAX, closesInText, settledVoteText, turnoutText } from "@bookmark/shared/clubVotes";
 import { readerName } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
 import { Button } from "@/components/ui/Button";
@@ -44,7 +44,9 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
   const [nominating, setNominating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<{ message: string; title: string; run: () => Promise<unknown> } | null>(null);
+  // `at`: the book the confirmation is about. It's shown in that book's row, where the tap was, not at the
+  // foot of the card below the fold.
+  const [confirm, setConfirm] = useState<{ message: string; title: string; run: () => Promise<unknown>; at?: string } | null>(null);
 
   if (!view || archived) return null;
   const { vote, viewer, nominations } = view;
@@ -117,6 +119,7 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
 
   const open = vote.status === "OPEN";
   const tied = vote.status === "TIED";
+  const settled = settledVoteText(vote, viewer.canRun);
   const winner = vote.status === "CLOSED" ? nominations.find((n) => n.id === vote.winnerId) : undefined;
   const ranked = (open ? nominations : [...nominations].sort((a, b) => (b.votes ?? 0) - (a.votes ?? 0))).filter((n) => n.id !== winner?.id);
 
@@ -127,12 +130,8 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
 
   return (
     <View style={{ gap: 10 }}>
-      <Text variant="title">{open ? "Vote on the next book" : tied ? "The vote’s a tie" : "The club has picked"}</Text>
-      <Text variant="small">
-        {open ? `${closesInText(vote.closesAt)} · ${turnoutText(vote.voted, vote.memberCount)}`
-          : tied ? (viewer.canRun ? "Pick the winner from the books level at the top." : "The host is picking between the books level at the top.")
-            : `${vote.voted} ${vote.voted === 1 ? "vote" : "votes"} counted.`}
-      </Text>
+      <Text variant="title">{open ? "Vote on the next book" : settled.heading}</Text>
+      <Text variant="small">{open ? `${closesInText(vote.closesAt)} · ${turnoutText(vote.voted, vote.memberCount)}` : settled.line}</Text>
 
       {winner && (
         <View style={[styles.row, { borderRadius: radii.lg, borderColor: colors.border }]}>
@@ -144,7 +143,12 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
           </View>
         </View>
       )}
-      {winner && (viewer.canRun ? <Button title="Start this book" loading={busy} onPress={startWinner} /> : <Text variant="muted">The host will start it soon.</Text>)}
+      {winner && confirm?.at === winner.id ? confirmBox : winner && (viewer.canRun ? (
+        <View style={styles.actionRow}>
+          <Button title="Start this book" loading={busy} onPress={startWinner} />
+          {!confirm && <Button title="Not now" variant="ghost" disabled={busy} onPress={() => setConfirm({ at: winner.id, message: `Put this away without starting ${winner.title}? The club page stops showing it.`, title: "Put it away", run: () => api.patch(`/api/clubs/${clubId}/votes/${vote.id}`, { action: "dismiss" }) })} />}
+        </View>
+      ) : <Text variant="muted">The host will start it soon.</Text>)}
 
       {(open || tied || ranked.length > 0) && ranked.map((n) => {
         const mine = viewer.myBallot === n.id;
@@ -156,19 +160,19 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
               <Text numberOfLines={2}>{n.title}</Text>
               <Text variant="small" numberOfLines={1}>{n.author}{n.nominatedBy ? ` · put up by ${n.isMine ? "you" : readerName(n.nominatedBy)}` : ""}</Text>
               {n.votes !== null && <Text variant="small">{n.votes} {n.votes === 1 ? "vote" : "votes"}{n.votes > 0 ? ` · ${votersText(n)}` : ""}</Text>}
-              <View style={styles.actionRow}>
+              {confirm?.at === n.id ? confirmBox : <View style={styles.actionRow}>
                 {open && viewer.canVote && (
                   <Button title={mine ? "Your vote" : "Vote"} variant={mine ? "primary" : "outline"} disabled={busy || mine} icon={mine ? <Check size={16} color={colors.onBrand} /> : undefined}
                     onPress={() => act(() => api.put(`/api/clubs/${clubId}/votes/${vote.id}/ballot`, { nominationId: n.id }), "Couldn't record your vote.")} />
                 )}
                 {inTie && viewer.canRun && (
-                  <Button title="Pick this one" disabled={busy} onPress={() => setConfirm({ message: `Make ${n.title} the club’s next book?`, title: "Pick it", run: () => api.patch(`/api/clubs/${clubId}/votes/${vote.id}`, { action: "pick", nominationId: n.id }) })} />
+                  <Button title="Pick this one" disabled={busy} onPress={() => setConfirm({ at: n.id, message: `Make ${n.title} the club’s next book?`, title: "Pick it", run: () => api.patch(`/api/clubs/${clubId}/votes/${vote.id}`, { action: "pick", nominationId: n.id }) })} />
                 )}
-              </View>
+              </View>}
             </View>
             {n.removable && (
               <Pressable accessibilityRole="button" accessibilityLabel={`Take down ${n.title}`} hitSlop={8} style={styles.icon}
-                onPress={() => setConfirm({ message: n.isMine ? "Take your book down? Votes for it are dropped." : `Take down ${n.title}? Votes for it are dropped, and those members can vote again.`, title: "Take it down", run: () => api.delete(`/api/clubs/${clubId}/votes/${vote.id}/nominations/${n.id}`) })}>
+                onPress={() => setConfirm({ at: n.id, message: n.isMine ? "Take your book down? Votes for it are dropped." : `Take down ${n.title}? Votes for it are dropped, and those members can vote again.`, title: "Take it down", run: () => api.delete(`/api/clubs/${clubId}/votes/${vote.id}/nominations/${n.id}`) })}>
                 <X size={18} color={colors.mutedForeground} />
               </Pressable>
             )}
@@ -188,7 +192,7 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
           <Button title="Cancel vote" variant="ghost" disabled={busy} onPress={() => setConfirm({ message: "Cancel this vote? The books put up and the votes cast so far are dropped.", title: "Cancel it", run: () => api.patch(`/api/clubs/${clubId}/votes/${vote.id}`, { action: "cancel" }) })} />
         </View>
       )}
-      {confirmBox}
+      {!confirm?.at && confirmBox}
       {error && <Notice tone="error" message={error} />}
 
       {nominating && (

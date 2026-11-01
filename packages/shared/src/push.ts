@@ -11,7 +11,7 @@
 // reviews, a recommendation's note): a lock screen is read over shoulders, and a comment's words are only
 // shown once the reader's progress has reached it.
 
-import { clubVoteText } from "./clubVotes";
+import { NO_VOTES_MESSAGE, clubVoteText } from "./clubVotes";
 import { newBookText, publicationDayText } from "./releases";
 import { seriesNewsText } from "./series";
 import { escalationCopy, reviewRestoredText, roleChangedTo, roleChangedText, staffReportText } from "./staffNotices";
@@ -146,7 +146,7 @@ export function pushContentFor(n: PushContext): PushContent | null {
     case "CLUB_VOTE_PICKED":
     case "CLUB_VOTE_TIED":
       return {
-        title: n.type === "CLUB_VOTE_OPENED" ? "Your club is voting" : n.type === "CLUB_VOTE_TIED" ? "A tie to break" : "Your club's next book",
+        title: n.type === "CLUB_VOTE_OPENED" ? "Your club is voting" : n.type === "CLUB_VOTE_TIED" ? (n.message === NO_VOTES_MESSAGE ? "Nobody voted" : "A tie to break") : "Your club's next book",
         body: clubVoteText(n.type, n.clubName ?? null, n.message) ?? "",
         path: n.clubId ? `/clubs/${n.clubId}` : "/circles",
       };
