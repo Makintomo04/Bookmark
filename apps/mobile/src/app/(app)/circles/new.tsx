@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
 import { progressScale } from "@bookmark/shared/progress";
@@ -12,6 +12,7 @@ import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { ApiError, api } from "@/lib/api";
 import { useBooks, type Book } from "@/lib/books";
+import { clubBookLeftOutMessage } from "@bookmark/shared/clubs";
 import type { ClubView } from "@/lib/clubs";
 import { useTheme } from "@/lib/theme";
 
@@ -46,7 +47,7 @@ export default function NewCircle() {
     setError(null);
     try {
       const schedule = scheduleOf(rows);
-      const circle = await api.post<{ id: string }>(clubId ? `/api/clubs/${clubId}/circles` : "/api/buddy-reads", {
+      const circle = await api.post<{ id: string; leftOut?: number }>(clubId ? `/api/clubs/${clubId}/circles` : "/api/buddy-reads", {
         bookId: book.id,
         // Local midnight on the chosen day.
         startsAt: new Date(`${startsOn}T00:00:00`).toISOString(),
@@ -57,6 +58,7 @@ export default function NewCircle() {
         void mutate("/api/clubs");
         void mutate("/api/buddy-reads");
         router.replace(`/circles/${circle.id}`);
+        if (circle.leftOut) Alert.alert("Not everyone was added", clubBookLeftOutMessage(circle.leftOut));
       } else {
         router.replace(`/circles/${circle.id}?invite=1`);
       }

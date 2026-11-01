@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EMPTY_FILTER, SHELF_PAGE_MAX, SHELF_SORTS, filterOptions, isNarrowed, matchesFilter, pageShelf, pageStart, pagedBooks, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
+  EMPTY_FILTER, SHELF_PAGE_MAX, SHELF_SORTS, filterOptions, finishedIn, isNarrowed, matchesFilter, pageShelf, pageStart, pagedBooks, parseShelfParams, shelfFromSlug, shelfPageHref, shelfParams, shelfQuestion, sortBooks,
   type ShelfBook, type ShelfFilter,
 } from "@/lib/shelfFilter";
 
@@ -151,4 +151,16 @@ test("pages loaded by offset show each book once when the shelf shifts between t
   const pages = [{ books: [{ id: "a" }, { id: "b" }] }, { books: [{ id: "b" }, { id: "c" }] }, { books: [] }];
   assert.deepEqual(pagedBooks(pages).map((b) => b.id), ["a", "b", "c"]);
   assert.deepEqual(pagedBooks([]), []);
+  // A page useSWRInfinite hasn't filled yet is skipped, not read (the phone's shelf screen crashed on it).
+  assert.deepEqual(pagedBooks([undefined, { books: [{ id: "a" }] }, null]).map((b) => b.id), ["a"]);
+  assert.deepEqual(pagedBooks(undefined), []);
+});
+
+test("Finished in counts on the reader's calendar, not the server's", () => {
+  // 23:30 on 31 December in London is already 1 January in Sydney.
+  const book = { completedAt: "2026-12-31T23:30:00.000Z" };
+  assert.deepEqual(finishedIn(book.completedAt, "Europe/London"), { year: 2026, month: 12 });
+  assert.deepEqual(finishedIn(book.completedAt, "Australia/Sydney"), { year: 2027, month: 1 });
+  // A day picked on the date picker (noon UTC) is that day wherever the reader is.
+  assert.deepEqual(finishedIn("2026-03-01T12:00:00.000Z", "Pacific/Kiritimati"), { year: 2026, month: 3 });
 });

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
-import { canMuteInClub, clubRole } from "@/lib/clubs";
+import { canMuteInClubNow, clubRole } from "@/lib/clubs";
 import { isObjectId } from "@/lib/buddyReadsServer";
 import { clubError, requireClubMembership } from "@/lib/clubsServer";
 
 // Host tools for big clubs (BOO-79): the host or a co-host mutes a member (POST) or unmutes them (DELETE).
 // A muted member still reads along and votes, but can't comment in the club's books or nominate. Who may
-// mute whom follows removing (lib/clubs.ts canMuteInClub): a co-host only members, never the host.
+// mute whom follows removing (lib/clubs.ts canMuteInClubNow): a co-host only members, never the host, and
+// once the club is archived only its host.
 async function setMuted(req: Request, props: { params: Promise<{ id: string, userId: string }> }, muted: boolean) {
   const params = await props.params;
   const { user: currentUser, response } = await requireUser();
@@ -19,7 +20,9 @@ async function setMuted(req: Request, props: { params: Promise<{ id: string, use
 
   const target = await prisma.clubMember.findUnique({ where: { clubId_userId: { clubId: club.id, userId: params.userId } } });
   if (!target) return clubError("Reader not found", 404);
-  if (club.status !== "ACTIVE" || !canMuteInClub(membership.role, clubRole(target, club.hostId))) {
+  // An archived club's host can still mute and unmute (lib/clubs.ts canMuteInClubNow): its discussions stay open.
+  if (!canMuteInClubNow(membership.role, clubRole(target, club.hostId), club.status === "ACTIVE")) {
+    if (club.status !== "ACTIVE" && membership.role === "cohost") return clubError("The club is archived, so only its host can mute or unmute readers.", 403);
     return clubError(membership.role === "cohost" ? "Co-hosts can mute members, but not the host or another co-host." : "Only the host or a co-host can mute readers.", 403);
   }
   await prisma.clubMember.update({ where: { id: target.id }, data: { hostMutedAt: muted ? new Date() : null } });

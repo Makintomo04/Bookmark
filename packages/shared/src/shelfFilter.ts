@@ -1,4 +1,5 @@
 import type { EditionFormat, Status } from "./enums";
+import { finishDay } from "./timeZone";
 
 // Search, sort and filter over the reader's own shelf: the web's BookGrid toolbar works on the /api/books
 // payload in the browser, and a paged /api/books (?take=) runs the same rules on the server for the phone.
@@ -174,7 +175,18 @@ export function formatOf(book: Pick<ShelfBook, "format" | "progressUnit">): Edit
   return book.format ?? (book.progressUnit === "MINUTES" ? "AUDIOBOOK" : null);
 }
 
-export function matchesFilter(book: ShelfBook, f: ShelfFilter): boolean {
+// The year and month a book was finished in, on the reader's calendar (timeZone.ts finishDay, as /stats counts
+// it): a day picked on a date picker or imported is that day wherever they are, any other moment the day it
+// was where they are. `zone` is theirs; left out, this device's (a browser is the reader's own).
+const deviceZone = () => {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; }
+};
+export function finishedIn(completedAt: Date | string, zone?: string): { year: number; month: number } {
+  const [year, month] = finishDay(new Date(completedAt), zone ?? deviceZone()).split("-").map(Number);
+  return { year, month };
+}
+
+export function matchesFilter(book: ShelfBook, f: ShelfFilter, zone?: string): boolean {
   if (f.shelf && book.status !== SHELF_STATUS[f.shelf]) return false;
   const terms = fold(f.q).split(/\s+/).filter(Boolean);
   if (terms.length) {
@@ -183,9 +195,9 @@ export function matchesFilter(book: ShelfBook, f: ShelfFilter): boolean {
   }
   if (f.year) {
     if (!book.completedAt) return false;
-    const done = new Date(book.completedAt);
-    if (done.getFullYear() !== f.year) return false;
-    if (f.month && done.getMonth() + 1 !== f.month) return false;
+    const done = finishedIn(book.completedAt, zone);
+    if (done.year !== f.year) return false;
+    if (f.month && done.month !== f.month) return false;
   }
   if (f.genre && fold(book.genre ?? "") !== fold(f.genre)) return false;
   if (f.rating === "unrated" && book.rating) return false;
@@ -247,9 +259,10 @@ export const SHELF_PAGE_MAX = 100;
 
 // One page of the shelf: the books that match, in order, from `cursor` (as the page before gave it) for
 // `take`. `nextCursor` is null on the last page.
-export function pageShelf<T extends ShelfBook>(books: T[], filter: ShelfFilter, { take, cursor }: { take: number; cursor?: string | null }) {
+// `zone`: the reader's time zone, for "Finished in" (finishedIn). The server has to be told it.
+export function pageShelf<T extends ShelfBook>(books: T[], filter: ShelfFilter, { take, cursor, zone }: { take: number; cursor?: string | null; zone?: string }) {
   const size = Math.min(Math.max(Math.floor(take) || 1, 1), SHELF_PAGE_MAX);
-  const matches = sortBooks(books.filter((b) => matchesFilter(b, filter)), filter.sort);
+  const matches = sortBooks(books.filter((b) => matchesFilter(b, filter, zone)), filter.sort);
   const from = pageStart(matches, cursor);
   const page = matches.slice(from, from + size);
   return {
@@ -273,16 +286,17 @@ export function pageStart(matches: { id: string }[], cursor: string | null | und
 
 // The books of every page loaded so far, in order, each once. A book moved while someone scrolls can come
 // round again on a later page (pageStart), and would give a list two rows with one key. The first copy stays;
-// a refresh puts the order right.
-export function pagedBooks<T extends { id: string }>(pages: { books: T[] }[]): T[] {
+// a refresh puts the order right. useSWRInfinite can hand back a page that hasn't landed yet (undefined), or
+// one an error left without books: those add nothing.
+export function pagedBooks<T extends { id: string }>(pages: readonly ({ books?: T[] | null } | null | undefined)[] | null | undefined): T[] {
   const seen = new Set<string>();
-  return pages.flatMap((p) => p.books.filter((b) => !seen.has(b.id) && !!seen.add(b.id)));
+  return (pages ?? []).flatMap((p) => (p?.books ?? []).filter((b) => !seen.has(b.id) && !!seen.add(b.id)));
 }
 
 // ---- Filter options ------------------------------------------------------------------------------
 
 // What the filter menus offer: only values some book on the shelf has.
-export function filterOptions(books: ShelfBook[]) {
+export function filterOptions(books: ShelfBook[], zone?: string) {
   const years = new Set<number>();
   const genres = new Map<string, string>();
   const tags = new Map<string, string>();
@@ -290,7 +304,7 @@ export function filterOptions(books: ShelfBook[]) {
   let unrated = false;
   const ratings = new Set<number>();
   for (const b of books) {
-    if (b.completedAt) years.add(new Date(b.completedAt).getFullYear());
+    if (b.completedAt) years.add(finishedIn(b.completedAt, zone).year);
     if (b.genre?.trim()) genres.set(fold(b.genre), b.genre.trim());
     for (const t of b.tags ?? []) if (t.trim()) tags.set(fold(t), t.trim());
     const format = formatOf(b);

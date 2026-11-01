@@ -1308,6 +1308,8 @@ model ClubVote {
   tiedIds     String[]       @db.ObjectId
   // CLOSED: the winning nomination.
   winnerId    String?        @db.ObjectId
+  // CLOSED: a host put the winner card away without starting the book, so the club page stops showing it.
+  dismissedAt DateTime?
   createdAt   DateTime       @default(now())
 
   club        Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
@@ -1333,12 +1335,15 @@ model ClubNomination {
   cardColour   String?
   pages        Int
   audioMinutes Int?
+  // Unset when every member may put a book up, so the index below holds them to one each (MongoDB counts
+  // missing values as equal). A hosts-only shortlist gives each book its own, so a host can put up several.
+  slot         String?
   createdAt    DateTime @default(now())
 
   vote ClubVote @relation(fields: [voteId], references: [id], onDelete: Cascade)
 
-  // One book each.
-  @@unique([voteId, userId])
+  // One book each, except on a hosts' shortlist (slot).
+  @@unique([voteId, userId, slot])
 }
 
 model ClubBallot {

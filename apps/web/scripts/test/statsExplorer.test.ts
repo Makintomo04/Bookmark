@@ -25,6 +25,7 @@ import {
 } from "@bookmark/shared/statsExplorer";
 import { cardFileName, cardPath, cardWords } from "@bookmark/shared/wrapCards";
 import { entitlementsOf } from "@bookmark/shared/entitlements";
+import { averageRating, latestRatingByBook } from "@bookmark/shared/rating";
 
 const TODAY = "2026-10-31";
 
@@ -119,8 +120,8 @@ test("a range counts its dated finishes; undated ones fall in no range", () => {
   assert.deepEqual(p.genres[0], { name: "Fantasy", count: 3 });
   assert.deepEqual(p.formats.map((f) => f.count), [2, 1, 1]);
   assert.equal(p.spice.find((s) => s.name === "0")!.count, 2);
-  // 4¾ counts with the fours.
-  assert.deepEqual(p.ratings.map((r) => r.count), [0, 0, 0, 3, 1]);
+  // 4¾ counts with the fours. A re-read is one book, so its rating counts once.
+  assert.deepEqual(p.ratings.map((r) => r.count), [0, 0, 0, 2, 1]);
   assert.equal(explore(SHELF, { range: presetRange("allTime", TODAY), compare: null, filters: NO_FILTERS }).options.undated, 1);
 });
 
@@ -187,4 +188,22 @@ test("the explorer is Plus, and nothing free moves", () => {
   assert.equal(plus.statsExplorer, true);
   // The keys that were gated before BOO-82, and only those, plus this one and big clubs (BOO-79, a host gate).
   assert.deepEqual(Object.keys(free).filter((k) => typeof (free as unknown as Record<string, unknown>)[k] === "boolean" && k !== "isPlus").sort(), ["bigClubs", "canHostUnlimited", "customWrapDesigns", "extraGoalTypes", "statsExplorer"]);
+});
+
+test("the average rating counts each book once, with its latest rating, as /stats and the cards do", () => {
+  const range = { from: "2026-01-01", to: "2026-12-31" };
+  // Read twice: rated 1 the first time, 3 on the re-read. Another book rated 4. Per read it'd be 2.7.
+  const reads = [
+    finish({ bookId: "dune", day: "2026-02-01", rating: 1 }),
+    finish({ bookId: "dune", day: "2026-06-01", rating: 3, reread: true }),
+    finish({ bookId: "piranesi", day: "2026-04-01", rating: 4 }),
+  ];
+  const period = explorePeriod(reads, range, NO_FILTERS);
+  assert.equal(period.averageRating, 3.5);
+  assert.equal(period.ratedReads, 2);
+  assert.equal(averageRating(latestRatingByBook(reads).values()), 3.5);
+  // A re-read left unrated keeps the earlier rating.
+  assert.equal(latestRatingByBook([{ bookId: "a", rating: 4 }, { bookId: "a", rating: null }]).get("a"), 4);
+  assert.equal(averageRating([]), null);
+  assert.equal(averageRating([4.25, 3]), 3.6);
 });

@@ -87,14 +87,18 @@ export function canRemoveFromClubNow(actor: ClubRole, target: ClubRole, active: 
 export function canSetCoHost(actor: ClubRole | null | undefined, coHost: boolean, active: boolean) {
   return canEditClubSettings(actor) && (active || !coHost)
 }
+// Muting follows removing here too: a mute still holds in an archived club's open discussions, so its host
+// can lift it (or mute someone) without reopening the club. Co-hosts wait until it's reopened.
+export const canMuteInClubNow = canRemoveFromClubNow
 
 // Removing a reader from one of the club's books follows the club's roles, whoever started the book: a co-host
 // can't remove the club's host or another co-host from it (and so lock them out of it). Nobody removes the
 // book's own host. Someone no longer in the club counts as a member. `actor` is null when they've left the
-// club, which leaves them nobody to remove.
-export function canRemoveFromClubBook(actor: ClubRole | null, target: ClubRole | null, targetHostsBook: boolean) {
+// club, which leaves them nobody to remove. Once the club is archived only its host removes anyone
+// (canRemoveFromClubNow), whoever started the book.
+export function canRemoveFromClubBook(actor: ClubRole | null, target: ClubRole | null, targetHostsBook: boolean, active: boolean = true) {
   if (targetHostsBook || !actor) return false
-  return canRemoveFromClub(actor, target ?? "member")
+  return canRemoveFromClubNow(actor, target ?? "member", active)
 }
 
 // What "Reading now" says with nothing open. An archived club starts nothing until its host reopens it, so it
@@ -107,12 +111,23 @@ export function clubReadingEmpty(c: { archived: boolean; isHost: boolean; canMan
 
 // ---- Joining ------------------------------------------------------------------------------
 
+// How many readers one of the club's books takes: the host's cap, or the club's size if that's larger. A
+// host who drops Plus keeps a club over the free cap (nobody new joins it), and everyone in it still fits in
+// each new book, as #148 promised.
+export const clubBookCap = (cap: number, clubSize: number) => Math.max(cap, clubSize)
+
 // Who a new club book takes in, in joining order: members not skipped (blocked by its host, removed from
-// it) and not in it already, up to the club's size. In a club that shrank under its cap (the host dropped
-// Plus) everyone already in stays; only new places are limited.
+// it) and not in it already, up to `cap` (clubBookCap).
 export function clubBookAdditions(memberIds: string[], opts: { skip: Set<string>, already: string[], cap: number }) {
   const inIt = new Set(opts.already)
   return memberIds.filter((id) => !opts.skip.has(id) && !inIt.has(id)).slice(0, Math.max(0, opts.cap - inIt.size))
+}
+
+// What the starter is told when a new book couldn't take everyone (only if the club grew while it started).
+export function clubBookLeftOutMessage(leftOut: number) {
+  return leftOut === 1
+    ? "One member couldn't be added to this book. They can join it from the club's page."
+    : `${leftOut} members couldn't be added to this book. They can join it from the club's page.`
 }
 
 // The club never says you're reading something you haven't started. A copy it puts on your shelf, when a book

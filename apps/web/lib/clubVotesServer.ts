@@ -12,10 +12,14 @@ import { hiddenWhileSuspended } from "@/lib/suspension";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { canManageClub, clubRole, inviteFaces } from "@/lib/clubs";
 import {
+  ALREADY_UP_MESSAGE,
   NOMINATIONS_FULL_MESSAGE,
+  NO_VOTES_MESSAGE,
+  ONE_BOOK_EACH_MESSAGE,
   VOTE_ALREADY_OPEN_MESSAGE,
   VOTE_CLOSED_MESSAGE,
   canNominate,
+  mayNominateMore,
   canRunVote,
   closesAtFor,
   countsVisible,
@@ -40,7 +44,7 @@ async function currentVote(clubId: string) {
   const live = await prisma.clubVote.findUnique({ where: { openKey: clubId } })
   if (live) return live
   const last = await prisma.clubVote.findFirst({ where: { clubId, status: "CLOSED" }, orderBy: { closedAt: "desc" } })
-  if (!last?.winnerId || await winnerStarted(last)) return null
+  if (!last?.winnerId || last.dismissedAt || await winnerStarted(last)) return null
   return last
 }
 
@@ -77,7 +81,9 @@ export async function loadClubVote(clubId: string, viewerId: string) {
     prisma.clubMember.findMany({ where: { clubId: club.id }, select: { userId: true } }),
   ])
   const memberIds = new Set(memberRows.map((m) => m.userId))
-  const counted = ballots.filter((b) => memberIds.has(b.userId))
+  // A ballot left pointing at a book taken down at the same moment doesn't count, in turnout either.
+  const up = new Set(nominations.map((n) => n.id))
+  const counted = ballots.filter((b) => memberIds.has(b.userId) && up.has(b.nominationId))
   const visible = countsVisible(vote.status)
   const counts = tallyVotes(nominations.map((n) => n.id), counted, memberIds)
 
@@ -93,7 +99,7 @@ export async function loadClubVote(clubId: string, viewerId: string) {
   ).map((u) => [u.userId, { userId: u.userId, username: u.username, displayName: u.displayName, image: u.image, favColour: u.favColour, staffBadge: staffBadgeOf(u), isYou: u.userId === viewerId }]))
 
   const myBallot = counted.find((b) => b.userId === viewerId)?.nominationId ?? null
-  const mine = nominations.find((n) => n.userId === viewerId)
+  const mine = nominations.filter((n) => n.userId === viewerId).length
   const running = canRunVote(role) && club.status === "ACTIVE"
   const open = vote.status === "OPEN"
 
@@ -112,7 +118,7 @@ export async function loadClubVote(clubId: string, viewerId: string) {
     },
     viewer: viewerOf({
       canRun: running,
-      canNominate: open && club.status === "ACTIVE" && !mine && canNominate(role, { hostsOnly: vote.hostsOnly, muted: !!member.hostMutedAt }),
+      canNominate: open && club.status === "ACTIVE" && mayNominateMore(vote.hostsOnly, mine) && canNominate(role, { hostsOnly: vote.hostsOnly, muted: !!member.hostMutedAt }),
       canVote: open && club.status === "ACTIVE",
       myBallot,
       muted: !!member.hostMutedAt,
@@ -169,14 +175,15 @@ export async function openVote(clubId: string, openerId: string, opts: { days: n
   return { ok: true, voteId: id }
 }
 
-// A book from the nominator's shelf, as a snapshot. One each, ten at most (counted after writing, so two at
-// once can't make eleven), and never the same book twice.
+// A book from the nominator's shelf, as a snapshot. One each (on a hosts-only shortlist a host may put up
+// several), ten at most, and never the same book twice. The last two are checked again after writing, so two
+// at once can't make eleven, or put up one book twice.
 export async function nominate(vote: ClubVote, userId: string, bookId: string): Promise<Result<{ nominationId: string }>> {
   if (vote.status !== "OPEN" || isVoteDue(vote)) return refuse(VOTE_CLOSED_MESSAGE, 409)
   const book = await prisma.book.findUnique({ where: { id: bookId } })
   if (!book || book.userId !== userId) return refuse("Book not found", 404)
   const others = await prisma.clubNomination.findMany({ where: { voteId: vote.id }, select: { workKey: true, title: true, author: true } })
-  if (others.some((n) => sameBook(n, book))) return refuse("That book's already up for the vote. Vote for it instead.", 409)
+  if (others.some((n) => sameBook(n, book))) return refuse(ALREADY_UP_MESSAGE, 409)
 
   let nominationId: string
   try {
@@ -192,18 +199,25 @@ export async function nominate(vote: ClubVote, userId: string, bookId: string): 
         cardColour: book.cardColour,
         pages: book.pages,
         audioMinutes: book.progressUnit === "MINUTES" ? book.audioMinutes : null,
+        // One each is held by the unique index; a shortlist's books each get their own slot.
+        ...(vote.hostsOnly && { slot: randomBytes(12).toString("hex") }),
       },
       select: { id: true },
     })
     nominationId = row.id
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return refuse("You've already put a book up. Take it down to choose another.", 409)
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return refuse(ONE_BOOK_EACH_MESSAGE, 409)
     throw e
   }
-  const order = await prisma.clubNomination.findMany({ where: { voteId: vote.id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true } })
-  if (!nominationAdmitted(order.map((n) => n.id), nominationId)) {
+  const order = await prisma.clubNomination.findMany({ where: { voteId: vote.id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, workKey: true, title: true, author: true } })
+  const at = order.findIndex((n) => n.id === nominationId)
+  const refusal = !nominationAdmitted(order.map((n) => n.id), nominationId) ? NOMINATIONS_FULL_MESSAGE
+    // The same book put up by someone else at the same moment: the first one stays.
+    : order.slice(0, Math.max(at, 0)).some((n) => sameBook(n, book)) ? ALREADY_UP_MESSAGE
+      : null
+  if (refusal) {
     await prisma.clubNomination.delete({ where: { id: nominationId } })
-    return refuse(NOMINATIONS_FULL_MESSAGE, 409)
+    return refuse(refusal, 409)
   }
   return { ok: true, nominationId }
 }
@@ -235,6 +249,11 @@ export async function castBallot(vote: ClubVote, userId: string, nominationId: s
     if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e
     await prisma.clubBallot.update({ where: { voteId_userId: { voteId: vote.id, userId } }, data: { nominationId } })
   }
+  // Taken down while this was written (removeNomination clears its ballots first): drop the ballot again.
+  if (!(await prisma.clubNomination.findUnique({ where: { id: nominationId }, select: { id: true } }))) {
+    await prisma.clubBallot.deleteMany({ where: { voteId: vote.id, userId, nominationId } })
+    return refuse("That book isn't up for the vote any more.", 404)
+  }
   return { ok: true }
 }
 
@@ -244,6 +263,12 @@ export async function castBallot(vote: ClubVote, userId: string, nominationId: s
 // and a host closing it at once announce it once.
 export async function closeVote(vote: ClubVote): Promise<Result<{ status: ClubVote["status"] }>> {
   if (vote.status !== "OPEN") return refuse(VOTE_CLOSED_MESSAGE, 409)
+  // An archived club starts nothing, so it picks nothing: a vote still on (archived as the tick ran) is called off.
+  const club = await prisma.club.findUnique({ where: { id: vote.clubId }, select: { status: true } })
+  if (club?.status !== "ACTIVE") {
+    const cancelled = await cancelVote(vote)
+    return cancelled.ok ? { ok: true, status: "CANCELLED" } : cancelled
+  }
   const [nominations, ballots, members] = await Promise.all([
     prisma.clubNomination.findMany({ where: { voteId: vote.id }, select: { id: true, title: true } }),
     prisma.clubBallot.findMany({ where: { voteId: vote.id }, select: { userId: true, nominationId: true } }),
@@ -262,7 +287,7 @@ export async function closeVote(vote: ClubVote): Promise<Result<{ status: ClubVo
     const title = nominations.find((n) => n.id === outcome.nominationId)?.title ?? null
     await notifyClub(vote.clubId, { type: "CLUB_VOTE_PICKED", message: title })
   } else if (outcome.kind === "tied") {
-    await notifyClub(vote.clubId, { type: "CLUB_VOTE_TIED", managersOnly: true })
+    await notifyClub(vote.clubId, { type: "CLUB_VOTE_TIED", managersOnly: true, message: outcome.unvoted ? NO_VOTES_MESSAGE : null })
   }
   return { ok: true, status: data.status as ClubVote["status"] }
 }
@@ -281,6 +306,20 @@ export async function pickWinner(vote: ClubVote, nominationId: string): Promise<
 export async function cancelVote(vote: ClubVote): Promise<Result> {
   const claimed = await prisma.clubVote.updateMany({ where: { id: vote.id, status: { in: ["OPEN", "TIED"] } }, data: { status: "CANCELLED", closedAt: new Date(), openKey: vote.id } })
   if (claimed.count === 0) return refuse(VOTE_CLOSED_MESSAGE, 409)
+  return { ok: true }
+}
+
+// The club is archived: whatever vote it has on, or a tie waiting, is called off.
+export async function cancelClubVote(clubId: string) {
+  const live = await prisma.clubVote.findUnique({ where: { openKey: clubId } })
+  if (live) await cancelVote(live)
+}
+
+// A host puts the winner card away without starting the book (they changed their minds, or started
+// something else): the club page stops showing it. The vote and its counts stay as they were.
+export async function dismissWinner(vote: ClubVote): Promise<Result> {
+  if (vote.status !== "CLOSED" || !vote.winnerId) return refuse("This vote hasn't picked a book yet.", 409)
+  await prisma.clubVote.update({ where: { id: vote.id }, data: { dismissedAt: new Date() } })
   return { ok: true }
 }
 

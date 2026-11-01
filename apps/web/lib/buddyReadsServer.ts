@@ -32,7 +32,7 @@ import {
   type HostingPlan,
 } from "@/lib/buddyReads";
 import { progressScale, progressSelect, unitOf } from "@/lib/progress";
-import { CLUB_COPY_STATUS, canRemoveFromClubBook, clubRole, inviteFaces, inviteHost } from "@/lib/clubs";
+import { CLUB_COPY_STATUS, canRemoveFromClubBook, clubBookCap, clubRole, inviteFaces, inviteHost } from "@/lib/clubs";
 import { EntitlementError, entitlementsOf, entitlementsSelect } from "@/lib/entitlements";
 import { entitlementResponse } from "@/lib/entitlementsServer";
 
@@ -167,12 +167,15 @@ export async function clubMemberLimitOf(hostId: string) {
   return entitlementsOf(user ?? {}).clubMemberLimit
 }
 
-// How many readers a circle takes: a circle on its own BUDDY_READ_MAX_MEMBERS, a club's book the club's size,
-// so everyone in a big club fits in each book.
+// How many readers a circle takes: a circle on its own BUDDY_READ_MAX_MEMBERS, a club's book the club's cap,
+// or its size if that's larger (lib/clubs.ts clubBookCap). So everyone in a big club fits in each book, even
+// after its host drops Plus, and a member a book left out can still join it themselves.
 export async function circleCapOf(buddyRead: Pick<BuddyRead, "clubId">) {
   if (!buddyRead.clubId) return BUDDY_READ_MAX_MEMBERS
   const club = await prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { hostId: true } })
-  return club ? clubMemberLimitOf(club.hostId) : BUDDY_READ_MAX_MEMBERS
+  if (!club) return BUDDY_READ_MAX_MEMBERS
+  const [cap, size] = await Promise.all([clubMemberLimitOf(club.hostId), prisma.clubMember.count({ where: { clubId: buddyRead.clubId } })])
+  return clubBookCap(cap, size)
 }
 
 // Whether a club's host or a co-host muted this reader in the club the circle belongs to (BOO-79): they can
@@ -194,13 +197,17 @@ export async function clubManagerOf(clubId: string, userId: string) {
   return { manager: !!coHost, active }
 }
 
-// Everyone's role in the club, by user id. Someone no longer in the club isn't in the map.
+// Everyone's role in the club, by user id, and whether the club is still active. Someone no longer in the
+// club isn't in the map.
 async function clubRolesOf(clubId: string) {
   const [club, members] = await Promise.all([
-    prisma.club.findUnique({ where: { id: clubId }, select: { hostId: true } }),
+    prisma.club.findUnique({ where: { id: clubId }, select: { hostId: true, status: true } }),
     prisma.clubMember.findMany({ where: { clubId }, select: { userId: true, coHost: true } }),
   ])
-  return new Map(club ? members.map((m) => [m.userId, clubRole(m, club.hostId)] as const) : [])
+  return {
+    roles: new Map(club ? members.map((m) => [m.userId, clubRole(m, club.hostId)] as const) : []),
+    active: club?.status === "ACTIVE",
+  }
 }
 
 async function isOwnBook(bookId: string, userId: string) {
@@ -214,7 +221,7 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const { buddyRead, progress, isHost, canManage, canModerate } = membership
 
   const memberRows = await prisma.buddyReadMember.findMany({ where: { buddyReadId }, orderBy: { joinedAt: "asc" } })
-  const [users, books, clubRoles, memberCap, clubMuted] = await Promise.all([
+  const [users, books, clubInfo, memberCap, clubMuted] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: memberRows.map((m) => m.userId) } }, select: { ...userSelect, ...staffBadgeSelect, ...suspensionSelect } }),
     prisma.book.findMany({ where: { id: { in: memberRows.map((m) => m.bookId) } }, select: { ...progressBookSelect, userId: true } }),
     buddyRead.clubId ? clubRolesOf(buddyRead.clubId) : Promise.resolve(null),
@@ -224,10 +231,11 @@ export async function loadBuddyReadView(buddyReadId: string, viewerId: string) {
   const userById = new Map(users.map((u) => [u.id, u]))
   const bookById = new Map(books.map((b) => [b.id, b]))
   // Who the viewer may remove, as the removal route decides it (app/api/buddy-reads/[id]/members/[userId]):
-  // never the book's host, and in a club's book only as the club's roles allow.
+  // never the book's host, and in a club's book only as the club's roles allow (only its host once archived).
+  const clubRoles = clubInfo?.roles ?? null
   const viewerClubRole = clubRoles?.get(viewerId) ?? null
   const removable = (userId: string) => canModerate && userId !== viewerId && userId !== buddyRead.hostId
-    && (!clubRoles || canRemoveFromClubBook(viewerClubRole, clubRoles.get(userId) ?? null, false))
+    && (!clubInfo || canRemoveFromClubBook(viewerClubRole, clubInfo.roles.get(userId) ?? null, false, clubInfo.active))
 
   const rows = await prisma.buddyReadComment.findMany({
     where: { buddyReadId },

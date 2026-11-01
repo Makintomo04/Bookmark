@@ -14,6 +14,7 @@ import useBuddyReads from '@/app/hooks/useBuddyReads'
 import useBookSearch from '@/app/hooks/useBookSearch'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { LABEL_MAX, SCHEDULE_MAX } from '@/lib/buddyReads'
+import { clubBookLeftOutMessage } from '@/lib/clubs'
 import { formatLength, progressScale } from '@/lib/progress'
 import BookCover from '../cards/BookCover'
 import BookSearchResults, { BookSearchResult } from '../modals/BookSearchResults'
@@ -162,6 +163,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: 
       startsAt: moment(startsOn, "YYYY-MM-DD").toISOString(),
       schedule,
     })).then(({ data }) => {
+      if (club && data.leftOut > 0) notify.info(clubBookLeftOutMessage(data.leftOut))
       router.push(`/circles/${data.id}`)
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't start the reading circle."))

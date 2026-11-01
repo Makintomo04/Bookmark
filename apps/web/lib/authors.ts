@@ -127,7 +127,8 @@ export async function authorAbout(author: Author): Promise<AuthorAbout> {
   const photoId = record?.photoIds[0]
   // A librarian's bio or photo, where they set one, wins over Open Library's.
   return {
-    photoUrl: curated?.photoUrl ?? (photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg` : null),
+    // default=false: a photo Open Library doesn't have is a 404, not a blank image, so the page can leave it out.
+    photoUrl: curated?.photoUrl ?? (photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg?default=false` : null),
     bio: curated?.bio ? bioParagraphs(curated.bio) : cleanBio(record?.bio),
     links: mergeAuthorLinks(linksFromWikidata(entity), linksFromOpenLibrary(record?.links)),
   }

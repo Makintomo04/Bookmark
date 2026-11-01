@@ -2,19 +2,20 @@ import { useEffect } from "react";
 import { Stack, router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { startPurchases } from "@/lib/purchases";
-import { registerForPush, usePushNavigation, usePushPermissionSync } from "@/lib/push";
+import { syncPushPermission, usePushNavigation, usePushPermissionSync } from "@/lib/push";
 import { useTheme } from "@/lib/theme";
 import { EarnCelebration } from "@/components/achievements/EarnCelebration";
 import { RemindersSheet } from "@/components/reminders/RemindersSheet";
 import { RoleWelcome } from "@/components/staff/RoleWelcome";
 
 // The signed-in app: the tabs, and the screens that open over them (a book, adding a book, a reading
-// circle, a club). Pushes are registered here, once onboarding is done.
+// circle, a club). A phone that already allows notifications is registered here; nothing asks for permission
+// until the reader turns a reminder on (the reminders sheet, or Settings), once it's been explained.
 export default function AppLayout() {
   const { colors, fonts } = useTheme();
 
   useEffect(() => {
-    void registerForPush();
+    void syncPushPermission();
   }, []);
   // Notifications switched off or on in the phone's settings meanwhile: the server hears, so reminders fall back to email.
   usePushPermissionSync();

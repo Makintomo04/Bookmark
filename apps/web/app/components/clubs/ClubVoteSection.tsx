@@ -6,7 +6,7 @@ import { Check, Plus, Vote, X } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { notify, apiError } from '@/lib/notify'
 import { readerName } from '@/lib/profile'
-import { VOTE_DAYS_DEFAULT, VOTE_DAYS_MAX, VOTE_NOMINATIONS_MAX, closesInText, turnoutText } from '@/lib/clubVotes'
+import { VOTE_DAYS_DEFAULT, VOTE_DAYS_MAX, VOTE_NOMINATIONS_MAX, closesInText, settledVoteText, turnoutText } from '@/lib/clubVotes'
 import type { ClubVoteView } from '@/lib/clubVotesServer'
 import useClubVote from '@/app/hooks/useClubVote'
 import useBooks from '@/app/hooks/useBooks'
@@ -88,6 +88,7 @@ const ClubVoteSection: FC<{ clubId: string, canManage: boolean, archived: boolea
 
   const open = vote.status === "OPEN"
   const tied = vote.status === "TIED"
+  const settled = settledVoteText(vote, viewer.canRun)
   const winner = vote.status === "CLOSED" ? nominations.find((n) => n.id === vote.winnerId) : undefined
   const ranked = open ? nominations : [...nominations].sort((a, b) => (b.votes ?? 0) - (a.votes ?? 0))
 
@@ -101,12 +102,10 @@ const ClubVoteSection: FC<{ clubId: string, canManage: boolean, archived: boolea
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="vote-heading" className="text-lg font-semibold">
-            {open ? "Vote on the next book" : tied ? "The vote's a tie" : "The club has picked"}
+            {open ? "Vote on the next book" : settled.heading}
           </h2>
           <p className="text-sm text-muted-foreground" suppressHydrationWarning>
-            {open ? `${closesInText(vote.closesAt)} · ${turnoutText(vote.voted, vote.memberCount)}`
-              : tied ? (viewer.canRun ? "Pick the winner from the books level at the top." : "The host is picking between the books level at the top.")
-                : `${vote.voted} ${vote.voted === 1 ? "vote" : "votes"} counted.`}
+            {open ? `${closesInText(vote.closesAt)} · ${turnoutText(vote.voted, vote.memberCount)}` : settled.line}
           </p>
         </div>
         {open && viewer.canRun && (
@@ -125,9 +124,12 @@ const ClubVoteSection: FC<{ clubId: string, canManage: boolean, archived: boolea
             <p className="text-sm text-muted-foreground">{winner.author}</p>
             <p className="text-xs text-muted-foreground">{winner.votes} {winner.votes === 1 ? "vote" : "votes"} · {votersText(winner)}</p>
           </div>
-          {viewer.canRun
-            ? <button type="button" disabled={busy} onClick={startWinner} className={primaryButtonClass}>Start this book</button>
-            : <p className="text-sm text-muted-foreground">The host will start it soon.</p>}
+          {viewer.canRun ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" disabled={busy} onClick={startWinner} className={primaryButtonClass}>Start this book</button>
+              <button type="button" disabled={busy} onClick={() => window.confirm(`Put this away without starting ${winner.title}? The club page stops showing it.`) && act(axios.patch(`/api/clubs/${clubId}/votes/${vote.id}`, { action: "dismiss" }), "Couldn't put it away.")} className={linkClass}>Not now</button>
+            </div>
+          ) : <p className="text-sm text-muted-foreground">The host will start it soon.</p>}
         </div>
       )}
 

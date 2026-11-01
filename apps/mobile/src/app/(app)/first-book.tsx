@@ -11,7 +11,7 @@ import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { ApiError } from "@/lib/api";
-import { saveBook } from "@/lib/books";
+import { saveBook, useShelfCopy } from "@/lib/books";
 import { addBook } from "@/lib/discover";
 import { useTheme } from "@/lib/theme";
 
@@ -75,6 +75,9 @@ function StarterCard({ book }: { book: StarterBook }) {
   const { colors } = useTheme();
   const [state, setState] = useState<"idle" | "starting" | "started">("idle");
   const [error, setError] = useState<string | null>(null);
+  // Added through Add a book meanwhile: say so rather than offer Add again.
+  const copy = useShelfCopy()(book);
+  const added = !book.bookId && copy;
 
   const start = async () => {
     if (!book.bookId) return addBook(book, "STARTED");
@@ -98,7 +101,12 @@ function StarterCard({ book }: { book: StarterBook }) {
       <Text variant="small" numberOfLines={1}>{book.author}</Text>
       {book.why && <Text variant="small" numberOfLines={2}>{book.why}</Text>}
       {book.quote && <Text variant="small" numberOfLines={3} style={{ fontStyle: "italic" }}>{"“"}{book.quote}{"”"}</Text>}
-      {state === "started" ? (
+      {added ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={`${book.title} is on your shelf. Opens it.`} onPress={() => router.push(`/book/${copy.id}` as never)} style={styles.started}>
+          <Check size={14} color={colors.brandText} />
+          <Text variant="small" style={{ color: colors.brandText }}>On your shelf</Text>
+        </Pressable>
+      ) : state === "started" ? (
         <View style={styles.started} accessibilityLiveRegion="polite">
           <Check size={14} color={colors.brandText} />
           <Text variant="small" style={{ color: colors.brandText }}>Reading</Text>

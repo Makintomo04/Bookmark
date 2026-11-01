@@ -28,7 +28,10 @@ import {
   BIG_CLUB_MAX_MEMBERS,
   MEMBERS_SHOWN,
   canMuteInClub,
+  canMuteInClubNow,
   clubBookAdditions,
+  clubBookCap,
+  clubBookLeftOutMessage,
   clubFullMessage,
   clubMemberCap,
   matchesMember,
@@ -65,6 +68,18 @@ test("a new club book takes members in joining order, skipping blocked and remov
   assert.deepEqual(clubBookAdditions(ids, { skip: new Set(), already: ["a", "c"], cap: 10 }), ["b", "d", "e"]);
   // A club over its cap (the host dropped Plus) keeps its readers but adds nobody new.
   assert.deepEqual(clubBookAdditions(ids, { skip: new Set(), already: ["x", "y", "z"], cap: 2 }), []);
+});
+
+test("after its host drops Plus, a club's next book still takes everyone in the club", () => {
+  // 40 members under a free host's 15: the book takes all 40, not the starter and the first 14.
+  const members = Array.from({ length: 39 }, (_, i) => `m${i}`);
+  const cap = clubBookCap(clubMemberCap(entitlementsOf({})), members.length + 1);
+  assert.equal(cap, 40);
+  assert.equal(clubBookAdditions(members, { skip: new Set(), already: ["starter"], cap }).length, 39);
+  // Under the cap, the cap stands.
+  assert.equal(clubBookCap(BIG_CLUB_MAX_MEMBERS, 12), BIG_CLUB_MAX_MEMBERS);
+  assert.match(clubBookLeftOutMessage(1), /^One member couldn't/);
+  assert.match(clubBookLeftOutMessage(3), /^3 members couldn't/);
 });
 
 test("muting follows removing: the host mutes anyone else, a co-host only members", () => {
@@ -264,4 +279,14 @@ test("the invite names its host on the same terms as the faces: not suspended, b
   // A club host not reading this book: nobody is named.
   assert.equal(inviteHost(members, "elsewhere", { blocked: new Set() }), null);
   assert.equal(inviteHost(members, null, { blocked: new Set() }), null);
+});
+
+test("once a club is archived only its host mutes, unmutes or removes readers from its books", () => {
+  // The host can lift a mute without reopening the club; a co-host can't, as with removing.
+  assert.equal(canMuteInClubNow("host", "member", false), true);
+  assert.equal(canMuteInClubNow("cohost", "member", false), false);
+  assert.equal(canMuteInClubNow("cohost", "member", true), true);
+  assert.equal(canRemoveFromClubBook("cohost", "member", false, false), false);
+  assert.equal(canRemoveFromClubBook("host", "member", false, false), true);
+  assert.equal(canRemoveFromClubBook("cohost", "member", false), true);
 });

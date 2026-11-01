@@ -7,7 +7,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Text } from "@/components/ui/Text";
 import { useEarnMoment, useRemindersPrompt } from "@/lib/earnMoment";
 import { useNotificationSettings } from "@/lib/notificationSettings";
-import { usePushBlocked } from "@/lib/push";
+import { currentPushToken, pushAvailable, registerForPush, usePushBlocked } from "@/lib/push";
 import { DEFAULT_REMINDER_AT, ReminderControls } from "./ReminderControls";
 
 // Offered once (the web's RemindersSheet): after a first finish this year, a third day of reading or a goal
@@ -18,7 +18,8 @@ export function RemindersSheet() {
   const celebrating = useEarnMoment((s) => s.moment !== null);
   const { settings, save, pending, error } = useNotificationSettings(!!asked);
   const [draft, setDraft] = useState<NotificationSettings | null>(null);
-  const blocked = usePushBlocked();
+  // Pushes can't reach this phone: switched off for Bookmark, or a build or device that can't get them.
+  const blocked = usePushBlocked() || !pushAvailable();
 
   useEffect(() => {
     if (!asked || celebrating || !settings) return;
@@ -33,18 +34,23 @@ export function RemindersSheet() {
   if (!asked || !draft) return null;
 
   const close = async (turnOn: boolean) => {
-    const ok = await save(
-      turnOn
-        ? { reminders: { dailyAt: draft.reminders.dailyAt, streak: draft.reminders.streak, checkpoints: draft.reminders.checkpoints }, email: { weekly: draft.email.weekly }, prompted: true }
-        : { prompted: true }
-    );
+    // The phone's permission prompt comes now, after the sheet has said what it's for. Refused (or no token
+    // to be had), the push-only reminders stay off rather than being saved as on and never arriving;
+    // checkpoints still come by email.
+    const wantsPush = turnOn && (draft.reminders.dailyAt !== null || draft.reminders.streak || draft.reminders.checkpoints);
+    const pushOn = wantsPush && !blocked && (!!currentPushToken() || (await registerForPush()));
+    const reminders = pushOn || !wantsPush
+      ? { dailyAt: draft.reminders.dailyAt, streak: draft.reminders.streak, checkpoints: draft.reminders.checkpoints }
+      : { dailyAt: null, streak: false, checkpoints: draft.reminders.checkpoints };
+    const ok = await save(turnOn ? { reminders, email: { weekly: draft.email.weekly }, prompted: true } : { prompted: true }, { askForPush: false });
     if (!ok && turnOn) return;
     setDraft(null);
     done();
     // The same short banner a finished book gets, so "Turn on" is confirmed.
     if (turnOn) {
-      const pushOn = !blocked && (draft.reminders.dailyAt !== null || draft.reminders.streak || draft.reminders.checkpoints);
-      const note = pushOn || draft.email.verified ? "Change them any time in Settings." : "Confirm your email address and they'll start.";
+      const note = wantsPush && !pushOn
+        ? `Notifications aren't on for Bookmark on this phone, so they'll come by email.${draft.email.verified ? " Change them any time in Settings." : " Confirm your email address and they'll start."}`
+        : pushOn || draft.email.verified ? "Change them any time in Settings." : "Confirm your email address and they'll start.";
       useEarnMoment.setState({ noteTitle: "Reminders are on", note });
     }
   };

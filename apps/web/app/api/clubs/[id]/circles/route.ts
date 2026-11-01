@@ -33,8 +33,9 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   if (circleSlotsLeft(open) === 0) return clubError(CIRCLE_SLOTS_MESSAGE, 409);
 
   const circle = await createCircle(book, currentUser.id, { startsAt, schedule, clubId: membership.club.id });
-  await addClubToCircle(circle, membership.club.id, currentUser.id);
+  const { leftOut } = await addClubToCircle(circle, membership.club.id, currentUser.id);
   // Archived meanwhile: the book is finished with the rest, so it doesn't run outside every limit.
   await settleNewClubBook(membership.club.id, prisma);
-  return NextResponse.json({ id: circle.id });
+  // leftOut: members there wasn't room for, so the starter is told (lib/clubs.ts clubBookLeftOutMessage).
+  return NextResponse.json({ id: circle.id, leftOut });
 }

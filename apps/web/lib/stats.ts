@@ -12,6 +12,7 @@ import { isProfilePublic, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
 import type { Mood } from "@bookmark/shared/workTags";
 import { cardPeriodKeys } from "@bookmark/shared/wrapCards";
+import { averageRating, latestRatingByBook } from "@bookmark/shared/rating";
 import type { DateRange, ExplorerFinish, ExplorerFormat } from "@bookmark/shared/statsExplorer";
 export type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData };
 
@@ -278,11 +279,12 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     years.push({ year: y, books: months[y].reduce((s, m) => s + m.books, 0), pages: months[y].reduce((s, m) => s + m.pages, 0) });
   }
 
-  // Ratings are the reader's current rating for each book. The chart has a column per half star, so a
-  // quarter counts with the half below it (4¾ under 4½), and ¼ under ½.
-  const rated = books.filter((b) => b.rating && b.rating > 0);
+  // Ratings follow the one rule the explorer and the cards use (@bookmark/shared/rating latestRatingByBook):
+  // each finished book once, with its latest rating. The chart has a column per half star, so a quarter
+  // counts with the half below it (4¾ under 4½), and ¼ under ½.
+  const rated = Array.from(latestRatingByBook([...completed].sort((a, b) => (a.at?.getTime() ?? 0) - (b.at?.getTime() ?? 0)).map((f) => ({ bookId: f.book.id, rating: f.rating }))).values());
   const bucket = (rating: number) => Math.max(0.5, Math.floor(rating * 2) / 2);
-  const ratings = STAR_STEPS.map((rating) => ({ rating, count: rated.filter((b) => bucket(b.rating!) === rating).length }));
+  const ratings = STAR_STEPS.map((rating) => ({ rating, count: rated.filter((r) => bucket(r) === rating).length }));
 
   const finishesInYear = (year: number) => completed.filter((f) => f.year === year).length;
 
@@ -300,7 +302,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     averagePages: averageLength(finished),
     longestBook: longest(finished),
     ratedBooks: rated.length,
-    averageRating: rated.length ? Math.round((rated.reduce((s, b) => s + b.rating!, 0) / rated.length) * 10) / 10 : null,
+    averageRating: averageRating(rated),
     ratings,
     genres: tally(finished.map((b) => b.genre)),
     authors: tally(finished.map((b) => b.author)),
@@ -481,8 +483,7 @@ async function wrapCardOf(userId: string, data: Awaited<ReturnType<typeof readin
     .filter((f) => f.outcome === "COMPLETED" && inPeriod(f))
     .sort((a, b) => a.at!.getTime() - b.at!.getTime());
 
-  const rated = new Map<string, number | null>();
-  for (const f of completed) rated.set(f.book.id, f.rating && f.rating > 0 ? f.rating : rated.get(f.book.id) ?? null);
+  const rated = latestRatingByBook(completed.map((f) => ({ bookId: f.book.id, rating: f.rating })));
   const finished = distinctBooks(completed);
 
   const workOf = new Map(books.map((b) => [b.id, b.workId]));
@@ -501,7 +502,6 @@ async function wrapCardOf(userId: string, data: Awaited<ReturnType<typeof readin
   // Whole stars, rounded down: a 4¾ counts with the fours.
   const ratings = [0, 0, 0, 0, 0];
   for (const r of rated.values()) if (r) ratings[Math.min(5, Math.max(1, Math.floor(r))) - 1]++;
-  const ratingValues = Array.from(rated.values()).filter((r): r is number => !!r);
 
   return {
     books: finished.map((b) => {
@@ -512,7 +512,7 @@ async function wrapCardOf(userId: string, data: Awaited<ReturnType<typeof readin
     pages: completed.reduce((sum, f) => sum + f.pages, 0),
     minutes: completed.reduce((sum, f) => sum + f.minutes, 0),
     ratings,
-    averageRating: ratingValues.length ? Math.round((ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length) * 100) / 100 : null,
+    averageRating: averageRating(rated.values()),
     genres: tally(finished.map((b) => b.genre), 3),
     moods,
   };
