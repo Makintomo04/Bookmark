@@ -4,6 +4,8 @@ import { addBookAndStartCircle, chooseUsername, copyInvite, logProgress, newRead
 // Flow 2: the spoiler lock. A comment posted at 50% stays hidden from a reader who hasn't got there,
 // and opens once they log progress past it.
 test("a second reader joins through the invite and posts; the host unlocks it by reading on", async ({ browser }, testInfo) => {
+  // Two readers across the most routes of any flow, each compiled on first use while the other worker compiles its own.
+  test.setTimeout(300_000)
   const hostContext = await readerContext(browser, testInfo)
   const host = await hostContext.newPage()
   const hostReader = newReader("host")
@@ -36,7 +38,8 @@ test("a second reader joins through the invite and posts; the host unlocks it by
 
   // Halfway through, then a comment, which is pinned where the guest is.
   await logProgress(guest, 150)
-  await expect(guest.getByRole("button", { name: /^Update my progress · 50%/ })).toBeVisible()
+  // The circle refetches once the shelf has, which can wait behind another route's first compile on CI.
+  await expect(guest.getByRole("button", { name: /^Update my progress · 50%/ })).toBeVisible({ timeout: 60_000 })
   const comment = `Did not see that twist coming (${guestReader.username})`
   await guest.getByLabel("Your comment").fill(comment)
   await guest.getByRole("button", { name: "Post", exact: true }).click()
@@ -48,7 +51,7 @@ test("a second reader joins through the invite and posts; the host unlocks it by
   await expect(host.getByText(comment)).toHaveCount(0)
 
   await logProgress(host, 200)
-  await expect(host.getByText(comment)).toBeVisible()
+  await expect(host.getByText(comment)).toBeVisible({ timeout: 60_000 })
   await expect(host.getByText(/comment ahead at/)).toHaveCount(0)
 
   await hostContext.close()
