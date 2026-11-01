@@ -21,6 +21,7 @@ import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 import useBookSearch from '@/app/hooks/useBookSearch'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
+import ReviewFields, { EMPTY_REVIEW, reviewBody, type ReviewValue } from '../books/ReviewFields'
 import { GENRES } from '@/utils/helpers'
 import { readableInk } from '@/lib/colour'
 import BookBlurb from '../books/BookBlurb'
@@ -87,6 +88,7 @@ const BookEntryModal: FC = () => {
   // A finished book's dates: today by default, or the day picked, or undated.
   const [finishDates, setFinishDates] = useState<FinishDatesValue>(defaultFinishDates)
   const [rating, setRating] = useState(0)
+  const [review, setReview] = useState<ReviewValue>(EMPTY_REVIEW)
 
   const [query, setQuery] = useState("")
   const [searchAttempt, setSearchAttempt] = useState(0)
@@ -118,6 +120,7 @@ const BookEntryModal: FC = () => {
     setShelf("NOT_STARTED")
     setFinishDates(defaultFinishDates())
     setRating(0)
+    setReview(EMPTY_REVIEW)
     setPublished(null)
     setGivenBlurb(null)
     setHardcoverId(null)
@@ -214,6 +217,7 @@ const BookEntryModal: FC = () => {
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
       ...(shelf === "COMPLETED" && finishDatesBody(finishDates)),
       rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
+      ...(shelf === "COMPLETED" && reviewBody(review)),
       isPrivate: isPrivate || undefined,
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
@@ -466,6 +470,7 @@ const BookEntryModal: FC = () => {
             <Label>Rating <span className="font-normal text-muted-foreground">· optional</span></Label>
             <StarRating value={rating} onChange={setRating} disabled={isLoading} />
           </div>
+          <ReviewFields value={review} onChange={setReview} disabled={isLoading} accent={user?.favColour || '#D92D2D'} id="add-finish-review" />
         </div>
       )}
     </div>

@@ -5,7 +5,7 @@ import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
-import { BookPlus, Check, Lock, Send, Unlock } from 'lucide-react'
+import { BookPlus, Lock, Send, Unlock } from 'lucide-react'
 import { askToCatalogue } from '../books/catalogueRequest'
 import Modal from './Modal'
 import BookCover from '../cards/BookCover'
@@ -43,6 +43,7 @@ import { fetcher, swrOptions } from '@/lib/fetcher'
 import FinishDates, { defaultFinishDates, finishDatesProblem, type FinishDatesValue } from '../books/FinishDates'
 import ReadHistory from '../books/ReadHistory'
 import ShelfTagsEditor from '../books/ShelfTagsEditor'
+import ReviewFields from '../books/ReviewFields'
 
 const PACE_MIN_DAYS = 7
 
@@ -56,26 +57,6 @@ const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}
 // Quiet text actions under the cover. The padding gives each a full-height target and room for the focus
 // ring; the negative margin keeps the text lined up with the title above.
 const bookActionClass = "-mx-1.5 inline-flex h-9 sm:h-8 items-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-
-// Drawn rather than left to the browser: a native box takes its fill from the browser and OS theme, so it
-// came out grey-filled on the light theme. A real input underneath keeps the keyboard and screen readers.
-const AccentCheckbox: FC<{ checked: boolean, onChange: (checked: boolean) => void, disabled?: boolean, accent: string, label: string }> =
-  ({ checked, onChange, disabled, accent, label }) => (
-    <label className={cn("inline-flex items-center gap-2", disabled ? "opacity-60" : "cursor-pointer")}>
-      <span className="relative inline-flex size-4 shrink-0">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          disabled={disabled}
-          style={checked ? { background: accent, borderColor: accent } : undefined}
-          className="peer size-4 appearance-none rounded-[4px] border border-neutral-400 dark:border-neutral-600 bg-background transition-colors cursor-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        />
-        <Check size={12} strokeWidth={3} aria-hidden style={{ color: readableInk(accent) }} className="pointer-events-none absolute inset-0 m-auto hidden peer-checked:block" />
-      </span>
-      {label}
-    </label>
-  )
 
 const BookUpdateModal: FC = () => {
   const { user, mutate } = useUser()
@@ -567,25 +548,12 @@ const BookUpdateModal: FC = () => {
         <span className="text-sm font-medium">Rating <span className="font-normal text-muted-foreground">· optional</span></span>
         <StarRating value={rating} onChange={setRating} disabled={isSaving} label="Your rating" />
       </div>
-      <div className="flex flex-col gap-2">
-        <label htmlFor="review" className="text-sm font-medium">
-          Review <span className="font-normal text-muted-foreground">· optional</span>
-        </label>
-        <textarea
-          id="review"
-          value={review}
-          onChange={(e) => setReview(e.target.value)}
-          maxLength={2000}
-          rows={4}
-          placeholder="What did you think?"
-          disabled={isSaving}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
-        />
-        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-          <AccentCheckbox checked={reviewSpoiler} onChange={setReviewSpoiler} disabled={isSaving} accent={accent} label="Contains spoilers" />
-          <AccentCheckbox checked={reviewPrivate} onChange={setReviewPrivate} disabled={isSaving} accent={accent} label="Only me" />
-        </div>
-      </div>
+      <ReviewFields
+        value={{ review, reviewSpoiler, reviewPrivate }}
+        onChange={(next) => { setReview(next.review); setReviewSpoiler(next.reviewSpoiler); setReviewPrivate(next.reviewPrivate) }}
+        disabled={isSaving}
+        accent={accent}
+      />
       <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} canReportSpice={(status === "COMPLETED" || finished) && spiceAskable(workTags, tags.warnings)} />
     </div>
   )
