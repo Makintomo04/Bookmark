@@ -222,3 +222,50 @@ progress { color: black;width: 100%; }
   from { background-position: 120% 0; }
   to { background-position: -20% 0; }
 }
+
+/* The Wrap card preview while it draws (wrapped/WrapCardMaker.tsx): a dot grid on a canvas in the
+   reader's colour (var(--accent), stats/accent.ts), lit where soft blobs drift beneath it and where a
+   band of light works down the card; then the finished card comes out of the blur. */
+.card-brew {
+  --brew-dot: 11px;
+  background-color: color-mix(in srgb, var(--accent, #D92D2D) 14%, hsl(var(--background)));
+}
+.card-brew-dots {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--accent, #D92D2D) 22%, transparent) 0.8px, transparent 1.3px);
+  background-size: var(--brew-dot) var(--brew-dot);
+  background-position: center;
+}
+.card-brew-glow {
+  -webkit-mask-image: radial-gradient(circle, #000 2px, transparent 2.6px);
+  mask-image: radial-gradient(circle, #000 2px, transparent 2.6px);
+  -webkit-mask-size: var(--brew-dot) var(--brew-dot);
+  mask-size: var(--brew-dot) var(--brew-dot);
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+.card-brew-blob { filter: blur(22px); background: color-mix(in srgb, var(--accent, #D92D2D) 85%, white); }
+.card-brew-band {
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent, #D92D2D) 55%, white) 50%, transparent);
+  opacity: 0.7;
+  transform: translateY(-100%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card-brew-blob { animation: card-brew-drift 7s ease-in-out infinite alternate; }
+  .card-brew-blob:nth-child(2) { animation-duration: 9s; animation-delay: -3s; animation-direction: alternate-reverse; }
+  .card-brew-blob:nth-child(3) { animation-duration: 11s; animation-delay: -6s; }
+  .card-brew-band { animation: card-brew-band 3.2s cubic-bezier(.45, 0, .35, 1) infinite; }
+  .card-brew-reveal { animation: card-brew-reveal 0.9s cubic-bezier(.2, .7, .2, 1) both; }
+}
+@keyframes card-brew-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(18%, 12%) scale(1.2); }
+  100% { transform: translate(-12%, 22%) scale(0.9); }
+}
+@keyframes card-brew-band {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(250%); }
+}
+@keyframes card-brew-reveal {
+  from { filter: blur(18px) saturate(0.6); opacity: 0.4; transform: scale(1.04); }
+  to { filter: blur(0) saturate(1); opacity: 1; transform: scale(1); }
+}

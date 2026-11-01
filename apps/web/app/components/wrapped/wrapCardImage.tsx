@@ -1,9 +1,10 @@
+import { after } from 'next/server'
 import { ImageResponse } from 'next/og'
 import type { WrapCardBook, WrapCardData } from '@bookmark/shared/statsTypes'
-import { CARD_SIZES, cardShortPath, cardStats, cardWords, gridLayout, moodMix, type CardDesign, type CardKind, type CardSize } from '@bookmark/shared/wrapCards'
+import { CARD_SIZES, cardStats, cardWords, gridLayout, moodMix, type CardDesign, type CardKind, type CardSize } from '@bookmark/shared/wrapCards'
 import { ratingGlyphs, starClip } from '@bookmark/shared/rating'
 import { readableInk, shade, toHex } from '@/lib/colour'
-import { BG, BRAND, INK, MUTED, STAR_PATH, Logo, clip, fmt, googleFont, imageData, siteHost } from './wrappedImage'
+import { BG, BRAND, INK, MUTED, STAR_PATH, Logo, clip, fmt, googleFont, imageData } from './wrappedImage'
 
 // Wrap cards (BOO-50): the cover grid ("My October in books") and the stats card, in 9:16, 4:5 and 1:1,
 // in three designs. Same visual language as the Wrapped story (wrappedImage.tsx): Inter, the red
@@ -198,16 +199,22 @@ const MoodsLine = ({ moods, size, p }: { moods: ReturnType<typeof moodMix>; size
 )
 
 const Footer = ({ handle, size, p }: { handle: string; size: number; p: Palette }) => (
-  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: size, lineHeight: 1.3 }}>
-    <span style={{ fontWeight: 600, color: p.ink }}>{`@${handle} on Bookmark`}</span>
-    <span style={{ color: p.muted }}>{`${siteHost}${cardShortPath(handle)}`}</span>
+  <div style={{ display: 'flex', fontSize: size, lineHeight: 1.3 }}>
+    <span style={{ fontWeight: 600, color: p.ink, whiteSpace: 'nowrap' }}>{`@${handle} on Bookmark`}</span>
   </div>
 )
 
 // ---- Assets ----------------------------------------------------------------------------------
 
-// All the covers are fetched at once, so this is the most they add; past it a cover becomes a title tile.
-const COVER_TIMEOUT = 8000
+// Open Library covers by ID come from archive.org, which takes a couple of seconds each and sometimes far
+// longer, and a card waits for its slowest cover. So a card waits this long at most (all the covers are
+// fetched at once); a cover that isn't back by then is drawn as its title tile, and carries on loading
+// (up to COVER_TIMEOUT) so the next draw has it.
+const COVER_WAIT = 3500
+const COVER_TIMEOUT = 20_000
+// Covers don't change, so the fetch is kept in Next's data cache, which outlives this server instance:
+// a week, and then fetched again.
+const COVER_CACHE_SECONDS = 7 * 24 * 3600
 
 // Covers this server has already fetched, by URL. Picking a size or design draws the card again, and
 // Open Library throttles a burst of dozens of covers, so the second draw reuses what the first got.
@@ -215,18 +222,32 @@ const COVER_TIMEOUT = 8000
 const coverCache = new Map<string, { data: string; at: number }>()
 const CACHE_MAX = 600
 const CACHE_TTL = 3600_000
+// Covers being fetched, so two draws at once (or a draw after a slow cover was given up on) share one fetch.
+const coverLoading = new Map<string, Promise<string | null>>()
 
 async function cover(url: string | null) {
   if (!url) return null
   const hit = coverCache.get(url)
   if (hit && Date.now() - hit.at < CACHE_TTL) return hit.data
-  const data = await imageData(url, COVER_TIMEOUT)
-  if (data) {
-    coverCache.delete(url)
-    coverCache.set(url, { data, at: Date.now() })
-    if (coverCache.size > CACHE_MAX) coverCache.delete(coverCache.keys().next().value!)
+  let loading = coverLoading.get(url)
+  if (!loading) {
+    loading = imageData(url, COVER_TIMEOUT, COVER_CACHE_SECONDS)
+      .then((data) => {
+        if (data) {
+          coverCache.delete(url)
+          coverCache.set(url, { data, at: Date.now() })
+          if (coverCache.size > CACHE_MAX) coverCache.delete(coverCache.keys().next().value!)
+        }
+        return data
+      })
+      .finally(() => coverLoading.delete(url))
+    coverLoading.set(url, loading)
+    // Keeps the function alive after the card is sent, so a cover given up on still lands in the caches.
+    after(() => loading)
   }
-  return data
+  let waited: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<null>((resolve) => (waited = setTimeout(() => resolve(null), COVER_WAIT)))
+  return Promise.race([loading, late]).finally(() => clearTimeout(waited))
 }
 
 // Open Library serves three sizes; small grid cells don't need the large one.
@@ -235,11 +256,8 @@ function coverFor(url: string | null, width: number) {
   return url.replace(/^(https:\/\/covers\.openlibrary\.org\/.+)-L\.jpg/, '$1-M.jpg')
 }
 
-const ASCII = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)).join('')
-
-async function fonts(text: string, title: string) {
-  const all = ASCII + '·…’—–¼½¾%' + text
-  const loaded = await Promise.all([googleFont('Inter', 400, all), googleFont('Inter', 600, all), googleFont('Inter', 800, all), googleFont('Literata', 700, ASCII + '’' + title)])
+async function fonts() {
+  const loaded = await Promise.all([googleFont('Inter', 400), googleFont('Inter', 600), googleFont('Inter', 800), googleFont('Literata', 700)])
   return loaded.filter((x): x is NonNullable<typeof x> => !!x)
 }
 
@@ -268,7 +286,8 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
 
   let body: React.ReactNode
   let covers: (string | null)[] = []
-  const textBits: string[] = [title, kicker, handle, siteHost, ...stats.flatMap((s) => [s.value, s.label]), ...moods.map((x) => x.label)]
+  // Alongside the covers.
+  const fontsLoading = fonts()
 
   if (kind === 'grid') {
     const box = {
@@ -284,7 +303,6 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
     const layout = gridLayout(card.books.length, box)
     const shown = card.books.slice(0, layout.shown)
     covers = await Promise.all(shown.map((b) => cover(coverFor(b.coverImage, layout.coverWidth))))
-    textBits.push(...shown.flatMap((b) => [b.title, b.author]), `+${fmt(layout.more)}`, 'more')
     const stars = rated && layout.labels
     body = (
       <div style={{ display: 'flex', flex: 1, marginTop: m.gap, alignItems: 'center', justifyContent: 'center' }}>
@@ -302,10 +320,10 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
       </div>
     )
   } else {
-    body = await statsBody({ card, size, m, p, rated, textBits })
+    body = await statsBody({ card, size, m, p, rated })
   }
 
-  const loaded = await fonts(textBits.join(''), title)
+  const loaded = await fontsLoading
 
   return new ImageResponse(
     (
@@ -323,7 +341,7 @@ export async function wrapCardImage(input: CardInput, headers?: Record<string, s
 
 // The stats card: the big numbers, the rating spread and top genres, then a strip of covers where
 // there's room.
-async function statsBody({ card, size, m, p, rated, textBits }: { card: WrapCardData; size: CardSize; m: typeof METRICS[CardSize]; p: Palette; rated: boolean; textBits: string[] }) {
+async function statsBody({ card, size, m, p, rated }: { card: WrapCardData; size: CardSize; m: typeof METRICS[CardSize]; p: Palette; rated: boolean }) {
   const numbers = [
     ...cardStats({ books: card.books.length, reads: card.finishes, pages: card.pages, minutes: card.minutes }),
     ...(rated && card.averageRating !== null ? [{ value: `${card.averageRating.toFixed(1)}`, label: 'average rating' }] : []),
@@ -336,7 +354,6 @@ async function statsBody({ card, size, m, p, rated, textBits }: { card: WrapCard
   const stripBooks = card.books.slice(0, size === 'story' ? perRow * 2 : perRow)
   const stripWidth = stripBooks.length ? Math.floor((CARD_SIZES[size].width - m.side * 2 - (perRow - 1) * m.coverGap) / perRow) : 0
   const stripCovers = await Promise.all(stripBooks.map((b) => cover(coverFor(b.coverImage, stripWidth))))
-  textBits.push(...numbers.flatMap((n) => [n.value, n.label]), 'Ratings', 'Top genres', ...genres.flatMap((g) => [g.name, String(g.count)]), ...stripBooks.map((b) => b.title))
 
   const heading = { fontSize: m.line, fontWeight: 600, color: p.muted, marginBottom: m.line * 0.6, textTransform: 'uppercase' as const, letterSpacing: 2 }
   const row = m.line * 1.15
