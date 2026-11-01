@@ -16,6 +16,7 @@ export interface PushableNotification {
   type: string;
   bookId?: string | null;
   buddyReadId?: string | null;
+  clubId?: string | null;
   count?: number | null;
   workId?: string | null;
   message?: string | null;
@@ -39,12 +40,15 @@ async function contentFor(rows: PushableNotification[]): Promise<Map<PushableNot
   const bookIds = Array.from(new Set(rows.flatMap((r) => (r.bookId ? [r.bookId] : []))));
   const circleIds = Array.from(new Set(rows.flatMap((r) => (r.buddyReadId ? [r.buddyReadId] : []))));
   const workIds = Array.from(new Set(rows.flatMap((r) => (r.workId ? [r.workId] : []))));
-  const [actors, books, circles, works] = await Promise.all([
+  const clubIds = Array.from(new Set(rows.flatMap((r) => (r.clubId ? [r.clubId] : []))));
+  const [actors, books, circles, works, clubs] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, username: true } }),
     bookIds.length ? prisma.book.findMany({ where: { id: { in: bookIds } }, select: { id: true, title: true } }) : [],
     circleIds.length ? prisma.buddyRead.findMany({ where: { id: { in: circleIds } }, select: { id: true, title: true } }) : [],
     workIds.length ? prisma.work.findMany({ where: { id: { in: workIds } }, select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, releaseDate: true } }) : [],
+    clubIds.length ? prisma.club.findMany({ where: { id: { in: clubIds } }, select: { id: true, name: true } }) : [],
   ]);
+  const clubName = new Map(clubs.map((c) => [c.id, c.name]));
   const username = new Map(actors.map((a) => [a.id, a.username]));
   const bookTitle = new Map(books.map((b) => [b.id, b.title]));
   const circleTitle = new Map(circles.map((c) => [c.id, c.title]));
@@ -58,6 +62,8 @@ async function contentFor(rows: PushableNotification[]): Promise<Map<PushableNot
       actorUsername: username.get(row.actorId) ?? null,
       bookTitle: (row.buddyReadId && circleTitle.get(row.buddyReadId)) || (row.bookId && bookTitle.get(row.bookId)) || work?.title || null,
       buddyReadId: row.buddyReadId ?? null,
+      clubId: row.clubId ?? null,
+      clubName: (row.clubId && clubName.get(row.clubId)) || null,
       count: row.count ?? null,
       seriesName: work?.seriesName ?? null,
       seriesPosition: work?.seriesPosition ?? null,

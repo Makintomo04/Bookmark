@@ -24,6 +24,8 @@ const bodySchema = z.object({
   showSpoilers: z.boolean(),
   defaultListVisibility: z.enum(["PRIVATE", "PUBLIC"]),
   aiFeatures: z.boolean(),
+  // Shown as "Suggest me to other readers"; stored the other way round, as hideFromSuggestions.
+  suggestMe: z.boolean(),
   favGenres: z.array(z.string()).max(GENRES.length)
     .refine((slugs) => slugs.every((s) => GENRES.some((g) => g.slug === s)), "Unknown genre")
     .transform((slugs) => Array.from(new Set(slugs))),
@@ -33,11 +35,13 @@ const bodySchema = z.object({
     .transform((ids) => Array.from(new Set(ids))),
 }).partial().strict();
 
-type Stored = Parameters<typeof privacyOf>[0] & Parameters<typeof preferencesOf>[0] & { favGenres: string[]; hideShelfPicks: boolean | null; collapsedSections: string[] };
+type Stored = Parameters<typeof privacyOf>[0] & Parameters<typeof preferencesOf>[0] & { hideFromSuggestions?: boolean | null; favGenres: string[]; hideShelfPicks: boolean | null; collapsedSections: string[] };
 
 const settingsOf = (user: Stored) => ({
   ...privacyOf(user), ...preferencesOf(user), favGenres: user.favGenres, hideShelfPicks: user.hideShelfPicks ?? false,
   collapsedSections: user.collapsedSections ?? [],
+  // So a client merging this into its user reads suggestMe right (preferencesOf).
+  hideFromSuggestions: user.hideFromSuggestions ?? false,
 });
 
 export async function GET() {
@@ -55,9 +59,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
   }
 
+  const { suggestMe, ...rest } = parsed.data;
   const user = await prisma.user.update({
     where: { id: currentUser.id },
-    data: parsed.data,
+    data: { ...rest, ...(suggestMe === undefined ? {} : { hideFromSuggestions: !suggestMe }) },
     select: { ...privacySelect, ...preferencesSelect, favGenres: true, hideShelfPicks: true, collapsedSections: true },
   });
   return NextResponse.json(settingsOf(user));

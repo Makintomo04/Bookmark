@@ -14,6 +14,8 @@ import { refreshAfterBookChange } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
 import { StaffSeal } from "@/components/profile/StaffSeal";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
+import type { AskReason } from "@bookmark/shared/reminders";
+import { useRemindersPrompt } from "@/lib/earnMoment";
 
 // An invite link (https://<site>/circles/join/<code>, handed to the app): the book, who's in, and Join.
 // Members go straight to the circle, as on the web. A club's book is joined through its club, so its link
@@ -23,6 +25,7 @@ type Invite = {
   buddyRead: { title: string; author: string; coverImage: string | null; cardColour: string | null };
   host: { username: string | null; displayName?: string | null; staffBadge?: StaffBadgeKind | null } | null;
   members: { username: string | null; image: string | null; favColour: string | null }[];
+  memberCount?: number;
   full: boolean;
   viewer: { isMember: boolean; buddyReadId: string | null; removed: boolean; removedMessage: string | null };
   clubInviteCode?: string | null;
@@ -50,14 +53,15 @@ export default function JoinCircle() {
     );
   }
 
-  const others = data.members.length - 1;
+  const others = (data.memberCount ?? data.members.length) - 1;
   const join = async () => {
     setJoining(true);
     setJoinError(null);
     try {
-      const result = await api.post<{ buddyReadId: string }>("/api/buddy-reads/join", { code });
+      const result = await api.post<{ buddyReadId: string; askReminders?: AskReason | false }>("/api/buddy-reads/join", { code });
       await refreshAfterBookChange();
       router.replace(`/circles/${result.buddyReadId}`);
+      if (result.askReminders) useRemindersPrompt.setState({ asked: result.askReminders });
     } catch (e) {
       setJoinError(e instanceof ApiError ? e.message : "Couldn't join. Try again.");
       setJoining(false);

@@ -244,6 +244,12 @@ export async function mergeWorks(actor: Actor, duplicateId: string, intoId: unkn
     await tx.bookReport.updateMany({ where: { id: { in: bookReports } }, data: toSurvivor });
     await tx.recap.updateMany({ where: { id: { in: recaps } }, data: toSurvivor });
     await tx.notification.updateMany({ where: { id: { in: notifications } }, data: toSurvivor });
+    // A heads-up still queued for the duplicate (a librarian's date, lib/authorNews.ts announceDatedByHand) is told
+    // about the survivor instead of being dropped as merged away. Readers told already are skipped as usual.
+    await tx.authorCheck.updateMany({
+      where: { announcing: { some: { workId: duplicate.id } } },
+      data: { announcing: { updateMany: { where: { workId: duplicate.id }, data: { workId: survivor.id } } } },
+    });
 
     // The survivor fills what it's missing from the duplicate. The duplicate is marked merged by its key, and
     // loses its match key, author keys and series, so neither resolving new copies nor author and series pages

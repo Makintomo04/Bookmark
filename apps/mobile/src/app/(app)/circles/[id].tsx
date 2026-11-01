@@ -4,7 +4,8 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import { Check, Ellipsis, Lock, Share2, UserPlus } from "lucide-react-native";
-import { BUDDY_READ_EMOJI, BUDDY_READ_MAX_MEMBERS, BUDDY_READ_REFRESH_MS, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, type BuddyReadSchedule, type SerializedComment, type UnlockedComment } from "@bookmark/shared/buddyReads";
+import { BUDDY_READ_EMOJI, BUDDY_READ_MAX_MEMBERS, BUDDY_READ_REFRESH_MS, COMMENT_MAX, COMMENT_REPORT_REASONS, formatPercent, trackRows, type BuddyReadSchedule, type SerializedComment, type UnlockedComment } from "@bookmark/shared/buddyReads";
+import { CLUB_MUTED_MESSAGE } from "@bookmark/shared/clubs";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
 import { FriendsPicker } from "@/components/circles/FriendsPicker";
@@ -26,8 +27,9 @@ import { useTheme } from "@/lib/theme";
 // One reading circle (the web's /circles/<id>): everyone's progress, the invite link, and the
 // discussion. The lock is the server's: a comment past your progress arrives without its words or its
 // author, so the app can only show where it is. Refreshes every 20 seconds while open, like the web.
-// Handing over hosting and removing readers stay on the web for now. A club's book (BOO-49) names its club,
-// shares the club's link (whoever joins is in for every book), and the club's host and co-hosts can run it.
+// Handing over hosting stays on the web for now. A club's book (BOO-49) names its club, shares the club's link
+// (whoever joins is in for every book), and the club's host and co-hosts can run it and remove readers, which
+// they keep once the club is archived. An archived club's books take no one new, so there's no link to share.
 
 export default function CircleScreen() {
   const { id, invite } = useLocalSearchParams<{ id: string; invite?: string }>();
@@ -35,6 +37,7 @@ export default function CircleScreen() {
   const { data: view, error, isLoading, mutate } = useSWR<CircleView>(`/api/buddy-reads/${id}`, { refreshInterval: BUDDY_READ_REFRESH_MS });
   const [replyTo, setReplyTo] = useState<UnlockedComment | null>(null);
   const [pickingFriends, setPickingFriends] = useState(false);
+  const [everyone, setEveryone] = useState(false);
 
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !view) {
@@ -49,8 +52,14 @@ export default function CircleScreen() {
   }
 
   const { buddyRead, club, viewer, members, comments } = view;
+  const memberCap = view.memberCap ?? BUDDY_READ_MAX_MEMBERS;
   const share = () => (club?.inviteCode ? shareClubInvite(club.inviteCode, club.name) : shareInvite(buddyRead.inviteCode, buddyRead.title));
-  const ordered = [...members].sort((a, b) => b.progress - a.progress);
+  // An archived club's books take only its members (the server's clubBookRefusal), so there's nothing to share.
+  const clubClosed = !!club && !club.inviteCode;
+  const archived = buddyRead.status === "ARCHIVED";
+  // A big club's book (BOO-79) shows the readers nearest you until you ask for everyone.
+  const { shown, hidden } = everyone ? { shown: members, hidden: 0 } : trackRows(members);
+  const ordered = [...shown].sort((a, b) => b.progress - a.progress);
 
   return (
     <Screen>
@@ -70,16 +79,16 @@ export default function CircleScreen() {
       </View>
 
       {invite === "1" && members.length === 1 && <Notice message="Your circle is ready. Share the link so friends can join; anyone with it can read along." />}
-      <Button title={club?.inviteCode ? "Share the club's invite link" : "Share invite link"} variant={members.length === 1 ? "primary" : "outline"} icon={<Share2 size={18} color={members.length === 1 ? colors.onBrand : colors.foreground} />} onPress={share} />
+      {!clubClosed && !archived && <Button title={club?.inviteCode ? "Share the club's invite link" : "Share invite link"} variant={members.length === 1 ? "primary" : "outline"} icon={<Share2 size={18} color={members.length === 1 ? colors.onBrand : colors.foreground} />} onPress={share} />}
       {club?.inviteCode && <Text variant="small">Whoever joins with it joins the club, so they{"’"}re in for this book and the next.</Text>}
-      {buddyRead.status !== "ARCHIVED" && members.length < BUDDY_READ_MAX_MEMBERS && (
+      {!archived && !clubClosed && members.length < memberCap && (
         <Button title="Invite friends" variant="outline" icon={<UserPlus size={18} color={colors.foreground} />} onPress={() => setPickingFriends(true)} />
       )}
       {pickingFriends && (
         <FriendsPicker
           circleId={buddyRead.id}
           memberUsernames={members.flatMap((m) => (m.username ? [m.username] : []))}
-          room={BUDDY_READ_MAX_MEMBERS - members.length}
+          room={memberCap - members.length}
           onClose={() => setPickingFriends(false)}
         />
       )}
@@ -89,13 +98,16 @@ export default function CircleScreen() {
           <Text variant="title">Where everyone is</Text>
           <Button title="Update yours" variant="ghost" onPress={() => router.push(`/book/${viewer.bookId}`)} />
         </View>
-        {ordered.map((m) => <MemberRow key={m.userId} member={m} />)}
+        {ordered.map((m) => <MemberRow key={m.userId} circleId={buddyRead.id} member={m} onChange={() => mutate()} />)}
+        {hidden > 0 && <Button title={`Show everyone (${hidden} more)`} variant="ghost" style={{ alignSelf: "flex-start" }} onPress={() => setEveryone(true)} />}
       </View>
 
       <Schedule schedule={buddyRead.schedule ?? []} progress={viewer.progress} canEdit={viewer.canManage} circleId={buddyRead.id} />
 
-      <Discussion circleId={buddyRead.id} comments={comments} progress={viewer.progress} isHost={viewer.canManage} onReply={setReplyTo} onChange={() => mutate()} />
-      {buddyRead.status === "ACTIVE" && (
+      <Discussion circleId={buddyRead.id} comments={comments} progress={viewer.progress} isHost={viewer.canModerate ?? viewer.canManage} onReply={setReplyTo} onChange={() => mutate()} />
+      {/* A finished book stays open for talk, as on the web; only an archived one is closed. */}
+      {!archived && viewer.clubMuted && <Notice message={CLUB_MUTED_MESSAGE} />}
+      {!archived && !viewer.clubMuted && (
         <Composer circleId={buddyRead.id} progress={viewer.progress} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onPosted={() => { setReplyTo(null); void mutate(); }} />
       )}
 
@@ -105,21 +117,63 @@ export default function CircleScreen() {
   );
 }
 
-function MemberRow({ member }: { member: CircleMember }) {
+// In a club's book the club's roles come first (its host, then co-hosts), then whoever started this book, as on the web.
+function roleLabel(m: CircleMember) {
+  if (m.clubRole === "host") return "Club host";
+  if (m.clubRole === "cohost") return "Co-host";
+  return m.isHost ? "host" : null;
+}
+
+function MemberRow({ circleId, member, onChange }: { circleId: string; member: CircleMember; onChange: () => void }) {
   const { colors } = useTheme();
   const colour = member.favColour || DEFAULT_COLOUR;
+  const [mode, setMode] = useState<"view" | "remove">("view");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const who = readerName(member) || "this reader";
+  const role = roleLabel(member);
+
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.delete(`/api/buddy-reads/${circleId}/members/${member.userId}`);
+      onChange();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't remove them.");
+      setBusy(false);
+    }
+  };
+
   return (
-    <View style={styles.memberRow} accessible accessibilityLabel={`${member.isYou ? "You" : readerName(member) || "A reader"}, ${formatPercent(member.progress)}`}>
-      <Avatar image={member.image} name={member.username} colour={member.favColour} size={32} />
-      <View style={{ flex: 1, gap: 4 }}>
-        <View style={styles.between}>
-          <Text style={{ fontSize: 15 }}>{member.isYou ? "You" : readerName(member) || "A reader"}{!member.isYou && member.staffBadge ? <StaffSeal kind={member.staffBadge} size={16} pressable={false} style={styles.seal} /> : null}{member.isHost ? " · host" : ""}</Text>
-          <Text variant="small">{member.finishedAt ? "Finished" : formatPercent(member.progress)}</Text>
+    <View style={{ gap: 8 }}>
+      <View style={styles.memberRow} accessible={!member.removable} accessibilityLabel={`${member.isYou ? "You" : readerName(member) || "A reader"}, ${formatPercent(member.progress)}`}>
+        <Avatar image={member.image} name={member.username} colour={member.favColour} size={32} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={styles.between}>
+            <Text style={{ fontSize: 15 }}>{member.isYou ? "You" : readerName(member) || "A reader"}{!member.isYou && member.staffBadge ? <StaffSeal kind={member.staffBadge} size={16} pressable={false} style={styles.seal} /> : null}{role ? ` · ${role}` : ""}</Text>
+            <Text variant="small">{member.finishedAt ? "Finished" : formatPercent(member.progress)}</Text>
+          </View>
+          <View style={[styles.track, { backgroundColor: colors.muted }]}>
+            <View style={[styles.fill, { width: `${Math.min(100, member.progress)}%`, backgroundColor: colour }]} />
+          </View>
         </View>
-        <View style={[styles.track, { backgroundColor: colors.muted }]}>
-          <View style={[styles.fill, { width: `${Math.min(100, member.progress)}%`, backgroundColor: colour }]} />
-        </View>
+        {member.removable && mode === "view" && (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${who}`} hitSlop={8} onPress={() => setMode("remove")}>
+            <Ellipsis size={18} color={colors.mutedForeground} />
+          </Pressable>
+        )}
       </View>
+      {mode === "remove" && (
+        <View style={{ gap: 8 }}>
+          <Text>Remove {who}? Their comments stay, under their name, and the invite link won{"’"}t let them back in.</Text>
+          <View style={styles.actionRow}>
+            <Button title="Remove" variant="outline" loading={busy} onPress={remove} />
+            <Button title="Cancel" variant="ghost" disabled={busy} onPress={() => setMode("view")} />
+          </View>
+          {error && <Text variant="small" style={{ color: colors.danger }}>{error}</Text>}
+        </View>
+      )}
     </View>
   );
 }

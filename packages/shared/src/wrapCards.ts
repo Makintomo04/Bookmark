@@ -1,5 +1,7 @@
 import { MONTHS } from "./wrappedCopy"
 import { MOOD_LABEL, type Mood } from "./workTags"
+import { DEFAULT_TIME_ZONE, isValidTimeZone, localDay } from "./timeZone"
+import { rangeCardTitle, rangeLabel, type DateRange } from "./statsExplorer"
 
 // Wrap cards (BOO-50): the cover grid ("my October in books") and the stats card, for a month or a
 // year, in the three shapes people post. The web draws them (app/api/wrap/card); the web's /stats and
@@ -39,16 +41,28 @@ export const parseCardKind = (raw: string | null | undefined) => pick(CARD_KINDS
 export const parseCardSize = (raw: string | null | undefined) => pick(CARD_SIZE_KEYS, raw, "story")
 export const parseCardDesign = (raw: string | null | undefined) => pick(CARD_DESIGN_KEYS, raw, DEFAULT_CARD_DESIGN)
 
-// The image's address, for /stats and the app: month is 1 to 12, or null for the whole year.
-export function cardPath({ kind, size, design, year, month, hideRatings }: { kind: CardKind; size: CardSize; design: CardDesign; year: number; month: number | null; hideRatings?: boolean }) {
-  const q = new URLSearchParams({ kind, size, design, year: String(year) })
-  if (month !== null) q.set("month", String(month))
+// A card's period: a year, or with `month` (1 to 12) one month of it, both free; or any range of days
+// ("YYYY-MM-DD", both ends counted), which is the stats explorer's and Plus (entitlements.ts statsExplorer).
+export type CardPeriod = { year: number; month: number | null } | { range: DateRange }
+
+// The image's address, for /stats, the stats explorer and the app.
+export function cardPath({ kind, size, design, hideRatings, ...period }: { kind: CardKind; size: CardSize; design: CardDesign; hideRatings?: boolean } & CardPeriod) {
+  const q = new URLSearchParams({ kind, size, design })
+  if ("range" in period) {
+    q.set("from", period.range.from)
+    q.set("to", period.range.to)
+  } else {
+    q.set("year", String(period.year))
+    if (period.month !== null) q.set("month", String(period.month))
+  }
   if (hideRatings) q.set("ratings", "hide")
   return `/api/wrap/card?${q}`
 }
 
-// "bookmark-grid-2026-10-story", for the download.
-export function cardFileName({ kind, size, year, month }: { kind: CardKind; size: CardSize; year: number; month: number | null }) {
+// "bookmark-grid-2026-10-story", or "bookmark-grid-2026-06-01-to-2026-08-31-story" for a range, for the download.
+export function cardFileName({ kind, size, ...period }: { kind: CardKind; size: CardSize } & CardPeriod) {
+  if ("range" in period) return `bookmark-${kind}-${period.range.from}-to-${period.range.to}-${size}`
+  const { year, month } = period
   return `bookmark-${kind}-${year}${month === null ? "" : `-${String(month).padStart(2, "0")}`}-${size}`
 }
 
@@ -58,6 +72,40 @@ export const cardProfilePath = (handle: string) => `/u/${encodeURIComponent(hand
 
 // Printed on the card, so short enough to type; the web sends it on to cardProfilePath (apps/web/middleware.ts).
 export const cardShortPath = (handle: string) => `/w/${handle}`
+
+// ---- Periods ---------------------------------------------------------------------------------
+
+// Today's year and month (1 to 12) in the reader's saved zone, the calendar the server buckets their finishes
+// in (lib/stats.ts). The pickers use it rather than the browser's or phone's own, so "this month" near midnight
+// on the 1st is the one the card is drawn for.
+export function cardToday(timeZone: string | null | undefined, now = new Date()): { year: number; month: number } {
+  const day = localDay(now, isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIME_ZONE)
+  return { year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) }
+}
+
+// The earliest year a card goes back to (the server takes any from 2000).
+export const CARD_FIRST_YEAR = 2000
+
+// The years a card can be made for, newest first: this one back to the reader's first year with a finish
+// (`years`, from their stats), and always last year.
+export function cardYears(today: { year: number }, years: number[] = []): number[] {
+  const first = Math.max(CARD_FIRST_YEAR, Math.min(today.year - 1, ...years))
+  return Array.from({ length: today.year - first + 1 }, (_, i) => today.year - i)
+}
+
+// The months (1 to 12) of `year` that have started, newest first.
+export function cardMonths(year: number, today: { year: number; month: number }): number[] {
+  const last = year < today.year ? 12 : year === today.year ? today.month : 0
+  return Array.from({ length: last }, (_, i) => last - i)
+}
+
+// The periods with something to draw, as keys: "2026" for a year, "2026-10" for a month (1 to 12). A card
+// leaves private books out, so these count only the reader's shared finishes (apps/web/lib/stats.ts
+// getCardPeriods). The pickers offer the others greyed out rather than refusing them after they're picked.
+export const cardPeriodKey = (year: number, month: number | null) => (month === null ? String(year) : `${year}-${String(month).padStart(2, "0")}`);
+export function cardPeriodKeys(finishes: { year: number; month: number }[]): string[] {
+  return Array.from(new Set(finishes.flatMap((f) => [cardPeriodKey(f.year, null), cardPeriodKey(f.year, f.month)])));
+}
 
 // ---- Words -----------------------------------------------------------------------------------
 
@@ -72,10 +120,20 @@ export function cardTitle(year: number, month: number | null, current: boolean) 
 // Above the title: "October 2026", or "2026".
 export const cardKicker = (year: number, month: number | null) => (month === null ? String(year) : `${MONTHS[month]} ${year}`)
 
+// The title and kicker for any card: a range's own words ("My June to August in books" over "June – August
+// 2026"), otherwise the year's or month's.
+export function cardWords(card: { year: number; month: number | null; isCurrent: boolean; range?: DateRange }) {
+  if (card.range) return { title: rangeCardTitle(card.range), kicker: rangeLabel(card.range) }
+  return { title: cardTitle(card.year, card.month, card.isCurrent), kicker: cardKicker(card.year, card.month) }
+}
+
 // The headline numbers. Audiobooks are counted in time, not pages, so they get their own figure.
-export function cardStats({ books, pages, minutes }: { books: number; pages: number; minutes: number }) {
+// `books` counts each book once, as the grid shows it; `reads` every finish, as /stats counts "Books read".
+// With a re-read in the period the two differ, so the card says both ("11 books · 12 reads") and agrees with /stats.
+export function cardStats({ books, reads = books, pages, minutes }: { books: number; reads?: number; pages: number; minutes: number }) {
+  const bookLabel = books === 1 ? "book" : "books"
   return [
-    { value: fmt(books), label: books === 1 ? "book" : "books" },
+    { value: fmt(books), label: reads > books ? `${bookLabel} · ${fmt(reads)} reads` : bookLabel },
     ...(pages > 0 ? [{ value: fmt(pages), label: pages === 1 ? "page" : "pages" }] : []),
     ...(minutes >= 60
       ? [{ value: fmt(Math.round(minutes / 60)), label: Math.round(minutes / 60) === 1 ? "hour listened" : "hours listened" }]

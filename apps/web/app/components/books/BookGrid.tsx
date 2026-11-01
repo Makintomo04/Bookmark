@@ -364,9 +364,10 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
       {toolbar}
       {/* Wrapped so the first shelf is a first child and skips ShelfSection's top margin. */}
       <div id="profile-shelf">
-      {/* With nothing on the go, the section only shows while the shelf is new: for a reader with a full
-          shelf it would push the first cover below the fold. */}
-      {(reading.length > 0 || coverShelves.length === 0) && <ShelfSection id="shelf-reading" title="Currently reading" count={reading.length} {...folding("reading")}>
+      {/* With nothing on the go, the section only shows while the shelf is new (nothing finished yet): for a
+          reader with a full shelf it would push the first cover below the fold. A new reader with a few books
+          saved and none started is who the first-book picker is for, so it links there (BOO-52). */}
+      {(reading.length > 0 || coverShelves.length === 0 || finished.length === 0) && <ShelfSection id="shelf-reading" title="Currently reading" count={reading.length} {...folding("reading")}>
         {reading.length > 0 ? (
           <div className={cn("grid grid-cols-1 gap-4", readingGridCols(reading.length))}>
             {reading.map((book) => <CurrentlyReadingCard key={book.id} book={book} accentColour={accent} isReread={isRereading(book, finished)} />)}
@@ -378,9 +379,18 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
               : wantToRead.length > 0
                 ? "Pick something from Want to read and mark it as started."
                 : "Add the book you're reading now, or find your next one on Discover."}
+            {' '}<Link href="/first-book" className="font-medium text-foreground underline-offset-4 hover:underline">Help me pick a book</Link>
           </p>
         )}
       </ShelfSection>}
+      {/* Once it's hidden, the picker is still a line away, as on the bands layout (ProfileHead), for a reader
+          who has finished a book or two and can't choose the next. The shelf after it keeps the first shelf's
+          spacing rather than a gap of its own. */}
+      {reading.length === 0 && coverShelves.length > 0 && finished.length > 0 && (
+        <p className="text-sm text-muted-foreground [&+section]:mt-4">
+          Can&apos;t decide? <Link href="/first-book" className="font-medium text-foreground underline-offset-4 hover:underline">Help me pick a book</Link>
+        </p>
+      )}
 
       {/* Empty shelves are hidden. Long ones show a preview; "See all" opens the shelf's own page. */}
       {coverShelves.map(({ key, items }) => (

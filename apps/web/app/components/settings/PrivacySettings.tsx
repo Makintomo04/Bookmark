@@ -3,6 +3,7 @@ import { FC } from 'react'
 import useSettings from '@/app/hooks/useSettings'
 import useUser from '@/app/hooks/useUser'
 import { roleOf } from '@/lib/roles'
+import { SUGGEST_ME_HINT, SUGGEST_ME_LABEL } from '@bookmark/shared/peopleSuggest'
 import FollowRequests from '../profile-head/FollowRequests'
 import { INVITE_HINT, INVITE_OPTIONS, LIST_OPTIONS, PROFILE_HINT, PROFILE_OPTIONS, REVIEW_COMMENT_HINT, REVIEW_COMMENT_OPTIONS, REVIEW_OPTIONS, Segmented, Toggle } from './controls'
 
@@ -88,6 +89,13 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           hint="Reviews marked as spoilers open straight away instead of staying covered."
           checked={settings.showSpoilers}
           onChange={(v) => save("showSpoilers", v)}
+          disabled={busy}
+        />
+        <Toggle
+          label={SUGGEST_ME_LABEL}
+          hint={SUGGEST_ME_HINT}
+          checked={settings.suggestMe}
+          onChange={(v) => save("suggestMe", v)}
           disabled={busy}
         />
       </div>

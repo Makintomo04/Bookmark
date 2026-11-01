@@ -7,6 +7,7 @@
 // resolves by key), search leaves it out, and its page can follow the key to the survivor (survivorOf).
 import { workMatchKey } from "./catalog/normalise.ts"
 import { WORK_FIELDS, sameValue, type WorkValues } from "./catalogueFixRules.ts"
+import { releaseYear } from "@bookmark/shared/releases"
 
 export const MERGED_PREFIX = "merged:"
 
@@ -32,8 +33,21 @@ type CuratedWork = WorkValues & { curatedFields: string[] }
 export function mergeWorkValues(survivor: CuratedWork, duplicate: CuratedWork): { patch: Partial<WorkValues>; curatedFields: string[] } {
   const patch: Partial<WorkValues> = {}
   const empty = (v: unknown) => v === null || v === undefined || v === ""
-  for (const field of ["description", "coverUrl", "firstPublishYear", "releaseDate"] as const) {
+  for (const field of ["description", "coverUrl"] as const) {
     if (empty(survivor[field]) && !empty(duplicate[field])) Object.assign(patch, { [field]: duplicate[field] })
+  }
+  // The release date and the first year go together too, or publication day takes the book for a reissue
+  // (lib/releaseRules.ts isFirstRelease). The duplicate's date comes with its year when the survivor has no
+  // year or the same one. A librarian's date (curated) wins over a year that disagrees, as on the staff form,
+  // which sets the year from the date; any other date that disagrees is a reissue's, and stays behind.
+  const date = survivor.releaseDate ? null : duplicate.releaseDate
+  const dateYear = date ? releaseYear(date) : null
+  const curatedDate = duplicate.curatedFields.includes("releaseDate")
+  if (date && (survivor.firstPublishYear == null || survivor.firstPublishYear === dateYear || curatedDate)) {
+    patch.releaseDate = date
+    if (survivor.firstPublishYear !== dateYear) patch.firstPublishYear = dateYear
+  } else if (survivor.firstPublishYear == null && duplicate.firstPublishYear != null && (!survivor.releaseDate || releaseYear(survivor.releaseDate) === duplicate.firstPublishYear)) {
+    patch.firstPublishYear = duplicate.firstPublishYear
   }
   // A series is a pair: the name and the place in it come together, or not at all.
   if (empty(survivor.seriesName) && !empty(duplicate.seriesName)) {
@@ -42,7 +56,9 @@ export function mergeWorkValues(survivor: CuratedWork, duplicate: CuratedWork): 
   }
   const now = { ...survivor, ...patch }
   const fromDuplicate = duplicate.curatedFields.filter((f) => (WORK_FIELDS as readonly string[]).includes(f) && (f in patch || sameValue(now[f as keyof WorkValues], duplicate[f as keyof WorkValues])))
-  return { patch, curatedFields: Array.from(new Set([...survivor.curatedFields, ...fromDuplicate])) }
+  // A year set to match a librarian's date was checked with it.
+  const yearWithDate = patch.releaseDate && curatedDate && "firstPublishYear" in patch ? ["firstPublishYear"] : []
+  return { patch, curatedFields: Array.from(new Set([...survivor.curatedFields, ...fromDuplicate, ...yearWithDate])) }
 }
 
 // ---- Readers with the book on both -------------------------------------------------------------

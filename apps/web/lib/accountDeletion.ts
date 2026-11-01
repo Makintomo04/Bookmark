@@ -78,6 +78,8 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     // Their AI recaps and usage counters (Catch me up, Ask the shelf).
     await tx.recap.deleteMany({ where: { userId } });
     await tx.aiUsage.deleteMany({ where: { userId } });
+    // Their saved stat views.
+    await tx.statView.deleteMany({ where: { userId } });
     // Unfinished imports still hold the uploaded file's rows, reviews included.
     await tx.importJob.deleteMany({ where: { userId } });
     await tx.readingGoal.deleteMany({ where: { userId } });
@@ -99,6 +101,8 @@ export async function deleteAccount(user: { id: string; stripeSubscriptionId?: s
     await tx.follow.deleteMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } });
     await tx.block.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } });
     await tx.followRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { targetId: userId }] } });
+    await tx.suggestionDismissal.deleteMany({ where: { OR: [{ userId }, { dismissedId: userId }] } });
+    await tx.peopleSuggestionCache.deleteMany({ where: { userId } });
     await tx.account.deleteMany({ where: { userId } });
     await tx.session.deleteMany({ where: { userId } });
     // Signed-in phones and their push tokens.

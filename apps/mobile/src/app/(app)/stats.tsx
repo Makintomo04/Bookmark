@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
-import { BookOpen, BookOpenText, Flame, Headphones, Repeat, Ruler, Star, Undo2 } from "lucide-react-native";
+import { BookOpen, BookOpenText, ChevronRight, Crown, Flame, Headphones, Repeat, Ruler, SlidersHorizontal, Star, Undo2 } from "lucide-react-native";
 import { formatPace } from "@bookmark/shared/goals";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { ratingGlyphs } from "@bookmark/shared/rating";
@@ -23,8 +23,9 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 const fmt = (n: number) => n.toLocaleString("en-GB");
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`;
 
-// wrapDesigns: the Plus Wrap card designs are open to this reader.
-type StatsResponse = { stats: ReadingStats; wrappedYears: number[]; accent: string | null; wrapDesigns?: boolean };
+// wrapDesigns: the Plus Wrap card designs are open to this reader. wrapToday: this year and month (1 to 12)
+// in the profile's time zone, which the Wrap cards count in.
+type StatsResponse = { stats: ReadingStats; wrappedYears: number[]; accent: string | null; wrapDesigns?: boolean; statsExplorer?: boolean; wrapToday?: { year: number; month: number } };
 
 export default function Stats() {
   const { colors } = useTheme();
@@ -80,7 +81,19 @@ export default function Stats() {
         </View>
       )}
 
-      <WrapCardPicker accent={accent} wrapDesigns={data.wrapDesigns ?? false} />
+      <Pressable accessibilityRole="link" onPress={() => router.push("/stats-explore")} style={[styles.explore, { borderColor: colors.border }]}>
+        <SlidersHorizontal size={18} color={accent} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={styles.tileLabel}>
+            <Text variant="label">Explore your stats</Text>
+            {!data.statsExplorer && <View style={styles.plusTag}><Crown size={11} color={colors.mutedForeground} /><Text variant="small">Plus</Text></View>}
+          </View>
+          <Text variant="small">Any dates, two periods side by side, filters, saved views and a CSV of any chart.</Text>
+        </View>
+        <ChevronRight size={18} color={colors.mutedForeground} />
+      </Pressable>
+
+      <WrapCardPicker accent={accent} wrapDesigns={data.wrapDesigns ?? false} today={data.wrapToday} years={data.stats.years.map((y) => y.year)} />
       <MonthlyWrapCard accent={accent} />
 
       <Section title="Books per year"><ColumnChart data={yearBooks} accent={accent} label="Books finished per year" /></Section>
@@ -235,5 +248,7 @@ const styles = StyleSheet.create({
   line: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 12 },
   track: { height: 8, borderRadius: 4, overflow: "hidden" },
   fill: { height: 8, borderRadius: 4 },
+  explore: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 16, padding: 14 },
+  plusTag: { flexDirection: "row", alignItems: "center", gap: 3 },
   empty: { borderWidth: 1, borderStyle: "dashed", borderRadius: 16, paddingHorizontal: 20, paddingVertical: 40, alignItems: "center", gap: 12 },
 });

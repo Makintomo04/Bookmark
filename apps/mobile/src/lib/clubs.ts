@@ -1,5 +1,6 @@
 import { Share } from "react-native";
 import type { ClubRole } from "@bookmark/shared/clubs";
+import type { ClubVoteStatus } from "@bookmark/shared/clubVotes";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { API_URL } from "@/lib/config";
 import type { CircleStatus, Hosting } from "@/lib/circles";
@@ -43,11 +44,18 @@ export type ClubMember = {
   role: ClubRole;
   isYou: boolean;
   joinedAt: string;
+  // A host or co-host muted them (BOO-79). Only sent to the hosts and to the member themselves.
+  muted?: boolean;
 };
 
 export type ClubView = {
   club: { id: string; name: string; about: string | null; status: "ACTIVE" | "ARCHIVED"; hostId: string; createdAt: string; inviteCode: string | null };
-  viewer: { userId: string; role: ClubRole; canManage: boolean };
+  // hostPlus: the host has Plus, so the club takes more than a circle's 15 (BOO-79).
+  viewer: { userId: string; role: ClubRole; canManage: boolean; muted?: boolean; hostPlus?: boolean };
+  // Everyone in the club (members leaves out anyone the viewer has blocked), and how many it takes.
+  memberCount?: number;
+  memberCap?: number;
+  full?: boolean;
   members: ClubMember[];
   reading: ClubCircle[];
   upcoming: ClubCircle[];
@@ -70,6 +78,38 @@ export type ClubInvite = {
 };
 
 export const ROLE_LABEL: Record<ClubRole, string | null> = { host: "Host", cohost: "Co-host", member: null };
+
+// The club's vote on its next book (BOO-49 phase 2), as GET /api/clubs/<id>/votes serves it (the web's
+// lib/clubVotesServer.ts loadClubVote). Counts and voters are null until it closes.
+export type VotePerson = { userId: string; username: string | null; displayName?: string | null; image: string | null; favColour: string | null; staffBadge?: StaffBadgeKind | null; isYou?: boolean };
+export type ClubNomination = {
+  id: string;
+  title: string;
+  author: string;
+  coverImage: string | null;
+  cardColour: string | null;
+  nominatedBy: VotePerson | null;
+  isMine: boolean;
+  removable: boolean;
+  votes: number | null;
+  voters: VotePerson[] | null;
+  otherVoters: number | null;
+};
+export type ClubVoteView = {
+  vote: {
+    id: string;
+    status: ClubVoteStatus;
+    hostsOnly: boolean;
+    closesAt: string;
+    closedAt: string | null;
+    winnerId: string | null;
+    tiedIds: string[];
+    voted: number;
+    memberCount: number;
+  } | null;
+  viewer: { canRun: boolean; canNominate: boolean; canVote: boolean; myBallot: string | null; muted: boolean };
+  nominations: ClubNomination[];
+};
 
 export const clubInviteUrl = (code: string) => `${API_URL}/clubs/join/${code}`;
 

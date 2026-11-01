@@ -7,6 +7,7 @@ import { readableInk, shade, toHex } from '@/lib/colour'
 import { MEDAL_INK, getMedalColour } from '@/app/components/achievements/achievementTheme'
 import { getAchievementIcon } from '@/app/components/achievements/achievementIcons'
 import { siteUrl } from '@/lib/siteUrl'
+import { shareImageData as imageData } from '@/lib/shareImages'
 
 // The reader card: what a profile link unfurls to. Node runtime, since Prisma doesn't run on the edge.
 export const alt = 'A Bookmark reader card'
@@ -19,38 +20,7 @@ const INK = '#FAFAFA'
 const MUTED = '#A1A1AA'
 const BOOKMARK_PATH = 'M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 28.7452 0.943359 26.536L0.943358 4.61413C0.943358 2.40504 2.73414 0.614201 4.94324 0.614134L25.5092 0.613509C28.7291 0.613412 30.6295 4.22392 28.8065 6.87812L24.3892 13.3096C23.4521 14.6739 23.4521 16.4745 24.3892 17.8388L28.8068 24.2708C30.6297 26.9249 28.7296 30.5353 25.5097 30.5354Z'
 
-// Satori only draws images it can decode, and fetching inside it has no timeout,
-// so images are fetched here and passed in as data URLs. Anything else falls back.
-const DRAWABLE = ['image/png', 'image/jpeg', 'image/gif']
-// Profile images are user-set strings, so only fetch from the hosts we serve images from
-// (next.config.mjs, plus OAuth avatars), never an arbitrary or internal address.
-const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
-
-function imageUrl(url: string | null | undefined, origin: string) {
-  if (!url) return null
-  // Site-relative paths (the bundled avatars) come from this deployment.
-  if (url.startsWith('/') && !url.startsWith('//')) return new URL(url, origin)
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'https:' && IMAGE_HOSTS.includes(parsed.hostname) ? parsed : null
-  } catch {
-    return null
-  }
-}
-
-async function imageData(url: string | null | undefined, origin: string) {
-  const target = imageUrl(url, origin)
-  if (!target) return null
-  try {
-    const res = await fetch(target, { signal: AbortSignal.timeout(3000) })
-    const type = res.headers.get('content-type')?.split(';')[0].trim() ?? ''
-    if (!res.ok || !DRAWABLE.includes(type)) return null
-    const bytes = Buffer.from(await res.arrayBuffer())
-    return `data:${type};base64,${bytes.toString('base64')}`
-  } catch {
-    return null
-  }
-}
+// Covers and avatars: lib/shareImages.ts, the one list of hosts every share image fetches from.
 
 // Inter, subset to the card's text. Google serves TTF (which Satori needs) to clients that don't ask for WOFF2.
 async function interFont(weight: number, text: string) {
@@ -103,8 +73,8 @@ export default async function Image({ params }: { params: { username: string } }
 
   const text = ['Bookmark', 'CURRENTLY READING', 'reader', name, handle ?? '', yearLine, bookTitle, bookAuthor, tier?.label ?? '', profileUrl, ...medals.flatMap((m) => [m.title, m.achievement]), readerName(profile).slice(0, 1).toUpperCase()].join('') + '0123456789·…'
   const [avatar, cover, regular, semibold, black] = await Promise.all([
-    imageData(profile.image, siteOrigin),
-    imageData(reading?.coverImage, siteOrigin),
+    imageData(profile.image),
+    imageData(reading?.coverImage),
     interFont(400, text),
     interFont(600, text),
     interFont(800, text),

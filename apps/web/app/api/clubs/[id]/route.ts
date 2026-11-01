@@ -36,14 +36,19 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     if (!hosting.allowed) return hostingRefusal(hosting);
   }
 
-  if (status === "ARCHIVED" && membership.club.status !== "ARCHIVED") await finishClubBooks(membership.club.id, prisma);
-  const updated = await prisma.club.update({
-    where: { id: membership.club.id },
-    data: {
-      ...(name && { name }),
-      ...(about !== undefined && { about: clubAbout(about) }),
-      ...(status && { status }),
-    },
+  // One transaction, so a failure part way never leaves an active club with its books finished.
+  const updated = await prisma.$transaction(async (tx) => {
+    if (status === "ARCHIVED" && membership.club.status !== "ARCHIVED") await finishClubBooks(membership.club.id, tx);
+    return tx.club.update({
+      where: { id: membership.club.id },
+      data: {
+        ...(name && { name }),
+        ...(about !== undefined && { about: clubAbout(about) }),
+        ...(status && { status }),
+      },
+    });
   });
+  // A book started while this ran isn't in what the transaction read: finish it now (lib/clubLimits.ts settleNewClubBook).
+  if (status === "ARCHIVED" && membership.club.status !== "ARCHIVED") await finishClubBooks(membership.club.id, prisma);
   return NextResponse.json({ id: updated.id, status: updated.status });
 }

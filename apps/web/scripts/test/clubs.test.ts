@@ -13,6 +13,9 @@ import {
   admittedWithinCap,
   canRemoveFromClub,
   canRemoveFromClubBook,
+  canRemoveFromClubNow,
+  canSetCoHost,
+  clubReadingEmpty,
   circleSlotsLeft,
   clubAbout,
   clubAllowance,
@@ -20,12 +23,84 @@ import {
   clubShelf,
   createClubSchema,
   inviteFaces,
+  inviteHost,
   updateClubSchema,
+  BIG_CLUB_MAX_MEMBERS,
+  MEMBERS_SHOWN,
+  canMuteInClub,
+  clubBookAdditions,
+  clubFullMessage,
+  clubMemberCap,
+  matchesMember,
 } from "@bookmark/shared/clubs";
-import { BUDDY_READ_MAX_MEMBERS } from "@bookmark/shared/buddyReads";
+import { BUDDY_READ_MAX_MEMBERS, TRACK_SHOWN, trackRows } from "@bookmark/shared/buddyReads";
+import { FEATURE_COPY, entitlementsOf } from "@bookmark/shared/entitlements";
 
-test("a club can't outgrow a circle, since everyone is added to each book", () => {
+test("a free host's club holds a circle's 15; a Plus host's up to 150 (BOO-79)", () => {
   assert.equal(CLUB_MAX_MEMBERS, BUDDY_READ_MAX_MEMBERS);
+  // The limit is the host's entitlement, so the 402 copy and the cap come from one place.
+  assert.equal(clubMemberCap(entitlementsOf({})), 15);
+  assert.equal(clubMemberCap(entitlementsOf({ plan: "PLUS" })), BIG_CLUB_MAX_MEMBERS);
+  assert.equal(entitlementsOf({ plan: "PLUS" }).bigClubs, true);
+  assert.equal(entitlementsOf({}).bigClubs, false);
+  assert.equal(BIG_CLUB_MAX_MEMBERS, 150);
+  assert.match(FEATURE_COPY.bigClubs.message, /150/);
+  assert.match(FEATURE_COPY.bigClubs.message, /votes are free/);
+  assert.equal(clubFullMessage(150), "This club is full (150 readers).");
+});
+
+test("two joins at once at a big club's cap: only the first 150 in joining order stay", () => {
+  const order = Array.from({ length: BIG_CLUB_MAX_MEMBERS + 1 }, (_, i) => `u${i}`);
+  const plus = clubMemberCap(entitlementsOf({ plan: "PLUS" }));
+  assert.equal(admittedWithinCap(order, `u${BIG_CLUB_MAX_MEMBERS - 1}`, plus), true);
+  assert.equal(admittedWithinCap(order, `u${BIG_CLUB_MAX_MEMBERS}`, plus), false);
+  // The same order under a free host: the 16th is out.
+  assert.equal(admittedWithinCap(order, "u15", clubMemberCap(entitlementsOf({}))), false);
+});
+
+test("a new club book takes members in joining order, skipping blocked and removed, up to the club's size", () => {
+  const ids = ["a", "b", "c", "d", "e"];
+  assert.deepEqual(clubBookAdditions(ids, { skip: new Set(["b"]), already: ["host"], cap: 4 }), ["a", "c", "d"]);
+  // Nobody's added twice.
+  assert.deepEqual(clubBookAdditions(ids, { skip: new Set(), already: ["a", "c"], cap: 10 }), ["b", "d", "e"]);
+  // A club over its cap (the host dropped Plus) keeps its readers but adds nobody new.
+  assert.deepEqual(clubBookAdditions(ids, { skip: new Set(), already: ["x", "y", "z"], cap: 2 }), []);
+});
+
+test("muting follows removing: the host mutes anyone else, a co-host only members", () => {
+  assert.equal(canMuteInClub("host", "cohost"), true);
+  assert.equal(canMuteInClub("host", "member"), true);
+  assert.equal(canMuteInClub("cohost", "member"), true);
+  assert.equal(canMuteInClub("cohost", "cohost"), false);
+  assert.equal(canMuteInClub("cohost", "host"), false);
+  assert.equal(canMuteInClub("member", "member"), false);
+});
+
+test("the members search matches names and @usernames, ignoring case and accents", () => {
+  const zoe = { username: "zoereads", displayName: "Zoë Adeyemi" };
+  assert.equal(matchesMember(zoe, "zoe"), true);
+  assert.equal(matchesMember(zoe, "ADEY"), true);
+  assert.equal(matchesMember(zoe, "@zoereads"), true);
+  assert.equal(matchesMember(zoe, "kofi"), false);
+  assert.equal(matchesMember({ username: null, displayName: null }, "a"), false);
+  assert.equal(matchesMember(zoe, "  "), true);
+  assert.equal(MEMBERS_SHOWN, 20);
+});
+
+test("a big club's progress track shows you, the hosts and the readers nearest you", () => {
+  const members = Array.from({ length: 40 }, (_, i) => ({ userId: `u${i}`, isYou: i === 20, isHost: i === 0, clubRole: i === 1 ? "host" : null, progress: i * 2 }));
+  const { shown, hidden } = trackRows(members);
+  assert.equal(shown.length, TRACK_SHOWN);
+  assert.equal(hidden, 40 - TRACK_SHOWN);
+  const ids = shown.map((m) => m.userId);
+  for (const pinned of ["u0", "u1", "u20"]) assert.ok(ids.includes(pinned));
+  // The rest are the nearest to you (40%): u19 and u21 before u30.
+  assert.ok(ids.includes("u19") && ids.includes("u21"));
+  assert.ok(!ids.includes("u39"));
+  // Kept in joining order.
+  assert.deepEqual(ids, [...ids].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))));
+  // A small circle shows everyone.
+  assert.equal(trackRows(members.slice(0, 15)).hidden, 0);
 });
 
 test("roles: the host is Club.hostId, a co-host is flagged, everyone else is a member", () => {
@@ -53,6 +128,21 @@ test("removing: the host removes anyone else, a co-host only members, nobody rem
   assert.equal(canRemoveFromClub("cohost", "host"), false);
   assert.equal(canRemoveFromClub("member", "member"), false);
   assert.equal(canRemoveFromClub("host", "host"), false);
+});
+
+test("an archived club: the host can still take co-host away and remove anyone, and nobody else changes a thing", () => {
+  // Active: as ever.
+  assert.equal(canRemoveFromClubNow("cohost", "member", true), true);
+  assert.equal(canSetCoHost("host", true, true), true);
+  // Archived: the host demotes and removes, so a co-host's powers in the finished books can be taken back.
+  assert.equal(canSetCoHost("host", false, false), true);
+  assert.equal(canRemoveFromClubNow("host", "cohost", false), true);
+  assert.equal(canRemoveFromClubNow("host", "member", false), true);
+  // But makes nobody a co-host, and co-hosts remove no one, until it's reopened.
+  assert.equal(canSetCoHost("host", true, false), false);
+  assert.equal(canSetCoHost("cohost", false, false), false);
+  assert.equal(canRemoveFromClubNow("cohost", "member", false), false);
+  assert.equal(canRemoveFromClubNow("host", "host", false), false);
 });
 
 test("the club page: reading now, up next and past reads, each in its own order", () => {
@@ -133,6 +223,15 @@ test("two joins at once: only the first CLUB_MAX_MEMBERS in joining order stay",
   assert.equal(admittedWithinCap(order, "nobody"), false);
 });
 
+test("an archived club's Reading now doesn't promise a next book", () => {
+  const archived = { archived: true, canManage: false, upcoming: 0 };
+  assert.equal(clubReadingEmpty({ ...archived, isHost: true }), "The club is archived. Reopen it to start the next book.");
+  assert.match(clubReadingEmpty({ ...archived, isHost: false }), /^The club is archived/);
+  // An active club, as before.
+  assert.equal(clubReadingEmpty({ archived: false, isHost: false, canManage: false, upcoming: 0 }), "No book yet. The host will start one soon.");
+  assert.equal(clubReadingEmpty({ archived: false, isHost: true, canManage: true, upcoming: 1 }), "Nothing yet: the next book starts soon.");
+});
+
 test("the public invite shows only members a stranger could see", () => {
   const members = [
     { userId: "host", profileVisibility: "PRIVATE" },
@@ -148,4 +247,21 @@ test("the public invite shows only members a stranger could see", () => {
   // Signed in: their own face shows; anyone blocked either way doesn't.
   const viewer = inviteFaces(members, { hostId: "host", viewerId: "me", blocked: new Set(["blocker"]) }).map((m) => m.userId);
   assert.deepEqual(viewer, ["pub", "me"]);
+});
+
+test("the invite names its host on the same terms as the faces: not suspended, blocked or private", () => {
+  const members = [
+    { userId: "host" },
+    { userId: "starter", profileVisibility: "PRIVATE" },
+    { userId: "gone", suspended: true },
+  ];
+  assert.equal(inviteHost(members, "host", { blocked: new Set() })?.userId, "host");
+  assert.equal(inviteHost(members, "host", { viewerId: "me", blocked: new Set(["host"]) }), null);
+  assert.equal(inviteHost(members, "gone", { blocked: new Set() }), null);
+  // A private co-host who started a club's book isn't named to a stranger, but sees themselves.
+  assert.equal(inviteHost(members, "starter", { blocked: new Set() }), null);
+  assert.equal(inviteHost(members, "starter", { viewerId: "starter", blocked: new Set() })?.userId, "starter");
+  // A club host not reading this book: nobody is named.
+  assert.equal(inviteHost(members, "elsewhere", { blocked: new Set() }), null);
+  assert.equal(inviteHost(members, null, { blocked: new Set() }), null);
 });

@@ -1,10 +1,10 @@
 "use client"
-import { FC } from 'react'
+import { FC, useState } from 'react'
 import { readerName } from '@/lib/profile'
 import ReaderName from '@/app/components/profile/ReaderName'
 import Link from 'next/link'
 import { MoreHorizontal } from 'lucide-react'
-import { formatPercent, type BuddyReadSchedule } from '@/lib/buddyReads'
+import { formatPercent, trackRows, type BuddyReadSchedule } from '@/lib/buddyReads'
 import type { BuddyReadView } from '@/lib/buddyReadsServer'
 import MemberAvatar, { memberColour } from './MemberAvatar'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
@@ -13,14 +13,24 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 interface ProgressTrackProps {
   members: BuddyReadView["members"]
   schedule: BuddyReadSchedule
-  // Shown to the host on everyone else's row.
+  // Shown to the host on the rows they can remove (each member's `removable`, worked out on the server).
   onRemove?: (userId: string, username: string | null) => void
+}
+
+// In a club's book the club's roles come first (its host, then co-hosts), then whoever started this book.
+function roleLabel(m: BuddyReadView["members"][number]) {
+  if (m.clubRole === "host") return "Club host"
+  if (m.clubRole === "cohost") return "Co-host"
+  return m.isHost ? "Host" : null
 }
 
 // Everyone's progress on one shared scale: a bar per reader in their own colour, with the
 // schedule's checkpoints drawn across all of them so it's clear who's where in the plan.
 const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) => {
   const checkpoints = schedule.filter((s) => typeof s.until === "number")
+  // A big club's book (BOO-79) shows the readers nearest you until you ask for everyone.
+  const [everyone, setEveryone] = useState(false)
+  const { shown, hidden } = everyone ? { shown: members, hidden: 0 } : trackRows(members)
 
   return (
     <section aria-labelledby="track-heading" className="flex flex-col gap-3">
@@ -30,7 +40,7 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
       </div>
 
       <ul className="flex flex-col gap-3">
-        {members.map((m) => {
+        {shown.map((m) => {
           const colour = memberColour(m.favColour)
           return (
             <li key={m.userId} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
@@ -40,7 +50,7 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
               <div className="min-w-0">
                 <p className="flex items-baseline gap-2 text-sm leading-tight">
                   <span className="truncate font-medium">{m.isYou ? "You" : <ReaderName reader={m} badge={m.staffBadge && <StaffSeal kind={m.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />} />}</span>
-                  {m.isHost && <span className="shrink-0 text-xs text-muted-foreground">Host</span>}
+                  {roleLabel(m) && <span className="shrink-0 text-xs text-muted-foreground">{roleLabel(m)}</span>}
                   {m.finishedAt && <span className="shrink-0 text-xs text-muted-foreground">Finished</span>}
                 </p>
                 <div
@@ -59,9 +69,9 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-12 text-right text-sm font-semibold tabular-nums">{formatPercent(m.progress)}</span>
-                {/* The host's own row keeps an empty slot so every bar ends at the same place. */}
-                {onRemove && m.isYou && <span aria-hidden className="w-9" />}
-                {onRemove && !m.isYou && (
+                {/* Rows without the menu keep an empty slot so every bar ends at the same place. */}
+                {onRemove && !m.removable && <span aria-hidden className="w-9" />}
+                {onRemove && m.removable && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -82,6 +92,11 @@ const ProgressTrack: FC<ProgressTrackProps> = ({ members, schedule, onRemove }) 
           )
         })}
       </ul>
+      {hidden > 0 && (
+        <button type="button" onClick={() => setEveryone(true)} className="self-start text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+          Show everyone ({hidden} more)
+        </button>
+      )}
 
       {schedule.length > 0 && (
         <ol className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

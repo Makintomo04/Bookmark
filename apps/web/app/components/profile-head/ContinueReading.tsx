@@ -100,15 +100,19 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
       <span className="mt-1.5 flex items-center gap-2">
         <span role="progressbar" aria-label={`${book.title} progress`} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}
           className="relative block h-1.5 flex-1 rounded-full bg-neutral-200 transition group-hover/update:brightness-125 dark:bg-neutral-700">
-          <span className="block h-full rounded-full transition-[width] duration-500" style={{ width: `${progress}%`, background: accent }} />
+          {/* The fill slides in from the left (transform, not width), clipped by its own rounded track so the circle's
+              mark can still overhang the bar. */}
+          <span className="absolute inset-0 overflow-hidden rounded-full">
+            <span className="block h-full rounded-full transition-transform duration-500 ease-out" style={{ transform: `translateX(${progress - 100}%)`, background: accent }} />
+          </span>
           {circle?.at != null && <span aria-hidden title={`Circle ${circle.label}`} className="absolute -top-1 h-3.5 w-0.5 rounded-full bg-foreground" style={{ left: `${circle.at}%` }} />}
         </span>
       </span>
     </>
   )
-  // 62px is 2:3 beside the usual 94px of text; the one large card is tall enough for an 80px cover. A bare
+  // 64px is close to 2:3 beside the usual 96px of text; the one large card is tall enough for an 80px cover. A bare
   // card (cover, title and author only) is given the height of a 48px cover.
-  const coverWidth = bare ? 'w-12' : size === 'large' ? 'w-20' : 'w-[62px]'
+  const coverWidth = bare ? 'w-12' : size === 'large' ? 'w-20' : 'w-16'
   const marks = (
     <>
       {circle && (
@@ -129,7 +133,7 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
     ? <Link href={href} className="hover:underline underline-offset-2">{book.title}</Link>
     : <button type="button" onClick={details} className="text-left hover:underline underline-offset-2">{book.title}</button>
   return (
-    <li ref={card} className={cn("relative flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", !bare && size === 'row' && "py-2.5", bare ? "min-h-[98px]" : size === 'large' && "min-h-[146px]", className)}>
+    <li ref={card} className={cn("relative flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", !bare && size === 'row' && "py-2", bare ? "min-h-24" : size === 'large' && "min-h-36", className)}>
       {/* The bookmark floats in the corner rather than taking a column, so the bar runs the card's full width. */}
       {/* The cover runs the card's full height: its slot stretches with the card and the cover fills it, cropped
           like a photo, rather than sitting at the top with a gap under it. Widths keep the slot close to 2:3. */}

@@ -2,16 +2,18 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Container from '@/app/components/Container'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { getReadingStats, wrappedYearsFor } from '@/lib/stats'
+import { getCardPeriods, getReadingStats, wrappedYearsFor } from '@/lib/stats'
 import StatsView, { StatsEmpty } from '@/app/components/stats/StatsView'
 import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/accent'
 import MonthlyWrapCards from '@/app/components/wrapped/MonthlyWrapCards'
 import WrapCardMaker from '@/app/components/wrapped/WrapCardMaker'
 import { entitlementsOf } from '@/lib/entitlements'
+import { cardToday } from '@bookmark/shared/wrapCards'
+import ExploreLink from '@/app/components/stats/ExploreLink'
 
 export const metadata: Metadata = {
   title: 'Reading stats',
-  description: 'Every reading stat, free: books and pages by year and month, ratings, genres, authors, re-reads and your streak.',
+  description: 'Every stat here is free: books and pages by year and month, ratings, genres, authors, re-reads and your streak.',
   robots: { index: false },
 }
 
@@ -24,7 +26,7 @@ const Page = async (props: PageProps) => {
   const user = await getCurrentUser()
   if (!user) redirect('/signin?callbackUrl=/stats')
 
-  const stats = await getReadingStats(user.id)
+  const [stats, cardPeriods] = await Promise.all([getReadingStats(user.id), getCardPeriods(user.id)])
   const thisYear = stats.years[stats.years.length - 1]?.year ?? new Date().getFullYear()
   const asked = Number(searchParams.year)
   const year = stats.years.some((y) => y.year === asked) ? asked : thisYear
@@ -36,8 +38,9 @@ const Page = async (props: PageProps) => {
     <div className={`mt-8 sm:mt-12 ${ACCENT_SCOPE}`} style={accentVars(readerAccent(user.favColour))}>
       <Container>
         <h1 className="page-title">Your reading stats</h1>
-        <p className="mt-2 mb-8 text-muted-foreground">All of it, free. No upgrade, no paywall: it&apos;s your data.</p>
-        {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<><WrapCardMaker canPickDesigns={entitlementsOf(user).customWrapDesigns} /><MonthlyWrapCards /></>} />}
+        <p className="mt-2 text-muted-foreground">Every stat on this page is free, and always will be. It&apos;s your data.</p>
+        <ExploreLink isPlus={entitlementsOf(user).statsExplorer} />
+        {isEmpty ? <StatsEmpty /> : <StatsView stats={stats} year={year} yearHref={(y) => `/stats?year=${y}`} wrappedYears={wrappedYears} monthlyCards={<><WrapCardMaker canPickDesigns={entitlementsOf(user).customWrapDesigns} today={cardToday(user.timeZone)} filled={cardPeriods} /><MonthlyWrapCards /></>} />}
       </Container>
     </div>
   )

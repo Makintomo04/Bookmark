@@ -173,6 +173,9 @@ model User {
   aiFeatures             Boolean?
   // The old recaps switch, before aiFeatures. Read only: a Plus reader who switched it off stays off.
   showRecaps             Boolean?
+  // Out of other readers' People you may know (lib/peopleSuggest.ts). Unset reads as suggested. A private
+  // profile is never suggested either way.
+  hideFromSuggestions    Boolean?
   blocking               Block[]                  @relation("UserBlocks")
   blockedBy              Block[]                  @relation("UserBlockedBy")
   // Bookmark Plus. Stripe's webhook (app/api/billing/webhook) is the only writer of these; lib/entitlements.ts
@@ -793,6 +796,8 @@ model Notification {
   achievementKey String?
   // Reading circle notifications: which reading circle, and how many joins or unlocked comments one row stands for.
   buddyReadId    String?          @db.ObjectId
+  // Club notifications that aren't about one of its books (CLUB_VOTE_*): which club.
+  clubId         String?          @db.ObjectId
   count          Int?
   // BOOK_RECOMMENDED: the sender's optional note. bookId is the sender's own copy of the book.
   message        String?
@@ -834,6 +839,13 @@ enum NotificationType {
   // A host or co-host started your club's next book, and you were added to its reading circle (BOO-49).
   // actorId is whoever started it; buddyReadId the new circle.
   CLUB_CIRCLE_ADDED
+  // A host or co-host opened a vote on the club's next book. actorId is who opened it; clubId the club.
+  CLUB_VOTE_OPENED
+  // A club vote closed with a winner. actorId is you (a vote is nobody's doing); clubId the club, message the
+  // winning book's title.
+  CLUB_VOTE_PICKED
+  // To the club's host and co-hosts: a vote closed level, and one of them picks the winner. actorId is you.
+  CLUB_VOTE_TIED
   // Someone asked to follow your followers-only or private profile (lib/followRequests.ts).
   FOLLOW_REQUEST
   // You finished a seasonal quest (cut before launch; old rows are left out of the bell).
@@ -1101,6 +1113,9 @@ model BuddyReadMember {
   mutedAt          DateTime?
   // When they last had the circle open, so a comment posted while they're reading it isn't pushed too.
   lastSeenAt       DateTime?
+  // Their progress when their last weekly email went out, so the next counts the comments they've reached
+  // since (lib/jobs/weeklyDigest.ts). Unset until the first.
+  digestProgress   Float?
 
   buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
 
@@ -1230,6 +1245,7 @@ model Club {
   members  ClubMember[]
   removals ClubRemoval[]
   circles  BuddyRead[]
+  votes    ClubVote[]
 
   // The host's clubs, and their active-club limit.
   @@index([hostId, status])
@@ -1242,6 +1258,9 @@ model ClubMember {
   // A co-host can start the next book, edit schedules, and invite and remove members. The host is Club.hostId.
   coHost   Boolean  @default(false)
   joinedAt DateTime @default(now())
+  // Set while a host or co-host has muted them (BOO-79): they can still read and vote, but can't comment in
+  // the club's books or nominate. Not BuddyReadMember.mutedAt, which is a reader quietening a circle for themselves.
+  hostMutedAt DateTime?
 
   club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
@@ -1264,6 +1283,82 @@ model ClubRemoval {
   @@index([userId])
 }
 
+// ---- Club votes (BOO-49 phase 2) -------------------------------------------------------------
+// The club picks its next book: members nominate books from their shelves, everyone votes once, and the
+// winner is started as the club's next book by a host. Rules in packages/shared/src/clubVotes.ts; database
+// work in lib/clubVotesServer.ts.
+
+enum ClubVoteStatus {
+  OPEN
+  // Closed level: a host or co-host picks between the tied books (tiedIds).
+  TIED
+  CLOSED
+  CANCELLED
+}
+
+model ClubVote {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  clubId      String         @db.ObjectId
+  openedById  String         @db.ObjectId
+  status      ClubVoteStatus @default(OPEN)
+  // Only the host and co-hosts nominate (a shortlist); otherwise every member may nominate one book.
+  hostsOnly   Boolean        @default(false)
+  closesAt    DateTime
+  closedAt    DateTime?
+  // One vote at a time per club: the club's id while it's open or tied, the vote's own id once it's settled.
+  // (MongoDB can't index only some rows, so the settled ones get a value of their own.)
+  openKey     String         @unique
+  // TIED: the nominations level at the top.
+  tiedIds     String[]       @db.ObjectId
+  // CLOSED: the winning nomination.
+  winnerId    String?        @db.ObjectId
+  createdAt   DateTime       @default(now())
+
+  club        Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  nominations ClubNomination[]
+  ballots     ClubBallot[]
+
+  // The club's votes, newest first.
+  @@index([clubId, createdAt])
+  // The cron tick closes the ones due.
+  @@index([status, closesAt])
+}
+
+// A book put up for the vote: a snapshot of the nominator's shelf copy, like BuddyRead's, so the vote
+// doesn't depend on anyone's shelf.
+model ClubNomination {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  voteId       String   @db.ObjectId
+  userId       String   @db.ObjectId
+  workKey      String?
+  title        String
+  author       String
+  coverImage   String?
+  cardColour   String?
+  pages        Int
+  audioMinutes Int?
+  createdAt    DateTime @default(now())
+
+  vote ClubVote @relation(fields: [voteId], references: [id], onDelete: Cascade)
+
+  // One book each.
+  @@unique([voteId, userId])
+}
+
+model ClubBallot {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  voteId       String   @db.ObjectId
+  userId       String   @db.ObjectId
+  nominationId String   @db.ObjectId
+  updatedAt    DateTime @updatedAt
+
+  vote ClubVote @relation(fields: [voteId], references: [id], onDelete: Cascade)
+
+  // One vote each, changed in place until the vote closes.
+  @@unique([voteId, userId])
+  @@index([nominationId])
+}
+
 // ---- Follow requests --------------------------------------------------------------------------
 // Following a reader whose profile isn't public (Followers only or Private) needs their approval: the
 // follow is held here until they accept or decline (lib/followRequests.ts). Users are referenced by
@@ -1278,6 +1373,31 @@ model FollowRequest {
   @@unique([requesterId, targetId])
   // The owner's pending requests, newest first.
   @@index([targetId, createdAt])
+}
+
+// ---- People you may know (BOO-81) --------------------------------------------------------------
+// Someone the reader dismissed from their suggestions, so they don't come back. Scalar ids like
+// FollowRequest; account deletion clears both sides (lib/accountDeletion.ts).
+model SuggestionDismissal {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  dismissedId String   @db.ObjectId
+  createdAt   DateTime @default(now())
+
+  // One per pair; the prefix covers "everyone I've dismissed".
+  @@unique([userId, dismissedId])
+  @@index([dismissedId])
+}
+
+// The slow part of a reader's suggestions (friends of friends and shared books), kept for an hour so a
+// big account doesn't redo it on every visit. Only candidate ids and what links them: every privacy
+// filter, the clubs, the circles and who follows whom are looked up fresh on each read.
+model PeopleSuggestionCache {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @unique @db.ObjectId
+  // [{ id, via: [userId], books: [title] }] (lib/peopleSuggest.ts CachedCandidate).
+  candidates Json
+  computedAt DateTime @default(now())
 }
 
 // How often a reader used a metered AI feature in one period (lib/ai/usage.ts). One row per reader,
@@ -1476,5 +1596,20 @@ model Appeal {
   decidedAt    DateTime?
 
   @@index([status, createdAt])
+  @@index([userId])
+}
+
+// ---- Saved stat views ------------------------------------------------------------------------
+// The stats explorer's saved views (BOO-82, Plus): a name and the explorer's query string
+// (packages/shared/src/statsExplorer.ts explorerSearch), so a view keeps its dates, comparison and
+// filters. Private to the reader. userId is a scalar, like ReaderTags. Kept if Plus lapses, so they
+// come back with it.
+model StatView {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  name      String
+  query     String
+  createdAt DateTime @default(now())
+
   @@index([userId])
 }

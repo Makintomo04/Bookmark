@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Stack, router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { startPurchases } from "@/lib/purchases";
-import { registerForPush, usePushNavigation } from "@/lib/push";
+import { registerForPush, usePushNavigation, usePushPermissionSync } from "@/lib/push";
 import { useTheme } from "@/lib/theme";
 import { EarnCelebration } from "@/components/achievements/EarnCelebration";
 import { RemindersSheet } from "@/components/reminders/RemindersSheet";
@@ -16,6 +16,8 @@ export default function AppLayout() {
   useEffect(() => {
     void registerForPush();
   }, []);
+  // Notifications switched off or on in the phone's settings meanwhile: the server hears, so reminders fall back to email.
+  usePushPermissionSync();
 
   // RevenueCat knows the reader by their Bookmark id, so a store purchase lands on the right account.
   const userId = useAuth((s) => s.user?.id);
@@ -60,6 +62,7 @@ export default function AppLayout() {
         <Stack.Screen name="authors/[slug]" options={{ title: "" }} />
         <Stack.Screen name="discover/ask" options={{ title: "" }} />
         <Stack.Screen name="stats" options={{ title: "Stats" }} />
+        <Stack.Screen name="stats-explore" options={{ title: "Explore" }} />
         <Stack.Screen name="wrapped/[year]" options={{ title: "Wrapped" }} />
         <Stack.Screen name="plus" options={{ title: "Plus" }} />
         <Stack.Screen name="settings" options={{ title: "Settings" }} />

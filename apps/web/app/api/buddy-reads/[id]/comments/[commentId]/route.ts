@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/apiAuth";
 import { commentPosition, editCommentSchema } from "@/lib/buddyReads";
-import { buddyReadError, isObjectId, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { buddyReadError, isObjectId, mutedInCircleClub, parseBody, requireMembership } from "@/lib/buddyReadsServer";
+import { CLUB_MUTED_MESSAGE } from "@/lib/clubs";
 
 async function findComment(buddyReadId: string, commentId: string) {
   if (!isObjectId(commentId)) return null;
@@ -24,6 +25,8 @@ export async function PATCH(
 
   const comment = await findComment(membership.buddyRead.id, params.commentId);
   if (!comment || comment.userId !== currentUser.id) return buddyReadError("Comment not found", 404);
+  // Editing is writing too, so a muted member can't (they can still delete their own).
+  if (await mutedInCircleClub(membership.buddyRead, currentUser.id)) return buddyReadError(CLUB_MUTED_MESSAGE, 403);
 
   const parsed = await parseBody(req, editCommentSchema);
   if (parsed.response) return parsed.response;
@@ -60,7 +63,7 @@ export async function DELETE(
   if (notMember) return notMember;
 
   const comment = await findComment(membership.buddyRead.id, params.commentId);
-  if (!comment || (comment.userId !== currentUser.id && !membership.canManage)) return buddyReadError("Comment not found", 404);
+  if (!comment || (comment.userId !== currentUser.id && !membership.canModerate)) return buddyReadError("Comment not found", 404);
 
   await prisma.buddyReadReaction.deleteMany({ where: { commentId: comment.id } });
   await prisma.buddyReadComment.update({

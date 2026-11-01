@@ -3,6 +3,7 @@ import { readerName } from '@/lib/profile'
 import { loadInvite } from '@/lib/buddyReadsServer'
 import { readableInk, toHex } from '@/lib/colour'
 import { siteUrl } from '@/lib/siteUrl'
+import { shareImageData as imageData } from '@/lib/shareImages'
 
 // What an invite link unfurls to: the book, the host, and a dot in each member's colour.
 // Node runtime, since Prisma doesn't run on the edge. Follows the reader card in u/[username]/opengraph-image.tsx.
@@ -16,37 +17,8 @@ const INK = '#FAFAFA'
 const MUTED = '#A1A1AA'
 const BOOKMARK_PATH = 'M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 28.7452 0.943359 26.536L0.943358 4.61413C0.943358 2.40504 2.73414 0.614201 4.94324 0.614134L25.5092 0.613509C28.7291 0.613412 30.6295 4.22392 28.8065 6.87812L24.3892 13.3096C23.4521 14.6739 23.4521 16.4745 24.3892 17.8388L28.8068 24.2708C30.6297 26.9249 28.7296 30.5353 25.5097 30.5354Z'
 
-// Satori only draws images it can decode, and only from hosts we serve images from (never an
-// arbitrary or internal address), fetched here with a timeout and passed in as data URLs.
-const DRAWABLE = ['image/png', 'image/jpeg', 'image/gif']
-const IMAGE_HOSTS = ['utfs.io', 'covers.openlibrary.org', 'images-na.ssl-images-amazon.com', 'images1.penguinrandomhouse.com', 'images3.penguinrandomhouse.com', 'lh3.googleusercontent.com', 'avatars.githubusercontent.com']
-
-const siteOrigin = siteUrl
-const siteHost = new URL(siteOrigin).host
-
-function imageUrl(url: string | null | undefined) {
-  if (!url) return null
-  if (url.startsWith('/') && !url.startsWith('//')) return new URL(url, siteOrigin)
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'https:' && IMAGE_HOSTS.includes(parsed.hostname) ? parsed : null
-  } catch {
-    return null
-  }
-}
-
-async function imageData(url: string | null | undefined) {
-  const target = imageUrl(url)
-  if (!target) return null
-  try {
-    const res = await fetch(target, { signal: AbortSignal.timeout(3000) })
-    const type = res.headers.get('content-type')?.split(';')[0].trim() ?? ''
-    if (!res.ok || !DRAWABLE.includes(type)) return null
-    return `data:${type};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`
-  } catch {
-    return null
-  }
-}
+// Covers and avatars: lib/shareImages.ts, the one list of hosts every share image fetches from.
+const siteHost = new URL(siteUrl).host
 
 async function interFont(weight: number, text: string) {
   try {
@@ -65,14 +37,14 @@ const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1
 export default async function Image({ params }: { params: { code: string } }) {
   const invite = await loadInvite(params.code)
   if (!invite) return new Response('Not found', { status: 404 })
-  const { buddyRead, host, members } = invite
+  const { buddyRead, host, members, memberCount } = invite
 
   const accent = toHex(host?.favColour ?? '') ?? BRAND
   const coverColour = toHex(buddyRead.cardColour ?? '') ?? accent
   const title = clip(buddyRead.title, 60)
   const author = clip(buddyRead.author, 40)
   const hostName = clip((host && readerName(host)) || 'A reader', 24)
-  const others = members.length - 1
+  const others = memberCount - 1
   const line = others > 0 ? `and ${others} ${others === 1 ? 'other' : 'others'} are reading together` : 'is starting a reading circle'
   const footer = `${siteHost} · Comments stay hidden until you reach them`
 

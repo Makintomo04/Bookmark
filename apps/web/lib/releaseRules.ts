@@ -57,10 +57,20 @@ export function bookNewsSections<W extends { id: string }>(news: BookNewsRow[], 
   return { released, series, newBooks };
 }
 
+// A librarian's release date is announced ("New from <author>", lib/authorNews.ts announceDatedByHand) when it
+// makes the book one still to come: it had no date, or one already past. Moving one future date to another
+// isn't news again. No database.
+export const newlyUpcoming = (before: string | null | undefined, after: string | null | undefined, today: string) =>
+  isUpcoming(after, today) && !isUpcoming(before, today);
+
 // A book's place in its series, as the series fill records it (lib/seriesFill.ts): none while it's not out,
 // so it isn't the tracker's "next" and its series' readers aren't told it's out before it is. No database.
 export const placeWhileUpcoming = (position: number | null, releaseDate: string | null | undefined, today: string) =>
   isUpcoming(releaseDate, today) ? null : position;
+
+// The places a series fill or re-check records as the series' (lib/seriesNews.ts recordSeriesCheck): every
+// book's but those lib/seriesFill.ts fileSeriesBooks held back as not out yet. No database.
+export const placedPositions = (books: { position: number }[], held: Set<number>) => books.map((b) => b.position).filter((p) => !held.has(p));
 
 // Whether a catalogue work takes a place Hardcover gives for a series' book (lib/seriesFill.ts
 // fileSeriesBooks): one with no series yet, or one filed in this series without a place (announced before it
@@ -69,4 +79,18 @@ export function takesSeriesPlace(had: { seriesName: string | null; seriesPositio
   if (had.curatedFields.includes("seriesName")) return false;
   if (!had.seriesName) return true;
   return had.seriesPosition == null && seriesKey(had.seriesName, author) === seriesKey(name, author);
+}
+
+// What lib/seriesFill.ts fileSeriesBooks does with a catalogue work Hardcover lists as one of a series' books:
+// whether it takes the place (takesSeriesPlace), the place it gets, and whether that place is held back from
+// the series' highest book because the book isn't out by either date. A work whose series a librarian set
+// keeps it, place and all, but its place is still held back, so nobody hears it's new in the series early.
+// No database.
+export function companionPlace(
+  had: { seriesName: string | null; seriesPosition: number | null; curatedFields: string[]; releaseDate: string | null },
+  book: { position: number; releaseDate?: string | null },
+  name: string, author: string, today: string,
+): { takes: boolean; position: number | null; held: boolean } {
+  const position = placeWhileUpcoming(placeWhileUpcoming(book.position, had.releaseDate, today), book.releaseDate, today);
+  return { takes: takesSeriesPlace(had, name, author), position, held: position == null };
 }

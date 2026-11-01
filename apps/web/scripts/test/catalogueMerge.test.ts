@@ -117,3 +117,20 @@ test("each group pairs the likeliest keeper with each of the others", () => {
   assert.deepEqual(duplicatePairs(group).map(([x, y]) => [x.id, y.id]), [["c", "a"], ["c", "b"]], "most readers, then an Open Library work");
   assert.deepEqual(duplicatePairs([group[0]]), []);
 });
+
+test("a merge takes the release date and the first year together, so publication day isn't skipped", () => {
+  const dated = { ...work, releaseDate: "2027-04-09", firstPublishYear: 2027 };
+  // The survivor has neither: both come across.
+  assert.deepEqual(mergeWorkValues(work, dated).patch, { releaseDate: "2027-04-09", firstPublishYear: 2027 });
+  // The survivor's year agrees: just the date.
+  assert.deepEqual(mergeWorkValues({ ...work, firstPublishYear: 2027 }, dated).patch, { releaseDate: "2027-04-09" });
+  // A librarian's date beats a year that disagrees, and the year follows it (and counts as checked).
+  const curated = mergeWorkValues({ ...work, firstPublishYear: 2019 }, { ...dated, curatedFields: ["releaseDate", "firstPublishYear"] });
+  assert.deepEqual(curated.patch, { releaseDate: "2027-04-09", firstPublishYear: 2027 });
+  assert.deepEqual(curated.curatedFields.sort(), ["firstPublishYear", "releaseDate"]);
+  // Any other date that disagrees is a reissue's: the survivor keeps its year and takes no date.
+  assert.deepEqual(mergeWorkValues({ ...work, firstPublishYear: 2019 }, dated).patch, {});
+  // A first year alone still fills in, unless it disagrees with the survivor's own date.
+  assert.deepEqual(mergeWorkValues(work, { ...work, firstPublishYear: 1965 }).patch, { firstPublishYear: 1965 });
+  assert.deepEqual(mergeWorkValues({ ...work, releaseDate: "2027-04-09" }, { ...work, firstPublishYear: 1965 }).patch, {});
+});
