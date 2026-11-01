@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Check, Plus, X } from "lucide-react-native";
 import { VOTE_DAYS_DEFAULT, VOTE_NOMINATIONS_MAX, closesInText, settledVoteText, turnoutText } from "@bookmark/shared/clubVotes";
 import { readerName } from "@bookmark/shared/profile";
+import { sameBook } from "@bookmark/shared/workKey";
 import { BookCover } from "@/components/books/BookCover";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -13,7 +14,7 @@ import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
 import { useBooks } from "@/lib/books";
-import type { ClubNomination, ClubVoteView } from "@/lib/clubs";
+import type { ClubBookNow, ClubNomination, ClubVoteView } from "@/lib/clubs";
 import { useTheme } from "@/lib/theme";
 
 // The club picks its next book (BOO-49 phase 2; the web's ClubVoteSection): open a vote, put books up from
@@ -196,7 +197,7 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
       {error && <Notice tone="error" message={error} />}
 
       {nominating && (
-        <NominateSheet taken={nominations} busy={busy} onClose={() => setNominating(false)}
+        <NominateSheet taken={nominations} reading={view.reading ?? []} busy={busy} onClose={() => setNominating(false)}
           onPick={(bookId) => act(() => api.post(`/api/clubs/${clubId}/votes/${vote.id}/nominations`, { bookId }), "Couldn't put that book up.", () => setNominating(false))} />
       )}
     </View>
@@ -204,14 +205,17 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
 }
 
 // A book from the reader's shelf, searched by title or author.
-function NominateSheet({ taken, busy, onClose, onPick }: { taken: ClubNomination[]; busy: boolean; onClose: () => void; onPick: (bookId: string) => void }) {
+function NominateSheet({ taken, reading, busy, onClose, onPick }: { taken: ClubNomination[]; reading: ClubBookNow[]; busy: boolean; onClose: () => void; onPick: (bookId: string) => void }) {
   const { colors, radii } = useTheme();
   const { data: books } = useBooks();
   const [query, setQuery] = useState("");
   const shelf = useMemo(() => (books ?? []).filter((b) => NOMINABLE.has(b.status)), [books]);
   const q = query.trim().toLowerCase();
   const matches = (q ? shelf.filter((b) => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)) : shelf).slice(0, 50);
-  const isTaken = (b: { title: string; author: string }) => taken.some((n) => n.title.toLowerCase() === b.title.toLowerCase() && n.author.toLowerCase() === b.author.toLowerCase());
+  // Matched as the server matches (the work, else title and author): already up, or the club's book now.
+  const why = (b: { title: string; author: string; workKey?: string | null }) =>
+    reading.some((c) => sameBook(c, b)) ? "reading now" : taken.some((n) => sameBook(n, b)) ? "already up" : null;
+  const isTaken = (b: { title: string; author: string; workKey?: string | null }) => why(b) !== null;
 
   return (
     <Sheet title="Put a book up" onClose={busy ? () => {} : onClose}>
@@ -224,7 +228,7 @@ function NominateSheet({ taken, busy, onClose, onPick }: { taken: ClubNomination
             <BookCover book={b} width={40} />
             <View style={{ flex: 1 }}>
               <Text numberOfLines={2}>{b.title}</Text>
-              <Text variant="small" numberOfLines={1}>{b.author}{isTaken(b) ? " · already up" : ""}</Text>
+              <Text variant="small" numberOfLines={1}>{b.author}{why(b) ? ` · ${why(b)}` : ""}</Text>
             </View>
           </Pressable>
         ))}

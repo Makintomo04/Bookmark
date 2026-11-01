@@ -16,6 +16,16 @@ export { BIG_CLUB_MAX_MEMBERS }
 // hands the club to a free host); it just takes nobody new until it's back under the free size.
 export const clubMemberCap = (host: Pick<Entitlements, "clubMemberLimit">) => host.clubMemberLimit
 export const clubFullMessage = (cap: number) => `This club is full (${cap} readers).`
+// The club page's Invite readers when nobody new can join: at the cap, or past it after the host's plan
+// changed, where "full (15 readers)" beside "40 members" read wrong.
+export const clubFullNote = (members: number, cap: number) =>
+  members > cap
+    ? `No one new can join: the club has ${members} members, more than the ${cap} it can take now. Everyone in it stays.`
+    : `The club is full (${cap} readers).`
+// What archiving does, for the host's "Archive this club?" confirmation. `voteOn`: a vote or a tie is
+// waiting, which archiving calls off.
+export const archiveClubNote = (voteOn: boolean) =>
+  `Its invite link stops working, no new books can be started, and the books it's reading are marked finished. Their discussions stay open.${voteOn ? " The vote on the next book is cancelled." : ""}`
 export const CLUB_NAME_MAX = 60
 export const CLUB_ABOUT_MAX = 300
 // Open circles at once: the book the club is reading and the one after it. Club circles don't count against

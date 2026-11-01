@@ -6,6 +6,7 @@ import { Check, Plus, Vote, X } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { notify, apiError } from '@/lib/notify'
 import { readerName } from '@/lib/profile'
+import { sameBook } from '@/lib/workKey'
 import { VOTE_DAYS_DEFAULT, VOTE_DAYS_MAX, VOTE_NOMINATIONS_MAX, closesInText, settledVoteText, turnoutText } from '@/lib/clubVotes'
 import type { ClubVoteView } from '@/lib/clubVotesServer'
 import useClubVote from '@/app/hooks/useClubVote'
@@ -179,6 +180,7 @@ const ClubVoteSection: FC<{ clubId: string, canManage: boolean, archived: boolea
         isOpen={nominating}
         onClose={() => setNominating(false)}
         taken={nominations}
+        reading={view.reading}
         onPick={(bookId) => act(axios.post(`/api/clubs/${clubId}/votes/${vote.id}/nominations`, { bookId }), "Couldn't put that book up.", () => setNominating(false))}
         busy={busy}
       />
@@ -187,13 +189,15 @@ const ClubVoteSection: FC<{ clubId: string, canManage: boolean, archived: boolea
 }
 
 // A book from the reader's shelf, searched by title or author.
-const NominateDialog: FC<{ isOpen: boolean, onClose: () => void, taken: Nomination[], onPick: (bookId: string) => void, busy: boolean }> = ({ isOpen, onClose, taken, onPick, busy }) => {
+const NominateDialog: FC<{ isOpen: boolean, onClose: () => void, taken: Nomination[], reading: ClubVoteView["reading"], onPick: (bookId: string) => void, busy: boolean }> = ({ isOpen, onClose, taken, reading, onPick, busy }) => {
   const { books } = useBooks({ onlyWhen: isOpen })
   const [query, setQuery] = useState("")
   const shelf = useMemo(() => ((books ?? []) as Book[]).filter((b) => NOMINABLE.has(b.status)), [books])
   const q = query.trim().toLowerCase()
   const matches = (q ? shelf.filter((b) => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)) : shelf).slice(0, 50)
-  const isTaken = (b: Book) => taken.some((n) => n.title.toLowerCase() === b.title.toLowerCase() && n.author.toLowerCase() === b.author.toLowerCase())
+  // Matched as the server matches (the work, else title and author): already up, or the club's book now.
+  const why = (b: Book) => reading.some((c) => sameBook(c, b)) ? "reading now" : taken.some((n) => sameBook(n, b)) ? "already up" : null
+  const isTaken = (b: Book) => why(b) !== null
 
   const body = (
     <div className="flex w-full flex-col gap-3 px-6 pt-4">
@@ -207,7 +211,7 @@ const NominateDialog: FC<{ isOpen: boolean, onClose: () => void, taken: Nominati
               <BookCover book={{ title: b.title, author: b.author, coverImage: b.coverImage ?? "", cardColour: b.cardColour }} variant="thumb" sizes="36px" className="w-9 shrink-0" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{b.title}</span>
-                <span className="block truncate text-xs text-muted-foreground">{b.author}{isTaken(b) ? " · already up" : ""}</span>
+                <span className="block truncate text-xs text-muted-foreground">{b.author}{why(b) ? ` · ${why(b)}` : ""}</span>
               </span>
             </button>
           </li>

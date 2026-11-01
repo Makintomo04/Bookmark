@@ -16,7 +16,7 @@ const ClubCard: FC<{ club: ClubSummary }> = ({ club }) => {
       href={`/clubs/${club.id}`}
       className="flex gap-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {book ? (
+      {book && !club.archived ? (
         <BookCover book={{ title: book.title, author: book.author, coverImage: book.coverImage ?? "", cardColour: book.cardColour }} variant="thumb" sizes="48px" className="w-12 shrink-0 self-start shadow-sm" />
       ) : (
         <span aria-hidden className="flex aspect-[2/3] w-12 shrink-0 items-center justify-center self-start rounded-sm bg-neutral-100 dark:bg-neutral-900 text-muted-foreground">
@@ -26,7 +26,7 @@ const ClubCard: FC<{ club: ClubSummary }> = ({ club }) => {
       <div className="min-w-0 flex-1">
         <p className="font-semibold leading-snug line-clamp-2">{club.name}</p>
         <p className="text-sm text-muted-foreground truncate" suppressHydrationWarning>
-          {book ? (book.upcoming ? `Next: ${book.title}, from ${moment(book.startsAt).format("D MMMM")}` : `Reading ${book.title}`) : "No book yet"}
+          {club.archived ? "Archived" : book ? (book.upcoming ? `Next: ${book.title}, from ${moment(book.startsAt).format("D MMMM")}` : `Reading ${book.title}`) : "No book yet"}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {club.memberCount} {club.memberCount === 1 ? "member" : "members"}{ROLE_LABEL[club.role] ? ` · ${ROLE_LABEL[club.role]}` : ""}

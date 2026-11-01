@@ -9,9 +9,10 @@ import { notify, apiError } from '@/lib/notify'
 import { readerName } from '@/lib/profile'
 import { isUpgradeRequired } from '@/lib/entitlements'
 import { formatPercent } from '@/lib/buddyReads'
-import { CLUB_ABOUT_MAX, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, canMuteInClubNow, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty, matchesMember } from '@/lib/clubs'
+import { CLUB_ABOUT_MAX, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, archiveClubNote, canMuteInClubNow, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubFullNote, clubReadingEmpty, matchesMember } from '@/lib/clubs'
 import type { ClubView as View } from '@/lib/clubsServer'
 import useClub from '@/app/hooks/useClub'
+import useClubVote from '@/app/hooks/useClubVote'
 import ReaderName from '@/app/components/profile/ReaderName'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 import BookCover from '../cards/BookCover'
@@ -68,6 +69,9 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
   // Big clubs (BOO-79): the first MEMBERS_SHOWN, then "Show all", and a search once there are more.
   const [memberQuery, setMemberQuery] = useState("")
   const [allMembers, setAllMembers] = useState(false)
+  // The vote section's own data (same key), so the archive confirmation can say a vote is called off.
+  const { view: votes } = useClubVote(id)
+  const voteOn = votes?.vote?.status === "OPEN" || votes?.vote?.status === "TIED"
 
   if (!view) return <FetchErrorState error={isError} what="this club" onRetry={() => mutate()} />
   const { club, viewer, members, reading, upcoming, past, memberCount, memberCap, full } = view
@@ -130,7 +134,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
   }
 
   const setStatus = (status: "ACTIVE" | "ARCHIVED") => {
-    if (status === "ARCHIVED" && !window.confirm("Archive this club? Its invite link stops working, no new books can be started, and the books it's reading are marked finished. Their discussions stay open.")) return
+    if (status === "ARCHIVED" && !window.confirm(`Archive this club? ${archiveClubNote(voteOn)}`)) return
     setReopenRefusal(null)
     axios.patch(`/api/clubs/${id}`, { status }).then(() => mutate())
       .catch((err) => {
@@ -230,7 +234,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
               <h2 id="club-invite-heading" className="text-sm font-semibold">Invite readers</h2>
               {full ? (
                 <>
-                  <p className="text-sm text-muted-foreground">The club is full ({memberCap} readers).</p>
+                  <p className="text-sm text-muted-foreground">{clubFullNote(memberCount, memberCap)}</p>
                   {/* Gate hosts, not guests: only the host sees the way to a bigger club. */}
                   {isHost && !viewer.hostPlus && <UpgradePrompt feature="bigClubs" variant="inline" />}
                 </>

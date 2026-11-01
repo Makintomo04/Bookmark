@@ -14,6 +14,8 @@ export type ClubSummary = {
   about: string | null;
   role: ClubRole;
   memberCount: number;
+  // Archived by its host: listed after the active ones, marked. Missing from older servers, which left them out.
+  archived?: boolean;
   current: { id: string; title: string; author: string; coverImage: string | null; cardColour: string | null; startsAt: string; upcoming: boolean } | null;
 };
 
@@ -84,6 +86,8 @@ export const ROLE_LABEL: Record<ClubRole, string | null> = { host: "Host", cohos
 export type VotePerson = { userId: string; username: string | null; displayName?: string | null; image: string | null; favColour: string | null; staffBadge?: StaffBadgeKind | null; isYou?: boolean };
 export type ClubNomination = {
   id: string;
+  // Missing from older servers.
+  workKey?: string | null;
   title: string;
   author: string;
   coverImage: string | null;
@@ -95,6 +99,8 @@ export type ClubNomination = {
   voters: VotePerson[] | null;
   otherVoters: number | null;
 };
+// A book the club is reading or about to start: it can't be put up for the next one.
+export type ClubBookNow = { workKey: string | null; title: string; author: string };
 export type ClubVoteView = {
   vote: {
     id: string;
@@ -109,6 +115,8 @@ export type ClubVoteView = {
   } | null;
   viewer: { canRun: boolean; canNominate: boolean; canVote: boolean; myBallot: string | null; muted: boolean };
   nominations: ClubNomination[];
+  // Missing from older servers.
+  reading?: ClubBookNow[];
 };
 
 export const clubInviteUrl = (code: string) => `${API_URL}/clubs/join/${code}`;

@@ -72,7 +72,8 @@ export default function Author() {
           ))}
         </View>
       )}
-      {data.failed && <Notice message="Couldn't load this author's books right now. Try again later." />}
+      {/* Open Library failing leaves our catalogue's books, so only an empty list says so (as the web does). */}
+      {data.failed && data.books.length === 0 && <Notice message="Couldn't load this author's books right now. Try again later." />}
       {data.books.length > 0 && (
         <View style={{ gap: 10 }}>
           <Text variant="title">Books</Text>

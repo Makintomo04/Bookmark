@@ -129,16 +129,17 @@ const Tile: FC<{ icon: ReactNode; label: string; value: string; then?: string | 
 const hours = (minutes: number) => fmt(Math.round(minutes / 60))
 const percent = (rate: number | null) => (rate === null ? '–' : `${Math.round(rate * 100)}%`)
 
-// One chart for one period, in the shape that suits it.
+// One chart for one period, in the shape that suits it. The bars count reads (a re-read finishes again), so
+// they say "reads"; ratings count each book once.
 function ChartFor({ chart, period }: { chart: ExplorerChart; period: ExplorerPeriod }) {
   if (period.finishes === 0) return <p className="text-sm text-muted-foreground">No finished books here.</p>
   if (chart === 'timeline') {
-    const data: Datum[] = period.timeline.map((t) => ({ label: t.label, value: t.books, detail: `${plural(t.books, 'book')} · ${plural(t.pages, 'page')}${t.minutes ? ` · ${hours(t.minutes)}h listened` : ''}` }))
-    return <ColumnChart data={data} label={`Books finished, ${period.label}`} unit="books" />
+    const data: Datum[] = period.timeline.map((t) => ({ label: t.label, value: t.books, detail: `${plural(t.books, 'read')} · ${plural(t.pages, 'page')}${t.minutes ? ` · ${hours(t.minutes)}h listened` : ''}` }))
+    return <ColumnChart data={data} label={`Reads finished, ${period.label}`} unit="reads" />
   }
   if (chart === 'spice' || chart === 'ratings') {
-    const data: Datum[] = period[chart].map((t) => ({ label: chart === 'ratings' ? `${t.name}★` : t.name, name: chart === 'ratings' ? `${t.name} ${t.name === '1' ? 'star' : 'stars'}` : `Spice ${t.name}`, value: t.count, detail: plural(t.count, 'read') }))
-    return <ColumnChart data={data} label={`${EXPLORER_CHART_LABEL[chart]}, ${period.label}`} unit="reads" />
+    const data: Datum[] = period[chart].map((t) => ({ label: chart === 'ratings' ? `${t.name}★` : t.name, name: chart === 'ratings' ? `${t.name} ${t.name === '1' ? 'star' : 'stars'}` : `Spice ${t.name}`, value: t.count, detail: plural(t.count, chart === 'ratings' ? 'book' : 'read') }))
+    return <ColumnChart data={data} label={`${EXPLORER_CHART_LABEL[chart]}, ${period.label}`} unit={chart === 'ratings' ? 'books' : 'reads'} />
   }
   const rows = period[chart].filter((t) => t.count > 0)
   if (!rows.length) return <p className="text-sm text-muted-foreground">{chart === 'moods' ? 'Tag a mood on a book you finished and it shows up here.' : 'Nothing to count here yet.'}</p>

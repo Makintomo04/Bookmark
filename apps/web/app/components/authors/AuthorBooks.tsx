@@ -32,7 +32,7 @@ const AuthorBooks: FC<{ author: Author, initial: AuthorBooksPage }> = ({ author,
     axios.get(`/api/authors/${encodeURIComponent(author.slug)}?offset=${nextOffset}`)
       .then((res) => {
         const page: AuthorBooksPage = res.data
-        if (page.failed) throw new Error("Open Library failed")
+        if (page.failed && page.books.length === 0) throw new Error("Open Library failed")
         // The first page carries catalog books too, so later pages can repeat them.
         setBooks((current) => [...current, ...page.books.filter((b) => !current.some((c) => sameBook(c, b)))])
         setNextOffset(page.nextOffset)
