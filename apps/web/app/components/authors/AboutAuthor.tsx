@@ -43,7 +43,9 @@ const AboutAuthor: FC<{ name: string; about: AuthorAbout; bookCount: number | nu
       <h2 id="about-author-heading" className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">About the author</h2>
       <div className="flex items-center gap-4">
         {photoUrl ? (
-          <Image src={photoUrl} alt={`Photo of ${name}`} width={72} height={72} onError={() => setPhotoFailed(true)} className="size-[72px] shrink-0 rounded-full object-cover bg-neutral-100 dark:bg-neutral-900" />
+          // unoptimized: a librarian's photo can be on any https host, and the optimiser only takes the hosts
+          // in next.config.mjs, so anything else would fail and drop to the initials.
+          <Image src={photoUrl} alt={`Photo of ${name}`} width={72} height={72} unoptimized onError={() => setPhotoFailed(true)} className="size-[72px] shrink-0 rounded-full object-cover bg-neutral-100 dark:bg-neutral-900" />
         ) : (
           <span aria-hidden className="grid size-[72px] shrink-0 place-items-center rounded-full bg-neutral-100 text-xl font-semibold text-muted-foreground dark:bg-neutral-900">{initials(name)}</span>
         )}
