@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "Privacy Policy",
 }
 
-const LAST_UPDATED = "23 October 2026"
+const LAST_UPDATED = "1 November 2026"
 
 const Section: FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="flex flex-col gap-2 mb-8">
@@ -63,6 +63,8 @@ const Page: FC = () => {
           <p>To send push notifications you&apos;ve allowed: reading circle invites and activity, new followers and follow requests, and books friends send you. A notification says who did something and which book it&apos;s about, but never what anyone wrote, since lock screens can be seen by others.</p>
           <p>To run Bookmark Plus: start and manage your subscription or purchase, and give your account the features it has paid for.</p>
           <p>We don&apos;t sell your data, and we don&apos;t use it for advertising.</p>
+          {/* LEGAL REVIEW (app): new. Sponsored slots and shop links, with no ad network or targeting. */}
+          <p><strong>Sponsored books and shop links:</strong> on a free account, some pages may show a book a publisher has paid to feature, always labelled &ldquo;Sponsored&rdquo;. Everyone on that page sees the same one: it isn&apos;t chosen from your reading, and the publisher learns nothing about you. Plus members don&apos;t see them. Book pages also link to shops such as Bookshop.org and Amazon, and we may earn a commission if you buy through them. Those links carry no information about you.</p>
         </Section>
 
         {/* LEGAL REVIEW (app): new section. Ask the shelf and Catch me up weren't covered at all before. */}
@@ -111,7 +113,7 @@ const Page: FC = () => {
 
         {/* LEGAL REVIEW (app): retitled from "Cookies"; adds what the app keeps on the phone. */}
         <Section title="Cookies and storage on your phone">
-          <p>On the website, we use a session cookie to keep you signed in. That&apos;s it: no third-party advertising or tracking cookies.</p>
+          <p>On the website, we use a session cookie to keep you signed in. That&apos;s it: no third-party advertising or tracking cookies. If you follow a shop link, that shop&apos;s own site may set its cookies, under its own privacy policy.</p>
           <p>The app keeps your sign-in in your phone&apos;s secure storage (the iOS Keychain or Android Keystore), and remembers preferences such as light or dark mode on the phone. Signing out removes the sign-in.</p>
         </Section>
 

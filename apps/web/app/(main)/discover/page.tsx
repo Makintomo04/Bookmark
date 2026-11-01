@@ -11,6 +11,7 @@ import FollowingPicks from '@/app/components/discover/FollowingPicks'
 import GenrePicks from '@/app/components/discover/GenrePicks'
 import { NewPickButton } from '@/app/components/discover/ListButtons'
 import UpcomingSection from '@/app/components/discover/Upcoming'
+import AdSlot from '@/app/components/ads/AdSlot'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { GENRES, favouritesFirst } from '@/lib/genres'
 import { findLists, ListSummary } from '@/lib/lists'
@@ -135,6 +136,8 @@ const Page = async () => {
             <Suspense fallback={null}>
               <UpcomingSection viewerId={viewer?.id ?? null} today={localClock(new Date(), zoneOf(viewer?.timeZone)).day} />
             </Suspense>
+
+            <AdSlot placement="discover" viewer={viewer} className="rounded-2xl border border-neutral-300 dark:border-neutral-700 p-5" />
 
             {picks.length > 0 && (
               <section aria-labelledby="picks-heading">
