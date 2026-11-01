@@ -8,6 +8,7 @@ import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { useAuth } from "@/lib/auth";
 import { webUrl } from "@/lib/config";
+import { openWebSignedIn } from "@/lib/webSignedIn";
 import useSWR from "swr";
 import { staffBadgeOf } from "@bookmark/shared/staffBadge";
 import { isStaffRole } from "@bookmark/shared/roles";
@@ -41,8 +42,8 @@ export default function More() {
         <Button title="Settings" variant="outline" onPress={() => router.push("/settings" as never)} />
         <Button title="Bookmark Plus" variant="outline" onPress={() => router.push("/plus" as never)} />
         <Button title="Import from Goodreads or StoryGraph" variant="outline" onPress={() => router.push("/import" as never)} />
-        {/* The staff console stays on the web; the server checks the role again there. */}
-        {isStaffRole(me) && <Button title="Staff console" variant="outline" onPress={() => WebBrowser.openBrowserAsync(webUrl("/staff"))} />}
+        {/* The staff console stays on the web, opened signed in; the server checks the role again there. */}
+        {isStaffRole(me) && <Button title="Staff console" variant="outline" onPress={() => void openWebSignedIn("/staff")} />}
         <Button title="Sign out" variant="outline" onPress={signOut} />
       </View>
 
