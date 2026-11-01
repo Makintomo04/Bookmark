@@ -846,6 +846,9 @@ enum NotificationType {
   CLUB_VOTE_PICKED
   // To the club's host and co-hosts: a vote closed level, and one of them picks the winner. actorId is you.
   CLUB_VOTE_TIED
+  // A host or co-host called the vote off, or archived the club while it was on. actorId is you; clubId the
+  // club, message ARCHIVED_MESSAGE when archiving did it. The vote's "cast your vote" rows are taken down.
+  CLUB_VOTE_CANCELLED
   // Someone asked to follow your followers-only or private profile (lib/followRequests.ts).
   FOLLOW_REQUEST
   // You finished a seasonal quest (cut before launch; old rows are left out of the bell).
@@ -1314,6 +1317,9 @@ model ClubVote {
   winnerId    String?        @db.ObjectId
   // CLOSED: a host put the winner card away without starting the book, so the club page stops showing it.
   dismissedAt DateTime?
+  // Hosts-only: when members were told the shortlist is up (its first book). Set once, so two hosts putting
+  // books up at the same moment tell them once.
+  shortlistUpAt DateTime?
   createdAt   DateTime       @default(now())
 
   club        Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)

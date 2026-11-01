@@ -20,7 +20,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string,
   const action = parsed.data;
 
   const result = action.action === "close" ? await closeVote(found.vote)
-    : action.action === "cancel" ? await cancelVote(found.vote)
+    : action.action === "cancel" ? await cancelVote(found.vote, { by: currentUser.id })
       : action.action === "dismiss" ? await dismissWinner(found.vote)
         : await pickWinner(found.vote, action.nominationId);
   if (!result.ok) return clubError(result.error, result.status);

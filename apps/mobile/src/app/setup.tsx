@@ -269,8 +269,10 @@ function GoalOption() {
       <View style={styles.chips}>
         {GOAL_PRESETS.map((n) => <Chip key={n} label={saving === n ? "…" : String(n)} selected={saved === n} disabled={saving !== null} onPress={() => save(n)} />)}
         <View style={{ width: 110 }}>
-          <TextField label="Other" value={custom} onChangeText={setCustom} keyboardType="number-pad" returnKeyType="done" onSubmitEditing={() => save(parseInt(customRef.current, 10))} style={{ minHeight: 36 }} />
+          <TextField label="Other" value={custom} onChangeText={setCustom} keyboardType="number-pad" returnKeyType="done" selectTextOnFocus onSubmitEditing={() => save(parseInt(customRef.current, 10))} style={{ minHeight: 36 }} />
         </View>
+        {/* A number pad on iOS has no return key, so Other has its own button. */}
+        {custom.trim() !== "" && <Button title="Save" variant="outline" loading={saving === parseInt(custom, 10)} disabled={saving !== null} onPress={() => save(parseInt(customRef.current, 10))} />}
       </View>
       {error && <Text variant="small" style={{ color: colors.danger }}>{error}</Text>}
     </View>

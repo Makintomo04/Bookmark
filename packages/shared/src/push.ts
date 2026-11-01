@@ -17,7 +17,7 @@ import { seriesNewsText } from "./series";
 import { escalationCopy, reviewRestoredText, roleChangedTo, roleChangedText, staffReportText } from "./staffNotices";
 
 export const PUSH_GROUPS = {
-  circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED", "CLUB_CIRCLE_ADDED", "CLUB_VOTE_OPENED", "CLUB_VOTE_PICKED", "CLUB_VOTE_TIED"],
+  circles: ["BUDDY_READ_INVITE", "BUDDY_READ_JOINED", "COMMENTS_UNLOCKED", "BUDDY_READ_HOSTED", "CLUB_CIRCLE_ADDED", "CLUB_VOTE_OPENED", "CLUB_VOTE_PICKED", "CLUB_VOTE_TIED", "CLUB_VOTE_CANCELLED"],
   follows: ["NEW_FOLLOWER", "FOLLOW_REQUEST"],
   recommendations: ["BOOK_RECOMMENDED"],
   reviews: ["REVIEW_COMMENT", "REVIEW_REPLY"],
@@ -61,7 +61,7 @@ export const pushGroupsFor = (isStaff: boolean): PushGroup[] =>
 // (lib/seriesNews.ts, lib/authorNews.ts, lib/jobs/publicationDay.ts), or the team did and isn't named (lib/staffNotify.ts), or it's a count of the
 // queue (STAFF_REPORT). Every other notification you're the actor of is something you did, and isn't pushed.
 // Club votes are the club's, not one person's (lib/clubVotesServer.ts), so they're sent the same way.
-const TO_SELF: readonly string[] = ["NEW_IN_SERIES", "NEW_BOOK", "PUBLICATION_DAY", "REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED", "STAFF_REPORT", "CLUB_VOTE_OPENED", "CLUB_VOTE_PICKED", "CLUB_VOTE_TIED"];
+const TO_SELF: readonly string[] = ["NEW_IN_SERIES", "NEW_BOOK", "PUBLICATION_DAY", "REVIEW_HIDDEN", "REVIEW_RESTORED", "ROLE_CHANGED", "STAFF_REPORT", "CLUB_VOTE_OPENED", "CLUB_VOTE_PICKED", "CLUB_VOTE_TIED", "CLUB_VOTE_CANCELLED"];
 export const pushedToSelf = (type: string) => TO_SELF.includes(type);
 
 // Book news a cron finds at whatever hour it runs, with nobody waiting on it: written to the bell at once,
@@ -145,8 +145,9 @@ export function pushContentFor(n: PushContext): PushContent | null {
     case "CLUB_VOTE_OPENED":
     case "CLUB_VOTE_PICKED":
     case "CLUB_VOTE_TIED":
+    case "CLUB_VOTE_CANCELLED":
       return {
-        title: n.type === "CLUB_VOTE_OPENED" ? "Your club is voting" : n.type === "CLUB_VOTE_TIED" ? (n.message === NO_VOTES_MESSAGE ? "Nobody voted" : "A tie to break") : "Your club's next book",
+        title: n.type === "CLUB_VOTE_OPENED" ? "Your club is voting" : n.type === "CLUB_VOTE_TIED" ? (n.message === NO_VOTES_MESSAGE ? "Nobody voted" : "A tie to break") : n.type === "CLUB_VOTE_CANCELLED" ? "Vote called off" : "Your club's next book",
         body: clubVoteText(n.type, n.clubName ?? null, n.message) ?? "",
         path: n.clubId ? `/clubs/${n.clubId}` : "/circles",
       };

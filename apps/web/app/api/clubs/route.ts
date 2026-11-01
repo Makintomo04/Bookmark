@@ -13,12 +13,21 @@ export async function GET() {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
-  const mine = await prisma.clubMember.findMany({
-    where: { userId: currentUser.id },
+  // Active clubs first, then archived ones in what room is left, so a long list never loses an active club.
+  const LIMIT = 50;
+  const active = await prisma.clubMember.findMany({
+    where: { userId: currentUser.id, club: { status: "ACTIVE" } },
     orderBy: { joinedAt: "desc" },
-    take: 50,
+    take: LIMIT,
     include: { club: true },
   });
+  const archived = active.length < LIMIT ? await prisma.clubMember.findMany({
+    where: { userId: currentUser.id, club: { status: "ARCHIVED" } },
+    orderBy: { joinedAt: "desc" },
+    take: LIMIT - active.length,
+    include: { club: true },
+  }) : [];
+  const mine = [...active, ...archived];
   const clubIds = mine.map((m) => m.clubId);
   const [counts, circles, hosting] = await Promise.all([
     prisma.clubMember.groupBy({ by: ["clubId"], where: { clubId: { in: clubIds } }, _count: { _all: true } }),
@@ -32,7 +41,7 @@ export async function GET() {
 
   return NextResponse.json({
     hosting,
-    clubs: mine.sort((a, b) => Number(a.club.status === "ARCHIVED") - Number(b.club.status === "ARCHIVED")).map(({ club, ...m }) => {
+    clubs: mine.map(({ club, ...m }) => {
       const shelf = clubShelf(circles.filter((c) => c.clubId === club.id));
       const book = shelf.reading[0] ?? shelf.upcoming[0] ?? null;
       return {

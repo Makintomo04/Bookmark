@@ -36,6 +36,11 @@ test("a finish reports the goal and the nearest medal still to earn", () => {
   assert.equal(hasEarnMoment(m), true);
 });
 
+test("a medal that isn't counted up says what earns it", () => {
+  const line = finishLine({ medals: [], tier: null, goal: null, next: { title: "Tome Raider", achievementTitle: "Big books", text: "Complete a book that's 1,000+ pages" } } as never);
+  assert.equal(line, "Complete a book that's 1,000+ pages to earn Tome Raider");
+});
+
 test("a quiet save has nothing to show", () => {
   const m = buildEarnMoment({ awarded: [], stats: { PAGES_READ: 300 }, earnedKeys: [] });
   assert.equal(hasEarnMoment(m), false);

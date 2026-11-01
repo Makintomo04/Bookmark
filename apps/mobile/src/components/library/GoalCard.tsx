@@ -100,8 +100,10 @@ function GoalChooser({ year, current, onSaved }: { year: number; current: number
       <View style={styles.chips}>
         {PRESETS.map((n) => <Chip key={n} label={saving === n ? "…" : String(n)} selected={current === n} disabled={saving !== null} onPress={() => set(n)} />)}
         <View style={{ width: 110 }}>
-          <TextField label="Other" value={custom} onChangeText={setCustom} keyboardType="number-pad" returnKeyType="done" onSubmitEditing={() => set(parseInt(customRef.current, 10))} style={{ minHeight: 36 }} />
+          <TextField label="Other" value={custom} onChangeText={setCustom} keyboardType="number-pad" returnKeyType="done" selectTextOnFocus onSubmitEditing={() => set(parseInt(customRef.current, 10))} style={{ minHeight: 36 }} />
         </View>
+        {/* A number pad on iOS has no return key, so Other has its own button. */}
+        {custom.trim() !== "" && <Button title="Save" variant="outline" loading={saving === parseInt(custom, 10)} disabled={saving !== null} onPress={() => set(parseInt(customRef.current, 10))} />}
       </View>
       {error && <Text variant="small" style={{ color: colors.danger }}>{error}</Text>}
     </>

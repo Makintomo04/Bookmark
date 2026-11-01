@@ -42,6 +42,8 @@ export default function Library() {
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[styles.fill, { backgroundColor: colors.background }]}>
       <ScrollView
+        // So a tap on the goal's Save lands while the keyboard is up, rather than only closing it.
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, selection.selecting && { paddingBottom: 200 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); void globalMutate(FOLLOWED_AUTHORS_KEY); void globalMutate(SERIES_TRACKER_KEY); }} tintColor={colors.mutedForeground} />}
       >

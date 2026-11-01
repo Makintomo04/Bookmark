@@ -4,6 +4,7 @@ import { mutate } from "swr";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiError, SUSPENDED, api, clearTokens, postPublic, saveTokens, setSessionEndedHandler, storedRefreshToken, type TokenResponse } from "@/lib/api";
 import { endPurchases } from "@/lib/purchases";
+import { clearShareCards } from "@/lib/shareCards";
 import { currentPushToken } from "@/lib/push";
 
 // Who's signed in. The root layout shows the sign-in screens, onboarding or the app from `status` and
@@ -60,6 +61,7 @@ const lastUser = async (): Promise<SessionUser | null> => {
 // Forget everything cached for the last account.
 const clearCache = async () => {
   await AsyncStorage.removeItem(USER_KEY);
+  clearShareCards();
   await mutate(() => true, undefined, { revalidate: false });
 };
 

@@ -104,13 +104,13 @@ export const voteActionSchema = z.discriminatedUnion("action", [
 
 // ---- Copy -----------------------------------------------------------------------------------
 
-// "Closes in 2 days", "Closes in 5 hours", "Closes in under an hour", for the vote card. Days are rounded,
-// so a 7-day vote just opened says 7, not 6.
+// "Closes in 2 days", "Closes in 5 hours", "Closes in under an hour", for the vote card. Days and hours are
+// rounded, so a 7-day vote just opened says 7, not 6, and a 1-day vote 24 hours, not 23.
 export function closesInText(closesAt: Date | string, now: Date = new Date()) {
   const ms = new Date(closesAt).getTime() - now.getTime()
   if (ms <= 0) return "Closing now"
-  const hours = Math.floor(ms / (60 * 60 * 1000))
-  if (hours < 1) return "Closes in under an hour"
+  if (ms < 60 * 60 * 1000) return "Closes in under an hour"
+  const hours = Math.round(ms / (60 * 60 * 1000))
   if (hours < 48) return `Closes in ${hours} ${hours === 1 ? "hour" : "hours"}`
   const days = Math.round(ms / (24 * 60 * 60 * 1000))
   return `Closes in ${days} days`
@@ -134,22 +134,37 @@ export function settledVoteText(v: { status: ClubVoteStatus, voted: number }, ca
 // Kept in a CLUB_VOTE_TIED notification's message when nobody voted at all.
 export const NO_VOTES_MESSAGE = "no-votes"
 // Kept in a CLUB_VOTE_OPENED notification's message on a hosts-only vote, where members can't put books up.
+// Older rows went to everyone; now members hear once the shortlist is up (SHORTLIST_UP_MESSAGE) instead.
 export const HOSTS_ONLY_MESSAGE = "hosts-only"
+// CLUB_VOTE_OPENED to the other hosts when a hosts-only vote opens: they're the ones putting books up.
+export const SHORTLIST_OPEN_MESSAGE = "shortlist-open"
+// CLUB_VOTE_OPENED to members, sent when a host puts up a hosts-only vote's first book.
+export const SHORTLIST_UP_MESSAGE = "shortlist-up"
+// Kept in a CLUB_VOTE_CANCELLED notification's message when archiving the club called the vote off.
+export const ARCHIVED_MESSAGE = "archived"
 
 // The bell, the push and the phone's notifications list say the same. Nobody is named: a vote is the club's.
-// `message` is the winning book for CLUB_VOTE_PICKED, NO_VOTES_MESSAGE on a CLUB_VOTE_TIED nobody voted in, and
-// HOSTS_ONLY_MESSAGE on a CLUB_VOTE_OPENED where only the hosts put books up.
+// `message` is the winning book for CLUB_VOTE_PICKED, NO_VOTES_MESSAGE on a CLUB_VOTE_TIED nobody voted in, one
+// of the shortlist messages on a hosts-only CLUB_VOTE_OPENED, and ARCHIVED_MESSAGE on a CLUB_VOTE_CANCELLED
+// that archiving caused.
 export function clubVoteText(type: string, club: string | null, message?: string | null) {
   const name = club ?? "Your club"
   switch (type) {
-    case "CLUB_VOTE_OPENED": return message === HOSTS_ONLY_MESSAGE
-      ? `${name} is voting on its next book. The hosts are putting up the shortlist; cast your vote.`
-      : `${name} is voting on its next book. Put one up or cast your vote.`
+    case "CLUB_VOTE_OPENED": return message === SHORTLIST_OPEN_MESSAGE
+      ? `${name} is voting on its next book. Put books up for the shortlist.`
+      : message === SHORTLIST_UP_MESSAGE
+        ? `The shortlist for ${name}'s next book is up. Cast your vote.`
+        : message === HOSTS_ONLY_MESSAGE
+          ? `${name} is voting on its next book. The hosts are putting up the shortlist; cast your vote.`
+          : `${name} is voting on its next book. Put one up or cast your vote.`
     case "CLUB_VOTE_PICKED": return message ? `${name} picked ${message} as its next book.` : `${name} has picked its next book.`
     case "CLUB_VOTE_TIED": return message === NO_VOTES_MESSAGE
       ? `Nobody voted in ${name}'s vote. Pick the winner from the books put up.`
       : `The vote in ${name} is a tie. Pick the winner from the books level at the top.`
+    case "CLUB_VOTE_CANCELLED": return message === ARCHIVED_MESSAGE
+      ? `${name} was archived, so its vote on the next book is called off.`
+      : `The vote on ${name}'s next book was called off.`
     default: return null
   }
 }
-export const isClubVoteNotification = (type: string) => type === "CLUB_VOTE_OPENED" || type === "CLUB_VOTE_PICKED" || type === "CLUB_VOTE_TIED"
+export const isClubVoteNotification = (type: string) => type === "CLUB_VOTE_OPENED" || type === "CLUB_VOTE_PICKED" || type === "CLUB_VOTE_TIED" || type === "CLUB_VOTE_CANCELLED"
