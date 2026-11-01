@@ -10,6 +10,7 @@ import {
 } from "../../lib/catalogueFixRules.ts";
 import { resolveOne } from "../../lib/catalog/resolve.ts";
 import { MemoryCatalogStore } from "../../lib/catalog/memoryStore.ts";
+import { seriesFillSkips } from "../../lib/seriesFill.ts";
 
 const work: WorkValues = { title: "Dune", authors: ["Frank Herbert"], description: null, coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg", seriesName: null, seriesPosition: null, firstPublishYear: 1965, releaseDate: null };
 
@@ -182,4 +183,20 @@ test("a librarian's series survives a re-import, even when they cleared it", asy
   const cleared = await resolveOne({ workKey: "OL2W", title: "A Book", author: "Someone", series: { name: "Wrong Saga", position: 9 } }, { store });
   assert.equal(cleared.work.seriesName, null);
   assert.equal(cleared.work.seriesPosition, null);
+});
+
+test("a librarian's series is never refilled from Hardcover, however often the fill re-runs", () => {
+  const unchecked = { authors: ["Someone"], seriesCheckedAt: null, curatedFields: [] as string[] };
+  assert.equal(seriesFillSkips(unchecked), false, "an ordinary unchecked work is asked about");
+  assert.equal(seriesFillSkips({ ...unchecked, seriesCheckedAt: new Date() }), true, "and only once");
+  assert.equal(seriesFillSkips({ ...unchecked, authors: [] }), true, "a work with no author can't be asked about");
+
+  // The backfill picks every unchecked work, and a curated one is never marked checked, so it comes round on
+  // every run. Set, renumbered or cleared, it's skipped each time.
+  for (const fixed of [["seriesName"], ["seriesPosition"]]) {
+    assert.equal(seriesFillSkips({ ...unchecked, curatedFields: curatedWorkFields(fixed) }), true, `fixed ${fixed[0]}`);
+  }
+  // A series saved on the librarians' series page (lib/catalogueSeries.ts) marks the same fields.
+  assert.equal(seriesFillSkips({ ...unchecked, curatedFields: mergeCurated(["title"], curatedWorkFields(["seriesName", "seriesPosition"])) }), true);
+  assert.equal(seriesFillSkips({ ...unchecked, curatedFields: ["title", "coverUrl"] }), false, "other corrections don't keep the fill off");
 });
