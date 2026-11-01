@@ -10,6 +10,8 @@ import {
   cardFileName,
   cardMonths,
   cardPath,
+  cardProfilePath,
+  cardShortPath,
   cardPeriodKey,
   cardPeriodKeys,
   cardToday,
@@ -23,6 +25,7 @@ import {
   parseCardSize,
   type GridBox,
 } from "@bookmark/shared/wrapCards";
+import { signupSourceFrom } from "@bookmark/shared/signupSource";
 import { finishDay } from "@bookmark/shared/timeZone";
 import { parseDate } from "@/lib/import/formats";
 import { FREE } from "@bookmark/shared/plusFeatures";
@@ -142,6 +145,19 @@ test("one design is free, the rest are Plus, and the free column doesn't overcla
   assert.deepEqual(Object.entries(CARD_DESIGNS).filter(([, d]) => !d.plus).map(([k]) => k), ["midnight"]);
   assert.equal(entitlementsOf({}).customWrapDesigns, false);
   assert.ok(FREE.some((line) => /cover grid/i.test(line)));
+});
+
+// Tracked by address, not cookie: the mark has to survive every way sign-up carries the page along.
+test("a card's links are marked, and the mark survives sign-up's callbacks", () => {
+  assert.equal(cardProfilePath("bigshelf"), "/u/bigshelf?from=card");
+  assert.equal(cardShortPath("bigshelf"), "/w/bigshelf");
+  assert.equal(signupSourceFrom(cardProfilePath("bigshelf")), "card");
+  // Google and Apple: home, with the page as its callback, as /new-user receives it.
+  assert.equal(signupSourceFrom(`/?callbackUrl=${encodeURIComponent(cardProfilePath("bigshelf"))}`), "card");
+  assert.equal(signupSourceFrom(`/u/bigshelf?from=card#shelf`), "card");
+  for (const path of [null, "", "/u/bigshelf", "/u/bigshelf?from=elsewhere", "/?callbackUrl=%2Fu%2Fbigshelf", "not a path %"]) {
+    assert.equal(signupSourceFrom(path), null, String(path));
+  }
 });
 
 test("the card pickers count months in the profile's zone, back to the reader's first year", () => {

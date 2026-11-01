@@ -13,6 +13,7 @@ import {
   cardFileName,
   cardMonths,
   cardPath,
+  cardProfilePath,
   cardTitle,
   cardToday,
   cardYears,
@@ -87,7 +88,8 @@ export function WrapCardPicker({ accent, wrapDesigns, today: given, years }: { a
     setYear(y);
     if (monthKey > cardMonths(y, today).length) setMonthKey(0);
   };
-  const profileUrl = username ? webUrl(`/u/${encodeURIComponent(username)}`) : webUrl("/");
+  // Marked ?from=card, so a sign-up that starts from the shared link is counted (shared/signupSource.ts).
+  const profileUrl = username ? webUrl(cardProfilePath(username)) : webUrl("/");
   const { width, height } = CARD_SIZES[size];
   // "My October in books": the same words the card puts at its top.
   const title = cardTitle(year, month === null ? null : month - 1, current);

@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 import type { WrapCardBook, WrapCardData } from '@bookmark/shared/statsTypes'
-import { CARD_SIZES, cardStats, cardWords, gridLayout, moodMix, type CardDesign, type CardKind, type CardSize } from '@bookmark/shared/wrapCards'
+import { CARD_SIZES, cardShortPath, cardStats, cardWords, gridLayout, moodMix, type CardDesign, type CardKind, type CardSize } from '@bookmark/shared/wrapCards'
 import { ratingGlyphs, starClip } from '@bookmark/shared/rating'
 import { readableInk, shade, toHex } from '@/lib/colour'
 import { BG, BRAND, INK, MUTED, STAR_PATH, Logo, clip, fmt, googleFont, imageData, siteHost } from './wrappedImage'
@@ -200,7 +200,7 @@ const MoodsLine = ({ moods, size, p }: { moods: ReturnType<typeof moodMix>; size
 const Footer = ({ handle, size, p }: { handle: string; size: number; p: Palette }) => (
   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: size, lineHeight: 1.3 }}>
     <span style={{ fontWeight: 600, color: p.ink }}>{`@${handle} on Bookmark`}</span>
-    <span style={{ color: p.muted }}>{`${siteHost}/u/${handle}`}</span>
+    <span style={{ color: p.muted }}>{`${siteHost}${cardShortPath(handle)}`}</span>
   </div>
 )
 

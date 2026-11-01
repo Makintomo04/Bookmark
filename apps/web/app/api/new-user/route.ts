@@ -6,6 +6,7 @@ import { isStorableBanner } from "@/lib/banners";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { parseSignupSource } from "@bookmark/shared/signupSource";
 
 // Onboarding's live "is this username free?" check. Usernames are public, so this reveals nothing new.
 export async function GET(req: Request) {
@@ -36,6 +37,10 @@ export async function POST(req: Request) {
   const color = typeof body?.color === "string" && body.color ? body.color : DEFAULT_COLOUR;
   // Optional: most readers skip it at sign-up and the username heads their profile.
   const displayName = typeof body?.displayName === "string" ? normaliseDisplayName(body.displayName) : "";
+  // Google, Apple and email-link accounts are made by NextAuth, so this is where their ?from= mark
+  // arrives (password sign-ups store theirs at /api/register). Only at first onboarding (no colour yet),
+  // and never over one already set.
+  const signupSource = !currentUser.favColour && !currentUser.signupSource ? parseSignupSource(body?.source) : null;
 
   // Onboarding sets the name the first time, so it always meets the rules (lib/profile.ts).
   const usernameError = usernameProblem(username);
@@ -65,6 +70,7 @@ export async function POST(req: Request) {
         ...(displayName ? { displayName } : {}),
         bio,
         favColour: color,
+        ...(signupSource && { signupSource }),
         // Skipped uploads leave what's there, so a Google or GitHub avatar isn't wiped.
         ...(typeof body?.imageSrc === "string" && body.imageSrc ? { image: body.imageSrc } : {}),
         ...(typeof body?.bannerSrc === "string" && body.bannerSrc ? { banner: body.bannerSrc } : {}),
