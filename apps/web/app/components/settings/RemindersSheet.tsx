@@ -11,7 +11,8 @@ import ReminderControls, { DEFAULT_REMINDER_AT } from './ReminderControls'
 // Offered once, when the server says (askReminders): a first finish this year, a third day of reading, or a
 // goal set, whichever comes first. We ask once they've had something from Bookmark, not at sign-up. The
 // switches start as a suggestion and nothing is saved until "Turn on"; "Not now", or closing it, only
-// records that we asked. Opens after the medal celebration, never on top of it. Mounted in the root layout.
+// records that we asked. Opens after the medal celebration, never on top of it. Mounted in the root layout, and
+// stays open through a page change: joining asks and then sends you on to the circle, which may land after it opens.
 const RemindersSheet: FC = () => {
   const { asked, done } = useRemindersPrompt()
   const celebrating = useEarnMoment((s) => s.moment !== null)
@@ -61,6 +62,7 @@ const RemindersSheet: FC = () => {
       title="Want a nudge to keep reading?"
       onClose={() => void close(false)}
       closeOnBackdrop={false}
+      closeOnNavigate={false}
       body={
         <div className="w-full px-6 flex flex-col gap-5">
           <p className="text-sm text-muted-foreground">{SHEET_INTRO[reason]} Choose what you&apos;d like from Bookmark. Everything here is free{draft.hasPhone && quietFrom !== quietTo && <>, and nothing arrives on your phone between {quietFrom} and {quietTo}</>}.</p>

@@ -24,6 +24,9 @@ interface ModalProps {
   headerAction?: React.ReactNode;
   // On a phone, a sheet docked to the bottom at its own height (the join prompt), not the full screen.
   sheet?: boolean;
+  // Off for a modal with no links that's opened just before a page change and should follow the reader there
+  // (the reminders sheet, offered as a join sends you on to the circle).
+  closeOnNavigate?: boolean;
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
@@ -41,7 +44,7 @@ function lockPageScroll() {
   }
 }
 
-const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default",bare = false,headerAction,sheet = false}) => {
+const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeOnBackdrop = true,compact = false,size = "default",bare = false,headerAction,sheet = false,closeOnNavigate = true}) => {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -63,8 +66,8 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
   useEffect(() => {
     if (lastPath.current === pathname) return
     lastPath.current = pathname
-    if (isOpen) onCloseRef.current()
-  }, [pathname, isOpen])
+    if (isOpen && closeOnNavigate) onCloseRef.current()
+  }, [pathname, isOpen, closeOnNavigate])
 
   // Freeze the page behind, otherwise a swipe on the header, footer or past the end of the body scrolls the page.
   useEffect(() => {
