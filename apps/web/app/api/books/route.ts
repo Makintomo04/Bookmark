@@ -18,6 +18,12 @@ import { fillWorkSeriesQuietly } from "@/lib/seriesFill";
 import { alreadyShelved, shelfCopies } from "@/lib/shelfCopy";
 
 const statusSchema = z.nativeEnum(Status)
+// Matches PATCH /api/book-progress, where a review is written on finishing a book already on the shelf.
+const reviewSchema = z.object({
+  review: z.string().max(2000, "Review must be 2000 characters or fewer").optional(),
+  reviewSpoiler: z.boolean().optional(),
+  reviewPrivate: z.boolean().optional(),
+})
 const optionalText = z.string().max(40).nullish()
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
 
@@ -143,7 +149,7 @@ const { user: currentUser, response } = await requireUser();
 if (response) return response;
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, finishedOn, startedOn, rating, genre, workKey, description, editionKey, isbn13, isbn10, hardcoverId, format, audioMinutes, isPrivate } = body
+  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, finishedOn, startedOn, rating, review, reviewSpoiler, reviewPrivate, genre, workKey, description, editionKey, isbn13, isbn10, hardcoverId, format, audioMinutes, isPrivate } = body
 
 if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {
   return NextResponse.json({ error: "Title and author are required" }, { status: 400 })
@@ -172,10 +178,15 @@ const parsedRating = ratingSchema.optional().safeParse(rating)
 if (!parsedRating.success) {
   return NextResponse.json({ error: RATING_ERROR }, { status: 400 })
 }
+const parsedReview = reviewSchema.safeParse({ review, reviewSpoiler, reviewPrivate })
+if (!parsedReview.success) {
+  return NextResponse.json({ error: parsedReview.error.issues[0]?.message ?? "Invalid review" }, { status: 400 })
+}
 
 const now = new Date()
 const shelf = parsedStatus.data
 const isCompleted = shelf === "COMPLETED"
+const reviewText = parsedReview.data.review?.trim() || null
 // A finished book's dates, as picked ("2024-03-01", or null for "I don't remember"). Older clients send
 // finishedThisYear instead, which means today.
 const finishedDay = optionalDaySchema.optional().safeParse(finishedOn)
@@ -251,6 +262,8 @@ const book = await prisma.book.create({
     stoppedAt: isStopped ? now : null,
     timesRead: isCompleted ? 1 : 0,
     rating: (isCompleted || shelf === "DNF") && parsedRating.data ? parsedRating.data : null,
+    // A review written as the finished book is added, like one written when finishing it later.
+    ...(isCompleted && reviewText && { review: reviewText, reviewSpoiler: !!parsedReview.data.reviewSpoiler, reviewPrivate: !!parsedReview.data.reviewPrivate }),
     // Added privately: only the reader sees it (lib/privacy.ts sharedBookWhere).
     ...(isPrivate === true && { isPrivate: true }),
   }
@@ -275,6 +288,7 @@ if (shelf !== "NOT_INTERESTED") await prisma.activity.create({
     type: shelf === "STARTED" ? "STARTED_BOOK" : finishedThisYearNow ? "COMPLETED_BOOK" : "ADDED_BOOK",
   }
 })
+if (book.review) await prisma.activity.create({ data: { userId: currentUser.id, bookId: book.id, type: "REVIEWED_BOOK" } })
 // Adding a finished book can earn medals; the app celebrates what comes back.
 const earnMoment = isCompleted ? await earnMomentFor(currentUser, await syncAchievements(currentUser.id), { finished: finishedThisYearNow }) : null
 await seriesFilled

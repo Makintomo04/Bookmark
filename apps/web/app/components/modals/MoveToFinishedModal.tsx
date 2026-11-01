@@ -13,6 +13,7 @@ import { celebrate } from '@/app/hooks/useEarnMoment'
 import { reshelveBook } from '../books/ShelfMenuItems'
 import FinishDates, { defaultFinishDates, finishDatesBody, finishDatesProblem, type FinishDatesValue } from '../books/FinishDates'
 import { notify } from '@/lib/notify'
+import ReviewFields, { EMPTY_REVIEW, reviewBody, type ReviewValue } from '../books/ReviewFields'
 
 // A book on the wrong shelf that the reader has actually read: the same questions adding it to Finished asks.
 const MoveToFinishedModal: FC = () => {
@@ -22,6 +23,7 @@ const MoveToFinishedModal: FC = () => {
   const { isOpen, bookId, bookTitle, onClose } = useMoveToFinishedModal()
   const [dates, setDates] = useState<FinishDatesValue>(defaultFinishDates)
   const [rating, setRating] = useState(0)
+  const [review, setReview] = useState<ReviewValue>(EMPTY_REVIEW)
   const [isSaving, setIsSaving] = useState(false)
   const colour = user?.favColour || '#D92D2D'
 
@@ -29,13 +31,14 @@ const MoveToFinishedModal: FC = () => {
     if (!isOpen) return
     setDates(defaultFinishDates())
     setRating(0)
+    setReview(EMPTY_REVIEW)
   }, [isOpen])
 
   const move = () => {
     const problem = finishDatesProblem(dates)
     if (problem) return notify.error(problem)
     setIsSaving(true)
-    reshelveBook(bookId, "COMPLETED", { ...finishDatesBody(dates), rating: rating > 0 ? rating : undefined }).then((saved) => {
+    reshelveBook(bookId, "COMPLETED", { ...finishDatesBody(dates), rating: rating > 0 ? rating : undefined, ...reviewBody(review) }).then((saved) => {
       if (!saved) return
       celebrate(saved.earnMoment, { message: "Moved to Finished" }, saved.askReminders)
       mutate()
@@ -51,6 +54,7 @@ const MoveToFinishedModal: FC = () => {
         <Label>Rating <span className="font-normal text-muted-foreground">· optional</span></Label>
         <StarRating value={rating} onChange={setRating} disabled={isSaving} />
       </div>
+      <ReviewFields value={review} onChange={setReview} disabled={isSaving} accent={colour} id="move-finish-review" />
     </div>
   )
 
