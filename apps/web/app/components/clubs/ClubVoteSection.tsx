@@ -71,7 +71,7 @@ const ClubVoteSection: FC<{ clubId: string, canManage: boolean, archived: boolea
               <label className="flex items-start gap-2 text-sm"><input type="radio" name="nominators" checked={!hostsOnly} onChange={() => setHostsOnly(false)} className="mt-1" />Everyone, one book each</label>
               <label className="flex items-start gap-2 text-sm"><input type="radio" name="nominators" checked={hostsOnly} onChange={() => setHostsOnly(true)} className="mt-1" />Only you and your co-hosts, as a shortlist</label>
             </fieldset>
-            <p className="text-xs text-muted-foreground">Everyone in the club is told. Votes stay hidden until it closes, then the book with the most wins. If it&apos;s a tie, you pick.</p>
+            <p className="text-xs text-muted-foreground">{hostsOnly ? "Everyone else is told once the first book is up." : "Everyone in the club is told."} Votes stay hidden until it closes, then the book with the most wins. If it&apos;s a tie, you pick.</p>
             <div className="flex gap-2">
               <button type="submit" disabled={busy} className={primaryButtonClass}>Open the vote</button>
               <button type="button" onClick={() => setOpening(false)} className={secondaryButtonClass}>Cancel</button>

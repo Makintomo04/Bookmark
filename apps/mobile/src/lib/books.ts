@@ -124,7 +124,7 @@ export function isRereading(book: Book, finished: Book[]) {
 
 // Everything a book save can change (the web's refreshAfterBookChange).
 export function refreshAfterBookChange() {
-  return mutate((key) => typeof key === "string" && (key.startsWith("/api/books") || key === "/api/user" || key === "/api/achievements" || key === "/api/notifications" || key.startsWith("/api/reading-goal")));
+  return mutate((key) => typeof key === "string" && (key.startsWith("/api/books") || key.startsWith("/api/discover") || key === "/api/user" || key === "/api/achievements" || key === "/api/notifications" || key.startsWith("/api/reading-goal")));
 }
 
 export type BookAction = "start" | "progress" | "complete" | "rate" | "pause" | "resume" | "dnf" | "restart" | "wantToRead" | "notInterested";

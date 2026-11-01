@@ -28,6 +28,9 @@ export async function GET(req: Request) {
     {
       'Content-Disposition': `attachment; filename="bookmark-wrap-${stamp}.png"`,
       'Cache-Control': 'private, max-age=300',
+      // It's the signed-in reader's own card: a cache keyed on the URL alone (the phone's) would hand it to
+      // whoever signs in next.
+      Vary: 'Authorization, Cookie',
     }
   )
 }

@@ -106,7 +106,7 @@ export function ClubVote({ clubId, canManage, archived }: { clubId: string; canM
                 {hostsOnly === o.value && <Check size={16} color={colors.foreground} />}
               </Pressable>
             ))}
-            <Text variant="small">Everyone in the club is told. Votes stay hidden until it closes, then the book with the most wins. If it{"’"}s a tie, you pick.</Text>
+            <Text variant="small">{hostsOnly ? "Everyone else is told once the first book is up." : "Everyone in the club is told."} Votes stay hidden until it closes, then the book with the most wins. If it{"’"}s a tie, you pick.</Text>
             {error && <Notice tone="error" message={error} />}
             <View style={styles.actionRow}>
               <Button title="Open the vote" loading={busy} onPress={() => act(() => api.post(`/api/clubs/${clubId}/votes`, { days, hostsOnly }), "Couldn't open the vote.", () => setOpening(false))} />

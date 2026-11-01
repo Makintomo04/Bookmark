@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
-import { addBook, type DiscoverHome, type FollowingPick, type ListSummary } from "@/lib/discover";
+import { openOrAdd, tileAction, useOnShelf, type DiscoverHome, type FollowingPick, type ListSummary, type ShelfCopy } from "@/lib/discover";
 import { useTheme } from "@/lib/theme";
 
 // Discover (the web's /discover): searching, Ask the shelf, the spotlight list, genres (your favourites
@@ -23,6 +23,7 @@ import { useTheme } from "@/lib/theme";
 export default function Discover() {
   const { colors, radii } = useTheme();
   const { data, error, isLoading, mutate } = useSWR<DiscoverHome>("/api/discover");
+  const pickOnShelf = useOnShelf(data?.following.picks.map((p) => p.book));
 
   return (
     <Screen>
@@ -88,7 +89,7 @@ export default function Discover() {
           <UpcomingRow />
           {data.following.picks.length > 0 && (
             <Section title="From people you follow">
-              <FlatList horizontal data={data.following.picks} keyExtractor={(p) => p.key} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }} renderItem={({ item }) => <PickCard pick={item} />} />
+              <FlatList horizontal data={data.following.picks} keyExtractor={(p) => p.key} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }} extraData={pickOnShelf} renderItem={({ item, index }) => <PickCard pick={item} copy={pickOnShelf(index)} />} />
             </Section>
           )}
           <ListRow title="Bookmark picks" lists={data.picks} />
@@ -157,6 +158,7 @@ interface UpcomingBook {
 function UpcomingRow() {
   const { colors, radii } = useTheme();
   const { data } = useSWR<{ books: UpcomingBook[] }>("/api/discover/upcoming?limit=12");
+  const onShelf = useOnShelf(data?.books);
   if (!data?.books.length) return null;
   return (
     <Section title="Upcoming">
@@ -166,17 +168,18 @@ function UpcomingRow() {
         keyExtractor={(b) => b.pageWorkId ?? b.workKey ?? b.title}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 12 }}
-        renderItem={({ item }) => (
+        extraData={onShelf}
+        renderItem={({ item, index }) => (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${item.title} by ${item.author}, out ${formatReleaseDate(item.releaseDate)}. Add it.`}
-            onPress={() => addBook(item)}
+            accessibilityLabel={`${item.title} by ${item.author}, out ${formatReleaseDate(item.releaseDate)}. ${tileAction(onShelf(index))}`}
+            onPress={() => openOrAdd(item, onShelf(index))}
             style={[styles.pick, { borderRadius: radii.lg, borderColor: colors.border }]}
           >
             <BookCover book={{ title: item.title, author: item.author, coverImage: item.coverUrl ?? "" }} width={96} />
             <Text numberOfLines={2} style={{ fontSize: 14 }}>{item.title}</Text>
             <Text variant="small" numberOfLines={1}>{item.author}</Text>
-            <Text variant="small" numberOfLines={1}>{formatReleaseDate(item.releaseDate)}{item.followed ? " · You follow this" : ""}</Text>
+            <Text variant="small" numberOfLines={1}>{formatReleaseDate(item.releaseDate)}{onShelf(index) ? " · On your shelf" : item.followed ? " · You follow this" : ""}</Text>
           </Pressable>
         )}
       />
@@ -184,13 +187,13 @@ function UpcomingRow() {
   );
 }
 
-function PickCard({ pick }: { pick: FollowingPick }) {
+function PickCard({ pick, copy }: { pick: FollowingPick; copy: ShelfCopy }) {
   const { colors, radii } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${pick.book.title} by ${pick.book.author}, picked by ${readerName(pick.person) || "a reader"}. Add it.`}
-      onPress={() => addBook(pick.book)}
+      accessibilityLabel={`${pick.book.title} by ${pick.book.author}, picked by ${readerName(pick.person) || "a reader"}. ${tileAction(copy)}`}
+      onPress={() => openOrAdd(pick.book, copy)}
       style={[styles.pick, { borderRadius: radii.lg, borderColor: colors.border }]}
     >
       <BookCover book={{ title: pick.book.title, author: pick.book.author, coverImage: pick.book.coverUrl }} width={96} />

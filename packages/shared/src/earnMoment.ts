@@ -68,10 +68,11 @@ export function buildEarnMoment({ awarded, stats, earnedKeys, goal = null, finis
 // Whether there's anything worth showing at all.
 export const hasEarnMoment = (m: EarnMoment | null | undefined): m is EarnMoment => !!m && (m.medals.length > 0 || !!m.goal || !!m.next);
 
-// The one line under "Marked as finished": "18 of 52 books in 2026 · 6 more books to Book Devourer".
+// The one line under "Marked as finished": "18 of 52 books in 2026 · 6 more books to Book Devourer". A medal
+// that isn't counted up says what to do instead: "Complete a book that's 1,000+ pages to earn Tome Raider".
 export function finishLine(m: EarnMoment): string | null {
   const parts: string[] = [];
   if (m.goal) parts.push(`${m.goal.books} of ${m.goal.target} books in ${m.goal.year}`);
-  if (m.next) parts.push(`${m.next.text} to ${m.next.title}`);
+  if (m.next) parts.push(`${m.next.text} ${/^[\d,]+ more /.test(m.next.text) ? "to" : "to earn"} ${m.next.title}`);
   return parts.length > 0 ? parts.join(" · ") : null;
 }

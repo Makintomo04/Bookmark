@@ -54,7 +54,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     // A book started while this ran isn't in what the transaction read: finish it now (lib/clubLimits.ts settleNewClubBook).
     await finishClubBooks(membership.club.id, prisma);
     // An archived club starts nothing, so a vote on (or a tie waiting) can't pick its next book: it's called off.
-    await cancelClubVote(membership.club.id);
+    await cancelClubVote(membership.club.id, currentUser.id);
   }
   return NextResponse.json({ id: updated.id, status: updated.status });
 }

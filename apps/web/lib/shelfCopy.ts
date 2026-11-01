@@ -1,5 +1,5 @@
 import prisma from "@/lib/db";
-import { normaliseWorkKey, sameBook } from "@/lib/workKey";
+import { normaliseWorkKey, sameBook, sameTitleAndAuthor } from "@/lib/workKey";
 
 // A reader has one copy of a book: rereads are BookRead rows on it, and a shelf move edits it. Every
 // add path (Discover's Want to read, the add-book modal, Start a circle) goes through POST /api/books,
@@ -42,3 +42,17 @@ export const alreadyShelved = (copy: { id: string; status: string }) => ({
   bookId: copy.id,
   status: copy.status,
 });
+
+// Each book's copy on the reader's shelf, in order: its id and shelf, or null. One read of the shelf's keys
+// for the lot (a row of a page, not a library). Looser than shelfCopies: the same title and author counts
+// even under another work key, since this only says "On your shelf" and opens their copy.
+export async function shelfMatches(userId: string, books: Candidate[]) {
+  if (books.length === 0) return [];
+  const shelf = await prisma.book.findMany({ where: { userId }, select: { id: true, title: true, author: true, workKey: true, status: true } });
+  return books.map((book) => {
+    const wanted = { ...book, workKey: normaliseWorkKey(book.workKey) };
+    const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : 1);
+    const copy = shelf.filter((b) => sameBook(b, wanted)).sort(byId)[0] ?? shelf.filter((b) => sameTitleAndAuthor(b, wanted)).sort(byId)[0];
+    return copy ? { bookId: copy.id, status: copy.status } : null;
+  });
+}

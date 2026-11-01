@@ -59,6 +59,8 @@ export async function GET(req: Request) {
       'Content-Disposition': `inline; filename="${file}.png"`,
       // It changes as the reader finishes books, so don't let a cache hold it for long.
       'Cache-Control': 'private, max-age=300',
+      // The signed-in reader's own card, so never one cached for someone else (wrap/monthly says why).
+      Vary: 'Authorization, Cookie',
     }
   )
 }

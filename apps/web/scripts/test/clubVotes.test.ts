@@ -23,8 +23,11 @@ import {
   turnoutText,
   voteActionSchema,
   voteOutcome,
+  ARCHIVED_MESSAGE,
   HOSTS_ONLY_MESSAGE,
   NO_VOTES_MESSAGE,
+  SHORTLIST_OPEN_MESSAGE,
+  SHORTLIST_UP_MESSAGE,
   mayNominateMore,
   nominationsEach,
   settledVoteText,
@@ -119,6 +122,10 @@ test("copy: time left, turnout", () => {
   assert.equal(closesInText("2026-11-08T11:59:00Z", now), "Closes in 7 days");
   assert.equal(closesInText("2026-11-03T13:00:00Z", now), "Closes in 2 days");
   assert.equal(closesInText("2026-11-02T12:00:00Z", now), "Closes in 24 hours");
+  // A 1-day vote a minute after opening, and a 2-day one.
+  assert.equal(closesInText("2026-11-02T11:59:00Z", now), "Closes in 24 hours");
+  assert.equal(closesInText("2026-11-03T11:59:00Z", now), "Closes in 2 days");
+  assert.equal(closesInText("2026-11-01T13:20:00Z", now), "Closes in 1 hour");
   assert.equal(closesInText("2026-11-01T13:00:00Z", now), "Closes in 1 hour");
   assert.equal(closesInText("2026-11-01T12:30:00Z", now), "Closes in under an hour");
   assert.equal(closesInText("2026-11-01T11:00:00Z", now), "Closing now");
@@ -140,7 +147,7 @@ test("voter lists follow the invite's rule: public profiles only, never blocked 
 });
 
 test("vote notifications name nobody, are pushed in the circles group, and open the club", () => {
-  for (const type of ["CLUB_VOTE_OPENED", "CLUB_VOTE_PICKED", "CLUB_VOTE_TIED"]) {
+  for (const type of ["CLUB_VOTE_OPENED", "CLUB_VOTE_PICKED", "CLUB_VOTE_TIED", "CLUB_VOTE_CANCELLED"]) {
     assert.ok(isClubVoteNotification(type));
     assert.ok((PUSH_GROUPS.circles as readonly string[]).includes(type));
     // actorId is the reader themselves, so they must still be pushed.
@@ -154,6 +161,18 @@ test("vote notifications name nobody, are pushed in the circles group, and open 
   assert.equal(clubVoteText("CLUB_VOTE_OPENED", null), "Your club is voting on its next book. Put one up or cast your vote.");
   assert.equal(clubVoteText("CLUB_VOTE_OPENED", "Night Owls", HOSTS_ONLY_MESSAGE), "Night Owls is voting on its next book. The hosts are putting up the shortlist; cast your vote.");
   assert.equal(isClubVoteNotification("CLUB_CIRCLE_ADDED"), false);
+});
+
+test("a hosts-only vote asks the hosts for books, then tells members once the shortlist is up", () => {
+  assert.equal(clubVoteText("CLUB_VOTE_OPENED", "Night Owls", SHORTLIST_OPEN_MESSAGE), "Night Owls is voting on its next book. Put books up for the shortlist.");
+  assert.equal(clubVoteText("CLUB_VOTE_OPENED", "Night Owls", SHORTLIST_UP_MESSAGE), "The shortlist for Night Owls's next book is up. Cast your vote.");
+});
+
+test("a vote called off says so, and says when archiving did it", () => {
+  assert.equal(clubVoteText("CLUB_VOTE_CANCELLED", "Night Owls", null), "The vote on Night Owls's next book was called off.");
+  assert.equal(clubVoteText("CLUB_VOTE_CANCELLED", "Night Owls", ARCHIVED_MESSAGE), "Night Owls was archived, so its vote on the next book is called off.");
+  const push = pushContentFor({ type: "CLUB_VOTE_CANCELLED", actorUsername: null, bookTitle: null, buddyReadId: null, count: null, clubId: "c1", clubName: "Night Owls", message: null });
+  assert.equal(push?.title, "Vote called off");
 });
 
 test("a hosts-only shortlist lets a host put up several books; everyone else one each", () => {
