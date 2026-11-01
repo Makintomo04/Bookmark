@@ -163,6 +163,10 @@ export const REMINDER_COPY = {
   // Push is switched off for Bookmark in the phone's settings.
   blocked: "Notifications are off for Bookmark on this phone. Turn them on in your phone's settings, or use the weekly email. Circle checkpoints come by email meanwhile, once your address is confirmed.",
   openSettings: "Open phone settings",
+  // A build or device that can't get pushes at all (an emulator, or a build made before `eas init`).
+  unavailable: "Notifications can't reach Bookmark on this phone, so the daily reminder and streak alert can't either. The weekly email can, and circle checkpoints come by email once your address is confirmed.",
+  // A push-only reminder turned on in Settings when the phone's permission prompt was refused.
+  noPush: "Notifications aren't on for Bookmark on this phone, so that reminder can't reach you. Turn them on in your phone's settings, or use the weekly email.",
 } as const;
 
 // Why the reminders sheet is offered, once (User.remindersPromptedAt): the first book finished here, a

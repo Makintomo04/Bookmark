@@ -23,6 +23,7 @@ import {
   turnoutText,
   voteActionSchema,
   voteOutcome,
+  HOSTS_ONLY_MESSAGE,
   NO_VOTES_MESSAGE,
   mayNominateMore,
   nominationsEach,
@@ -114,6 +115,9 @@ test("input: 1 to 14 days, three by default; ids must look like ids", () => {
 test("copy: time left, turnout", () => {
   const now = new Date("2026-11-01T12:00:00Z");
   assert.equal(closesInText("2026-11-04T12:00:00Z", now), "Closes in 3 days");
+  // A 7-day vote a minute after opening.
+  assert.equal(closesInText("2026-11-08T11:59:00Z", now), "Closes in 7 days");
+  assert.equal(closesInText("2026-11-03T13:00:00Z", now), "Closes in 2 days");
   assert.equal(closesInText("2026-11-02T12:00:00Z", now), "Closes in 24 hours");
   assert.equal(closesInText("2026-11-01T13:00:00Z", now), "Closes in 1 hour");
   assert.equal(closesInText("2026-11-01T12:30:00Z", now), "Closes in under an hour");
@@ -148,6 +152,7 @@ test("vote notifications name nobody, are pushed in the circles group, and open 
   }
   assert.equal(clubVoteText("CLUB_VOTE_PICKED", "Night Owls", "Piranesi"), "Night Owls picked Piranesi as its next book.");
   assert.equal(clubVoteText("CLUB_VOTE_OPENED", null), "Your club is voting on its next book. Put one up or cast your vote.");
+  assert.equal(clubVoteText("CLUB_VOTE_OPENED", "Night Owls", HOSTS_ONLY_MESSAGE), "Night Owls is voting on its next book. The hosts are putting up the shortlist; cast your vote.");
   assert.equal(isClubVoteNotification("CLUB_CIRCLE_ADDED"), false);
 });
 

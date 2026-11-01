@@ -13,7 +13,9 @@ import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { canManageClub, clubRole, inviteFaces } from "@/lib/clubs";
 import {
   ALREADY_UP_MESSAGE,
+  READING_IT_MESSAGE,
   NOMINATIONS_FULL_MESSAGE,
+  HOSTS_ONLY_MESSAGE,
   NO_VOTES_MESSAGE,
   ONE_BOOK_EACH_MESSAGE,
   VOTE_ALREADY_OPEN_MESSAGE,
@@ -73,12 +75,13 @@ export async function loadClubVote(clubId: string, viewerId: string) {
     await closeVote(vote)
     vote = await currentVote(club.id)
   }
-  if (!vote) return { vote: null, viewer: viewerOf(null), nominations: [] }
+  if (!vote) return { vote: null, viewer: viewerOf(null), nominations: [], reading: [] }
 
-  const [nominations, ballots, memberRows] = await Promise.all([
+  const [nominations, ballots, memberRows, reading] = await Promise.all([
     prisma.clubNomination.findMany({ where: { voteId: vote.id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
     prisma.clubBallot.findMany({ where: { voteId: vote.id }, select: { userId: true, nominationId: true } }),
     prisma.clubMember.findMany({ where: { clubId: club.id }, select: { userId: true } }),
+    clubBooksNow(club.id),
   ])
   const memberIds = new Set(memberRows.map((m) => m.userId))
   // A ballot left pointing at a book taken down at the same moment doesn't count, in turnout either.
@@ -128,6 +131,8 @@ export async function loadClubVote(clubId: string, viewerId: string) {
       const named = voters.flatMap((id) => shown.get(id) ?? [])
       return {
         id: n.id,
+        // For "already up" in the put-up sheet, matched as the server matches it.
+        workKey: n.workKey,
         title: n.title,
         author: n.author,
         coverImage: n.coverImage,
@@ -142,8 +147,14 @@ export async function loadClubVote(clubId: string, viewerId: string) {
         otherVoters: visible ? voters.length - named.length : null,
       }
     }),
+    // What the club is reading or about to start, which can't be put up for its next book.
+    reading,
   }
 }
+
+// The club's books on now (reading, or set to start).
+const clubBooksNow = (clubId: string) =>
+  prisma.buddyRead.findMany({ where: { clubId, status: "ACTIVE" }, select: { workKey: true, title: true, author: true } })
 export type ClubVoteView = NonNullable<Awaited<ReturnType<typeof loadClubVote>>>
 
 function viewerOf(v: { canRun: boolean, canNominate: boolean, canVote: boolean, myBallot: string | null, muted: boolean } | null) {
@@ -171,18 +182,22 @@ export async function openVote(clubId: string, openerId: string, opts: { days: n
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return refuse(VOTE_ALREADY_OPEN_MESSAGE, 409)
     throw e
   }
-  await notifyClub(clubId, { type: "CLUB_VOTE_OPENED", except: openerId })
+  await notifyClub(clubId, { type: "CLUB_VOTE_OPENED", except: openerId, message: opts.hostsOnly ? HOSTS_ONLY_MESSAGE : null })
   return { ok: true, voteId: id }
 }
 
 // A book from the nominator's shelf, as a snapshot. One each (on a hosts-only shortlist a host may put up
-// several), ten at most, and never the same book twice. The last two are checked again after writing, so two
+// several), ten at most, never the same book twice, and never a book the club is reading now. The last two are checked again after writing, so two
 // at once can't make eleven, or put up one book twice.
 export async function nominate(vote: ClubVote, userId: string, bookId: string): Promise<Result<{ nominationId: string }>> {
   if (vote.status !== "OPEN" || isVoteDue(vote)) return refuse(VOTE_CLOSED_MESSAGE, 409)
   const book = await prisma.book.findUnique({ where: { id: bookId } })
   if (!book || book.userId !== userId) return refuse("Book not found", 404)
-  const others = await prisma.clubNomination.findMany({ where: { voteId: vote.id }, select: { workKey: true, title: true, author: true } })
+  const [others, reading] = await Promise.all([
+    prisma.clubNomination.findMany({ where: { voteId: vote.id }, select: { workKey: true, title: true, author: true } }),
+    clubBooksNow(vote.clubId),
+  ])
+  if (reading.some((c) => sameBook(c, book))) return refuse(READING_IT_MESSAGE, 409)
   if (others.some((n) => sameBook(n, book))) return refuse(ALREADY_UP_MESSAGE, 409)
 
   let nominationId: string

@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
 import { Check, Ellipsis, Plus, Share2 } from "lucide-react-native";
 import { formatPercent } from "@bookmark/shared/buddyReads";
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, canMuteInClubNow, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubReadingEmpty, matchesMember, type ClubRole } from "@bookmark/shared/clubs";
+import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, archiveClubNote, canMuteInClubNow, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubFullNote, clubReadingEmpty, matchesMember, type ClubRole } from "@bookmark/shared/clubs";
 import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { readerName } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
@@ -18,7 +18,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
-import { ROLE_LABEL, shareClubInvite, type ClubCircle, type ClubMember, type ClubView } from "@/lib/clubs";
+import { ROLE_LABEL, shareClubInvite, type ClubCircle, type ClubMember, type ClubView, type ClubVoteView } from "@/lib/clubs";
 import { goBack } from "@/lib/navigation";
 import { useTheme } from "@/lib/theme";
 
@@ -136,7 +136,7 @@ export default function ClubScreen() {
       )}
 
       {club.inviteCode && (
-        <InviteSection clubId={club.id} code={club.inviteCode} name={club.name} full={view.full ?? memberCount >= memberCap} cap={memberCap} offerPlus={isHost && !viewer.hostPlus} canReset={viewer.canManage} onReset={refresh} />
+        <InviteSection clubId={club.id} code={club.inviteCode} name={club.name} full={view.full ?? memberCount >= memberCap} members={memberCount} cap={memberCap} offerPlus={isHost && !viewer.hostPlus} canReset={viewer.canManage} onReset={refresh} />
       )}
 
       <View style={{ gap: 10 }}>
@@ -239,7 +239,7 @@ function EditClub({ clubId, name: initialName, about: initialAbout, onDone }: { 
   );
 }
 
-function InviteSection({ clubId, code, name, full, cap, offerPlus, canReset, onReset }: { clubId: string; code: string; name: string; full: boolean; cap: number; offerPlus: boolean; canReset: boolean; onReset: () => void }) {
+function InviteSection({ clubId, code, name, full, members, cap, offerPlus, canReset, onReset }: { clubId: string; code: string; name: string; full: boolean; members: number; cap: number; offerPlus: boolean; canReset: boolean; onReset: () => void }) {
   const { colors } = useTheme();
   const [confirming, setConfirming] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -265,7 +265,7 @@ function InviteSection({ clubId, code, name, full, cap, offerPlus, canReset, onR
       <Text variant="title">Invite readers</Text>
       {full ? (
         <>
-          <Text variant="muted">The club is full ({cap} readers).</Text>
+          <Text variant="muted">{clubFullNote(members, cap)}</Text>
           {/* Gate hosts, not guests: only the host sees the way to a bigger club. */}
           {offerPlus && <Notice message={FEATURE_COPY.bigClubs.message} />}
           {offerPlus && <Button title="Bookmark Plus" variant="outline" onPress={() => router.push("/plus")} />}
@@ -401,10 +401,14 @@ function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId:
   );
 }
 
-// Host only: archiving closes the link and leaves the club's circles as they are. Reopening counts against
-// the hosting limit again, so it can come back refused with the Plus prompt.
+// Host only: archiving closes the link, marks the club's books finished and calls off a vote. Reopening counts
+// against the hosting limit again, so it can come back refused with the Plus prompt. The confirmation is a
+// sheet, since the button sits at the foot of a long page and the words would fall below the fold.
 function ClubStatusButton({ clubId, archived, onChange }: { clubId: string; archived: boolean; onChange: () => void }) {
   const [confirming, setConfirming] = useState(false);
+  // The same key ClubVote loads, so this is already in the cache.
+  const { data: votes } = useSWR<ClubVoteView>(archived ? null : `/api/clubs/${clubId}/votes`);
+  const voteOn = votes?.vote?.status === "OPEN" || votes?.vote?.status === "TIED";
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<{ message: string; upgrade: boolean } | null>(null);
 
@@ -426,18 +430,20 @@ function ClubStatusButton({ clubId, archived, onChange }: { clubId: string; arch
     <View style={{ gap: 8, alignSelf: "stretch" }}>
       {archived ? (
         <Button title="Reopen the club" variant="outline" loading={busy} onPress={() => setStatus("ACTIVE")} />
-      ) : confirming ? (
-        <View style={{ gap: 8 }}>
-          <Text>Archive this club? Its invite link stops working, no new books can be started, and the books it's reading are marked finished. Their discussions stay open.</Text>
-          <View style={styles.actionRow}>
-            <Button title="Archive" variant="outline" loading={busy} onPress={() => setStatus("ARCHIVED")} />
-            <Button title="Keep it" variant="ghost" disabled={busy} onPress={() => setConfirming(false)} />
-          </View>
-        </View>
       ) : (
         <Button title="Archive the club" variant="ghost" style={{ alignSelf: "flex-start" }} onPress={() => setConfirming(true)} />
       )}
-      {refusal && <Notice tone={refusal.upgrade ? "info" : "error"} message={refusal.message} />}
+      {confirming && !archived && (
+        <Sheet title="Archive this club?" onClose={() => !busy && setConfirming(false)}>
+          <View style={{ gap: 12 }}>
+            <Text>{archiveClubNote(voteOn)}</Text>
+            {refusal && <Notice tone="error" message={refusal.message} />}
+            <Button title="Archive" variant="outline" loading={busy} onPress={() => setStatus("ARCHIVED")} />
+            <Button title="Keep it" variant="ghost" disabled={busy} onPress={() => setConfirming(false)} />
+          </View>
+        </Sheet>
+      )}
+      {refusal && !confirming && <Notice tone={refusal.upgrade ? "info" : "error"} message={refusal.message} />}
       {refusal?.upgrade && <Button title="Bookmark Plus" variant="outline" onPress={() => router.push("/plus")} />}
     </View>
   );

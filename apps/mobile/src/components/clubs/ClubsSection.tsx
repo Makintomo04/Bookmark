@@ -32,16 +32,16 @@ export function ClubsSection() {
 function ClubRow({ club }: { club: ClubSummary }) {
   const { colors, radii } = useTheme();
   const book = club.current;
-  const line = book ? (book.upcoming ? `Next: ${book.title}, from ${dayMonth(book.startsAt)}` : `Reading ${book.title}`) : "No book yet";
+  const line = club.archived ? "Archived" : book ? (book.upcoming ? `Next: ${book.title}, from ${dayMonth(book.startsAt)}` : `Reading ${book.title}`) : "No book yet";
   const role = ROLE[club.role];
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${club.name}. ${line}`}
       onPress={() => router.push(`/clubs/${club.id}`)}
-      style={({ pressed }) => [styles.row, { borderRadius: radii.lg, borderColor: colors.border, backgroundColor: pressed ? colors.muted : "transparent" }]}
+      style={({ pressed }) => [styles.row, { borderRadius: radii.lg, borderColor: colors.border, backgroundColor: pressed ? colors.muted : "transparent" }, club.archived && { opacity: 0.75 }]}
     >
-      {book ? (
+      {book && !club.archived ? (
         <BookCover book={{ title: book.title, author: book.author, coverImage: book.coverImage, cardColour: book.cardColour }} width={44} />
       ) : (
         <View style={[styles.placeholder, { borderRadius: radii.sm, backgroundColor: colors.muted }]}>

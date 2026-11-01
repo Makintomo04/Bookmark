@@ -445,15 +445,15 @@ export function csvCell(value: string | number | null): string {
 
 export const csvOf = (rows: (string | number | null)[][]) => rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n"
 
-// One chart as rows: its label column, then a count per period. The timeline has books, pages and
-// minutes; with a comparison, its rows line up by position (the first month beside the first month).
+// One chart as rows: its label column, then a count per period. The timeline has reads (a re-read counts
+// again, so not "books"), pages and minutes; with a comparison, its rows line up by position (the first month beside the first month).
 export function chartRows(result: Pick<ExplorerResult, "period" | "compare">, chart: ExplorerChart): (string | number | null)[][] {
   const { period, compare } = result
   if (chart === "timeline") {
-    const header = ["Period", "Books", "Pages", "Minutes listened"]
+    const header = ["Period", "Reads", "Pages", "Minutes listened"]
     if (!compare) return [header, ...period.timeline.map((t) => [t.key, t.books, t.pages, t.minutes])]
     const length = Math.max(period.timeline.length, compare.timeline.length)
-    const rows: (string | number | null)[][] = [[...header, "Compared period", "Books", "Pages", "Minutes listened"]]
+    const rows: (string | number | null)[][] = [[...header, "Compared period", "Reads", "Pages", "Minutes listened"]]
     for (let i = 0; i < length; i++) {
       const a = period.timeline[i]
       const b = compare.timeline[i]

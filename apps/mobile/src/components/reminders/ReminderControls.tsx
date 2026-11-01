@@ -5,7 +5,7 @@ import { TimeField } from "@/components/ui/TimeField";
 import { Toggle } from "@/components/ui/Toggle";
 import { Notice } from "@/components/ui/Notice";
 import { Button } from "@/components/ui/Button";
-import { openNotificationSettings, usePushBlocked } from "@/lib/push";
+import { openNotificationSettings, pushAvailable, usePushBlocked } from "@/lib/push";
 
 // The reminder time a reader gets when they first turn the daily reminder on (the web's is the same).
 export const DEFAULT_REMINDER_AT = "20:00";
@@ -16,21 +16,28 @@ export function ReminderControls({ settings, save, disabled, showQuiet = true }:
   const { reminders, email } = settings;
   const times = reminderTimes(quietHoursOf(parseMinute(reminders.quietStart), parseMinute(reminders.quietEnd)));
   const firstTime = times.includes(parseMinute(DEFAULT_REMINDER_AT)!) ? DEFAULT_REMINDER_AT : formatMinute(times[0] ?? 0);
+  // Switched off for Bookmark (Settings can fix that), or a build or device that can't get pushes at all.
   const blocked = usePushBlocked();
+  const unavailable = !pushAvailable();
+  // The daily reminder and streak alert only come as pushes: with no way to arrive they can be turned off,
+  // not on (the reminders sheet does the same).
+  const pushOff = blocked || unavailable;
 
   return (
     <View style={{ gap: 16 }}>
-      {blocked && (
+      {unavailable ? (
+        <Notice tone="info" message={REMINDER_COPY.unavailable} />
+      ) : blocked && (
         <View style={{ gap: 8 }}>
           <Notice tone="info" message={REMINDER_COPY.blocked} />
           <Button title={REMINDER_COPY.openSettings} variant="outline" onPress={openNotificationSettings} />
         </View>
       )}
       <View style={{ gap: 8 }}>
-        <Toggle label={REMINDER_COPY.daily.title} hint={REMINDER_COPY.daily.hint} value={reminders.dailyAt !== null} onChange={(on) => save({ reminders: { dailyAt: on ? firstTime : null } })} disabled={disabled} />
+        <Toggle label={REMINDER_COPY.daily.title} hint={REMINDER_COPY.daily.hint} value={reminders.dailyAt !== null} onChange={(on) => save({ reminders: { dailyAt: on ? firstTime : null } })} disabled={disabled || (pushOff && reminders.dailyAt === null)} />
         {reminders.dailyAt !== null && <TimeField label="Reminder time" value={reminders.dailyAt} options={times} onChange={(v) => save({ reminders: { dailyAt: v } })} disabled={disabled} />}
       </View>
-      <Toggle label={REMINDER_COPY.streak.title} hint={REMINDER_COPY.streak.hint} value={reminders.streak} onChange={(on) => save({ reminders: { streak: on } })} disabled={disabled} />
+      <Toggle label={REMINDER_COPY.streak.title} hint={REMINDER_COPY.streak.hint} value={reminders.streak} onChange={(on) => save({ reminders: { streak: on } })} disabled={disabled || (pushOff && !reminders.streak)} />
       <Toggle label={REMINDER_COPY.checkpoints.title} hint={REMINDER_COPY.checkpoints.hint} value={reminders.checkpoints} onChange={(on) => save({ reminders: { checkpoints: on } })} disabled={disabled} />
       {showQuiet && (
         <View style={{ gap: 8 }}>

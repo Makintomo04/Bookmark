@@ -6,14 +6,15 @@ import { clubAbout, clubRole, clubShelf, createClubSchema } from "@/lib/clubs";
 import { hostingRefusal, parseBody } from "@/lib/buddyReadsServer";
 import { canHostAnotherClub, clubError, newClubInviteCode } from "@/lib/clubsServer";
 
-// The reader's clubs (newest first): each one's name, their role, how many are in it, and the cover of
-// what it's reading. And whether they may start another, so the list says so before the server has to.
+// The reader's clubs (newest first, archived ones after): each one's name, their role, how many are in it,
+// and the cover of what it's reading. Archived clubs stay listed, so a host can still reach Reopen and
+// Unmute. And whether they may start another, so the list says so before the server has to.
 export async function GET() {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
   const mine = await prisma.clubMember.findMany({
-    where: { userId: currentUser.id, club: { status: "ACTIVE" } },
+    where: { userId: currentUser.id },
     orderBy: { joinedAt: "desc" },
     take: 50,
     include: { club: true },
@@ -31,7 +32,7 @@ export async function GET() {
 
   return NextResponse.json({
     hosting,
-    clubs: mine.map(({ club, ...m }) => {
+    clubs: mine.sort((a, b) => Number(a.club.status === "ARCHIVED") - Number(b.club.status === "ARCHIVED")).map(({ club, ...m }) => {
       const shelf = clubShelf(circles.filter((c) => c.clubId === club.id));
       const book = shelf.reading[0] ?? shelf.upcoming[0] ?? null;
       return {
@@ -40,6 +41,7 @@ export async function GET() {
         about: club.about,
         role: clubRole(m, club.hostId),
         memberCount: countById.get(club.id) ?? 0,
+        archived: club.status === "ARCHIVED",
         current: book && {
           id: book.id,
           title: book.title,

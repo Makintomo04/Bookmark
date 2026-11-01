@@ -35,6 +35,7 @@ export const nominationsEach = (hostsOnly: boolean) => (hostsOnly ? VOTE_NOMINAT
 export const mayNominateMore = (hostsOnly: boolean, mine: number) => mine < nominationsEach(hostsOnly)
 export const ONE_BOOK_EACH_MESSAGE = "You've already put a book up. Take it down to choose another."
 export const ALREADY_UP_MESSAGE = "That book's already up for the vote. Vote for it instead."
+export const READING_IT_MESSAGE = "The club is reading that book already. Put up what it reads next."
 
 export const NOMINATIONS_FULL_MESSAGE = `This vote already has ${VOTE_NOMINATIONS_MAX} books. Vote for one of them instead.`
 export const VOTE_ALREADY_OPEN_MESSAGE = "The club already has a vote on. Close it before opening another."
@@ -103,14 +104,15 @@ export const voteActionSchema = z.discriminatedUnion("action", [
 
 // ---- Copy -----------------------------------------------------------------------------------
 
-// "Closes in 2 days", "Closes in 5 hours", "Closes in under an hour", for the vote card.
+// "Closes in 2 days", "Closes in 5 hours", "Closes in under an hour", for the vote card. Days are rounded,
+// so a 7-day vote just opened says 7, not 6.
 export function closesInText(closesAt: Date | string, now: Date = new Date()) {
   const ms = new Date(closesAt).getTime() - now.getTime()
   if (ms <= 0) return "Closing now"
   const hours = Math.floor(ms / (60 * 60 * 1000))
   if (hours < 1) return "Closes in under an hour"
   if (hours < 48) return `Closes in ${hours} ${hours === 1 ? "hour" : "hours"}`
-  const days = Math.floor(hours / 24)
+  const days = Math.round(ms / (24 * 60 * 60 * 1000))
   return `Closes in ${days} days`
 }
 
@@ -131,13 +133,18 @@ export function settledVoteText(v: { status: ClubVoteStatus, voted: number }, ca
 
 // Kept in a CLUB_VOTE_TIED notification's message when nobody voted at all.
 export const NO_VOTES_MESSAGE = "no-votes"
+// Kept in a CLUB_VOTE_OPENED notification's message on a hosts-only vote, where members can't put books up.
+export const HOSTS_ONLY_MESSAGE = "hosts-only"
 
 // The bell, the push and the phone's notifications list say the same. Nobody is named: a vote is the club's.
-// `message` is the winning book for CLUB_VOTE_PICKED, and NO_VOTES_MESSAGE on a CLUB_VOTE_TIED nobody voted in.
+// `message` is the winning book for CLUB_VOTE_PICKED, NO_VOTES_MESSAGE on a CLUB_VOTE_TIED nobody voted in, and
+// HOSTS_ONLY_MESSAGE on a CLUB_VOTE_OPENED where only the hosts put books up.
 export function clubVoteText(type: string, club: string | null, message?: string | null) {
   const name = club ?? "Your club"
   switch (type) {
-    case "CLUB_VOTE_OPENED": return `${name} is voting on its next book. Put one up or cast your vote.`
+    case "CLUB_VOTE_OPENED": return message === HOSTS_ONLY_MESSAGE
+      ? `${name} is voting on its next book. The hosts are putting up the shortlist; cast your vote.`
+      : `${name} is voting on its next book. Put one up or cast your vote.`
     case "CLUB_VOTE_PICKED": return message ? `${name} picked ${message} as its next book.` : `${name} has picked its next book.`
     case "CLUB_VOTE_TIED": return message === NO_VOTES_MESSAGE
       ? `Nobody voted in ${name}'s vote. Pick the winner from the books put up.`

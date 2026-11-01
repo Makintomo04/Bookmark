@@ -46,13 +46,9 @@ export function RemindersSheet() {
     if (!ok && turnOn) return;
     setDraft(null);
     done();
-    // The same short banner a finished book gets, so "Turn on" is confirmed.
-    if (turnOn) {
-      const note = wantsPush && !pushOn
-        ? `Notifications aren't on for Bookmark on this phone, so they'll come by email.${draft.email.verified ? " Change them any time in Settings." : " Confirm your email address and they'll start."}`
-        : pushOn || draft.email.verified ? "Change them any time in Settings." : "Confirm your email address and they'll start.";
-      useEarnMoment.setState({ noteTitle: "Reminders are on", note });
-    }
+    // The same short banner a finished book gets, so "Turn on" is confirmed. Without push, only what has an
+    // email form (checkpoints, the weekly email) is on; the daily reminder and streak alert were saved off.
+    if (turnOn) useEarnMoment.setState(remindersNote(draft, wantsPush && !pushOn));
   };
 
   const quietFrom = clockLabel(parseMinute(draft.reminders.quietStart) ?? 0);
@@ -70,3 +66,16 @@ export function RemindersSheet() {
     </Sheet>
   );
 }
+
+// The banner after "Turn on". `noPush`: the reader wanted pushes that can't reach this phone.
+export function remindersNote(draft: NotificationSettings, noPush: boolean): { noteTitle: string; note: string } {
+  const confirm = "Confirm your email address and they'll start.";
+  if (!noPush) return { noteTitle: "Reminders are on", note: draft.email.verified || hasPush(draft) ? "Change them any time in Settings." : confirm };
+  const dropped = draft.reminders.dailyAt !== null || draft.reminders.streak;
+  const byEmail = [draft.reminders.checkpoints && "Circle checkpoints will come by email.", draft.email.weekly && "The weekly email is on."].filter((x): x is string => !!x);
+  const off = dropped ? "Notifications aren't on for Bookmark on this phone, so the daily reminder and streak alert are off." : "Notifications aren't on for Bookmark on this phone.";
+  if (byEmail.length === 0) return { noteTitle: "Reminders are off", note: `${off} Turn them on in your phone's settings, then in Bookmark's Settings.` };
+  return { noteTitle: "Reminders are on", note: `${off} ${byEmail.join(" ")}${draft.email.verified ? "" : ` ${confirm}`}` };
+}
+
+const hasPush = (s: NotificationSettings) => s.reminders.dailyAt !== null || s.reminders.streak || s.reminders.checkpoints;

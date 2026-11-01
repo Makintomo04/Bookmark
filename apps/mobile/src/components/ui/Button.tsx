@@ -22,6 +22,10 @@ export function Button({ title, variant = "primary", loading = false, disabled, 
   return (
     <Pressable
       accessibilityRole="button"
+      // Android builds the description from the label and "busy". With no label, React Native never clears
+      // "busy" once loading ends, so TalkBack and the accessibility tree say "busy" for good. A caller's
+      // own label (in props) still wins.
+      accessibilityLabel={title}
       accessibilityState={{ disabled: !!inactive, busy: loading }}
       disabled={inactive}
       style={(state) => [
