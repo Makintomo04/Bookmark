@@ -28,14 +28,18 @@ export const ACTIVITY_COPY: Record<ActivityType, (title: string) => string> = {
   REVIEWED_BOOK: (title) => `reviewed ${title}`,
 };
 
-const relative = new Intl.RelativeTimeFormat("en-GB", { numeric: "auto" });
-const STEPS: [Intl.RelativeTimeFormatUnit, number][] = [["year", 31_536_000], ["month", 2_592_000], ["week", 604_800], ["day", 86_400], ["hour", 3_600], ["minute", 60]];
+// Hermes on Android has no Intl.RelativeTimeFormat, so this spells out what its en-GB
+// `numeric: "auto"` would say.
+const STEPS: [string, number][] = [["year", 31_536_000], ["month", 2_592_000], ["week", 604_800], ["day", 86_400], ["hour", 3_600], ["minute", 60]];
+const LAST: Record<string, string> = { year: "last year", month: "last month", week: "last week", day: "yesterday" };
 
 // "3 hours ago", "yesterday", "just now".
 export function timeAgo(iso: string) {
   const seconds = (Date.now() - new Date(iso).getTime()) / 1000;
   for (const [unit, size] of STEPS) {
-    if (seconds >= size) return relative.format(-Math.floor(seconds / size), unit);
+    if (seconds < size) continue;
+    const n = Math.floor(seconds / size);
+    return n === 1 ? (LAST[unit] ?? `1 ${unit} ago`) : `${n} ${unit}s ago`;
   }
   return "just now";
 }
