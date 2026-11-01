@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect, useMemo, useState } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { Crown, Download, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import UpgradePrompt from '@/app/components/plus/UpgradePrompt'
@@ -62,6 +62,41 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
   )
 }
 
+// How far along a draw probably is, as a whole percentage. The card comes back in one piece, so this is a
+// guess paced by how long draws have been taking (`expected`, ms): about 90 by then, then creeping on to 99, so
+// it never sits still and never reaches 100 before the card lands.
+function useDrawProgress(expected: number) {
+  const [percent, setPercent] = useState(0)
+  useEffect(() => {
+    const start = performance.now()
+    const tick = () => setPercent(Math.min(99, Math.floor(100 * (1 - Math.exp((-2.3 * (performance.now() - start)) / expected)))))
+    const timer = setInterval(tick, 100)
+    return () => clearInterval(timer)
+  }, [expected])
+  return percent
+}
+
+// The preview while the card draws: a dot grid in the reader's colour, lit where light drifts beneath it,
+// until the card comes through (the card-brew styles in globals.css; the colour is the stats page's --accent).
+const Brewing = ({ expected }: { expected: number }) => {
+  const percent = useDrawProgress(expected)
+  return (
+    <div className="card-brew absolute inset-0 overflow-hidden">
+      <div aria-hidden className="card-brew-dots absolute inset-0" />
+      <div aria-hidden className="card-brew-glow absolute inset-0">
+        <div className="card-brew-blob absolute left-[8%] top-[18%] size-[42%] rounded-full opacity-90" />
+        <div className="card-brew-blob absolute right-[2%] top-[45%] size-[38%] rounded-full opacity-70" />
+        <div className="card-brew-blob absolute bottom-[6%] left-[22%] size-[30%] rounded-full opacity-50" />
+        <div className="card-brew-band absolute inset-x-0 top-0 h-1/3" />
+      </div>
+      <span className="sr-only">Drawing your card…</span>
+      <span aria-hidden className="absolute bottom-3 right-3 rounded-full bg-black/50 px-3 py-1 text-sm font-semibold tabular-nums text-white">
+        {percent}%
+      </span>
+    </div>
+  )
+}
+
 // Wrap cards on /stats (BOO-50): the cover grid or the stats card for a month or a year, in 9:16, 4:5 or
 // 1:1, drawn by /api/wrap/card. Midnight is free; the other designs are Plus.
 // `filled`: the periods with shared finishes (lib/stats.ts getCardPeriods), for how far back to offer and which to grey out.
@@ -80,6 +115,8 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
   const [upsell, setUpsell] = useState(false)
   const [preview, setPreview] = useState<Preview>({ kind: 'loading' })
   const [leftOut, setLeftOut] = useState(0)
+  // How long cards have been taking to draw, which paces the next one's percentage. A first draw takes about this.
+  const lastDraw = useRef(5000)
 
   const { year, month, label } = options[picked]
   const path = cardPath({ kind, size, design, year, month, hideRatings })
@@ -90,6 +127,7 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
     let live = true
     let url: string | null = null
     setPreview({ kind: 'loading' })
+    const start = performance.now()
     fetch(path)
       .then(async (res) => {
         if (res.status === 404) throw new Error(`No finished books in ${label} yet. Try another month or year.`)
@@ -98,6 +136,7 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
           throw new Error(body?.error ?? "We couldn't draw this card. Try again in a moment.")
         }
         url = URL.createObjectURL(await res.blob())
+        lastDraw.current = Math.max(1500, (lastDraw.current + performance.now() - start) / 2)
         if (live) setPreview({ kind: 'ready', url })
       })
       .catch((e: Error) => live && setPreview({ kind: 'error', message: e.message }))
@@ -198,11 +237,11 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
         >
           {preview.kind === 'ready' ? (
             // eslint-disable-next-line @next/next/no-img-element -- a blob URL the reader just drew
-            <img src={preview.url} alt={`Your ${CARD_KIND_LABEL[kind].toLowerCase()} card for ${label}`} className="absolute inset-0 size-full object-contain" />
+            <img key={preview.url} src={preview.url} alt={`Your ${CARD_KIND_LABEL[kind].toLowerCase()} card for ${label}`} className="card-brew-reveal absolute inset-0 size-full object-contain" />
+          ) : preview.kind === 'loading' ? (
+            <Brewing key={path} expected={lastDraw.current} />
           ) : (
-            <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-muted-foreground">
-              {preview.kind === 'loading' ? 'Drawing your card…' : preview.message}
-            </p>
+            <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-muted-foreground">{preview.message}</p>
           )}
         </div>
       </div>

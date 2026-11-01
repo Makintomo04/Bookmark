@@ -30,12 +30,13 @@ export function shareImageUrl(url: string | null | undefined): URL | null {
 }
 
 // The image as a data URL Satori can draw, or null. `timeout` in ms: a Wrap card fetches dozens of covers at
-// once and Open Library is slow to answer them all.
-export async function shareImageData(url: string | null | undefined, timeout = 3000): Promise<string | null> {
+// once and Open Library is slow to answer them all. `cacheFor` in seconds keeps the fetch in Next's data cache,
+// for covers, which don't change; avatars do, so they're left out of it.
+export async function shareImageData(url: string | null | undefined, timeout = 3000, cacheFor?: number): Promise<string | null> {
   const target = shareImageUrl(url)
   if (!target) return null
   try {
-    const res = await fetch(target, { signal: AbortSignal.timeout(timeout) })
+    const res = await fetch(target, { signal: AbortSignal.timeout(timeout), ...(cacheFor ? { next: { revalidate: cacheFor } } : {}) })
     const type = res.headers.get("content-type")?.split(";")[0].trim() ?? ""
     if (!res.ok || !DRAWABLE.includes(type)) return null
     const bytes = Buffer.from(await res.arrayBuffer())

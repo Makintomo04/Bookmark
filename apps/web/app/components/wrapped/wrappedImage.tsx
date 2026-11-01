@@ -24,20 +24,42 @@ export const imageData = shareImageData
 
 export const siteHost = new URL(siteUrl).host
 
-// A Google font, subset to the image's text: Inter, or Literata for a card's title.
-export async function googleFont(family: 'Inter' | 'Literata', weight: 400 | 600 | 700 | 800, text: string) {
+// A whole Google font, Inter or Literata for a card's title, fetched once and shared by every image this
+// server draws. It used to be subset to each image's words, which meant eight Google requests per image that
+// nothing could reuse; under load some of them timed out, the image fell back to another font, and a character
+// no font had made next/og throw. Kept in Next's data cache too (about 300 KB a weight), so a new server
+// instance doesn't fetch it again. A failed fetch isn't kept, so the next image tries again.
+const FONT_CACHE_SECONDS = 30 * 24 * 3600
+const fontCache = new Map<string, Promise<ArrayBuffer | null>>()
+
+async function fontData(family: 'Inter' | 'Literata', weight: 400 | 600 | 700 | 800) {
   try {
-    const css = await fetch(`https://fonts.googleapis.com/css2?family=${family}:wght@${weight}&text=${encodeURIComponent(text)}`, { signal: AbortSignal.timeout(3000) }).then((r) => r.text())
+    const cache = { next: { revalidate: FONT_CACHE_SECONDS } }
+    const css = await fetch(`https://fonts.googleapis.com/css2?family=${family}:wght@${weight}`, { signal: AbortSignal.timeout(5000), ...cache }).then((r) => r.text())
     const src = css.match(/src: url\((.+?)\) format\('(opentype|truetype)'\)/)?.[1]
     if (!src) return null
-    const data = await fetch(src, { signal: AbortSignal.timeout(3000) }).then((r) => r.arrayBuffer())
-    return { name: family, data, weight, style: 'normal' as const }
+    const res = await fetch(src, { signal: AbortSignal.timeout(5000), ...cache })
+    return res.ok ? await res.arrayBuffer() : null
   } catch {
     return null
   }
 }
 
-const interFont = (weight: 400 | 600 | 800, text: string) => googleFont('Inter', weight, text)
+export async function googleFont(family: 'Inter' | 'Literata', weight: 400 | 600 | 700 | 800) {
+  const key = `${family}:${weight}`
+  let loading = fontCache.get(key)
+  if (!loading) {
+    loading = fontData(family, weight).then((data) => {
+      if (!data) fontCache.delete(key)
+      return data
+    })
+    fontCache.set(key, loading)
+  }
+  const data = await loading
+  return data ? { name: family, data, weight, style: 'normal' as const } : null
+}
+
+const interFont = (weight: 400 | 600 | 800) => googleFont('Inter', weight)
 
 export const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s)
 export const fmt = (n: number) => n.toLocaleString('en-GB')
@@ -78,9 +100,9 @@ function facts({ wrapped: w, username, displayName, favColour }: ImageInput) {
     // Beside the logo or above the title: "2026 Wrapped", or "October 2026".
     kicker: monthly ? `${MONTHS[w.month!]} ${w.year}` : `${w.year} Wrapped`,
     title: monthly ? `${name}’s month in books` : `${name}’s year in books`,
-    // There's no public page for a month, so its card points at the profile.
+    // The link preview's address (wrappedOgImage). There's no public page for a month, so it points at the profile.
     url: monthly ? `${siteHost}/u/${handle}` : `${siteHost}/u/${handle}/wrapped/${w.year}`,
-    // The story's sign-off, above the address: who posted it and where to find them.
+    // The story's sign-off: who posted it, on one line.
     signoff: `@${handle} on Bookmark`,
     favourite,
     favouriteTitle: favourite ? clip(favourite.title, 44) : '',
@@ -109,11 +131,8 @@ function facts({ wrapped: w, username, displayName, favColour }: ImageInput) {
 
 type FooterItem = ReturnType<typeof facts>['footer'][number]
 
-async function assets(input: ImageInput, f: ReturnType<typeof facts>) {
-  const text =
-    ['Bookmark', 'Wrapped', 'in books', 'reader', f.name, f.url, f.signoff, f.headline, f.kicker, f.title, f.favouriteTitle, f.favouriteAuthor, f.favouriteKicker, f.goal ?? '', input.wrapped.tier?.label ?? '', String(input.wrapped.year), ...f.stats.flatMap((s) => [s.label, s.value]), ...f.footer.flatMap((b) => [b.value, b.label])].join('') +
-    "0123456789·…'’s/"
-  const [cover, regular, semibold, black] = await Promise.all([imageData(f.favourite?.coverImage), interFont(400, text), interFont(600, text), interFont(800, text)])
+async function assets(f: ReturnType<typeof facts>) {
+  const [cover, regular, semibold, black] = await Promise.all([imageData(f.favourite?.coverImage), interFont(400), interFont(600), interFont(800)])
   const fonts = [regular, semibold, black].filter((x): x is NonNullable<typeof x> => !!x)
   return { cover, fonts }
 }
@@ -196,7 +215,7 @@ export const OG_SIZE = { width: 1200, height: 630 }
 
 export async function wrappedOgImage(input: ImageInput) {
   const f = facts(input)
-  const { cover, fonts } = await assets(input, f)
+  const { cover, fonts } = await assets(f)
   const w = input.wrapped
   const tier = w.tier
 
@@ -252,7 +271,7 @@ export const STORY_SIZE = { width: 1080, height: 1920 }
 
 export async function wrappedStoryImage(input: ImageInput, headers?: Record<string, string>) {
   const f = facts(input)
-  const { cover, fonts } = await assets(input, f)
+  const { cover, fonts } = await assets(f)
   const w = input.wrapped
   const tier = w.tier
 
@@ -305,8 +324,7 @@ export async function wrappedStoryImage(input: ImageInput, headers?: Record<stri
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 48 }}>
-          <span style={{ fontSize: 34, fontWeight: 600 }}>{f.signoff}</span>
-          <span style={{ marginTop: 6, fontSize: 24, color: MUTED }}>{f.url}</span>
+          <span style={{ fontSize: 34, fontWeight: 600, whiteSpace: 'nowrap' }}>{f.signoff}</span>
         </div>
       </div>
     ),
