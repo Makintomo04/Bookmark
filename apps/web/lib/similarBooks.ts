@@ -1,8 +1,10 @@
 import prisma from "@/lib/db";
 import { hardcoverBook, hardcoverConfigured, hardcoverQuery, searchHardcover } from "@/lib/hardcover";
 import { sameBook } from "@/lib/workKey";
+import { workMatchKey } from "@/lib/catalog/normalise";
+import { hasPageWhere } from "@/lib/workPages";
 import { sameBook as sameHit } from "@/lib/bookSearchRules";
-import type { DiscoverBook } from "@/lib/openLibrary";
+import { searchBooks, type DiscoverBook } from "@/lib/openLibrary";
 
 // Books like the one you've just finished, for the "Because you finished" row in the Update sheet. Hardcover keeps
 // a ranked list of the books readers shelve alongside each one (`cached_similar_book_ids`, refreshed every few
@@ -60,8 +62,9 @@ export async function similarBooks(userId: string, title: string, author: string
 }
 
 // A book page's "Readers also liked" row (BOO-92): Hardcover's list for the book, without its author's own
-// books (they have their own row) or its series. For everyone, so nothing is taken off for a shelf; the
-// cards say which shelf a book is on. Kept for a day like the Update sheet's row, and [] on any failure.
+// books (they have their own row) or its series. For everyone, so nothing is taken off for a shelf. Each card
+// opens the book's page, so a pick needs one (withPages); one without is left out. Kept for a day like the
+// Update sheet's row, and [] on any failure; not kept when Open Library didn't answer, so the next visit retries.
 export const ALSO_LIKED_LIMIT = 4;
 const alsoKept = new Map<string, { at: number; books: DiscoverBook[] }>();
 export async function readersAlsoLiked(title: string, author: string): Promise<DiscoverBook[]> {
@@ -73,17 +76,42 @@ export async function readersAlsoLiked(title: string, author: string): Promise<D
   if (!found) return [];
   // One book per author, so the row reads as a range of readers' picks rather than one other writer's list.
   const authors = new Set([found.author.toLowerCase()]);
-  const picks: DiscoverBook[] = [];
+  const candidates: DiscoverBook[] = [];
   for (const hc of found.similar) {
     const book = toDiscover(hc);
     const a = book?.author.toLowerCase();
-    if (!book || !a || authors.has(a) || picks.some((p) => p.hardcoverId === book.hardcoverId)) continue;
+    if (!book || !a || authors.has(a) || candidates.some((p) => p.hardcoverId === book.hardcoverId)) continue;
     authors.add(a);
-    picks.push(book);
-    if (picks.length === ALSO_LIKED_LIMIT) break;
+    candidates.push(book);
+    // Twice the row, since some won't be on Open Library.
+    if (candidates.length === ALSO_LIKED_LIMIT * 2) break;
   }
-  if (picks.length) alsoKept.set(key, { at: Date.now(), books: picks });
+  const { books, complete } = await withPages(candidates);
+  const picks = books.slice(0, ALSO_LIKED_LIMIT);
+  if (picks.length && complete) alsoKept.set(key, { at: Date.now(), books: picks });
   return picks.length >= SIMILAR_MIN ? picks : [];
+}
+
+// The Hardcover books that have a book page, in order: our catalogue first (one query, by Hardcover id or
+// title and author), then Open Library's search for the rest, keeping Hardcover's cover. `complete` is
+// false when an Open Library search failed, rather than finding nothing.
+async function withPages(books: DiscoverBook[]): Promise<{ books: DiscoverBook[]; complete: boolean }> {
+  const hcIds = books.map((b) => b.hardcoverId).filter((id): id is string => !!id);
+  const matchKeys = books.map((b) => workMatchKey(b.title, b.author)).filter((k): k is string => !!k);
+  const works = await prisma.work.findMany({
+    where: { AND: [hasPageWhere, { OR: [{ hardcoverId: { in: hcIds } }, { matchKey: { in: matchKeys } }] }] },
+    select: { id: true, openLibraryKey: true, hardcoverId: true, matchKey: true },
+  }).catch(() => []);
+  let complete = true;
+  const found = await Promise.all(books.map(async (book): Promise<DiscoverBook | null> => {
+    const key = workMatchKey(book.title, book.author);
+    const work = works.find((w) => (book.hardcoverId && w.hardcoverId === book.hardcoverId) || (key && w.matchKey === key));
+    if (work) return work.openLibraryKey ? { ...book, workKey: work.openLibraryKey } : { ...book, pageWorkId: work.id };
+    const hits = await searchBooks(`${book.title} ${book.author}`, 3).catch(() => { complete = false; return []; });
+    const match = sameHit(book, hits);
+    return match?.workKey ? { ...book, workKey: match.workKey } : null;
+  }));
+  return { books: found.filter((b): b is DiscoverBook => b !== null), complete };
 }
 
 // The book on Hardcover, its readers' list in rank order, and the author's best-read books, each already
