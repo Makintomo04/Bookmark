@@ -38,12 +38,18 @@ function beforeDash(title: string): string | null {
   return match ? titleKey(match[1]) : null
 }
 
-// Also "Harry Potter (series) 1-7", "Harry Potter Set", "The Harry Potter trilogy", "Box Harry Potter Tradicional".
-const BOX_SET = /\b(box(ed)?[\s-]?set|collection set|books? \d+\s*(-|–|to|through)\s*\d+|omnibus|bundle|complete (series|collection|trilogy)|series collection|\d+[- ]books? (collection|set|bundle)|trilogy set|(starter|gift) set|\(?series\)? \d+\s*[-–]\s*\d+|\d+\s*[-–]\s*\d+ (audio )?collection)\b|\s(set|trilogy)$|^box\b/i
+// Also "Harry Potter (series) 1-7", "Harry Potter Set", "The Harry Potter trilogy", "Box Harry Potter Tradicional",
+// "Diary of a Wimpy Kid Box of Books", "Diary of a Wimpy Kid, 10 Vols." and "The Twilight Saga Collection".
+const BOX_SET = /\b(box(ed)?[\s-]?set|collection set|books? \d+\s*(-|–|to|through)\s*\d+|omnibus|bundle|complete (series|collection|trilogy)|series collection|\d+[- ]books? (collection|set|bundle)|trilogy set|(starter|gift) set|\(?series\)? \d+\s*[-–]\s*\d+|\d+\s*[-–]\s*\d+ (audio )?collection|box of books|\d+ vols?\b|set #?\d+|(hardcover|paperback) series)\b|\s(set|trilogy)$|^box\b|^(?!(the|a|an) collection$).+\scollection$/i
 // Not a book a reader reads: decks, fan summaries, placeholders, and shop displays ("Emily Henry 24-Copy
 // Mixed Floor Display W/Riser"). Words that are also real titles ("The Notebook", "The Journal of Mrs…",
 // "Calendar Girl") are deliberately not on it.
-const NOT_A_NOVEL = /\b(tarot|colou?ring book|sampler|study guide|workbook|summary of|summary and analysis|untitled|\d+-copy|floor display|counter display|display cut ?out|prepack|dump ?bin|bookmarks)\b/i
+const NOT_A_NOVEL = /\b(tarot|colou?ring book|sampler|study guide|workbook|summary of|summary and analysis|untitled|\d+-copy|floor display|counter display|display cut ?out|prepack|dump ?bin|bookmarks|sparknotes|literature guide|poster book|painting book|transforming pictures|funfax|activity book|blank journal|book journal|3d crafts|event kit|party pack|movie book|backl?i?st stckp|stockpack)\b/i
+// Three or more titles strung together with slashes: "The Half-Blood Prince / The Order Of The Pheonix / …".
+// Slashes in brackets are left alone: there they usually list a story collection's contents.
+const slashed = (title: string) => (title.replace(/\([^)]*\)/g, "").match(/\s\/|\/\s/g) ?? []).length >= 2
+// Half or a part of one book, sold as its own volume: "[1/2]", "(2 of 2)", "…Prince, Vol. 1".
+const SPLIT_VOLUME = /\[\d+\s*\/\s*\d+\]|\(\d+ of \d+\)|, vol\.? \d+$/i
 
 // Open Library leaves the language off plenty of foreign editions ("Harry Potter y las reliquias de la
 // muerte", "Der Ickabog"). On an English author's list, a title with no language that reads as another
@@ -60,12 +66,15 @@ export type DropReason = "duplicate" | "translation" | "box set" | "not a novel"
 // list's other books, for spotting a bundle that strings two of them together.
 export function dropReason(book: ListBook, englishAuthor: boolean, keys: string[]): Exclude<DropReason, "duplicate"> | null {
   if (NOT_A_NOVEL.test(book.title)) return "not a novel"
-  if (BOX_SET.test(book.title)) return "box set"
+  if (BOX_SET.test(book.title) || slashed(book.title)) return "box set"
+  if (SPLIT_VOLUME.test(book.title)) return "not a novel"
   const key = titleKey(book.title)
   // Each title once: Open Library has three records called just "Harry Potter", and counting each made every
-  // "Harry Potter and the…" look like a bundle of them.
+  // "Harry Potter and the…" look like a bundle of them. A title inside another one that matched is the same
+  // match ("wimpy kid" in "diary of a wimpy kid"), or "Diary of a Wimpy Kid: Party Pooper" would be a bundle too.
   const contained = [...new Set(keys)].filter((other) => other !== key && other.length >= 4 && ` ${key} `.includes(` ${other} `))
-  if (contained.length >= 2) return "box set"
+  const distinct = contained.filter((other) => !contained.some((longer) => longer !== other && ` ${longer} `.includes(` ${other} `)))
+  if (distinct.length >= 2) return "box set"
   // "The Empyrean 5": a bare series name and number with nothing else known is a placeholder record.
   if (!book.pages && !book.coverUrl && /^(the )?[\p{L}']+( [\p{L}']+)? \d+$/iu.test(book.title.trim())) return "not a novel"
   const languages = book.languages ?? []
