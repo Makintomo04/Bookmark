@@ -1,6 +1,5 @@
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import useSWR from "swr";
-import * as WebBrowser from "expo-web-browser";
 import { Check } from "lucide-react-native";
 import { ROLE_WELCOME, roleToWelcome, type StaffRole } from "@bookmark/shared/roleWelcome";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
@@ -8,8 +7,8 @@ import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { api } from "@/lib/api";
-import { webUrl } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
+import { openWebSignedIn } from "@/lib/webSignedIn";
 
 // The web's RoleWelcome: the first time the app loads after an admin makes someone a librarian or admin,
 // what the role is and what it lets them do. Once per role, recorded through the same route as the web
@@ -38,7 +37,7 @@ export function RoleWelcome() {
   };
   const openConsole = () => {
     close();
-    void WebBrowser.openBrowserAsync(webUrl("/staff"));
+    void openWebSignedIn("/staff");
   };
 
   return (

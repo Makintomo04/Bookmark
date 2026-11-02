@@ -10,6 +10,7 @@ import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
 import { checkPasswordSignIn } from "@/lib/passwordSignIn";
 import { findUserByEmail } from "@/lib/findUserByEmail";
 import { consumeVerificationToken } from "@/lib/emailVerification";
+import { consumeAppHandoff } from "@/lib/appHandoff";
 import { MAGIC_LINK_MAX_AGE_SECONDS, sendMagicLink } from "@/lib/magicLink";
 import type { Adapter, AdapterUser } from "next-auth/adapters";
 import { appleClientSecret, appleWebConfig } from "@/lib/appleSignIn";
@@ -94,8 +95,20 @@ export const authOptions: AuthOptions = {
         return user
       },
     }),
-   
-    
+    // The phone's "open the web signed in" link (lib/appHandoff.ts): /signin/app spends its one-time token
+    // through this. The signIn callback below still turns away a suspended account.
+    CredentialsProvider({
+      id: "app-handoff",
+      name: "App",
+      credentials: { token: { label: "token", type: "text" } },
+      async authorize(credentials, req) {
+        const limit = rateLimit(`app-handoff:ip:${clientIp(req?.headers)}`, 20, 15 * 60 * 1000)
+        if (!limit.ok) throw new Error(tooManyRequestsMessage)
+        const user = credentials?.token ? await consumeAppHandoff(credentials.token) : null
+        if (!user) throw new Error("This link has expired. Open it from the app again.")
+        return user
+      },
+    }),
   ],
   callbacks: {
     async signIn({ user, account, email }) {
