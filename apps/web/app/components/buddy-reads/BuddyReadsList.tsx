@@ -142,7 +142,7 @@ const BuddyReadsList: FC = () => {
 
       {isLoading && !buddyReads ? (
         <div className="flex flex-col gap-4" aria-busy="true">
-          {[0, 1].map((i) => <div key={i} className="h-28 rounded-xl bg-neutral-100 dark:bg-neutral-900 animate-pulse" />)}
+          {[0, 1].map((i) => <div key={i} className="h-28 rounded-xl bg-neutral-100 dark:bg-neutral-900 motion-safe:animate-pulse" />)}
         </div>
       ) : buddyReads && active.length === 0 && finished.length === 0 ? (
         <div className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-10 text-center flex flex-col items-center gap-3">

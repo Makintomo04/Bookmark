@@ -115,7 +115,7 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
               {club.name}
             </Link>
           )}
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-sm font-mediumr text-muted-foreground">
             Reading circle{buddyRead.status === "FINISHED" ? " · finished" : archived ? " · archived" : ""}{buddyRead.audioMinutes ? " · audiobook" : ""}
           </p>
           <h1 className="page-title break-words">{buddyRead.title}</h1>

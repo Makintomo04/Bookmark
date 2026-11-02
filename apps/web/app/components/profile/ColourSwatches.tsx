@@ -29,7 +29,7 @@ const ColourSwatches: FC<ColourSwatchesProps> = ({ value, onChange, labelledBy, 
             onClick={() => onChange(swatch)}
             disabled={disabled}
             className={cn(
-              "grid size-9 place-items-center rounded-full transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "grid size-9 place-items-center rounded-full transition-[box-shadow,transform] hover:ring-2 hover:ring-offset-2 hover:ring-offset-background hover:ring-neutral-300 dark:hover:ring-neutral-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               selected && "ring-2 ring-offset-2 ring-offset-background ring-neutral-400 dark:ring-neutral-500"
             )}
             style={{ background: swatch, color: readableInk(swatch) }}
@@ -40,7 +40,7 @@ const ColourSwatches: FC<ColourSwatchesProps> = ({ value, onChange, labelledBy, 
       })}
       <label
         className={cn(
-          "relative grid size-9 cursor-pointer place-items-center rounded-full border border-dashed border-neutral-400 transition hover:scale-110 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+          "relative grid size-9 cursor-pointer place-items-center rounded-full border border-dashed border-neutral-400 transition-[box-shadow,transform] hover:ring-2 hover:ring-offset-2 hover:ring-offset-background hover:ring-neutral-300 dark:hover:ring-neutral-700 active:scale-95 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
           isCustom && "border-solid border-transparent ring-2 ring-offset-2 ring-offset-background ring-neutral-400 dark:ring-neutral-500"
         )}
         style={isCustom ? { background: value, color: readableInk(value) } : undefined}

@@ -249,7 +249,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: 
               ) : isError && !books ? (
                 <FetchErrorState error={isError} what="your shelf" onRetry={() => mutate()} />
               ) : !books ? (
-                <div className="h-48 rounded-xl bg-neutral-100 dark:bg-neutral-900 animate-pulse" aria-busy="true" />
+                <div className="h-48 rounded-xl bg-neutral-100 dark:bg-neutral-900 motion-safe:animate-pulse" aria-busy="true" />
               ) : candidates.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nothing in Want to read or Reading yet.{" "}

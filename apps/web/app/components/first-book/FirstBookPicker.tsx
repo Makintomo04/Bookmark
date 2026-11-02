@@ -57,7 +57,7 @@ const FirstBookPicker: FC<{ profileHref: string }> = ({ profileHref }) => {
 
 const Section: FC<{ section: StarterSection }> = ({ section }) => (
   <section aria-labelledby={`first-book-${section.source}`}>
-    <h2 id={`first-book-${section.source}`} className="text-xl font-bold">{section.heading}</h2>
+    <h2 id={`first-book-${section.source}`} className="text-lg font-semibold">{section.heading}</h2>
     <p className="mt-1 text-sm text-muted-foreground">{section.blurb}</p>
     <div className={`mt-4 ${gridClass}`}>
       {section.books.map((book) => (
@@ -143,7 +143,7 @@ const SavedBookCard: FC<{ book: StarterBook }> = ({ book }) => {
 // Two ways on. Ask the shelf says it's AI before anyone clicks, and that it's off until they turn it on.
 const WaysOn: FC<{ aiFeatures: boolean }> = ({ aiFeatures }) => (
   <section aria-labelledby="first-book-more" className="flex flex-col gap-3">
-    <h2 id="first-book-more" className="text-xl font-bold">Not seeing it?</h2>
+    <h2 id="first-book-more" className="text-lg font-semibold">Not seeing it?</h2>
     <div className="grid gap-3 md:grid-cols-2">
       <WayOn href="/discover" icon={<Compass size={20} aria-hidden />} title="Browse Discover">
         Every genre, the team&apos;s lists and readers&apos; lists.

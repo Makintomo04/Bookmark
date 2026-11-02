@@ -1,6 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
 import axios from 'axios'
+import { Lock } from 'lucide-react'
 import { notify, apiError } from '@/lib/notify'
 import { COMMENT_MAX, LABEL_MAX, formatPercent } from '@/lib/buddyReads'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
@@ -116,9 +117,9 @@ const CommentComposer: FC<CommentComposerProps> = ({ buddyReadId, progress, pare
           type="button"
           onClick={() => setShowPin(!showPin)}
           aria-expanded={showPin}
-          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
         >
-          🔒 Hidden until {formatPercent(pinned)}{showPin ? "" : " · change"}
+          <Lock size={14} aria-hidden />Hidden until {formatPercent(pinned)}{showPin ? "" : " · change"}
         </button>
         <div className="flex gap-2">
           {onCancel && <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>Cancel</button>}

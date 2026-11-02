@@ -18,7 +18,7 @@ const Header: FC = () => {
       <header className='h-14 sm:h-16 flex items-center justify-between'>
         <Link href="/" className="flex items-center gap-2.5 sm:gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Image src='/logo.svg' width={28} height={28} alt='' className="size-6 sm:size-7" />
-          <span className="font-bold text-xl sm:text-2xl">Bookmark</span>
+          <span className="font-display font-semibold text-xl sm:text-2xl">Bookmark</span>
         </Link>
         {/* Discover stays from sm: it is where to look a book up. Stats and Reading circles need a tablet-width screen (md):
             narrower than that the three slid under the wordmark, so the menu carries them. Tighter between tablet and

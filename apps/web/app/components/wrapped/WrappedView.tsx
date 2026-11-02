@@ -53,7 +53,7 @@ const Card: FC<{ tone: Tone; accent: string; label: string; children: ReactNode;
   )
 }
 
-const Kicker: FC<{ children: ReactNode }> = ({ children }) => <p className="text-sm font-semibold uppercase tracking-[0.2em] opacity-80">{children}</p>
+const Kicker: FC<{ children: ReactNode }> = ({ children }) => <p className="text-sm font-medium opacity-80">{children}</p>
 const Big: FC<{ children: ReactNode }> = ({ children }) => <p className="mt-3 text-6xl sm:text-8xl font-display font-semibold tracking-tight tabular-nums leading-none">{children}</p>
 const Line: FC<{ children: ReactNode }> = ({ children }) => (children ? <p className="mt-5 max-w-xl text-lg sm:text-2xl font-medium leading-snug opacity-90">{children}</p> : null)
 
@@ -69,7 +69,7 @@ const BookFeature: FC<{ book: WrappedData['longestBook']; accent: string; childr
     <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end">
       <BookCover book={book} sizes="160px" className="w-32 sm:w-40 shrink-0 shadow-2xl" />
       <div className="min-w-0">
-        <p className="text-2xl sm:text-4xl font-bold leading-tight">{book.title}</p>
+        <p className="text-2xl sm:text-4xl font-semibold leading-tight">{book.title}</p>
         <p className="mt-1 text-lg opacity-80"><AuthorLink author={book.author} /></p>
         {children}
       </div>
@@ -170,7 +170,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, name = userna
           <Line>{copy.genreLine(w, voice)}</Line>
           {w.topAuthor && w.topAuthor.count > 1 && (
             <Line>
-              Most-read author: <AuthorLink author={w.topAuthor.name} className="font-bold" />, {copy.plural(w.topAuthor.count, 'book')}.
+              Most-read author: <AuthorLink author={w.topAuthor.name} className="font-semibold" />, {copy.plural(w.topAuthor.count, 'book')}.
             </Line>
           )}
         </Card>

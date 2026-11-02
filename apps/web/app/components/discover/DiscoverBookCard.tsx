@@ -46,7 +46,7 @@ const DiscoverBookCard: FC<DiscoverBookCardProps> = ({ book, reason, context, ra
               className={cn("shadow-sm group-hover:shadow-md", !actions && "group-hover:ring-2 group-hover:ring-foreground group-hover:ring-offset-2 group-hover:ring-offset-background")}
             />
             {rank !== undefined && (
-              <span className="absolute left-2 top-2 grid size-7 place-items-center rounded-full bg-background/90 text-xs font-bold tabular-nums shadow">{rank}</span>
+              <span className="absolute left-2 top-2 grid size-7 place-items-center rounded-full bg-background/90 text-xs font-semibold tabular-nums shadow">{rank}</span>
             )}
           </div>
           <p className="min-w-0 w-full text-sm font-semibold leading-snug line-clamp-2 group-hover:underline underline-offset-2">{book.title}</p>

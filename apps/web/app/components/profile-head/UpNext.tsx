@@ -100,7 +100,7 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
         {/* A series book says where it sits, on the cover rather than in a line under the title. */}
         {pick.position != null && (
-          <span title={pick.tag} className="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-black/75 px-1.5 text-[10px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-white/20">
+          <span title={pick.tag} className="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-black/75 px-1.5 text-[11px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-white/20">
             #{Number(pick.position.toFixed(2))}
           </span>
         )}

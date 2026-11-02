@@ -341,7 +341,7 @@ const BookUpdateModal: FC = () => {
     <div className="flex items-baseline gap-2">
       {/* The hidden copy sets the width; the input sits over it so it hugs its digits. */}
       <span className="relative inline-block">
-        <span aria-hidden="true" className="invisible block border-b-2 px-1 text-5xl font-bold tabular-nums leading-tight whitespace-pre">{pageInput || "0"}</span>
+        <span aria-hidden="true" className="invisible block border-b-2 px-1 text-5xl font-semibold tabular-nums leading-tight whitespace-pre">{pageInput || "0"}</span>
         <input
           id="current-page"
           type="text"
@@ -361,7 +361,7 @@ const BookUpdateModal: FC = () => {
             save()
           }}
           disabled={isSaving || finished}
-          className="absolute inset-0 w-full rounded-t-md border-b-2 border-dashed border-neutral-300 dark:border-neutral-600 bg-transparent px-1 text-5xl font-bold tabular-nums leading-tight hover:border-neutral-500 focus-visible:outline-none focus-visible:border-solid focus-visible:border-neutral-500 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="absolute inset-0 w-full rounded-t-md border-b-2 border-dashed border-neutral-300 dark:border-neutral-600 bg-transparent px-1 text-5xl font-semibold tabular-nums leading-tight hover:border-neutral-500 focus-visible:outline-none focus-visible:border-solid focus-visible:border-neutral-500 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
       </span>
       <span id="page-total" className="text-lg text-muted-foreground tabular-nums whitespace-nowrap">
@@ -580,7 +580,7 @@ const BookUpdateModal: FC = () => {
       <div className="flex md:flex-col gap-4 md:gap-5 md:w-44 shrink-0">
         <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 176px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
         <div className="min-w-0">
-          <p className="text-lg md:text-xl font-bold leading-snug break-words">
+          <p className="text-lg md:text-xl font-semibold leading-snug break-words">
             {pageHref ? <Link href={pageHref} onClick={close} className="rounded-sm hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">{book.title}</Link> : book.title}
           </p>
           <p className="mt-0.5 text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>

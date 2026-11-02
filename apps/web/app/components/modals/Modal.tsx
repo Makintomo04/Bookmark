@@ -151,7 +151,7 @@ const Modal: FC<ModalProps> = ({isOpen,onClose,title,body,footer,disabled,closeO
         /* The header never shrinks: on short windows the body scrolls instead of sliding up over the title. */
         <div className="p-6 pb-0 shrink-0">
           <div className="flex justify-between items-center">
-          <h2 id={titleId} className='text-3xl font-bold'>{title}</h2>
+          <h2 id={titleId} className='font-display text-2xl font-semibold'>{title}</h2>
           <div className="flex shrink-0 items-center gap-2">
           {headerAction}
           <button type="button" aria-label="Close" className="p-2 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 cursor-pointer transition rounded-full" onClick={handleClose}>

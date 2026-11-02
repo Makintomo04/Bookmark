@@ -77,7 +77,7 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
     <div className="w-full h-full px-6">
       <div className="flex flex-col gap-4 w-full">
         <div className="flex flex-col gap-2">
-          <Label className="text-md font-bold" htmlFor="recommended-by">Recommended by</Label>
+          <Label className="font-medium" htmlFor="recommended-by">Recommended by</Label>
           <ClearableInput id="recommended-by" value={recommender} maxLength={RECOMMENDED_BY_MAX} autoComplete="off"
             onChange={(e) => setRecommender(e.target.value)} onBlur={saveRecommender}
             onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
@@ -87,11 +87,11 @@ const BookNotesModal: FC<BookNotesModalProps> = ({}) => {
         </div>
         <hr className='my-2'/>
         <div className="flex flex-col gap-2">
-          <Label className="text-md font-bold" htmlFor="title">Title (leave blank for a quote)</Label>
+          <Label className="font-medium" htmlFor="title">Title (leave blank for a quote)</Label>
           <Input register={register} errors={errors} name="title" id="title" autoComplete='off' placeholder='e.g. On Chapter 3'/>
         </div>
         <div className="flex flex-col gap-2">
-          <Label className="text-md font-bold" htmlFor="content">Note or Quote</Label>
+          <Label className="font-medium" htmlFor="content">Note or quote</Label>
           <Textarea register={register} errors={errors} name="content" id="content" autoComplete='off' placeholder="Jot something down..."/>
         </div>
         <Button loading={isSaving} style={{ background: accent, color: readableInk(accent) }} onClick={handleSubmit(onSubmit)} className="w-fit">Add</Button>

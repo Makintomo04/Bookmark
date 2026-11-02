@@ -39,7 +39,7 @@ const ReaderTierCard: FC<{ achievements: AchievementItem[]; reader?: { username:
         ) : (
           <div aria-hidden className="grid size-14 shrink-0 place-content-center rounded-xl border-2 border-dashed text-center leading-none"
             style={{ borderColor: next!.colour, color: next!.colour }}>
-            <span className="text-lg font-bold tabular-nums">{fmt(remaining)}</span>
+            <span className="text-lg font-semibold tabular-nums">{fmt(remaining)}</span>
             <span className="mt-0.5 text-[11px] font-medium">to go</span>
           </div>
         )}

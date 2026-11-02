@@ -29,7 +29,7 @@ const Medal: FC<MedalProps> = ({ achievementKey, earned, pill, pillClassName, cl
         </div>
       </div>
       {pill && (
-        <span aria-hidden className={cn("absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold tabular-nums", pillClassName ?? "bg-neutral-600 text-white")}>
+        <span aria-hidden className={cn("absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", pillClassName ?? "bg-neutral-600 text-white")}>
           {pill}
         </span>
       )}

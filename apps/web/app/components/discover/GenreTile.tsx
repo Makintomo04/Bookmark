@@ -74,7 +74,7 @@ export const GenreArt: FC<{ genre: Genre, covers?: string[], size?: ArtSize }> =
             <div
               key={url}
               className={cn(
-                "absolute aspect-[2/3] overflow-hidden rounded-[4px] bg-black/20 shadow-lg ring-1 ring-black/10 motion-safe:transition-all motion-safe:duration-300",
+                "absolute aspect-[2/3] overflow-hidden rounded-[4px] bg-black/20 shadow-lg ring-1 ring-black/10 motion-safe:transition-transform motion-safe:duration-300",
                 FAN[size].cover, FAN[size].slots[i]
               )}
               style={{ zIndex: i === 1 ? 2 : 1, transitionDelay: `${i * 25}ms` }}
@@ -96,7 +96,7 @@ export const GenreArt: FC<{ genre: Genre, covers?: string[], size?: ArtSize }> =
           aria-hidden
           strokeWidth={1.5}
           className={cn(
-            "pointer-events-none absolute opacity-25 -rotate-12 motion-safe:transition motion-safe:duration-300 group-hover:rotate-0 group-hover:scale-110 group-hover:opacity-35",
+            "pointer-events-none absolute opacity-25 -rotate-12 motion-safe:transition-opacity motion-safe:duration-300 group-hover:opacity-35",
             ICON_SIZE[size]
           )}
         />
@@ -115,7 +115,7 @@ const GenreTile: FC<GenreTileProps> = ({ genre, className }) => (
     href={`/discover/genre/${genre.slug}`}
     style={{ background: genreBackground(genre.colour), color: readableInk(genre.colour) }}
     className={cn(
-      "group relative flex h-24 sm:h-28 items-end overflow-hidden rounded-xl p-3 sm:p-4 font-semibold leading-tight shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "group relative flex h-24 sm:h-28 items-end overflow-hidden rounded-xl p-3 sm:p-4 font-semibold leading-tight shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
       className
     )}
   >

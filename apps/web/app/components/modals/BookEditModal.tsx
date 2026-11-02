@@ -114,17 +114,17 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
         <div className="h-full w-full">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label className="text-md font-bold" htmlFor="title">Book Title</Label>
+              <Label className="font-medium" htmlFor="title">Title</Label>
               <Input register={register} inputValidation={{ required: true, message: "Book title required" }} errors={errors} name="title" id="title" autoComplete='off' className="max-w-lg" required />
             </div>
             <div className="flex flex-col gap-2">
-              <Label className="text-md font-bold" htmlFor="author">Author</Label>
+              <Label className="font-medium" htmlFor="author">Author</Label>
               <Input register={register} inputValidation={{ required: true, message: "Author name required" }} errors={errors} name="author" id="author" autoComplete='off' className="max-w-lg" required />
             </div>
             <FormatPicker value={format} onChange={setFormat} />
             {isAudio ? (
               <div className="flex flex-col gap-2">
-                <Label className="text-md font-bold" htmlFor="hours">Running time</Label>
+                <Label className="font-medium" htmlFor="hours">Running time</Label>
                 <div className="flex items-center gap-2">
                   <Input register={register} errors={errors} type="number" min={0} name="hours" id="hours" placeholder="0" autoComplete='off' className="w-[72px]" />
                   <span className="text-sm text-muted-foreground">h</span>
@@ -135,19 +135,19 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                <Label className="text-md font-bold" htmlFor="pages">Total Pages</Label>
+                <Label className="font-medium" htmlFor="pages">Total pages</Label>
                 <Input register={register} errors={errors} inputValidation={{ min: 1, message: "Number of Total pages must be greater than 0" }} name="pages" id="pages" autoComplete='off' className="w-[100px]" />
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <Label className="text-md font-bold" htmlFor="genre">Genre</Label>
+              <Label className="font-medium" htmlFor="genre">Genre</Label>
               <Input register={register} errors={errors} name="genre" id="genre" list="genre-options-edit" autoComplete='off' className="max-w-lg" placeholder='e.g. Fantasy' />
               <datalist id="genre-options-edit">
                 {GENRES.map((g) => <option key={g} value={g} />)}
               </datalist>
             </div>
             <div className="min-w-max">
-              <h2 className='text-md font-bold mb-2'>Book Cover</h2>
+              <h2 className='text-sm font-medium mb-2'>Cover</h2>
               <UploadButton
                 appearance={{ button({ ready, isUploading, uploadProgress }) { return { background: accent, color: accentInk } } }}
                 className='items-start'
@@ -172,7 +172,7 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
             )}
           </div>
           <div className="w-full">
-            <Label className="text-md font-bold" htmlFor="cardColour">Card Colour</Label>
+            <Label className="font-medium" htmlFor="cardColour">Card colour</Label>
             <CirclePicker className='w-full mt-2' circleSize={32} circleSpacing={12} width="100%" color={cardColour || "#f44336"} onChange={handleColourChange} colors={colourList} />
           </div>
         </div>
@@ -184,7 +184,7 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
     <div className="w-full h-full mt-auto p-6">
       <div className="flex items-center gap-3 justify-end mt-auto">
         <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button style={{ background: accent, color: accentInk }} onClick={handleSubmit(onSubmit)}>Save Changes</Button>
+        <Button style={{ background: accent, color: accentInk }} onClick={handleSubmit(onSubmit)}>Save changes</Button>
       </div>
     </div>
   )
