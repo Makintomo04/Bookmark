@@ -26,19 +26,26 @@ const ReminderControls: FC<{ settings: NotificationSettings; save: (change: Noti
   const quiet = quietHoursOf(quietStart, quietEnd)
   const times = reminderTimes(quiet)
   const daily = reminders.dailyAt
-  // Without the app on a phone a push reminder has nowhere to go: it can be switched off, not on.
-  const pushLocked = (on: boolean) => disabled || (!settings.hasPhone && !on)
+  // Without the app on a phone a push reminder has nowhere to go, so its switch isn't shown: a line says
+  // where to get it instead. One left on from a phone they've since dropped stays, so it can be switched off.
+  const showDaily = settings.hasPhone || daily !== null
+  const showStreak = settings.hasPhone || reminders.streak
 
   return (
     <div className="flex flex-col gap-5">
-      {!settings.hasPhone && <p className="text-xs text-muted-foreground">{REMINDER_COPY.phoneOnly}</p>}
-      <div className="flex flex-col gap-2">
+      {(!showDaily || !showStreak) && (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium">{REMINDER_COPY.phoneOnly.title}</span>
+          <span className="text-xs text-muted-foreground">{REMINDER_COPY.phoneOnly.hint}</span>
+        </div>
+      )}
+      {showDaily && <div className="flex flex-col gap-2">
         <Toggle
           label={REMINDER_COPY.daily.title}
           hint={REMINDER_COPY.daily.hint}
           checked={daily !== null}
           onChange={(on) => save({ reminders: { dailyAt: on ? (times.includes(parseMinute(DEFAULT_REMINDER_AT)!) ? DEFAULT_REMINDER_AT : formatMinute(times[0] ?? 0)) : null } })}
-          disabled={pushLocked(daily !== null)}
+          disabled={disabled}
         />
         {daily !== null && (
           <label className="flex items-center gap-2 text-sm">
@@ -46,8 +53,8 @@ const ReminderControls: FC<{ settings: NotificationSettings; save: (change: Noti
             <TimeSelect label="Reminder time" value={daily} options={times} onChange={(v) => save({ reminders: { dailyAt: v } })} disabled={disabled} />
           </label>
         )}
-      </div>
-      <Toggle label={REMINDER_COPY.streak.title} hint={REMINDER_COPY.streak.hint} checked={reminders.streak} onChange={(on) => save({ reminders: { streak: on } })} disabled={pushLocked(reminders.streak)} />
+      </div>}
+      {showStreak && <Toggle label={REMINDER_COPY.streak.title} hint={REMINDER_COPY.streak.hint} checked={reminders.streak} onChange={(on) => save({ reminders: { streak: on } })} disabled={disabled} />}
       <Toggle label={REMINDER_COPY.checkpoints.title} hint={REMINDER_COPY.checkpoints.hint} checked={reminders.checkpoints} onChange={(on) => save({ reminders: { checkpoints: on } })} disabled={disabled} />
       {showQuiet && (
         <div className="flex flex-col gap-2">
