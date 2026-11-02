@@ -14,11 +14,12 @@ const Header: FC = () => {
   const member = !!user?.id
   return (
     <Container>
-      {/* 56px on a phone, 64px from sm: the bar is a way around, so it gives the page its height back. */}
-      <header className='h-14 sm:h-16 flex items-center justify-between'>
-        <Link href="/" className="flex items-center gap-2.5 sm:gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Image src='/logo.svg' width={28} height={28} alt='' className="size-6 sm:size-7" />
-          <span className="font-display font-semibold text-xl sm:text-2xl">Bookmark</span>
+      {/* 56px, with the contents in its lower 40px: pages start 16px below the bar, so the space above the logo and
+          avatar matches the space below them. The bar is a way around, so it gives the page its height back. */}
+      <header className='h-14 pt-4 flex items-center justify-between'>
+        <Link href="/" className="flex items-center gap-2 sm:gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Image src='/logo.svg' width={24} height={24} alt='' className="size-5 sm:size-6" />
+          <span className="font-display font-semibold text-lg sm:text-xl">Bookmark</span>
         </Link>
         {/* Discover stays from sm: it is where to look a book up. Stats and Reading circles need a tablet-width screen (md):
             narrower than that the three slid under the wordmark, so the menu carries them. Tighter between tablet and
