@@ -8,7 +8,7 @@ import { getReadingStreak } from "@/lib/achievements";
 import { getReaderTier } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, finishDay, isValidTimeZone, localDay } from "@/lib/timeZone";
 import { isWrappedSeason } from "@/lib/wrappedSeason";
-import { canViewUser, isProfilePublic, sharedBookWhere } from "@/lib/privacy";
+import { canViewUser, isProfilePublic, privacyOf, privacySelect, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
 import type { Mood } from "@bookmark/shared/workTags";
 import { cardPeriodKeys } from "@bookmark/shared/wrapCards";
@@ -611,6 +611,14 @@ export async function isWrappedPublic(owner: { id: string }): Promise<boolean> {
   return (await isProfilePublic(owner.id)) && (await canViewUser(null, owner.id, "finished"));
 }
 
+// Who a reader's Wrapped link opens for, so their share buttons can say so before they send it (BOO-94):
+// nobody else while Finished is private, their followers on a profile that isn't public, else anyone.
+export type WrappedAudience = "everyone" | "followers" | "you";
+export async function wrappedAudience(userId: string): Promise<WrappedAudience> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: privacySelect });
+  const privacy = privacyOf(user ?? {});
+  return privacy.hideFinished ? "you" : privacy.profileVisibility === "PUBLIC" ? "everyone" : "followers";
+}
 
 // The reader a /u/<username>/wrapped URL names. Callers still check isWrappedPublic (the owner can
 // always see their own). Shared by the page, its metadata and its images within one request.

@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
-import { Lock, Plus } from 'lucide-react'
+import { askToUpgrade } from '@/app/hooks/useUpgradePrompt'
+import { Crown, Lock, Plus } from 'lucide-react'
 import useBuddyReads, { type BuddyReadSummary } from '@/app/hooks/useBuddyReads'
 import { circleStanding, formatPercent } from '@/lib/buddyReads'
 import BookCover from '../cards/BookCover'
@@ -95,7 +96,10 @@ const BuddyReadsList: FC = () => {
             Read a book with friends. See where everyone is, and talk about it as you go. Comments stay locked until you reach them.
           </p>
         </div>
-        <Link href="/circles/new" className={`${primaryButtonClass} shrink-0`}><Plus size={16} aria-hidden />Start a reading circle</Link>
+        {/* At the limit the prompt below explains; the button points at it rather than opening a form that says no (BOO-94). */}
+        {hosting && !hosting.allowed
+          ? <button type="button" onClick={() => (hosting.upgrade ? askToUpgrade("canHostUnlimited") : notify.info(hosting.message ?? "You can't start another reading circle right now."))} className={`${primaryButtonClass} shrink-0`}>{hosting.upgrade ? <Crown size={16} aria-hidden /> : <Plus size={16} aria-hidden />}Start a reading circle</button>
+          : <Link href="/circles/new" className={`${primaryButtonClass} shrink-0`}><Plus size={16} aria-hidden />Start a reading circle</Link>}
       </header>
 
       {hosting && !hosting.allowed && (hosting.upgrade ? (

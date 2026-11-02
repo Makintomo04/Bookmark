@@ -81,7 +81,8 @@ export default function Stats() {
         </View>
       )}
 
-      <Pressable accessibilityRole="link" onPress={() => router.push("/stats-explore")} style={[styles.explore, { borderColor: colors.border }]}>
+      {/* Without Plus it opens the Plus screen, which says what the explorer is, rather than a screen that refuses (BOO-94). */}
+      <Pressable accessibilityRole="link" onPress={() => router.push((data.statsExplorer ? "/stats-explore" : "/plus") as never)} style={[styles.explore, { borderColor: colors.border }]}>
         <SlidersHorizontal size={18} color={accent} />
         <View style={{ flex: 1, gap: 2 }}>
           <View style={styles.tileLabel}>

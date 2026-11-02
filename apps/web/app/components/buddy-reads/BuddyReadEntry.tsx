@@ -1,9 +1,10 @@
 "use client"
 import { FC } from 'react'
 import Link from 'next/link'
-import { Users } from 'lucide-react'
+import { Crown, Users } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import useBuddyReads from '@/app/hooks/useBuddyReads'
+import useHostingGate from '@/app/hooks/useHostingGate'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import MemberAvatar from './MemberAvatar'
 
@@ -17,6 +18,7 @@ interface BuddyReadEntryProps {
 const BuddyReadEntry: FC<BuddyReadEntryProps> = ({ book, onNavigate }) => {
   const canStart = book.status === "NOT_STARTED" || book.status === "STARTED" || book.status === "PAUSED"
   const { buddyReads } = useBuddyReads(book.id)
+  const gate = useHostingGate()
   const open = (buddyReads ?? []).filter((b) => b.status !== "ARCHIVED")
 
   if (open.length === 0 && !canStart) return null
@@ -47,14 +49,21 @@ const BuddyReadEntry: FC<BuddyReadEntryProps> = ({ book, onNavigate }) => {
       })}
       {open.length === 0 && (
         <div className="flex flex-col gap-1.5">
-          <Link
-            href={`/circles/new?bookId=${book.id}`}
-            onClick={onNavigate}
-            className={`${secondaryButtonClass} w-fit`}
-          >
-            <Users size={16} aria-hidden /> Start a reading circle for this book
-          </Link>
-          <p className="text-xs text-muted-foreground">Share one link. Friends read their own copy, and comments stay locked until they reach that point.</p>
+          {/* At the hosting limit the button asks first (BOO-94), rather than opening a form that says no. */}
+          {gate.blocked ? (
+            <button type="button" onClick={gate.refuse} className={`${secondaryButtonClass} w-fit`}>
+              {gate.upgrade ? <Crown size={16} aria-hidden className="text-brand-text" /> : <Users size={16} aria-hidden />} Start a reading circle for this book
+            </button>
+          ) : (
+            <Link
+              href={`/circles/new?bookId=${book.id}`}
+              onClick={onNavigate}
+              className={`${secondaryButtonClass} w-fit`}
+            >
+              <Users size={16} aria-hidden /> Start a reading circle for this book
+            </Link>
+          )}
+          <p className="text-xs text-muted-foreground">{gate.blocked && gate.message ? gate.message : "Share one link. Friends read their own copy, and comments stay locked until they reach that point."}</p>
         </div>
       )}
     </section>

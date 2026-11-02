@@ -12,7 +12,8 @@ const ROLE = { host: "You're hosting", cohost: "Co-host", member: null } as cons
 const dayMonth = (date: string) => new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
 
 // On the Circles tab: the reader's clubs, each a group that reads one book after another (the web's
-// ClubsSection). "Start a club" shows past the limit too: the form says why.
+// ClubsSection). Past the limit "Start a club" opens the Plus screen when Plus lifts it (BOO-94), rather than a
+// form that refuses.
 export function ClubsSection() {
   const { colors } = useTheme();
   const { data } = useSWR<ClubList>("/api/clubs");
@@ -24,7 +25,14 @@ export function ClubsSection() {
         <Text variant="muted">A club reads one book after another with the same people. Members join once with one link and are added to every new book.</Text>
       )}
       {data.clubs.map((club) => <ClubRow key={club.id} club={club} />)}
-      <Button title="Start a club" variant="outline" icon={<Plus size={18} color={colors.foreground} />} onPress={() => router.push("/clubs/new")} />
+      <Button
+        title="Start a club"
+        variant="outline"
+        icon={<Plus size={18} color={colors.foreground} />}
+        disabled={!!data.hosting && !data.hosting.allowed && !data.hosting.upgrade}
+        onPress={() => router.push((data.hosting && !data.hosting.allowed ? "/plus" : "/clubs/new") as never)}
+      />
+      {data.hosting && !data.hosting.allowed && data.hosting.message ? <Text variant="small">{data.hosting.message}</Text> : null}
     </View>
   );
 }
