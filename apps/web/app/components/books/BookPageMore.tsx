@@ -5,17 +5,18 @@ import { sameBook } from '@/lib/workKey'
 import { authorHref, authorNames, authorSlug, creditIncludes, isLinkableAuthor } from '@/lib/authorNames'
 import { authorAbout, authorBooksPage, findAuthor } from '@/lib/authors'
 import { readersAlsoLiked } from '@/lib/similarBooks'
-import DiscoverBookCard from '../discover/DiscoverBookCard'
+import BookCover from '../cards/BookCover'
+import { bookHref } from '@/lib/workKey'
 import AuthorBrief from './AuthorBrief'
 import { Skeleton } from '../ui/skeleton'
 
-// "About {author}", "More by …" and "Readers also liked" on a book page (BOO-92). The two rows are covers with the usual shelf
-// buttons: one row to swipe on a phone, three across from sm (the fourth waits for xl, where the shelf
-// buttons fit beside each other). Server components, streamed in behind
-// Suspense, since Open Library and Hardcover can take a few seconds. A row with too little to show isn't drawn.
+// "About {author}", "More by …" and "Readers also liked" on a book page (BOO-92). The two rows are just covers and titles,
+// each a link to that book's page, where the shelf and list buttons are: one row to swipe on a phone, three
+// across from sm, four from xl. Server components, streamed in behind Suspense, since Open Library and
+// Hardcover can take a few seconds. A row with too little to show isn't drawn.
 
 export const MORE_SHOWN = 4
-const ROW = "-mx-4 px-4 flex sm:grid sm:grid-cols-3 xl:grid-cols-4 gap-4 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2 sm:[&>*:nth-child(4)]:hidden xl:[&>*:nth-child(4)]:flex"
+const ROW = "-mx-4 px-4 flex sm:grid sm:grid-cols-3 xl:grid-cols-4 gap-4 overflow-x-auto sm:overflow-visible snap-x snap-mandatory scroll-px-4 pb-2 sm:[&>*:nth-child(4)]:hidden xl:[&>*:nth-child(4)]:flex"
 const CARD = "flex w-32 shrink-0 snap-start sm:w-auto"
 
 type Shown = Pick<DiscoverBook, "title" | "author" | "workKey">
@@ -30,11 +31,28 @@ export const MoreRowSkeleton: FC<{ heading: string, headingClassName: string, pa
           <Skeleton className="aspect-[2/3] w-full" />
           <Skeleton className="h-3.5 w-full" />
           <Skeleton className="h-3 w-1/2" />
-          <Skeleton className="h-8 w-full rounded-full" />
         </div>
       ))}
     </div>
   </section>
+)
+
+// A cover and its title as one link to the book's page.
+const CoverLink: FC<{ book: DiscoverBook }> = ({ book }) => (
+  <Link
+    href={bookHref(book)!}
+    className="group flex w-full min-w-0 flex-col gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+  >
+    <BookCover
+      book={{ title: book.title, author: book.author, coverImage: book.coverUrl || "", cardColour: null }}
+      sizes="(min-width: 1280px) 180px, (min-width: 640px) 25vw, 128px"
+      className="shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-md"
+    />
+    <span className="flex min-w-0 flex-col">
+      <span className="text-sm font-semibold leading-snug line-clamp-2 group-hover:underline underline-offset-2">{book.title}</span>
+      <span className="truncate text-xs text-muted-foreground">{book.author}</span>
+    </span>
+  </Link>
 )
 
 const Row: FC<{ id: string, heading: string, books: DiscoverBook[], seeAll?: string, headingClassName: string, panelClassName: string }> = ({ id, heading, books, seeAll, headingClassName, panelClassName }) => (
@@ -44,13 +62,13 @@ const Row: FC<{ id: string, heading: string, books: DiscoverBook[], seeAll?: str
       {seeAll && <Link href={seeAll} className="text-sm font-medium text-brand-text hover:underline underline-offset-2">See all</Link>}
     </div>
     <ul className={ROW}>
-      {books.map((book, i) => <li key={book.workKey ?? book.hardcoverId ?? i} className={CARD}><DiscoverBookCard book={book} /></li>)}
+      {books.map((book, i) => <li key={book.workKey ?? book.hardcoverId ?? i} className={CARD}><CoverLink book={book} /></li>)}
     </ul>
   </section>
 )
 
-// Not this book, and not one the series section already shows.
-const notShown = (books: DiscoverBook[], shown: Shown[]) => books.filter((b) => !shown.some((s) => sameBook(s, b)))
+// Not this book, not one the series section already shows, and only books with a page to open.
+const notShown = (books: DiscoverBook[], shown: Shown[]) => books.filter((b) => bookHref(b) && !shown.some((s) => sameBook(s, b)))
 
 // The credit's first real author ("Unknown" and the like have no page), whose books the row shows.
 const leadAuthor = (credit: string) => authorNames(credit).find(isLinkableAuthor)

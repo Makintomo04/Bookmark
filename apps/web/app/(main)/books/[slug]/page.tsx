@@ -133,7 +133,8 @@ const Page = async (props: PageProps) => {
             {/* A little more room under the title block than between the panels. */}
             <header className="mb-2 sm:mb-4">
               {series && <p className="mb-2"><SeriesEyebrow name={series.name} position={series.position} /></p>}
-              <h1 className="page-title break-words">{book.title}</h1>
+              {/* display-m, the book as the page's subject: smaller than a page title, a step up from md. */}
+              <h1 className="font-display text-[26px] leading-8 font-semibold tracking-[-0.01em] [text-wrap:balance] break-words md:text-[30px] md:leading-9">{book.title}</h1>
               <p className="mt-2 text-base"><AuthorLink author={book.author} /></p>
               {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
               <div className="mt-6 flex flex-wrap items-center gap-1.5">
