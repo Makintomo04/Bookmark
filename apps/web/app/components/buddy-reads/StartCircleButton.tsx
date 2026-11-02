@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { askToJoin } from '@/app/hooks/useJoinPrompt'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
-import { Loader2, Users } from 'lucide-react'
+import { Crown, Loader2, Users } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { sameBook } from '@/lib/workKey'
@@ -13,6 +13,7 @@ import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
+import useHostingGate from '@/app/hooks/useHostingGate'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 
 const base = "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -28,6 +29,7 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (
   const bookEntryModal = useBookEntryModal()
   const closeDetails = useBookDetailsModal((s) => s.onClose)
   const [isWorking, setIsWorking] = useState(false)
+  const gate = useHostingGate(!!user?.id)
 
   if (!user?.id) {
     const heading = `Join to start a reading circle for ${book.title}`
@@ -45,6 +47,8 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (
   }
 
   const start = () => {
+    // At the hosting limit it says so here, before the book goes on the shelf (BOO-94).
+    if (gate.blocked) return gate.refuse()
     if (onShelf) {
       go(onShelf.id)
       return
@@ -89,10 +93,10 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (
       type="button"
       onClick={start}
       disabled={isWorking}
-      aria-label={`Start a reading circle for ${book.title}`}
+      aria-label={gate.upgrade ? `Start a reading circle for ${book.title}: more circles need Plus` : `Start a reading circle for ${book.title}`}
       className={cn(base, outline, "disabled:opacity-60", className)}
     >
-      {isWorking ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Users size={14} aria-hidden />}
+      {isWorking ? <Loader2 size={14} className="animate-spin" aria-hidden /> : gate.upgrade ? <Crown size={14} aria-hidden className="text-brand-text" /> : <Users size={14} aria-hidden />}
       Start a reading circle
     </button>
   )

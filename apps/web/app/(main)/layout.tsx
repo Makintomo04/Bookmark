@@ -15,6 +15,7 @@ import RecommendModal from "../components/modals/RecommendModal";
 import MoveToFinishedModal from "../components/modals/MoveToFinishedModal";
 import StartDateModal from "../components/modals/StartDateModal";
 import JoinPromptModal from "../components/modals/JoinPromptModal";
+import UpgradePromptModal from "../components/modals/UpgradePromptModal";
 import TierPreviewBadge from "../components/dev/TierPreviewBadge";
 import Footer from "../components/footer/Footer";
 import RoleWelcome from "../components/staff/RoleWelcome";
@@ -40,6 +41,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <MoveToFinishedModal/>
         <StartDateModal/>
         <JoinPromptModal/>
+        <UpgradePromptModal/>
         <TierPreviewBadge/>
         <RoleWelcome/>
         {/* Reads the search params, so it sits in its own Suspense boundary rather than making every page dynamic. */}

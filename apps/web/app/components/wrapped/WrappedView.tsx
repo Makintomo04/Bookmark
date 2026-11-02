@@ -20,6 +20,8 @@ interface WrappedViewProps {
   // The reader's favourite colour as #rrggbb.
   accent: string
   own: boolean
+  // The owner's: who the share link opens for (lib/stats.ts wrappedAudience), so the share buttons can say.
+  linkAudience?: 'everyone' | 'followers' | 'you'
   // Other years with a Wrapped, newest first.
   years: number[]
 }
@@ -76,7 +78,7 @@ const BookFeature: FC<{ book: WrappedData['longestBook']; accent: string; childr
     </div>
   ) : null
 
-const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, name = username, accent, own, years }) => {
+const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, name = username, accent, own, years, linkAudience = 'everyone' }) => {
   const voice: copy.Voice = { own, name }
   const title = own ? `Your ${w.year} in books` : `${name}'s ${w.year} in books`
   const shareUrl = `/u/${encodeURIComponent(username)}/wrapped/${w.year}`
@@ -246,6 +248,7 @@ const WrappedView: FC<WrappedViewProps> = ({ wrapped: w, username, name = userna
         <p className="mt-4 max-w-xl text-3xl sm:text-5xl font-display font-semibold tracking-tight leading-tight">{copy.outroLine(w, voice)}</p>
         {own ? (
           <WrappedShare
+            audience={linkAudience}
             shareUrl={shareUrl}
             storyUrl={`${shareUrl}/story`}
             fileName={`bookmark-wrapped-${w.year}.png`}

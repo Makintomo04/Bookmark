@@ -4,7 +4,7 @@ import { readerName } from '@/lib/profile'
 import { notFound } from 'next/navigation'
 import Container from '@/app/components/Container'
 import getCurrentUser from '@/app/actions/getCurrentUser'
-import { getWrapped, getWrappedOwner, getWrappedYears, isWrappedPublic, parseWrappedYear } from '@/lib/stats'
+import { getWrapped, getWrappedOwner, getWrappedYears, isWrappedPublic, parseWrappedYear, wrappedAudience } from '@/lib/stats'
 import { canViewUser } from '@/lib/privacy'
 import WrappedView from '@/app/components/wrapped/WrappedView'
 import { ACCENT_SCOPE, accentVars, readerAccent } from '@/app/components/stats/accent'
@@ -56,7 +56,7 @@ export default async function Page(props: PageProps) {
   return (
     <div className={`mt-6 sm:mt-10 ${ACCENT_SCOPE}`} style={accentVars(accent)}>
       <Container className="max-w-4xl">
-        <WrappedView wrapped={wrapped} username={owner.username} name={readerName(owner)} accent={accent.base} own={own} years={years} />
+        <WrappedView wrapped={wrapped} username={owner.username} name={readerName(owner)} accent={accent.base} own={own} years={years} linkAudience={own ? await wrappedAudience(owner.id) : undefined} />
       </Container>
     </div>
   )
