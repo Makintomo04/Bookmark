@@ -157,8 +157,8 @@ export const REMINDER_COPY = {
   checkpoints: { title: "Circle checkpoints", hint: "Two days before a section is due, if you're behind. On your phone, or by email if you don't have the app." },
   weekly: { title: "Weekly email", hint: "“Your week in books” every Sunday: your reading, your circles and your friends. One click to stop." },
   quiet: { title: "Quiet hours", hint: "Reminders never arrive between these times." },
-  // On the web, where the daily reminder and streak alert can't reach.
-  phoneOnly: "The daily reminder and streak alert arrive on your phone through the Bookmark app.",
+  // On the web without the app, in place of the daily reminder and streak alert switches.
+  phoneOnly: { title: "Daily reminder and streak alert", hint: "These come with the Bookmark app on your phone. Sign in there to turn them on." },
   unverified: "Confirm your email address first: Bookmark only emails a confirmed address.",
   // Push is switched off for Bookmark in the phone's settings.
   blocked: "Notifications are off for Bookmark on this phone. Turn them on in your phone's settings, or use the weekly email. Circle checkpoints come by email meanwhile, once your address is confirmed.",
@@ -175,7 +175,7 @@ export type AskReason = "finished" | "habit" | "goal" | "joined";
 export const ASK_HABIT_DAYS = 3;
 export const SHEET_INTRO: Record<AskReason, string> = {
   finished: "Well done on finishing.",
-  habit: "Three days of reading already.",
+  habit: "Three days of reading this week.",
   goal: "Your goal is set.",
   joined: "You're in. A circle checkpoint can tell you two days before a section is due.",
 };
