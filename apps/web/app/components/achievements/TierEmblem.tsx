@@ -7,19 +7,13 @@ export type TierStep = Omit<ReaderTier, "key"> & { key: ReaderTier["key"] | "new
 
 // The emblem is a bookmark ribbon: a metal rim around an inset, polished face, with its motif engraved flat
 // into the face. Each tier adds a detail: Silver an inner border, studs and a star, Gold a red jewel seal
-// and the sweep of light, Platinum a crown, Diamond the mark cut as a gem.
+// and the sweep of light, Platinum a crown, Diamond sparkles around it.
 const RIBBON = "M22 18 Q22 8 32 8 H88 Q98 8 98 18 V120 L60 98 L22 120 Z"
 const FACE = "M27 19 Q27 13 33 13 H87 Q93 13 93 19 V111 L60 92.5 L27 111 Z"
 const INNER = "M34 25 Q34 21 38 21 H82 Q86 21 86 25 V101 L60 87 L34 101 Z"
 // The Bookmark mark (public/logo.svg), centred on the face.
 const MARK = "M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 28.7452 0.943359 26.536L0.943358 4.61413C0.943358 2.40504 2.73414 0.614201 4.94324 0.614134L25.5092 0.613509C28.7291 0.613412 30.6295 4.22392 28.8065 6.87812L24.3892 13.3096C23.4521 14.6739 23.4521 16.4745 24.3892 17.8388L28.8068 24.2708C30.6297 26.9249 28.7296 30.5353 25.5097 30.5354Z"
 const MARK_PLACE = "translate(60 50) scale(.95) translate(-15.4 -15.6)"
-// Diamond's gem is the mark itself, faceted: an outline of the mark in its own units, a table (the flat top)
-// shrunk towards a centre left of the notch, and the facets between them, each lit differently. The facets are
-// clipped to the real mark so its rounded corners stay round.
-const GEM = [[.9, .6], [25.5, .6], [29.6, 4.5], [23.7, 15.6], [29.6, 26.6], [25.5, 30.5], [.9, 30.5]]
-const GEM_TABLE = GEM.map(([x, y]) => [11 + (x - 11) * .45, 15.6 + (y - 15.6) * .45])
-const FACET_LIGHT = [.38, .1, .24, .04, .16, .3, .12]
 
 // The emblem's height over its width, for laying out the carousel.
 export const EMBLEM_ASPECT = 142 / 120
@@ -45,7 +39,6 @@ const TierEmblem: FC<{ step: TierStep; rank: number }> = ({ step: t, rank }) => 
     )
   }
 
-  const pts = (p: number[][]) => p.map((q) => q.join(",")).join(" ")
   return (
     <svg viewBox="0 -18 120 142" aria-hidden className="block h-auto w-full overflow-visible">
       <defs>
@@ -62,15 +55,26 @@ const TierEmblem: FC<{ step: TierStep; rank: number }> = ({ step: t, rank }) => 
         <radialGradient id={`${id}-j`} cx=".4" cy=".35" r=".75">
           <stop offset="0" stopColor="#FF8A80" /><stop offset=".5" stopColor="#D92D2D" /><stop offset="1" stopColor="#5E0B0B" />
         </radialGradient>
-        <linearGradient id={`${id}-g`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#E6FAFF" /><stop offset=".4" stopColor="#4FC3EC" /><stop offset="1" stopColor="#4B2FB8" />
-        </linearGradient>
         <linearGradient id={`${id}-sh`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".6" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
         <clipPath id={`${id}-c`}><path d={RIBBON} /></clipPath>
         <clipPath id={`${id}-cf`}><path d={FACE} /></clipPath>
-        <clipPath id={`${id}-mk`}><path d={MARK} /></clipPath>
+        {/* Sinks the engraved mark into the face: a soft shadow inside its top-left edges, a thin catch of
+            light inside its bottom-right ones. */}
+        <filter id={`${id}-in`} x="-20%" y="-20%" width="140%" height="140%">
+          <feOffset in="SourceAlpha" dx="1" dy="1.4" />
+          <feGaussianBlur stdDeviation=".9" result="drop" />
+          <feComposite in="SourceAlpha" in2="drop" operator="out" result="upper" />
+          <feFlood floodColor="#000" floodOpacity=".6" />
+          <feComposite in2="upper" operator="in" result="shadow" />
+          <feOffset in="SourceAlpha" dx="-.7" dy="-.9" />
+          <feGaussianBlur stdDeviation=".5" result="lift" />
+          <feComposite in="SourceAlpha" in2="lift" operator="out" result="lower" />
+          <feFlood floodColor={t.light} floodOpacity=".7" />
+          <feComposite in2="lower" operator="in" result="catch" />
+          <feMerge><feMergeNode in="SourceGraphic" /><feMergeNode in="shadow" /><feMergeNode in="catch" /></feMerge>
+        </filter>
       </defs>
 
       {rank >= 4 && (
@@ -101,23 +105,7 @@ const TierEmblem: FC<{ step: TierStep; rank: number }> = ({ step: t, rank }) => 
         </>
       )}
 
-      {rank === 5 ? (
-        <g transform="translate(60 50) scale(1.15) translate(-15.4 -15.6)">
-          <path d={MARK} fill={`url(#${id}-g)`} />
-          <g clipPath={`url(#${id}-mk)`}>
-            {GEM.map((p, k) => (
-              <polygon key={k} points={pts([p, GEM[(k + 1) % GEM.length], GEM_TABLE[(k + 1) % GEM.length], GEM_TABLE[k]])} fill="#fff" opacity={FACET_LIGHT[k]} />
-            ))}
-            <polygon points={pts(GEM_TABLE)} fill="#fff" opacity={.18} />
-            <path d={GEM.map((p, k) => `M${p} L${GEM_TABLE[k]}`).join(" ")} stroke="#fff" strokeWidth={.35} opacity={.5} />
-          </g>
-          <path d={MARK} fill="none" stroke={t.shade} strokeWidth={2.6} strokeLinejoin="round" />
-          <path d={MARK} fill="none" stroke={t.light} strokeWidth={.7} strokeLinejoin="round" opacity={.8} />
-          <path d={star(19, 7, 4)} fill="#fff" />
-        </g>
-      ) : (
-        <path d={MARK} transform={MARK_PLACE} fill={t.shade} opacity={.6} />
-      )}
+      <g filter={`url(#${id}-in)`}><path d={MARK} transform={MARK_PLACE} fill={t.shade} fillOpacity={.6} /></g>
       {rank >= 2 && <path d={star(60, 76, 6)} fill={t.shade} opacity={.6} />}
 
       {(rank === 3 || rank === 4) && (
