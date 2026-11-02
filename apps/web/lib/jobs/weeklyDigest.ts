@@ -40,6 +40,12 @@ async function friendsWeek(userId: string, since: Date): Promise<DigestFriend[]>
   // Friends follow each other, so the reader sees what a follower may.
   const relation: Relation = { isSelf: false, isFollower: true, blocked: null };
   const visible = new Map(friends.filter((f) => f.username && canView(relation, privacyOf(f), "activity")).map((f) => [f.id, f.username!]));
+  // Starting a book shows Reading and finishing one shows Finished, which a friend can keep private (BOO-92).
+  const privacyById = new Map(friends.map((f) => [f.id, privacyOf(f)]));
+  const shelfShown = (userId: string, type: string) => {
+    const privacy = privacyById.get(userId);
+    return !!privacy && canView(relation, privacy, type === "COMPLETED_BOOK" ? "finished" : "reading");
+  };
 
   const [activity, sent] = await Promise.all([
     visible.size
@@ -80,7 +86,7 @@ async function friendsWeek(userId: string, since: Date): Promise<DigestFriend[]>
   }
   for (const a of activity) {
     const username = visible.get(a.userId);
-    if (username && a.book) add({ username, kind: a.type === "COMPLETED_BOOK" ? "finished" : "started", bookTitle: a.book.title });
+    if (username && a.book && shelfShown(a.userId, a.type)) add({ username, kind: a.type === "COMPLETED_BOOK" ? "finished" : "started", bookTitle: a.book.title });
   }
   return Array.from(lines.values()).slice(0, DIGEST_FRIENDS_MAX);
 }

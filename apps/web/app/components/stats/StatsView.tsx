@@ -129,6 +129,8 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
           <div>
             <dt className="text-sm text-muted-foreground">Pages read</dt>
             <dd className="mt-1 text-2xl font-semibold tabular-nums">{fmt(stats.pagesRead)}</dd>
+            {/* The charts below only place dated finishes, so say where the difference comes from (BOO-92). */}
+            {stats.undatedPages > 0 && <dd className="mt-1 text-xs text-muted-foreground tabular-nums">{fmt(stats.undatedPages)} from undated finishes</dd>}
           </div>
           {stats.minutesListened > 0 && (
             <div>

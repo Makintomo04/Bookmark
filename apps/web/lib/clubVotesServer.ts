@@ -354,11 +354,34 @@ export async function cancelClubVote(clubId: string, by: string) {
 }
 
 // A host puts the winner card away without starting the book (they changed their minds, or started
-// something else): the club page stops showing it. The vote and its counts stay as they were.
+// something else): the club page stops showing it. The vote and its counts stay as they were. The "picked
+// it" rows come out of everyone's bells too (BOO-92), so the bell can't announce a book the club page
+// no longer mentions.
 export async function dismissWinner(vote: ClubVote): Promise<Result> {
   if (vote.status !== "CLOSED" || !vote.winnerId) return refuse("This vote hasn't picked a book yet.", 409)
   await prisma.clubVote.update({ where: { id: vote.id }, data: { dismissedAt: new Date() } })
+  const winner = await prisma.clubNomination.findUnique({ where: { id: vote.winnerId }, select: { title: true } })
+  await prisma.notification.deleteMany({ where: { clubId: vote.clubId, type: "CLUB_VOTE_PICKED", message: winner?.title ?? null, createdAt: { gte: vote.createdAt } } })
   return { ok: true }
+}
+
+// The "picked it" rows written before dismissWinner cleared them, as filters the bell leaves out: each one
+// a dismissed winner's title, announced between its vote opening and the host putting the card away.
+export async function dismissedPickFilters(userId: string): Promise<Prisma.NotificationWhereInput[]> {
+  const picked = await prisma.notification.findMany({ where: { userId, type: "CLUB_VOTE_PICKED" }, select: { clubId: true } })
+  const clubIds = Array.from(new Set(picked.flatMap((n) => (n.clubId ? [n.clubId] : []))))
+  if (clubIds.length === 0) return []
+  const votes = await prisma.clubVote.findMany({
+    where: { clubId: { in: clubIds }, status: "CLOSED", dismissedAt: { not: null }, winnerId: { not: null } },
+    select: { clubId: true, winnerId: true, createdAt: true, dismissedAt: true },
+  })
+  if (votes.length === 0) return []
+  const winners = await prisma.clubNomination.findMany({ where: { id: { in: votes.map((v) => v.winnerId!) } }, select: { id: true, title: true } })
+  const titleOf = new Map(winners.map((w) => [w.id, w.title]))
+  return votes.map((v) => ({
+    clubId: v.clubId, type: "CLUB_VOTE_PICKED" as const, message: titleOf.get(v.winnerId!) ?? null,
+    createdAt: { gte: v.createdAt, lte: v.dismissedAt! },
+  }))
 }
 
 // "Start this book": the winner on the starter's shelf (their copy, or a new one in Want to read), so the

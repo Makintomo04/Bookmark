@@ -656,13 +656,26 @@ const toResult = (r: Ranked, reason: string | null): AskResult => ({
   shelf: r.shelf,
 });
 
+// A book the reader named as the yardstick ("like Fourth Wing but spicier") isn't an answer to it (BOO-92).
+// A title of two or more words counts wherever it appears in the query; a one-word title ("Dune",
+// "Piranesi") only straight after like, than, to or as, so "a book about grief" doesn't hide one called Grief.
+const plainWords = (text: string) => text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+export function namedInQuery(query: string, title: string): boolean {
+  const q = ` ${plainWords(query)} `;
+  const words = plainWords(title).replace(/^(the|a|an) /, "").split(" ").filter(Boolean);
+  if (words.length === 0) return false;
+  const name = words.join(" ");
+  if (words.length > 1) return q.includes(` ${name} `) || q.includes(` the ${name} `);
+  return name.length >= 4 && new RegExp(` (like|than|to|as) (the )?${name} `).test(q);
+}
+
 // The search. Throws an AiError when the intent call fails (the caller refunds the allowance); a
 // failed reasons call only costs the reasons.
 export async function askShelf(userId: string, query: string, deps: AskShelfDeps): Promise<AskShelfResponse> {
   const intent = await parseIntent(query, deps.ask);
   if (!hasSearchableIntent(intent)) return { intent, results: [], reasons: "none" };
 
-  const candidates = await deps.catalog.candidates(intent);
+  const candidates = (await deps.catalog.candidates(intent)).filter((c) => !namedInQuery(query, c.title));
   const [shelf, signals] = await Promise.all([deps.catalog.shelf(userId), deps.catalog.signals(userId, candidates)]);
   const ranked = rankCandidates(intent, candidates, shelf, signals);
   if (ranked.length === 0) return { intent, results: [], reasons: "none" };

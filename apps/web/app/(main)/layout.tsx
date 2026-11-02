@@ -13,6 +13,7 @@ import ListEditorModal from "../components/modals/ListEditorModal";
 import BookDetailsModal from "../components/modals/BookDetailsModal";
 import RecommendModal from "../components/modals/RecommendModal";
 import MoveToFinishedModal from "../components/modals/MoveToFinishedModal";
+import StartDateModal from "../components/modals/StartDateModal";
 import JoinPromptModal from "../components/modals/JoinPromptModal";
 import TierPreviewBadge from "../components/dev/TierPreviewBadge";
 import Footer from "../components/footer/Footer";
@@ -37,6 +38,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <BookDetailsModal/>
         <RecommendModal/>
         <MoveToFinishedModal/>
+        <StartDateModal/>
         <JoinPromptModal/>
         <TierPreviewBadge/>
         <RoleWelcome/>

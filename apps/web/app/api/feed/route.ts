@@ -77,6 +77,12 @@ export async function GET(req: Request) {
     if (activity.type === "ADDED_BOOK" && status === "NOT_INTERESTED") return null
     // Stopping a book is the reader's own business when they keep Did not finish to themselves.
     if (activity.type === "DNF_BOOK" && !canView(relation, privacy, "didNotFinish")) return null
+    // Starting and finishing are peeks at Reading and Finished, when those shelves are kept private (BOO-92).
+    if (activity.type === "STARTED_BOOK" && !canView(relation, privacy, "reading")) return null
+    if ((activity.type === "COMPLETED_BOOK" || activity.type === "RATED_BOOK") && !canView(relation, privacy, "finished")) return null
+    // So is adding a book straight to one of them.
+    if (activity.type === "ADDED_BOOK" && (status === "STARTED" || status === "PAUSED") && !canView(relation, privacy, "reading")) return null
+    if (activity.type === "ADDED_BOOK" && status === "COMPLETED" && !canView(relation, privacy, "finished")) return null
 
     if (activity.type !== "REVIEWED_BOOK") return { ...activity, user: publicUser, book: publicBook }
     // A review the viewer can't read isn't announced at all.

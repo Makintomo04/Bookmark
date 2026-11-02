@@ -10,6 +10,11 @@ export interface PrivacySettings {
   // Who may comment on their reviews, among those who can see them (canCommentOnReview).
   reviewComments: ReviewCommentAudience;
   hideWantToRead: boolean;
+  // Currently reading (and paused), and Finished, each kept to themselves from the shelf's own menu (BOO-92).
+  // Hidden Finished takes the books read count, the goal and the reviews on their profile with it; reviews
+  // still show on each book's page by reviewVisibility. A reading circle still shows where its members are.
+  hideReading: boolean;
+  hideFinished: boolean;
   // The Did not finish shelf never shows to others; this keeps "stopped reading" out of followers' feeds too.
   hideDidNotFinish: boolean;
   hideFollowCounts: boolean;
@@ -26,6 +31,8 @@ export const privacySelect = {
   reviewVisibility: true,
   reviewComments: true,
   hideWantToRead: true,
+  hideReading: true,
+  hideFinished: true,
   hideDidNotFinish: true,
   hideFollowCounts: true,
   hideFavourites: true,
@@ -38,6 +45,8 @@ type StoredPrivacy = {
   reviewVisibility?: ReviewVisibility | null;
   reviewComments?: ReviewCommentAudience | null;
   hideWantToRead?: boolean | null;
+  hideReading?: boolean | null;
+  hideFinished?: boolean | null;
   hideDidNotFinish?: boolean | null;
   hideFollowCounts?: boolean | null;
   hideFavourites?: boolean | null;
@@ -52,6 +61,8 @@ export function privacyOf(user: StoredPrivacy): PrivacySettings {
     reviewVisibility: user.reviewVisibility ?? "EVERYONE",
     reviewComments: user.reviewComments ?? "EVERYONE",
     hideWantToRead: user.hideWantToRead ?? false,
+    hideReading: user.hideReading ?? false,
+    hideFinished: user.hideFinished ?? false,
     hideDidNotFinish: user.hideDidNotFinish ?? false,
     hideFollowCounts: user.hideFollowCounts ?? false,
     hideFavourites: user.hideFavourites ?? false,
@@ -77,6 +88,10 @@ export type Viewable =
   | "activity"
   // The Want to read shelf.
   | "wantToRead"
+  // Currently reading (and paused): the shelf, "Reading now", started-a-book posts, "reading this" faces.
+  | "reading"
+  // Finished: the shelf, books read, the goal, profile reviews, finished and rated posts, "read this" faces.
+  | "finished"
   // That they stopped reading a book (the feed post). The shelf itself is always the reader's own.
   | "didNotFinish"
   // Their reviews, before each review's own private flag.
@@ -105,6 +120,10 @@ export function canView(relation: Relation, owner: PrivacySettings, what: Viewab
       return profile && owner.profileVisibility !== "PRIVATE";
     case "wantToRead":
       return profile && !owner.hideWantToRead;
+    case "reading":
+      return profile && !owner.hideReading;
+    case "finished":
+      return profile && !owner.hideFinished;
     case "didNotFinish":
       return profile && !owner.hideDidNotFinish;
     case "followCounts":
@@ -117,6 +136,17 @@ export function canView(relation: Relation, owner: PrivacySettings, what: Viewab
         relation,
       );
   }
+}
+
+// The shelf statuses this viewer may see books on. Did not finish and Will not read are always the reader's
+// own; the rest follow the shelf's privacy. One list, so the profile, its shelves and their counts agree.
+export type SharedStatus = "STARTED" | "PAUSED" | "COMPLETED" | "NOT_STARTED";
+export function visibleStatuses(relation: Relation, owner: PrivacySettings): SharedStatus[] {
+  return [
+    ...(canView(relation, owner, "reading") ? ["STARTED", "PAUSED"] as const : []),
+    ...(canView(relation, owner, "finished") ? ["COMPLETED"] as const : []),
+    ...(canView(relation, owner, "wantToRead") ? ["NOT_STARTED"] as const : []),
+  ];
 }
 
 export interface VisibleReview {

@@ -3,7 +3,7 @@ import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import useSWR from "swr";
-import { formatPercent } from "@bookmark/shared/buddyReads";
+import { circleStanding, formatPercent } from "@bookmark/shared/buddyReads";
 import { BookCover } from "@/components/books/BookCover";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -21,8 +21,8 @@ import { StaffSeal } from "@/components/profile/StaffSeal";
 export default function Circles() {
   const { colors } = useTheme();
   const { data, error, isLoading, mutate } = useSWR<CircleList>("/api/buddy-reads");
-  const active = data?.buddyReads.filter((c) => c.status === "ACTIVE") ?? [];
-  const past = data?.buddyReads.filter((c) => c.status !== "ACTIVE") ?? [];
+  const active = data?.buddyReads.filter((c) => !circleStanding(c).finished) ?? [];
+  const past = data?.buddyReads.filter((c) => circleStanding(c).finished) ?? [];
 
   return (
     <Screen>

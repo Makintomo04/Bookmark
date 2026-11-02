@@ -82,7 +82,7 @@ export async function readerCountsForWork(bookKey: string, viewerId: string | nu
   }
 
   return {
-    reading: { count: reading.length, people: facesOf(candidates.reading, "profile") },
+    reading: { count: reading.length, people: facesOf(candidates.reading, "reading") },
     wantToRead: { count: wantToRead.length, people: facesOf(candidates.wantToRead, "wantToRead") },
   }
 }

@@ -1,0 +1,107 @@
+import { FC } from 'react'
+import Link from 'next/link'
+import type { DiscoverBook } from '@/lib/openLibrary'
+import { sameBook } from '@/lib/workKey'
+import { authorHref, authorNames, authorSlug, creditIncludes, isLinkableAuthor } from '@/lib/authorNames'
+import { authorAbout, authorBooksPage, findAuthor } from '@/lib/authors'
+import { readersAlsoLiked } from '@/lib/similarBooks'
+import DiscoverBookCard from '../discover/DiscoverBookCard'
+import AuthorBrief from './AuthorBrief'
+import { Skeleton } from '../ui/skeleton'
+
+// "About {author}", "More by …" and "Readers also liked" on a book page (BOO-92). The two rows are covers with the usual shelf
+// buttons: one row to swipe on a phone, three across from sm (the fourth waits for xl, where the shelf
+// buttons fit beside each other). Server components, streamed in behind
+// Suspense, since Open Library and Hardcover can take a few seconds. A row with too little to show isn't drawn.
+
+export const MORE_SHOWN = 4
+const ROW = "-mx-4 px-4 flex sm:grid sm:grid-cols-3 xl:grid-cols-4 gap-4 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2 sm:[&>*:nth-child(4)]:hidden xl:[&>*:nth-child(4)]:flex"
+const CARD = "flex w-32 shrink-0 snap-start sm:w-auto"
+
+type Shown = Pick<DiscoverBook, "title" | "author" | "workKey">
+
+// Shaped like a row of DiscoverBookCards, under the section's real heading, so the page doesn't jump.
+export const MoreRowSkeleton: FC<{ heading: string, headingClassName: string, panelClassName: string }> = ({ heading, headingClassName, panelClassName }) => (
+  <section className={`${panelClassName} flex flex-col gap-4`} aria-busy="true">
+    <h2 className={headingClassName}>{heading}</h2>
+    <div className={ROW} aria-hidden>
+      {Array.from({ length: MORE_SHOWN }, (_, i) => (
+        <div key={i} className={`${CARD} flex flex-col gap-2.5`}>
+          <Skeleton className="aspect-[2/3] w-full" />
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3 w-1/2" />
+          <Skeleton className="h-8 w-full rounded-full" />
+        </div>
+      ))}
+    </div>
+  </section>
+)
+
+const Row: FC<{ id: string, heading: string, books: DiscoverBook[], seeAll?: string, headingClassName: string, panelClassName: string }> = ({ id, heading, books, seeAll, headingClassName, panelClassName }) => (
+  <section aria-labelledby={id} className={`${panelClassName} flex flex-col gap-4`}>
+    <div className="flex items-baseline justify-between gap-4">
+      <h2 id={id} className={headingClassName}>{heading}</h2>
+      {seeAll && <Link href={seeAll} className="text-sm font-medium text-brand-text hover:underline underline-offset-2">See all</Link>}
+    </div>
+    <ul className={ROW}>
+      {books.map((book, i) => <li key={book.workKey ?? book.hardcoverId ?? i} className={CARD}><DiscoverBookCard book={book} /></li>)}
+    </ul>
+  </section>
+)
+
+// Not this book, and not one the series section already shows.
+const notShown = (books: DiscoverBook[], shown: Shown[]) => books.filter((b) => !shown.some((s) => sameBook(s, b)))
+
+// The credit's first real author ("Unknown" and the like have no page), whose books the row shows.
+const leadAuthor = (credit: string) => authorNames(credit).find(isLinkableAuthor)
+export const moreByHeading = (credit: string) => { const name = leadAuthor(credit); return name ? `More by ${name}` : null }
+
+// Placeholders for both author sections, under their real headings, while Open Library answers.
+export const AuthorSectionsSkeleton: FC<{ credit: string, headingClassName: string, panelClassName: string }> = ({ credit, headingClassName, panelClassName }) => {
+  const name = leadAuthor(credit)
+  if (!name) return null
+  return (
+    <>
+      <section className={`${panelClassName} flex flex-col gap-4`} aria-busy="true">
+        <h2 className={headingClassName}>About {name}</h2>
+        <div className="flex items-start gap-4">
+          <Skeleton className="size-16 shrink-0 rounded-full" />
+          <div className="flex flex-1 flex-col gap-2"><Skeleton className="h-3.5 w-full" /><Skeleton className="h-3.5 w-full" /><Skeleton className="h-3.5 w-2/3" /></div>
+        </div>
+      </section>
+      <MoreRowSkeleton heading={`More by ${name}`} headingClassName={headingClassName} panelClassName={panelClassName} />
+    </>
+  )
+}
+
+// The first named author: a short "About" with a link to their page, then their other books, most read
+// first, as on that page. One lookup of the author serves both.
+export async function AuthorSections({ book, shown, headingClassName, panelClassName }: { book: Shown, shown: Shown[], headingClassName: string, panelClassName: string }) {
+  const name = leadAuthor(book.author)
+  if (!name) return null
+  const author = await findAuthor(authorSlug(name))
+  if (!author) return null
+  const [{ books }, about] = await Promise.all([
+    authorBooksPage(author).catch(() => ({ books: [] as DiscoverBook[] })),
+    authorAbout(author).catch(() => null),
+  ])
+  // Their own books: an anthology they're one contributor to is credited to its editor. And, for an author
+  // who writes in English, only books known to be in English: Open Library lists some translations
+  // (Jonathan Strange ve Bay Norrell) with no language at all, which the author page's tidying can't catch.
+  const english = books.some((b) => b.languages?.includes("eng"))
+  const own = books.filter((b) => creditIncludes(b.author, author.slug) && (!english || b.languages?.includes("eng")))
+  const picks = notShown(own, shown).slice(0, MORE_SHOWN)
+  return (
+    <>
+      <AuthorBrief name={name} href={authorHref(name)} photoUrl={about?.photoUrl ?? null} bio={about?.bio[0] ?? null} headingClassName={headingClassName} className={panelClassName} />
+      {picks.length > 0 && <Row id="more-by-heading" heading={moreByHeading(book.author)!} books={picks} seeAll={authorHref(name)} headingClassName={headingClassName} panelClassName={panelClassName} />}
+    </>
+  )
+}
+
+// The books readers shelve alongside this one (Hardcover's list), by other authors.
+export async function ReadersAlsoLiked({ book, shown, headingClassName, panelClassName }: { book: Shown, shown: Shown[], headingClassName: string, panelClassName: string }) {
+  const picks = notShown(await readersAlsoLiked(book.title, book.author), shown)
+  if (picks.length === 0) return null
+  return <Row id="also-liked-heading" heading="Readers also liked" books={picks} headingClassName={headingClassName} panelClassName={panelClassName} />
+}

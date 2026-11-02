@@ -7,7 +7,7 @@ import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { Lock, Plus } from 'lucide-react'
 import useBuddyReads, { type BuddyReadSummary } from '@/app/hooks/useBuddyReads'
-import { formatPercent } from '@/lib/buddyReads'
+import { circleStanding, formatPercent } from '@/lib/buddyReads'
 import BookCover from '../cards/BookCover'
 import FetchErrorState from '../FetchErrorState'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
@@ -24,12 +24,7 @@ const cover = (b: { title: string, author: string, coverImage: string | null, ca
 const BuddyReadCard: FC<{ buddyRead: BuddyReadSummary }> = ({ buddyRead }) => {
   const sorted = [...buddyRead.members].sort((a, b) => a.progress - b.progress)
   const furthest = sorted[sorted.length - 1]
-  const finished = buddyRead.members.filter((m) => m.progress >= 100).length
-  const ahead = buddyRead.members.filter((m) => m.progress > buddyRead.myProgress).length
-  const status = buddyRead.members.length === 1 ? "Waiting for friends to join"
-    : finished === buddyRead.members.length ? "Everyone's finished"
-    : ahead === 0 ? "You're furthest along"
-    : `${ahead} ${ahead === 1 ? "reader is" : "readers are"} ahead of you`
+  const status = circleStanding(buddyRead).label
   return (
     <Link
       href={`/circles/${buddyRead.id}`}
@@ -87,8 +82,9 @@ const BuddyReadsList: FC = () => {
     axios.delete(`/api/buddy-reads/${buddyReadId}/invite`).then(() => mutate()).finally(() => setBusyInvite(null))
   }
 
-  const active = (buddyReads ?? []).filter((b) => b.status === "ACTIVE")
-  const finished = (buddyReads ?? []).filter((b) => b.status === "FINISHED")
+  const shown = (buddyReads ?? []).filter((b) => b.status === "ACTIVE" || b.status === "FINISHED")
+  const active = shown.filter((b) => !circleStanding(b).finished)
+  const finished = shown.filter((b) => circleStanding(b).finished)
 
   return (
     <div className="flex flex-col gap-10">

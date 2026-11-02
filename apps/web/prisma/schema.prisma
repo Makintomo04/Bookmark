@@ -153,6 +153,9 @@ model User {
   // Who can comment on their reviews, among those who can see them (lib/reviewComments.ts). Unset reads as EVERYONE.
   reviewComments         ReviewCommentAudience?
   hideWantToRead         Boolean?
+  // Currently reading and Finished kept to themselves (packages/shared/src/privacyRules.ts). Unset reads as shown.
+  hideReading            Boolean?
+  hideFinished           Boolean?
   // Keep "stopped reading" out of followers' feeds. The Did not finish shelf itself never shows to others.
   hideDidNotFinish       Boolean?
   hideFollowCounts       Boolean?

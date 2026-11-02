@@ -4,7 +4,7 @@ import { ChevronDown, Flame, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import {
-  MOODS, MOOD_LABEL, MOODS_MAX, SPICE_HINT, SPICE_LABEL, SPICE_LEVELS, SPICE_MAX, SPICE_MIN_REPORTS, WARNING_LEVELS,
+  MOODS, MOOD_LABEL, MOODS_MAX, MOOD_PERCENT_MIN_READERS, SPICE_HINT, SPICE_LABEL, SPICE_LEVELS, SPICE_MAX, SPICE_MIN_REPORTS, WARNING_LEVELS,
   WARNING_LEVEL_LABEL, WARNING_TOPICS, shownMoods,
   type ContentWarning, type Mood, type ReaderTagsInput, type SpiceLevel, type TagAggregate, type WarningLevel, type WarningTopic,
 } from '@/lib/workTags'
@@ -22,8 +22,9 @@ const levelClass: Record<WarningLevel, string> = {
 // "emotional · tense · dark": the moods most readers gave a book, strongest first.
 export const MoodChips: FC<{ moods: TagAggregate["moods"], readers: number, className?: string }> = ({ moods, readers, className }) => {
   if (moods.length === 0) return null
+  const percents = readers >= MOOD_PERCENT_MIN_READERS
   return (
-    <ul className={cn("flex flex-wrap gap-1.5", className)} aria-label="Moods">
+    <ul className={cn("flex flex-wrap items-center gap-1.5", className)} aria-label="Moods">
       {shownMoods(moods, readers, 6).map(({ mood, count }) => (
         <li
           key={mood}
@@ -31,9 +32,10 @@ export const MoodChips: FC<{ moods: TagAggregate["moods"], readers: number, clas
           className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2.5 h-7 text-xs font-medium"
         >
           {MOOD_LABEL[mood]}
-          {readers > 1 && <span className="text-muted-foreground tabular-nums">{Math.round((count / readers) * 100)}%</span>}
+          {percents && <span className="text-muted-foreground tabular-nums">{Math.round((count / readers) * 100)}%</span>}
         </li>
       ))}
+      {!percents && <li className="px-1 text-xs text-muted-foreground">from {plural(readers, "reader")}</li>}
     </ul>
   )
 }

@@ -13,6 +13,7 @@ import type { GenrePicks } from '@/lib/genrePicks'
 import useBooks from '@/app/hooks/useBooks'
 import useSettings from '@/app/hooks/useSettings'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
+import useStartDateModal from '@/app/hooks/useStartDateModal'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { groupShelf } from '../books/shelf'
 import BookCover from '../cards/BookCover'
@@ -23,7 +24,8 @@ const MOST = 8
 
 // One suggestion. On your shelf (`bookId`), Start moves it to Reading; off it (the next in a series you haven't
 // shelved, a pick for you), Start adds it to Reading. Either way it's one tap with Undo, never a form: a book
-// whose page count isn't known yet is logged in percent, chapters or location until it is.
+// whose page count isn't known yet is logged in percent, chapters or location until it is. The toast's
+// "Change date" is for a book started before today (BOO-92).
 interface Pick {
   key: string
   title: string
@@ -46,6 +48,7 @@ const STARTED_MS = 1500
 const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
   const { mutate } = useBooks()
   const openDetails = useBookDetailsModal((s) => s.onOpen)
+  const openStartDate = useStartDateModal((s) => s.onOpen)
   const [state, setState] = useState<'idle' | 'starting' | 'started'>('idle')
   const refresh = async () => { await mutate(); refreshAfterBookChange() }
   const paused = pick.status === "PAUSED"
@@ -56,11 +59,15 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
   const start = async () => {
     setState('starting')
     let undo: () => Promise<unknown>
+    // The shelf copy that was started, for "Change date". A paused book picks its read back up, so its
+    // start date isn't today's to change.
+    let startedId: string | null = null
     try {
       if (pick.bookId) {
         const id = pick.bookId
         await axios.post("/api/book-progress", paused ? { id, action: "resume" } : { id, action: "start" })
         undo = () => axios.post("/api/book-progress", { id, action: paused ? "pause" : "wantToRead" })
+        if (!paused) startedId = id
       } else {
         const { discover: book } = pick
         const { data: saved } = await axios.post("/api/books", {
@@ -71,6 +78,7 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
         })
         copyCoverLater(saved?.id)
         undo = () => axios.delete(`/api/books/${saved.id}`)
+        startedId = saved?.id ?? null
       }
     } catch (err) {
       setState('idle')
@@ -84,6 +92,7 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
         label: "Undo",
         onClick: () => { undo().then(refresh).catch((err) => notify.error(apiError(err, "Couldn't undo that"))) },
       },
+      ...(startedId && { secondaryAction: { label: "Change date", onClick: () => openStartDate(startedId!, pick.title) } }),
     })
     setTimeout(refresh, STARTED_MS)
   }

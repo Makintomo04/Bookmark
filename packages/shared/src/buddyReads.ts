@@ -350,3 +350,20 @@ export function buildTimeline(comments: SerializedComment[]): TimelineEntry[] {
 }
 
 export const formatPercent = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)}%`
+
+// Where you stand in a circle, in words, and whether it belongs with the finished ones. Every list
+// derives this here, so the label can't contradict the percent beside it: a circle where everyone is
+// still at 0 isn't one you're "furthest along" in, and one where everyone has finished isn't "Reading now".
+export type CircleStanding = { finished: boolean, label: string }
+export function circleStanding(circle: { status: string, myProgress: number, members: { progress: number }[] }): CircleStanding {
+  const { status, myProgress, members } = circle
+  const everyoneDone = members.length > 1 && members.every((m) => m.progress >= 100)
+  if (status !== "ACTIVE") return { finished: true, label: everyoneDone ? "Everyone's finished" : "Circle finished" }
+  if (members.length <= 1) return { finished: false, label: "Waiting for friends to join" }
+  if (everyoneDone) return { finished: true, label: "Everyone's finished" }
+  if (members.every((m) => m.progress <= 0)) return { finished: false, label: "Nobody's started yet" }
+  const ahead = members.filter((m) => m.progress > myProgress).length
+  if (ahead > 0) return { finished: false, label: `${ahead} ${ahead === 1 ? "reader is" : "readers are"} ahead of you` }
+  const level = members.filter((m) => m.progress === myProgress).length
+  return { finished: false, label: level > 1 ? "You're joint furthest along" : "You're furthest along" }
+}

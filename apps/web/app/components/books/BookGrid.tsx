@@ -345,7 +345,9 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
         {toolbar}
         <section id="profile-shelf" aria-labelledby="shelf-results">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4 min-h-10">
-            <h2 id="shelf-results" className="text-lg font-semibold tabular-nums">{title}</h2>
+            {/* The shelf's own page already counts it in the header (ShelfHeader); the count shows here once a
+                search or filter narrows it. Screen readers still get the heading. */}
+            <h2 id="shelf-results" className={cn("text-lg font-semibold tabular-nums", !narrowed && "sr-only")}>{title}</h2>
             {selectAll(matches)}
           </div>
           {matches.length > 0
