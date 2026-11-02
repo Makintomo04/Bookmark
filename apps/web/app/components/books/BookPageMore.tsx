@@ -9,15 +9,15 @@ import BookCover from '../cards/BookCover'
 import { bookHref } from '@/lib/workKey'
 import AuthorBrief from './AuthorBrief'
 import { Skeleton } from '../ui/skeleton'
+import CoverCarousel from '../cards/CoverCarousel'
 
 // "About {author}", "More by …" and "Readers also liked" on a book page (BOO-92). The two rows are just covers and titles,
-// each a link to that book's page, where the shelf and list buttons are: one row to swipe on a phone, three
-// across from sm, four from xl. Server components, streamed in behind Suspense, since Open Library and
-// Hardcover can take a few seconds. A row with too little to show isn't drawn.
+// each a link to that book's page, where the shelf and list buttons are: a carousel like the series row's, swiped
+// on a phone and paged with arrows by a mouse (CoverCarousel). Server components, streamed in behind Suspense,
+// since Open Library and Hardcover can take a few seconds. A row with too little to show isn't drawn.
 
-export const MORE_SHOWN = 4
-const ROW = "-mx-4 px-4 flex sm:grid sm:grid-cols-3 xl:grid-cols-4 gap-4 overflow-x-auto sm:overflow-visible snap-x snap-mandatory scroll-px-4 pb-2 sm:[&>*:nth-child(4)]:hidden xl:[&>*:nth-child(4)]:flex"
-const CARD = "flex w-32 shrink-0 snap-start sm:w-auto"
+export const MORE_SHOWN = 8
+const CARD = "flex w-32 shrink-0 snap-start sm:w-36"
 
 type Shown = Pick<DiscoverBook, "title" | "author" | "workKey">
 
@@ -25,7 +25,7 @@ type Shown = Pick<DiscoverBook, "title" | "author" | "workKey">
 export const MoreRowSkeleton: FC<{ heading: string, headingClassName: string, panelClassName: string }> = ({ heading, headingClassName, panelClassName }) => (
   <section className={`${panelClassName} flex flex-col gap-4`} aria-busy="true">
     <h2 className={headingClassName}>{heading}</h2>
-    <div className={ROW} aria-hidden>
+    <div className="-mx-4 px-4 flex gap-4 overflow-hidden pt-1 pb-2" aria-hidden>
       {Array.from({ length: MORE_SHOWN }, (_, i) => (
         <div key={i} className={`${CARD} flex flex-col gap-2.5`}>
           <Skeleton className="aspect-[2/3] w-full" />
@@ -45,7 +45,7 @@ const CoverLink: FC<{ book: DiscoverBook }> = ({ book }) => (
   >
     <BookCover
       book={{ title: book.title, author: book.author, coverImage: book.coverUrl || "", cardColour: null }}
-      sizes="(min-width: 1280px) 180px, (min-width: 640px) 25vw, 128px"
+      sizes="(min-width: 640px) 144px, 128px"
       className="shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-md"
     />
     <span className="flex min-w-0 flex-col">
@@ -61,9 +61,9 @@ const Row: FC<{ id: string, heading: string, books: DiscoverBook[], seeAll?: str
       <h2 id={id} className={headingClassName}>{heading}</h2>
       {seeAll && <Link href={seeAll} className="text-sm font-medium text-brand-text hover:underline underline-offset-2">See all</Link>}
     </div>
-    <ul className={ROW}>
+    <CoverCarousel label={heading} size="large" ordered={false}>
       {books.map((book, i) => <li key={book.workKey ?? book.hardcoverId ?? i} className={CARD}><CoverLink book={book} /></li>)}
-    </ul>
+    </CoverCarousel>
   </section>
 )
 
