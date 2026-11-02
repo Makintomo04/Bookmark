@@ -29,7 +29,12 @@ export default function Circles() {
       <Text variant="display">Reading circles</Text>
       <Text variant="muted">Read with friends at your own pace. Comments stay locked until you reach them.</Text>
       {data?.hosting && !data.hosting.allowed && data.hosting.message ? <Notice message={data.hosting.message} /> : null}
-      <Button title="Start a reading circle" disabled={!!data?.hosting && !data.hosting.allowed} onPress={() => router.push("/circles/new")} />
+      {/* At the limit: the Plus screen when Plus lifts it, rather than a dead button (BOO-94); otherwise it stays off. */}
+      <Button
+        title="Start a reading circle"
+        disabled={!!data?.hosting && !data.hosting.allowed && !data.hosting.upgrade}
+        onPress={() => router.push((data?.hosting && !data.hosting.allowed ? "/plus" : "/circles/new") as never)}
+      />
       {isLoading && <ActivityIndicator color={colors.mutedForeground} />}
       {error && (
         <View style={{ gap: 8 }}>

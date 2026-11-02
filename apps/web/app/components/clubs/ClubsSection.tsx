@@ -2,8 +2,10 @@
 import { FC } from 'react'
 import Link from 'next/link'
 import moment from 'moment'
-import { Plus, Users } from 'lucide-react'
+import { Crown, Plus, Users } from 'lucide-react'
 import useClubs, { type ClubSummary } from '@/app/hooks/useClubs'
+import { askToUpgrade } from '@/app/hooks/useUpgradePrompt'
+import { notify } from '@/lib/notify'
 import BookCover from '../cards/BookCover'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 
@@ -38,8 +40,11 @@ const ClubCard: FC<{ club: ClubSummary }> = ({ club }) => {
 
 // On the reading circles page: the reader's clubs, each a group that reads one book after another.
 const ClubsSection: FC = () => {
-  const { clubs } = useClubs()
+  const { clubs, hosting } = useClubs()
   if (!clubs) return null
+  // At the limit the button asks here (BOO-94): the Plus prompt when Plus lifts it, else the reason.
+  const blocked = !!hosting && !hosting.allowed
+  const refuse = () => (hosting?.upgrade ? askToUpgrade("canHostUnlimited") : notify.info(hosting?.message ?? "You can't start another club right now."))
 
   return (
     <section aria-labelledby="clubs-heading" className="flex flex-col gap-3">
@@ -52,8 +57,13 @@ const ClubsSection: FC = () => {
             </p>
           )}
         </div>
-        {/* Shown past the limit too: the form says why, with the Plus prompt. */}
-        <Link href="/clubs/new" className={secondaryButtonClass}><Plus size={16} aria-hidden />Start a club</Link>
+        {blocked ? (
+          <button type="button" onClick={refuse} className={secondaryButtonClass}>
+            {hosting?.upgrade ? <Crown size={16} aria-hidden className="text-brand-text" /> : <Plus size={16} aria-hidden />}Start a club
+          </button>
+        ) : (
+          <Link href="/clubs/new" className={secondaryButtonClass}><Plus size={16} aria-hidden />Start a club</Link>
+        )}
       </div>
       {clubs.length > 0 && (
         <ul className="grid gap-4 md:grid-cols-2">

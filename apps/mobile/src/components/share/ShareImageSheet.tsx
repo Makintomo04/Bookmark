@@ -29,7 +29,9 @@ export interface ShareImage {
   hasRatings?: boolean;
   // API path that says how many private books the card leaves out (/api/wrap/left-out).
   leftOutPath?: string;
-  link: { label: string; url: string; message: string };
+  // Left off when nobody else could open it (a Wrapped while Finished is private, BOO-94); linkNote says why.
+  link?: { label: string; url: string; message: string };
+  linkNote?: string;
 }
 
 type Status = { kind: "idle" } | { kind: "saving" } | { kind: "saved" } | { kind: "error"; message: string };
@@ -82,7 +84,7 @@ export function ShareImageSheet({ image, onClose }: { image: ShareImage; onClose
     await Sharing.shareAsync(uri, { mimeType: "image/png", UTI: "public.png", dialogTitle: image.title }).catch(() => {});
   };
 
-  const shareLink = () => void Share.share({ message: image.link.message, url: image.link.url }).catch(() => {});
+  const shareLink = () => image.link && void Share.share({ message: image.link.message, url: image.link.url }).catch(() => {});
   const privateBooks = leftOut?.privateBooks ?? 0;
 
   return (
@@ -127,7 +129,8 @@ export function ShareImageSheet({ image, onClose }: { image: ShareImage; onClose
             <Button title="Share image" variant="outline" icon={<Share2 size={16} color={colors.foreground} />} disabled={!uri} onPress={() => void shareImage()} />
           </>
         )}
-        <Button title={image.link.label} variant={native ? "ghost" : "primary"} icon={<Link2 size={16} color={native ? colors.brandText : colors.onBrand} />} onPress={shareLink} />
+        {image.link && <Button title={image.link.label} variant={native ? "ghost" : "primary"} icon={<Link2 size={16} color={native ? colors.brandText : colors.onBrand} />} onPress={shareLink} />}
+        {image.linkNote && <Text variant="small" style={{ textAlign: "center" }}>{image.linkNote}</Text>}
       </View>
     </Sheet>
   );
