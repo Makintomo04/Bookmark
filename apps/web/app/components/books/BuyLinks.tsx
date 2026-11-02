@@ -5,7 +5,9 @@ import { buyIsbnForWork } from '@/lib/buyIsbn'
 
 // "Get a copy" on a book page: plain links to the shops (packages/shared/src/affiliate.ts), shown to every
 // reader, Plus or not, since they're useful rather than an ad. rel="sponsored" when a link carries our tag.
-const BuyLinks = async ({ book, workId, headingClassName }: { book: { title: string; author?: string | null }; workId: string | null; headingClassName?: string }) => {
+// `id` names the heading: the book page draws this twice, under the cover from md up and in the column on a
+// phone, and only one shows at a time.
+const BuyLinks = async ({ book, workId, headingClassName, id = 'buy-heading' }: { book: { title: string; author?: string | null }; workId: string | null; headingClassName?: string; id?: string }) => {
   const [country, isbn13] = await Promise.all([
     headers().then((h) => h.get('x-vercel-ip-country')),
     buyIsbnForWork(workId),
@@ -20,8 +22,8 @@ const BuyLinks = async ({ book, workId, headingClassName }: { book: { title: str
   const earns = links.some((link) => link.affiliate)
 
   return (
-    <section aria-labelledby="buy-heading" className="flex flex-col gap-3">
-      <h2 id="buy-heading" className={headingClassName}>Get a copy</h2>
+    <section aria-labelledby={id} className="flex flex-col gap-3">
+      <h2 id={id} className={headingClassName}>Get a copy</h2>
       <ul className="flex flex-wrap gap-2">
         {links.map((link) => (
           <li key={link.store}>

@@ -48,6 +48,7 @@ export interface ReadingStats {
   pagesRead: number; // pages across every finish
   minutesListened: number; // audiobook running time across every finish of one
   undatedFinishes: number;
+  undatedPages: number; // pages of those finishes: in pagesRead, but in no year or month chart
   rereads: number; // finishes beyond each book's first
   rereadBooks: number;
   dnf: number;

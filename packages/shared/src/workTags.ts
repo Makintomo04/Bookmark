@@ -194,6 +194,9 @@ export const spiceAskable = (tags: TagAggregate | undefined, warnings: { topic: 
 // a stray pick or two would otherwise sit among the real ones on a book a thousand people tagged. Below
 // that, every mood counts, since each reader is a big share of a small number.
 export const MOOD_FLOOR_READERS = 10
+// A mood's percent shows from this many taggers, as spice waits for SPICE_MIN_REPORTS (BOO-92): "hopeful
+// 100%" from two readers reads as a verdict. Below it the chips say how many readers they come from instead.
+export const MOOD_PERCENT_MIN_READERS = 5
 export const MOOD_FLOOR = 0.1
 
 // The moods worth showing for a book, strongest first, at most `max`. The full list stays in the

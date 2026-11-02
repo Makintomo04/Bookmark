@@ -31,6 +31,20 @@ const config = {
         display: ["var(--font-display)", "Georgia", "Times New Roman", "serif"],
       },
       colors: {
+        // Neutral greys come from globals.css so the dark theme can lean them towards its ink-blue ground.
+        neutral: {
+          50: "rgb(var(--neutral-50) / <alpha-value>)",
+          100: "rgb(var(--neutral-100) / <alpha-value>)",
+          200: "rgb(var(--neutral-200) / <alpha-value>)",
+          300: "rgb(var(--neutral-300) / <alpha-value>)",
+          400: "rgb(var(--neutral-400) / <alpha-value>)",
+          500: "rgb(var(--neutral-500) / <alpha-value>)",
+          600: "rgb(var(--neutral-600) / <alpha-value>)",
+          700: "rgb(var(--neutral-700) / <alpha-value>)",
+          800: "rgb(var(--neutral-800) / <alpha-value>)",
+          900: "rgb(var(--neutral-900) / <alpha-value>)",
+          950: "rgb(var(--neutral-950) / <alpha-value>)",
+        },
         // `fill` is the brand red darkened so white text on it passes 4.5:1;
         // DEFAULT stays for marks (logo, your progress, stars) and never sits under white text.
         // `text` is red words and links, darkened in light mode to keep 4.5:1.

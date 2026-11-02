@@ -5,7 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { QUEST_MEDAL_PREFIX } from "@/lib/achievements-catalog";
 import { ladders } from "@bookmark/shared/medals";
 import { computeAchievementStats } from "@/lib/achievements";
-import { canView, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
+import { canView, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, visibleStatuses, type PrivacySettings, type Relation } from "@/lib/privacy";
 import { reviewedBooks } from "@/lib/reviewedBooks";
 import { isFinishedBook } from "@/lib/readerTier";
 import { resolveBanner } from "@/lib/banners";
@@ -108,6 +108,9 @@ export type RestrictedReason =
   // They blocked the viewer. Shown as "not available", so a block isn't announced.
   | "unavailable";
 
+// The statuses a shelf's privacy covers; anything else (Did not finish, Will not read) is filtered upstream.
+const SHELF_STATUSES = new Set<string>(["STARTED", "PAUSED", "COMPLETED", "NOT_STARTED"]);
+
 // The central serializer: the profile as this viewer may see it. Private books, Want to read, reviews
 // and follow counts are filtered here, so callers can't forget a rule.
 type FavouriteBook = Prisma.BookGetPayload<{ select: typeof publicBookSelect & { isPrivate: true } }>;
@@ -128,12 +131,13 @@ async function favouritesForViewer(record: ProfileRecord, relation: Relation, pr
 }
 
 function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings, favourites: Awaited<ReturnType<typeof favouritesForViewer>> = [], withPages: Set<string> = new Set()) {
-  const showWantToRead = canView(relation, privacy, "wantToRead");
   const showCounts = canView(relation, privacy, "followCounts");
+  // A shelf kept private (Want to read, Reading, Finished) never leaves, its books' reviews included.
+  const shelved = new Set<string>(visibleStatuses(relation, privacy));
   const books = record.books
     // Private books are the owner's alone: they see them on their own profile, marked, and nobody else does.
     .filter((b) => !b.isPrivate || relation.isSelf)
-    .filter((b) => b.status !== "NOT_STARTED" || showWantToRead)
+    .filter((b) => !SHELF_STATUSES.has(b.status) || shelved.has(b.status))
     .map(({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt, isPrivate, ...book }) => ({
       ...pageWorkIdOf(book, withPages),
       isPrivate: !!isPrivate,
@@ -155,6 +159,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     staffBadge: staffBadgeOf(record),
     createdAt: record.createdAt,
     books,
+    // False when they keep Finished to themselves: there's no books read count to show, rather than a 0.
+    finishedShown: shelved.has("COMPLETED"),
     achievements: record.achievements,
     // Authors they follow. Shown to whoever can see the profile, like their shelves.
     followedAuthors: record.authorFollows,
@@ -223,11 +229,13 @@ export async function getProfileShelf(username: string, viewerId: string | null 
   const [relation, privacy] = [await getRelation(viewerId, owner.id), privacyOf(owner)];
   if (!canView(relation, privacy, "profile")) return { access: "restricted" as const, unavailable: relation.blocked === "byOwner" };
 
-  const showWantToRead = canView(relation, privacy, "wantToRead");
+  const visible = visibleStatuses(relation, privacy);
+  const showWantToRead = visible.includes("NOT_STARTED");
+  const showFinished = visible.includes("COMPLETED");
   // Private books are the owner's alone, as on the profile.
   const own: Prisma.BookWhereInput = { userId: owner.id, ...(!relation.isSelf && sharedBookWhere) };
   const statuses = shelf === "finished" ? ["COMPLETED"] : shelf === "want" ? ["NOT_STARTED"] : ["STARTED", "COMPLETED", "NOT_STARTED"];
-  const shown = statuses.filter((s) => s !== "NOT_STARTED" || showWantToRead) as ("STARTED" | "COMPLETED" | "NOT_STARTED")[];
+  const shown = statuses.filter((s) => (visible as string[]).includes(s)) as ("STARTED" | "COMPLETED" | "NOT_STARTED")[];
   const reviews = shelf === "reviews";
   const reviewFlags = { reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true } as const;
   const [listed, finished, want] = await Promise.all([
@@ -238,7 +246,7 @@ export async function getProfileShelf(username: string, viewerId: string | null 
         select: { ...publicBookSelect, isPrivate: true, ...(reviews && { ...reviewFlags, review: !reviewPage }) },
       })
       : Promise.resolve([]),
-    prisma.book.count({ where: { AND: [own, { status: "COMPLETED" }] } }),
+    showFinished ? prisma.book.count({ where: { AND: [own, { status: "COMPLETED" }] } }) : Promise.resolve(0),
     showWantToRead ? prisma.book.count({ where: { AND: [own, { status: "NOT_STARTED" }] } }) : Promise.resolve(0),
   ]);
   let rows = listed;

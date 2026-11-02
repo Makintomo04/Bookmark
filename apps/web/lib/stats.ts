@@ -8,7 +8,7 @@ import { getReadingStreak } from "@/lib/achievements";
 import { getReaderTier } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, finishDay, isValidTimeZone, localDay } from "@/lib/timeZone";
 import { isWrappedSeason } from "@/lib/wrappedSeason";
-import { isProfilePublic, sharedBookWhere } from "@/lib/privacy";
+import { canViewUser, isProfilePublic, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
 import type { Mood } from "@bookmark/shared/workTags";
 import { cardPeriodKeys } from "@bookmark/shared/wrapCards";
@@ -295,6 +295,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     pagesRead: completed.reduce((sum, f) => sum + f.pages, 0),
     minutesListened: completed.reduce((sum, f) => sum + f.minutes, 0),
     undatedFinishes: completed.filter((f) => f.year === null).length,
+    undatedPages: completed.filter((f) => f.year === null).reduce((sum, f) => sum + f.pages, 0),
     rereads: rereadCounts.reduce((sum, n) => sum + n - 1, 0),
     rereadBooks: rereadCounts.length,
     dnf,
@@ -605,9 +606,11 @@ export function parseWrappedYear(raw: string, now = new Date()): number | null {
 // Whether a signed-out visitor may see this reader's Wrapped (metadata and share images, which
 // crawlers fetch). Wrapped is public exactly when the profile is. The page itself also lets in
 // signed-in viewers the profile settings allow, via canViewUser.
-export function isWrappedPublic(owner: { id: string }): Promise<boolean> {
-  return isProfilePublic(owner.id);
+// A public profile whose Finished shelf isn't kept private (BOO-92): Wrapped is their finished books.
+export async function isWrappedPublic(owner: { id: string }): Promise<boolean> {
+  return (await isProfilePublic(owner.id)) && (await canViewUser(null, owner.id, "finished"));
 }
+
 
 // The reader a /u/<username>/wrapped URL names. Callers still check isWrappedPublic (the owner can
 // always see their own). Shared by the page, its metadata and its images within one request.

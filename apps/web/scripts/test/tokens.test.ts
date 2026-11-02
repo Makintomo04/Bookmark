@@ -16,6 +16,8 @@ function variables(selector: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [, name, value] of Array.from(block.matchAll(/--([a-z-]+):\s*([^;]+);/g))) out[name] = value.trim();
   delete out.radius;
+  // The neutral scale (Tailwind's grey ramp) is web-only; the mobile app styles with the tokens.
+  for (const name of Object.keys(out)) if (name.startsWith("neutral-")) delete out[name];
   return out;
 }
 
@@ -31,5 +33,5 @@ test("hex converts the HSL tokens the mobile app styles with", () => {
   // --primary is the brand fill, which the design system also gives as hex.
   assert.equal(hex(light.primary), brand.fill.toLowerCase());
   assert.equal(hex("0 0% 100%"), "#ffffff");
-  assert.equal(hex(dark.background), "#0a0a0a");
+  assert.equal(hex(dark.background), "#141a22");
 });

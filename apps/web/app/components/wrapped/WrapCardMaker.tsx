@@ -185,11 +185,16 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
               onChange={(e) => setPicked(Number(e.target.value))}
               className="h-9 w-full max-w-xs rounded-md border border-neutral-300 dark:border-neutral-700 bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {cardYears(today, years).map((y) => (
-                <optgroup key={y} label={String(y)}>
-                  {options.map((o, i) => (o.year === y ? <option key={o.label} value={i} disabled={o.empty && i !== picked}>{o.empty ? `${o.label} · no books` : o.label}</option> : null))}
-                </optgroup>
-              ))}
+              {/* Only periods with books to draw (BOO-92): a list of empty months buries the few that have them.
+                  The one already picked stays, so the select always shows its value. */}
+              {cardYears(today, years).map((y) => {
+                const shown = options.flatMap((o, i) => (o.year === y && (!o.empty || i === picked) ? [{ o, i }] : []))
+                return shown.length ? (
+                  <optgroup key={y} label={String(y)}>
+                    {shown.map(({ o, i }) => <option key={o.label} value={i}>{o.empty ? `${o.label} · no books` : o.label}</option>)}
+                  </optgroup>
+                ) : null
+              })}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">

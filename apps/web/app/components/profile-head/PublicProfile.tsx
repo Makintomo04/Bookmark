@@ -139,7 +139,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         share={<ShareProfileButton username={profile.username} />}
         actions={actions}
         stats={[
-          { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },
+          ...(profile.finishedShown === false ? [] : [{ value: completedCount, label: completedCount === 1 ? "book read" : "books read" }]),
           // Only reviews this viewer may read arrive, so none (or all hidden) leaves the stat out.
           ...(reviewCount > 0 ? [{ value: reviewCount, label: reviewCount === 1 ? "review" : "reviews", href: `/u/${encodeURIComponent(profile.username)}/reviews` }] : []),
           ...followStats,

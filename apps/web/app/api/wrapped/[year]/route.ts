@@ -16,7 +16,7 @@ export async function GET(req: Request, props: { params: Promise<{ year: string 
   if (username) {
     owner = await getWrappedOwner(username);
     if (!owner) return NextResponse.json({ error: "Wrapped not found" }, { status: 404 });
-    if (viewer?.id !== owner.id && !(await canViewUser(viewer?.id, owner.id, "profile"))) {
+    if (viewer?.id !== owner.id && !(await canViewUser(viewer?.id, owner.id, "finished"))) {
       return NextResponse.json({ error: "Wrapped not found" }, { status: 404 });
     }
   } else {

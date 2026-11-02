@@ -97,7 +97,7 @@ export async function findLists(filters: ListFilters, viewer: Viewer) {
     },
   })
   const lists = (await visibleLists(found, viewer)).slice(0, limit)
-  return lists.map(({ _count, ownerId, owner: { profileVisibility, reviewVisibility, hideWantToRead, hideFollowCounts, hideFavourites, ...owner }, ...list }) => ({
+  return lists.map(({ _count, ownerId, owner: { profileVisibility, reviewVisibility, hideWantToRead, hideReading, hideFinished, hideFollowCounts, hideFavourites, ...owner }, ...list }) => ({
     owner: withSeal(owner),
     ...list,
     itemCount: _count.items,
@@ -185,7 +185,7 @@ export async function findList(id: string, viewer: Viewer) {
     // Signed-out readers see the button and get sent to sign up; blocks and private profiles hide it.
     isCopyable && viewer ? canViewUser(viewer.id, list.ownerId) : isCopyable,
   ])
-  const { id: ownerId, profileVisibility, reviewVisibility, hideWantToRead, hideFollowCounts, hideFavourites, ...stored } = list.owner
+  const { id: ownerId, profileVisibility, reviewVisibility, hideWantToRead, hideReading, hideFinished, hideFollowCounts, hideFavourites, ...stored } = list.owner
   const owner = withSeal(stored)
   const authors = new Map<string, Curator>(noteAuthors.map(({ id, ...author }) => [id, withSeal(author)]))
   return {

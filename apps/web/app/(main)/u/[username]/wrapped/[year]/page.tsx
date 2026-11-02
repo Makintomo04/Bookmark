@@ -46,7 +46,7 @@ export default async function Page(props: PageProps) {
   const [owner, viewer] = await Promise.all([getWrappedOwner(profileHandle(params.username, `/wrapped/${params.year}`)), getCurrentUser()])
   if (!owner) notFound()
   const own = viewer?.id === owner.id
-  if (!own && !(await canViewUser(viewer?.id, owner.id, 'profile'))) notFound()
+  if (!own && !(await canViewUser(viewer?.id, owner.id, 'finished'))) notFound()
 
   // Private books are the owner's alone, so anyone else sees the year without them.
   const sharedOnly = !own

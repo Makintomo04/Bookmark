@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
@@ -19,6 +20,8 @@ import AdSlot from '@/app/components/ads/AdSlot'
 import SeriesSection, { SeriesEyebrow } from '@/app/components/series/SeriesSection'
 import ListCard from '@/app/components/discover/ListCard'
 import getCurrentUser from '@/app/actions/getCurrentUser'
+import { withoutEmphasis } from '@/lib/emphasis'
+import { AuthorSections, AuthorSectionsSkeleton, MoreRowSkeleton, ReadersAlsoLiked } from '@/app/components/books/BookPageMore'
 import { bookPageData } from '@/lib/bookPage'
 import { listsWithBook } from '@/lib/bookLists'
 import { BOOK_LISTS_SHOWN } from '@/lib/bookListRules'
@@ -48,7 +51,7 @@ const sectionHeading = "font-display text-xl font-semibold"
 const panel = "rounded-2xl bg-neutral-100/70 dark:bg-neutral-900/60 p-5 sm:p-6"
 
 const summaryOf = (text: string) => {
-  const flat = text.replace(/\s+/g, " ").trim()
+  const flat = withoutEmphasis(text).replace(/\s+/g, " ").trim()
   if (flat.length <= DESCRIPTION_MAX) return flat
   const cut = flat.slice(0, DESCRIPTION_MAX - 1)
   return `${cut.slice(0, cut.lastIndexOf(" ")) || cut}…`
@@ -99,6 +102,7 @@ const Page = async (props: PageProps) => {
     listsWithBook(book.workKey, viewer, BOOK_LISTS_SHOWN + 1),
   ])
   const lists = onLists.slice(0, BOOK_LISTS_SHOWN)
+  const moreShown = [book, ...(seriesTrack?.entries ?? [])]
   const href = bookHref(book)!
   const published = publishedFact(book, new Date().toISOString().slice(0, 10))
   const meta = [published && `${published.label} ${published.value}`, book.pages && `${book.pages} pages`].filter(Boolean).join(" · ")
@@ -116,6 +120,11 @@ const Page = async (props: PageProps) => {
               sizes="(min-width: 768px) 220px, 160px"
               className="w-[160px] md:w-full shadow-sm"
             />
+            {/* Where to buy it, under the cover from md up. On a phone the cover sits above the title, so it
+                follows About this book in the column instead. */}
+            <div className="mt-6 hidden md:block">
+              <BuyLinks book={book} workId={data.workId} id="buy-heading-side" headingClassName="text-sm font-semibold" />
+            </div>
           </div>
 
           {/* The title block on the page itself, then each section on its own panel. Inside a panel things
@@ -148,11 +157,6 @@ const Page = async (props: PageProps) => {
               </div>
             )}
 
-            <div className={`${panel} flex flex-col gap-8 empty:hidden`}>
-              <RatingSummary summary={rating} />
-              <BookPageReaders book={book} bookKey={key} />
-            </div>
-
             <section aria-labelledby="about-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="about-heading" className={sectionHeading}>About this book</h2>
               {data.description
@@ -171,11 +175,27 @@ const Page = async (props: PageProps) => {
               )}
             </section>
 
-            <div className={panel}><BuyLinks book={book} workId={data.workId} headingClassName={sectionHeading} /></div>
+            <div className={`${panel} empty:hidden md:hidden`}><BuyLinks book={book} workId={data.workId} headingClassName={sectionHeading} /></div>
+
+            {/* The author, briefly, with a way to their page, then their other books. Streamed in, and the row
+                leaves out this book and the series above, which already lists those. */}
+            <Suspense fallback={<AuthorSectionsSkeleton credit={book.author} headingClassName={sectionHeading} panelClassName={panel} />}>
+              <AuthorSections book={book} shown={moreShown} headingClassName={sectionHeading} panelClassName={panel} />
+            </Suspense>
+
+            <div className={`${panel} flex flex-col gap-8 empty:hidden`}>
+              <RatingSummary summary={rating} />
+              <BookPageReaders book={book} bookKey={key} />
+            </div>
 
             <AdSlot placement="book-page" viewer={viewer} className={panel} />
 
             <div className={panel}><BookReviews bookKey={key} initial={reviews} headingClassName={sectionHeading} /></div>
+
+            {/* What readers shelve alongside this one, by other authors. */}
+            <Suspense fallback={<MoreRowSkeleton heading="Readers also liked" headingClassName={sectionHeading} panelClassName={panel} />}>
+              <ReadersAlsoLiked book={book} shown={moreShown} headingClassName={sectionHeading} panelClassName={panel} />
+            </Suspense>
 
             {lists.length > 0 && (
               <section aria-labelledby="lists-heading" className={`${panel} flex flex-col gap-4`}>

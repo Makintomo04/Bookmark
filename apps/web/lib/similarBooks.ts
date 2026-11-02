@@ -59,13 +59,42 @@ export async function similarBooks(userId: string, title: string, author: string
   return picks.length >= SIMILAR_MIN ? picks : [];
 }
 
-async function candidatesFor(title: string, author: string): Promise<DiscoverBook[]> {
+// A book page's "Readers also liked" row (BOO-92): Hardcover's list for the book, without its author's own
+// books (they have their own row) or its series. For everyone, so nothing is taken off for a shelf; the
+// cards say which shelf a book is on. Kept for a day like the Update sheet's row, and [] on any failure.
+export const ALSO_LIKED_LIMIT = 4;
+const alsoKept = new Map<string, { at: number; books: DiscoverBook[] }>();
+export async function readersAlsoLiked(title: string, author: string): Promise<DiscoverBook[]> {
+  if (!hardcoverConfigured()) return [];
+  const key = `${title}|${author}`.toLowerCase();
+  const had = alsoKept.get(key);
+  if (had && Date.now() - had.at < KEEP_MS) return had.books;
+  const found = await lookup(title, author).catch(() => null);
+  if (!found) return [];
+  // One book per author, so the row reads as a range of readers' picks rather than one other writer's list.
+  const authors = new Set([found.author.toLowerCase()]);
+  const picks: DiscoverBook[] = [];
+  for (const hc of found.similar) {
+    const book = toDiscover(hc);
+    const a = book?.author.toLowerCase();
+    if (!book || !a || authors.has(a) || picks.some((p) => p.hardcoverId === book.hardcoverId)) continue;
+    authors.add(a);
+    picks.push(book);
+    if (picks.length === ALSO_LIKED_LIMIT) break;
+  }
+  if (picks.length) alsoKept.set(key, { at: Date.now(), books: picks });
+  return picks.length >= SIMILAR_MIN ? picks : [];
+}
+
+// The book on Hardcover, its readers' list in rank order, and the author's best-read books, each already
+// without the book itself, its series, thinly read books and books with no cover.
+async function lookup(title: string, author: string): Promise<{ author: string; similar: HcBook[]; byAuthor: HcBook[] } | null> {
   const found = sameHit({ title, author }, await searchHardcover(`${title} ${author}`, 5));
   const id = Number(found?.hardcoverId);
-  if (!id) return [];
+  if (!id) return null;
   const own = (await hardcoverQuery(SIMILAR_IDS, { id }))?.books?.[0];
   const list = ids(own?.cached_similar_book_ids).filter((n) => n !== id).slice(0, LOOK_AT);
-  if (!list.length) return [];
+  if (!list.length) return null;
   const seriesId: number | undefined = own?.featured_book_series?.series?.id;
   const data = await hardcoverQuery(FETCH, { ids: list, author: found?.author ?? author });
   const rank = new Map(list.map((n, i) => [n, i]));
@@ -73,11 +102,18 @@ async function candidatesFor(title: string, author: string): Promise<DiscoverBoo
   // The finished book's own series is the series row's job; its other books aren't "like" it.
   const fresh = (b: HcBook) => b.id !== id && (!seriesId || b.featured_book_series?.series?.id !== seriesId)
     && (b.users_count ?? 0) >= MIN_READERS && !!b.image?.url;
+  return { author: found?.author ?? author, similar: similar.filter(fresh), byAuthor: ((data?.byAuthor ?? []) as HcBook[]).filter(fresh) };
+}
+
+async function candidatesFor(title: string, author: string): Promise<DiscoverBook[]> {
+  const found = await lookup(title, author);
+  if (!found) return [];
+  const { similar } = found;
   // Another book by the same author leads, then the readers' list. One per author so it doesn't read as a bibliography.
-  const byAuthor = ((data?.byAuthor ?? []) as HcBook[]).filter(fresh).slice(0, 1);
+  const byAuthor = found.byAuthor.slice(0, 1);
   const out: DiscoverBook[] = [];
   const authors = new Set<string>();
-  for (const b of [...byAuthor, ...similar.filter(fresh)]) {
+  for (const b of [...byAuthor, ...similar]) {
     const book = toDiscover(b);
     if (!book || out.some((o) => o.hardcoverId === book.hardcoverId)) continue;
     const a = book.author.toLowerCase();
