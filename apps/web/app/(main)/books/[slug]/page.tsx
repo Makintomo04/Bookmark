@@ -19,6 +19,7 @@ import BuyLinks from '@/app/components/books/BuyLinks'
 import AdSlot from '@/app/components/ads/AdSlot'
 import SeriesSection, { SeriesEyebrow } from '@/app/components/series/SeriesSection'
 import ListCard from '@/app/components/discover/ListCard'
+import SimilarAuthors from '@/app/components/books/SimilarAuthors'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { withoutEmphasis } from '@/lib/emphasis'
 import { AuthorSections, AuthorSectionsSkeleton, MoreRowSkeleton, ReadersAlsoLiked } from '@/app/components/books/BookPageMore'
@@ -26,6 +27,7 @@ import { bookPageData } from '@/lib/bookPage'
 import { listsWithBook } from '@/lib/bookLists'
 import { BOOK_LISTS_SHOWN } from '@/lib/bookListRules'
 import { seriesOnPage } from '@/lib/seriesFollows'
+import { similarAuthors } from '@/lib/similarAuthors'
 import { ratingSummaryForWork, reviewsForWork } from '@/lib/workReviews'
 import { bookHref, bookKeyOfSlug, bookSlug } from '@/lib/workKey'
 import { publishedFact } from '@bookmark/shared/releases'
@@ -94,12 +96,13 @@ const Page = async (props: PageProps) => {
 
   const viewer = await getCurrentUser()
   const { book, series, genres, key } = data
-  const [rating, reviews, seriesTrack, onLists] = await Promise.all([
+  const [rating, reviews, seriesTrack, onLists, similar] = await Promise.all([
     ratingSummaryForWork(key),
     reviewsForWork(key, viewer?.id ?? null),
     series ? seriesOnPage(series, viewer?.id ?? null) : null,
     // One more than shown, so "See all" only appears when there's more to see.
     listsWithBook(book.workKey, viewer, BOOK_LISTS_SHOWN + 1),
+    similarAuthors({ bookKey: key, workId: data.workId, authors: data.authors, subjects: data.subjects }),
   ])
   const lists = onLists.slice(0, BOOK_LISTS_SHOWN)
   const moreShown = [book, ...(seriesTrack?.entries ?? [])]
@@ -211,6 +214,8 @@ const Page = async (props: PageProps) => {
                 </div>
               </section>
             )}
+
+            {similar.length > 0 && <div className={panel}><SimilarAuthors authors={similar} headingClassName={sectionHeading} /></div>}
 
             <section aria-labelledby="details-heading" className={`${panel} flex flex-col gap-4`}>
               <h2 id="details-heading" className={sectionHeading}>Details</h2>

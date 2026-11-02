@@ -61,6 +61,61 @@ test("an author who writes in another language keeps every book", () => {
   assert.equal(cleanBookList(books).length, 2);
 });
 
-test("books with no language data aren't treated as translations", () => {
+test("books with no language data aren't treated as translations when they read as English", () => {
   assert.equal(cleanBookList([b("Fourth Wing"), b("Variation", [])]).length, 2);
+});
+
+// Rowling's list from Open Library, November 2026: three records are titled just "Harry Potter", and
+// counting each of them once per novel made every "Harry Potter and the…" look like a bundle.
+test("a series name on the list several times doesn't turn the series' novels into box sets", () => {
+  const books = [b("Harry Potter and the Philosopher's Stone"), b("Harry Potter and the Chamber of Secrets"), b("Harry Potter"), b("Harry Potter", []), b("Harry Potter")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Harry Potter and the Philosopher's Stone", "Harry Potter and the Chamber of Secrets", "Harry Potter"]);
+});
+
+test("series ranges, sets and boxes are box sets", () => {
+  const books = [b("Fourth Wing"), b("Harry Potter (series) 1-7"), b("Harry Potter Set"), b("Harry Potter Illustrated Paperback Starter Set", []),
+    b("The Harry Potter trilogy", []), b("Box Harry Potter Tradicional", []), b("Harry Potter 1- 7 Audio Collection")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Fourth Wing"]);
+});
+
+test("on an English author's list, a foreign title with no language data is a translation", () => {
+  const books = [b("The Cuckoo's Calling"), b("Harry Potter y las reliquias de la muerte", []), b("Der Seidenspinner", []), b("Une place à prendre", []),
+    b("Las pequeñas grandes cosas", []), b("دودة الحرير", []), b("吟遊詩人ビードルの物語", []), b("Variation", []), b("Die Hard", []), b("The Van", [])];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["The Cuckoo's Calling", "Variation", "Die Hard", "The Van"]);
+});
+
+test("shop bookmarks and dumpbins aren't books", () => {
+  const books = [b("Harry Potter and the Chamber of Secrets"), b("Chamber of Secrets Movie Bookmarks"), b("Hp and Pris of Azkaban Celebr Dumpbin"), b("Harry Potter 4 Display Cut Out")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Harry Potter and the Chamber of Secrets"]);
+});
+
+// Ann M. Martin's and Jeff Kinney's lists, November 2026: "baby sitters" sits inside "baby sitters club", so one
+// series name counted as two titles and the novels looked like bundles.
+test("a series name and a shorter piece of it count as one title, so the series' books stay", () => {
+  const books = [b("The Baby-Sitters Club"), b("Baby-Sitters"), b("Kristy's worst idea. (Baby-Sitters Club no.100)"),
+    b("Diary of a Wimpy Kid"), b("Wimpy Kid"), b("Diary of a Wimpy Kid Party Pooper")];
+  assert.equal(cleanBookList(books).length, books.length);
+});
+
+test("two different titles strung together are still a bundle", () => {
+  const books = [b("Dune"), b("Dune Messiah"), b("Children of Dune"), b("Dune messiah & Children of Dune")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Dune", "Dune Messiah", "Children of Dune"]);
+});
+
+test("collections, volume sets and slashed lists of titles are box sets; a story collection's contents in brackets aren't", () => {
+  const books = [b("Murder in the Mews (Incredible Theft / Murder in the Mews / Triangle at Rhodes)"), b("The Collection"),
+    b("The Twilight Saga Collection"), b("Diary of a Wimpy Kid Box of Books 5-8"), b("Diary of a Wimpy Kid, 10 Vols."), b("The Baby-Sitters Club Set #6"),
+    b("Harry Potter and the Half-Blood Prince / The Order Of The Pheonix / Chamber of Secrets"), b("Twilight Saga Hardcover Series")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Murder in the Mews (Incredible Theft / Murder in the Mews / Triangle at Rhodes)", "The Collection"]);
+});
+
+test("half of a book sold as its own volume isn't a book", () => {
+  const books = [b("The Stand"), b("The Stand [1/2]"), b("The Final Empire (2 of 3)"), b("Harry Potter and the Half Blood Prince, Vol. 1")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["The Stand"]);
+});
+
+test("study guides, activity books, journals and shop stock aren't books", () => {
+  const books = [b("Holes"), b("Harry Potter and the Deathly Hallows (SparkNotes Literature Guide)"), b("Lemony Snicket Activity Book"),
+    b("The Notorious Notations (A Series of Unfortunate Events - Blank Journal)"), b("Diary of a Wimpy Kid 5 X18 Backlst Stckp"), b("Harry Potter and the Philosopher's Stone 3-D Movie Book")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Holes"]);
 });

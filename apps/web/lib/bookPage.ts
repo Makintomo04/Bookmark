@@ -31,6 +31,9 @@ export interface BookPageData {
   // Set when the description is Hardcover's and opens with its headline.
   headline?: string | null
   genres: Genre[]
+  // Every credited author and the raw Open Library subjects, for "Explore more from similar authors".
+  authors: string[]
+  subjects: string[]
   // Credited to the work's first author, the half of the series' identity a name alone doesn't give.
   series: { name: string, author: string, position: number | null } | null
   editionCount: number | null
@@ -104,6 +107,8 @@ async function catalogOrOpenLibrary(bookKey: string, hops = 0): Promise<BookPage
       },
       description: work.description ?? (workKey ? await workDescription(workKey).catch(() => null) : null),
       genres: genresOf(work.subjects),
+      authors: work.authors,
+      subjects: work.subjects,
       series: work.seriesName && work.authors[0] ? { name: work.seriesName, author: work.authors[0], position: work.seriesPosition } : null,
       editionCount: work.olEditionCount,
       handTyped: !work.openLibraryKey && !work.hardcoverId,
@@ -131,6 +136,8 @@ async function catalogOrOpenLibrary(bookKey: string, hops = 0): Promise<BookPage
     },
     description,
     genres: genresOf(ol.subjects),
+    authors: ol.authors,
+    subjects: ol.subjects,
     series: null,
     editionCount: null,
     handTyped: false,
