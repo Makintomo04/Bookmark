@@ -278,7 +278,7 @@ const BookEntryModal: FC = () => {
           className="w-[72px] shrink-0"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-lg font-bold leading-tight break-words">{title || "Untitled"}</p>
+          <p className="text-lg font-semibold leading-tight break-words">{title || "Untitled"}</p>
           <p className="text-sm text-muted-foreground">
             {[author || "Unknown author", published, lengthText].filter(Boolean).join(" · ")}
           </p>

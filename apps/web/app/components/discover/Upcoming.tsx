@@ -34,7 +34,7 @@ const UpcomingSection = async ({ viewerId, today }: { viewerId: string | null, t
   if (books.length === 0) return null
   return (
     <section aria-labelledby="upcoming-heading">
-      <h2 id="upcoming-heading" className="text-xl font-bold">Upcoming</h2>
+      <h2 id="upcoming-heading" className="text-lg font-semibold">Upcoming</h2>
       <p className="mt-1 text-sm text-muted-foreground">Books on the way, with authors and series you follow first.</p>
       {/* Scrolls sideways on phones; a grid with room to spare. */}
       <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">

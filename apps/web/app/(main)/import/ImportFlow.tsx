@@ -261,7 +261,7 @@ const UploadStep: FC<UploadProps> = ({ onFile, onList, list, onListChange: setLi
       </div>
 
       <section aria-labelledby="how-to" className="flex flex-col gap-3">
-        <h2 id="how-to" className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Where to find your export</h2>
+        <h2 id="how-to" className="text-sm font-medium text-muted-foreground">Where to find your export</h2>
         <ul className="grid gap-3 sm:grid-cols-3">
           {HOW_TO.map((h) => (
             <li key={h.source} className="rounded-lg border p-4 flex flex-col">
@@ -397,7 +397,7 @@ const ProgressStep: FC<{ title: string; detail: string; value: number; max: numb
 
 const Stat: FC<{ value: number; label: string; className?: string }> = ({ value, label, className }) => (
   <div className={cn("rounded-lg border p-4", className)}>
-    <p className="text-2xl font-bold tabular-nums">{fmt(value)}</p>
+    <p className="text-2xl font-semibold tabular-nums">{fmt(value)}</p>
     <p className="text-sm text-muted-foreground">{label}</p>
   </div>
 )
@@ -592,12 +592,12 @@ const ReviewRow: FC<{ jobId: string; row: UncertainRow; onChange: (job: ImportJo
         <CoverThumb url={row.pick.coverUrl} />
         <div className="min-w-0 flex-1 flex flex-col gap-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">In your {isList ? "list" : "file"}</p>
+            <p className="text-sm text-muted-foreground">In your {isList ? "list" : "file"}</p>
             <p className="font-medium leading-tight">{row.title}</p>
             {yours && <p className="text-sm text-muted-foreground">{yours}</p>}
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Best guess <span className="normal-case tracking-normal tabular-nums">· {Math.round(row.confidence * 100)}% sure</span>
             </p>
             <p className="font-medium leading-tight">{row.pick.title ?? "Untitled"}</p>

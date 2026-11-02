@@ -1,6 +1,6 @@
 import { FC, ReactNode } from 'react'
 import Link from 'next/link'
-import { BookOpen, BookOpenText, Flame, Headphones, Repeat, Ruler, Star, Timer, Undo2 } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
 import type { ReadingStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 import { formatPace } from '@/lib/goals'
@@ -36,13 +36,10 @@ const Section: FC<{ title: string; children: ReactNode; className?: string; acti
   </section>
 )
 
-const Tile: FC<{ icon: ReactNode; label: string; value: string; note?: string; noteHref?: string }> = ({ icon, label, value, note, noteHref }) => (
+const Tile: FC<{ label: string; value: string; note?: string; noteHref?: string }> = ({ label, value, note, noteHref }) => (
   <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <span aria-hidden className="text-[color:var(--accent-text)]">{icon}</span>
-      {label}
-    </div>
-    <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight">{value}</p>
+    <p className="text-sm text-muted-foreground">{label}</p>
+    <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
     {note && (noteHref
       ? <Link href={noteHref} className="mt-1 block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">{note}</Link>
       : <p className="mt-1 text-xs text-muted-foreground">{note}</p>)}
@@ -117,24 +114,42 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Tile icon={<BookOpen size={16} />} label="Books read" value={fmt(stats.booksRead)} note={stats.undatedFinishes ? `${plural(stats.undatedFinishes, 'finish', 'finishes')} without a date` : undefined} noteHref={stats.undatedFinishes ? '/stats/undated' : undefined} />
-        <Tile icon={<BookOpenText size={16} />} label="Pages read" value={fmt(stats.pagesRead)} note="across every finished read" />
-        {stats.minutesListened > 0 && (
-          <Tile icon={<Headphones size={16} />} label="Hours listened" value={fmt(Math.round(stats.minutesListened / 60))} note="of audiobooks finished" />
-        )}
-        <Tile icon={<Ruler size={16} />} label="Average length" value={stats.averagePages ? `${fmt(stats.averagePages)}` : '–'} note="pages per book" />
-        <Tile icon={<Flame size={16} />} label="Current streak" value={plural(stats.streak, 'day')} note={stats.streak ? 'keep it going today' : 'read a page to start one'} />
-        <Tile icon={<Repeat size={16} />} label="Re-reads" value={fmt(stats.rereads)} note={stats.rereadBooks ? `across ${plural(stats.rereadBooks, 'book')}` : 'none yet'} />
+      {/* Books read leads; pages and hours are the same reading counted another way, so they sit beside it. */}
+      <section aria-label="Totals" className="grid gap-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <div>
+          <p className="text-sm text-muted-foreground">Books read</p>
+          <p className="mt-1 font-display text-6xl font-semibold tabular-nums leading-none">{fmt(stats.booksRead)}</p>
+          {stats.undatedFinishes > 0 && (
+            <Link href="/stats/undated" className="mt-3 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
+              {plural(stats.undatedFinishes, 'finish', 'finishes')} without a date
+            </Link>
+          )}
+        </div>
+        <dl className="flex gap-8">
+          <div>
+            <dt className="text-sm text-muted-foreground">Pages read</dt>
+            <dd className="mt-1 text-2xl font-semibold tabular-nums">{fmt(stats.pagesRead)}</dd>
+          </div>
+          {stats.minutesListened > 0 && (
+            <div>
+              <dt className="text-sm text-muted-foreground">Hours listened</dt>
+              <dd className="mt-1 text-2xl font-semibold tabular-nums">{fmt(Math.round(stats.minutesListened / 60))}</dd>
+            </div>
+          )}
+        </dl>
+      </section>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+        <Tile label="Average length" value={stats.averagePages ? `${fmt(stats.averagePages)}` : '–'} note="pages per book" />
+        <Tile label="Current streak" value={plural(stats.streak, 'day')} note={stats.streak ? 'in a row' : 'read a page to start one'} />
+        <Tile label="Re-reads" value={fmt(stats.rereads)} note={stats.rereadBooks ? `across ${plural(stats.rereadBooks, 'book')}` : 'none yet'} />
         <Tile
-          icon={<Undo2 size={16} />}
           label="Did not finish"
           value={stats.dnfRate === null ? '–' : `${Math.round(stats.dnfRate * 100)}%`}
           note={stats.dnf ? `${plural(stats.dnf, 'book')} put down` : 'of the books you started'}
         />
-        <Tile icon={<Star size={16} />} label="Average rating" value={stats.averageRating ? `${stats.averageRating} ★` : '–'} note={stats.ratedBooks ? `from ${plural(stats.ratedBooks, 'rating')}` : 'no ratings yet'} />
+        <Tile label="Average rating" value={stats.averageRating ? `${stats.averageRating} ★` : '–'} note={stats.ratedBooks ? `from ${plural(stats.ratedBooks, 'rating')}` : 'no ratings yet'} />
         <Tile
-          icon={<Ruler size={16} />}
           label="Longest book"
           value={stats.longestBook ? fmt(stats.longestBook.pages) : '–'}
           note={stats.longestBook ? stats.longestBook.title : undefined}
@@ -213,10 +228,10 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
           </Section>
           {(days || stats.mostReread) && (
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:col-span-2 lg:grid-cols-4">
-              {days && <Tile icon={<Timer size={16} />} label="Days to finish" value={fmt(days.average)} note={`on average, across ${plural(days.reads, 'dated read')}`} />}
-              {days && <Tile icon={<Timer size={16} />} label="Quickest read" value={plural(days.fastest.days, 'day')} note={days.fastest.book.title} />}
-              {days && <Tile icon={<Timer size={16} />} label="Slowest read" value={plural(days.slowest.days, 'day')} note={days.slowest.book.title} />}
-              {stats.mostReread && <Tile icon={<Repeat size={16} />} label="Most re-read" value={`${fmt(stats.mostReread.times)}×`} note={stats.mostReread.book.title} />}
+              {days && <Tile label="Days to finish" value={fmt(days.average)} note={`on average, across ${plural(days.reads, 'dated read')}`} />}
+              {days && <Tile label="Quickest read" value={plural(days.fastest.days, 'day')} note={days.fastest.book.title} />}
+              {days && <Tile label="Slowest read" value={plural(days.slowest.days, 'day')} note={days.slowest.book.title} />}
+              {stats.mostReread && <Tile label="Most re-read" value={`${fmt(stats.mostReread.times)}×`} note={stats.mostReread.book.title} />}
             </div>
           )}
         </div>

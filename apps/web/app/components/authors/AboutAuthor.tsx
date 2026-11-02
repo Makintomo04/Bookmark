@@ -40,7 +40,7 @@ const AboutAuthor: FC<{ name: string; about: AuthorAbout; bookCount: number | nu
 
   return (
     <section aria-labelledby="about-author-heading" className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-800 sm:p-6">
-      <h2 id="about-author-heading" className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">About the author</h2>
+      <h2 id="about-author-heading" className="mb-4 text-lg font-semibold">About the author</h2>
       <div className="flex items-center gap-4">
         {photoUrl ? (
           // unoptimized: a librarian's photo can be on any https host, and the optimiser only takes the hosts

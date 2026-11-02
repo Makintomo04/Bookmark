@@ -91,19 +91,6 @@ const BooksTop: FC = () => {
   )
 }
 
-// Under your stats in bands, when you're reading nothing: said once, with the way to start.
-const NothingOnTheGo: FC = () => {
-  const { books } = useBooks()
-  const bookEntryModal = useBookEntryModal()
-  if (!Array.isArray(books) || groupShelf(books as Book[]).reading.length > 0) return null
-  return (
-    <p className="mt-2 text-sm text-muted-foreground">
-      Not reading anything right now ·{" "}
-      <button type="button" onClick={() => bookEntryModal.onOpen(undefined, { shelf: "STARTED" })} className="inline-flex items-center gap-1 font-medium text-foreground hover:underline underline-offset-2"><Plus size={14} aria-hidden />Start a book</button>
-    </p>
-  )
-}
-
 // In bands your header becomes a column from lg up, with what you're reading beside it. The goal
 // is two lines in that column, or two lines in words under your stats below lg; the authors you follow get a line
 // under your bio; the banner is shorter.
@@ -190,7 +177,6 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         {/* One slim line, so the first cover on the shelf is in view without scrolling, even on a phone. */}
         {bands ? (
           <>
-            <NothingOnTheGo />
             <div className="lg:hidden"><ReadingGoalWidget variant="lines" /></div>
             <div className="hidden lg:block"><ReadingGoalWidget variant="block" /></div>
           </>

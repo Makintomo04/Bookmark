@@ -158,7 +158,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
       </Link>
 
       <header className="flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Club{archived ? " · archived" : ""}</p>
+        <p className="text-sm font-mediumr text-muted-foreground">Club{archived ? " · archived" : ""}</p>
         {editing ? (
           <form onSubmit={(e) => { e.preventDefault(); save() }} className="flex max-w-xl flex-col gap-3">
             <label htmlFor="club-name" className="sr-only">Name</label>

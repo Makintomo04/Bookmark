@@ -28,7 +28,7 @@ const Page = async () => {
           <Link href="/discover" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ChevronLeft size={16} aria-hidden />Discover
           </Link>
-          <h1 className="mt-3 text-3xl sm:text-4xl font-bold">Upcoming</h1>
+          <h1 className="mt-3 page-title">Upcoming</h1>
           <p className="mt-1 max-w-2xl text-muted-foreground">
             Books on the way, soonest first. {viewer ? "Authors and series you follow come first. " : ""}Put one on Want to read and we&apos;ll tell you the morning it comes out.
           </p>

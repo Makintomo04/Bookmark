@@ -96,7 +96,7 @@ const Comment: FC<{ comment: SerializedReviewComment; bookId: string; canComment
   if (comment.deleted) {
     return (
       <article className="flex flex-col gap-3">
-        <p className="text-sm italic text-muted-foreground">This comment was deleted.</p>
+        <p className="text-sm text-muted-foreground">This comment was deleted</p>
         {replies.length > 0 && <div className="flex flex-col gap-4 border-l pl-4">{replies}</div>}
       </article>
     )

@@ -26,7 +26,7 @@ const MedalBand: FC<MedalBandProps> = ({ achievementKey, value, tierKey, eyebrow
       <div className="relative flex h-32 w-full justify-center overflow-hidden pt-6" style={{ background }}>
         {/* Light from above, so a flat colour reads as lit rather than painted. */}
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_0%,rgba(255,255,255,0.22),transparent_60%)]" />
-        <p className="relative text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: ink }}>{eyebrow}</p>
+        <p className="relative text-sm font-medium" style={{ color: ink }}>{eyebrow}</p>
       </div>
       <div className="-mt-14 rounded-full bg-background p-1.5">
         <Medal achievementKey={achievementKey} earned pill={String(value)} pillClassName="bg-neutral-900 text-white dark:bg-black" className="w-24" />

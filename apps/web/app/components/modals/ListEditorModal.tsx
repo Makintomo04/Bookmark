@@ -334,7 +334,7 @@ const ListEditorModal: FC = () => {
 
   const staffControls = isStaff && (
     <div className="flex flex-col gap-5 rounded-lg border border-neutral-200 dark:border-neutral-800 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bookmark team</p>
+      <p className="text-sm font-medium text-muted-foreground">Bookmark team</p>
       <Switch checked={draft.isPick} onChange={(v) => update({ isPick: v })} label="Bookmark Pick" hint="Badged as a Pick and shown in the Picks row on Discover." accent={accent} disabled={isSaving} />
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">Spotlight <span className="font-normal text-muted-foreground">· featured at the top of Discover between these dates</span></span>

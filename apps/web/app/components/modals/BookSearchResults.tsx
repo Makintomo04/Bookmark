@@ -25,7 +25,7 @@ const CoverThumb: FC<{ url: string | null, title: string, author: string }> = ({
   const src = url && openLibraryThumb(url)
 
   return (
-    <div className={cn("h-16 w-11 flex-shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-neutral-700 relative", src && !loaded && !failed && "animate-pulse")}>
+    <div className={cn("h-16 w-11 flex-shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-neutral-700 relative", src && !loaded && !failed && "motion-safe:animate-pulse")}>
       {(!src || failed) && <BookFallback title={title} author={author} variant="blank" />}
       {src && !failed && (
         <Image

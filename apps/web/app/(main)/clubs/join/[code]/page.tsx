@@ -43,7 +43,7 @@ const BookLine = ({ label, book }: { label: string, book: InviteBook }) => (
   <div className="flex items-center gap-3 text-left">
     <BookCover book={{ title: book.title, author: book.author, coverImage: book.coverImage ?? "", cardColour: book.cardColour }} variant="thumb" sizes="48px" className="w-12 shrink-0 shadow-sm" />
     <div className="min-w-0">
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-sm font-mediumr text-muted-foreground">{label}</p>
       <p className="font-medium leading-snug line-clamp-2">{book.title}</p>
       <p className="text-sm text-muted-foreground truncate" suppressHydrationWarning>{book.author} · from {moment(book.startsAt).format("D MMMM")}</p>
     </div>
@@ -71,7 +71,7 @@ const Page = async (props: PageProps) => {
       <Container className="max-w-2xl">
         <div className="flex flex-col items-center text-center gap-6">
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Book club</p>
+            <p className="text-sm font-mediumr text-muted-foreground">Book club</p>
             <h1 className="page-title">{club.name}</h1>
             {club.about && <p className="max-w-md text-muted-foreground whitespace-pre-line">{club.about}</p>}
           </div>

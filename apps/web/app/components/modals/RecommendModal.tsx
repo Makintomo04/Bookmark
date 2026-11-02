@@ -83,7 +83,7 @@ const RecommendModal: FC = () => {
       )}
       {friends.length > 0 && (
         <div className="flex flex-col gap-2">
-          <Label htmlFor="recommend-message" className="font-bold">Add a note (optional)</Label>
+          <Label htmlFor="recommend-message" className="font-semibold">Add a note (optional)</Label>
           <textarea id="recommend-message" value={message} maxLength={RECOMMEND_MESSAGE_MAX} rows={3}
             onChange={(e) => setMessage(e.target.value)} placeholder="Why they'd love it, minus the spoilers"
             className="w-full rounded-md border bg-transparent p-3 text-sm focus-visible:outline-none focus-visible:ring-2" />

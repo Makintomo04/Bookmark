@@ -79,7 +79,7 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
           <Bell size={20} aria-hidden />
           {/* The ring in the page colour keeps the badge from running into the bell's outline. */}
           {unreadCount > 0 && (
-            <span aria-hidden className="absolute top-0 right-0 h-[18px] min-w-[18px] px-[5px] rounded-full bg-brand-fill text-white text-[10px] leading-none tabular-nums flex items-center justify-center font-bold ring-2 ring-background">
+            <span aria-hidden className="absolute top-0 right-0 h-5 min-w-5 px-1 rounded-full bg-brand-fill text-white text-[11px] leading-none tabular-nums flex items-center justify-center font-semibold ring-2 ring-background">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
