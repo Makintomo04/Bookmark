@@ -183,7 +183,7 @@ const TierCarousel: FC<{ achievements: AchievementItem[]; reader?: { username: s
 
   return (
     <section id="tier" aria-labelledby="tier-heading"
-      className="scroll-mt-24 overflow-hidden rounded-2xl border border-neutral-200 pb-7 dark:border-neutral-800"
+      className="scroll-mt-24 overflow-hidden rounded-2xl border border-neutral-200 pb-7 has-[[role=group]:focus-visible]:ring-2 has-[[role=group]:focus-visible]:ring-ring has-[[role=group]:focus-visible]:ring-offset-2 dark:border-neutral-800"
       style={{
         background: `radial-gradient(60% 70% at 50% 38%, color-mix(in srgb, ${shown.colour} 16%, transparent), transparent 70%)`,
         "--ink-light": shown.shade, "--ink-dark": shown.colour,
@@ -206,6 +206,8 @@ const TierCarousel: FC<{ achievements: AchievementItem[]; reader?: { username: s
             </g>
           </svg>
         )}
+        {/* The row's focus ring is drawn on the whole card (the section above): on the row itself, its faded
+            ends would leave only a top and a bottom line. */}
         <div ref={trackRef} tabIndex={0} role="group" aria-roledescription="carousel" aria-label="Reader tiers"
           onScroll={() => requestAnimationFrame(paint)}
           onKeyDown={(e) => {
@@ -213,7 +215,7 @@ const TierCarousel: FC<{ achievements: AchievementItem[]; reader?: { username: s
             const to = { ArrowLeft: from - 1, ArrowRight: from + 1, Home: 0, End: STEPS.length - 1 }[e.key]
             if (to !== undefined) { e.preventDefault(); goTo(to) }
           }}
-          className="relative flex h-full cursor-grab snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-xl [scrollbar-width:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[dragging]:cursor-grabbing data-[dragging]:snap-none [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(90deg,transparent,#000_14%,#000_86%,transparent)]"
+          className="relative flex h-full cursor-grab snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] focus-visible:outline-none data-[dragging]:cursor-grabbing data-[dragging]:snap-none [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(90deg,transparent,#000_14%,#000_86%,transparent)]"
           style={{ paddingInline: geo ? `calc(50% - ${geo.slot / 2}px)` : undefined }}>
           {STEPS.map((s, i) => (
             <button key={s.key} type="button" tabIndex={-1} onClick={() => goTo(i)}
