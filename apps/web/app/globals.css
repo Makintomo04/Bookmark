@@ -223,6 +223,21 @@ progress { color: black;width: 100%; }
   to { background-position: -20% 0; }
 }
 
+/* The tier carousel (achievements/TierCarousel.tsx): a band of light across Gold and up, and a ring that
+   pulses out when a new tier unblurs. */
+@media (prefers-reduced-motion: no-preference) {
+  .tier-emblem-sweep { animation: tier-emblem-sweep 4.2s ease-in-out infinite; }
+  .tier-unlocking .tier-unlock-ring { animation: tier-unlock-ring 1.1s ease-out 0.2s; }
+}
+@keyframes tier-emblem-sweep {
+  0% { transform: translateX(-150px); }
+  55%, 100% { transform: translateX(170px); }
+}
+@keyframes tier-unlock-ring {
+  0% { opacity: 0.9; transform: scale(0.6); }
+  100% { opacity: 0; transform: scale(4.2); }
+}
+
 /* The Wrap card preview while it draws (wrapped/WrapCardMaker.tsx): a dot grid on a canvas in the
    reader's colour (var(--accent), stats/accent.ts), lit where soft blobs drift beneath it and where a
    band of light works down the card; then the finished card comes out of the blur. */
