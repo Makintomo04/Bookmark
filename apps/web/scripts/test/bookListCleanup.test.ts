@@ -61,6 +61,30 @@ test("an author who writes in another language keeps every book", () => {
   assert.equal(cleanBookList(books).length, 2);
 });
 
-test("books with no language data aren't treated as translations", () => {
+test("books with no language data aren't treated as translations when they read as English", () => {
   assert.equal(cleanBookList([b("Fourth Wing"), b("Variation", [])]).length, 2);
+});
+
+// Rowling's list from Open Library, November 2026: three records are titled just "Harry Potter", and
+// counting each of them once per novel made every "Harry Potter and the…" look like a bundle.
+test("a series name on the list several times doesn't turn the series' novels into box sets", () => {
+  const books = [b("Harry Potter and the Philosopher's Stone"), b("Harry Potter and the Chamber of Secrets"), b("Harry Potter"), b("Harry Potter", []), b("Harry Potter")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Harry Potter and the Philosopher's Stone", "Harry Potter and the Chamber of Secrets", "Harry Potter"]);
+});
+
+test("series ranges, sets and boxes are box sets", () => {
+  const books = [b("Fourth Wing"), b("Harry Potter (series) 1-7"), b("Harry Potter Set"), b("Harry Potter Illustrated Paperback Starter Set", []),
+    b("The Harry Potter trilogy", []), b("Box Harry Potter Tradicional", []), b("Harry Potter 1- 7 Audio Collection")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Fourth Wing"]);
+});
+
+test("on an English author's list, a foreign title with no language data is a translation", () => {
+  const books = [b("The Cuckoo's Calling"), b("Harry Potter y las reliquias de la muerte", []), b("Der Seidenspinner", []), b("Une place à prendre", []),
+    b("Las pequeñas grandes cosas", []), b("دودة الحرير", []), b("吟遊詩人ビードルの物語", []), b("Variation", []), b("Die Hard", []), b("The Van", [])];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["The Cuckoo's Calling", "Variation", "Die Hard", "The Van"]);
+});
+
+test("shop bookmarks and dumpbins aren't books", () => {
+  const books = [b("Harry Potter and the Chamber of Secrets"), b("Chamber of Secrets Movie Bookmarks"), b("Hp and Pris of Azkaban Celebr Dumpbin"), b("Harry Potter 4 Display Cut Out")];
+  assert.deepEqual(cleanBookList(books).map((x) => x.title), ["Harry Potter and the Chamber of Secrets"]);
 });
