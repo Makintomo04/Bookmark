@@ -5,6 +5,7 @@ import { bookHref, sameBook } from "@/lib/workKey";
 import { hasPage } from "@/lib/workPages";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { NextResponse } from "next/server";
+import { dismissedPickFilters } from "@/lib/clubVotesServer";
 
 // The bell shows the newest 20. /notifications pages back through the rest with ?after=<the last one's id>,
 // up to 50 at a time. Ordered by date then id, so two made in the same moment never fall between pages.
@@ -20,8 +21,10 @@ export async function GET(req: Request) {
   const after = params.get("after")
   const afterId = after && /^[a-f0-9]{24}$/i.test(after) ? after : null
 
-  // Quests were cut before launch; any old quest-medal notifications are left out.
-  const shown = { userId: currentUser.id, type: { not: "QUEST_COMPLETED" as const } }
+  // Quests were cut before launch; any old quest-medal notifications are left out. So are "the club picked X"
+  // rows for a winner its host has since put away (BOO-92), which the club page no longer mentions.
+  const dismissed = await dismissedPickFilters(currentUser.id)
+  const shown = { userId: currentUser.id, type: { not: "QUEST_COMPLETED" as const }, ...(dismissed.length > 0 && { NOT: dismissed }) }
   const [page, unreadCount] = await Promise.all([
     prisma.notification.findMany({
       where: shown,

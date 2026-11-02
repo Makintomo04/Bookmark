@@ -77,7 +77,7 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
   if (comment.deleted) {
     return (
       <article className="flex flex-col gap-3">
-        <p className="text-sm italic text-muted-foreground">This comment was deleted.</p>
+        <p className="text-sm text-muted-foreground">This comment was deleted</p>
         <Replies comment={comment} buddyReadId={buddyReadId} viewerProgress={viewerProgress} isHost={isHost} canPost={false} onChange={onChange} />
       </article>
     )

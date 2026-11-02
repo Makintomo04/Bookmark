@@ -30,7 +30,7 @@ const BannerPresetPicker: FC<BannerPresetPickerProps> = ({ value, colour, onChan
           onClick={() => onChange(preset.id)}
           disabled={disabled}
           className={cn(
-            "relative h-11 overflow-hidden rounded-lg transition hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60",
+            "relative h-11 overflow-hidden rounded-lg transition-[box-shadow,transform] hover:ring-2 hover:ring-offset-2 hover:ring-offset-background hover:ring-neutral-300 dark:hover:ring-neutral-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60",
             selected && "ring-2 ring-offset-2 ring-offset-background ring-neutral-400 dark:ring-neutral-500"
           )}
         >

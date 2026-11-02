@@ -72,7 +72,7 @@ const BookDetailsModal: FC = () => {
       <div className="min-w-0 flex flex-col gap-5">
         <div>
           {/* Visibly a link (not only on hover, which a phone doesn't have): naming a book is how people expect to open it. */}
-          <p className="text-2xl font-bold leading-tight break-words">
+          <p className="text-2xl font-semibold leading-tight break-words">
             {pageHref
               ? <Link href={pageHref} onClick={onClose} className="underline decoration-neutral-400/50 decoration-2 underline-offset-[6px] transition hover:decoration-current">{book.title}</Link>
               : book.title}

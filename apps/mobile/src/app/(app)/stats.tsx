@@ -58,7 +58,7 @@ export default function Stats() {
 
       <View style={styles.tiles}>
         <Tile icon={icon(BookOpen)} label="Books read" value={fmt(stats.booksRead)} note={stats.undatedFinishes ? `${plural(stats.undatedFinishes, "finish", "finishes")} without a date` : undefined} />
-        <Tile icon={icon(BookOpenText)} label="Pages read" value={fmt(stats.pagesRead)} note="across every finished read" />
+        <Tile icon={icon(BookOpenText)} label="Pages read" value={fmt(stats.pagesRead)} note={stats.undatedPages ? `${fmt(stats.undatedPages)} from undated finishes` : "across every finished read"} />
         {stats.minutesListened > 0 && <Tile icon={icon(Headphones)} label="Hours listened" value={fmt(Math.round(stats.minutesListened / 60))} note="of audiobooks finished" />}
         <Tile icon={icon(Ruler)} label="Average length" value={stats.averagePages ? fmt(stats.averagePages) : "–"} note="pages per book" />
         <Tile icon={icon(Flame)} label="Current streak" value={plural(stats.streak, "day")} note={stats.streak ? "keep it going today" : "read a page to start one"} />

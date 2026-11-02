@@ -53,12 +53,18 @@ type Shelf = (typeof SHELVES)[number]["status"]
 // Signed out it asks to join: in place through `onJoin` inside a dialog (book details), else the join sheet.
 const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (heading: string) => void }> = ({ book, className, onJoin }) => {
   const router = useRouter()
-  const { user } = useUser()
-  const { books, mutate } = useBooks()
+  const { user, isLoading: userLoading } = useUser()
+  const { books, isError: shelfError, mutate } = useBooks()
   const bookEntryModal = useBookEntryModal()
   const moveToFinished = useMoveToFinishedModal()
   const { mutate: mutateFav } = useFavourite()
   const [isAdding, setIsAdding] = useState(false)
+
+  // Until we know who's looking and what's on their shelf, a quiet placeholder the button's size (BOO-92):
+  // guessing "Want to read" and then flipping to "Finished" tells a reader the wrong thing about their own book.
+  if (userLoading || (user?.id && books === undefined && !shelfError)) {
+    return <span aria-busy="true" aria-label="Checking your shelf" className={cn(base, "w-28 bg-neutral-100 dark:bg-neutral-900 motion-safe:animate-pulse", className)} />
+  }
 
   // Signed out, it asks to join at this moment, naming the book, and brings them back here afterwards.
   if (!user?.id) {

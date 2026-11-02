@@ -5,7 +5,6 @@ import { Bookmark } from 'lucide-react'
 import BookCover from '../cards/BookCover'
 import { FavouritesSkeleton } from './ProfileSkeleton'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
-import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import { discoverBookOf } from '@/lib/openLibrary'
@@ -19,12 +18,10 @@ interface FavouritesRowProps {
   href: string
   // Someone else's: a cover opens the book's details instead of your progress.
   readOnly?: boolean
-  // Your own, with none yet: say how to add them instead of showing nothing.
+  // Your own, with none yet: the heading and how to add one, where the row will be, instead of nothing.
   hintWhenEmpty?: boolean
   // Beside Books in common (ProfileShowcase): no bottom margin, as it sits in a grid.
   half?: boolean
-  // Your own profile: the section folds up from its heading, and stays folded.
-  collapsible?: boolean
 }
 
 // Four across at every width: the top four of the ranking, large enough to read as a showcase.
@@ -52,22 +49,25 @@ const FavouriteTile: FC<{ book: Book, readOnly: boolean }> = ({ book, readOnly }
 
 // The books that say most about a reader: their top four, in one row near the top of their profile, then "See
 // all" (the Favourites page, where they're ranked).
-const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, hintWhenEmpty = false, half = false, collapsible = false }) => {
-  const collapse = useCollapsedSections()
+const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, hintWhenEmpty = false, half = false }) => {
   // Your top four (the ranking on the Favourites page), in one row of four covers.
   const columns = TOP_FAVOURITES
   if (books.length === 0) {
     if (!hintWhenEmpty) return null
+    // The heading without a count, so the line reads as this section's and not the next one's.
     return (
-      <p className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
-        <Bookmark size={15} aria-hidden className="shrink-0" />
-        Tap the bookmark on a cover to add a favourite here.
-      </p>
+      <section aria-labelledby="profile-favourites" className={half ? undefined : "mb-12"}>
+        <h2 id="profile-favourites" className="flex min-h-10 items-center text-lg font-semibold">Favourites</h2>
+        <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
+          <Bookmark size={16} aria-hidden className="mt-0.5 shrink-0" />
+          Use the bookmark on any cover to add a favourite
+        </p>
+      </section>
     )
   }
   return (
     <div className={half ? undefined : "mb-12"}>
-      <ShelfSection id="profile-favourites" title="Favourites" count={books.length} {...(collapsible ? collapse("profile-favourites") : {})}
+      <ShelfSection id="profile-favourites" title="Favourites" count={books.length}
         action={books.length > columns ? <SeeAllLink href={href} /> : undefined}>
         <div className={favouritesGridClass}>
           {books.slice(0, columns).map((book) => <FavouriteTile key={book.id} book={book} readOnly={readOnly} />)}
@@ -77,15 +77,11 @@ const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, 
   )
 }
 
-// Your own favourites while the shelf they're drawn from loads: one row of small covers, or just the
-// heading if you've folded the section.
-export const FavouritesRowSkeleton: FC = () => {
-  const { collapsed } = useCollapsedSections()("profile-favourites")
-  return (
-    <div className="mb-12" aria-busy="true" aria-label="Loading your favourites">
-      <FavouritesSkeleton headingOnly={collapsed} />
-    </div>
-  )
-}
+// Your own favourites while the shelf they're drawn from loads: one row of small covers.
+export const FavouritesRowSkeleton: FC = () => (
+  <div className="mb-12" aria-busy="true" aria-label="Loading your favourites">
+    <FavouritesSkeleton />
+  </div>
+)
 
 export default FavouritesRow

@@ -57,6 +57,8 @@ type Profile = {
   // Finished, re-reads included; reviews written; and each shelf's size. Absent on a restricted profile, and
   // from a server older than the preview.
   booksRead?: number;
+  // False when they keep Finished to themselves: no books read count, rather than a 0.
+  finishedShown?: boolean;
   reviewCount?: number;
   shelfCounts?: { finished: number; want: number };
   followedAuthors?: { name: string; slug: string }[];
@@ -100,7 +102,7 @@ export default function ReaderProfile() {
     <Screen>
       <Stack.Screen options={{ title: readerName(profile) }} />
       <ProfileHeader
-        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, profileLinks: profile.profileLinks ?? [], favColour: profile.favColour, _count: profile.restricted ? undefined : { books: profile.booksRead ?? (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
+        user={{ id: profile.username, name: null, username: profile.username, displayName: profile.displayName ?? null, image: profile.image, banner: profile.banner ?? null, bio: profile.bio ?? null, profileLinks: profile.profileLinks ?? [], favColour: profile.favColour, _count: profile.restricted || profile.finishedShown === false ? undefined : { books: profile.booksRead ?? (profile.books ?? []).filter((b) => b.status === "COMPLETED").length } }}
         staffBadge={profile.staffBadge}
         medals={profile.restricted ? undefined : { earned: profile.achievements ?? [], onPress: openAchievements }}
       />

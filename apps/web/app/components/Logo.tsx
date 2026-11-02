@@ -9,7 +9,7 @@ const Logo: FC<LogoProps> = ({}) => {
   return (
     <div className="flex items-center gap-3 cursor-pointer">
       <Image src='/logo.svg' width={28} height={28} alt=''/>
-      <span className="font-bold text-2xl">Bookmark</span>
+      <span className="font-display font-semibold text-2xl">Bookmark</span>
       </div>
   )
 }

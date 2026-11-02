@@ -35,7 +35,7 @@ const FeedTabs: FC<{ tab: FeedTab }> = ({ tab }) => {
           >
             {t.label}
             {t.count ? (
-              <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand-fill px-[5px] text-[10px] font-bold leading-none tabular-nums text-white">
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand-fill px-1 text-[11px] font-semibold leading-none tabular-nums text-white">
                 <span className="sr-only">, </span>{t.count > 9 ? "9+" : t.count}<span className="sr-only"> unread</span>
               </span>
             ) : null}

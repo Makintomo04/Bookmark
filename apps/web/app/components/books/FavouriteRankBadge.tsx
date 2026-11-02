@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 // cover's corner. The parent is `relative`.
 const FavouriteRankBadge: FC<{ rank: number; className?: string }> = ({ rank, className }) => (
   <span aria-label={`Number ${rank} favourite`}
-    className={cn("pointer-events-none absolute left-2 top-2 z-10 grid size-7 place-items-center rounded-full bg-background text-xs font-bold tabular-nums text-foreground shadow ring-1 ring-black/10 dark:ring-white/15", className)}>
+    className={cn("pointer-events-none absolute left-2 top-2 z-10 grid size-7 place-items-center rounded-full bg-background text-xs font-semibold tabular-nums text-foreground shadow ring-1 ring-black/10 dark:ring-white/15", className)}>
     {rank}
   </span>
 )

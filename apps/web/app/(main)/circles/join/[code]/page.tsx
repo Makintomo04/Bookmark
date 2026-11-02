@@ -75,7 +75,7 @@ const Page = async (props: PageProps) => {
             className="w-36 sm:w-40 shadow-lg"
           />
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reading circle</p>
+            <p className="text-sm font-mediumr text-muted-foreground">Reading circle</p>
             <h1 className="page-title">{buddyRead.title}</h1>
             <p className="text-muted-foreground"><AuthorLink author={buddyRead.author} /></p>
           </div>

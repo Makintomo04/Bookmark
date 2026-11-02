@@ -58,7 +58,7 @@ const Page = async (props: PageProps) => {
         {lists.length > 0 && (
           <section aria-labelledby="lists-heading">
             <div className="flex items-baseline justify-between gap-4">
-              <h2 id="lists-heading" className="text-xl font-bold">Lists</h2>
+              <h2 id="lists-heading" className="text-lg font-semibold">Lists</h2>
               <Link href={`/discover/genre/${genre.slug}/lists`} className="text-sm font-medium text-brand-text hover:underline underline-offset-2">All readers&apos; lists</Link>
             </div>
             <div className="mt-4 -mx-4 px-4 flex sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-5 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-2">
@@ -68,7 +68,7 @@ const Page = async (props: PageProps) => {
         )}
 
         <section aria-labelledby="trending-heading">
-          <h2 id="trending-heading" className="text-xl font-bold">Trending in {genre.label}</h2>
+          <h2 id="trending-heading" className="text-lg font-semibold">Trending in {genre.label}</h2>
           <p className="mt-1 text-sm text-muted-foreground">Most read this week.</p>
           <div className="mt-4">
             <Suspense fallback={<GenreBooksSkeleton />}>

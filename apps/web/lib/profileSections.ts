@@ -8,10 +8,8 @@ export const PROFILE_SECTIONS = [
   "shelf-finished",
   "shelf-dnf",
   "shelf-notInterested",
-  "profile-favourites",
   "series-tracker",
   "profile-reviews",
-  "profile-lists",
   "profile-authors",
 ] as const;
 

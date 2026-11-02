@@ -10,7 +10,7 @@ import { usePathname } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
-import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, ShieldCheck, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, ShieldCheck, BookHeart, Users, Wrench, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { withCallback } from '@/lib/callbackUrl'
 import { signupSourceFrom } from '@bookmark/shared/signupSource'
@@ -84,7 +84,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
     const { tier, next, remaining, progress } = tierProgress(booksRead)
     const barTier = next ?? tier
     const secondary: NavItem[] = wrappedYear
-      ? [...SECONDARY, { href: `/wrapped/${wrappedYear}`, label: `Your ${wrappedYear} Wrapped`, icon: Sparkles }]
+      ? [...SECONDARY, { href: `/wrapped/${wrappedYear}`, label: `Your ${wrappedYear} Wrapped`, icon: BookHeart }]
       : SECONDARY
 
     const avatar = (className?: string) => (

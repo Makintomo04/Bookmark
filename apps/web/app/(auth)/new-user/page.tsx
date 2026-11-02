@@ -174,7 +174,7 @@ const Page = () => {
             onClick={() => avatarInput.current?.click()}
             disabled={busy}
             aria-label={imageSrc ? "Change profile picture" : "Add a profile picture"}
-            className="group relative -mt-6 size-16 shrink-0 overflow-hidden rounded-[22px] border-4 border-background grid place-items-center text-2xl font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="group relative -mt-6 size-16 shrink-0 overflow-hidden rounded-[22px] border-4 border-background grid place-items-center text-2xl font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             style={{ background: accent, color: readableInk(accent) }}
           >
             {avatarSrc ? <Image src={avatarSrc} alt="" fill sizes="64px" unoptimized={!!avatar.preview} className="object-cover" /> : <span aria-hidden>{initial}</span>}

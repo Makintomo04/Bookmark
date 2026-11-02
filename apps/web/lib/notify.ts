@@ -13,7 +13,12 @@ type Action = { label: string, onClick: () => void }
 type Options = {
   description?: string
   action?: Action
+  // A second, quieter button beside `action` (Start's "Change date" next to Undo).
+  secondaryAction?: Action
 }
+
+// Sonner calls the quieter button `cancel`.
+const toSonner = ({ secondaryAction, ...rest }: Options = {}) => ({ ...rest, ...(secondaryAction && { cancel: secondaryAction }) })
 
 const UNDO_MS = 6000
 
@@ -29,11 +34,11 @@ if (typeof window !== "undefined") {
 
 export const notify = {
   success(message: string, options?: Options) {
-    toast.success(message, options)
+    toast.success(message, toSonner(options))
   },
 
   info(message: string, options?: Options) {
-    toast(message, options)
+    toast(message, toSonner(options))
   },
 
   // `retry` re-runs the action from the toast; pass it only when running again is all that's needed.

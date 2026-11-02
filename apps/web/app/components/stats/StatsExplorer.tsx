@@ -1,7 +1,7 @@
 "use client"
 import { FC, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BookOpen, BookOpenText, Download, ExternalLink, Headphones, Repeat, Ruler, Star, Trash2, Undo2, X } from 'lucide-react'
+import { Download, ExternalLink, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ColumnChart, Datum, RankedBars } from './Charts'
 import { MOODS, MOOD_LABEL, type Mood } from '@bookmark/shared/workTags'
@@ -115,13 +115,10 @@ function delta(now: number | null, then: number | null, kind: 'count' | 'percent
   return d === 0 ? 'no change' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d))}`
 }
 
-const Tile: FC<{ icon: ReactNode; label: string; value: string; then?: string | null; change?: string | null }> = ({ icon, label, value, then, change }) => (
+const Tile: FC<{ label: string; value: string; then?: string | null; change?: string | null }> = ({ label, value, then, change }) => (
   <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4">
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <span aria-hidden className="text-[color:var(--accent-text)]">{icon}</span>
-      {label}
-    </div>
-    <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight">{value}</p>
+    <p className="text-sm text-muted-foreground">{label}</p>
+    <p className="mt-2 text-3xl font-semibold tabular-nums">{value}</p>
     {then !== undefined && <p className="mt-1 text-xs text-muted-foreground tabular-nums">{then ?? '–'} before{change ? ` · ${change}` : ''}</p>}
   </div>
 )
@@ -360,14 +357,14 @@ const StatsExplorer: FC<StatsExplorerProps> = ({ initial, today, timeZone, initi
           {compare && <p className="text-sm text-muted-foreground">Against {compare.label}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <Tile icon={<BookOpen size={16} />} label="Books read" value={fmt(period.books)} then={compare && fmt(compare.books)} change={compare && delta(period.books, compare.books)} />
-          <Tile icon={<BookOpenText size={16} />} label="Pages read" value={fmt(period.pages)} then={compare && fmt(compare.pages)} change={compare && delta(period.pages, compare.pages)} />
-          <Tile icon={<Headphones size={16} />} label="Hours listened" value={hours(period.minutes)} then={compare && hours(compare.minutes)} change={compare && delta(Math.round(period.minutes / 60), Math.round(compare.minutes / 60))} />
-          <Tile icon={<Repeat size={16} />} label="Re-reads" value={fmt(period.rereads)} then={compare && fmt(compare.rereads)} change={compare && delta(period.rereads, compare.rereads)} />
-          <Tile icon={<Undo2 size={16} />} label="Did not finish" value={percent(period.dnfRate)} then={compare && percent(compare.dnfRate)} change={compare && delta(period.dnfRate, compare.dnfRate, 'percent')} />
-          <Tile icon={<Star size={16} />} label="Average rating" value={period.averageRating ? `${period.averageRating} ★` : '–'} then={compare && (compare.averageRating ? `${compare.averageRating} ★` : null)} change={compare && delta(period.averageRating, compare.averageRating, 'stars')} />
-          <Tile icon={<Ruler size={16} />} label="Average length" value={period.averagePages ? fmt(period.averagePages) : '–'} then={compare && (compare.averagePages ? fmt(compare.averagePages) : null)} change={compare && delta(period.averagePages, compare.averagePages)} />
-          <Tile icon={<BookOpen size={16} />} label="Finishes" value={fmt(period.finishes)} then={compare && fmt(compare.finishes)} change={compare && delta(period.finishes, compare.finishes)} />
+          <Tile label="Books read" value={fmt(period.books)} then={compare && fmt(compare.books)} change={compare && delta(period.books, compare.books)} />
+          <Tile label="Pages read" value={fmt(period.pages)} then={compare && fmt(compare.pages)} change={compare && delta(period.pages, compare.pages)} />
+          <Tile label="Hours listened" value={hours(period.minutes)} then={compare && hours(compare.minutes)} change={compare && delta(Math.round(period.minutes / 60), Math.round(compare.minutes / 60))} />
+          <Tile label="Re-reads" value={fmt(period.rereads)} then={compare && fmt(compare.rereads)} change={compare && delta(period.rereads, compare.rereads)} />
+          <Tile label="Did not finish" value={percent(period.dnfRate)} then={compare && percent(compare.dnfRate)} change={compare && delta(period.dnfRate, compare.dnfRate, 'percent')} />
+          <Tile label="Average rating" value={period.averageRating ? `${period.averageRating} ★` : '–'} then={compare && (compare.averageRating ? `${compare.averageRating} ★` : null)} change={compare && delta(period.averageRating, compare.averageRating, 'stars')} />
+          <Tile label="Average length" value={period.averagePages ? fmt(period.averagePages) : '–'} then={compare && (compare.averagePages ? fmt(compare.averagePages) : null)} change={compare && delta(period.averagePages, compare.averagePages)} />
+          <Tile label="Finishes" value={fmt(period.finishes)} then={compare && fmt(compare.finishes)} change={compare && delta(period.finishes, compare.finishes)} />
         </div>
 
         {CHART_ORDER.map((chart) => (

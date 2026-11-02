@@ -28,7 +28,7 @@ const Page = async () => {
             <ChevronLeft size={16} aria-hidden />Discover
           </Link>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <h1 className="text-3xl sm:text-4xl font-bold">Ask the shelf</h1>
+            <h1 className="page-title">Ask the shelf</h1>
             <AiLabel />
           </div>
           <p className="mt-1 max-w-2xl text-muted-foreground">

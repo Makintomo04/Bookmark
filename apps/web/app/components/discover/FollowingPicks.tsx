@@ -41,7 +41,7 @@ const PickContext: FC<{ pick: FollowingPick }> = ({ pick }) => (
 
 const Heading = () => (
   <>
-    <h2 id="following-heading" className="text-xl font-bold">From people you follow</h2>
+    <h2 id="following-heading" className="text-lg font-semibold">From people you follow</h2>
     <p className="mt-1 text-sm text-muted-foreground">Books readers you follow just added to their lists or loved, in their own words.</p>
   </>
 )

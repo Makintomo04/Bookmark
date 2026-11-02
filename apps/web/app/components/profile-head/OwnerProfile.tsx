@@ -54,13 +54,13 @@ const OwnShowcase: FC<{ username: string }> = ({ username }) => {
   if (favs.length > 0 && lists.length > 0) {
     return (
       <div className="mb-12 grid gap-12 lg:grid-cols-2 lg:gap-10">
-        <FavouritesRow books={favs} href="/favourites" half collapsible />
+        <FavouritesRow books={favs} href="/favourites" half />
         <div><ProfileLists username={username} isSelf half /></div>
       </div>
     )
   }
   if (lists.length > 0) return <div className="mb-12"><ProfileLists username={username} isSelf flush /></div>
-  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} collapsible />
+  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} />
 }
 
 // With no lists yet, "Make your first list" stays down the page rather than pushing the shelf down; once

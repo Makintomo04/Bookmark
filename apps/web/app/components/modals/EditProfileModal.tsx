@@ -298,9 +298,9 @@ const EditProfileModal: FC = () => {
 
   const body = isUserLoading || !user ? (
     <div className="w-full px-6 self-start flex flex-col gap-4" aria-busy="true">
-      <div className="h-32 sm:h-40 rounded-xl bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
-      <div className="h-10 rounded-md bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
-      <div className="h-20 rounded-md bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+      <div className="h-32 sm:h-40 rounded-xl bg-neutral-200 dark:bg-neutral-800 motion-safe:animate-pulse" />
+      <div className="h-10 rounded-md bg-neutral-200 dark:bg-neutral-800 motion-safe:animate-pulse" />
+      <div className="h-20 rounded-md bg-neutral-200 dark:bg-neutral-800 motion-safe:animate-pulse" />
     </div>
   ) : (
     <form
