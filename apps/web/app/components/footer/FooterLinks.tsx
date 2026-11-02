@@ -13,7 +13,7 @@ const COLUMNS = [
       { href: '/discover', label: 'Discover books' },
       { href: '/discover/upcoming', label: 'Upcoming releases' },
       { href: '/stats', label: 'Reading stats', member: true },
-      { href: '/import', label: 'Switch from Goodreads or StoryGraph' },
+      { href: '/import', label: 'Import books' },
     ],
   },
   {
