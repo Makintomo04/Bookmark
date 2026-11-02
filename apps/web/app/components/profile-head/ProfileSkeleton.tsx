@@ -17,19 +17,17 @@ const Heading: FC<{ className?: string }> = ({ className = "w-32" }) => (
 // Four across at every width, each a cover and up to two lines of title (FavouritesRow).
 export const favouritesSkeletonGridClass = "grid grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-4"
 
-export const FavouritesSkeleton: FC<{ headingOnly?: boolean }> = ({ headingOnly = false }) => (
+export const FavouritesSkeleton: FC = () => (
   <div>
-    {headingOnly ? <div className="flex min-h-10 items-center"><Skeleton className="h-6 w-32" /></div> : <Heading />}
-    {!headingOnly && (
-      <div className={favouritesSkeletonGridClass}>
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex min-w-0 flex-col gap-1.5">
-            <Skeleton className="aspect-[2/3] w-full" />
-            <div className="flex h-[33px] flex-col gap-1"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-3/5" /></div>
-          </div>
-        ))}
-      </div>
-    )}
+    <Heading />
+    <div className={favouritesSkeletonGridClass}>
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="flex min-w-0 flex-col gap-1.5">
+          <Skeleton className="aspect-[2/3] w-full" />
+          <div className="flex h-[33px] flex-col gap-1"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-3/5" /></div>
+        </div>
+      ))}
+    </div>
   </div>
 )
 
