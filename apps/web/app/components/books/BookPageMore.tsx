@@ -74,21 +74,22 @@ const notShown = (books: DiscoverBook[], shown: Shown[]) => books.filter((b) => 
 const leadAuthor = (credit: string) => authorNames(credit).find(isLinkableAuthor)
 export const moreByHeading = (credit: string) => { const name = leadAuthor(credit); return name ? `More by ${name}` : null }
 
-// Placeholders for both author sections, under their real headings, while Open Library answers.
+// Placeholders for both author sections, under their real headings, while Open Library answers. The two
+// share one rule on the page: they're both about the author.
 export const AuthorSectionsSkeleton: FC<{ credit: string, headingClassName: string, panelClassName: string }> = ({ credit, headingClassName, panelClassName }) => {
   const name = leadAuthor(credit)
   if (!name) return null
   return (
-    <>
-      <section className={`${panelClassName} flex flex-col gap-4`} aria-busy="true">
+    <div className={`${panelClassName} flex flex-col gap-8`}>
+      <section className="flex flex-col gap-4" aria-busy="true">
         <h2 className={headingClassName}>About {name}</h2>
         <div className="flex items-start gap-4">
           <Skeleton className="size-16 shrink-0 rounded-full" />
           <div className="flex flex-1 flex-col gap-2"><Skeleton className="h-3.5 w-full" /><Skeleton className="h-3.5 w-full" /><Skeleton className="h-3.5 w-2/3" /></div>
         </div>
       </section>
-      <MoreRowSkeleton heading={`More by ${name}`} headingClassName={headingClassName} panelClassName={panelClassName} />
-    </>
+      <MoreRowSkeleton heading={`More by ${name}`} headingClassName={headingClassName} panelClassName="" />
+    </div>
   )
 }
 
@@ -110,10 +111,10 @@ export async function AuthorSections({ book, shown, headingClassName, panelClass
   const own = books.filter((b) => creditIncludes(b.author, author.slug) && (!english || b.languages?.includes("eng")))
   const picks = notShown(own, shown).slice(0, MORE_SHOWN)
   return (
-    <>
-      <AuthorBrief name={name} href={authorHref(name)} photoUrl={about?.photoUrl ?? null} bio={about?.bio[0] ?? null} headingClassName={headingClassName} className={panelClassName} />
-      {picks.length > 0 && <Row id="more-by-heading" heading={moreByHeading(book.author)!} books={picks} seeAll={authorHref(name)} headingClassName={headingClassName} panelClassName={panelClassName} />}
-    </>
+    <div className={`${panelClassName} flex flex-col gap-8`}>
+      <AuthorBrief name={name} href={authorHref(name)} photoUrl={about?.photoUrl ?? null} bio={about?.bio[0] ?? null} headingClassName={headingClassName} className="" />
+      {picks.length > 0 && <Row id="more-by-heading" heading={moreByHeading(book.author)!} books={picks} seeAll={authorHref(name)} headingClassName={headingClassName} panelClassName="" />}
+    </div>
   )
 }
 

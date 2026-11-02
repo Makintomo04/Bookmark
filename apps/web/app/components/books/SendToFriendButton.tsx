@@ -14,7 +14,8 @@ const outline = "border border-neutral-300 dark:border-neutral-700 hover:bg-neut
 
 // "Send to a friend" from a book's page, whether or not it's on your shelf: a book you'd never read
 // yourself can still be the one a friend's been waiting for. Your own copy is sent when you have one.
-const SendToFriendButton: FC<{ book: DiscoverBook, bookKey: string, className?: string }> = ({ book, bookKey, className }) => {
+// Null signed out. Shared with the book page's "…" menu.
+export function useSendToFriend(book: DiscoverBook, bookKey: string) {
   const { user } = useUser()
   const { books } = useBooks()
   const { onOpen, onOpenFromPage } = useRecommendModal()
@@ -24,7 +25,12 @@ const SendToFriendButton: FC<{ book: DiscoverBook, bookKey: string, className?: 
   const onShelf = Array.isArray(books)
     ? (books as Book[]).find((b) => b.status !== "NOT_INTERESTED" && sameBook(b, book))
     : undefined
-  const open = () => (onShelf ? onOpen(onShelf.id, book.title) : onOpenFromPage(bookKey, book.title))
+  return () => (onShelf ? onOpen(onShelf.id, book.title) : onOpenFromPage(bookKey, book.title))
+}
+
+const SendToFriendButton: FC<{ book: DiscoverBook, bookKey: string, className?: string }> = ({ book, bookKey, className }) => {
+  const open = useSendToFriend(book, bookKey)
+  if (!open) return null
 
   return (
     <button type="button" onClick={open} aria-label={`Send ${book.title} to a friend`} className={cn(base, outline, className)}>
