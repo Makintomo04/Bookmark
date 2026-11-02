@@ -2,7 +2,8 @@ import { Metadata } from 'next'
 import { handleOf, profileHandle } from '@/lib/handle'
 import { readerName } from '@/lib/profile'
 import { notFound, redirect } from 'next/navigation'
-import { parseShelfParams, shelfPageHref } from '@/lib/shelfFilter'
+import { SHELF_STATUS, parseShelfParams, shelfPageHref } from '@/lib/shelfFilter'
+import { visibleStatuses } from '@/lib/privacy'
 import { hasRequested, needsFollowApproval } from '@/lib/followRequests'
 import { followsBack, restrictedViewerFlags } from '@/lib/friends'
 import getCurrentUser from '@/app/actions/getCurrentUser'
@@ -62,10 +63,8 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 export default async function Page(props: PageProps) {
   const searchParams = (await props.searchParams) ?? {};
   const params = await props.params;
-  // Links from before shelves had their own pages (?shelf=finished) go to the shelf's page.
   const one = (name: string) => { const v = searchParams[name]; return typeof v === 'string' ? v : null }
   const linked = parseShelfParams({ get: one })
-  if (linked.shelf) redirect(shelfPageHref(handleOf(params.username), linked.shelf, linked))
   // The profile in bands; ?layout=classic is the one-column page it replaced (Band.tsx).
   const layout = profileLayoutOf(one('layout'))
   const viewer = await getCurrentUser()
@@ -73,6 +72,12 @@ export default async function Page(props: PageProps) {
   if (viewer?.username && viewer.username === handleOf(params.username)) preloadShelf()
   const data = await getProfileView(profileHandle(params.username), viewer?.id)
   if (!data) notFound()
+  // Links from before shelves had their own pages (?shelf=finished) go to the shelf's page, when this viewer
+  // may see that shelf; otherwise they stay on the profile rather than open a shelf that says no (BOO-94).
+  if (linked.shelf && data.access === "full"
+    && (data.relation.isSelf || (visibleStatuses(data.relation, data.privacy) as string[]).includes(SHELF_STATUS[linked.shelf]))) {
+    redirect(shelfPageHref(handleOf(params.username), linked.shelf, linked))
+  }
 
   let content
   if (data.access === "restricted") {

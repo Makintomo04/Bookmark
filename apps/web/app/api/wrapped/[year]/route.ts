@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { canViewUser } from "@/lib/privacy";
-import { getWrapped, getWrappedOwner, getWrappedYears, parseWrappedYear } from "@/lib/stats";
+import { getWrapped, getWrappedOwner, getWrappedYears, parseWrappedYear, wrappedAudience } from "@/lib/stats";
 
 // A year's Wrapped for the mobile app: your own, or ?username=<name> for someone else's, with the same
 // privacy check as /u/<username>/wrapped/<year>.
@@ -27,5 +27,10 @@ export async function GET(req: Request, props: { params: Promise<{ year: string 
   // Private books are the owner's alone, so anyone else sees the year without them.
   const sharedOnly = viewer?.id !== owner.id;
   const [wrapped, years] = await Promise.all([getWrapped(owner.id, year, null, { sharedOnly }), getWrappedYears(owner.id, { sharedOnly })]);
-  return NextResponse.json({ year, wrapped, years, owner: { username: owner.username, displayName: owner.displayName ?? null, accent: owner.favColour ?? null }, own: viewer?.id === owner.id });
+  const own = viewer?.id === owner.id;
+  return NextResponse.json({
+    year, wrapped, years, owner: { username: owner.username, displayName: owner.displayName ?? null, accent: owner.favColour ?? null }, own,
+    // Your own only: who the share link opens for, so the share sheet can say (BOO-94).
+    ...(own && { linkAudience: await wrappedAudience(owner.id) }),
+  });
 }

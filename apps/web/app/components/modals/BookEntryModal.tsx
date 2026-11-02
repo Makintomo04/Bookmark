@@ -14,6 +14,7 @@ import { Input } from '../ui/input'
 import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { Textarea } from '../ui/textarea'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
+import useHostingGate from '@/app/hooks/useHostingGate'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { Button } from '../ui/button'
 import axios from 'axios'
@@ -74,6 +75,8 @@ const BookEntryModal: FC = () => {
   const [format, setFormat] = useState<FormatChoice>("PRINT")
   // "Start a circle for this book": after adding, go straight to the new-circle form with it chosen.
   const [startCircle, setStartCircle] = useState(false)
+  // At the hosting limit the switch asks first (BOO-94) rather than leading to a form that says no.
+  const gate = useHostingGate(bookEntryModal.isOpen)
   // Private: on the reader's shelf as usual, but left off their profile and out of followers' feeds.
   const [isPrivate, setIsPrivate] = useState(false)
   // A hand-typed, shared book: ask a librarian to add it to the catalogue once it's on the shelf.
@@ -228,7 +231,7 @@ const BookEntryModal: FC = () => {
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()
-      if (startCircle && saved?.id && shelf !== "COMPLETED") router.push(`/circles/new?bookId=${saved.id}`)
+      if (startCircle && !gate.blocked && saved?.id && shelf !== "COMPLETED") router.push(`/circles/new?bookId=${saved.id}`)
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't add that book. Try again."))
     }).finally(() => {
@@ -445,20 +448,20 @@ const BookEntryModal: FC = () => {
         <button
           type="button"
           role="switch"
-          aria-checked={startCircle}
-          onClick={() => setStartCircle((v) => !v)}
+          aria-checked={startCircle && !gate.blocked}
+          onClick={() => (gate.blocked ? gate.refuse() : setStartCircle((v) => !v))}
           disabled={isLoading}
           className="flex items-start gap-3 text-left w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <span
-            className={cn("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", !startCircle && "bg-neutral-300 dark:bg-neutral-700")}
-            style={startCircle ? { background: user?.favColour || "#D92D2D" } : undefined}
+            className={cn("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", (!startCircle || gate.blocked) && "bg-neutral-300 dark:bg-neutral-700")}
+            style={startCircle && !gate.blocked ? { background: user?.favColour || "#D92D2D" } : undefined}
           >
-            <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", startCircle && "translate-x-5")} />
+            <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", startCircle && !gate.blocked && "translate-x-5")} />
           </span>
           <span>
             <span className="flex items-center gap-1.5 text-sm font-medium"><Users size={14} aria-hidden /> Start a reading circle for this book</span>
-            <span className="block text-sm text-muted-foreground">Read it with friends: you&apos;ll get an invite link right after adding it.</span>
+            <span className="block text-sm text-muted-foreground">{gate.blocked && gate.message ? gate.message : <>Read it with friends: you&apos;ll get an invite link right after adding it.</>}</span>
           </span>
         </button>
       )}

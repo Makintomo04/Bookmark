@@ -25,7 +25,8 @@ import { useTheme } from "@/lib/theme";
 const fmt = (n: number) => n.toLocaleString("en-GB");
 const INK = "#0B0B0C";
 
-type WrappedResponse = { year: number; wrapped: WrappedData; years: number[]; owner: { username: string | null; displayName?: string | null; accent: string | null }; own: boolean };
+// linkAudience, your own only: who the share link opens for (lib/stats.ts wrappedAudience on the web).
+type WrappedResponse = { year: number; wrapped: WrappedData; years: number[]; owner: { username: string | null; displayName?: string | null; accent: string | null }; own: boolean; linkAudience?: "everyone" | "followers" | "you" };
 type Tone = "accent" | "ink" | "paper";
 
 export default function Wrapped() {
@@ -239,7 +240,10 @@ export default function Wrapped() {
             aspect: 9 / 16,
             hasRatings: !!w.topRated,
             leftOutPath: `/api/wrap/left-out?year=${w.year}`,
-            link: { label: "Share the link to your Wrapped", url: shareUrl, message: `My ${w.year} in books ${shareUrl}` },
+            // Nobody else can open the link while Finished is private, so only the image is offered then (BOO-94).
+            link: data.linkAudience === "you" ? undefined : { label: "Share the link to your Wrapped", url: shareUrl, message: `My ${w.year} in books ${shareUrl}` },
+            linkNote: data.linkAudience === "you" ? "Your Finished shelf is private, so only you can open the link. Share the image instead."
+              : data.linkAudience === "followers" ? "Your profile isn't public, so only your followers can open the link." : undefined,
           }}
         />
       )}
