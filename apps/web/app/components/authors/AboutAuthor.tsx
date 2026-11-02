@@ -1,13 +1,11 @@
 "use client"
 import { FC, useState } from 'react'
-import Image from 'next/image'
+import AuthorPhoto from './AuthorPhoto'
 import { AtSign, Globe } from 'lucide-react'
 import { FaInstagram, FaTiktok, FaXTwitter } from 'react-icons/fa6'
 import { cn } from '@/lib/utils'
 import type { AuthorAbout } from '@/lib/authors'
 import type { AuthorLink, AuthorLinkKind } from '@/lib/authorLinks'
-
-const initials = (name: string) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
 // Bluesky has no icon in our react-icons version, so it gets lucide's "@".
 const LINK_ICONS: Record<AuthorLinkKind, FC<{ className?: string }>> = {
@@ -42,13 +40,7 @@ const AboutAuthor: FC<{ name: string; about: AuthorAbout; bookCount: number | nu
     <section aria-labelledby="about-author-heading" className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-800 sm:p-6">
       <h2 id="about-author-heading" className="mb-4 text-lg font-semibold">About the author</h2>
       <div className="flex items-center gap-4">
-        {photoUrl ? (
-          // unoptimized: a librarian's photo can be on any https host, and the optimiser only takes the hosts
-          // in next.config.mjs, so anything else would fail and drop to the initials.
-          <Image src={photoUrl} alt={`Photo of ${name}`} width={72} height={72} unoptimized onError={() => setPhotoFailed(true)} className="size-[72px] shrink-0 rounded-full object-cover bg-neutral-100 dark:bg-neutral-900" />
-        ) : (
-          <span aria-hidden className="grid size-[72px] shrink-0 place-items-center rounded-full bg-neutral-100 text-xl font-semibold text-muted-foreground dark:bg-neutral-900">{initials(name)}</span>
-        )}
+        <AuthorPhoto name={name} photoUrl={photoUrl} size={72} onFail={() => setPhotoFailed(true)} />
         <div className="min-w-0">
           <p className="text-lg font-semibold leading-tight">{name}</p>
           {!!bookCount && <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{bookCount.toLocaleString('en-GB')} {bookCount === 1 ? 'book' : 'books'}</p>}
