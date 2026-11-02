@@ -7,16 +7,19 @@ export type TierStep = Omit<ReaderTier, "key"> & { key: ReaderTier["key"] | "new
 
 // The emblem is a bookmark ribbon: a metal rim around an inset, polished face, with its motif engraved flat
 // into the face. Each tier adds a detail: Silver an inner border, studs and a star, Gold a red jewel seal
-// and the sweep of light, Platinum a crown, Diamond a cut gem in place of the Bookmark mark.
+// and the sweep of light, Platinum a crown, Diamond the mark cut as a gem.
 const RIBBON = "M22 18 Q22 8 32 8 H88 Q98 8 98 18 V120 L60 98 L22 120 Z"
 const FACE = "M27 19 Q27 13 33 13 H87 Q93 13 93 19 V111 L60 92.5 L27 111 Z"
 const INNER = "M34 25 Q34 21 38 21 H82 Q86 21 86 25 V101 L60 87 L34 101 Z"
 // The Bookmark mark (public/logo.svg), centred on the face.
 const MARK = "M25.5097 30.5354L4.94348 30.536C2.73429 30.5361 0.943359 28.7452 0.943359 26.536L0.943358 4.61413C0.943358 2.40504 2.73414 0.614201 4.94324 0.614134L25.5092 0.613509C28.7291 0.613412 30.6295 4.22392 28.8065 6.87812L24.3892 13.3096C23.4521 14.6739 23.4521 16.4745 24.3892 17.8388L28.8068 24.2708C30.6297 26.9249 28.7296 30.5353 25.5097 30.5354Z"
 const MARK_PLACE = "translate(60 50) scale(.95) translate(-15.4 -15.6)"
-const GEM = [[60, 36], [82, 49], [82, 75], [60, 88], [38, 75], [38, 49]]
-const GEM_TABLE = GEM.map(([x, y]) => [60 + (x - 60) * .45, 62 + (y - 62) * .45])
-const FACET_LIGHT = [.38, .08, .22, .02, .14, .3]
+// Diamond's gem is the mark itself, faceted: an outline of the mark in its own units, a table (the flat top)
+// shrunk towards a centre left of the notch, and the facets between them, each lit differently. The facets are
+// clipped to the real mark so its rounded corners stay round.
+const GEM = [[.9, .6], [25.5, .6], [29.6, 4.5], [23.7, 15.6], [29.6, 26.6], [25.5, 30.5], [.9, 30.5]]
+const GEM_TABLE = GEM.map(([x, y]) => [11 + (x - 11) * .45, 15.6 + (y - 15.6) * .45])
+const FACET_LIGHT = [.38, .1, .24, .04, .16, .3, .12]
 
 // The emblem's height over its width, for laying out the carousel.
 export const EMBLEM_ASPECT = 142 / 120
@@ -60,13 +63,14 @@ const TierEmblem: FC<{ step: TierStep; rank: number }> = ({ step: t, rank }) => 
           <stop offset="0" stopColor="#FF8A80" /><stop offset=".5" stopColor="#D92D2D" /><stop offset="1" stopColor="#5E0B0B" />
         </radialGradient>
         <linearGradient id={`${id}-g`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#F2FDFF" /><stop offset=".45" stopColor="#8FDDF4" /><stop offset="1" stopColor="#6A4FD0" />
+          <stop offset="0" stopColor="#E6FAFF" /><stop offset=".4" stopColor="#4FC3EC" /><stop offset="1" stopColor="#4B2FB8" />
         </linearGradient>
         <linearGradient id={`${id}-sh`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".6" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
         <clipPath id={`${id}-c`}><path d={RIBBON} /></clipPath>
         <clipPath id={`${id}-cf`}><path d={FACE} /></clipPath>
+        <clipPath id={`${id}-mk`}><path d={MARK} /></clipPath>
       </defs>
 
       {rank >= 4 && (
@@ -98,15 +102,18 @@ const TierEmblem: FC<{ step: TierStep; rank: number }> = ({ step: t, rank }) => 
       )}
 
       {rank === 5 ? (
-        <g transform="translate(60 50) scale(.78) translate(-60 -62)">
-          <polygon points={pts(GEM)} fill={`url(#${id}-g)`} />
-          {GEM.map((p, k) => (
-            <polygon key={k} points={pts([p, GEM[(k + 1) % 6], GEM_TABLE[(k + 1) % 6], GEM_TABLE[k]])} fill="#fff" opacity={FACET_LIGHT[k]} />
-          ))}
-          <polygon points={pts(GEM_TABLE)} fill="#fff" opacity={.18} />
-          <polygon points={pts(GEM)} fill="none" stroke={metal} strokeWidth={3.2} strokeLinejoin="round" />
-          <polygon points={pts(GEM)} fill="none" stroke="#3F2E8A" strokeWidth={.8} strokeLinejoin="round" opacity={.7} />
-          <path d={star(70, 46, 5)} fill="#fff" />
+        <g transform="translate(60 50) scale(1.15) translate(-15.4 -15.6)">
+          <path d={MARK} fill={`url(#${id}-g)`} />
+          <g clipPath={`url(#${id}-mk)`}>
+            {GEM.map((p, k) => (
+              <polygon key={k} points={pts([p, GEM[(k + 1) % GEM.length], GEM_TABLE[(k + 1) % GEM.length], GEM_TABLE[k]])} fill="#fff" opacity={FACET_LIGHT[k]} />
+            ))}
+            <polygon points={pts(GEM_TABLE)} fill="#fff" opacity={.18} />
+            <path d={GEM.map((p, k) => `M${p} L${GEM_TABLE[k]}`).join(" ")} stroke="#fff" strokeWidth={.35} opacity={.5} />
+          </g>
+          <path d={MARK} fill="none" stroke={t.shade} strokeWidth={2.6} strokeLinejoin="round" />
+          <path d={MARK} fill="none" stroke={t.light} strokeWidth={.7} strokeLinejoin="round" opacity={.8} />
+          <path d={star(19, 7, 4)} fill="#fff" />
         </g>
       ) : (
         <path d={MARK} transform={MARK_PLACE} fill={t.shade} opacity={.6} />
