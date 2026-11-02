@@ -13,6 +13,7 @@ import Modal from '../modals/Modal'
 import Medal from './Medal'
 import MedalBand from './MedalBand'
 import { getMedalColour } from './achievementTheme'
+import { READER_TIERS } from '@/lib/readerTier'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 
 // A short burst in the medals' own colours. canvas-confetti skips it when the reader asks for reduced motion.
@@ -54,7 +55,10 @@ const EarnCelebration: FC = () => {
   const username: string | null = user?.username ?? null
 
   useEffect(() => {
-    if (moment && moment.medals.length > 0) burst(Array.from(new Set(moment.medals.map((m) => getMedalColour(m.achievementKey)))))
+    if (!moment || moment.medals.length === 0) return
+    // A tier-up bursts in the new tier's metal; otherwise in the medals' colours.
+    const tier = moment.tier && READER_TIERS.find((t) => t.key === moment.tier!.key)
+    burst(tier ? [tier.light, tier.colour, tier.shade] : Array.from(new Set(moment.medals.map((m) => getMedalColour(m.achievementKey)))))
   }, [moment])
 
   if (!moment || moment.medals.length === 0) return null
