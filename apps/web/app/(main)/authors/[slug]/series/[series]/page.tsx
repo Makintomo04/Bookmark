@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react'
 import Container, { PAGE_TOP } from '@/app/components/Container'
 import SeriesBooks from '@/app/components/series/SeriesBooks'
 import FollowSeriesButton from '@/app/components/series/FollowSeriesButton'
+import RefreshOnShelfChange from '@/app/components/series/RefreshOnShelfChange'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { findAuthor } from '@/lib/authors'
 import { authorHref, authorSlug } from '@/lib/authorNames'
@@ -93,6 +94,7 @@ const Page = async (props: PageProps) => {
           )}
         </div>
         <SeriesBooks track={track} />
+        {user && <RefreshOnShelfChange />}
       </Container>
     </div>
   )
