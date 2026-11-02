@@ -50,7 +50,8 @@ const config = {
         // `text` is red words and links, darkened in light mode to keep 4.5:1.
         brand: {
           DEFAULT: "#F13C3C",
-          fill: "#D92D2D",
+          // The theme's --primary: #D92D2D in light, Ink blue's softer #CC3F3A in dark.
+          fill: "hsl(var(--primary) / <alpha-value>)",
           "fill-hover": "#C42727",
           text: "hsl(var(--brand-text))",
         },
