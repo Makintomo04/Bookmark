@@ -349,21 +349,96 @@ export function buildTimeline(comments: SerializedComment[]): TimelineEntry[] {
   return out
 }
 
-export const formatPercent = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)}%`
+// Whole numbers ("66%"). Anywhere strictly between 0 and 100 stays there, so a reader who has started never
+// reads "0%" and one a page from the end never reads "100%".
+export const formatPercent = (n: number) => `${n > 0 && n < 100 ? Math.min(99, Math.max(1, Math.round(n))) : Math.round(n)}%`
 
 // Where you stand in a circle, in words, and whether it belongs with the finished ones. Every list
 // derives this here, so the label can't contradict the percent beside it: a circle where everyone is
 // still at 0 isn't one you're "furthest along" in, and one where everyone has finished isn't "Reading now".
-export type CircleStanding = { finished: boolean, label: string }
-export function circleStanding(circle: { status: string, myProgress: number, members: { progress: number }[] }): CircleStanding {
+// `summary` is the circle page's one line under the shared track: "You're at 66%. circleguest is just behind
+// you; plusfriend hasn't started." Pass each member's `name` and `isYou` for it to name people.
+export type CircleStanding = { finished: boolean, label: string, summary: string }
+type StandingMember = { progress: number, name?: string | null, isYou?: boolean }
+export function circleStanding(circle: { status: string, myProgress: number, members: StandingMember[] }): CircleStanding {
   const { status, myProgress, members } = circle
+  const summary = standingSummary(myProgress, members)
   const everyoneDone = members.length > 1 && members.every((m) => m.progress >= 100)
-  if (status !== "ACTIVE") return { finished: true, label: everyoneDone ? "Everyone's finished" : "Circle finished" }
-  if (members.length <= 1) return { finished: false, label: "Waiting for friends to join" }
-  if (everyoneDone) return { finished: true, label: "Everyone's finished" }
-  if (members.every((m) => m.progress <= 0)) return { finished: false, label: "Nobody's started yet" }
+  if (status !== "ACTIVE") return { finished: true, label: everyoneDone ? "Everyone's finished" : "Circle finished", summary }
+  if (members.length <= 1) return { finished: false, label: "Waiting for friends to join", summary }
+  if (everyoneDone) return { finished: true, label: "Everyone's finished", summary }
+  if (members.every((m) => m.progress <= 0)) return { finished: false, label: "Nobody's started yet", summary }
   const ahead = members.filter((m) => m.progress > myProgress).length
-  if (ahead > 0) return { finished: false, label: `${ahead} ${ahead === 1 ? "reader is" : "readers are"} ahead of you` }
+  if (ahead > 0) return { finished: false, label: `${ahead} ${ahead === 1 ? "reader is" : "readers are"} ahead of you`, summary }
   const level = members.filter((m) => m.progress === myProgress).length
-  return { finished: false, label: level > 1 ? "You're joint furthest along" : "You're furthest along" }
+  return { finished: false, label: level > 1 ? "You're joint furthest along" : "You're furthest along", summary }
 }
+
+// Within this many points either side, someone is "just" ahead of or behind you.
+const NEAR = 5
+// Up to this many others are named; past it the line counts them instead.
+const NAMED = 3
+
+function standingSummary(myProgress: number, members: StandingMember[]): string {
+  // Members include you; without an `isYou` flag, you're the first at your own progress.
+  const youAt = members.some((m) => m.isYou) ? members.findIndex((m) => m.isYou) : members.findIndex((m) => m.progress === myProgress)
+  const others = members.filter((_, i) => i !== youAt)
+  const mine = formatPercent(myProgress)
+  if (others.length > 0 && myProgress <= 0 && others.every((m) => m.progress <= 0)) return "Nobody's started yet."
+  if (others.length > 0 && myProgress >= 100 && others.every((m) => m.progress >= 100)) return "Everyone's finished."
+  const lead = myProgress >= 100 ? "You've finished." : myProgress <= 0 ? "You haven't started yet." : `You're at ${mine}.`
+  if (others.length === 0) return `${lead} Nobody else has joined yet.`
+
+  // Compared as shown, so "level with you" never sits beside two different percents.
+  const shown = (n: number) => formatPercent(n)
+  type Kind = "finished" | "ahead" | "justAhead" | "level" | "justBehind" | "behind" | "notStarted"
+  const kindOf = (p: number): Kind => {
+    if (p >= 100) return "finished"
+    if (p <= 0) return "notStarted"
+    if (shown(p) === mine) return "level"
+    if (p > myProgress) return p - myProgress <= NEAR ? "justAhead" : "ahead"
+    return myProgress - p <= NEAR ? "justBehind" : "behind"
+  }
+
+  const named = others.length <= NAMED && others.every((m) => m.name)
+  if (!named) {
+    const count = (kinds: Kind[]) => others.filter((m) => kinds.includes(kindOf(m.progress))).length
+    const ahead = count(["finished", "ahead", "justAhead"])
+    const level = count(["level"])
+    const behind = count(["behind", "justBehind"])
+    const notStarted = count(["notStarted"])
+    const parts = [
+      ahead && `${ahead} ${ahead === 1 ? "is" : "are"} ahead of you`,
+      level && `${level} ${level === 1 ? "is" : "are"} level with you`,
+      behind && `${behind} ${behind === 1 ? "is" : "are"} behind`,
+      notStarted && `${notStarted} ${notStarted === 1 ? "hasn't" : "haven't"} started`,
+    ].filter(Boolean)
+    return `${lead} ${capitalise(parts.join(", "))}.`
+  }
+
+  // Furthest along first, then the same kinds share one clause: "A and B haven't started".
+  const order: Kind[] = ["finished", "ahead", "justAhead", "level", "justBehind", "behind", "notStarted"]
+  const sorted = [...others].sort((a, b) => b.progress - a.progress)
+  const clauses: string[] = []
+  for (const kind of order) {
+    const people = sorted.filter((m) => kindOf(m.progress) === kind)
+    if (people.length === 0) continue
+    if (kind === "ahead" || kind === "behind") {
+      for (const m of people) clauses.push(`${m.name} is ${kind === "ahead" ? "ahead at" : "at"} ${shown(m.progress)}`)
+      continue
+    }
+    const names = listNames(people.map((m) => m.name!))
+    const one = people.length === 1
+    clauses.push({
+      finished: `${names} ${one ? "has" : "have"} finished`,
+      justAhead: `${names} ${one ? "is" : "are"} just ahead of you`,
+      level: `${names} ${one ? "is" : "are"} level with you`,
+      justBehind: `${names} ${one ? "is" : "are"} just behind you`,
+      notStarted: `${names} ${one ? "hasn't" : "haven't"} started`,
+    }[kind])
+  }
+  return `${lead} ${clauses.join("; ")}.`
+}
+
+const listNames = (names: string[]) => names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)

@@ -24,11 +24,13 @@ interface InvitePanelProps {
   clubArchived?: boolean
   // How many it takes: a club's book takes the club's size (BOO-79), up to 150.
   memberCap?: number
+  // In the invite sheet, whose title already says it.
+  hideHeading?: boolean
 }
 
 // The link is the main way in (it unfurls with the cover and everyone's colours); a friend can be ticked
 // from the list, and anyone else invited by username: both land in their notifications. Neither needs a follow.
-const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset, clubInviteCode, clubArchived, memberCap = BUDDY_READ_MAX_MEMBERS }) => {
+const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCount, memberUsernames = [], isHost, onLinkReset, clubInviteCode, clubArchived, memberCap = BUDDY_READ_MAX_MEMBERS, hideHeading }) => {
   const [copied, setCopied] = useState(false)
   const [username, setUsername] = useState("")
   const [isSending, setIsSending] = useState(false)
@@ -79,7 +81,7 @@ const InvitePanel: FC<InvitePanelProps> = ({ buddyReadId, inviteCode, memberCoun
 
   return (
     <section aria-labelledby="invite-heading" className="flex flex-col gap-3">
-      <h2 id="invite-heading" className="text-sm font-semibold">{clubArchived ? "Invite a member back" : "Invite readers"}</h2>
+      <h2 id="invite-heading" className={hideHeading ? "sr-only" : "text-sm font-semibold"}>{clubArchived ? "Invite a member back" : "Invite readers"}</h2>
       {clubArchived && <p className="text-xs text-muted-foreground">The club is archived, so only its members can join. Inviting someone who was removed lets them back in.</p>}
       {!clubArchived && <button type="button" onClick={copy} className={`${secondaryButtonClass} justify-start w-full`}>
         {copied ? <Check size={16} aria-hidden /> : <Link2 size={16} aria-hidden />}

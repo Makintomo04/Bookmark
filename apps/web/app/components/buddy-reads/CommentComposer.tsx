@@ -1,10 +1,9 @@
 "use client"
-import { FC, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
-import { Lock } from 'lucide-react'
+import { ArrowUp, Lock } from 'lucide-react'
 import { notify, apiError } from '@/lib/notify'
 import { COMMENT_MAX, LABEL_MAX, formatPercent } from '@/lib/buddyReads'
-import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 import { ClearableInput } from '@/app/components/ui/clearable-input'
 
 interface CommentComposerProps {
@@ -21,8 +20,11 @@ interface CommentComposerProps {
 
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
+// The input grows with what's typed up to about six lines, then scrolls.
+const MAX_HEIGHT = 144
+
 // A comment is pinned where the author is, so it stays hidden from anyone who hasn't got there.
-// They can pull it earlier ("this is about chapter 3"), never later.
+// They can pull it earlier ("this is about chapter 3"), never later: the lock chip opens that control.
 const CommentComposer: FC<CommentComposerProps> = ({ buddyReadId, progress, parentId, parentPosition, onPosted, onCancel, autoFocus }) => {
   const floor = parentPosition ?? 0
   const [body, setBody] = useState("")
@@ -32,8 +34,16 @@ const CommentComposer: FC<CommentComposerProps> = ({ buddyReadId, progress, pare
   const [pageLabel, setPageLabel] = useState("")
   const [showPin, setShowPin] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const isReply = !!parentId
   const pinned = Math.max(floor, Math.min(position ?? progress, progress))
+
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`
+  }, [body])
 
   const submit = () => {
     if (!body.trim() || isSaving) return
@@ -59,28 +69,9 @@ const CommentComposer: FC<CommentComposerProps> = ({ buddyReadId, progress, pare
   const id = parentId ? `reply-${parentId}` : "new-comment"
 
   return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); submit() }}
-      className="flex flex-col gap-3"
-    >
-      <label htmlFor={id} className="sr-only">{isReply ? "Your reply" : "Your comment"}</label>
-      <textarea
-        id={id}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit() }
-        }}
-        maxLength={COMMENT_MAX}
-        rows={isReply ? 2 : 3}
-        autoFocus={autoFocus}
-        placeholder={isReply ? "Reply…" : "What do you make of it so far?"}
-        disabled={isSaving}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
-      />
-
+    <form onSubmit={(e) => { e.preventDefault(); submit() }} className="flex flex-col gap-2">
       {showPin && (
-        <div className="flex flex-col gap-3 rounded-lg bg-neutral-100 dark:bg-neutral-900 p-3">
+        <div id={`${id}-pin`} className="flex flex-col gap-3 px-1 pb-1">
           <div>
             <label htmlFor={`${id}-position`} className="flex items-baseline justify-between text-sm font-medium">
               <span>About this point in the book</span>
@@ -112,22 +103,51 @@ const CommentComposer: FC<CommentComposerProps> = ({ buddyReadId, progress, pare
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => setShowPin(!showPin)}
-          aria-expanded={showPin}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        >
-          <Lock size={14} aria-hidden />Hidden until {formatPercent(pinned)}{showPin ? "" : " · change"}
-        </button>
-        <div className="flex gap-2">
-          {onCancel && <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>Cancel</button>}
-          <button type="submit" disabled={isSaving || !body.trim()} className={primaryButtonClass}>
-            {isSaving ? "Posting…" : isReply ? "Reply" : "Post"}
+      <div className="flex items-end gap-2">
+        <div className="flex min-h-11 min-w-0 flex-1 items-end gap-2 rounded-[22px] border border-neutral-300 bg-background py-1.5 pl-4 pr-1.5 focus-within:ring-2 focus-within:ring-ring dark:border-neutral-700">
+          <label htmlFor={id} className="sr-only">{isReply ? "Your reply" : "Add to the discussion"}</label>
+          <textarea
+            id={id}
+            ref={inputRef}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter sends with a keyboard and mouse; on a touch screen it's a new line and the button sends.
+              const send = (e.metaKey || e.ctrlKey) || (!e.shiftKey && window.matchMedia("(pointer: fine)").matches)
+              if (e.key === "Enter" && send && !e.nativeEvent.isComposing) { e.preventDefault(); submit() }
+            }}
+            maxLength={COMMENT_MAX}
+            rows={1}
+            autoFocus={autoFocus}
+            placeholder={isReply ? "Reply…" : "Add to the discussion"}
+            disabled={isSaving}
+            className="min-w-0 flex-1 resize-none self-center bg-transparent py-1 text-[15px] leading-6 placeholder:text-muted-foreground focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPin(!showPin)}
+            aria-expanded={showPin}
+            aria-controls={`${id}-pin`}
+            aria-label={`Pinned at ${formatPercent(pinned)}, change`}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-2.5 text-xs font-medium tabular-nums text-muted-foreground hover:text-foreground dark:bg-neutral-800"
+          >
+            <Lock size={11} strokeWidth={2.4} aria-hidden />{formatPercent(pinned)}
           </button>
         </div>
+        <button
+          type="submit"
+          aria-label={isSaving ? "Posting" : isReply ? "Send reply" : "Send"}
+          disabled={isSaving || !body.trim()}
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-fill text-white transition hover:bg-brand-fill-hover disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <ArrowUp size={18} aria-hidden />
+        </button>
       </div>
+      {onCancel && (
+        <button type="button" onClick={onCancel} disabled={isSaving} className="self-start text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">
+          Cancel
+        </button>
+      )}
     </form>
   )
 }
