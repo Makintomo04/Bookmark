@@ -16,6 +16,7 @@ import { z } from "zod";
 import { parseAudioMinutes } from "@/lib/bookInput";
 import { fillWorkSeriesQuietly } from "@/lib/seriesFill";
 import { alreadyShelved, shelfCopies } from "@/lib/shelfCopy";
+import { workPageCount } from "@/lib/catalog/pageCount";
 
 const statusSchema = z.nativeEnum(Status)
 // Matches PATCH /api/book-progress, where a review is written on finishing a book already on the shelf.
@@ -229,7 +230,9 @@ const catalog = await linkCatalog(
   },
   { lookup: true, describe: true },
 )
-const totalPages = givenPages || (!isAudiobook && catalog?.edition.pages) || 0
+// Failing the edition's own length, another print edition of the work's: Up next starts a book from just its
+// title and author, which files it under a generic edition with no page count.
+const totalPages = givenPages || (!isAudiobook && (catalog?.edition.pages || await workPageCount(catalog?.work.id))) || 0
 // Adding from someone else's list or pick can bring their uploaded cover along. Uploads stay on the
 // uploader's own copy (lib/uploads.ts), so this copy takes the catalogue's cover instead.
 const ownCover = await shareableCover(str(coverImgSrc), currentUser.id)

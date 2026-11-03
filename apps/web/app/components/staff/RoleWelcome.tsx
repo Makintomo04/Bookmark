@@ -91,7 +91,7 @@ const RoleWelcome: FC = () => {
     </div>
   )
 
-  return <Modal isOpen onClose={closeFromModal}title={welcome.heading} body={body} compact size="sm" />
+  return <Modal isOpen onClose={closeFromModal} title={welcome.heading} body={body} size="s" />
 }
 
 export default RoleWelcome

@@ -8,10 +8,11 @@ import { notify } from '@/lib/notify'
 import { useForm } from 'react-hook-form'
 import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import { Button } from '../ui/button'
 import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cn } from '@/lib/utils'
-import { readableInk, toHex } from '@/lib/colour'
+import { toHex } from '@/lib/colour'
 import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, PROFILE_LINKS_MAX, displayNameProblem, normaliseDisplayName, normaliseProfileLink, normaliseUsername, usernameProblem } from '@/lib/profile'
 import { bannerTintCss, uploadedBanner } from '@/lib/banners'
 import { supporterOf } from '@/lib/supporter'
@@ -76,7 +77,6 @@ const EditProfileModal: FC = () => {
 
   const [username, displayName, bio, imageSrc, bannerSrc, colour] = watch(["username", "displayName", "bio", "imageSrc", "bannerSrc", "color"])
   const accent = colour || DEFAULT_COLOUR
-  const accentInk = readableInk(accent)
   const avatarSrc = avatar.preview || imageSrc
   // The photo's shape, as on the profile: a rounded square for a Plus supporter, a circle for everyone else.
   const squareAvatar = !!user && supporterOf(user).supporter
@@ -310,21 +310,12 @@ const EditProfileModal: FC = () => {
   const saveLabel = isSaving ? "Saving…" : isUploading ? "Uploading…" : "Save changes"
 
   const footer = (
-    <div className="w-full p-6 flex items-center justify-end gap-3">
-      <Button type="button" variant="outline" onClick={close} disabled={isBusy} className="hidden sm:inline-flex">
-        {isDirty ? "Cancel" : "Close"}
-      </Button>
-      <Button
-        type="submit"
-        form="edit-profile-form"
-        disabled={!isDirty || isBusy}
-        loading={isBusy}
-        style={{ background: accent, color: accentInk }}
-        className="transition-colors"
-      >
+    <ModalFooter>
+      <Button type="button" variant="ghost" onClick={close} disabled={isBusy}>Cancel</Button>
+      <Button type="submit" form="edit-profile-form" disabled={!isDirty || isBusy} loading={isBusy}>
         {saveLabel}
       </Button>
-    </div>
+    </ModalFooter>
   )
 
   return (
@@ -336,7 +327,7 @@ const EditProfileModal: FC = () => {
       isOpen={isOpen}
       disabled={isBusy}
       closeOnBackdrop={!isDirty}
-      compact
+      size="m"
     />
   )
 }

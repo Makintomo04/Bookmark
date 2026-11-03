@@ -108,7 +108,7 @@ const AchievementDetail: FC<AchievementDetailProps> = ({ achievement, onClose, r
     </div>
   )
 
-  return <Modal isOpen onClose={onClose} title={achievement.title} body={body} compact size="sm" />
+  return <Modal isOpen onClose={onClose} title={achievement.title} body={body} size="s" />
 }
 
 export default AchievementDetail

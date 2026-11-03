@@ -16,6 +16,8 @@ function variables(selector: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [, name, value] of Array.from(block.matchAll(/--([a-z-]+):\s*([^;]+);/g))) out[name] = value.trim();
   delete out.radius;
+  // shadow-float is a web shadow, not a colour; the mobile app draws its own elevation.
+  delete out["shadow-float"];
   // The neutral scale (Tailwind's grey ramp) is web-only; the mobile app styles with the tokens.
   for (const name of Object.keys(out)) if (name.startsWith("neutral-")) delete out[name];
   return out;

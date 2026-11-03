@@ -1,6 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Plus } from 'lucide-react'
 import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
 import Link from 'next/link'
@@ -10,6 +11,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
+import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import ProfileSkeleton, { ReadingNowSkeleton } from './ProfileSkeleton'
 import ProfileHeader, { secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
@@ -17,13 +19,13 @@ import ContinueReading from './ContinueReading'
 import UpNext from './UpNext'
 import ShelfSearch from './ShelfSearch'
 import ProfileLinkRows from './ProfileLinkRows'
+import OwnReviews from './OwnReviews'
 import BandsShowcase, { ProfileFavourites } from './BandsShowcase'
 import BookList from '../books/BookList'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
 import { isNarrowed } from '@/lib/shelfFilter'
 import { groupShelf } from '../books/shelf'
 import { BANDS_REVIEWS, type ProfileLayout } from './Band'
-import OwnReviews from './OwnReviews'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
@@ -54,6 +56,7 @@ const BooksTop: FC = () => {
   const { user } = useUser()
   const { books } = useBooks()
   const shared = useSharedShelfFilter()
+  const bookEntryModal = useBookEntryModal()
   if (!Array.isArray(books)) return <ReadingNowSkeleton progress heading="w-44" />
   const { reading, finished } = groupShelf(books as Book[])
   const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
@@ -67,7 +70,15 @@ const BooksTop: FC = () => {
         <h2 id="continue-reading" className="flex items-baseline gap-2 text-lg font-semibold">
           {searching ? "Your shelf" : reading.length > 0 ? <>Continue reading <span className="text-sm font-normal text-muted-foreground tabular-nums">{reading.length}</span></> : "Up next"}
         </h2>
-        <ShelfSearch />
+        {/* Adding a book heads the first books section, high on the page and beside the books it joins (BOO-97). */}
+        <div className="flex shrink-0 items-center gap-2">
+          <ShelfSearch />
+          {/* "Add" on a phone, so "Continue reading" stays on one line beside it. */}
+          <button type="button" onClick={() => bookEntryModal.onOpen()} aria-label="Add a book"
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-neutral-300 px-3.5 text-sm font-medium transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-fine:h-9 dark:border-neutral-700 dark:hover:bg-neutral-900">
+            <Plus size={16} aria-hidden /><span className="sm:hidden">Add</span><span className="hidden sm:inline">Add a book</span>
+          </button>
+        </div>
       </div>
       {searching ? <BookList slot="results" /> : reading.length > 0
         ? <><ContinueReading books={reading} finished={finished} accentColour={user?.favColour} /><div className="lg:hidden"><UpNext /></div></>
@@ -79,6 +90,9 @@ const BooksTop: FC = () => {
           Can&apos;t decide? <Link href="/first-book" className="font-medium text-foreground underline-offset-4 hover:underline">Help me pick a book</Link>
         </p>
       )}
+      {/* On a phone your favourites come after what you're reading and what's next, before your shelves; from md
+          they're beside your header (`lead`). */}
+      {!searching && <div className="mt-12 md:hidden"><ProfileFavourites half /></div>}
       {/* From lg up the rest of this column is Up next (three) beside your lists, so they sit beside your reviews
           rather than under them. Below lg they stay bands of their own (OwnerProfile). */}
       {!searching && user && (
@@ -86,9 +100,12 @@ const BooksTop: FC = () => {
           <BandsShowcase username={user.username} column withUpNext={reading.length > 0} />
         </div>
       )}
+      {/* Your shelves end this column: beside your header from lg up, and straight after Up next on a phone, rather
+          than a full-width band at the foot of the page. Out of the way while you search, as the results take their place. */}
+      {!searching && (
+        <div className="mt-10 border-t border-neutral-200 pt-10 dark:border-neutral-800"><BookList slot="shelves" /></div>
+      )}
     </section>
-    {/* On a phone your favourites come after what you're reading; from md they're beside your header (`lead`). */}
-    {!searching && <div className="mt-12 md:hidden"><ProfileFavourites half /></div>}
     </>
   )
 }
@@ -144,13 +161,13 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         // what you come here to update, and they follow it (BooksTop).
         lead={bands ? <ProfileFavourites half /> : undefined}
         leadOnPhone={false}
-        // From lg up the column ends with the ways further in and, under them, your reviews, as on someone else's
-        // profile; below lg both are further down the page (OwnerProfile).
+        // From lg up the column ends with your reviews, then the ways further in; below lg both are further down
+        // the page (OwnerProfile).
         identityFooter={bands ? (
-          <>
-            <ProfileLinkRows className="mt-8" rows={ownLinkRows(earned)} />
-            <div className="mt-10 empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
-          </>
+          <div className="mt-10 flex flex-col gap-8">
+            <div className="empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
+            <ProfileLinkRows rows={ownLinkRows(earned)} />
+          </div>
         ) : undefined}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[

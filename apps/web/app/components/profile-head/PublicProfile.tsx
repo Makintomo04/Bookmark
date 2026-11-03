@@ -60,12 +60,10 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   ) : (
     <PublicShelves username={profile.username} wantToRead={wantToRead} finished={finished} counts={shelfCounts} accentColour={profile.favColour} />
   )
-  // With nothing to put beside the header (no reading, favourites or lists), the shelves take that space rather
-  // than leaving it empty, and nothing sits under the header.
-  const shelvesBeside = reading.length === 0 && favourites.length === 0 && !hasLists
   // In bands, beside the header from lg up (under it below lg): their favourites first, as they say most about
-  // who this reader is, then what they're reading (a circle you share first) and their lists. Below lg the
-  // favourites open the profile from the header instead (`lead`), so they're still first.
+  // who this reader is, then what they're reading (a circle you share first), their lists, and their shelves to
+  // end the column. Below lg the favourites open the profile from the header instead (`lead`), so they're still
+  // first.
   const besides = (
     <div className="flex flex-col gap-10">
       {favourites.length > 0 && <div className="hidden lg:block"><FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half /></div>}
@@ -78,7 +76,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         </section>
       )}
       {hasLists && <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>}
-      {shelvesBeside && <div className="empty:hidden">{shelves}</div>}
+      <div className="border-t border-neutral-200 pt-10 first:border-t-0 first:pt-0 dark:border-neutral-800">{shelves}</div>
     </div>
   )
   // Re-reads sit under Currently reading but still count as read.
@@ -119,13 +117,12 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         besides={bands ? besides : undefined}
         // Below lg their favourites open the profile: beside the header from md, under it on a phone.
         lead={bands && favourites.length > 0 ? <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half /> : undefined}
-        // From lg up the column ends with the way to their achievements and, under it, their reviews, which fill the
-        // column beside their books rather than starting below both. Below lg both are bands further down.
+        // From lg up the column ends with their reviews, then the way to their achievements; below lg both are further down.
         identityFooter={bands ? (
-          <>
-            <ProfileLinkRows className="mt-8" rows={linkRows} />
-            {reviewCount > 0 && <div className="mt-10"><ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>}
-          </>
+          <div className="mt-10 flex flex-col gap-8">
+            {reviewCount > 0 && <ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />}
+            <ProfileLinkRows rows={linkRows} />
+          </div>
         ) : undefined}
         share={<ShareProfileButton username={profile.username} />}
         actions={actions}
@@ -138,13 +135,10 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         {viewer && justJoined && !viewer.isFollowing && <WelcomeBack username={profile.username} name={name} />}
       </ProfileHeader>
       {bands ? (
-        // In bands, what they're reading, favourites and lists sit beside the header (besides, above); then, each
-        // under a hairline: their reviews, their shelves (unless they've taken the space beside it), the authors
-        // they follow, and below lg the way to their achievements.
+        // In bands, what they're reading, favourites, lists and shelves sit beside the header (besides, above); then,
+        // each under a hairline: below lg their reviews, the authors they follow, and below lg the way to their achievements.
         <div className={SECTIONS}>
-          {/* From lg up their reviews are in the header's column (identityFooter). */}
           {reviewCount > 0 && <div className="lg:hidden"><ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>}
-          {!shelvesBeside && <div>{shelves}</div>}
           <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
           <div className="lg:hidden"><ProfileLinkRows className="!border-t-0" rows={linkRows} /></div>
         </div>

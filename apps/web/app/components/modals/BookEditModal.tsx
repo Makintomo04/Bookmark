@@ -1,6 +1,7 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
 import { notify } from '@/lib/notify'
@@ -181,21 +182,20 @@ const BookEditModal: FC<BookEditModalProps> = ({}) => {
   )
 
   const footer = (
-    <div className="w-full h-full mt-auto p-6">
-      <div className="flex items-center gap-3 justify-end mt-auto">
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button style={{ background: accent, color: accentInk }} onClick={handleSubmit(onSubmit)}>Save changes</Button>
-      </div>
-    </div>
+    <ModalFooter>
+      <Button variant="ghost" onClick={onClose}>Cancel</Button>
+      <Button onClick={handleSubmit(onSubmit)}>Save changes</Button>
+    </ModalFooter>
   )
 
   return (
     <Modal
-      title="Edit Book"
+      title="Edit book"
       body={body}
       footer={footer}
       onClose={onClose}
       isOpen={isOpen}
+      size="l"
     />
   )
 }

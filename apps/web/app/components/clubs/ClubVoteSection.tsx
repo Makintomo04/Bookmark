@@ -200,7 +200,7 @@ const NominateDialog: FC<{ isOpen: boolean, onClose: () => void, taken: Nominati
   const isTaken = (b: Book) => why(b) !== null
 
   const body = (
-    <div className="flex w-full flex-col gap-3 px-6 pt-4">
+    <div className="flex w-full flex-col gap-3 px-6">
       <label htmlFor="nominate-search" className="sr-only">Search your shelf</label>
       <ClearableInput id="nominate-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your shelf" className={inputClass} />
       {books && shelf.length === 0 && <p className="text-sm text-muted-foreground">Nothing on your shelf yet. Add the book you want to put up, then come back.</p>}
@@ -220,8 +220,7 @@ const NominateDialog: FC<{ isOpen: boolean, onClose: () => void, taken: Nominati
     </div>
   )
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Put a book up" size="sm" compact disabled={busy} body={body}
-      footer={<div className="flex justify-end p-6 pt-4"><button type="button" onClick={onClose} className={secondaryButtonClass}>Cancel</button></div>} />
+    <Modal isOpen={isOpen} onClose={onClose} title="Put a book up" size="m" disabled={busy} body={body} />
   )
 }
 
