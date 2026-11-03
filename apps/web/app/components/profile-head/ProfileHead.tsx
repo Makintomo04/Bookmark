@@ -1,6 +1,7 @@
 "use client"
 import { FC, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Plus } from 'lucide-react'
 import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
 import Link from 'next/link'
@@ -10,6 +11,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
+import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import ProfileSkeleton, { ReadingNowSkeleton } from './ProfileSkeleton'
 import ProfileHeader, { secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
@@ -54,6 +56,7 @@ const BooksTop: FC = () => {
   const { user } = useUser()
   const { books } = useBooks()
   const shared = useSharedShelfFilter()
+  const bookEntryModal = useBookEntryModal()
   if (!Array.isArray(books)) return <ReadingNowSkeleton progress heading="w-44" />
   const { reading, finished } = groupShelf(books as Book[])
   const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
@@ -67,7 +70,14 @@ const BooksTop: FC = () => {
         <h2 id="continue-reading" className="flex items-baseline gap-2 text-lg font-semibold">
           {searching ? "Your shelf" : reading.length > 0 ? <>Continue reading <span className="text-sm font-normal text-muted-foreground tabular-nums">{reading.length}</span></> : "Up next"}
         </h2>
-        <ShelfSearch />
+        {/* Adding a book heads the first books section, high on the page and beside the books it joins (BOO-97). */}
+        <div className="flex shrink-0 items-center gap-2">
+          <ShelfSearch />
+          <button type="button" onClick={() => bookEntryModal.onOpen()}
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-neutral-300 px-3.5 text-sm font-medium transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-fine:h-9 dark:border-neutral-700 dark:hover:bg-neutral-900">
+            <Plus size={16} aria-hidden />Add a book
+          </button>
+        </div>
       </div>
       {searching ? <BookList slot="results" /> : reading.length > 0
         ? <><ContinueReading books={reading} finished={finished} accentColour={user?.favColour} /><div className="lg:hidden"><UpNext /></div></>
