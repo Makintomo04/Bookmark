@@ -7,7 +7,7 @@ import useBooks from '@/app/hooks/useBooks'
 import useUser from '@/app/hooks/useUser'
 import useSettings from '@/app/hooks/useSettings'
 import { notify } from '@/lib/notify'
-import ProfileHead from './ProfileHead'
+import ProfileHead, { OwnLinkRows } from './ProfileHead'
 import OwnReviews from './OwnReviews'
 import BandsShowcase from './BandsShowcase'
 import BookList from '../books/BookList'
@@ -22,7 +22,7 @@ import ProfileAuthors from './ProfileAuthors'
 import SeriesTracker from '../series/SeriesTracker'
 import type { FollowedAuthor } from '@/lib/authorFollows'
 import { fetcher, swrOptions } from '@/lib/fetcher'
-import { type ProfileLayout } from './Band'
+import { SECTIONS, type ProfileLayout } from './Band'
 import { ShelfFilterProvider } from '@/app/hooks/useShelfFilter'
 
 interface OwnerProfileProps {
@@ -84,22 +84,22 @@ const BANDS_REVIEWS = 3
 const BANDS_AUTHORS = 8
 
 // Your profile in bands, as the reader panel and designer settled it (docs/profile-layout-spike.html,
-// Iterations 2 and 3). Your header is a column from lg up with what you're reading and what's next beside it,
-// and the shelf search at the top; its results open right under it, in place of what you're reading. Then your
-// reviews beside the authors you follow, your favourites and lists, and your shelves as tabs. One filter serves
-// the search, the results and the tabs.
+// Iterations 2 and 3), calmed in BOO-97. Your header is a column from lg up with what you're reading and what's
+// next beside it, and the shelf search at the top; its results open right under it, in place of what you're
+// reading. Then, each under a hairline rather than in a box: your reviews, your favourites and lists, your
+// shelves as tabs, the authors you follow, and (below lg, where your header's column ends with them) your
+// achievements and stats. One filter serves the search, the results and the tabs.
 const OwnerBands: FC<{ username: string }> = ({ username }) => (
   <ShelfFilterProvider>
     <ProfileHead layout="bands" />
-    <div className="mt-10 flex flex-col gap-12 [&>*]:!mb-0">
+    <div className={SECTIONS}>
       <FollowRequests />
-      {/* From lg up your reviews are in your header's column too, under the authors you follow (ProfileHead). */}
-      <div className="lg:hidden empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
+      <div className="empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
       {/* From lg up your favourites and lists sit in your header's right column, under Up next (ProfileHead). */}
-      <div className="lg:hidden"><BandsShowcase username={username} /></div>
+      <div className="lg:hidden empty:hidden"><BandsShowcase username={username} /></div>
       <BookList slot="shelves" />
-      {/* From lg up the authors you follow are in your header's column, under your medals (ProfileHead); on a phone they come last. */}
-      <div className="lg:hidden empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
+      <div className="empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
+      <div className="lg:hidden"><OwnLinkRows /></div>
     </div>
   </ShelfFilterProvider>
 )

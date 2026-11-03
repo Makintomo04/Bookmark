@@ -12,13 +12,34 @@ interface TierAvatarProps {
   booksRead: number
   // Plus members get the rounded square; everyone else a circle.
   square?: boolean
+  // A hairline of the tier's metal with a gap inside it, for the profile header (BOO-97), rather than the thick frame.
+  thin?: boolean
   className?: string
 }
 
 // A profile picture, framed in the reader's tier metal once they have one.
 // In the square, each layer's corner radius is the one outside it minus its padding, so the curves stay concentric.
-const TierAvatar: FC<TierAvatarProps> = ({ image, username, colour, alt, booksRead, square, className }) => {
+const TierAvatar: FC<TierAvatarProps> = ({ image, username, colour, alt, booksRead, square, thin, className }) => {
   const tier = getReaderTier(booksRead)
+
+  if (thin) {
+    return (
+      <div
+        className={cn("relative aspect-square shrink-0 rounded-full", tier && "p-[2px]", className)}
+        style={tier ? { background: `linear-gradient(135deg, ${tier.light}, ${tier.colour} 45%, ${tier.shade})` } : undefined}
+        title={tier ? `${tier.label} reader: ${tier.minBooks}+ books read` : undefined}
+      >
+        <div className={cn("h-full w-full rounded-full bg-background", tier && "p-[3px]")}>
+          <div className="relative h-full w-full overflow-hidden rounded-full" style={{ background: colour }}>
+            {image
+              ? <Image src={image} alt={alt} fill sizes="96px" priority className="object-cover" />
+              : <InitialAvatar username={username} favColour={colour} label={alt || undefined} />}
+          </div>
+        </div>
+        {tier && <span className="sr-only">{tier.label} reader</span>}
+      </div>
+    )
+  }
 
   return (
     // The outer background-coloured edge lifts the avatar off the banner. Callers give it a width and height

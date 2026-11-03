@@ -6,6 +6,10 @@ import { cn } from '@/lib/utils'
 // the page as it was before, one column, kept behind ?layout=classic as a way back while bands beds in.
 export type ProfileLayout = 'bands' | 'classic'
 
+// The profile's sections, one under the other, each opened by a hairline instead of sitting in a box (BOO-97).
+// Empty sections wrap in empty:hidden, so a missing one leaves no stray rule.
+export const SECTIONS = "mt-10 flex flex-col gap-10 [&>*]:!mb-0 [&>*]:border-t [&>*]:border-neutral-200 dark:[&>*]:border-neutral-800 [&>*]:pt-10"
+
 export const profileLayoutOf = (value: unknown): ProfileLayout => (value === 'classic' ? 'classic' : 'bands')
 
 // The shelf writes its search and filters into the URL; this keeps the layout through those writes.

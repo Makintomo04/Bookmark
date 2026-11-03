@@ -2,13 +2,14 @@
 import { FC, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Book } from '@prisma/client'
-import { ArrowUpDown, LayoutGrid, Grid3x3, ListChecks, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowUpDown, LayoutGrid, Grid3x3, ListChecks, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
+import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useViewMode from '@/app/hooks/useViewMode'
 import useShelfPreview from '@/app/hooks/useShelfPreview'
 import useCollapsedSections from '@/app/hooks/useCollapsedSections'
@@ -51,6 +52,7 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
   const preview = useShelfPreview()
   const { viewMode, setViewMode } = useViewMode()
   const { user } = useUser()
+  const bookEntryModal = useBookEntryModal()
   const accent = user?.favColour ?? null
   // On your profile each shelf folds up and stays that way. A shelf's own page (and the flat grid) is
   // one shelf, which stays open.
@@ -320,6 +322,10 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
               <DropdownMenuItem onSelect={() => (selecting ? stopSelecting() : setSelecting(true))}>{selecting ? "Done selecting" : "Select books"}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {/* Adding a book sits with your shelves now, not beside your name (BOO-97). */}
+          <button type="button" onClick={() => bookEntryModal.onOpen()} aria-label="Add a book" title="Add a book" className={iconButton}>
+            <Plus size={18} aria-hidden />
+          </button>
         </div>
         {shared?.filtersOpen && <div className="sm:hidden"><ShelfToolbar books={books} filter={filter} onChange={setFilter} searchless /></div>}
         {narrowed && <div className="sm:hidden">{results}</div>}
