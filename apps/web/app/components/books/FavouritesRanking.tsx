@@ -62,10 +62,10 @@ const Tile: FC<TileProps> = ({ book, index, total, onMove }) => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             {index > 0 && <DropdownMenuItem onSelect={() => onMove(index, 0)}>Make number 1</DropdownMenuItem>}
-            {!top && <DropdownMenuItem onSelect={() => onMove(index, TOP_FAVOURITES - 1)}>Move into the top three</DropdownMenuItem>}
+            {!top && <DropdownMenuItem onSelect={() => onMove(index, TOP_FAVOURITES - 1)}>Move into the top four</DropdownMenuItem>}
             {top && index > 0 && <DropdownMenuItem onSelect={() => onMove(index, index - 1)}>Move up one</DropdownMenuItem>}
             {top && index < TOP_FAVOURITES - 1 && index < total - 1 && <DropdownMenuItem onSelect={() => onMove(index, index + 1)}>Move down one</DropdownMenuItem>}
-            {top && total > TOP_FAVOURITES && <DropdownMenuItem onSelect={() => onMove(index, TOP_FAVOURITES)}>Move out of the top three</DropdownMenuItem>}
+            {top && total > TOP_FAVOURITES && <DropdownMenuItem onSelect={() => onMove(index, TOP_FAVOURITES)}>Move out of the top four</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -74,8 +74,8 @@ const Tile: FC<TileProps> = ({ book, index, total, onMove }) => {
   )
 }
 
-// Your favourites as a ranking: the top three are numbered and are the ones your profile shows. Drag a book onto
-// another to put it in that place, into the top three or out of it; everything saves as you drop it.
+// Your favourites as a ranking: the top four are numbered and are the ones your profile shows. Drag a book onto
+// another to put it in that place, into the top four or out of it; everything saves as you drop it.
 const FavouritesRanking: FC = () => {
   const { user, isLoading: isLoadingUser, isError: isErrorUser, mutate: mutateUser } = useUser()
   const { books, isLoading: isLoadingBooks, isError: isErrorBooks, mutate: mutateBooks } = useBooks()
@@ -132,13 +132,13 @@ const FavouritesRanking: FC = () => {
       {/* No live shuffling: the book you're holding is lifted out, and the one you'd take the place of is ringed. */}
       <SortableContext items={order} strategy={() => null}>
         <p className="mb-8 max-w-xl text-sm text-muted-foreground">
-          Your top three are the ones your profile shows. Drag a book onto another to put it in that place, into the top three or out of it, or use the menu on its cover.
+          Your top four are the ones your profile shows. Drag a book onto another to put it in that place, into the top four or out of it, or use the menu on its cover.
         </p>
-        <section aria-labelledby="top-three">
-          <h2 id="top-three" className="mb-4 flex items-baseline gap-2 text-lg font-semibold">
-            Top three<span className="text-sm font-normal text-muted-foreground">on your profile</span>
+        <section aria-labelledby="top-four">
+          <h2 id="top-four" className="mb-4 flex items-baseline gap-2 text-lg font-semibold">
+            Top four<span className="text-sm font-normal text-muted-foreground">on your profile</span>
           </h2>
-          <ol className="grid max-w-2xl grid-cols-3 gap-x-5 gap-y-6">{topIds.map((id, i) => tile(id, i))}</ol>
+          <ol className="grid max-w-3xl grid-cols-2 gap-x-5 gap-y-6 sm:grid-cols-4">{topIds.map((id, i) => tile(id, i))}</ol>
         </section>
         {restIds.length > 0 && (
           <section aria-labelledby="more-favourites" className="mt-12">

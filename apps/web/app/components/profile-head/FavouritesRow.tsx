@@ -10,6 +10,9 @@ import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import { discoverBookOf } from '@/lib/openLibrary'
 import { Status } from '@/lib/bookStatus'
 import { TOP_FAVOURITES } from '@/lib/favourites'
+import { cn } from '@/lib/utils'
+import useScrollRow from '@/app/hooks/useScrollRow'
+import RowArrows from '../RowArrows'
 
 interface FavouritesRowProps {
   // Newest first.
@@ -24,9 +27,12 @@ interface FavouritesRowProps {
   half?: boolean
 }
 
-// Three across at every width: the top three of the ranking, large enough to read as a showcase. Capped on a wide
-// column (lg:max-w-2xl), where three across the full width would make each cover poster-sized.
-const favouritesGridClass = "grid grid-cols-3 gap-x-3 sm:gap-x-4 gap-y-4 lg:max-w-2xl"
+// The top four of the ranking, large enough to read as a showcase. From lg up, four across. Below lg, a row you
+// swipe (or drag, with arrows, using a mouse: useScrollRow): about three show and the fourth is just in view at the
+// edge. On a phone it runs to the screen's edges, the page's 16px kept as scroll padding. The 4px of padding keeps
+// the hover outline (ring-offset) inside the scroller, which would otherwise clip it.
+const favouritesRowClass = "scrollbar-none flex gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x -m-1 p-1 max-sm:-mx-4 max-sm:px-4 max-sm:scroll-px-4 sm:gap-4 lg:m-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:p-0"
+const favouriteSlotClass = "w-[30%] shrink-0 snap-start lg:w-auto"
 
 // One favourite: the cover, nothing else. Opens the book as a shelf card would.
 const FavouriteTile: FC<{ book: Book, readOnly: boolean }> = ({ book, readOnly }) => {
@@ -43,7 +49,7 @@ const FavouriteTile: FC<{ book: Book, readOnly: boolean }> = ({ book, readOnly }
   // for screen readers.
   return (
     <button type="button" onClick={open} aria-label={`${book.title} by ${book.author}`}
-      className="group relative block min-w-0 rounded-md text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background md:hover:ring-2 md:hover:ring-foreground md:hover:ring-offset-2 md:hover:ring-offset-background">
+      className="group relative block w-full min-w-0 rounded-md text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background md:hover:ring-2 md:hover:ring-foreground md:hover:ring-offset-2 md:hover:ring-offset-background">
       <BookCover book={book} variant="thumb" sizes="(min-width: 1280px) 220px, (min-width: 640px) 25vw, 30vw" className="w-full shadow-sm" />
       {/* Over the cover's top edge; hover and keyboard focus only, as a touch screen has no hover. */}
       <span role="tooltip" aria-hidden
@@ -55,11 +61,12 @@ const FavouriteTile: FC<{ book: Book, readOnly: boolean }> = ({ book, readOnly }
   )
 }
 
-// The books that say most about a reader: their top three, in one row near the top of their profile, then "See
+// The books that say most about a reader: their top four, in one row near the top of their profile, then "See
 // all" (the Favourites page, where they're ranked).
 const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, hintWhenEmpty = false, half = false }) => {
-  // Your top three (the ranking on the Favourites page), in one row of three covers.
+  // Your top four (the ranking on the Favourites page), in one row.
   const columns = TOP_FAVOURITES
+  const scroller = useScrollRow<HTMLDivElement>()
   if (books.length === 0) {
     if (!hintWhenEmpty) return null
     // The heading without a count, so the line reads as this section's and not the next one's.
@@ -77,8 +84,11 @@ const FavouritesRow: FC<FavouritesRowProps> = ({ books, href, readOnly = false, 
     <div className={half ? undefined : "mb-12"}>
       <ShelfSection id="profile-favourites" title="Favourites" count={books.length}
         action={books.length > columns ? <SeeAllLink href={href} /> : undefined}>
-        <div className={favouritesGridClass}>
-          {books.slice(0, columns).map((book) => <FavouriteTile key={book.id} book={book} readOnly={readOnly} />)}
+        <div className="relative">
+          <div ref={scroller.ref} className={favouritesRowClass}>
+            {books.slice(0, columns).map((book) => <div key={book.id} className={favouriteSlotClass}><FavouriteTile book={book} readOnly={readOnly} /></div>)}
+          </div>
+          <RowArrows row={scroller} label="favourites" />
         </div>
       </ShelfSection>
     </div>

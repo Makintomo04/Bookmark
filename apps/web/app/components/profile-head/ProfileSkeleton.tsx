@@ -14,15 +14,15 @@ const Heading: FC<{ className?: string }> = ({ className = "w-32" }) => (
   <div className="mb-5 flex min-h-10 items-center"><Skeleton className={cn("h-6", className)} /></div>
 )
 
-// Three across at every width, covers only (FavouritesRow).
-export const favouritesSkeletonGridClass = "grid grid-cols-3 gap-x-3 sm:gap-x-4 gap-y-4 lg:max-w-2xl"
+// Covers only (FavouritesRow): three in view below lg, four across from lg.
+export const favouritesSkeletonGridClass = "grid grid-cols-3 gap-x-3 sm:gap-x-4 gap-y-4 lg:grid-cols-4"
 
 export const FavouritesSkeleton: FC = () => (
   <div>
     <Heading />
     <div className={favouritesSkeletonGridClass}>
-      {[0, 1, 2].map((i) => (
-        <Skeleton key={i} className="aspect-[2/3] w-full" />
+      {[0, 1, 2, 3].map((i) => (
+        <Skeleton key={i} className={cn("aspect-[2/3] w-full", i === 3 && "max-lg:hidden")} />
       ))}
     </div>
   </div>

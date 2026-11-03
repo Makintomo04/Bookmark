@@ -5,7 +5,6 @@ import useBooks from '@/app/hooks/useBooks'
 import useFavourite from '@/app/hooks/useFavourite'
 import ProfileLists from '../discover/ProfileLists'
 import FavouritesRow, { FavouritesRowSkeleton } from './FavouritesRow'
-import UpNext from './UpNext'
 
 // Your own favourites as books, newest first, once the shelf they're drawn from has loaded.
 const useFavouriteBooks = () => {
@@ -27,17 +26,9 @@ export const ProfileFavourites: FC<{ half?: boolean }> = ({ half = false }) => {
 }
 
 // Your lists in bands, above the shelves, below lg (your favourites open the profile there: ProfileHead's `lead`).
-// `column`: your header's right column from lg up, where the favourites sit above what you're reading
-// (ProfileFavourites) and this is what's under it: Up next (three) beside your lists, or your lists alone.
-const BandsShowcase: FC<{ username: string; column?: boolean; withUpNext?: boolean }> = ({ username, column = false, withUpNext = false }) => {
-  if (column) {
-    return withUpNext ? (
-      <div className="grid grid-cols-2 items-start gap-10">
-        <UpNext cap={3} />
-        <ProfileLists username={username} isSelf half />
-      </div>
-    ) : <ProfileLists username={username} isSelf flush />
-  }
+// `column`: your header's column from lg up, under your reviews: two across.
+const BandsShowcase: FC<{ username: string; column?: boolean }> = ({ username, column = false }) => {
+  if (column) return <ProfileLists username={username} isSelf half />
   return <ProfileLists username={username} isSelf flush swipe />
 }
 

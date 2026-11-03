@@ -93,13 +93,6 @@ const BooksTop: FC = () => {
       {/* On a phone your favourites come after what you're reading and what's next, before your shelves; from md
           they're beside your header (`lead`). */}
       {!searching && <div className="mt-12 md:hidden"><ProfileFavourites half /></div>}
-      {/* From lg up the rest of this column is Up next (three) beside your lists, so they sit beside your reviews
-          rather than under them. Below lg they stay bands of their own (OwnerProfile). */}
-      {!searching && user && (
-        <div className={cn("hidden lg:block", reading.length > 0 ? "mt-8" : "mt-12")}>
-          <BandsShowcase username={user.username} column withUpNext={reading.length > 0} />
-        </div>
-      )}
       {/* Your shelves end this column: beside your header from lg up, and straight after Up next on a phone, rather
           than a full-width band at the foot of the page. Out of the way while you search, as the results take their place. */}
       {!searching && (
@@ -133,6 +126,8 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
 
   // Until the shelf and achievements load, use the counts that came with the server render, so the stats don't flash 0.
   const booksRead = books ? books.filter(isFinishedBook).length : user._count?.books ?? 0
+  // How many you're reading, for whether Up next sits in your header's column (identityFooter).
+  const reading = Array.isArray(books) ? groupShelf(books as Book[]).reading.length : 0
   const earnedKeys = achievementsLoading
     ? profile?.achievements ?? []
     : achievements.flatMap((a) => a.milestones.filter((m) => m.earned).map((m) => ({ key: milestoneKey(a.key as AchievementKey, m.value) })))
@@ -161,11 +156,16 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         // what you come here to update, and they follow it (BooksTop).
         lead={bands ? <ProfileFavourites half /> : undefined}
         leadOnPhone={false}
-        // From lg up the column ends with your reviews, then the ways further in; below lg both are further down
-        // the page (OwnerProfile).
+        // From lg up the column ends with Up next, your reviews, your lists, then the ways further in; below lg
+        // they're further down the page (OwnerProfile, BooksTop).
         identityFooter={bands ? (
           <div className="mt-10 flex flex-col gap-8">
+            {/* What to start next, three across, at the top of the column while something's on the go. With nothing on
+                the go Up next leads the books column instead (BooksTop). */}
+            {reading > 0 && <UpNext cap={3} />}
             <div className="empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
+            {/* Your lists, two across, under your reviews. Below lg they're a band of their own (OwnerProfile). */}
+            <div className="empty:hidden"><BandsShowcase username={user.username} column /></div>
             <ProfileLinkRows rows={ownLinkRows(earned)} />
           </div>
         ) : undefined}
