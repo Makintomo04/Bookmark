@@ -74,14 +74,13 @@ const NotificationBell: FC<NotificationBellProps> = ({}) => {
         <button
           type="button"
           aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-          className="relative grid size-10 place-items-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="relative grid size-11 place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Bell size={20} aria-hidden />
-          {/* The ring in the page colour keeps the badge from running into the bell's outline. */}
+          {/* A quiet dot says there's something new; the count is in the label, and in the menu. The ring in the
+              page colour keeps it off the bell's outline. */}
           {unreadCount > 0 && (
-            <span aria-hidden className="absolute top-0 right-0 h-5 min-w-5 px-1 rounded-full bg-brand-fill text-white text-[11px] leading-none tabular-nums flex items-center justify-center font-semibold ring-2 ring-background">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
+            <span aria-hidden className="absolute top-[11px] right-[12px] size-2 rounded-full bg-brand-fill ring-2 ring-background" />
           )}
         </button>
       </DropdownMenuTrigger>

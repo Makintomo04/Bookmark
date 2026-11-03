@@ -28,6 +28,8 @@ import {
 
 const base = "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 const outline = "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+// size "lg": the one filled, 44px action at the head of a book's page, where everything else waits in the "…" menu.
+const large = "h-11 px-5 text-sm bg-foreground text-background hover:opacity-90"
 
 // Which shelf the reader already has the book on, named as the shelf headings name them.
 const SHELF_LABELS: Record<string, string> = {
@@ -51,7 +53,8 @@ const SHELVES = [
 type Shelf = (typeof SHELVES)[number]["status"]
 
 // Signed out it asks to join: in place through `onJoin` inside a dialog (book details), else the join sheet.
-const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (heading: string) => void }> = ({ book, className, onJoin }) => {
+const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, size?: "sm" | "lg", onJoin?: (heading: string) => void }> = ({ book, className, size = "sm", onJoin }) => {
+  const lg = size === "lg"
   const router = useRouter()
   const { user, isLoading: userLoading } = useUser()
   const { books, isError: shelfError, mutate } = useBooks()
@@ -63,15 +66,15 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (h
   // Until we know who's looking and what's on their shelf, a quiet placeholder the button's size (BOO-92):
   // guessing "Want to read" and then flipping to "Finished" tells a reader the wrong thing about their own book.
   if (userLoading || (user?.id && books === undefined && !shelfError)) {
-    return <span aria-busy="true" aria-label="Checking your shelf" className={cn(base, "w-28 bg-neutral-100 dark:bg-neutral-900 motion-safe:animate-pulse", className)} />
+    return <span aria-busy="true" aria-label="Checking your shelf" className={cn(base, "w-28 bg-neutral-100 dark:bg-neutral-900 motion-safe:animate-pulse", lg && "h-11 w-40", className)} />
   }
 
   // Signed out, it asks to join at this moment, naming the book, and brings them back here afterwards.
   if (!user?.id) {
     const heading = `Join to add ${book.title} to your shelf`
     return (
-      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin(heading))} className={cn(base, outline, className)}>
-        <Plus size={14} aria-hidden />Want to read
+      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin(heading))} className={cn(base, lg ? large : outline, className)}>
+        <Plus size={lg ? 16 : 14} aria-hidden />Want to read
       </button>
     )
   }
@@ -96,7 +99,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (h
         <DropdownMenuTrigger
           disabled={isAdding}
           aria-label={`${book.title} is on ${SHELF_LABELS[onShelf.status] ?? "your shelf"}. Change shelf`}
-          className={cn(base, "px-2.5 gap-1 whitespace-nowrap text-muted-foreground bg-neutral-100 dark:bg-neutral-900 hover:text-foreground hover:bg-neutral-200 dark:hover:bg-neutral-800 disabled:opacity-60", className)}
+          className={cn(base, "px-2.5 gap-1 whitespace-nowrap disabled:opacity-60", lg ? large : "text-muted-foreground bg-neutral-100 dark:bg-neutral-900 hover:text-foreground hover:bg-neutral-200 dark:hover:bg-neutral-800", className)}
         >
           {SHELF_LABELS[onShelf.status] ?? "On your shelf"}
           {isAdding ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <ChevronDown size={14} aria-hidden />}
@@ -158,13 +161,13 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (h
   }
 
   return (
-    <div className={cn("inline-flex items-stretch rounded-full border border-neutral-300 dark:border-neutral-700", className)}>
+    <div className={cn("inline-flex items-stretch rounded-full", lg ? "bg-foreground text-background" : "border border-neutral-300 dark:border-neutral-700", className)}>
       <button
         type="button"
         onClick={() => addTo("NOT_STARTED")}
         disabled={isAdding}
         aria-label={`Add ${book.title} to Want to read`}
-        className={cn(base, "h-[30px] rounded-r-none pl-3 pr-2 whitespace-nowrap hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
+        className={cn(base, "h-[30px] rounded-r-none pl-3 pr-2 whitespace-nowrap hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60", lg && "h-11 flex-1 pl-5 text-sm hover:bg-transparent hover:opacity-90")}
       >
         {isAdding && <Loader2 size={14} className="animate-spin" aria-hidden />}
         {isAdding ? "Adding…" : "Want to read"}
@@ -173,7 +176,7 @@ const AddToShelfButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (h
         <DropdownMenuTrigger
           disabled={isAdding}
           aria-label={`Choose a shelf for ${book.title}`}
-          className={cn(base, "h-[30px] rounded-l-none px-1 border-l border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60")}
+          className={cn(base, "h-[30px] rounded-l-none px-1 border-l border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 disabled:opacity-60", lg && "h-11 w-11 px-0 border-background/20 dark:border-background/20 hover:bg-transparent hover:opacity-90")}
         >
           <ChevronDown size={14} aria-hidden />
         </DropdownMenuTrigger>
