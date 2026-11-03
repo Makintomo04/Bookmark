@@ -1,4 +1,5 @@
 import { toast } from "sonner"
+import type { CSSProperties } from "react"
 
 // Every piece of feedback the app shows after an action goes through here, so call sites never
 // touch the toast library directly and the rules stay in one place:
@@ -17,10 +18,22 @@ type Options = {
   secondaryAction?: Action
 }
 
-// Sonner calls the quieter button `cancel`.
-const toSonner = ({ secondaryAction, ...rest }: Options = {}) => ({ ...rest, ...(secondaryAction && { cancel: secondaryAction }) })
-
 const UNDO_MS = 6000
+
+// A toast whose button only works for a while (Undo) shows how long is left: a thin bar along its top that
+// runs down over its lifetime (.toast-countdown in globals.css), pausing whenever sonner's timer does.
+const countdown = (ms: number) => ({
+  duration: ms,
+  classNames: { content: "toast-countdown" },
+  style: { "--toast-countdown": `${ms}ms` } as CSSProperties,
+})
+
+// Sonner calls the quieter button `cancel`. A toast with a button lasts as long as an Undo toast, with its bar.
+const toSonner = ({ secondaryAction, ...rest }: Options = {}) => ({
+  ...rest,
+  ...(secondaryAction && { cancel: secondaryAction }),
+  ...(rest.action && countdown(UNDO_MS)),
+})
 
 // Commits still waiting on an Undo toast. If the page is left before they fire, they run at once
 // (with keepalive, so the request survives the unload) rather than being lost.
@@ -59,7 +72,7 @@ export const notify = {
     }
     pendingCommits.add(run)
     toast(message, {
-      duration: UNDO_MS,
+      ...countdown(UNDO_MS),
       action: {
         label: "Undo",
         onClick: () => {

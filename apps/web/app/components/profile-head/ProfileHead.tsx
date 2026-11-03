@@ -22,6 +22,7 @@ import ProfileLinkRows from './ProfileLinkRows'
 import OwnReviews from './OwnReviews'
 import BandsShowcase, { ProfileFavourites } from './BandsShowcase'
 import BookList from '../books/BookList'
+import { BANDS_AUTHORS, OwnAuthors } from './ProfileAuthors'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
 import { isNarrowed } from '@/lib/shelfFilter'
 import { groupShelf } from '../books/shelf'
@@ -96,8 +97,12 @@ const BooksTop: FC = () => {
       {/* Your shelves end this column: beside your header from lg up, and straight after Up next on a phone, rather
           than a full-width band at the foot of the page. Out of the way while you search, as the results take their place. */}
       {!searching && (
-        <div className="mt-10 border-t border-neutral-200 pt-10 dark:border-neutral-800"><BookList slot="shelves" /></div>
+        // From lg up no rule above them: the tabs' own underline already starts the section.
+        <div className="mt-10 border-t border-neutral-200 pt-10 dark:border-neutral-800 lg:mt-12 lg:border-t-0 lg:pt-0"><BookList slot="shelves" /></div>
       )}
+      {/* From lg up the authors you follow come after your shelves, in this column rather than a band under both;
+          below lg they're further down the page (OwnerProfile). */}
+      {!searching && <div className="mt-10 hidden border-t border-neutral-200 pt-10 dark:border-neutral-800 lg:block lg:empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>}
     </section>
     </>
   )

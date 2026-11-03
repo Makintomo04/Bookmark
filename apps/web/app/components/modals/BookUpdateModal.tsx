@@ -11,6 +11,7 @@ import Modal from './Modal'
 import ModalFooter from './ModalFooter'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
+import { FavouriteChoice, useToggleFavourite } from '../cards/BookActions'
 import { Button } from '../ui/button'
 import { isRereading } from '../books/shelf'
 import { moveBook, setBookPrivacy, type ShelfAction } from '../books/ShelfMenuItems'
@@ -99,6 +100,9 @@ const BookUpdateModal: FC = () => {
   const [isPrivate, setIsPrivate] = useState(false)
   // Asked a librarian to add this hand-typed book to the catalogue, this time the modal is open.
   const [askedToAdd, setAskedToAdd] = useState(false)
+  // Finishing can make it a favourite too: it starts as it is, and applies with Save.
+  const { isFavourite, toggleFavourite } = useToggleFavourite({ id: book?.id ?? "" })
+  const [favourite, setFavourite] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   // Which footer button started the save, so only that one shows the spinner.
   const [savingAction, setSavingAction] = useState<"save" | ShelfAction | null>(null)
@@ -129,6 +133,9 @@ const BookUpdateModal: FC = () => {
     setReviewPrivate(!!book.reviewPrivate)
     setIsPrivate(!!book.isPrivate)
     setAskedToAdd(false)
+    setFavourite(isFavourite)
+    // Not on isFavourite: once open, the choice is the reader's until they save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, book])
 
   useEffect(() => {
@@ -275,7 +282,9 @@ const BookUpdateModal: FC = () => {
 
     setIsSaving(true)
     setSavingAction("save")
+    const favouriteChanged = isActive && finished && favourite !== isFavourite
     axios.post("/api/book-progress", payload).then(async ({ data: saved }) => {
+      if (favouriteChanged) toggleFavourite()
       await saveTags()
       celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null, saved?.askReminders)
       mutate()
@@ -548,6 +557,8 @@ const BookUpdateModal: FC = () => {
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">Rating <span className="font-normal text-muted-foreground">· optional</span></span>
         <StarRating value={rating} onChange={setRating} disabled={isSaving} label="Your rating" />
+        {/* Only while finishing: a finished book's favourite is the bookmark on its cover. */}
+        {isActive && finished && <FavouriteChoice value={favourite} onChange={setFavourite} disabled={isSaving} className="mt-2" />}
       </div>
       <ReviewFields
         value={{ review, reviewSpoiler, reviewPrivate }}

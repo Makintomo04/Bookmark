@@ -1,7 +1,7 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
 import { Bookmark } from 'lucide-react'
-import useSWR, { SWRConfig } from 'swr'
+import { SWRConfig } from 'swr'
 import { Book } from '@prisma/client'
 import useBooks from '@/app/hooks/useBooks'
 import useUser from '@/app/hooks/useUser'
@@ -18,10 +18,8 @@ import ProfileLists from '../discover/ProfileLists'
 import GenrePicks from '../discover/GenrePicks'
 import { GENRE_PICKS_SHELF_LIMIT } from '@/lib/genres'
 import FollowRequests from './FollowRequests'
-import ProfileAuthors from './ProfileAuthors'
+import { BANDS_AUTHORS, OwnAuthors } from './ProfileAuthors'
 import SeriesTracker from '../series/SeriesTracker'
-import type { FollowedAuthor } from '@/lib/authorFollows'
-import { fetcher, swrOptions } from '@/lib/fetcher'
 import { BANDS_REVIEWS, SECTIONS, type ProfileLayout } from './Band'
 import { ShelfFilterProvider } from '@/app/hooks/useShelfFilter'
 
@@ -71,17 +69,6 @@ const OwnListsPrompt: FC<{ username: string }> = ({ username }) => {
   return <ProfileLists username={username} isSelf />
 }
 
-// The authors you follow, from your own list so an unfollow elsewhere shows on the next visit.
-const OwnAuthors: FC<{ cap?: number }> = ({ cap }) => {
-  const { data } = useSWR<{ authors: FollowedAuthor[] }>('/api/user/authors', fetcher, swrOptions)
-  if (!data) return null
-  if (cap) return <ProfileAuthors authors={data.authors} isSelf cap={cap} />
-  return <div className="mt-12"><ProfileAuthors authors={data.authors} isSelf /></div>
-}
-
-// How many followed authors show in bands before "+N more".
-const BANDS_AUTHORS = 8
-
 // Your profile in bands, as the reader panel and designer settled it (docs/profile-layout-spike.html,
 // Iterations 2 and 3), calmed in BOO-97. Your header is a column from lg up with what you're reading and what's
 // next beside it, and the shelf search at the top; its results open right under it, in place of what you're
@@ -97,7 +84,8 @@ const OwnerBands: FC<{ username: string }> = ({ username }) => (
       <div className="lg:hidden empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
       {/* From lg up your lists sit in your header's right column, under Up next (ProfileHead). */}
       <div className="lg:hidden empty:hidden"><BandsShowcase username={username} /></div>
-      <div className="empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
+      {/* From lg up the authors you follow end the books column, under your shelves (ProfileHead). */}
+      <div className="lg:hidden empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
       <div className="lg:hidden"><OwnLinkRows /></div>
     </div>
   </ShelfFilterProvider>

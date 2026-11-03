@@ -24,14 +24,8 @@ export async function POST(request: Request, props: { params: Promise<{ bookId: 
   if(book.userId !== currentUser.id){
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const user = await prisma.user.findUnique({
-    where:{
-      id:currentUser.id
-    }
-  })
-  if(!user){
-    return NextResponse.json({ error: 'User Not Found' }, { status: 404 });
-  }
+  // requireUser has just loaded the user, favouriteIds and all, so there's no need to read it again.
+  const user = currentUser
   const updatedUser = await prisma.user.update({
     where:{
       id:currentUser.id

@@ -8,6 +8,8 @@ import { chapterAt, formatEntry, formatPosition, progressWhole } from '@/lib/pro
 import { cn } from '@/lib/utils'
 import { fetcher, swrOptions } from '@/lib/fetcher'
 import { bookHref } from '@/lib/workKey'
+import { ownCirclesKey } from '@/lib/profileKey'
+import type { SharedCircle } from '@/lib/sharedCircles'
 import { discoverBookOf } from '@/lib/openLibrary'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import useUser from '@/app/hooks/useUser'
@@ -16,7 +18,10 @@ import AuthorLink from '../AuthorLink'
 import BookCover from '../cards/BookCover'
 import FavouriteButton from '../cards/FavouriteButton'
 import ShelfMenuItems from '../books/ShelfMenuItems'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
+import { removeBookWithUndo } from '../books/removeBookWithUndo'
+import useBooks from '@/app/hooks/useBooks'
+import useFavourite from '@/app/hooks/useFavourite'
 import UpdateSheet from './UpdateSheet'
 
 interface ContinueReadingProps {
@@ -80,6 +85,8 @@ const markOf = (book: Book, id: string, at: number | null): CircleMark => ({
 
 const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: CircleMark; reread?: boolean; bare?: boolean; className?: string; onUpdate: (book: Book, card: HTMLElement, startAt?: 'log' | 'rate') => void }> = ({ book, readOnly, size, circle, reread = false, bare = false, className, onUpdate }) => {
   const openDetails = useBookDetailsModal((s) => s.onOpen)
+  const { mutate: mutateBooks } = useBooks()
+  const { mutate: mutateFav } = useFavourite()
   const progress = progressWhole(book)
   const position = whereAt(book)
   const href = bookHref({ workKey: book.workKey, title: book.title })
@@ -96,14 +103,14 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
       <span className="flex min-h-7 items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
         <span className="min-w-0 truncate">{notStarted ? "Not started" : position}</span>
         {!readOnly && (
-          <span className="-mr-2 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2 font-medium transition group-hover/update:bg-neutral-100 group-hover/update:text-foreground dark:group-hover/update:bg-neutral-800">
+          <span className="-mr-2 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2 font-medium transition group-hover/update:bg-neutral-200 group-hover/update:text-foreground dark:group-hover/update:bg-neutral-800">
             <Pencil size={12} aria-hidden />Update<span className="sr-only"> progress for {book.title}</span>
           </span>
         )}
       </span>
       <span className="mt-1.5 flex items-center gap-2">
         <span role="progressbar" aria-label={`${book.title} progress`} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}
-          className="relative block h-1 flex-1 rounded-full bg-neutral-200 transition group-hover/update:brightness-125 dark:bg-neutral-800">
+          className="relative block h-1 flex-1 rounded-full bg-neutral-300 transition group-hover/update:brightness-125 dark:bg-neutral-700">
           {/* The fill slides in from the left (transform, not width), clipped by its own rounded track so the circle's
               mark can still overhang the bar. */}
           <span className="absolute inset-0 overflow-hidden rounded-full">
@@ -125,7 +132,7 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
       {circle && (
         // z-10, so its 40px tap area (the after:) wins over the Update row just below it.
         <Link href={`/circles/${circle.id}`} aria-label={circle.label ? `Your reading circle for ${book.title}, ${circle.label}` : `Your reading circle for ${book.title}`}
-          className="relative z-10 inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-neutral-300 pl-2 pr-1.5 text-xs font-medium text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-2 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className="relative z-10 -my-0.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-neutral-300 pl-2 pr-1.5 text-xs font-medium text-foreground transition after:absolute after:-inset-x-1 after:-inset-y-2 hover:bg-neutral-200 dark:border-neutral-700 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Users size={12} aria-hidden />{circle.label.replace(/^at /, '') || 'Circle'}<ChevronRight size={12} aria-hidden className="text-muted-foreground" />
         </Link>
       )}
@@ -141,11 +148,12 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
     : <button type="button" onClick={details} className="text-left hover:underline underline-offset-2">{book.title}</button>
   // The bookmark and the menu, beside the title rather than floating over the card, so the title only gives way to
   // them on its own line. -mr-2 and -mt-1 take up the buttons' padding: the icons end on the card's right edge
-  // and sit on the title's first line.
+  // and sit on the title's first line. -mb-1.5 keeps the 32px buttons from making a one-line title's row taller
+  // than the title, which pushed the author away from it.
   const actions = !readOnly && (
     // Pause, Did not finish, Want to read and Make private, as on every other shelf card, so taking a book off
     // Currently reading never depends on a toast's Undo.
-    <div className="-mr-2 -mt-1 flex shrink-0 items-center">
+    <div className="-mb-1.5 -mr-2 -mt-1 flex shrink-0 items-center">
       <FavouriteButton bookId={book.id} />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -157,6 +165,9 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
           {/* Opens the Update sheet on its rating step, so a finish from here is rated and followed by what's next. */}
           <DropdownMenuItem onSelect={() => onUpdate(book, card.current!, 'rate')}>Finished</DropdownMenuItem>
           <ShelfMenuItems book={book} />
+          {/* Started by mistake: off the shelf entirely, rather than Did not finish, which says you tried it. */}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => removeBookWithUndo(book, mutateBooks, mutateFav)} className="text-danger focus:text-danger">Remove from shelf</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -165,7 +176,7 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
   // and the place and its bar are pushed to the bottom (mt-auto), so the bars of a row line up however many lines
   // each title takes. Centring the text made a two-line title shift its card's whole block down.
   return (
-    <li ref={card} className={cn("flex gap-4 py-2", !bare && size === 'row' && "py-1.5", className)}>
+    <li ref={card} className={cn("flex gap-4 rounded-lg bg-neutral-100 p-4 dark:bg-neutral-900", size === 'row' && "p-3", className)}>
       <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("shrink-0 self-start rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
         <BookCover book={book} variant="thumb" sizes="80px" className="shadow-sm" />
       </button>
@@ -185,7 +196,7 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
             {(circle || reread) && <p className={cn("mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground", big && "sm:mt-auto sm:pt-3")}>{marks}</p>}
           </>
         ) : (
-          <p className={cn("mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground", circle && "min-h-7")}>
+          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
             <AuthorLink author={book.author} className="truncate" />{marks}
           </p>
         )}
@@ -214,6 +225,9 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], readO
   const openSheet = (book: Book, card: HTMLElement, startAt: 'log' | 'rate' = 'log') => setSheet({ book, startAt })
   const [open, setOpen] = useState(false)
   const { data: circles } = useSWR<{ buddyReads: CircleRow[] }>(readOnly ? null : '/api/buddy-reads', fetcher, swrOptions)
+  // Your circles as the page rendered them (never fetched, only the page's fallback): until /api/buddy-reads
+  // arrives they order the cards, so a circle's book is first from the first paint rather than jumping there.
+  const { data: pinned } = useSWR<SharedCircle[]>(readOnly ? null : ownCirclesKey, null)
   const { user } = useUser()
   if (books.length === 0) {
     return oneLineOnPhone
@@ -228,7 +242,11 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], readO
       const s = shared.find((c) => c.bookId === book.id)
       return s ? markOf(book, s.circleId, s.at) : undefined
     }
-    const c = circles?.buddyReads.find((r) => r.status === 'ACTIVE' && norm(r.title) === norm(book.title) && norm(r.author) === norm(book.author))
+    if (!circles) {
+      const p = pinned?.find((c) => c.bookId === book.id)
+      return p ? markOf(book, p.circleId, p.at) : undefined
+    }
+    const c = circles.buddyReads.find((r) => r.status === 'ACTIVE' && norm(r.title) === norm(book.title) && norm(r.author) === norm(book.author))
     return c ? markOf(book, c.id, circleAt(c, user?.id)) : undefined
   }
   const ordered = [...books.filter((b) => circleOf(b)), ...books.filter((b) => !circleOf(b))]
@@ -237,7 +255,7 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], readO
 
   const cards = (
     // grid-cols-1 (minmax(0, 1fr)), so a long position line truncates instead of widening the column past the screen.
-    <ul className={cn("grid grid-cols-1 gap-2", size === 'card' && "sm:grid-cols-2 sm:gap-x-8")}>
+    <ul className={cn("grid grid-cols-1 gap-2", size === 'card' && "sm:grid-cols-2 sm:gap-x-3")}>
       {ordered.map((book, i) => (
         <ContinueCard key={book.id} book={book} readOnly={readOnly} size={size} circle={circleOf(book)} reread={isRereading(book, finished)} bare={readOnly} onUpdate={openSheet}
           className={cn(!all && i >= SHOWN_PHONE && "max-sm:hidden", !all && i >= SHOWN_WIDE && "sm:hidden")} />

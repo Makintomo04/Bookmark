@@ -13,6 +13,7 @@ import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { useRemindersPrompt } from '@/app/hooks/useEarnMoment'
 import type { AskReason } from '@bookmark/shared/reminders'
 import StarRating from '../StarRating'
+import { FavouriteChoice, useToggleFavourite } from '../cards/BookActions'
 import UpNext from './UpNext'
 import { primaryButtonClass } from './ProfileHeader'
 
@@ -66,6 +67,9 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) =
   const [total, setTotal] = useState('')
   const [step, setStep] = useState<'log' | 'rate' | 'next'>(startAt)
   const [rating, setRating] = useState<number>(book.rating ?? 0)
+  // Finishing can make it a favourite too; it starts as it is, and applies with Mark as finished.
+  const { isFavourite, toggleFavourite } = useToggleFavourite(book)
+  const [favourite, setFavourite] = useState(isFavourite)
   const [saving, setSaving] = useState(false)
   // When the server offers reminders (RemindersSheet), they wait until this sheet has closed, not over Up next.
   const askReminders = useRef<AskReason | false>(false)
@@ -146,6 +150,7 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) =
     try {
       const { data } = await post({ action: 'complete', ...(withRating && rating > 0 ? { rating } : {}) })
       askReminders.current = data?.askReminders || false
+      if (favourite !== isFavourite) toggleFavourite()
       await refresh()
       setStep('next')
     } catch (err) {
@@ -229,6 +234,7 @@ const UpdateSheet: FC<UpdateSheetProps> = ({ book, startAt = 'log', onClose }) =
           <div>
             <p className="text-sm text-muted-foreground">How was it?</p>
             <StarRating value={rating} onChange={setRating} size={32} className="mt-2" />
+            <FavouriteChoice value={favourite} onChange={setFavourite} disabled={saving} className="mt-4" />
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
               <button type="button" disabled={saving} onClick={() => finish(false)} className={ghostClass}>Skip rating</button>
               <button type="button" disabled={saving} onClick={() => finish(true)} className={cn(primaryButtonClass, sheetButton)}>
