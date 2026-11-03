@@ -20,22 +20,22 @@ const Discussion: FC<DiscussionProps> = ({ buddyReadId, comments, viewerProgress
   const timeline = buildTimeline(comments)
   // "You are here" sits before the first thing past the reader.
   const hereIndex = timeline.findIndex((t) => (t.kind === "locked" ? t.position : t.comment.position) > viewerProgress)
+  // Where the reader is: everything below it arrives as they read.
   const youAreHere = (
-    <li aria-label={`You are at ${formatPercent(viewerProgress)}`} className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
-      <span className="h-px flex-1 bg-neutral-300 dark:bg-neutral-700" />
-      You&apos;re at {formatPercent(viewerProgress)}
-      <span className="h-px flex-1 bg-neutral-300 dark:bg-neutral-700" />
+    <li aria-label={`You're at ${formatPercent(viewerProgress)}. Anything past it unlocks as you read.`} className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+      <span className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+      <Lock size={13} aria-hidden className="shrink-0" />
+      <span className="text-center">Anything past {formatPercent(viewerProgress)} unlocks as you read</span>
+      <span className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
     </li>
   )
 
   return (
     <section aria-labelledby="discussion-heading" className="flex flex-col gap-6">
-      <h2 id="discussion-heading" className="text-lg font-semibold">Discussion</h2>
-
-      {canPost && <CommentComposer buddyReadId={buddyReadId} progress={viewerProgress} onPosted={onChange} />}
+      <h2 id="discussion-heading" className="sr-only">Discussion</h2>
 
       {timeline.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-8 text-center text-sm text-muted-foreground">
+        <p className="py-6 text-center text-sm text-muted-foreground">
           No comments yet. Say how it&apos;s going: nobody sees it until they&apos;ve read that far.
         </p>
       ) : (
@@ -45,14 +45,14 @@ const Discussion: FC<DiscussionProps> = ({ buddyReadId, comments, viewerProgress
               {i === hereIndex && youAreHere}
               <li>
                 {entry.kind === "locked" ? (
-                  <div className="flex items-center gap-3 rounded-xl bg-neutral-100 dark:bg-neutral-900 px-4 py-3 text-sm">
-                    <Lock size={16} aria-hidden className="shrink-0 text-muted-foreground" />
+                  <div className="flex items-center gap-3 px-1 text-sm text-muted-foreground">
+                    <Lock size={16} aria-hidden className="shrink-0" />
                     <span className="flex-1">
-                      {entry.count} {entry.count === 1 ? "comment" : "comments"} ahead at <span className="font-semibold tabular-nums">{formatPercent(entry.position)}</span>
+                      {entry.count} {entry.count === 1 ? "comment" : "comments"} ahead at <span className="font-semibold tabular-nums text-foreground">{formatPercent(entry.position)}</span>
                     </span>
                     <span className="flex -space-x-1" aria-hidden>
                       {entry.colours.slice(0, 5).map((c) => (
-                        <span key={c} className="h-3 w-3 rounded-full ring-2 ring-neutral-100 dark:ring-neutral-900" style={{ background: c }} />
+                        <span key={c} className="h-3 w-3 rounded-full ring-2 ring-background" style={{ background: c }} />
                       ))}
                     </span>
                   </div>
@@ -64,6 +64,14 @@ const Discussion: FC<DiscussionProps> = ({ buddyReadId, comments, viewerProgress
           ))}
           {hereIndex === -1 && viewerProgress < 100 && youAreHere}
         </ol>
+      )}
+
+      {/* Chat-style, at the end of the thread: it stays on screen while you read the thread, then settles above
+          whatever follows it. On a phone it spans the screen's width with a rule above it. */}
+      {canPost && (
+        <div className="sticky bottom-0 z-20 -mx-4 border-t border-neutral-200 bg-background px-3 pb-[max(14px,env(safe-area-inset-bottom))] pt-2.5 dark:border-neutral-800 sm:mx-0 sm:border-0 sm:px-0 sm:pb-4">
+          <CommentComposer buddyReadId={buddyReadId} progress={viewerProgress} onPosted={onChange} />
+        </div>
       )}
     </section>
   )
