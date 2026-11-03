@@ -4,32 +4,24 @@ import { cn } from '@/lib/utils'
 import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import useBooks from '@/app/hooks/useBooks'
 import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
-import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
 import ProfileSkeleton, { ReadingNowSkeleton } from './ProfileSkeleton'
-import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
-import { shelfReviewCount } from '@/lib/reviewedBooks'
+import ProfileHeader, { secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
 import ContinueReading from './ContinueReading'
 import UpNext from './UpNext'
 import ShelfSearch from './ShelfSearch'
-import ProfileAuthors from './ProfileAuthors'
-import OwnReviews from './OwnReviews'
+import ProfileLinkRows from './ProfileLinkRows'
 import BandsShowcase, { ProfileFavourites } from './BandsShowcase'
 import BookList from '../books/BookList'
-import MedalShowcase from '../achievements/MedalShowcase'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
 import { isNarrowed } from '@/lib/shelfFilter'
 import { groupShelf } from '../books/shelf'
-import useSWR from 'swr'
-import { fetcher, swrOptions } from '@/lib/fetcher'
-import type { FollowedAuthor } from '@/lib/authorFollows'
 import type { ProfileLayout } from './Band'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
@@ -39,10 +31,18 @@ import { supporterOf } from '@/lib/supporter'
 import { staffBadgeOf } from '@/lib/staffBadge'
 import { milestoneKey, type AchievementKey } from '@/lib/achievements-catalog'
 
-// Followed authors in your header's column before "+N more".
-const FOLLOWED_SHOWN = 8
-// Your reviews in that column show three before "Show more", as they do below it.
-const REVIEWS_SHOWN = 3
+// Your achievements and your stats, as rows: under your header's column from lg up, at the end of the page below it.
+export const ownLinkRows = (earned: number) => [
+  { label: "Achievements", href: "/achievements", count: earned },
+  { label: "Stats and streaks", href: "/stats" },
+]
+
+// The same rows at the end of your profile below lg, counted from your achievements alone.
+export const OwnLinkRows: FC = () => {
+  const { achievements } = useAchievements()
+  const earned = achievements.reduce((n, a) => n + a.milestones.filter((m) => m.earned).length, 0)
+  return <ProfileLinkRows className="!border-t-0" rows={ownLinkRows(earned)} />
+}
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -102,11 +102,8 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
   const { achievements, isLoading: achievementsLoading } = useAchievements()
   // Only its counts and medals: your books are on your shelf (useBooks), which comes with the page.
   const { profile } = usePublicProfile(user?.username ?? "", { books: false })
-  const bookEntryModal = useBookEntryModal()
   const editProfileModal = useEditProfileModal()
   const [showLightbox, setShowLightbox] = useState(false)
-  // The same list as Authors you follow further down, so it's one request.
-  const { data: followed } = useSWR<{ authors: FollowedAuthor[] }>(bands ? '/api/user/authors' : null, fetcher, swrOptions)
 
   // SWR reports isLoading while it revalidates server-provided fallback data too, so check for data.
   if (isLoading && !user) return <ProfileSkeleton own shelves={false} />
@@ -125,9 +122,6 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
   const following = profile?.followingCount ?? 0
   // Calm social: with counts hidden, even the owner just gets the links to the lists.
   const hideCounts = !!user.hideFollowCounts
-  // Your reviews: finished books with one, as your reviews section and page count them. Until the shelf
-  // loads, the count that came with the page.
-  const reviews = books ? shelfReviewCount(books as Book[]) : profile?.reviewCount ?? 0
 
   return (
     <>
@@ -144,43 +138,20 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         staffBadge={staffBadgeOf(user)}
         compact={bands}
         besides={bands ? <BooksTop /> : undefined}
-        // From lg up the column ends with your reviews, the authors you follow, then your top medals (below lg,
-        // the reviews and authors come after what you're reading, and the medals are on the achievements page).
-        identityFooter={bands ? (
-          // 32px under the buttons and between every block; the medals' own 20px top margin is dropped so theirs matches.
-          <div className="flex flex-col gap-8 pt-8">
-            <div className="empty:hidden"><OwnReviews first={REVIEWS_SHOWN} /></div>
-            {followed && <div><ProfileAuthors authors={followed.authors} isSelf cap={FOLLOWED_SHOWN} /></div>}
-            <div className="[&>section]:!mt-0"><MedalShowcase earned={earnedKeys} href="/achievements" stacked /></div>
-          </div>
-        ) : undefined}
+        // From lg up the column ends with the ways further in; below lg they end the page (OwnerProfile).
+        identityFooter={bands ? <ProfileLinkRows className="mt-8" rows={ownLinkRows(earned)} /> : undefined}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
-          { value: reviews, label: plural(reviews, "review"), href: `/u/${encodeURIComponent(user.username)}/reviews` },
           { value: hideCounts ? null : followers, label: hideCounts ? "Followers" : plural(followers, "follower"), followList: { username: user.username, kind: "followers" } },
           { value: hideCounts ? null : following, label: hideCounts ? "Following" : "following", followList: { username: user.username, kind: "following" } },
-          { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
         ]}
         share={<ShareProfileButton username={user.username} />}
-        actions={
-          <>
-            <button type="button" onClick={editProfileModal.onOpen} className={`${secondaryButtonClass} max-sm:px-3 lg:flex-1`}>
-              <span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit profile</span>
-            </button>
-            <button type="button" onClick={() => bookEntryModal.onOpen()} className={`${primaryButtonClass} max-sm:px-3 lg:flex-1`}>
-              <Plus size={16} aria-hidden /><span className="sm:hidden">Add</span><span className="hidden sm:inline">Add a book</span>
-            </button>
-          </>
-        }
+        // One button: adding a book is in the site header and on your shelf, not beside your name (BOO-97).
+        actions={<button type="button" onClick={editProfileModal.onOpen} className={secondaryButtonClass}>Edit profile</button>}
       >
-        {/* One slim line, so the first cover on the shelf is in view without scrolling, even on a phone. */}
-        {bands ? (
-          <>
-            <div className="lg:hidden"><ReadingGoalWidget variant="lines" /></div>
-            <div className="hidden lg:block"><ReadingGoalWidget variant="block" /></div>
-          </>
-        ) : <ReadingGoalWidget />}
+        {/* One line and a thin bar; the month, pages and average are on /stats. */}
+        {bands ? <ReadingGoalWidget variant="bar" /> : <ReadingGoalWidget />}
       </ProfileHeader>
 
       {showLightbox && user.image && (

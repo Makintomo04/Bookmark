@@ -2,14 +2,13 @@ import { FC, ReactNode } from 'react'
 import { BLEED } from '../Container'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronRight, Crown, Link2 } from 'lucide-react'
+import { ChevronRight, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
 import { bannerPresetOf, resolveBanner } from '@/lib/banners'
 import type { SupporterBadgeKind } from '@/lib/supporter'
 import type { StaffBadgeKind } from '@/lib/staffBadge'
 import { profileLinkLabel, readerName } from '@/lib/profile'
-import BannerPattern from '../profile/BannerPattern'
 import TierAvatar from './TierAvatar'
 import StaffSeal from './StaffSeal'
 import FollowListStat from './FollowListStat'
@@ -40,24 +39,23 @@ interface ProfileHeaderProps {
   colour?: string | null
   stats: ProfileStat[]
   actions?: ReactNode
-  // The share icon, beside the display name.
+  // The share icon, after the buttons.
   share?: ReactNode
   children?: ReactNode
   onAvatarClick?: () => void
   booksRead: number
-  // A Bookmark Plus account: shows the supporter badge beside the name.
+  // A Bookmark Plus account: says so, in words, after the handle.
   supporter?: boolean
   // A founder on Plus: the badge reads "Founding Reader".
   founding?: boolean
   // Which supporter badge, when the profile has one. Takes over from supporter/founding.
   badge?: SupporterBadgeKind | null
-  // "Bookmark team" or "Librarian" (lib/staffBadge.ts): a seal on the avatar's corner.
+  // "Bookmark team" or "Librarian" (lib/staffBadge.ts): a seal beside the name, as on their other pages.
   staffBadge?: StaffBadgeKind | null
   // The profile in bands (Band.tsx). `besides` (what they're reading, what's next) sits beside the
-  // header from lg up, which becomes a column; `identityFooter` ends that column from lg up (top medals,
-  // when the books beside it run longer);
-  // `follows` puts the first authors they follow under the bio; `compact` keeps the banner shorter on a
-  // wide screen, so the first band starts higher.
+  // header from lg up, which becomes a column; `identityFooter` ends that column from lg up;
+  // `follows` puts the first authors they follow under the bio; `compact` keeps an uploaded banner shorter
+  // on a wide screen, so the first band starts higher.
   besides?: ReactNode
   identityFooter?: ReactNode
   follows?: { name: string; slug: string }[]
@@ -112,16 +110,6 @@ const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   return <span className={className}>{content}</span>
 }
 
-export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind }> = ({ founding, kind = founding ? "founding" : "supporter" }) => (
-  <Link
-    href="/plus"
-    title={BADGE[kind].title}
-    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 align-middle text-xs font-medium text-brand-fill dark:text-brand transition hover:bg-brand/15"
-  >
-    <Crown size={12} aria-hidden /> {BADGE[kind].label}
-  </Link>
-)
-
 // A reader's links, labelled by where they go. They lead off Bookmark, so they open in a new tab and
 // carry no endorsement (nofollow ugc); `me` lets sites that check it verify the profile.
 const ProfileLinks: FC<{ links: string[] }> = ({ links }) => (
@@ -138,73 +126,83 @@ const ProfileLinks: FC<{ links: string[] }> = ({ links }) => (
 
 const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, links, image, banner, colour, stats, actions, share, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, identityFooter, follows, followsPrompt = false, compact = false }) => {
   const accent = colour || "#F13C3C"
+  // Only a picture the reader uploaded makes a banner. The patterns put a block of colour above every profile
+  // before any of its books, so they no longer show (BOO-97).
   const shownBanner = resolveBanner(banner, username)
-  const preset = bannerPresetOf(shownBanner)
-  const plus = !!(badge || supporter)
+  const uploaded = !bannerPresetOf(shownBanner)
+  const badgeKind: SupporterBadgeKind | null = badge ?? (supporter ? (founding ? "founding" : "supporter") : null)
   const name = readerName({ username, displayName })
+  // Round for everyone, in a hairline of their tier's metal: the books carry the colour, not the frame.
   const avatar = (
-    <TierAvatar image={image} username={username} colour={accent} alt={`${name}'s avatar`} booksRead={booksRead} square={plus} className="size-20 sm:size-28" />
+    <TierAvatar image={image} username={username} colour={accent} alt={`${name}'s avatar`} booksRead={booksRead} thin className="size-16 sm:size-20" />
   )
+  // Under the name, in words: the handle (when a display name heads it) and their Plus badge.
+  const marks = [
+    displayName ? <span key="handle" className="break-all">@{username}</span> : null,
+    badgeKind ? <Link key="badge" href="/plus" title={BADGE[badgeKind].title} className="hover:text-foreground transition">{BADGE[badgeKind].label}</Link> : null,
+  ].filter(Boolean)
 
   return (
     <header>
-      {/* Shorter on a phone, with the buttons beside the avatar, so the shelf's first cover is in view. The banner
-          reaches the page's outer edge (edge to edge on a phone); everything else sits on the inner line. */}
-      <div className={cn("relative h-24 sm:h-44 overflow-hidden sm:rounded-2xl", compact && "lg:h-32", BLEED)} style={{ background: accent }}>
-        {preset
-          ? <BannerPattern preset={preset} colour={accent} />
-          : <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
-      </div>
+      {uploaded && (
+        <div className={cn("relative mb-6 h-24 sm:h-40 overflow-hidden sm:rounded-2xl", compact && "lg:h-32", BLEED)} style={{ background: accent }}>
+          <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />
+        </div>
+      )}
 
       {/* In bands (`besides`), from lg up this is the left third of a grid and the books sit in the other two
-          thirds; the buttons drop under the stats. Below lg it's the header as ever, with the books under it. */}
-      <div data-top-grid className={cn(besides && "lg:grid lg:grid-cols-12 lg:gap-10")}>
-      <div data-identity className={cn(besides && "lg:col-span-4 lg:flex lg:flex-col lg:self-start")}>
-        <div className={cn("-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4", besides && "lg:contents")}>
-          {/* The seal sits beside the avatar's button, not in it, so it can be pressed on its own. */}
-          <div className={cn("relative shrink-0", besides && "lg:-mt-14 lg:self-start")}>
-            {onAvatarClick ? (
-              <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
-                {avatar}
-              </button>
-            ) : avatar}
-            {staffBadge && <StaffSeal kind={staffBadge} name={name} size={30} cutOut shine className={cn("absolute", plus ? "-right-1.5 bottom-0.5" : "right-0 bottom-[6%]")} />}
-          </div>
-          {/* On a phone the buttons are shorter, so beside the smaller avatar they clear the banner by 12px. */}
-          {actions && <div className={cn("flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8", besides && "lg:order-last lg:mt-5 lg:w-full lg:flex-wrap lg:pb-0")}>{actions}</div>}
-        </div>
-
-        <div className="mt-3 sm:mt-4 min-w-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="page-title break-words">{name}</h1>
-            {share}
-            {(badge || supporter) && (
-              // Centring on the line box leaves the pills riding high beside Literata's lowercase,
-              // so drop them to the middle of the name's x-height.
-              <div className="flex flex-wrap items-center gap-2 translate-y-1">
-                {badge ? <SupporterBadge kind={badge} /> : supporter && <SupporterBadge founding={founding} />}
-              </div>
+          thirds. Below lg it's the header as ever, with the books under it. */}
+      <div data-top-grid className={cn(besides && "lg:grid lg:grid-cols-12 lg:gap-16")}>
+      <div data-identity className={cn("min-w-0", besides && "lg:col-span-4 lg:flex lg:flex-col lg:self-start")}>
+        <div className="flex items-center gap-4">
+          {onAvatarClick ? (
+            <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className="block shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {avatar}
+            </button>
+          ) : avatar}
+          <div className="min-w-0">
+            <h1 className="page-title break-words">
+              {name}
+              {staffBadge && <StaffSeal kind={staffBadge} name={name} size={22} className="ml-2 align-[-2px]" />}
+            </h1>
+            {marks.length > 0 && (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {marks.map((mark, i) => <span key={i}>{i > 0 && " · "}{mark}</span>)}
+              </p>
             )}
           </div>
-          {/* The handle, under a display name: it's the /u/ address and how friends find them. */}
-          {displayName && <p className="mt-1 text-sm text-muted-foreground break-all">@{username}</p>}
-          {bio && <p className="mt-2 max-w-xl text-sm text-muted-foreground">{bio}</p>}
-          {links && links.length > 0 && <ProfileLinks links={links} />}
-          {follows && follows.length > 0 && <FollowsLine authors={follows} />}
-          {follows && follows.length === 0 && followsPrompt && (
-            <Link href="/discover" className="mt-2 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">
-              Follow authors you love<ChevronRight size={14} aria-hidden />
-            </Link>
-          )}
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
-            {stats.map((stat) => <Stat key={stat.label} stat={stat} />)}
-          </div>
         </div>
 
+        {bio && <p className="mt-4 max-w-xl text-sm text-foreground/80">{bio}</p>}
+        {links && links.length > 0 && <ProfileLinks links={links} />}
+        {/* One line of counts, the dots between them out of the way of screen readers. */}
+        {stats.length > 0 && (
+          <p className="mt-3 flex flex-wrap items-center gap-x-1.5">
+            {stats.map((stat, i) => (
+              <span key={stat.label} className="inline-flex items-center gap-x-1.5">
+                {i > 0 && <span aria-hidden className="text-sm text-muted-foreground">·</span>}
+                <Stat stat={stat} />
+              </span>
+            ))}
+          </p>
+        )}
+        {follows && follows.length > 0 && <FollowsLine authors={follows} />}
+        {follows && follows.length === 0 && followsPrompt && (
+          <Link href="/discover" className="mt-2 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">
+            Follow authors you love<ChevronRight size={14} aria-hidden />
+          </Link>
+        )}
+        {/* The first button takes the width (Edit profile, Follow); the share icon and the menu sit after it. */}
+        {(actions || share) && (
+          <div className="mt-5 flex min-w-0 items-center gap-2 sm:max-w-sm lg:max-w-none [&>*:first-child]:flex-1">
+            {actions}{share}
+          </div>
+        )}
+
         {children}
-        {besides && identityFooter && <div className="hidden lg:block lg:order-last">{identityFooter}</div>}
+        {besides && identityFooter && <div className="hidden lg:block">{identityFooter}</div>}
       </div>
-      {besides && <div data-books className="mt-8 min-w-0 lg:col-span-8 lg:mt-6 lg:self-start">{besides}</div>}
+      {besides && <div data-books className="mt-10 min-w-0 border-t border-neutral-200 pt-10 dark:border-neutral-800 lg:col-span-8 lg:mt-0 lg:self-start lg:border-t-0 lg:pt-0">{besides}</div>}
       </div>
     </header>
   )

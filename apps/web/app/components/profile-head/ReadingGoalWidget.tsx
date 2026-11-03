@@ -1,5 +1,6 @@
 "use client"
 import { FC, useState } from 'react'
+import Link from 'next/link'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import { Pencil, Crown, Target } from 'lucide-react'
@@ -67,7 +68,8 @@ interface ReadingGoalWidgetProps {
   // "strip": one slim line under the header (the profile as it has been).
   // "block": two lines in the column beside your books, in bands from lg up.
   // "lines": the same two lines in words under the stats, with no card, in bands below lg.
-  variant?: 'strip' | 'block' | 'lines'
+  // "bar": one line and a thin neutral bar, the rest on /stats (BOO-97).
+  variant?: 'strip' | 'block' | 'lines' | 'bar'
 }
 
 // The most books a month the goal can ask you to catch up with before it suggests changing the goal instead.
@@ -85,6 +87,14 @@ const GoalSkeleton: FC<{ variant: NonNullable<ReadingGoalWidgetProps['variant']>
           <Skeleton className="mt-3 h-3 w-4/5" />
           <Skeleton className="h-3 w-1/2" />
         </div>
+      </div>
+    )
+  }
+  if (variant === 'bar') {
+    return (
+      <div aria-hidden className="mt-6 flex flex-col gap-2.5 py-1.5">
+        <Skeleton className="h-4 w-3/5" />
+        <Skeleton className="h-1 w-full" />
       </div>
     )
   }
@@ -205,6 +215,15 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
     )
   }
 
+  if (!target && variant === 'bar') {
+    return (
+      <button type="button" onClick={startEditing} className="mt-5 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Target size={15} aria-hidden />
+        Set a {year} reading goal
+      </button>
+    )
+  }
+
   if (!target) {
     return (
       <button
@@ -272,6 +291,25 @@ const ReadingGoalWidget: FC<ReadingGoalWidgetProps> = ({ variant = 'strip' }) =>
     : gap < 0 ? <span className={toneClass.behind}>{-gap} behind</span>
     : gap > 0 ? <span className={toneClass.good}>{gap} ahead</span>
     : <span className="text-muted-foreground">on pace</span>
+  // One line in words and a thin bar in the text colour, quiet whether ahead or behind; the month, pages and
+  // average are on /stats, which the line opens.
+  if (variant === 'bar') {
+    const pace = completedThisYear >= target
+      ? (completedThisYear > target ? `${fmt(completedThisYear - target)} over` : "Goal reached")
+      : gap < 0 ? `${fmt(-gap)} behind` : "On track"
+    return (
+      <section aria-label={`${year} reading goal`} className="mt-5">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <Link href="/stats" className="min-w-0 truncate tabular-nums underline-offset-2 hover:underline">{fmt(completedThisYear)} of {fmt(target)} books in {year}</Link>
+          <span className="-mr-2 flex shrink-0 items-center text-muted-foreground tabular-nums">{pace}{editButton}</span>
+        </div>
+        <div role="progressbar" aria-label={`${year} reading goal`} aria-valuenow={completedThisYear} aria-valuemin={0} aria-valuemax={target}
+          className="h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+          <div className="h-full rounded-full bg-foreground transition-[width] duration-700" style={{ width: `${ratio * 100}%` }} />
+        </div>
+      </section>
+    )
+  }
   const nextStep = completedThisYear >= target ? null
     : gap >= 0 ? `On track for ${fmt(target)}`
     : -gap > CATCH_UP_MAX ? <button type="button" onClick={startEditing} className="underline underline-offset-2 hover:text-foreground">Adjust your goal</button>

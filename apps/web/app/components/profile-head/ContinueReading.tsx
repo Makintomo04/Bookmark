@@ -24,6 +24,7 @@ interface ContinueReadingProps {
   books: Book[]
   // The finished shelf, to tell a reread (an earlier copy finished) from a first read.
   finished?: Book[]
+  // No longer colours the bar (BOO-97): progress is drawn in the text colour, so the covers carry the colour.
   accentColour?: string | null
   // Someone else's books: no Update, and a tap opens the book's details.
   readOnly?: boolean
@@ -77,7 +78,7 @@ const markOf = (book: Book, id: string, at: number | null): CircleMark => ({
   id, at, label: at == null ? '' : book.chapters ? `at Ch ${chapterAt(at, book.chapters)}` : `${Math.round(at)}%`,
 })
 
-const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Size; circle?: CircleMark; reread?: boolean; bare?: boolean; className?: string; onUpdate: (book: Book, card: HTMLElement, startAt?: 'log' | 'rate') => void }> = ({ book, accent, readOnly, size, circle, reread = false, bare = false, className, onUpdate }) => {
+const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: CircleMark; reread?: boolean; bare?: boolean; className?: string; onUpdate: (book: Book, card: HTMLElement, startAt?: 'log' | 'rate') => void }> = ({ book, readOnly, size, circle, reread = false, bare = false, className, onUpdate }) => {
   const openDetails = useBookDetailsModal((s) => s.onOpen)
   const progress = progressWhole(book)
   const position = whereAt(book)
@@ -99,11 +100,11 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
       </span>
       <span className="mt-1.5 flex items-center gap-2">
         <span role="progressbar" aria-label={`${book.title} progress`} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}
-          className="relative block h-1.5 flex-1 rounded-full bg-neutral-200 transition group-hover/update:brightness-125 dark:bg-neutral-700">
+          className="relative block h-1 flex-1 rounded-full bg-neutral-200 transition group-hover/update:brightness-125 dark:bg-neutral-800">
           {/* The fill slides in from the left (transform, not width), clipped by its own rounded track so the circle's
               mark can still overhang the bar. */}
           <span className="absolute inset-0 overflow-hidden rounded-full">
-            <span className="block h-full rounded-full transition-transform duration-500 ease-out" style={{ transform: `translateX(${progress - 100}%)`, background: accent }} />
+            <span className="block h-full rounded-full bg-foreground transition-transform duration-500 ease-out" style={{ transform: `translateX(${progress - 100}%)` }} />
           </span>
           {circle?.at != null && <span aria-hidden title={`Circle ${circle.label}`} className="absolute -top-1 h-3.5 w-0.5 rounded-full bg-foreground" style={{ left: `${circle.at}%` }} />}
         </span>
@@ -133,7 +134,7 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
     ? <Link href={href} className="hover:underline underline-offset-2">{book.title}</Link>
     : <button type="button" onClick={details} className="text-left hover:underline underline-offset-2">{book.title}</button>
   return (
-    <li ref={card} className={cn("relative flex items-center gap-4 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3", !bare && size === 'row' && "py-2", bare ? "min-h-24" : size === 'large' && "min-h-36", className)}>
+    <li ref={card} className={cn("relative flex items-center gap-4 py-2", !bare && size === 'row' && "py-1.5", bare ? "min-h-24" : size === 'large' && "min-h-36", className)}>
       {/* The bookmark floats in the corner rather than taking a column, so the bar runs the card's full width. */}
       {/* The cover runs the card's full height: its slot stretches with the card and the cover fills it, cropped
           like a photo, rather than sitting at the top with a gap under it. Widths keep the slot close to 2:3. */}
@@ -194,7 +195,7 @@ const ContinueCard: FC<{ book: Book; accent: string; readOnly: boolean; size: Si
 // you're reading with a circle comes first, saying where the circle is. Someone else's profile shows the same
 // without Update; on a phone, as bare tiles (cover, title, author), the first with "Show all" for the rest.
 // Circles shown are your own, or on someone else's page the ones you share with them.
-const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accentColour, readOnly = false, oneLineOnPhone = false, shared = [] }) => {
+const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], readOnly = false, oneLineOnPhone = false, shared = [] }) => {
   const [all, setAll] = useState(false)
   // The Update sheet, kept here rather than in a card: finishing a book takes its card off the list, and the
   // sheet still has a rating and what's next to show. From sm up it opens as a modal.
@@ -203,7 +204,6 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
   const [open, setOpen] = useState(false)
   const { data: circles } = useSWR<{ buddyReads: CircleRow[] }>(readOnly ? null : '/api/buddy-reads', fetcher, swrOptions)
   const { user } = useUser()
-  const accent = accentColour || '#F13C3C'
   if (books.length === 0) {
     return oneLineOnPhone
       ? <p className="text-sm text-muted-foreground">Not reading anything right now.</p>
@@ -226,9 +226,9 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
 
   const cards = (
     // grid-cols-1 (minmax(0, 1fr)), so a long position line truncates instead of widening the column past the screen.
-    <ul className={cn("grid grid-cols-1 gap-3", size === 'card' && "sm:grid-cols-2")}>
+    <ul className={cn("grid grid-cols-1 gap-2", size === 'card' && "sm:grid-cols-2 sm:gap-x-8")}>
       {ordered.map((book, i) => (
-        <ContinueCard key={book.id} book={book} accent={accent} readOnly={readOnly} size={size} circle={circleOf(book)} reread={isRereading(book, finished)} bare={readOnly} onUpdate={openSheet}
+        <ContinueCard key={book.id} book={book} readOnly={readOnly} size={size} circle={circleOf(book)} reread={isRereading(book, finished)} bare={readOnly} onUpdate={openSheet}
           className={cn(!all && i >= SHOWN_PHONE && "max-sm:hidden", !all && i >= SHOWN_WIDE && "sm:hidden")} />
       ))}
     </ul>
@@ -257,7 +257,7 @@ const ContinueReading: FC<ContinueReadingProps> = ({ books, finished = [], accen
       <div className="sm:hidden">
         <ul className="grid grid-cols-1 gap-3">
           {ordered.slice(0, open ? ordered.length : 1).map((book) => (
-            <ContinueCard key={book.id} book={book} accent={accent} readOnly size="row" circle={circleOf(book)} reread={isRereading(book, finished)} bare onUpdate={openSheet} />
+            <ContinueCard key={book.id} book={book} readOnly size="row" circle={circleOf(book)} reread={isRereading(book, finished)} bare onUpdate={openSheet} />
           ))}
         </ul>
         {ordered.length > 1 && (

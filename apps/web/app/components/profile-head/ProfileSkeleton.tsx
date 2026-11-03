@@ -1,6 +1,5 @@
 import { FC } from 'react'
 import { cn } from '@/lib/utils'
-import { BLEED } from '../Container'
 import { Skeleton } from '../ui/skeleton'
 import { coverOnlyGridClass } from '../books/shelf'
 
@@ -38,7 +37,7 @@ export const ReadingNowSkeleton: FC<{ title?: boolean; progress?: boolean; headi
     {title && <Heading className={heading} />}
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {[0, 1].map((i) => (
-        <div key={i} className={cn("flex items-center gap-4 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800", progress ? "min-h-36" : "min-h-24", i === 1 && "max-sm:hidden")}>
+        <div key={i} className={cn("flex items-center gap-4 py-2", progress ? "min-h-32" : "min-h-24", i === 1 && "max-sm:hidden")}>
           <Skeleton className={cn("self-stretch rounded-md", progress ? "w-20" : "w-12")} />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <Skeleton className="h-4 w-3/5" />
@@ -101,57 +100,38 @@ export const ShelvesSkeleton: FC<{ own?: boolean; label?: string }> = ({ own = f
   </div>
 )
 
-// The authors and medals that end the header's column from lg up.
-const ColumnFooterSkeleton: FC = () => (
-  <div className="hidden lg:order-last lg:flex lg:flex-col lg:gap-8 lg:pt-8">
-    <div>
-      <Heading className="w-40" />
-      <div className="flex flex-wrap gap-2">
-        {["w-32", "w-28", "w-24"].map((w, i) => <Skeleton key={i} className={cn("h-9 rounded-full", w)} />)}
-      </div>
-    </div>
-    <div>
-      <Heading className="w-32" />
-      <div className="flex flex-col gap-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-[66px] rounded-xl" />)}</div>
-    </div>
-  </div>
-)
-
 interface ProfileSkeletonProps {
-  // Your own profile: Edit profile and Add a book across the column, and the shelves' own tab row.
+  // Your own profile: Edit profile and share in the column, and the shelves' own tab row.
   own?: boolean
   // The shelves under the header. Off where they're drawn separately, as on your own profile.
   shelves?: boolean
 }
 
-// The whole profile in bands: banner, then the header's column (avatar, name, handle, bio, counts, buttons, and
-// from lg up the authors and medals) beside favourites, what they're reading and lists, then the shelves.
+// The whole profile in bands: the header's column (avatar beside name and handle, bio, counts, buttons, the goal and,
+// from lg up, the rows for achievements and stats) beside what they're reading, favourites and lists, then the shelves.
+// No banner: only an uploaded picture makes one (BOO-97).
 export const ProfileSkeleton: FC<ProfileSkeletonProps> = ({ own = false, shelves = true }) => (
   <div className="w-full" aria-busy="true" aria-label="Loading profile">
-    <Skeleton className={cn("h-24 sm:h-44 sm:rounded-2xl lg:h-32", BLEED)} />
-    <div className="lg:grid lg:grid-cols-12 lg:gap-10">
+    <div className="lg:grid lg:grid-cols-12 lg:gap-16">
       <div className="lg:col-span-4 lg:flex lg:flex-col lg:self-start">
-        <div className="-mt-9 flex items-end justify-between gap-3 sm:-mt-14 sm:gap-4 lg:contents">
-          <Skeleton className="size-20 shrink-0 rounded-full border-4 border-background sm:size-28 lg:-mt-14 lg:self-start" />
-          <div className="flex items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8 lg:order-last lg:mt-5 lg:w-full lg:pb-0">
-            {own
-              ? <><Skeleton className="h-11 w-16 rounded-md pointer-fine:h-9 sm:w-28 lg:flex-1" /><Skeleton className="h-11 w-16 rounded-md pointer-fine:h-9 sm:w-28 lg:flex-1" /></>
-              : <><Skeleton className="h-11 w-28 rounded-md pointer-fine:h-9" /><Skeleton className="h-11 w-11 rounded-md pointer-fine:h-9 pointer-fine:w-9" /></>}
+        <div className="flex items-center gap-4">
+          <Skeleton className="size-16 shrink-0 rounded-full sm:size-20" />
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-9 w-48 max-w-full sm:h-[42px]" />
+            <Skeleton className="mt-1.5 h-5 w-32" />
           </div>
         </div>
-        <div className="mt-3 min-w-0 sm:mt-4">
-          <Skeleton className="h-9 w-48 max-w-full sm:h-[42px]" />
-          <Skeleton className="mt-1.5 h-5 w-24" />
-          <Skeleton className="mt-1.5 h-5 w-72 max-w-full" />
-          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
-            {["w-20", "w-20", "w-20", "w-24"].map((w, i) => <Skeleton key={i} className={cn("h-5", w)} />)}
-          </div>
+        <Skeleton className="mt-4 h-5 w-72 max-w-full" />
+        <Skeleton className="mt-3 h-5 w-56 max-w-full" />
+        <div className="mt-5 flex items-center gap-2 sm:max-w-sm lg:max-w-none">
+          <Skeleton className="h-11 flex-1 rounded-md pointer-fine:h-9" />
+          {!own && <Skeleton className="h-11 w-11 rounded-md pointer-fine:h-9 pointer-fine:w-9" />}
+          <Skeleton className="h-11 w-11 rounded-full pointer-fine:size-9" />
         </div>
-        <ColumnFooterSkeleton />
       </div>
-      <div className="mt-8 flex min-w-0 flex-col gap-10 lg:col-span-8 lg:mt-6 lg:self-start">
-        <FavouritesSkeleton />
+      <div className="mt-10 flex min-w-0 flex-col gap-10 lg:col-span-8 lg:mt-0 lg:self-start">
         <ReadingNowSkeleton />
+        <FavouritesSkeleton />
         <ListsSkeleton swipe />
       </div>
     </div>
