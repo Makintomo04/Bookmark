@@ -113,7 +113,7 @@ const BookDetailsModal: FC = () => {
       // "open as page" is. Icon-only on a phone, where the header is narrow.
       headerAction={pageHref ? (
         <Link href={pageHref} onClick={onClose} aria-label="Open book page"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-neutral-200 px-0 text-sm font-medium transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:w-9 sm:px-4 dark:bg-neutral-800 dark:hover:bg-neutral-700">
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-full px-0 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:w-11 sm:px-3">
           <Maximize2 size={16} aria-hidden />
           <span className="hidden sm:inline">Open book page</span>
         </Link>
@@ -121,7 +121,7 @@ const BookDetailsModal: FC = () => {
       body={body}
       onClose={onClose}
       isOpen={isOpen}
-      compact
+      size="l"
     />
   )
 }

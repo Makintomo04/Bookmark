@@ -6,20 +6,19 @@ import { Check } from 'lucide-react'
 import axios from 'axios'
 import useSWR from 'swr'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import Loader from '../Loader'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { cn } from '@/lib/utils'
 import { notify } from '@/lib/notify'
 import { fetcher } from '@/lib/fetcher'
-import useUser from '@/app/hooks/useUser'
 import useRecommendModal from '@/app/hooks/useRecommendModal'
 import { RECOMMEND_MAX_FRIENDS, RECOMMEND_MESSAGE_MAX, type RecommendFriend } from '@/lib/recommendRules'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
 // Sends a book (one of yours, or one from its page) to friends (people you follow who follow you back) as a notification.
 const RecommendModal: FC = () => {
-  const { user } = useUser()
   const { isOpen, bookId, bookKey, bookTitle, onClose } = useRecommendModal()
   // Your copy, or the book page's catalogue entry when it isn't on your shelf.
   const endpoint = bookId ? `/api/books/${bookId}/recommend` : bookKey ? `/api/book-pages/${encodeURIComponent(bookKey)}/recommend` : null
@@ -93,17 +92,17 @@ const RecommendModal: FC = () => {
   )
 
   const footer = (
-    <div className="w-full p-6 flex items-center justify-end gap-3">
-      <Button variant="outline" onClick={onClose} disabled={isSending}>Cancel</Button>
+    <ModalFooter>
+      <Button variant="ghost" onClick={onClose} disabled={isSending}>Cancel</Button>
       {friends.length > 0 && (
-        <Button style={{ background: user?.favColour ?? undefined }} onClick={send} disabled={picked.length === 0} loading={isSending}>
+        <Button onClick={send} disabled={picked.length === 0} loading={isSending}>
           {picked.length > 1 ? `Send to ${picked.length} friends` : "Send"}
         </Button>
       )}
-    </div>
+    </ModalFooter>
   )
 
-  return <Modal title={bookTitle ? `Send ${bookTitle} to a friend` : "Send to a friend"} body={body} footer={footer} onClose={onClose} isOpen={isOpen} disabled={isSending} size="sm" />
+  return <Modal title="Send to a friend" subtitle={bookTitle} body={body} footer={footer} onClose={onClose} isOpen={isOpen} disabled={isSending} size="m" />
 }
 
 export default RecommendModal

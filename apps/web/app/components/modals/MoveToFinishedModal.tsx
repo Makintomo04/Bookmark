@@ -1,10 +1,10 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import StarRating from '../StarRating'
-import { readableInk } from '@/lib/colour'
 import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
 import useMoveToFinishedModal from '@/app/hooks/useMoveToFinishedModal'
@@ -59,13 +59,13 @@ const MoveToFinishedModal: FC = () => {
   )
 
   const footer = (
-    <div className="w-full p-6 flex items-center justify-end gap-3">
-      <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
-      <Button style={{ background: colour, color: readableInk(colour) }} onClick={move} loading={isSaving}>Move to Finished</Button>
-    </div>
+    <ModalFooter>
+      <Button variant="ghost" onClick={onClose} disabled={isSaving}>Cancel</Button>
+      <Button onClick={move} loading={isSaving}>Move to Finished</Button>
+    </ModalFooter>
   )
 
-  return <Modal title={bookTitle ? `Move ${bookTitle} to Finished` : "Move to Finished"} body={body} footer={footer} onClose={onClose} isOpen={isOpen} disabled={isSaving} size="sm" compact />
+  return <Modal title="Move to Finished" subtitle={bookTitle} body={body} footer={footer} onClose={onClose} isOpen={isOpen} disabled={isSaving} size="m" />
 }
 
 export default MoveToFinishedModal

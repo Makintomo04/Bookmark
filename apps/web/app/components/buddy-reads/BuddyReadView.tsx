@@ -258,19 +258,15 @@ const BuddyReadView: FC<BuddyReadViewProps> = ({ id, initial }) => {
         isOpen={inviting}
         onClose={() => setInviting(false)}
         title={clubArchived ? "Invite a member back" : "Invite readers"}
-        size="sm"
-        compact
-        sheet
-        body={<div className="w-full px-6 pb-6">{invitePanel}</div>}
+        size="m"
+        body={<div className="w-full px-6">{invitePanel}</div>}
       />
       <Modal
         isOpen={explaining}
         onClose={() => setExplaining(false)}
         title="How locked comments work"
-        size="sm"
-        compact
-        sheet
-        body={<p className="w-full px-6 pb-6 text-sm text-muted-foreground"><HowItWorks /></p>}
+        size="s"
+        body={<p className="w-full px-6 text-sm text-muted-foreground"><HowItWorks /></p>}
       />
       {viewer.isHost && (
         <HandOverDialog
