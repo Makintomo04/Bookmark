@@ -5,6 +5,7 @@ import { useEarnMoment, useRemindersPrompt } from '@/app/hooks/useEarnMoment'
 import useNotificationSettings from '@/app/hooks/useNotificationSettings'
 import { notify } from '@/lib/notify'
 import Modal from '../modals/Modal'
+import ModalFooter from '../modals/ModalFooter'
 import { Button } from '../ui/button'
 import ReminderControls, { DEFAULT_REMINDER_AT } from './ReminderControls'
 
@@ -58,7 +59,7 @@ const RemindersSheet: FC = () => {
   return (
     <Modal
       isOpen
-      size="sm"
+      size="s"
       title="Want a nudge to keep reading?"
       onClose={() => void close(false)}
       closeOnBackdrop={false}
@@ -70,13 +71,12 @@ const RemindersSheet: FC = () => {
         </div>
       }
       footer={
-        <div className="w-full p-6 flex items-center justify-end gap-3">
-          <Button variant="outline" onClick={() => void close(false)} disabled={pending}>Not now</Button>
+        <ModalFooter>
+          <Button variant="ghost" onClick={() => void close(false)} disabled={pending}>Not now</Button>
           <Button onClick={() => void close(true)} loading={pending}>Turn on</Button>
-        </div>
+        </ModalFooter>
       }
       disabled={pending}
-      compact
     />
   )
 }

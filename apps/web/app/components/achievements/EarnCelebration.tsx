@@ -118,7 +118,7 @@ const EarnCelebration: FC = () => {
     </div>
   )
 
-  return <Modal isOpen onClose={clear} title={heading} body={body} compact size="sm" bare />
+  return <Modal isOpen onClose={clear} title={heading} body={body} size="s" bare />
 }
 
 export default EarnCelebration

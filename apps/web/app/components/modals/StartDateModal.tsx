@@ -2,6 +2,7 @@
 import { FC, useEffect, useState } from 'react'
 import axios from 'axios'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { notify, apiError } from '@/lib/notify'
@@ -52,13 +53,13 @@ const StartDateModal: FC = () => {
   )
 
   const footer = (
-    <div className="w-full p-6 flex items-center justify-end gap-3">
-      <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
+    <ModalFooter>
+      <Button variant="ghost" onClick={onClose} disabled={isSaving}>Cancel</Button>
       <Button onClick={save} loading={isSaving} disabled={!readId || !started}>Save date</Button>
-    </div>
+    </ModalFooter>
   )
 
-  return <Modal title={bookTitle ? `When did you start ${bookTitle}?` : "When did you start it?"} body={body} footer={footer} onClose={onClose} isOpen={isOpen} disabled={isSaving} size="sm" compact />
+  return <Modal title="When did you start it?" subtitle={bookTitle} body={body} footer={footer} onClose={onClose} isOpen={isOpen} disabled={isSaving} size="s" />
 }
 
 export default StartDateModal

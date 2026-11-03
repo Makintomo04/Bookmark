@@ -5,6 +5,7 @@ import { BookPlus, Lock, Search, Users } from 'lucide-react'
 import { askToCatalogue } from '../books/catalogueRequest'
 import CoverLinkInput from '../books/CoverLinkInput'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
 import { notify, apiError } from '@/lib/notify'
@@ -479,18 +480,14 @@ const BookEntryModal: FC = () => {
     </div>
   )
 
-  const footer = (
-    <div className="w-full h-full mt-auto p-6">
-      <div className="flex items-center gap-3 justify-end mt-auto">
-        <Button onClick={bookEntryModal.onClose} variant="outline" className="border-neutral-700 rounded-md py-2" disabled={isLoading}>Cancel</Button>
-        {stage === "shelf" && (
-          <Button style={{ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading} loading={isAdding}>
-            {SHELVES.find((s) => s.value === shelf)?.action}
-          </Button>
-        )}
-      </div>
-    </div>
-  )
+  const footer = stage === "shelf" ? (
+    <ModalFooter>
+      <Button onClick={bookEntryModal.onClose} variant="ghost" disabled={isLoading}>Cancel</Button>
+      <Button onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading} loading={isAdding}>
+        {SHELVES.find((s) => s.value === shelf)?.action}
+      </Button>
+    </ModalFooter>
+  ) : undefined
 
   return (
     <Modal
@@ -500,6 +497,7 @@ const BookEntryModal: FC = () => {
       onClose={bookEntryModal.onClose}
       isOpen={bookEntryModal.isOpen}
       disabled={isLoading}
+      size="l"
     />
   )
 }
