@@ -49,6 +49,15 @@ export function shade(colour: string, amount: number) {
   return '#' + rgb.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('')
 }
 
+// `amount` of `colour` mixed into `base`, as CSS color-mix(in srgb) does: mixColour(bg, c, 0.2) is 20% c.
+export function mixColour(base: string, colour: string, amount: number) {
+  const from = parseColour(base)
+  const to = parseColour(colour)
+  if (!from || !to) return base
+  const t = Math.min(1, Math.max(0, amount))
+  return '#' + from.map((c, i) => Math.round(c + (to[i] - c) * t).toString(16).padStart(2, '0')).join('')
+}
+
 // The profile swatches without the grey and near-black, which read as "no cover" rather than a book.
 export const COVER_COLOURS = SWATCHES.filter((c) => c !== '#495057' && c !== '#1A1A1A')
 

@@ -22,11 +22,11 @@ import BookList from '../books/BookList'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
 import { isNarrowed } from '@/lib/shelfFilter'
 import { groupShelf } from '../books/shelf'
-import type { ProfileLayout } from './Band'
+import { BANDS_REVIEWS, type ProfileLayout } from './Band'
+import OwnReviews from './OwnReviews'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
-import { resolveBanner } from '@/lib/banners'
 import { supporterOf } from '@/lib/supporter'
 import { staffBadgeOf } from '@/lib/staffBadge'
 import { milestoneKey, type AchievementKey } from '@/lib/achievements-catalog'
@@ -59,8 +59,8 @@ const BooksTop: FC = () => {
   const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
   return (
     <>
-    {/* From lg up your favourites lead this column, above what you're reading; below lg they're a band of their own
-        (OwnerProfile). Out of the way while you search, so the results stay right under the field. */}
+    {/* From lg up your favourites lead this column, above what you're reading; below lg they open the profile
+        (`lead`). Out of the way while you search, so the results stay right under the field. */}
     {!searching && <div className="hidden lg:block"><ProfileFavourites /></div>}
     <section aria-labelledby="continue-reading">
       <div className="mb-4 flex min-h-10 items-center justify-between gap-4">
@@ -87,6 +87,8 @@ const BooksTop: FC = () => {
         </div>
       )}
     </section>
+    {/* On a phone your favourites come after what you're reading; from md they're beside your header (`lead`). */}
+    {!searching && <div className="mt-12 md:hidden"><ProfileFavourites half /></div>}
     </>
   )
 }
@@ -132,14 +134,24 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         bio={user.bio}
         links={user.profileLinks}
         image={user.image}
-        banner={resolveBanner(user.banner, user.id)}
+        banner={user.banner}
         colour={user.favColour}
         {...supporterOf(user)}
         staffBadge={staffBadgeOf(user)}
         compact={bands}
         besides={bands ? <BooksTop /> : undefined}
-        // From lg up the column ends with the ways further in; below lg they end the page (OwnerProfile).
-        identityFooter={bands ? <ProfileLinkRows className="mt-8" rows={ownLinkRows(earned)} /> : undefined}
+        // From md to lg your favourites sit beside your header. On a phone what you're reading comes first, as it's
+        // what you come here to update, and they follow it (BooksTop).
+        lead={bands ? <ProfileFavourites half /> : undefined}
+        leadOnPhone={false}
+        // From lg up the column ends with the ways further in and, under them, your reviews, as on someone else's
+        // profile; below lg both are further down the page (OwnerProfile).
+        identityFooter={bands ? (
+          <>
+            <ProfileLinkRows className="mt-8" rows={ownLinkRows(earned)} />
+            <div className="mt-10 empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
+          </>
+        ) : undefined}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },

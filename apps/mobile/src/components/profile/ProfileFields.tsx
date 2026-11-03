@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { Camera, Check } from "lucide-react-native";
-import { BANNER_PRESETS, type BannerPresetId } from "@bookmark/shared/banners";
 import { SWATCHES, normaliseUsername, usernameProblem } from "@bookmark/shared/profile";
 import { Avatar } from "@/components/profile/Avatar";
-import { BannerPattern } from "@/components/profile/BannerPattern";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { ApiError, api } from "@/lib/api";
@@ -42,25 +40,34 @@ export function ColourPicker({ value, onChange }: { value: string; onChange: (co
   );
 }
 
-export function BannerPicker({ value, colour, onChange }: { value: BannerPresetId | null; colour: string; onChange: (id: BannerPresetId) => void }) {
-  const { colors, radii } = useTheme();
+// A banner picture, 3:1 like the web's (BOO-99). Without one the profile shows a strip of the reader's colour.
+export function BannerUpload({ banner, onChange }: { banner: string | null; onChange: (url: string | null) => void }) {
+  const { colors } = useTheme();
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const choose = async () => {
+    setError(null);
+    setUploading(true);
+    try {
+      const url = await pickAndUploadImage([3, 1], "banner");
+      if (url) onChange(url);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Couldn't upload that picture. Try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
-    <View style={{ gap: 10 }}>
-      <Text variant="label">Your banner</Text>
-      <View accessibilityRole="radiogroup" style={styles.banners}>
-        {BANNER_PRESETS.map((preset) => (
-          <Pressable
-            key={preset.id}
-            accessibilityRole="radio"
-            accessibilityLabel={preset.name}
-            accessibilityState={{ checked: value === preset.id }}
-            onPress={() => onChange(preset.id)}
-            style={[styles.bannerOption, { borderRadius: radii.md, borderColor: value === preset.id ? colors.foreground : colors.border }]}
-          >
-            <BannerPattern preset={preset.id} colour={colour} />
-          </Pressable>
-        ))}
+    <View style={{ gap: 6 }}>
+      <Text variant="label">Banner · optional</Text>
+      <Text variant="small">A picture across the top of your profile. Without one, it's a strip of your colour.</Text>
+      <View style={styles.bannerButtons}>
+        <Button title={banner ? "Change banner" : "Upload a banner"} variant="outline" loading={uploading} onPress={choose} />
+        {banner && <Button title="Remove" variant="ghost" disabled={uploading} onPress={() => onChange(null)} />}
       </View>
+      {error && <Text variant="small" style={{ color: colors.danger }}>{error}</Text>}
     </View>
   );
 }
@@ -131,8 +138,7 @@ export const usernameHint = (name: string, availability: Availability) =>
 const styles = StyleSheet.create({
   swatches: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 3, alignItems: "center", justifyContent: "center" },
-  banners: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  bannerOption: { width: "31%", flexGrow: 1, height: 56, overflow: "hidden", borderWidth: 2 },
+  bannerButtons: { flexDirection: "row", alignItems: "center", gap: 8 },
   photoRow: { flexDirection: "row", alignItems: "center", gap: 16 },
   camera: { position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
 });

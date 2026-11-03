@@ -3,7 +3,7 @@
 // Keeping the storage as it was means nobody's existing favourites need migrating.
 
 // How many of the ranking show on a profile; the Favourites page numbers these.
-export const TOP_FAVOURITES = 4
+export const TOP_FAVOURITES = 3
 
 // The ids as ranked, #1 first.
 export const rankedFavouriteIds = (stored: readonly string[]): string[] => stored.slice().reverse()
@@ -18,8 +18,8 @@ export function isReorderOf(stored: readonly string[], ranked: readonly string[]
   return ranked.every((id) => have.has(id))
 }
 
-// The ids to store once `id` is favourited: it takes the next place in the top four while that has room, and
-// after that goes in just below it, at number 5, so a new favourite never pushes out one you've ranked.
+// The ids to store once `id` is favourited: it takes the next place in the top three while that has room, and
+// after that goes in just below it, at number 4, so a new favourite never pushes out one you've ranked.
 export function withFavourite(stored: readonly string[], id: string): string[] {
   const ranked = rankedFavouriteIds(stored).filter((rankedId) => rankedId !== id)
   ranked.splice(Math.min(ranked.length, TOP_FAVOURITES), 0, id)

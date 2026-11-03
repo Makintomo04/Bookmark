@@ -22,7 +22,7 @@ import ProfileAuthors from './ProfileAuthors'
 import SeriesTracker from '../series/SeriesTracker'
 import type { FollowedAuthor } from '@/lib/authorFollows'
 import { fetcher, swrOptions } from '@/lib/fetcher'
-import { SECTIONS, type ProfileLayout } from './Band'
+import { BANDS_REVIEWS, SECTIONS, type ProfileLayout } from './Band'
 import { ShelfFilterProvider } from '@/app/hooks/useShelfFilter'
 
 interface OwnerProfileProps {
@@ -79,8 +79,7 @@ const OwnAuthors: FC<{ cap?: number }> = ({ cap }) => {
   return <div className="mt-12"><ProfileAuthors authors={data.authors} isSelf /></div>
 }
 
-// How many reviews and followed authors show in bands before "Show more" and "+N more".
-const BANDS_REVIEWS = 3
+// How many followed authors show in bands before "+N more".
 const BANDS_AUTHORS = 8
 
 // Your profile in bands, as the reader panel and designer settled it (docs/profile-layout-spike.html,
@@ -94,8 +93,9 @@ const OwnerBands: FC<{ username: string }> = ({ username }) => (
     <ProfileHead layout="bands" />
     <div className={SECTIONS}>
       <FollowRequests />
-      <div className="empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
-      {/* From lg up your favourites and lists sit in your header's right column, under Up next (ProfileHead). */}
+      {/* From lg up your reviews are in your header's column (ProfileHead's identityFooter). */}
+      <div className="empty:hidden lg:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
+      {/* From lg up your lists sit in your header's right column, under Up next (ProfileHead). */}
       <div className="lg:hidden empty:hidden"><BandsShowcase username={username} /></div>
       <BookList slot="shelves" />
       <div className="empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
