@@ -39,10 +39,10 @@ test("a second reader joins through the invite and posts; the host unlocks it by
   // Halfway through, then a comment, which is pinned where the guest is.
   await logProgress(guest, 150)
   // The circle refetches once the shelf has, which can wait behind another route's first compile on CI.
-  await expect(guest.getByRole("button", { name: /^Update my progress · 50%/ })).toBeVisible({ timeout: 60_000 })
+  await expect(guest.getByText("You're at 50%.")).toBeVisible({ timeout: 60_000 })
   const comment = `Did not see that twist coming (${guestReader.username})`
-  await guest.getByLabel("Your comment").fill(comment)
-  await guest.getByRole("button", { name: "Post", exact: true }).click()
+  await guest.getByLabel("Add to the discussion").fill(comment)
+  await guest.getByRole("button", { name: "Send", exact: true }).click()
   await expect(guest.getByText(comment)).toBeVisible()
 
   // The host is still at 0%: they see that something's ahead, not what it says.
