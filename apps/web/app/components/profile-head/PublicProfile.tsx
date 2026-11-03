@@ -61,11 +61,8 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   ) : (
     <PublicShelves username={profile.username} wantToRead={wantToRead} finished={finished} counts={shelfCounts} accentColour={profile.favColour} />
   )
-  // With nothing to put beside the header (no reading, favourites or lists), the shelves take that space rather
-  // than leaving it empty, and nothing sits under the header.
-  const shelvesBeside = reading.length === 0 && favourites.length === 0 && !hasLists
   // In bands, beside the header from lg up (under it below lg): what they're reading first (a circle you share
-  // first), then their favourites and lists.
+  // first), then their favourites and lists, and their shelves to end the column.
   const besides = (
     <div className="flex flex-col gap-10">
       {reading.length > 0 && (
@@ -78,7 +75,7 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
       )}
       <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
       {hasLists && <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>}
-      {shelvesBeside && <div className="empty:hidden">{shelves}</div>}
+      <div className="border-t border-neutral-200 pt-10 first:border-t-0 first:pt-0 dark:border-neutral-800">{shelves}</div>
     </div>
   )
   // Re-reads sit under Currently reading but still count as read.
@@ -117,8 +114,13 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         staffBadge={profile.staffBadge}
         compact={bands}
         besides={bands ? besides : undefined}
-        // From lg up the column ends with the way to their achievements; below lg it ends the page.
-        identityFooter={bands ? <ProfileLinkRows className="mt-8" rows={linkRows} /> : undefined}
+        // From lg up the column ends with their reviews, then the way to their achievements; below lg both are further down.
+        identityFooter={bands ? (
+          <div className="mt-10 flex flex-col gap-8">
+            {reviewCount > 0 && <ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />}
+            <ProfileLinkRows rows={linkRows} />
+          </div>
+        ) : undefined}
         share={<ShareProfileButton username={profile.username} />}
         actions={actions}
         stats={[
@@ -130,12 +132,10 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         {viewer && justJoined && !viewer.isFollowing && <WelcomeBack username={profile.username} name={name} />}
       </ProfileHeader>
       {bands ? (
-        // In bands, what they're reading, favourites and lists sit beside the header (besides, above); then, each
-        // under a hairline: their reviews, their shelves (unless they've taken the space beside it), the authors
-        // they follow, and below lg the way to their achievements.
+        // In bands, what they're reading, favourites, lists and shelves sit beside the header (besides, above); then,
+        // each under a hairline: below lg their reviews, the authors they follow, and below lg the way to their achievements.
         <div className={SECTIONS}>
-          {reviewCount > 0 && <div><ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>}
-          {!shelvesBeside && <div>{shelves}</div>}
+          {reviewCount > 0 && <div className="lg:hidden"><ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>}
           <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
           <div className="lg:hidden"><ProfileLinkRows className="!border-t-0" rows={linkRows} /></div>
         </div>

@@ -111,9 +111,9 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
       </span>
     </>
   )
-  // 64px is close to 2:3 beside the usual 96px of text; the one large card is tall enough for an 80px cover. A bare
-  // card (cover, title and author only) is given the height of a 48px cover.
-  const coverWidth = bare ? 'w-12' : size === 'large' ? 'w-20' : 'w-16'
+  // Each cover is 2:3 at its row's height: 80px wide in a 120px row, 96px in the one large card's 144px, and 64px in a
+  // bare card's 96px (cover, title and author only).
+  const coverWidth = bare ? 'w-16' : size === 'large' ? 'w-24' : 'w-20'
   const marks = (
     <>
       {circle && (
@@ -134,11 +134,11 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
     ? <Link href={href} className="hover:underline underline-offset-2">{book.title}</Link>
     : <button type="button" onClick={details} className="text-left hover:underline underline-offset-2">{book.title}</button>
   return (
-    <li ref={card} className={cn("relative flex items-center gap-4 py-2", !bare && size === 'row' && "py-1.5", bare ? "min-h-24" : size === 'large' && "min-h-36", className)}>
+    <li ref={card} className={cn("relative flex items-center gap-4 py-2", !bare && size === 'row' && "py-1.5", bare ? "min-h-24" : size === 'large' ? "min-h-36" : "min-h-[7.5rem]", className)}>
       {/* The bookmark floats in the corner rather than taking a column, so the bar runs the card's full width. */}
-      {/* The cover runs the card's full height: its slot stretches with the card and the cover fills it, cropped
-          like a photo, rather than sitting at the top with a gap under it. Widths keep the slot close to 2:3. */}
-      <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("relative shrink-0 self-stretch rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
+      {/* The cover keeps a book's 2:3 at its width, centred on the row, so a title that wraps to two lines makes the
+          row taller without stretching the cover. */}
+      <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("relative aspect-[2/3] shrink-0 self-center rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
         <BookCover book={book} variant="thumb" sizes="80px" className="absolute inset-0 aspect-auto h-full shadow-sm" />
       </button>
       {/* A bare tile's title and author sit at the top, with its marks on their own line under them (there's

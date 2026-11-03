@@ -18,6 +18,8 @@ import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfter
 import { groupShelf } from '../books/shelf'
 import BookCover from '../cards/BookCover'
 import { SERIES_TRACKER_KEY } from '../series/FollowSeriesButton'
+import useScrollRow from '@/app/hooks/useScrollRow'
+import RowArrows from '../RowArrows'
 
 // Covers in the row: eight fill the books column on a wide screen; a phone swipes through them.
 const MOST = 8
@@ -151,6 +153,8 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
 const UpNext: FC<{ bare?: boolean; row?: boolean; cap?: number; after?: { title: string; author: string } }> = ({ bare = false, row = false, cap, after }) => {
   const { books } = useBooks()
   const { settings } = useSettings()
+  // Draggable with a mouse, with arrows while there's more to see (useScrollRow); a phone swipes it.
+  const scroller = useScrollRow<HTMLUListElement>()
   const { data: series } = useSWR<{ series: SeriesTrack[] }>(SERIES_TRACKER_KEY, fetcher, swrOptions)
   const { data: genre } = useSWR<GenrePicks>('/api/discover/for-you', fetcher, swrOptions)
   // Fetched once per finished book; empty (and the row left out) when there aren't two or three good matches.
@@ -202,23 +206,26 @@ const UpNext: FC<{ bare?: boolean; row?: boolean; cap?: number; after?: { title:
       {after && similar.length > 0 && (
         <div className="mb-4">
           <p className="mb-2 text-xs font-medium text-muted-foreground">Because you finished {after.title}</p>
-          <ul className="relative flex gap-3 overflow-x-auto overflow-y-hidden pb-2">
+          <ul className="scrollbar-none relative flex gap-3 overflow-x-auto overflow-y-hidden pb-2">
             {similar.map((pick) => <PickTile key={pick.key} pick={pick} row />)}
           </ul>
         </div>
       )}
       {after && similar.length > 0 && picks.length > 0 && <p className="mb-2 text-xs font-medium text-muted-foreground">More to read</p>}
-      <ul className={cap ? "grid grid-cols-3 gap-3" : cn(
+      <div className="relative">
+      <ul ref={cap ? undefined : scroller.ref} className={cap ? "grid grid-cols-3 gap-3" : cn(
         // Relative, so the Start buttons' screen-reader text stays inside the scroller instead of widening the page.
         // Out to the screen's edges on a phone, with the page's 16px kept as scroll padding too: without it each
         // tile snaps to the scroller's very edge and the first cover touches the side of the screen.
         // overflow-y-hidden: overflow-x-auto alone makes it a vertical scroller too, and the Start pills' tap areas
         // reaching past the bottom let the row be dragged up and down. pb-2 keeps those tap areas inside it.
-        "relative flex gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x pb-2 max-sm:-mx-4 max-sm:px-4 max-sm:scroll-px-4",
+        "scrollbar-none relative flex gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x pb-2 max-sm:-mx-4 max-sm:px-4 max-sm:scroll-px-4",
         !row && "sm:grid sm:grid-cols-6 sm:overflow-visible lg:grid-cols-7 sm:max-lg:[&>li:nth-child(n+7)]:hidden lg:[&>li:nth-child(n+8)]:hidden",
       )}>
         {picks.map((pick) => <PickTile key={pick.key} pick={pick} row={row} />)}
       </ul>
+      {!cap && <RowArrows row={scroller} label="Up next" top="top-[38%]" />}
+      </div>
     </section>
   )
 }

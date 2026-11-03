@@ -19,6 +19,7 @@ import ContinueReading from './ContinueReading'
 import UpNext from './UpNext'
 import ShelfSearch from './ShelfSearch'
 import ProfileLinkRows from './ProfileLinkRows'
+import OwnReviews from './OwnReviews'
 import BandsShowcase, { ProfileFavourites } from './BandsShowcase'
 import BookList from '../books/BookList'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
@@ -45,6 +46,9 @@ export const OwnLinkRows: FC = () => {
   const earned = achievements.reduce((n, a) => n + a.milestones.filter((m) => m.earned).length, 0)
   return <ProfileLinkRows className="!border-t-0" rows={ownLinkRows(earned)} />
 }
+
+// Your reviews in your header's column show three before "Show more", as they do further down on a phone.
+const REVIEWS_SHOWN = 3
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -73,9 +77,10 @@ const BooksTop: FC = () => {
         {/* Adding a book heads the first books section, high on the page and beside the books it joins (BOO-97). */}
         <div className="flex shrink-0 items-center gap-2">
           <ShelfSearch />
-          <button type="button" onClick={() => bookEntryModal.onOpen()}
+          {/* "Add" on a phone, so "Continue reading" stays on one line beside it. */}
+          <button type="button" onClick={() => bookEntryModal.onOpen()} aria-label="Add a book"
             className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-neutral-300 px-3.5 text-sm font-medium transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-fine:h-9 dark:border-neutral-700 dark:hover:bg-neutral-900">
-            <Plus size={16} aria-hidden />Add a book
+            <Plus size={16} aria-hidden /><span className="sm:hidden">Add</span><span className="hidden sm:inline">Add a book</span>
           </button>
         </div>
       </div>
@@ -95,6 +100,11 @@ const BooksTop: FC = () => {
         <div className={cn("hidden lg:block", reading.length > 0 ? "mt-8" : "mt-12")}>
           <BandsShowcase username={user.username} column withUpNext={reading.length > 0} />
         </div>
+      )}
+      {/* Your shelves end this column: beside your header from lg up, and straight after Up next on a phone, rather
+          than a full-width band at the foot of the page. Out of the way while you search, as the results take their place. */}
+      {!searching && (
+        <div className="mt-10 border-t border-neutral-200 pt-10 dark:border-neutral-800"><BookList slot="shelves" /></div>
       )}
     </section>
     </>
@@ -148,8 +158,14 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         staffBadge={staffBadgeOf(user)}
         compact={bands}
         besides={bands ? <BooksTop /> : undefined}
-        // From lg up the column ends with the ways further in; below lg they end the page (OwnerProfile).
-        identityFooter={bands ? <ProfileLinkRows className="mt-8" rows={ownLinkRows(earned)} /> : undefined}
+        // From lg up the column ends with your reviews, then the ways further in; below lg both are further down
+        // the page (OwnerProfile).
+        identityFooter={bands ? (
+          <div className="mt-10 flex flex-col gap-8">
+            <div className="empty:hidden"><OwnReviews first={REVIEWS_SHOWN} /></div>
+            <ProfileLinkRows rows={ownLinkRows(earned)} />
+          </div>
+        ) : undefined}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
