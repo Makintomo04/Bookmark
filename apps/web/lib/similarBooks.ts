@@ -65,7 +65,7 @@ export async function similarBooks(userId: string, title: string, author: string
 // books (they have their own row) or its series. For everyone, so nothing is taken off for a shelf. Each card
 // opens the book's page, so a pick needs one (withPages); one without is left out. Kept for a day like the
 // Update sheet's row, and [] on any failure; not kept when Open Library didn't answer, so the next visit retries.
-export const ALSO_LIKED_LIMIT = 4;
+export const ALSO_LIKED_LIMIT = 8;
 const alsoKept = new Map<string, { at: number; books: DiscoverBook[] }>();
 export async function readersAlsoLiked(title: string, author: string): Promise<DiscoverBook[]> {
   if (!hardcoverConfigured()) return [];

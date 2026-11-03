@@ -87,8 +87,9 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
       ? [...SECONDARY, { href: `/wrapped/${wrappedYear}`, label: `Your ${wrappedYear} Wrapped`, icon: BookHeart }]
       : SECONDARY
 
-    const avatar = (className?: string) => (
-      <Avatar className={className} style={{background: avatarColour(user?.favColour), ...tierRingStyle(booksRead)}}>
+    // The tier ring shows in the menu, beside the tier it stands for; the header's own avatar stays plain.
+    const avatar = (className?: string, ring = true) => (
+      <Avatar className={className} style={{background: avatarColour(user?.favColour), ...(ring ? tierRingStyle(booksRead) : {})}}>
         {user?.image && <AvatarImage src={user.image} alt='' />}
         {/* Also covers a photo that fails to load. */}
         <AvatarFallback className='bg-transparent'><InitialAvatar username={user?.username} favColour={user?.favColour} label='' /></AvatarFallback>
@@ -112,8 +113,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
 
     return (
       <>
-        {/* gap-3: room between the bell's badge and the avatar's ring. */}
-        <div className="flex gap-3 relative items-center">
+        <div className="flex gap-1.5 relative items-center">
             {wrappedYear && (
               <Link href={`/wrapped/${wrappedYear}`} className="hidden sm:inline-flex h-9 items-center px-3 rounded-full text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 Your {wrappedYear} Wrapped
@@ -121,13 +121,11 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             )}
             <NotificationBell/>
 
-        {/* mr-1: the tier ring is drawn 4px outside the avatar, so this keeps it inside the page's edge. */}
-        {/* A dot on the avatar while reports are waiting on this person, so staff needn't open the menu to know. */}
+        {/* Reports waiting on staff are in the label and on Staff in the menu, not a dot on the avatar. */}
         <button type="button" aria-label={staffWaiting > 0 ? `Open menu, ${staffWaiting} ${staffWaiting === 1 ? "report" : "reports"} waiting` : "Open menu"}
           aria-expanded={showMenu} onClick={()=>setShowMenu((state)=>!state)}
-          className="relative mr-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
-          {avatar()}
-          {staffWaiting > 0 && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand-fill ring-2 ring-background" />}
+          className="relative grid size-11 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {avatar("size-8", false)}
         </button>
         {showMenu && <>
           {/* Catches clicks outside the dropdown on wider screens. */}
