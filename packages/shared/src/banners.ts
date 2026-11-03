@@ -1,85 +1,45 @@
-// Preset profile banners: patterns drawn in the reader's favourite colour, so nobody needs to upload
-// a photo for their profile to look finished. A chosen preset is stored in User.banner as "preset:<id>",
-// next to uploaded image URLs, so everything that already passes the banner through keeps working.
-// The drawing itself lives in app/components/profile/BannerPattern.tsx.
+import { mixColour } from './colour'
+
+// Profile banners (BOO-99). Every profile has one, so the photo always has something to overlap: a picture the
+// reader uploaded, or a quiet strip of their colour mixed well into the page background.
+//
+// Until BOO-99 readers could pick a pattern instead, stored in User.banner as "preset:<id>". Those values
+// are still in the database, and older app builds still send one at sign-up, so they stay storable, but
+// nothing draws them: a preset reads as no upload and gets the strip.
 export const BANNER_PRESET_PREFIX = 'preset:'
 
-// Abstract covers in the spirit of Goodnotes' notebook covers: a few big, flat shapes in tones of the
-// reader's colour, simple enough to read at thumbnail size.
-export const BANNER_PRESETS = [
-  { id: 'plain', name: 'Plain' },
-  { id: 'arches', name: 'Arches' },
-  { id: 'orbit', name: 'Orbit' },
-  { id: 'waves', name: 'Waves' },
-  { id: 'tiles', name: 'Tiles' },
-  { id: 'bloom', name: 'Bloom' },
-] as const
-
-export type BannerPresetId = (typeof BANNER_PRESETS)[number]['id']
-
-const PRESET_IDS = new Set<string>(BANNER_PRESETS.map((p) => p.id))
-
-// Retired ids, mapped to the closest current preset so saved banners keep their character.
-export const LEGACY: Record<string, BannerPresetId> = {
-  dots: 'bloom',
-  halftone: 'bloom',
-  confetti: 'bloom',
-  stripes: 'waves',
-  contours: 'waves',
-  pages: 'waves',
-  margins: 'waves',
-  arcs: 'arches',
-  rays: 'arches',
-  blobs: 'orbit',
-  dusk: 'orbit',
-  lamplight: 'orbit',
-  graph: 'tiles',
-  corners: 'tiles',
-  chevrons: 'tiles',
-  endpaper: 'tiles',
-  bookshelf: 'tiles',
-  spines: 'tiles',
-}
-
-export function isBannerPresetId(id: string): id is BannerPresetId {
-  return PRESET_IDS.has(id)
-}
-
-// The stored form of a current preset.
-export function bannerPresetValue(id: BannerPresetId) {
-  return `${BANNER_PRESET_PREFIX}${id}`
-}
-
-// Resolve current and retired IDs; uploaded images and empty values are not presets.
-export function bannerPresetOf(banner: string | null | undefined): BannerPresetId | null {
-  if (!banner || !banner.startsWith(BANNER_PRESET_PREFIX)) return null
-  const id = banner.slice(BANNER_PRESET_PREFIX.length)
-  if (isBannerPresetId(id)) return id
-  return LEGACY[id] ?? 'plain'
-}
+// Every id a stored preset may carry, current at the time or retired before it.
+const PRESET_IDS = new Set<string>([
+  'plain', 'arches', 'orbit', 'waves', 'tiles', 'bloom',
+  'dots', 'halftone', 'confetti', 'stripes', 'contours', 'pages', 'margins', 'arcs', 'rays', 'blobs', 'dusk',
+  'lamplight', 'graph', 'corners', 'chevrons', 'endpaper', 'bookshelf', 'spines',
+])
 
 export function isBannerPresetValue(banner: string | null | undefined) {
   return !!banner && banner.startsWith(BANNER_PRESET_PREFIX)
 }
 
-// Accept legacy stored IDs during migration, while only current IDs appear in the picker.
+// The uploaded picture, or null for an empty banner or an old preset.
+export function uploadedBanner(banner: string | null | undefined): string | null {
+  return banner && !isBannerPresetValue(banner) ? banner : null
+}
+
+// Accepts uploads, empty values and any preset id ever offered.
 export function isStorableBanner(banner: unknown): banner is string | null | undefined {
   if (banner === null || banner === undefined || banner === '') return true
   if (typeof banner !== 'string') return false
-  if (!banner.startsWith(BANNER_PRESET_PREFIX)) return true
-  const id = banner.slice(BANNER_PRESET_PREFIX.length)
-  return isBannerPresetId(id) || id in LEGACY
+  if (!isBannerPresetValue(banner)) return true
+  return PRESET_IDS.has(banner.slice(BANNER_PRESET_PREFIX.length))
 }
 
-// The default is stable per reader and never plain.
-export function defaultBannerPreset(seed: string): BannerPresetId {
-  const patterns = BANNER_PRESETS.filter((p) => p.id !== 'plain')
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
-  return patterns[hash % patterns.length].id
+// How much of the reader's colour goes into the strip: enough to say whose profile it is, little enough
+// that the covers stay the brightest thing on the page.
+export const BANNER_TINT = 0.2
+
+// The strip's colour on a given page background, for places that can't use CSS color-mix (the mobile app).
+export function bannerTint(colour: string, background: string) {
+  return mixColour(background, colour, BANNER_TINT)
 }
 
-// The banner a reader gets before choosing one.
-export function resolveBanner(banner: string | null | undefined, seed: string) {
-  return banner || bannerPresetValue(defaultBannerPreset(seed))
-}
+// The same strip in CSS, on the web's own page background.
+export const bannerTintCss = (colour: string) => `color-mix(in srgb, ${colour} ${BANNER_TINT * 100}%, hsl(var(--background)))`

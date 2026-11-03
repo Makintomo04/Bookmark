@@ -1,13 +1,12 @@
 import { Linking, Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { Link2 } from "lucide-react-native";
-import { bannerPresetOf, resolveBanner } from "@bookmark/shared/banners";
+import { bannerTint, uploadedBanner } from "@bookmark/shared/banners";
 import { DEFAULT_COLOUR, profileLinkLabel, readerName } from "@bookmark/shared/profile";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
 import { MedalShowcase } from "@/components/achievements/MedalShowcase";
-import { BannerPattern } from "@/components/profile/BannerPattern";
 import { Text } from "@/components/ui/Text";
 import { useTheme } from "@/lib/theme";
 
@@ -36,14 +35,15 @@ export function ProfileHeader({ user, staffBadge, medals }: {
 }) {
   const { colors } = useTheme();
   const colour = user.favColour || DEFAULT_COLOUR;
-  const banner = resolveBanner(user.banner, user.id);
-  const preset = bannerPresetOf(banner);
+  // Every profile has a banner (BOO-99): their uploaded picture, or a strip of their colour mixed well into
+  // the page. The avatar overlaps it.
+  const banner = uploadedBanner(user.banner);
   // Only when known: a restricted profile doesn't say how much they read.
   const booksRead = user._count?.books;
   return (
     <View>
-      <View style={styles.banner}>
-        {preset ? <BannerPattern preset={preset} colour={colour} /> : <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />}
+      <View style={[styles.banner, { backgroundColor: banner ? colour : bannerTint(colour, colors.background) }]}>
+        {banner && <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />}
       </View>
       <View style={styles.identity}>
         <View style={styles.avatar}>

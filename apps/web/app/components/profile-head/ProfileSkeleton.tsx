@@ -1,5 +1,6 @@
 import { FC } from 'react'
 import { cn } from '@/lib/utils'
+import { BLEED } from '../Container'
 import { Skeleton } from '../ui/skeleton'
 import { coverOnlyGridClass } from '../books/shelf'
 
@@ -13,18 +14,15 @@ const Heading: FC<{ className?: string }> = ({ className = "w-32" }) => (
   <div className="mb-5 flex min-h-10 items-center"><Skeleton className={cn("h-6", className)} /></div>
 )
 
-// Four across at every width, each a cover and up to two lines of title (FavouritesRow).
-export const favouritesSkeletonGridClass = "grid grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-4"
+// Three across at every width, covers only (FavouritesRow).
+export const favouritesSkeletonGridClass = "grid grid-cols-3 gap-x-3 sm:gap-x-4 gap-y-4 lg:max-w-2xl"
 
 export const FavouritesSkeleton: FC = () => (
   <div>
     <Heading />
     <div className={favouritesSkeletonGridClass}>
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex min-w-0 flex-col gap-1.5">
-          <Skeleton className="aspect-[2/3] w-full" />
-          <div className="flex h-[33px] flex-col gap-1"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-3/5" /></div>
-        </div>
+      {[0, 1, 2].map((i) => (
+        <Skeleton key={i} className="aspect-[2/3] w-full" />
       ))}
     </div>
   </div>
@@ -107,20 +105,17 @@ interface ProfileSkeletonProps {
   shelves?: boolean
 }
 
-// The whole profile in bands: the header's column (avatar beside name and handle, bio, counts, buttons, the goal and,
-// from lg up, the rows for achievements and stats) beside what they're reading, favourites and lists, then the shelves.
-// No banner: only an uploaded picture makes one (BOO-97).
+// The whole profile in bands: the banner, then the header's column (avatar over the banner, name and handle under it,
+// bio, counts, buttons, the goal and, from lg up, the rows for achievements and stats) beside what they're reading,
+// favourites and lists, then the shelves. Every profile has a banner (BOO-99).
 export const ProfileSkeleton: FC<ProfileSkeletonProps> = ({ own = false, shelves = true }) => (
   <div className="w-full" aria-busy="true" aria-label="Loading profile">
+    <Skeleton className={cn("h-24 rounded-none sm:h-44 sm:rounded-2xl lg:h-32", BLEED)} />
     <div className="lg:grid lg:grid-cols-12 lg:gap-16">
       <div className="lg:col-span-4 lg:flex lg:flex-col lg:self-start">
-        <div className="flex items-center gap-4">
-          <Skeleton className="size-16 shrink-0 rounded-full sm:size-20" />
-          <div className="min-w-0 flex-1">
-            <Skeleton className="h-9 w-48 max-w-full sm:h-[42px]" />
-            <Skeleton className="mt-1.5 h-5 w-32" />
-          </div>
-        </div>
+        <Skeleton className="relative -mt-10 size-20 rounded-full ring-4 ring-background sm:-mt-14 sm:size-28" />
+        <Skeleton className="mt-3 h-9 w-48 max-w-full sm:h-[42px]" />
+        <Skeleton className="mt-1.5 h-5 w-32" />
         <Skeleton className="mt-4 h-5 w-72 max-w-full" />
         <Skeleton className="mt-3 h-5 w-56 max-w-full" />
         <div className="mt-5 flex items-center gap-2 sm:max-w-sm lg:max-w-none">
@@ -129,7 +124,7 @@ export const ProfileSkeleton: FC<ProfileSkeletonProps> = ({ own = false, shelves
           <Skeleton className="h-11 w-11 rounded-full pointer-fine:size-9" />
         </div>
       </div>
-      <div className="mt-10 flex min-w-0 flex-col gap-10 lg:col-span-8 lg:mt-0 lg:self-start">
+      <div className="mt-10 flex min-w-0 flex-col gap-10 lg:col-span-8 lg:mt-16 lg:self-start">
         <ReadingNowSkeleton />
         <FavouritesSkeleton />
         <ListsSkeleton swipe />

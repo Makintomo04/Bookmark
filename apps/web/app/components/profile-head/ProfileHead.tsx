@@ -25,11 +25,10 @@ import BookList from '../books/BookList'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
 import { isNarrowed } from '@/lib/shelfFilter'
 import { groupShelf } from '../books/shelf'
-import type { ProfileLayout } from './Band'
+import { BANDS_REVIEWS, type ProfileLayout } from './Band'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
-import { resolveBanner } from '@/lib/banners'
 import { supporterOf } from '@/lib/supporter'
 import { staffBadgeOf } from '@/lib/staffBadge'
 import { milestoneKey, type AchievementKey } from '@/lib/achievements-catalog'
@@ -47,9 +46,6 @@ export const OwnLinkRows: FC = () => {
   return <ProfileLinkRows className="!border-t-0" rows={ownLinkRows(earned)} />
 }
 
-// Your reviews in your header's column show three before "Show more", as they do further down on a phone.
-const REVIEWS_SHOWN = 3
-
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
 // Beside your header in bands from lg up (under it below lg): what you're reading, with the shelf search on the
@@ -66,8 +62,8 @@ const BooksTop: FC = () => {
   const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
   return (
     <>
-    {/* From lg up your favourites lead this column, above what you're reading; below lg they're a band of their own
-        (OwnerProfile). Out of the way while you search, so the results stay right under the field. */}
+    {/* From lg up your favourites lead this column, above what you're reading; below lg they open the profile
+        (`lead`). Out of the way while you search, so the results stay right under the field. */}
     {!searching && <div className="hidden lg:block"><ProfileFavourites /></div>}
     <section aria-labelledby="continue-reading">
       <div className="mb-4 flex min-h-10 items-center justify-between gap-4">
@@ -94,6 +90,9 @@ const BooksTop: FC = () => {
           Can&apos;t decide? <Link href="/first-book" className="font-medium text-foreground underline-offset-4 hover:underline">Help me pick a book</Link>
         </p>
       )}
+      {/* On a phone your favourites come after what you're reading and what's next, before your shelves; from md
+          they're beside your header (`lead`). */}
+      {!searching && <div className="mt-12 md:hidden"><ProfileFavourites half /></div>}
       {/* From lg up the rest of this column is Up next (three) beside your lists, so they sit beside your reviews
           rather than under them. Below lg they stay bands of their own (OwnerProfile). */}
       {!searching && user && (
@@ -152,17 +151,21 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         bio={user.bio}
         links={user.profileLinks}
         image={user.image}
-        banner={resolveBanner(user.banner, user.id)}
+        banner={user.banner}
         colour={user.favColour}
         {...supporterOf(user)}
         staffBadge={staffBadgeOf(user)}
         compact={bands}
         besides={bands ? <BooksTop /> : undefined}
+        // From md to lg your favourites sit beside your header. On a phone what you're reading comes first, as it's
+        // what you come here to update, and they follow it (BooksTop).
+        lead={bands ? <ProfileFavourites half /> : undefined}
+        leadOnPhone={false}
         // From lg up the column ends with your reviews, then the ways further in; below lg both are further down
         // the page (OwnerProfile).
         identityFooter={bands ? (
           <div className="mt-10 flex flex-col gap-8">
-            <div className="empty:hidden"><OwnReviews first={REVIEWS_SHOWN} /></div>
+            <div className="empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
             <ProfileLinkRows rows={ownLinkRows(earned)} />
           </div>
         ) : undefined}

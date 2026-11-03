@@ -2,10 +2,10 @@ import { FC, ReactNode } from 'react'
 import { BLEED } from '../Container'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronRight, Link2 } from 'lucide-react'
+import { ChevronRight, Crown, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
-import { bannerPresetOf, resolveBanner } from '@/lib/banners'
+import { bannerTintCss, uploadedBanner } from '@/lib/banners'
 import type { SupporterBadgeKind } from '@/lib/supporter'
 import type { StaffBadgeKind } from '@/lib/staffBadge'
 import { profileLinkLabel, readerName } from '@/lib/profile'
@@ -33,8 +33,7 @@ interface ProfileHeaderProps {
   // Their links (TikTok, a newsletter…), as chips under the bio.
   links?: string[]
   image?: string | null
-  // An uploaded image URL or a "preset:<id>" pattern. Callers resolve the seeded default from the
-  // user's id; with nothing passed, the username seeds one so the header never renders bare.
+  // Their uploaded picture, if any. Anything else (empty, an old "preset:<id>") gets the strip of their colour.
   banner?: string | null
   colour?: string | null
   stats: ProfileStat[]
@@ -54,9 +53,15 @@ interface ProfileHeaderProps {
   staffBadge?: StaffBadgeKind | null
   // The profile in bands (Band.tsx). `besides` (what they're reading, what's next) sits beside the
   // header from lg up, which becomes a column; `identityFooter` ends that column from lg up;
-  // `follows` puts the first authors they follow under the bio; `compact` keeps an uploaded banner shorter
+  // `follows` puts the first authors they follow under the bio; `compact` keeps a banner shorter
   // on a wide screen, so the first band starts higher.
   besides?: ReactNode
+  // Below lg only: the books that open the profile (their favourites, BOO-99). Under the header on a phone, beside
+  // it from md, where the header alone would leave half the width empty. From lg up they're in `besides`.
+  lead?: ReactNode
+  // False keeps `lead` off a phone, for a caller that places it lower there (your own profile, where what you're
+  // reading comes first).
+  leadOnPhone?: boolean
   identityFooter?: ReactNode
   follows?: { name: string; slug: string }[]
   // Your own profile: with no followed authors, a line pointing you to some instead of nothing.
@@ -94,6 +99,17 @@ const BADGE: Record<SupporterBadgeKind, { label: string; title: string }> = {
   supporter: { label: "Supporter", title: "Supports Bookmark with Plus" },
 }
 
+// The Plus badge beside the name: a pill in the brand colour, linking to what Plus is.
+const SupporterBadge: FC<{ kind: SupporterBadgeKind }> = ({ kind }) => (
+  <Link
+    href="/plus"
+    title={BADGE[kind].title}
+    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 align-middle text-xs font-medium text-brand-fill transition hover:bg-brand/15 dark:text-brand"
+  >
+    <Crown size={12} aria-hidden /> {BADGE[kind].label}
+  </Link>
+)
+
 // 44px tall on touch screens, compact with a mouse (see the pointer-fine variant in tailwind.config.ts).
 export const primaryButtonClass = "inline-flex items-center justify-center gap-2 h-11 pointer-fine:h-9 px-4 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
 export const secondaryButtonClass = "inline-flex items-center justify-center gap-2 h-11 pointer-fine:h-9 px-4 rounded-md text-sm font-medium border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
@@ -124,54 +140,64 @@ const ProfileLinks: FC<{ links: string[] }> = ({ links }) => (
   </ul>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, links, image, banner, colour, stats, actions, share, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, identityFooter, follows, followsPrompt = false, compact = false }) => {
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, links, image, banner, colour, stats, actions, share, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, lead, leadOnPhone = true, identityFooter, follows, followsPrompt = false, compact = false }) => {
   const accent = colour || "#F13C3C"
-  // Only a picture the reader uploaded makes a banner. The patterns put a block of colour above every profile
-  // before any of its books, so they no longer show (BOO-97).
-  const shownBanner = resolveBanner(banner, username)
-  const uploaded = !bannerPresetOf(shownBanner)
+  // Every profile has a banner (BOO-99): their picture, or a strip of their colour mixed well into the page, so
+  // the covers stay the brightest thing on it. The avatar rides up over it and the name sits underneath.
+  const upload = uploadedBanner(banner)
   const badgeKind: SupporterBadgeKind | null = badge ?? (supporter ? (founding ? "founding" : "supporter") : null)
   const name = readerName({ username, displayName })
-  // Round for everyone, in a hairline of their tier's metal: the books carry the colour, not the frame.
+  const split = name.lastIndexOf(" ") + 1
+  const leadingWords = name.slice(0, split)
+  const lastWord = name.slice(split)
+  // A rounded square for a Plus supporter (the badge beside the handle says so too), a circle for everyone else,
+  // in the full frame from before BOO-97: an edge of the page lifts it off the banner, then a band of their tier's
+  // metal.
+  const plus = !!badgeKind
   const avatar = (
-    <TierAvatar image={image} username={username} colour={accent} alt={`${name}'s avatar`} booksRead={booksRead} thin className="size-16 sm:size-20" />
+    <TierAvatar image={image} username={username} colour={accent} alt={`${name}'s avatar`} booksRead={booksRead} square={plus} className="size-20 sm:size-28" />
   )
-  // Under the name, in words: the handle (when a display name heads it) and their Plus badge.
-  const marks = [
-    displayName ? <span key="handle" className="break-all">@{username}</span> : null,
-    badgeKind ? <Link key="badge" href="/plus" title={BADGE[badgeKind].title} className="hover:text-foreground transition">{BADGE[badgeKind].label}</Link> : null,
-  ].filter(Boolean)
+  const avatarButton = onAvatarClick ? (
+    <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
+      {avatar}
+    </button>
+  ) : avatar
+  const nameBlock = (
+    <div className="min-w-0">
+      <h1 className="page-title break-words">
+        {/* The seal is held to the name's last word, or a line break can fall before it and leave it alone on the
+            next line. A very long last word (a 30-letter username) is left free to break instead. */}
+        {staffBadge && lastWord.length <= 14 ? (
+          <>{leadingWords}<span className="whitespace-nowrap">{lastWord}<StaffSeal kind={staffBadge} name={name} size={22} className="ml-2 align-[-2px]" /></span></>
+        ) : (
+          <>{name}{staffBadge && <StaffSeal kind={staffBadge} name={name} size={22} className="ml-2 align-[-2px]" />}</>
+        )}
+      </h1>
+      {/* Under the name: the handle (it's the /u/ address and how friends find them) and the Plus badge. */}
+      {(displayName || badgeKind) && (
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          {displayName && <span className="break-all">@{username}</span>}
+          {badgeKind && <SupporterBadge kind={badgeKind} />}
+        </p>
+      )}
+    </div>
+  )
 
   return (
     <header>
-      {uploaded && (
-        <div className={cn("relative mb-6 h-24 sm:h-40 overflow-hidden sm:rounded-2xl", compact && "lg:h-32", BLEED)} style={{ background: accent }}>
-          <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />
-        </div>
-      )}
+      <div className={cn("relative h-24 sm:h-44 overflow-hidden sm:rounded-2xl", compact && "lg:h-32", BLEED)} style={{ background: upload ? accent : bannerTintCss(accent) }}>
+        {upload && <Image src={upload} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
+      </div>
 
       {/* In bands (`besides`), from lg up this is the left third of a grid and the books sit in the other two
           thirds. Below lg it's the header as ever, with the books under it. */}
       <div data-top-grid className={cn(besides && "lg:grid lg:grid-cols-12 lg:gap-16")}>
-      <div data-identity className={cn("min-w-0", besides && "lg:col-span-4 lg:flex lg:flex-col lg:self-start")}>
-        <div className="flex items-center gap-4">
-          {onAvatarClick ? (
-            <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className="block shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              {avatar}
-            </button>
-          ) : avatar}
-          <div className="min-w-0">
-            <h1 className="page-title break-words">
-              {name}
-              {staffBadge && <StaffSeal kind={staffBadge} name={name} size={22} className="ml-2 align-[-2px]" />}
-            </h1>
-            {marks.length > 0 && (
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {marks.map((mark, i) => <span key={i}>{i > 0 && " · "}{mark}</span>)}
-              </p>
-            )}
-          </div>
-        </div>
+      {/* From md to lg, the header and `lead` side by side. From lg up this wrapper always steps aside (contents), with
+          or without a lead, so the header's column is a cell of the grid above, not this wrapper. */}
+      <div className={cn("lg:contents", lead && "md:grid md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] md:gap-8")}>
+      <div data-identity className={cn("min-w-0 sm:max-w-md lg:max-w-none", besides && "lg:col-span-4 lg:flex lg:flex-col lg:self-start")}>
+        <div className="relative -mt-10 sm:-mt-14 w-fit">{avatarButton}</div>
+        <div className="mt-3">{nameBlock}</div>
 
         {bio && <p className="mt-4 max-w-xl text-sm text-foreground/80">{bio}</p>}
         {links && links.length > 0 && <ProfileLinks links={links} />}
@@ -194,7 +220,7 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, lin
         )}
         {/* The first button takes the width (Edit profile, Follow); the share icon and the menu sit after it. */}
         {(actions || share) && (
-          <div className="mt-5 flex min-w-0 items-center gap-2 sm:max-w-sm lg:max-w-none [&>*:first-child]:flex-1">
+          <div className="mt-5 flex min-w-0 items-center gap-2 [&>*:first-child]:flex-1">
             {actions}{share}
           </div>
         )}
@@ -202,7 +228,15 @@ const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, lin
         {children}
         {besides && identityFooter && <div className="hidden lg:block">{identityFooter}</div>}
       </div>
-      {besides && <div data-books className="mt-10 min-w-0 border-t border-neutral-200 pt-10 dark:border-neutral-800 lg:col-span-8 lg:mt-0 lg:self-start lg:border-t-0 lg:pt-0">{besides}</div>}
+      {lead && (
+        // Its heading starts level with the name, under the overlapping photo (mt-16), rather than floating between
+        // the two.
+        <div data-lead className={cn("mt-6 min-w-0 border-t border-neutral-200 pt-6 dark:border-neutral-800 md:mt-16 md:border-t-0 md:pt-0 lg:hidden", !leadOnPhone && "max-md:hidden")}>
+          {lead}
+        </div>
+      )}
+      </div>
+      {besides && <div data-books className={cn("mt-10 min-w-0 border-t border-neutral-200 pt-10 dark:border-neutral-800 lg:col-span-8 lg:self-start lg:mt-16 lg:border-t-0 lg:pt-0")}>{besides}</div>}
       </div>
     </header>
   )

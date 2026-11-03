@@ -2,14 +2,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import useSWR from "swr";
 import { BookOpen, ChevronRight, Compass, Target, Upload, UsersRound } from "lucide-react-native";
-import { bannerPresetValue, defaultBannerPreset, type BannerPresetId } from "@bookmark/shared/banners";
+import { bannerTint } from "@bookmark/shared/banners";
 import { GENRES } from "@bookmark/shared/genres";
 import { GOAL_BOOKS_MAX } from "@bookmark/shared/goals";
 import { DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, readerName, suggestUsername, usernameProblem } from "@bookmark/shared/profile";
 import { PROFILE_HINT, PROFILE_OPTIONS } from "@bookmark/shared/settingsCopy";
 import type { ProfileVisibility } from "@bookmark/shared/enums";
-import { BannerPicker, ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
-import { BannerPattern } from "@/components/profile/BannerPattern";
+import { ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Logo } from "@/components/ui/Logo";
@@ -22,7 +21,7 @@ import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 
-// Onboarding, after the web's /new-user: 1. username, colour and banner; 2. favourite genres and who can
+// Onboarding, after the web's /new-user: 1. username, picture and colour; 2. favourite genres and who can
 // see the profile; 3. ways to start (a reading circle first, as on the landing page, then the first-book
 // picker for a reader who doesn't know what to read yet), and a yearly goal.
 // Saving step 1 finishes onboarding on the server, but the app only moves on to the tabs when the reader
@@ -76,7 +75,6 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
   const [username, setUsername] = useState(() => suggestUsername(me));
   const [displayName, setDisplayName] = useState("");
   const [colour, setColour] = useState(DEFAULT_COLOUR);
-  const [banner, setBanner] = useState<BannerPresetId>(() => defaultBannerPreset(me.id));
   // Google and Apple accounts may arrive with a picture; start from it.
   const [image, setImage] = useState<string | null>(me.image || null);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +91,7 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
     setSaving(true);
     setError(null);
     try {
-      await api.post("/api/new-user", { username: name, displayName: normaliseDisplayName(displayName) || undefined, color: colour, imageSrc: image || undefined, bannerSrc: bannerPresetValue(banner) });
+      await api.post("/api/new-user", { username: name, displayName: normaliseDisplayName(displayName) || undefined, color: colour, imageSrc: image || undefined });
       onDone();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't save your profile. Check your connection and try again.");
@@ -108,9 +106,8 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
         <Text variant="muted" style={styles.center}>This is how other readers see you. You can change it any time.</Text>
       </View>
 
-      <View style={[styles.preview, { borderRadius: radii.lg }]}>
-        <BannerPattern preset={banner} colour={colour} />
-      </View>
+      {/* The strip every profile has until they upload a banner (BOO-99). */}
+      <View style={[styles.preview, { borderRadius: radii.lg, backgroundColor: bannerTint(colour, colors.background) }]} />
       <PhotoPicker image={image} name={name} colour={colour} onChange={setImage} />
 
       <View style={{ gap: 6 }}>
@@ -123,7 +120,6 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
       </View>
 
       <ColourPicker value={colour} onChange={setColour} />
-      <BannerPicker value={banner} colour={colour} onChange={setBanner} />
 
       <Button title={saving ? "Saving…" : "Continue"} loading={saving} disabled={availability === "checking"} onPress={save} />
     </View>
@@ -280,13 +276,13 @@ function GoalOption() {
 }
 
 const styles = StyleSheet.create({
+  preview: { height: 96, overflow: "hidden" },
   header: { alignItems: "center", gap: 16 },
   bars: { flexDirection: "row", gap: 6 },
   bar: { flex: 1, height: 4, borderRadius: 2 },
   step: { gap: 20 },
   intro: { gap: 8 },
   center: { textAlign: "center" },
-  preview: { height: 96, overflow: "hidden" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "flex-end" },
   option: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderWidth: 1 },
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },

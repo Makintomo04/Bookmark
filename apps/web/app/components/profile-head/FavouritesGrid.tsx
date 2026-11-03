@@ -7,7 +7,7 @@ import GrowingList from '../books/GrowingList'
 import FavouriteRankBadge from '../books/FavouriteRankBadge'
 import { TOP_FAVOURITES } from '@/lib/favourites'
 
-// Another reader's favourites, in their order, read-only, a page of covers at a time. Their top four are numbered.
+// Another reader's favourites, in their order, read-only, a page of covers at a time. Their top three are numbered.
 const FavouritesGrid: FC<{ books: Book[], accentColour?: string | null }> = ({ books, accentColour }) => {
   const rank = new Map(books.slice(0, TOP_FAVOURITES).map((b, i) => [b.id, i + 1]))
   return (

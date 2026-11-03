@@ -10,6 +10,9 @@ export type ProfileLayout = 'bands' | 'classic'
 // Empty sections wrap in empty:hidden, so a missing one leaves no stray rule.
 export const SECTIONS = "mt-10 flex flex-col gap-10 [&>*]:!mb-0 [&>*]:border-t [&>*]:border-neutral-200 dark:[&>*]:border-neutral-800 [&>*]:pt-10"
 
+// How many reviews show before "Show more" in bands, where from lg up they sit in the header's column.
+export const BANDS_REVIEWS = 3
+
 export const profileLayoutOf = (value: unknown): ProfileLayout => (value === 'classic' ? 'classic' : 'bands')
 
 // The shelf writes its search and filters into the URL; this keeps the layout through those writes.

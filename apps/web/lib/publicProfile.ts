@@ -8,7 +8,7 @@ import { computeAchievementStats } from "@/lib/achievements";
 import { canView, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, visibleStatuses, type PrivacySettings, type Relation } from "@/lib/privacy";
 import { reviewedBooks } from "@/lib/reviewedBooks";
 import { isFinishedBook } from "@/lib/readerTier";
-import { resolveBanner } from "@/lib/banners";
+import { uploadedBanner } from "@/lib/banners";
 import { supporterOf, supporterSelect } from "@/lib/supporter";
 import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
 import { workIdsWithPages } from "@/lib/workPages";
@@ -150,8 +150,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     // Shown like the bio, to whoever can see the profile.
     profileLinks: record.profileLinks ?? [],
     image: record.image,
-    // A reader who hasn't chosen a banner gets the preset seeded from their id, same as they see themselves.
-    banner: resolveBanner(record.banner, record.id),
+    // Only an uploaded picture; without one the profile draws the strip in favColour (BOO-99).
+    banner: uploadedBanner(record.banner),
     favColour: record.favColour,
     // The plan itself never leaves; the supporter badge is the public part of it.
     ...supporterOf(record),

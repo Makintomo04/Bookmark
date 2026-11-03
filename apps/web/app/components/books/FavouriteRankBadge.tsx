@@ -1,7 +1,7 @@
 import { FC } from 'react'
 import { cn } from '@/lib/utils'
 
-// The 1 to 4 on a top-four favourite's cover, as on the lists' numbered rows: a small round number laid over the
+// The 1 to 3 on a top-three favourite's cover, as on the lists' numbered rows: a small round number laid over the
 // cover's corner. The parent is `relative`.
 const FavouriteRankBadge: FC<{ rank: number; className?: string }> = ({ rank, className }) => (
   <span aria-label={`Number ${rank} favourite`}

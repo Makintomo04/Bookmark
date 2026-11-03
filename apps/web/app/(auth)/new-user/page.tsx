@@ -16,20 +16,18 @@ import useUser from '@/app/hooks/useUser'
 import useImageUpload from '@/app/hooks/useImageUpload'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { cn } from '@/lib/utils'
+import { bannerTintCss } from '@/lib/banners'
 import { readableInk } from '@/lib/colour'
 import { safeCallbackPath } from '@/lib/callbackUrl'
 import { signupSourceFrom } from '@bookmark/shared/signupSource'
 import { DEFAULT_COLOUR, DISPLAY_NAME_MAX, displayNameProblem, normaliseDisplayName, normaliseUsername, suggestUsername, usernameProblem } from '@/lib/profile'
-import { BannerPresetId, defaultBannerPreset, bannerPresetValue } from '@/lib/banners'
-import BannerPattern from '@/app/components/profile/BannerPattern'
-import BannerPresetPicker from '@/app/components/profile/BannerPresetPicker'
 
 // Three screens: the profile (username, colour and an optional photo), genres and profile visibility,
 // then a few ways to start the shelf. The profile saves at the end of the first, so the
 // rest are genuinely optional, and readers who arrived from somewhere (e.g. a reading circle invite) skip them
 // and go straight back there.
 
-type ProfileForm = { username: string; displayName: string; color: string; imageSrc: string; banner: BannerPresetId }
+type ProfileForm = { username: string; displayName: string; color: string; imageSrc: string }
 type Availability = "idle" | "checking" | "available" | "taken"
 
 const fieldClass = "w-full h-10 rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
@@ -59,9 +57,9 @@ const Page = () => {
   const avatarInput = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, watch, setError, reset, formState: { errors } } = useForm<ProfileForm>({
-    defaultValues: { username: "", displayName: "", color: DEFAULT_COLOUR, imageSrc: "", banner: "arches" },
+    defaultValues: { username: "", displayName: "", color: DEFAULT_COLOUR, imageSrc: "" },
   })
-  const [username, displayName, colour, imageSrc, bannerPreset] = watch(["username", "displayName", "color", "imageSrc", "banner"])
+  const [username, displayName, colour, imageSrc] = watch(["username", "displayName", "color", "imageSrc"])
   const accent = colour || DEFAULT_COLOUR
   const avatar = useImageUpload((url) => setValue("imageSrc", url, { shouldDirty: true }))
 
@@ -77,8 +75,7 @@ const Page = () => {
       return
     }
     // Google and GitHub accounts arrive with a name and photo; start from those.
-    // The banner starts on the same preset they'd get by default, so saving it is a choice they can see.
-    reset({ username: suggestUsername(user), displayName: "", color: DEFAULT_COLOUR, imageSrc: user.image ?? "", banner: defaultBannerPreset(user.id) })
+    reset({ username: suggestUsername(user), displayName: "", color: DEFAULT_COLOUR, imageSrc: user.image ?? "" })
     setReady(true)
   }, [user, router, reset])
 
@@ -106,7 +103,7 @@ const Page = () => {
     }
     setSaving(true)
     try {
-      const res = await axios.post("/api/new-user", { username: normaliseUsername(data.username), displayName: normaliseDisplayName(data.displayName) || undefined, color: data.color, imageSrc: data.imageSrc || undefined, bannerSrc: bannerPresetValue(data.banner), source: signupSourceFrom(nextPath) ?? undefined })
+      const res = await axios.post("/api/new-user", { username: normaliseUsername(data.username), displayName: normaliseDisplayName(data.displayName) || undefined, color: data.color, imageSrc: data.imageSrc || undefined, source: signupSourceFrom(nextPath) ?? undefined })
       mutate(res.data, { revalidate: false })
       if (nextPath) {
         router.push(nextPath)
@@ -165,16 +162,15 @@ const Page = () => {
 
       {/* Live preview of the profile header, which doubles as the photo picker. */}
       <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-background">
-        <div className="relative h-20 overflow-hidden transition-colors" style={{ background: accent }}>
-          <BannerPattern preset={bannerPreset} colour={accent} />
-        </div>
+        {/* The strip every profile has until they upload a banner (BOO-99). */}
+        <div className="h-20 transition-colors" style={{ background: bannerTintCss(accent) }} />
         <div className="flex items-end gap-3 px-4 pb-4">
           <button
             type="button"
             onClick={() => avatarInput.current?.click()}
             disabled={busy}
             aria-label={imageSrc ? "Change profile picture" : "Add a profile picture"}
-            className="group relative -mt-6 size-16 shrink-0 overflow-hidden rounded-[22px] border-4 border-background grid place-items-center text-2xl font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="group relative -mt-6 size-16 shrink-0 overflow-hidden rounded-full border-4 border-background grid place-items-center text-2xl font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             style={{ background: accent, color: readableInk(accent) }}
           >
             {avatarSrc ? <Image src={avatarSrc} alt="" fill sizes="64px" unoptimized={!!avatar.preview} className="object-cover" /> : <span aria-hidden>{initial}</span>}
@@ -253,17 +249,9 @@ const Page = () => {
 
       <div className="flex flex-col gap-2">
         <span id="colour-label" className="text-sm font-medium">Your colour</span>
-        <p className="-mt-1 text-xs text-muted-foreground">Tints your banner, your avatar until you add a photo, and your buttons.</p>
+        <p className="-mt-1 text-xs text-muted-foreground">Tints your banner and buttons, and fills your avatar until you add a photo.</p>
         <div className="mt-1">
           <ColourSwatches value={accent} onChange={(c) => setValue("color", c, { shouldDirty: true })} labelledBy="colour-label" disabled={saving} />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <span id="banner-label" className="text-sm font-medium">Your banner</span>
-        <p className="-mt-1 text-xs text-muted-foreground">A pattern in your colour. You can upload a photo later from your profile.</p>
-        <div className="mt-1">
-          <BannerPresetPicker value={bannerPreset} colour={accent} onChange={(id) => setValue("banner", id, { shouldDirty: true })} labelledBy="banner-label" disabled={saving} />
         </div>
       </div>
 

@@ -17,7 +17,7 @@ import ProfileShowcase from './ProfileShowcase'
 import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileAuthors from './ProfileAuthors'
 import PublicShelves from './PublicShelves'
-import { SECTIONS, type ProfileLayout } from './Band'
+import { BANDS_REVIEWS, SECTIONS, type ProfileLayout } from './Band'
 import ContinueReading from './ContinueReading'
 import ProfileLinkRows from './ProfileLinkRows'
 import type { SharedCircle } from '@/lib/sharedCircles'
@@ -39,8 +39,7 @@ interface PublicProfileProps {
   justJoined?: boolean
 }
 
-// How many reviews and followed authors show in bands before "Show more" and "+N more".
-const BANDS_REVIEWS = 3
+// How many followed authors show in bands before "+N more".
 const BANDS_AUTHORS = 8
 
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
@@ -61,10 +60,13 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   ) : (
     <PublicShelves username={profile.username} wantToRead={wantToRead} finished={finished} counts={shelfCounts} accentColour={profile.favColour} />
   )
-  // In bands, beside the header from lg up (under it below lg): what they're reading first (a circle you share
-  // first), then their favourites and lists, and their shelves to end the column.
+  // In bands, beside the header from lg up (under it below lg): their favourites first, as they say most about
+  // who this reader is, then what they're reading (a circle you share first), their lists, and their shelves to
+  // end the column. Below lg the favourites open the profile from the header instead (`lead`), so they're still
+  // first.
   const besides = (
     <div className="flex flex-col gap-10">
+      {favourites.length > 0 && <div className="hidden lg:block"><FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half /></div>}
       {reading.length > 0 && (
         <section aria-labelledby="public-now">
           <h2 id="public-now" className="mb-4 flex min-h-10 items-baseline gap-2 text-lg font-semibold">
@@ -73,7 +75,6 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
           <ContinueReading books={reading} finished={finished} accentColour={profile.favColour} readOnly oneLineOnPhone shared={sharedCircles} />
         </section>
       )}
-      <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
       {hasLists && <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>}
       <div className="border-t border-neutral-200 pt-10 first:border-t-0 first:pt-0 dark:border-neutral-800">{shelves}</div>
     </div>
@@ -114,6 +115,8 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         staffBadge={profile.staffBadge}
         compact={bands}
         besides={bands ? besides : undefined}
+        // Below lg their favourites open the profile: beside the header from md, under it on a phone.
+        lead={bands && favourites.length > 0 ? <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half /> : undefined}
         // From lg up the column ends with their reviews, then the way to their achievements; below lg both are further down.
         identityFooter={bands ? (
           <div className="mt-10 flex flex-col gap-8">
