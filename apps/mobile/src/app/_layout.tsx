@@ -9,6 +9,7 @@ import { Literata_400Regular_Italic, Literata_600SemiBold } from "@expo-google-f
 import { SWRConfig } from "swr";
 import { fetcher } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { setSentryUser, startSentry, wrapRoot } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
 
 // The app's root: fonts, theme, data fetching, and which part of the app the reader can reach.
@@ -17,9 +18,10 @@ import { useTheme } from "@/lib/theme";
 //   - signed in: the app, (app): the tabs and everything pushed over them
 // Email sign-in links (open/signin, signin/link) work either way.
 
+startSentry();
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Literata_600SemiBold, Literata_400Regular_Italic });
   const { status, user, restore } = useAuth();
   const { scheme, colors } = useTheme();
@@ -27,6 +29,10 @@ export default function RootLayout() {
   useEffect(() => {
     void restore();
   }, [restore]);
+
+  useEffect(() => {
+    setSentryUser(user?.id);
+  }, [user?.id]);
 
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(colors.background);
@@ -66,3 +72,6 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+
+// Reports render crashes and unhandled errors to Sentry (src/lib/sentry.ts).
+export default wrapRoot(RootLayout);

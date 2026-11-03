@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs/config';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // packages/shared ships TypeScript source, so Next compiles it like the app's own files.
@@ -53,4 +55,26 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Error monitoring (BOO-54, docs/ops/error-monitoring.md). Wraps server routes and pages so their errors
+// reach Sentry, tags the build with the git commit as its release, and, when SENTRY_AUTH_TOKEN is set (on
+// Vercel), uploads source maps and then deletes them from the deploy so they're never public.
+// Production builds only (`next build` sets NODE_ENV before reading this file): under `next dev` the
+// wrapper kept triggering Fast Refresh rebuilds, which slowed the e2e suite enough to time out, and there's
+// no DSN in development anyway. instrumentation.ts still loads. withSentryConfig changes the object it's
+// given, so it only ever sees a copy. The export stays an object: tests read it (shareImages.test.ts).
+const sentryOptions = {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+    deleteSourcemapsAfterUpload: true,
+  },
+  // No session replay (it would record what readers type), so leave its code out of the bundle.
+  bundleSizeOptimizations: { excludeReplayIframe: true, excludeReplayShadowDom: true, excludeReplayWorker: true },
+  telemetry: false,
+};
+
+export default process.env.NODE_ENV === 'production' ? withSentryConfig({ ...nextConfig }, sentryOptions) : nextConfig;

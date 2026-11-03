@@ -9,6 +9,8 @@ allowBuilds:
   bcrypt: true
   prisma: true
   unrs-resolver: true
+  # Downloads the sentry-cli binary that uploads source maps during web and EAS builds (BOO-54).
+  '@sentry/cli': true
   '@vercel/speed-insights': false
 
 # next-auth 4 declares an optional peer of nodemailer ^7; the app pins 10.0.16 for the high-severity

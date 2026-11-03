@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 
 // This is the last-resort boundary - it only fires when something in the root
 // layout itself throws, so globals.css, Tailwind and app components may not be
@@ -34,8 +35,10 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  // Reported to Sentry (BOO-54); the digest ties it to the server-side event for the same failure.
   useEffect(() => {
     console.error(error)
+    Sentry.captureException(error)
   }, [error])
 
   return (
