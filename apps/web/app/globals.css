@@ -1,6 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  /* A sideways row of covers or tabs that still scrolls (touch, trackpad, shift and wheel) without a grey
+     scrollbar drawn under it. */
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+}
  
 /* Values follow the Bookmark design system (claude.ai/artifact/GGo9txbjNoLtEWFUMcUnr8).
    primary = brand-fill, popover = surface-1, secondary/muted/accent = surface-2,

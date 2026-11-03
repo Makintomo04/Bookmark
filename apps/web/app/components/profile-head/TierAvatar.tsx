@@ -17,7 +17,8 @@ interface TierAvatarProps {
   className?: string
 }
 
-// A profile picture, framed in the reader's tier metal once they have one.
+// A profile picture, framed in the reader's tier metal once they have one. Their colour fills in behind the
+// initial only: an uploaded picture shows as it is, with nothing behind a transparent edge.
 // In the square, each layer's corner radius is the one outside it minus its padding, so the curves stay concentric.
 const TierAvatar: FC<TierAvatarProps> = ({ image, username, colour, alt, booksRead, square, thin, className }) => {
   const tier = getReaderTier(booksRead)
@@ -30,7 +31,7 @@ const TierAvatar: FC<TierAvatarProps> = ({ image, username, colour, alt, booksRe
         title={tier ? `${tier.label} reader: ${tier.minBooks}+ books read` : undefined}
       >
         <div className={cn("h-full w-full rounded-full bg-background", tier && "p-[3px]")}>
-          <div className="relative h-full w-full overflow-hidden rounded-full" style={{ background: colour }}>
+          <div className="relative h-full w-full overflow-hidden rounded-full" style={image ? undefined : { background: colour }}>
             {image
               ? <Image src={image} alt={alt} fill sizes="96px" priority className="object-cover" />
               : <InitialAvatar username={username} favColour={colour} label={alt || undefined} />}
@@ -55,7 +56,7 @@ const TierAvatar: FC<TierAvatarProps> = ({ image, username, colour, alt, booksRe
         {tier?.shimmer && (
           <div aria-hidden className={cn("tier-shimmer absolute inset-0", square ? "rounded-[29px]" : "rounded-full", tier.key === "diamond" && "tier-shimmer-diamond")} />
         )}
-        <div className={cn("relative h-full w-full overflow-hidden", !square ? "rounded-full" : tier ? "rounded-[23px]" : "rounded-[28px]")} style={{ background: colour }}>
+        <div className={cn("relative h-full w-full overflow-hidden", !square ? "rounded-full" : tier ? "rounded-[23px]" : "rounded-[28px]")} style={image ? undefined : { background: colour }}>
           {image
             ? <Image src={image} alt={alt} fill sizes="112px" priority className="object-cover" />
             : <InitialAvatar username={username} favColour={colour} label={alt || undefined} />}
