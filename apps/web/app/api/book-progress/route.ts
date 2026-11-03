@@ -7,6 +7,7 @@ import { onBuddyReadProgress } from "@/lib/buddyReadsServer";
 import { OPEN_READ_STATUSES, RATING_ERROR, RESHELVE_TARGETS, optionalDaySchema, ratingInputSchema, readFromBook, reshelvedFields } from "@/lib/readHistory";
 import { lengthSnapshot, progressScale } from "@/lib/progress";
 import { positionFromBody } from "@/lib/progressPayload";
+import { editionPageCount } from "@/lib/catalog/pageCount";
 import { Prisma, type ActivityType, type Book, type Status } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -169,6 +170,10 @@ export async function POST(req: Request) {
   const logged = position !== undefined ? { currentPercent: percent } : {}
   const page = position
 
+  // Starting a copy shelved with no page count takes one from the catalogue when it knows it, so the reader can
+  // log pages straight away rather than percent.
+  const filledPages = (action === "start" || action === "restart") && !book.pages && !onMinutes ? await editionPageCount(book.editionId) : null
+
   const now = new Date()
   const ratingForRead = rating !== undefined ? rating : book.rating
   if (body.startedOn && body.finishedOn && body.startedOn > body.finishedOn) {
@@ -191,7 +196,7 @@ export async function POST(req: Request) {
           // A re-read is a new row: the finished (or abandoned) read keeps its own dates and rating.
           await tx.bookRead.create({ data: { bookId: book.id, userId: book.userId, status: "STARTED", startedAt: now, ...(action === "start" && logged) } })
           // completedAt stays as the last finish; goal and stats only count it while the status is COMPLETED.
-          data = { status: "STARTED", startedAt: now, stoppedAt: null, currentPage: 0, currentMinute: 0, currentPercent: null, ...at(action === "start" ? page ?? 0 : 0), ...(action === "start" && logged) }
+          data = { ...(filledPages && { pages: filledPages }), status: "STARTED", startedAt: now, stoppedAt: null, currentPage: 0, currentMinute: 0, currentPercent: null, ...at(action === "start" ? page ?? 0 : 0), ...(action === "start" && logged) }
           break
         case "progress":
           await updateOpenRead(tx, book, { ...readAt(page), ...logged })

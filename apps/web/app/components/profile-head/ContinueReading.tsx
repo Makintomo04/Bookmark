@@ -114,13 +114,12 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
       </span>
     </>
   )
-  // The cover keeps its 2:3 at a set width, so its art is never cropped to fit the card's height (BOO-100). 80px
-  // on the one large card and the two side by side, where it's as tall as a two-line title, the author and the
-  // bar; 64px on the rows of three or more. Someone else's (bare) cards have no bar or Update, so the book is the
-  // whole card: one or two of them get a 96px cover from sm up (112px from lg) and a larger title (`big`); rows
-  // of three or more stay compact.
+  // The cover keeps its 2:3 at a set width, so its art is never cropped to fit the card's height (BOO-100): 96px on
+  // the one large card, 80px on the rest, where it's as tall as a two-line title, the author and the bar. Someone
+  // else's (bare) cards have no bar or Update, so the book is the whole card: one or two of them get a 96px cover
+  // from sm up (112px from lg) and a larger title (`big`); rows of three or more stay compact.
   const big = bare && size !== 'row'
-  const coverWidth = bare ? (big ? 'w-16 sm:w-24 lg:w-28' : 'w-12 sm:w-16') : size === 'row' ? 'w-16' : 'w-20'
+  const coverWidth = bare ? (big ? 'w-16 sm:w-24 lg:w-28' : 'w-12 sm:w-16') : size === 'large' ? 'w-24' : 'w-20'
   const marks = (
     <>
       {circle && (

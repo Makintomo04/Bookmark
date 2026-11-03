@@ -8,6 +8,7 @@ import { Status } from '@/lib/bookStatus'
 import { BookPlus, Lock, Send, Unlock } from 'lucide-react'
 import { askToCatalogue } from '../books/catalogueRequest'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
 import { Button } from '../ui/button'
@@ -655,30 +656,26 @@ const BookUpdateModal: FC = () => {
 
   // On phones every button stretches, so a row that wraps reads as a second row rather than a stray button,
   // and the shelf moves' group dissolves so they wrap alongside Close instead of stacking on their own.
-  const footerButton = "rounded-md flex-1 sm:flex-none"
-  const footer = (
-    <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
-      {isClosed && (
-        <div className="contents sm:flex flex-wrap gap-3 sm:mr-auto">
-          <Button onClick={() => move("restart")} variant="outline" className={footerButton} disabled={isSaving} loading={savingAction === "restart"}>Read again</Button>
-          {status === "DNF" && (
-            <Button onClick={() => move("wantToRead")} variant="outline" className={footerButton} disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
-          )}
-        </div>
+  const moves = isClosed ? (
+    <>
+      <Button onClick={() => move("restart")} variant="outline" disabled={isSaving} loading={savingAction === "restart"}>Read again</Button>
+      {status === "DNF" && (
+        <Button onClick={() => move("wantToRead")} variant="outline" disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
       )}
-      {status === "NOT_INTERESTED" && (
-        <Button onClick={() => move("wantToRead")} variant="outline" className={cn(footerButton, "sm:mr-auto")} disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
-      )}
-      <Button onClick={close} variant="outline" className={footerButton} disabled={isSaving}>
-        {showPrimary ? "Cancel" : "Close"}
-      </Button>
+    </>
+  ) : status === "NOT_INTERESTED" ? (
+    <Button onClick={() => move("wantToRead")} variant="outline" disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
+  ) : undefined
+  const footer = showPrimary || moves ? (
+    <ModalFooter start={moves}>
       {showPrimary && (
-        <Button style={{ background: accent, color: accentInk }} onClick={save} disabled={!canSave} loading={savingAction === "save"} className={footerButton}>
-          {primaryLabel}
-        </Button>
+        <>
+          <Button onClick={close} variant="ghost" disabled={isSaving}>Cancel</Button>
+          <Button onClick={save} disabled={!canSave} loading={savingAction === "save"}>{primaryLabel}</Button>
+        </>
       )}
-    </div>
-  )
+    </ModalFooter>
+  ) : undefined
 
   return (
     <Modal
@@ -694,7 +691,7 @@ const BookUpdateModal: FC = () => {
       isOpen={isOpen}
       disabled={isSaving}
       closeOnBackdrop={!hasChanges}
-      compact
+      size="l"
     />
   )
 }

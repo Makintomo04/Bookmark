@@ -7,6 +7,7 @@ import { notify, apiError } from '@/lib/notify'
 import { ArrowDown, ArrowUp, Check, MessageSquareQuote, Plus, Search, X } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 import BookCover from '../cards/BookCover'
 import { Button } from '../ui/button'
@@ -368,22 +369,22 @@ const ListEditorModal: FC = () => {
     </div>
   )
 
+  // Only owners can delete. Staff hide someone else's list instead, so its reports stay on record.
+  const deleteControls = !isNew && isOwner ? (confirmDelete ? (
+    <>
+      <Button type="button" onClick={remove} disabled={isSaving} loading={isDeleting} variant="destructive">Delete list</Button>
+      <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)} disabled={isSaving}>Keep it</Button>
+    </>
+  ) : (
+    <Button type="button" variant="ghost" onClick={() => setConfirmDelete(true)} disabled={isSaving} className="text-danger hover:text-danger">Delete</Button>
+  )) : undefined
   const footer = (
-    <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
-      {/* Only owners can delete. Staff hide someone else's list instead, so its reports stay on record. */}
-      {!isNew && isOwner && (confirmDelete ? (
-        <div className="mr-auto flex items-center gap-2">
-          <Button type="button" onClick={remove} disabled={isSaving} loading={isDeleting} variant="destructive">Delete list</Button>
-          <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)} disabled={isSaving}>Keep it</Button>
-        </div>
-      ) : (
-        <Button type="button" variant="outline" onClick={() => setConfirmDelete(true)} disabled={isSaving} className="mr-auto text-danger hover:text-danger">Delete</Button>
-      ))}
-      <Button type="button" variant="outline" onClick={close} disabled={isSaving} className="hidden sm:inline-flex">{isDirty ? "Cancel" : "Close"}</Button>
-      <Button type="button" onClick={save} disabled={isSaving || !isDirty || !draft.title.trim()} loading={isSaving && !isDeleting} style={{ background: accent, color: readableInk(accent) }}>
+    <ModalFooter start={deleteControls}>
+      <Button type="button" variant="ghost" onClick={close} disabled={isSaving}>Cancel</Button>
+      <Button type="button" onClick={save} disabled={isSaving || !isDirty || !draft.title.trim()} loading={isSaving && !isDeleting}>
         {isSaving && !isDeleting ? "Saving…" : isNew ? "Create list" : "Save changes"}
       </Button>
-    </div>
+    </ModalFooter>
   )
 
   return (
@@ -395,7 +396,7 @@ const ListEditorModal: FC = () => {
       isOpen={isOpen}
       disabled={isSaving}
       closeOnBackdrop={!isDirty}
-      compact
+      size="m"
     />
   )
 }

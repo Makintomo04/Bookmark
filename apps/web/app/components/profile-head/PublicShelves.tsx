@@ -107,7 +107,7 @@ const PublicShelves: FC<PublicShelvesProps> = ({ username, wantToRead: wantPrevi
 
   return (
     <section aria-label="Shelves" className="w-full">
-      <div role="tablist" aria-label="Shelves" className="mb-4 flex gap-1 overflow-x-auto border-b border-neutral-200 pb-2 dark:border-neutral-800">
+      <div role="tablist" aria-label="Shelves" className="scrollbar-none mb-4 flex gap-1 overflow-x-auto border-b border-neutral-200 pb-2 dark:border-neutral-800">
         {shown.map((key) => (
           <button key={key} type="button" role="tab" aria-selected={key === current} onClick={() => choose(key)}
             className={cn(

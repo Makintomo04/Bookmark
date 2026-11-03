@@ -8,10 +8,11 @@ import { notify } from '@/lib/notify'
 import { useForm } from 'react-hook-form'
 import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import { Button } from '../ui/button'
 import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { cn } from '@/lib/utils'
-import { readableInk, toHex } from '@/lib/colour'
+import { toHex } from '@/lib/colour'
 import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, PROFILE_LINKS_MAX, displayNameProblem, normaliseDisplayName, normaliseProfileLink, normaliseUsername, usernameProblem } from '@/lib/profile'
 import { bannerPresetOf, bannerPresetValue, isBannerPresetValue, resolveBanner } from '@/lib/banners'
 import BannerPattern from '../profile/BannerPattern'
@@ -77,7 +78,6 @@ const EditProfileModal: FC = () => {
 
   const [username, displayName, bio, imageSrc, bannerSrc, colour] = watch(["username", "displayName", "bio", "imageSrc", "bannerSrc", "color"])
   const accent = colour || DEFAULT_COLOUR
-  const accentInk = readableInk(accent)
   const avatarSrc = avatar.preview || imageSrc
   // An uploaded photo (or one mid-upload), a chosen preset, or the seeded default when the banner is empty.
   const bannerShown = banner.preview || resolveBanner(bannerSrc, user?.id ?? "")
@@ -321,21 +321,12 @@ const EditProfileModal: FC = () => {
   const saveLabel = isSaving ? "Saving…" : isUploading ? "Uploading…" : "Save changes"
 
   const footer = (
-    <div className="w-full p-6 flex items-center justify-end gap-3">
-      <Button type="button" variant="outline" onClick={close} disabled={isBusy} className="hidden sm:inline-flex">
-        {isDirty ? "Cancel" : "Close"}
-      </Button>
-      <Button
-        type="submit"
-        form="edit-profile-form"
-        disabled={!isDirty || isBusy}
-        loading={isBusy}
-        style={{ background: accent, color: accentInk }}
-        className="transition-colors"
-      >
+    <ModalFooter>
+      <Button type="button" variant="ghost" onClick={close} disabled={isBusy}>Cancel</Button>
+      <Button type="submit" form="edit-profile-form" disabled={!isDirty || isBusy} loading={isBusy}>
         {saveLabel}
       </Button>
-    </div>
+    </ModalFooter>
   )
 
   return (
@@ -347,7 +338,7 @@ const EditProfileModal: FC = () => {
       isOpen={isOpen}
       disabled={isBusy}
       closeOnBackdrop={!isDirty}
-      compact
+      size="m"
     />
   )
 }
