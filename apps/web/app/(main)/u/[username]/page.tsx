@@ -13,9 +13,9 @@ import PublicProfile from '@/app/components/profile-head/PublicProfile'
 import OwnerProfile from '@/app/components/profile-head/OwnerProfile'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
 import { profileLayoutOf } from '@/app/components/profile-head/Band'
-import { sharedCircles } from '@/lib/sharedCircles'
+import { ownCircles, sharedCircles } from '@/lib/sharedCircles'
 import { findLists } from '@/lib/lists'
-import { publicProfileKey } from '@/lib/profileKey'
+import { ownCirclesKey, publicProfileKey } from '@/lib/profileKey'
 import { shelfReviewCount } from '@/lib/reviewedBooks'
 import { preloadShelf } from '@/lib/preloadShelf'
 
@@ -69,7 +69,10 @@ export default async function Page(props: PageProps) {
   const layout = profileLayoutOf(one('layout'))
   const viewer = await getCurrentUser()
   // Your own profile shows your shelf: start it loading before the profile itself.
-  if (viewer?.username && viewer.username === handleOf(params.username)) preloadShelf()
+  const own = !!viewer?.username && viewer.username === handleOf(params.username)
+  if (own) preloadShelf()
+  // And your circles, so Continue reading has its circle books first from the first paint (ownCirclesKey).
+  const circles = own ? ownCircles(viewer!.id).catch(() => []) : null
   const data = await getProfileView(profileHandle(params.username), viewer?.id)
   if (!data) notFound()
   // Links from before shelves had their own pages (?shelf=finished) go to the shelf's page, when this viewer
@@ -103,6 +106,7 @@ export default async function Page(props: PageProps) {
           // The same payloads those routes return, so the owner's header paints with the page.
           "/api/user": { ...self, _count: { books: readingCounts(data.profile.books).booksRead } },
           "/api/favourites": self,
+          [ownCirclesKey]: (await circles) ?? [],
           [publicProfileKey(profile.username, { books: false })]: { ...profile, reviewCount: shelfReviewCount(books), restricted: null, isFollowing: false, isSelf: true, isBlocked: false },
         }}
       />

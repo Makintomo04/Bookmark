@@ -44,9 +44,6 @@ interface Pick {
   discover: DiscoverBook
 }
 
-// How long Start says "Reading" before the tile leaves the row.
-const STARTED_MS = 1500
-
 const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
   const { mutate } = useBooks()
   const openDetails = useBookDetailsModal((s) => s.onOpen)
@@ -57,7 +54,9 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
 
   // Starts it straight away and offers Undo, as the app does everywhere, rather than asking first. A paused
   // book picks up where it was; one from your Want to read starts from the beginning; one not on your shelf
-  // goes onto Reading, and Undo takes it off again.
+  // goes onto Reading, and Undo takes it off again. The shelf you see changes at once (a shelved book moves to
+  // Reading before the save returns, a new one joins it as soon as it's saved), and the full refetch follows
+  // in the background, rather than the book appearing in Continue reading only after that refetch.
   const start = async () => {
     setState('starting')
     let undo: () => Promise<unknown>
@@ -67,6 +66,8 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
     try {
       if (pick.bookId) {
         const id = pick.bookId
+        mutate((books: Book[] | undefined) => books?.map((b) => b.id !== id ? b
+          : { ...b, status: "STARTED", ...(!paused && { startedAt: new Date() }) }), { revalidate: false })
         await axios.post("/api/book-progress", paused ? { id, action: "resume" } : { id, action: "start" })
         undo = () => axios.post("/api/book-progress", { id, action: paused ? "pause" : "wantToRead" })
         if (!paused) startedId = id
@@ -78,12 +79,15 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           isbn10: book.isbn10 ?? undefined, hardcoverId: book.hardcoverId ?? undefined,
           description: book.description ?? undefined, status: "STARTED",
         })
+        mutate((books: Book[] | undefined) => books && saved?.id ? [saved, ...books] : books, { revalidate: false })
         copyCoverLater(saved?.id)
         undo = () => axios.delete(`/api/books/${saved.id}`)
         startedId = saved?.id ?? null
       }
     } catch (err) {
       setState('idle')
+      // Puts back a book moved to Reading before the save failed.
+      if (pick.bookId) mutate()
       // Shelved in another tab since the row loaded: the refresh moves it up to Continue reading.
       if (axios.isAxiosError(err) && err.response?.status === 409) { refresh(); return notify.info(apiError(err, "Already on your shelf")) }
       return notify.error(apiError(err, `Couldn't start ${pick.title}. Try again.`))
@@ -96,7 +100,7 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
       },
       ...(startedId && { secondaryAction: { label: "Change date", onClick: () => openStartDate(startedId!, pick.title) } }),
     })
-    setTimeout(refresh, STARTED_MS)
+    refresh()
   }
 
   return (

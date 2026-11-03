@@ -13,6 +13,13 @@ export interface SharedCircle {
 
 export async function sharedCircles(viewerId: string, readerId: string): Promise<SharedCircle[]> {
   if (viewerId === readerId) return [];
+  return circlesIn(viewerId, readerId);
+}
+
+// Your own active circles, the same way: for pinning them first on your profile before /api/buddy-reads loads.
+export const ownCircles = (userId: string) => circlesIn(userId, userId);
+
+async function circlesIn(viewerId: string, readerId: string): Promise<SharedCircle[]> {
   const viewerIn = await prisma.buddyReadMember.findMany({ where: { userId: viewerId }, select: { buddyReadId: true } });
   if (viewerIn.length === 0) return [];
   const active = await prisma.buddyRead.findMany({

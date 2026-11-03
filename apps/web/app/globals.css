@@ -318,3 +318,32 @@ progress { color: black;width: 100%; }
   from { filter: blur(18px) saturate(0.6); opacity: 0.4; transform: scale(1.04); }
   to { filter: blur(0) saturate(1); opacity: 1; transform: scale(1); }
 }
+
+/* Undo toasts (lib/notify.ts countdown): a thin bar along the top that runs down over the toast's lifetime, so you
+   can see how long Undo has left. It sits inside the rounded corners, and pauses whenever sonner's own timer does:
+   while the toasts are spread out on hover, while you're pressing one, and while the tab is hidden (Toaster). */
+[data-sonner-toast] .toast-countdown::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: currentColor;
+  opacity: 0.35;
+  transform-origin: left;
+  animation: toast-countdown var(--toast-countdown, 6000ms) linear forwards;
+}
+[data-sonner-toast][data-expanded="true"] .toast-countdown::before,
+[data-sonner-toaster]:active .toast-countdown::before,
+html[data-tab-hidden] .toast-countdown::before {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast] .toast-countdown::before { display: none; }
+}
+@keyframes toast-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}

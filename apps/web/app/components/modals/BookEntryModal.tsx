@@ -23,6 +23,8 @@ import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 import useBookSearch from '@/app/hooks/useBookSearch'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
+import { FavouriteChoice } from '../cards/BookActions'
+import useFavourite from '@/app/hooks/useFavourite'
 import ReviewFields, { EMPTY_REVIEW, reviewBody, type ReviewValue } from '../books/ReviewFields'
 import { GENRES } from '@/utils/helpers'
 import { readableInk } from '@/lib/colour'
@@ -93,6 +95,9 @@ const BookEntryModal: FC = () => {
   const [finishDates, setFinishDates] = useState<FinishDatesValue>(defaultFinishDates)
   const [rating, setRating] = useState(0)
   const [review, setReview] = useState<ReviewValue>(EMPTY_REVIEW)
+  // A book added to Finished can be a favourite straight away; it's added once the book is saved and has an id.
+  const [favourite, setFavourite] = useState(false)
+  const { mutate: mutateFav } = useFavourite()
 
   const [query, setQuery] = useState("")
   const [searchAttempt, setSearchAttempt] = useState(0)
@@ -125,6 +130,7 @@ const BookEntryModal: FC = () => {
     setFinishDates(defaultFinishDates())
     setRating(0)
     setReview(EMPTY_REVIEW)
+    setFavourite(false)
     setPublished(null)
     setGivenBlurb(null)
     setHardcoverId(null)
@@ -228,6 +234,10 @@ const BookEntryModal: FC = () => {
       celebrate(saved?.earnMoment, { message: isPrivate ? `Added to ${label}, privately` : `Added to ${label}` })
       if (isManual && askToAdd && !isPrivate && saved?.workId) {
         askToCatalogue(saved.workId).catch(() => notify.error("Added, but your request didn't send. Ask again from the book."))
+      }
+      if (shelf === "COMPLETED" && favourite && saved?.id) {
+        axios.post(`/api/favourites/${saved.id}`).then(() => mutateFav())
+          .catch(() => notify.error("Added, but it didn't go into your favourites. Use the bookmark on its cover."))
       }
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
@@ -473,6 +483,7 @@ const BookEntryModal: FC = () => {
           <div className="flex flex-col gap-2">
             <Label>Rating <span className="font-normal text-muted-foreground">· optional</span></Label>
             <StarRating value={rating} onChange={setRating} disabled={isLoading} />
+            <FavouriteChoice value={favourite} onChange={setFavourite} disabled={isLoading} className="mt-2" />
           </div>
           <ReviewFields value={review} onChange={setReview} disabled={isLoading} accent={user?.favColour || '#D92D2D'} id="add-finish-review" />
         </div>
