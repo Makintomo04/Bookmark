@@ -28,6 +28,16 @@ const errorToast = (err: unknown, fallback: string) => notify.error(apiError(err
 
 const chipClass = "h-7 inline-flex items-center gap-1 rounded-full px-2 text-sm tabular-nums transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
+// "now", "5m", "2h", "12d", then the date: short enough to sit beside the name.
+function shortAgo(iso: string) {
+  const minutes = moment().diff(moment(iso), "minutes")
+  if (minutes < 1) return "now"
+  if (minutes < 60) return `${minutes}m`
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}h`
+  if (minutes < 60 * 24 * 30) return `${Math.floor(minutes / (60 * 24))}d`
+  return moment(iso).format(moment(iso).isSame(moment(), "year") ? "D MMM" : "D MMM YYYY")
+}
+
 const LockedReply: FC<{ stub: Extract<SerializedComment, { locked: true }> }> = ({ stub }) => (
   <p className="flex items-center gap-2 text-sm text-muted-foreground">
     <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: stub.authorColour }} />
@@ -66,9 +76,11 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
   }
 
   const where = [
-    formatPercent(comment.position),
+    `at ${formatPercent(comment.position)}`,
+    shortAgo(comment.createdAt),
     comment.chapterLabel && `Ch. ${comment.chapterLabel}`,
     comment.pageLabel && `p. ${comment.pageLabel}`,
+    comment.editedAt && "edited",
   ].filter(Boolean).join(" · ")
 
   const canModerate = comment.mine || isHost
@@ -106,9 +118,7 @@ const CommentItem: FC<CommentItemProps> = ({ comment, buddyReadId, viewerProgres
             {!comment.formerMember && comment.author?.staffBadge && (
               <StaffSeal kind={comment.author.staffBadge} name={comment.mine ? null : readerName(comment.author)} size={18} className="ml-1 align-[-4px]" />
             )}
-            <span className="text-muted-foreground"> · {moment(comment.createdAt).fromNow()}{comment.editedAt ? " · edited" : ""}</span>
-            <br />
-            <span className="text-xs text-muted-foreground tabular-nums">{where}</span>
+            <span className="ml-1.5 text-[13px] text-muted-foreground tabular-nums" title={moment(comment.createdAt).format("D MMMM YYYY, HH:mm")} suppressHydrationWarning>{where}</span>
           </p>
 
           {(canModerate || canReport) && (
