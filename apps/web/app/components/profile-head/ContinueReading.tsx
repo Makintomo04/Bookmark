@@ -86,14 +86,17 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
   const card = useRef<HTMLLIElement>(null)
   const update = (e: React.MouseEvent<HTMLElement>) => onUpdate(book, e.currentTarget.closest('li')!)
   const details = () => openDetails(discoverBookOf(book))
-  // Where you are, the bar, and (on your own books) a quiet Update chip at the end of the line.
+  // Nothing logged yet says so in words, rather than "0%" over an empty bar, which reads as broken (BOO-100).
+  const notStarted = progress === 0
+  // Where you are, the bar, and (on your own books) a quiet Update at the end of the line. Update is text until
+  // you point at it: the cover is the loudest thing on the card, not the controls. It overhangs by its padding
+  // (-mr-2), so its word ends on the bar's right edge, the same edge as the icons above.
   const place = (
     <>
       <span className="flex min-h-7 items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
-        <span className="min-w-0 truncate">{position}</span>
+        <span className="min-w-0 truncate">{notStarted ? "Not started" : position}</span>
         {!readOnly && (
-          // Lifted 4px off the bar (equal and opposite margins, so the row keeps its height).
-          <span className="-mt-1 mb-1 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 font-medium text-foreground transition group-hover/update:bg-neutral-200 dark:bg-neutral-800 dark:group-hover/update:bg-neutral-700">
+          <span className="-mr-2 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2 font-medium transition group-hover/update:bg-neutral-100 group-hover/update:text-foreground dark:group-hover/update:bg-neutral-800">
             <Pencil size={12} aria-hidden />Update<span className="sr-only"> progress for {book.title}</span>
           </span>
         )}
@@ -111,9 +114,13 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
       </span>
     </>
   )
-  // 64px is close to 2:3 beside the usual 96px of text; the one large card is tall enough for an 80px cover. A bare
-  // card (cover, title and author only) is given the height of a 48px cover.
-  const coverWidth = bare ? 'w-12' : size === 'large' ? 'w-20' : 'w-16'
+  // The cover keeps its 2:3 at a set width, so its art is never cropped to fit the card's height (BOO-100). 80px
+  // on the one large card and the two side by side, where it's as tall as a two-line title, the author and the
+  // bar; 64px on the rows of three or more. Someone else's (bare) cards have no bar or Update, so the book is the
+  // whole card: one or two of them get a 96px cover from sm up (112px from lg) and a larger title (`big`); rows
+  // of three or more stay compact.
+  const big = bare && size !== 'row'
+  const coverWidth = bare ? (big ? 'w-16 sm:w-24 lg:w-28' : 'w-12 sm:w-16') : size === 'row' ? 'w-16' : 'w-20'
   const marks = (
     <>
       {circle && (
@@ -133,59 +140,64 @@ const ContinueCard: FC<{ book: Book; readOnly: boolean; size: Size; circle?: Cir
   const title = href && !readOnly
     ? <Link href={href} className="hover:underline underline-offset-2">{book.title}</Link>
     : <button type="button" onClick={details} className="text-left hover:underline underline-offset-2">{book.title}</button>
+  // The bookmark and the menu, beside the title rather than floating over the card, so the title only gives way to
+  // them on its own line. -mr-2 and -mt-1 take up the buttons' padding: the icons end on the card's right edge
+  // and sit on the title's first line.
+  const actions = !readOnly && (
+    // Pause, Did not finish, Want to read and Make private, as on every other shelf card, so taking a book off
+    // Currently reading never depends on a toast's Undo.
+    <div className="-mr-2 -mt-1 flex shrink-0 items-center">
+      <FavouriteButton bookId={book.id} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" aria-label={`More actions for ${book.title}`} className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-neutral-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-800">
+            <MoreHorizontal size={16} aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {/* Opens the Update sheet on its rating step, so a finish from here is rated and followed by what's next. */}
+          <DropdownMenuItem onSelect={() => onUpdate(book, card.current!, 'rate')}>Finished</DropdownMenuItem>
+          <ShelfMenuItems book={book} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+  // Top-aligned, so cards side by side share their lines (BOO-100): every title starts on the cover's top edge,
+  // and the place and its bar are pushed to the bottom (mt-auto), so the bars of a row line up however many lines
+  // each title takes. Centring the text made a two-line title shift its card's whole block down.
   return (
-    <li ref={card} className={cn("relative flex items-center gap-4 py-2", !bare && size === 'row' && "py-1.5", bare ? "min-h-24" : size === 'large' && "min-h-36", className)}>
-      {/* The bookmark floats in the corner rather than taking a column, so the bar runs the card's full width. */}
-      {/* The cover runs the card's full height: its slot stretches with the card and the cover fills it, cropped
-          like a photo, rather than sitting at the top with a gap under it. Widths keep the slot close to 2:3. */}
-      <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("relative shrink-0 self-stretch rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
-        <BookCover book={book} variant="thumb" sizes="80px" className="absolute inset-0 aspect-auto h-full shadow-sm" />
+    <li ref={card} className={cn("flex gap-4 py-2", !bare && size === 'row' && "py-1.5", className)}>
+      <button type="button" onClick={details} aria-label={`About ${book.title}`} className={cn("shrink-0 self-start rounded-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", coverWidth)}>
+        <BookCover book={book} variant="thumb" sizes="80px" className="shadow-sm" />
       </button>
-      {/* A bare tile's title and author sit at the top, with its marks on their own line under them (there's
-          room, without the progress). On a full card they're centred, the marks riding on the author line. */}
-      <div className={cn("min-w-0 flex-1", bare && "self-start")}>
-        <p className={cn("line-clamp-2 font-medium leading-snug", !readOnly && "pr-[4.5rem]")} title={book.title}>{title}</p>
-        {/* A circle and a reread ride on the author line, after the name, rather than a row of their own; the
-            line is 28px on every card, so the circle's chip fits and the cards stay one height. The name gives
-            way (truncates) before they do. The circle is the one control here, an outlined chip saying where the
-            circle is, a rank below the filled Update; Reread is plain text, as it does nothing. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-start gap-2">
+          <p className={cn("line-clamp-2 min-w-0 flex-1 font-medium leading-snug", big && "sm:text-lg")} title={book.title}>{title}</p>
+          {actions}
+        </div>
+        {/* A circle and a reread ride on the author line, after the name; the name gives way (truncates) before they
+            do. The circle is the one control here, an outlined chip saying where the circle is; Reread is plain text,
+            as it does nothing. On a bare tile they get a line of their own under the author. */}
         {bare ? (
           <>
-            <p className="truncate text-sm text-muted-foreground"><AuthorLink author={book.author} /></p>
-            {(circle || reread) && <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">{marks}</p>}
+            <p className={cn("mt-0.5 truncate text-sm text-muted-foreground", big && "sm:mt-1 sm:text-base")}><AuthorLink author={book.author} /></p>
+            {/* On a big card the circle and reread sit at the foot, level with the cover's bottom edge, so the text
+                spans the cover's height rather than bunching at the top. */}
+            {(circle || reread) && <p className={cn("mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground", big && "sm:mt-auto sm:pt-3")}>{marks}</p>}
           </>
         ) : (
-          <p className={cn("flex h-7 min-w-0 items-center gap-1.5 text-sm text-muted-foreground", !readOnly && "pr-[4.5rem]")}>
+          <p className={cn("mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground", circle && "min-h-7")}>
             <AuthorLink author={book.author} className="truncate" />{marks}
           </p>
         )}
-        {bare ? null : readOnly ? <div className="mt-1">{place}</div> : (
+        {bare ? null : readOnly ? <div className="mt-auto pt-3">{place}</div> : (
           // The place and its bar are the Update button (a 44px row), so the bar keeps the card's full width.
           <button type="button" onClick={update}
-            className="group/update mt-1 block min-h-11 w-full rounded-md py-1 text-left transition active:scale-[.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+            className="group/update mt-auto block min-h-11 w-full rounded-md pb-1 pt-3 text-left transition active:scale-[.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
             {place}
           </button>
         )}
       </div>
-      {!readOnly && (
-        // Pause, Did not finish, Want to read and Make private, as on every other shelf card, so taking a book
-        // off Currently reading never depends on a toast's Undo.
-        <div className="absolute right-2 top-2 flex items-center">
-          <FavouriteButton bookId={book.id} />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" aria-label={`More actions for ${book.title}`} className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-neutral-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-neutral-800">
-                <MoreHorizontal size={16} aria-hidden />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              {/* Opens the Update sheet on its rating step, so a finish from here is rated and followed by what's next. */}
-              <DropdownMenuItem onSelect={() => onUpdate(book, card.current!, 'rate')}>Finished</DropdownMenuItem>
-              <ShelfMenuItems book={book} />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
     </li>
   )
 }
