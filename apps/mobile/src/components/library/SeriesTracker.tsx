@@ -86,7 +86,7 @@ function NextCard({ track, accent }: { track: SeriesTrack; accent: string }) {
       onPress={() => openEntry(entry)}
       style={{ width: 112, gap: 4 }}
     >
-      <BookCover book={{ title: entry.title, author: entry.author, coverImage: entry.coverUrl }} width={112} fallbackColour={accent} />
+      <BookCover book={{ title: entry.title, author: entry.author, coverImage: entry.coverUrl }} width={112} />
       <Text variant="small" numberOfLines={1}>{where}</Text>
       <Text numberOfLines={2} style={{ fontSize: 14 }}>{entry.title}</Text>
       {entry.status === "STARTED" && <Text variant="small">Reading now</Text>}

@@ -11,9 +11,9 @@ import type { ProfileVisibility } from "@bookmark/shared/enums";
 import { ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { Logo } from "@/components/ui/Logo";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
+import { cardStyle } from "@/components/ui/Section";
 import { Segmented } from "@/components/ui/Segmented";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
@@ -39,10 +39,7 @@ export default function Setup() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <Logo size={36} />
-        <Progress step={step} />
-      </View>
+      <Progress step={step} />
       {!me ? (
         <ActivityIndicator />
       ) : step === 1 ? (
@@ -61,7 +58,7 @@ function Progress({ step }: { step: Step }) {
   return (
     <View style={{ gap: 6, alignSelf: "stretch" }} accessibilityLabel={`Step ${step} of 3`}>
       <View style={styles.bars}>
-        {[1, 2, 3].map((n) => <View key={n} style={[styles.bar, { backgroundColor: n <= step ? colors.brand : colors.muted }]} />)}
+        {[1, 2, 3].map((n) => <View key={n} style={[styles.bar, { backgroundColor: n <= step ? colors.brandFill : colors.muted }]} />)}
       </View>
       <Text variant="small">Step {step} of 3</Text>
     </View>
@@ -71,7 +68,7 @@ function Progress({ step }: { step: Step }) {
 // ---- 1. Profile -------------------------------------------------------------------------------
 
 function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
-  const { colors, radii } = useTheme();
+  const { colors, radii, fonts } = useTheme();
   const [username, setUsername] = useState(() => suggestUsername(me));
   const [displayName, setDisplayName] = useState("");
   const [colour, setColour] = useState(DEFAULT_COLOUR);
@@ -102,26 +99,55 @@ function ProfileStep({ me, onDone }: { me: Me; onDone: () => void }) {
   return (
     <View style={styles.step}>
       <View style={styles.intro}>
-        <Text variant="display" style={styles.center}>Set up your profile</Text>
-        <Text variant="muted" style={styles.center}>This is how other readers see you. You can change it any time.</Text>
+        <Text variant="display" accessibilityRole="header">Set up your profile</Text>
+        <Text variant="muted">This is how other readers see you. You can change it any time.</Text>
       </View>
 
-      {/* The strip every profile has until they upload a banner (BOO-99). */}
-      <View style={[styles.preview, { borderRadius: radii.lg, backgroundColor: bannerTint(colour, colors.background) }]} />
-      <PhotoPicker image={image} name={name} colour={colour} onChange={setImage} />
+      {/* A live preview of the top of their profile: the strip every profile has until they upload a banner
+          (BOO-99), the picture over it, and the name it will go by. */}
+      <View style={[cardStyle(colors, radii.lg), { overflow: "hidden" }]}>
+        <View style={[styles.preview, { backgroundColor: bannerTint(colour, colors.popover) }]} />
+        <View style={styles.previewBody}>
+          <View style={styles.previewPhoto}><PhotoPicker compact image={image} name={name} colour={colour} onChange={setImage} /></View>
+          <View style={{ gap: 2 }}>
+            {image && (
+              <Pressable accessibilityRole="button" onPress={() => setImage(null)} hitSlop={8} style={styles.removePhoto}>
+                <Text variant="muted">Remove photo</Text>
+              </Pressable>
+            )}
+            <Text numberOfLines={1} style={{ fontFamily: fonts.display, fontSize: 20, lineHeight: 26 }}>{normaliseDisplayName(displayName) || name || "Your name"}</Text>
+            <Text variant="muted" numberOfLines={1}>@{name || "username"}</Text>
+          </View>
+        </View>
+      </View>
 
-      <View style={{ gap: 6 }}>
-        <TextField label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} error={error ?? problem} />
-        {!error && !problem && <Text variant="small" style={availability === "taken" && { color: colors.danger }}>{usernameHint(name, availability)}</Text>}
-      </View>
-      <View style={{ gap: 6 }}>
-        <TextField label="Display name · optional" value={displayName} onChangeText={(t) => setDisplayName(t.slice(0, DISPLAY_NAME_MAX))} autoCapitalize="words" error={displayNameError} />
-        <Text variant="small">Heads your profile, with your username under it. Skip it to go by your username.</Text>
-      </View>
+      <TextField
+        label="Username"
+        prefix="@"
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+        autoCorrect={false}
+        error={error ?? problem}
+        hint={usernameHint(name, availability)}
+        hintTone={availability === "taken" ? "danger" : availability === "available" ? "good" : "muted"}
+      />
+      <TextField
+        label="Display name"
+        labelNote="optional"
+        placeholder="How should readers know you?"
+        value={displayName}
+        onChangeText={(t) => setDisplayName(t.slice(0, DISPLAY_NAME_MAX))}
+        autoCapitalize="words"
+        error={displayNameError}
+        hint="Heads your profile, with your username under it. Leave it blank to go by your username."
+      />
 
       <ColourPicker value={colour} onChange={setColour} />
 
-      <Button title={saving ? "Saving…" : "Continue"} loading={saving} disabled={availability === "checking"} onPress={save} />
+      <View style={styles.foot}>
+        <Button title={saving ? "Saving…" : "Continue"} loading={saving} disabled={availability === "checking"} onPress={save} />
+      </View>
     </View>
   );
 }
@@ -154,13 +180,15 @@ function CommunityStep({ onDone }: { onDone: () => void }) {
   return (
     <View style={styles.step}>
       <View style={styles.intro}>
-        <Text variant="display" style={styles.center}>What do you like to read?</Text>
-        <Text variant="muted" style={styles.center}>We{"’"}ll use this to suggest books to start your shelf. Everything else starts on sensible defaults you can change in Settings.</Text>
+        <Text variant="display" accessibilityRole="header">What do you like to read?</Text>
+        <Text variant="muted">We{"’"}ll use this to suggest books to start your shelf. Everything else starts on sensible defaults you can change in Settings.</Text>
       </View>
       {error && <Notice tone="error" message={error} />}
-      <View style={{ gap: 8 }}>
-        <Text variant="label">Genres you love</Text>
-        <Text variant="small">Pick as many as you like.</Text>
+      <View style={{ gap: 10 }}>
+        <View style={{ gap: 2 }}>
+          <Text variant="title">Genres you love</Text>
+          <Text variant="muted">Pick as many as you like.</Text>
+        </View>
         <View style={styles.chips}>
           {GENRES.map((genre) => <Chip key={genre.slug} label={genre.label} selected={draft.favGenres.includes(genre.slug)} disabled={saving} onPress={() => toggle(genre.slug)} />)}
         </View>
@@ -169,8 +197,12 @@ function CommunityStep({ onDone }: { onDone: () => void }) {
         <Segmented label="Who can see your profile" options={PROFILE_OPTIONS} value={draft.profileVisibility} onChange={(v) => setDraft({ ...draft, profileVisibility: v })} disabled={saving} />
         <Text variant="small">{PROFILE_HINT[draft.profileVisibility]}</Text>
       </View>
-      <Button title={saving ? "Saving…" : "Continue"} loading={saving} onPress={save} />
-      <Button title="Skip" variant="outline" disabled={saving} onPress={onDone} />
+      <View style={styles.foot}>
+        <Button title={saving ? "Saving…" : "Continue"} loading={saving} onPress={save} />
+        <Pressable accessibilityRole="button" disabled={saving} onPress={onDone} hitSlop={8} style={styles.skip}>
+          <Text variant="muted">Skip for now</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -194,26 +226,36 @@ function StartStep() {
   return (
     <View style={styles.step}>
       <View style={styles.intro}>
-        <Text variant="display" style={styles.center}>Welcome, {me ? readerName(me) : username}</Text>
-        <Text variant="muted" style={styles.center}>Your profile is ready. Here are a few ways to start.</Text>
+        <Text variant="display" accessibilityRole="header">Welcome, {me ? readerName(me) : username}</Text>
+        <Text variant="muted">Your profile is ready. Here are a few ways to start.</Text>
       </View>
-      <Option icon={UsersRound} title="Start a reading circle" description="Read one book with friends: pick it, share one link, and talk about it as you go." onPress={() => finish("/add-book?shelf=STARTED&startCircle=1")} />
+      <Option recommended icon={UsersRound} title="Start a reading circle" description="Read one book with friends: pick it, share one link, and talk about it as you go." onPress={() => finish("/add-book?shelf=STARTED&startCircle=1")} />
       <Option icon={Compass} title="Help me pick my first book" description="Popular books in the genres you picked, and what the Bookmark team and people you follow recommend." onPress={() => finish("/first-book")} />
       <Option icon={BookOpen} title="Add the book you're reading" description="Search by title or author." onPress={() => finish("/add-book?shelf=STARTED")} />
       <Option icon={Upload} title="Import from Goodreads or StoryGraph" description="Bring your shelves, ratings and dates in about a minute." onPress={() => finish("/import")} />
       <GoalOption />
-      <Button title="Go to my library" variant="outline" loading={leaving} onPress={() => finish()} />
+      <View style={styles.foot}>
+        <Button title="Go to my library" variant="outline" loading={leaving} onPress={() => finish()} />
+      </View>
     </View>
   );
 }
 
-function Option({ icon: Icon, title, description, onPress }: { icon: typeof BookOpen; title: string; description: string; onPress: () => void }) {
+// `recommended` is the first way in, as on the landing page: a reading circle, marked with the brand's edge.
+function Option({ icon: Icon, title, description, onPress, recommended }: { icon: typeof BookOpen; title: string; description: string; onPress: () => void; recommended?: boolean }) {
   const { colors, radii } = useTheme();
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.option, { borderRadius: radii.lg, borderColor: pressed ? colors.brand : colors.border }]}>
-      <IconBadge><Icon size={20} color={colors.brandText} /></IconBadge>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 16 }}>{title}</Text>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={recommended ? `${title}, recommended` : title}
+      accessibilityHint={description}
+      onPress={onPress}
+      style={({ pressed }) => [styles.option, cardStyle(colors, radii.lg, pressed, colors.muted), recommended && { borderColor: `${colors.brandFill}99` }]}
+    >
+      <IconBadge><Icon size={20} strokeWidth={1.75} color={recommended ? colors.brandText : colors.foreground} /></IconBadge>
+      <View style={{ flex: 1, gap: 2 }}>
+        {recommended && <Text variant="small" style={{ color: colors.brandText }}>Recommended</Text>}
+        <Text variant="title" style={{ fontSize: 16, lineHeight: 22 }}>{title}</Text>
         <Text variant="muted">{description}</Text>
       </View>
       <ChevronRight size={18} color={colors.mutedForeground} />
@@ -254,11 +296,11 @@ function GoalOption() {
   };
 
   return (
-    <View style={[styles.option, { borderRadius: radii.lg, borderColor: colors.border, flexDirection: "column", alignItems: "stretch" }]}>
+    <View style={[styles.option, cardStyle(colors, radii.lg), { flexDirection: "column", alignItems: "stretch" }]}>
       <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-        <IconBadge><Target size={20} color={colors.brandText} /></IconBadge>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16 }}>Set a {year} reading goal</Text>
+        <IconBadge><Target size={20} strokeWidth={1.75} color={colors.foreground} /></IconBadge>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="title" style={{ fontSize: 16, lineHeight: 22 }}>Set a {year} reading goal</Text>
           <Text variant="muted" accessibilityLiveRegion="polite">{saved ? `${saved} books this year. Change it any time.` : "How many books this year?"}</Text>
         </View>
       </View>
@@ -276,14 +318,19 @@ function GoalOption() {
 }
 
 const styles = StyleSheet.create({
-  preview: { height: 96, overflow: "hidden" },
-  header: { alignItems: "center", gap: 16 },
+  preview: { height: 72 },
+  previewBody: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
+  // The picture rises into the banner, as on a profile.
+  previewPhoto: { marginTop: -36 },
+  removePhoto: { position: "absolute", right: 0, top: -30 },
   bars: { flexDirection: "row", gap: 6 },
   bar: { flex: 1, height: 4, borderRadius: 2 },
-  step: { gap: 20 },
-  intro: { gap: 8 },
-  center: { textAlign: "center" },
+  step: { flexGrow: 1, gap: 20 },
+  intro: { gap: 6 },
+  // The step's way on, at the foot of the screen when the step is short.
+  foot: { marginTop: "auto", paddingTop: 8, gap: 8 },
+  skip: { alignSelf: "center", paddingVertical: 8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "flex-end" },
-  option: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderWidth: 1 },
+  option: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 },
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
 });

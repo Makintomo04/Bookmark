@@ -73,7 +73,9 @@ export function BannerUpload({ banner, onChange }: { banner: string | null; onCh
 }
 
 // A picture to tap to change, with the initial on the reader's colour until there is one.
-export function PhotoPicker({ image, name, colour, onChange }: { image: string | null; name: string; colour: string; onChange: (url: string | null) => void }) {
+// `compact` (onboarding's profile preview): the picture alone, its camera badge the way to add one, with
+// Change and Remove under it only once there is a picture.
+export function PhotoPicker({ image, name, colour, onChange, compact }: { image: string | null; name: string; colour: string; onChange: (url: string | null) => void; compact?: boolean }) {
   const { colors } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +92,20 @@ export function PhotoPicker({ image, name, colour, onChange }: { image: string |
       setUploading(false);
     }
   };
+
+  if (compact) {
+    return (
+      <View style={{ gap: 6 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={image ? "Change profile picture" : "Add a profile picture"} onPress={choose} disabled={uploading} style={{ alignSelf: "flex-start" }}>
+          <Avatar image={image} name={name} colour={colour} size={72} ring />
+          <View style={[styles.camera, { backgroundColor: colors.foreground }]}>
+            {uploading ? <ActivityIndicator size="small" color={colors.background} /> : <Camera size={14} color={colors.background} />}
+          </View>
+        </Pressable>
+        {error && <Text variant="small" style={{ color: colors.danger }}>{error}</Text>}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.photoRow}>

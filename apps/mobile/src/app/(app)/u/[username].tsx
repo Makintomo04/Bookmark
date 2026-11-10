@@ -234,7 +234,7 @@ function Reading({ profile }: { profile: Profile }) {
           <Text variant="title">Reading now</Text>
           {reading.map((b) => (
             <View key={b.id} style={styles.readingRow}>
-              <BookCover book={b} width={48} fallbackColour={accent} />
+              <BookCover book={b} width={48} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text numberOfLines={2}>{b.title}</Text>
                 <Text variant="small">{b.author} · {progressWhole(b)}%</Text>
@@ -252,7 +252,7 @@ function Reading({ profile }: { profile: Profile }) {
           {reviews.map((b) => (
             <View key={b.id} style={{ gap: 6 }}>
               <View style={styles.readingRow}>
-                <BookCover book={b} width={36} fallbackColour={accent} />
+                <BookCover book={b} width={36} />
                 <View style={{ flex: 1 }}>
                   <Text numberOfLines={1}>{b.title}</Text>
                   {b.rating ? <StarRating value={b.rating} size={14} /> : null}
@@ -306,7 +306,7 @@ function CoverRow({ title, books, total, accent, onSeeAll }: { title: string; bo
         removeClippedSubviews
         renderItem={({ item }) => (
           <View style={{ width: COVER, gap: 4 }} accessible accessibilityLabel={`${item.title} by ${item.author}`}>
-            <BookCover book={item} width={COVER} fallbackColour={accent} />
+            <BookCover book={item} width={COVER} />
             <Text variant="small" numberOfLines={2}>{item.title}</Text>
           </View>
         )}

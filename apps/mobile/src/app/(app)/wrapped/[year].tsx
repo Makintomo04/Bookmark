@@ -311,7 +311,7 @@ function BookFeature({ book, accent, children }: { book: WrappedData["longestBoo
   if (!book) return null;
   return (
     <View style={{ gap: 16, marginTop: 20 }}>
-      <BookCover book={book} width={128} fallbackColour={accent} />
+      <BookCover book={book} width={128} />
       <View>
         <Ink style={{ fontSize: 24, lineHeight: 30, fontWeight: "700" }}>{book.title}</Ink>
         <Ink style={{ fontSize: 17, opacity: 0.8, marginTop: 2 }}>{book.author}</Ink>
