@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { StyleSheet, View, type TextInputInstance } from "react-native";
+import { Pressable, StyleSheet, View, type TextInputInstance } from "react-native";
+import { Mail } from "lucide-react-native";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { EMAIL_NOT_VERIFIED } from "@bookmark/shared/authSchemas";
@@ -12,8 +13,10 @@ import { TextField } from "@/components/ui/TextField";
 import { ApiError, postPublic } from "@/lib/api";
 import { signInWithPassword, useAuth } from "@/lib/auth";
 import { webUrl } from "@/lib/config";
+import { useTheme } from "@/lib/theme";
 
 export default function SignIn() {
+  const { colors } = useTheme();
   const completeSignIn = useAuth((s) => s.completeSignIn);
   const passwordRef = useRef<TextInputInstance>(null);
   const [email, setEmail] = useState("");
@@ -45,7 +48,10 @@ export default function SignIn() {
 
   return (
     <Screen>
-      <Text variant="display">Welcome back</Text>
+      <View style={{ gap: 6 }}>
+        <Text variant="display" accessibilityRole="header">Welcome back</Text>
+        <Text variant="muted">Sign in to pick up where you left off.</Text>
+      </View>
       {resent ? <Notice message="If that account still needs confirming, a new link is on its way. Open it, then sign in here." /> : error ? <Notice tone="error" message={error} /> : null}
       {unverified && !resent && <Button title="Send the confirmation link again" variant="ghost" onPress={resend} />}
       <View style={styles.form}>
@@ -71,13 +77,14 @@ export default function SignIn() {
           returnKeyType="go"
           onSubmitEditing={submit}
         />
+        <Pressable accessibilityRole="link" hitSlop={10} onPress={() => WebBrowser.openBrowserAsync(webUrl("/forgot-password"))} style={styles.forgot}>
+          <Text variant="muted">Forgot your password?</Text>
+        </Pressable>
         <Button title="Sign in" loading={busy} onPress={submit} />
-        <View style={styles.links}>
-          <Button title="Email me a sign-in link" variant="ghost" onPress={() => router.push("/email-link")} />
-          <Button title="Forgot your password?" variant="ghost" onPress={() => WebBrowser.openBrowserAsync(webUrl("/forgot-password"))} />
-        </View>
       </View>
-      <ProviderButtons onError={setError} />
+      <ProviderButtons onError={setError}>
+        <Button title="Email me a sign-in link instead" variant="outline" icon={<Mail size={18} color={colors.foreground} />} onPress={() => router.push("/email-link")} />
+      </ProviderButtons>
       <View style={styles.footer}>
         <Text variant="muted">First time using Bookmark?</Text>
         <Button title="Create an account" variant="ghost" onPress={() => router.replace("/register")} />
@@ -88,6 +95,7 @@ export default function SignIn() {
 
 const styles = StyleSheet.create({
   form: { gap: 14 },
-  links: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  footer: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4, marginTop: 8 },
+  forgot: { alignSelf: "flex-end", marginTop: -4 },
+  // Pinned to the foot of the screen when the form is short.
+  footer: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 4, marginTop: "auto", paddingTop: 16 },
 });

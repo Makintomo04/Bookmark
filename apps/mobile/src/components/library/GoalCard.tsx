@@ -1,9 +1,11 @@
 import { useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Pencil } from "lucide-react-native";
 import useSWR, { mutate } from "swr";
 import { GOAL_BOOKS_MAX, expectedBooks, goalPace, streakText, type GoalProgress, type PaceTone } from "@bookmark/shared/goals";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
+import { cardStyle } from "@/components/ui/Section";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
@@ -30,7 +32,7 @@ export function GoalCard({ accent }: { accent: string }) {
   const [editing, setEditing] = useState(false);
   if (isLoading) return null;
 
-  const box = [styles.box, { borderRadius: radii.lg, borderColor: colors.border }];
+  const box = [styles.box, cardStyle(colors, radii.lg)];
   // Their streak, so "ends tonight" is in sight before the evening alert (BOO-48).
   const streak = streakText(progress?.streak);
   if (!goal || editing) {
@@ -50,21 +52,25 @@ export function GoalCard({ accent }: { accent: string }) {
   // The same words the web widget uses: "2 ahead of pace · 9 to go", "On pace", "Goal reached".
   const pace = goalPace(done, goal.targetBooks, expectedBooks(year, goal.targetBooks, goal.createdAt, progress?.beforeGoal));
   const paceColour = { ...PACE_COLOURS[scheme], neutral: colors.mutedForeground };
+  // One quiet line, as on the web's profile: the count against the goal, the pace on the right with the pencil
+  // that changes it, and a slim bar.
   return (
-    <View style={box}>
-      <View accessible accessibilityLabel={`${year} reading goal: ${done} of ${goal.targetBooks} books`} style={{ gap: 10 }}>
-        <View style={styles.line}>
-          <Text variant="title">{year} goal</Text>
-          <Text variant="muted">{done.toLocaleString("en-GB")} of {goal.targetBooks.toLocaleString("en-GB")} books</Text>
-        </View>
-        <View style={[styles.track, { backgroundColor: colors.muted }]}>
-          <View style={[styles.fill, { width: `${percent}%`, backgroundColor: accent }]} />
-        </View>
-        <Text variant="small" style={{ color: paceColour[pace.tone] }}>{pace.text}{pace.toGo ? ` · ${pace.toGo}` : ""}</Text>
-        {done >= goal.targetBooks && <Text variant="muted">Every book from here is a bonus.</Text>}
-        {streak && <Text variant="muted">{streak}</Text>}
+    <View style={{ gap: 10 }}>
+      <View style={styles.line}>
+        <Text variant="label" accessible accessibilityLabel={`${year} reading goal: ${done} of ${goal.targetBooks} books`} style={{ flexShrink: 1 }}>
+          {done.toLocaleString("en-GB")} of {goal.targetBooks.toLocaleString("en-GB")} books in {year}
+        </Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Change goal" accessibilityHint={`Your goal is ${goal.targetBooks} books`} onPress={() => setEditing(true)} hitSlop={10} style={styles.pace}>
+          <Text variant="muted" style={{ color: paceColour[pace.tone] }}>{pace.text}</Text>
+          <Pencil size={14} color={colors.mutedForeground} />
+        </Pressable>
       </View>
-      <Button title="Change goal" variant="ghost" onPress={() => setEditing(true)} accessibilityHint={`Your goal is ${goal.targetBooks} books`} style={{ alignSelf: "flex-start" }} />
+      <View style={[styles.track, { backgroundColor: colors.muted }]}>
+        <View style={[styles.fill, { width: `${percent}%`, backgroundColor: accent }]} />
+      </View>
+      {(pace.toGo || done >= goal.targetBooks || streak) && (
+        <Text variant="small">{[pace.toGo, done >= goal.targetBooks ? "Every book from here is a bonus." : null, streak].filter(Boolean).join(" · ")}</Text>
+      )}
     </View>
   );
 }
@@ -111,9 +117,10 @@ function GoalChooser({ year, current, onSaved }: { year: number; current: number
 }
 
 const styles = StyleSheet.create({
-  box: { borderWidth: 1, padding: 16, gap: 10 },
+  box: { padding: 16, gap: 10 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "flex-end" },
-  line: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
-  track: { height: 8, borderRadius: 4, overflow: "hidden" },
-  fill: { height: 8, borderRadius: 4 },
+  line: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  pace: { flexDirection: "row", alignItems: "center", gap: 6 },
+  track: { height: 4, borderRadius: 2, overflow: "hidden" },
+  fill: { height: 4, borderRadius: 2 },
 });

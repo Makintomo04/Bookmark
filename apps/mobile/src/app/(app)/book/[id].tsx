@@ -260,7 +260,7 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
     <Screen>
       <Stack.Screen options={{ title: TITLES[status][onMinutes ? 1 : 0] }} />
       <View style={styles.bookRow}>
-        <BookCover book={book} width={88} fallbackColour={accent} />
+        <BookCover book={book} width={88} />
         <View style={{ flex: 1, gap: 4 }}>
           <Text variant="title" style={{ fontSize: 20, lineHeight: 26 }}>{book.title}</Text>
           <AuthorNames author={book.author} />

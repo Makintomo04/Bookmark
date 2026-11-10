@@ -8,32 +8,29 @@ import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { useAuth } from "@/lib/auth";
 
-// The first screen for a signed-out reader. Same promise as the web's landing page (the words live in @bookmark/shared/pitch). If the app has just
-// signed itself out (a suspension), it says why above the promise.
+// The first screen for a signed-out reader: the mark with the web's headline under it (the words live in
+// @bookmark/shared/pitch), and the two ways in. The rest of the pitch is left to the store page and the
+// website. If the app has just signed itself out (a suspension), it says why above the mark.
 export default function Welcome() {
   const notice = useAuth((s) => s.notice);
   return (
     <Screen edges={["top", "bottom", "left", "right"]}>
-      <View style={styles.hero}>
-        {notice && <Notice tone="error" message={notice} />}
-        <Logo size={48} />
-        <Text variant="hero">{PITCH.headline}</Text>
-        <Text variant="muted" style={styles.lede}>
-          {PITCH.lede}
-        </Text>
+      {notice && <Notice tone="error" message={notice} />}
+      <View style={styles.mark}>
+        <Logo size={64} />
+        <Text variant="display" accessibilityRole="header" style={styles.headline}>{PITCH.headline}</Text>
       </View>
       <View style={styles.actions}>
         <Button title="Create an account" onPress={() => router.push("/register")} />
         <Button title="Sign in" variant="outline" onPress={() => router.push("/sign-in")} />
-        <Text variant="small" style={styles.footnote}>{PITCH.importLine}</Text>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { flex: 1, justifyContent: "center", gap: 20, paddingTop: 24 },
-  lede: { fontSize: 16, lineHeight: 24 },
+  mark: { flex: 1, alignItems: "center", justifyContent: "center", gap: 24, paddingHorizontal: 8 },
+  // Narrow enough that the headline breaks into three even lines rather than stranding "app." on its own.
+  headline: { textAlign: "center", maxWidth: 270 },
   actions: { gap: 12, paddingBottom: 8 },
-  footnote: { textAlign: "center", marginTop: 4 },
 });
