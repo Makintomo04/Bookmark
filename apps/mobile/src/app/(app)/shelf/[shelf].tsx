@@ -292,7 +292,7 @@ function Tile({ book, width, accent, showShelf, readOnly }: { book: Book; width:
   if (readOnly) {
     return (
       <View style={{ width, gap: 6 }} accessible accessibilityLabel={`${book.title} by ${book.author}`}>
-        <BookCover book={book} width={width} fallbackColour={accent} />
+        <BookCover book={book} width={width} />
         <Text variant="small" numberOfLines={2}>{book.title}</Text>
       </View>
     );
@@ -304,7 +304,7 @@ function Tile({ book, width, accent, showShelf, readOnly }: { book: Book; width:
       onPress={() => router.push(`/book/${book.id}`)}
       style={{ width, gap: 6 }}
     >
-      <BookCover book={book} width={width} fallbackColour={accent} />
+      <BookCover book={book} width={width} />
       <Text variant="small" numberOfLines={2}>{book.title}</Text>
       {showShelf && <Text variant="small" numberOfLines={1}>{shelf}</Text>}
     </Pressable>

@@ -3,21 +3,30 @@ import { ActivityIndicator, Pressable, StyleSheet, View, type PressableProps } f
 import { useTheme } from "@/lib/theme";
 import { Text } from "./Text";
 
-// `primary` is the brand fill with white text (the one red buttons use), `outline` sits beside it for
-// the other ways to do something, `ghost` is a text link.
-type Variant = "primary" | "outline" | "ghost";
+// The web's button variants. `primary` is the brand fill with white text, kept for the one action a screen
+// is for (sign in, save); `inverse` is the light fill the web gives a page's main action that isn't a
+// commitment (Start a reading circle, Follow, Join); `secondary` the quiet muted fill (Show more); `outline`
+// sits beside the others; `ghost` is a text link.
+type Variant = "primary" | "inverse" | "secondary" | "outline" | "ghost";
 
 interface ButtonProps extends Omit<PressableProps, "children"> {
   title: string;
   variant?: Variant;
+  // `sm` is the compact pill for actions beside a heading or in a row (+ Add, Follow); it keeps a 44pt target.
+  size?: "md" | "sm";
   loading?: boolean;
   icon?: ReactNode;
 }
 
-export function Button({ title, variant = "primary", loading = false, disabled, icon, style, ...props }: ButtonProps) {
+export function Button({ title, variant = "primary", size = "md", loading = false, disabled, icon, style, ...props }: ButtonProps) {
   const { colors, radii, fonts } = useTheme();
   const inactive = disabled || loading;
-  const textColor = variant === "primary" ? colors.onBrand : variant === "ghost" ? colors.brandText : colors.foreground;
+  const textColor =
+    variant === "primary" ? colors.onBrand
+    : variant === "inverse" ? colors.background
+    : variant === "ghost" ? colors.brandText
+    : colors.foreground;
+  const small = size === "sm";
 
   return (
     <Pressable
@@ -28,11 +37,14 @@ export function Button({ title, variant = "primary", loading = false, disabled, 
       accessibilityLabel={title}
       accessibilityState={{ disabled: !!inactive, busy: loading }}
       disabled={inactive}
+      hitSlop={small ? 6 : undefined}
       style={(state) => [
         styles.base,
-        { borderRadius: radii.md },
+        small ? styles.small : { borderRadius: radii.md },
         variant === "primary" && { backgroundColor: state.pressed ? colors.brandFillPressed : colors.brandFill },
-        variant === "outline" && { borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.input, backgroundColor: state.pressed ? colors.muted : "transparent" },
+        variant === "inverse" && { backgroundColor: colors.foreground, opacity: state.pressed ? 0.85 : 1 },
+        variant === "secondary" && { backgroundColor: state.pressed ? colors.border : colors.muted },
+        variant === "outline" && { borderWidth: 1, borderColor: colors.input, backgroundColor: state.pressed ? colors.muted : "transparent" },
         variant === "ghost" && { minHeight: 36, paddingHorizontal: 4 },
         inactive && { opacity: 0.6 },
         typeof style === "function" ? style(state) : style,
@@ -41,13 +53,14 @@ export function Button({ title, variant = "primary", loading = false, disabled, 
     >
       <View style={styles.row}>
         {loading ? <ActivityIndicator color={textColor} /> : icon}
-        <Text style={{ color: textColor, fontFamily: fonts.sansSemibold, fontSize: 16 }}>{title}</Text>
+        <Text style={{ color: textColor, fontFamily: fonts.sansMedium, fontSize: small ? 14 : 15, lineHeight: small ? 20 : 20 }}>{title}</Text>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { minHeight: 48, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  base: { minHeight: 44, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  small: { minHeight: 34, paddingHorizontal: 14, borderRadius: 999 },
+  row: { flexDirection: "row", alignItems: "center", gap: 6 },
 });

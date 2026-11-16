@@ -9,6 +9,7 @@ import { readerName } from "@bookmark/shared/profile";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
+import { SectionHeading, cardStyle } from "@/components/ui/Section";
 import { Text } from "@/components/ui/Text";
 import { api } from "@/lib/api";
 import { toggleFollow } from "@/lib/social";
@@ -48,12 +49,12 @@ export function PeopleYouMayKnow({ variant }: { variant: "find" | "feed" }) {
   };
 
   return (
-    <View style={{ gap: 8 }}>
-      <Text variant="label">People you may know</Text>
+    <View style={{ gap: 10 }}>
+      <SectionHeading title="People you may know" onSeeAll={variant === "feed" ? () => router.push("/search") : undefined} seeAllLabel="See all suggestions" />
       {data.people.map((person) => {
         if (dismissed.has(person.username)) {
           return (
-            <View key={person.username} style={[styles.row, { borderRadius: radii.md }]}>
+            <View key={person.username} style={[styles.row, cardStyle(colors, radii.lg)]}>
               <Text variant="small" style={{ flex: 1 }}>We won{"’"}t suggest {readerName(person)} again.</Text>
               <Button title="Undo" variant="ghost" onPress={() => setHidden(person.username, false)} />
             </View>
@@ -61,7 +62,7 @@ export function PeopleYouMayKnow({ variant }: { variant: "find" | "feed" }) {
         }
         const s = state[person.username] ?? { isFollowing: false, requested: false };
         return (
-          <View key={person.username} style={[styles.row, { borderRadius: radii.md }]}>
+          <View key={person.username} style={[styles.row, cardStyle(colors, radii.lg)]}>
             <Pressable accessibilityRole="link" onPress={() => router.push(`/u/${encodeURIComponent(person.username)}`)} style={styles.person}>
               <Avatar image={person.image} name={person.username} colour={person.favColour} size={40} />
               <View style={{ flex: 1 }}>
@@ -71,7 +72,8 @@ export function PeopleYouMayKnow({ variant }: { variant: "find" | "feed" }) {
             </Pressable>
             <Button
               title={followButtonLabel({ ...s, needsApproval: person.needsApproval, followsYou: person.followsYou })}
-              variant={s.isFollowing || s.requested ? "outline" : "primary"}
+              variant={s.isFollowing || s.requested ? "outline" : "inverse"}
+              size="sm"
               onPress={() => void follow(person)}
             />
             <Pressable
@@ -86,13 +88,12 @@ export function PeopleYouMayKnow({ variant }: { variant: "find" | "feed" }) {
           </View>
         );
       })}
-      {variant === "feed" && <Button title="See all" variant="ghost" onPress={() => router.push("/search")} />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 6 },
+  row: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 10, paddingHorizontal: 12 },
   person: { flex: 1, flexDirection: "row", gap: 12, alignItems: "center" },
   // Inline in the name's line, so lifted a touch to sit on its middle.
   seal: { marginLeft: 4, transform: [{ translateY: 2 }] },

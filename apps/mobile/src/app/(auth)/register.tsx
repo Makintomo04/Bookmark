@@ -3,6 +3,7 @@ import { StyleSheet, View, type TextInputInstance } from "react-native";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { PASSWORD_MIN, registerSchema } from "@bookmark/shared/authSchemas";
+import { CheckInbox } from "@/components/auth/CheckInbox";
 import { ProviderButtons } from "@/components/auth/ProviderButtons";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -40,18 +41,19 @@ export default function Register() {
 
   if (sentTo) {
     return (
-      <Screen>
-        <Text variant="display">Check your inbox</Text>
-        <Text>We sent a link to {sentTo}. Open it to confirm your email, then sign in here.</Text>
-        <Text variant="muted">It expires in 24 hours. Can{"’"}t find it? Check your spam folder.</Text>
-        <Button title="Sign in" onPress={() => router.replace("/sign-in")} />
-      </Screen>
+      <CheckInbox message={`We sent a link to ${sentTo}. Open it to confirm your email, then sign in here.`} note={"It expires in 24 hours. Can’t find it? Check your spam folder."}>
+        <View style={{ alignSelf: "stretch" }}><Button title="Sign in" variant="outline" onPress={() => router.replace("/sign-in")} /></View>
+        <Button title="Use a different email" variant="ghost" onPress={() => setSentTo(null)} />
+      </CheckInbox>
     );
   }
 
   return (
     <Screen>
-      <Text variant="display">Create your account</Text>
+      <View style={{ gap: 6 }}>
+        <Text variant="display" accessibilityRole="header">Create your account</Text>
+        <Text variant="muted">Free, with stats, goals and reading circles.</Text>
+      </View>
       {error && <Notice tone="error" message={error} />}
       <View style={styles.form}>
         <TextField
@@ -75,26 +77,27 @@ export default function Register() {
           textContentType="newPassword"
           returnKeyType="go"
           onSubmitEditing={submit}
-          placeholder={`At least ${PASSWORD_MIN} characters`}
+          hint={`At least ${PASSWORD_MIN} characters`}
         />
         <Button title="Create account" loading={busy} onPress={submit} />
       </View>
       <ProviderButtons onError={setError} />
-      <View style={styles.footer}>
-        <Text variant="muted">Already have an account?</Text>
-        <Button title="Sign in" variant="ghost" onPress={() => router.replace("/sign-in")} />
-      </View>
-      <Text variant="small">
+      <Text variant="small" style={{ textAlign: "center" }}>
         By signing up, you agree to our{" "}
         <Text variant="small" style={styles.link} onPress={() => WebBrowser.openBrowserAsync(webUrl("/terms"))}>Terms</Text> and{" "}
         <Text variant="small" style={styles.link} onPress={() => WebBrowser.openBrowserAsync(webUrl("/privacy"))}>Privacy Policy</Text>.
       </Text>
+      <View style={styles.footer}>
+        <Text variant="muted">Already have an account?</Text>
+        <Button title="Sign in" variant="ghost" onPress={() => router.replace("/sign-in")} />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   form: { gap: 14 },
-  footer: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4 },
+  // Pinned to the foot of the screen when the form is short.
+  footer: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 4, marginTop: "auto", paddingTop: 16 },
   link: { textDecorationLine: "underline" },
 });

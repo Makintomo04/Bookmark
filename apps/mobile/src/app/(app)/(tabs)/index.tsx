@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Share, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR, { mutate as globalMutate } from "swr";
-import { Compass, Plus, Search } from "lucide-react-native";
+import { Compass, Plus, Search, Share2 } from "lucide-react-native";
 import { GENRE_PICKS_SHELF_LIMIT } from "@bookmark/shared/genres";
 import { DEFAULT_COLOUR } from "@bookmark/shared/profile";
 import { GenrePicks } from "@/components/discover/GenrePicks";
@@ -11,19 +11,21 @@ import { staffBadgeOf } from "@bookmark/shared/staffBadge";
 import { OwnAuthors } from "@/components/authors/ProfileAuthors";
 import { FollowRequests } from "@/components/library/FollowRequests";
 import { GoalCard } from "@/components/library/GoalCard";
-import { NotificationBell } from "@/components/social/NotificationBell";
 import { SelectionBar } from "@/components/library/SelectionBar";
 import { SeriesTracker } from "@/components/library/SeriesTracker";
 import { Shelves, openShelf, useBookSelection } from "@/components/library/Shelves";
 import { ProfileHeader, type ProfileUser } from "@/components/profile/ProfileHeader";
 import { AiLabel } from "@/components/ui/AiLabel";
+import { AppBar } from "@/components/ui/AppBar";
 import { Button } from "@/components/ui/Button";
+import { Divider } from "@/components/ui/Section";
 import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
 import { api } from "@/lib/api";
 import { FOLLOWED_AUTHORS_KEY } from "@/lib/authors";
 import { useLibrary } from "@/lib/books";
 import { SERIES_TRACKER_KEY } from "@/lib/series";
+import { webUrl } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
 
 // Your library: your own profile, as on the web (/u/<you>). Header, this year's goal, then the shelves.
@@ -47,16 +49,24 @@ export default function Library() {
         contentContainerStyle={[styles.content, selection.selecting && { paddingBottom: 200 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void mutate(); void refreshUser(); void globalMutate(FOLLOWED_AUTHORS_KEY); void globalMutate(SERIES_TRACKER_KEY); }} tintColor={colors.mutedForeground} />}
       >
-        <View style={styles.topBar}>
-          <NotificationBell color="#ffffff" />
-        </View>
-        {user && <ProfileHeader user={user} staffBadge={staffBadgeOf(user)} />}
+        <AppBar />
+        {user && <ProfileHeader user={user} staffBadge={staffBadgeOf(user)} belowBar />}
         <View style={styles.actions}>
-          <View style={{ flex: 1 }}><Button title="Add a book" icon={<Plus size={18} color={colors.onBrand} />} onPress={() => router.push("/add-book")} /></View>
           <View style={{ flex: 1 }}><Button title="Edit profile" variant="outline" onPress={() => router.push("/profile/edit")} /></View>
+          {user?.username && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Share your profile"
+              onPress={() => void Share.share({ message: webUrl(`/u/${user.username}`) }).catch(() => {})}
+              style={({ pressed }) => [styles.share, { borderColor: colors.input, backgroundColor: pressed ? colors.muted : "transparent" }]}
+            >
+              <Share2 size={18} color={colors.foreground} />
+            </Pressable>
+          )}
         </View>
         <FollowRequests />
         <GoalCard accent={accent} />
+        <Divider />
         {isLoading && <ActivityIndicator color={colors.mutedForeground} />}
         {error && (
           <View style={{ gap: 8 }}>
@@ -64,10 +74,16 @@ export default function Library() {
             <Button title="Try again" variant="outline" onPress={() => mutate()} />
           </View>
         )}
-        {bookCount === 0 && <EmptyLibrary />}
+        {bookCount === 0 && (
+          <>
+            <EmptyLibrary />
+            {/* Somewhere to add one book straight away, which used to sit by Edit profile. */}
+            <Button title="Add a book" variant="outline" icon={<Plus size={18} color={colors.foreground} />} onPress={() => router.push("/add-book")} />
+          </>
+        )}
         <NewShelfPicks bookCount={bookCount} />
         {library && bookCount! > 0 && (
-          <View style={{ gap: 12 }}>
+          <View style={{ gap: 20 }}>
             <View style={styles.shelfBar}>
               {/* Looks like a search box; the shelf screen has the real one, with sort and filters. */}
               <Pressable
@@ -79,9 +95,9 @@ export default function Library() {
                 <Search size={16} color={colors.mutedForeground} />
                 <Text variant="muted" numberOfLines={1}>Search your shelves</Text>
               </Pressable>
-              <Button title={selection.selecting ? "Done" : "Select"} variant="ghost" onPress={selection.selecting ? selection.stop : selection.start} />
+              <Button title={selection.selecting ? "Done" : "Select"} variant="secondary" size="sm" onPress={selection.selecting ? selection.stop : selection.start} />
             </View>
-            <Shelves library={library} accent={accent} selection={selection} />
+            <Shelves library={library} accent={accent} selection={selection} onAdd={() => router.push("/add-book")} />
           </View>
         )}
         {bookCount! > 0 && <SeriesTracker accent={accent} />}
@@ -141,9 +157,8 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   actions: { flexDirection: "row", gap: 10 },
   shelfBar: { flexDirection: "row", alignItems: "center", gap: 12 },
-  search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, borderWidth: 1, paddingHorizontal: 14 },
+  search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, borderWidth: 1, paddingHorizontal: 16 },
   ask: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
-  // Sits over the banner's top-right corner.
-  topBar: { position: "absolute", top: 8, right: 8, zIndex: 1, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.35)" },
+  share: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   content: { width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40, gap: 20 },
 });

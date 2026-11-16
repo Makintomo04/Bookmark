@@ -70,7 +70,7 @@ export default function ReaderReviewsScreen() {
         renderItem={({ item }) => (
           <View style={{ gap: 6, paddingVertical: 14 }}>
             <View style={styles.row}>
-              <BookCover book={item} width={36} fallbackColour={accent} />
+              <BookCover book={item} width={36} />
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1}>{item.title}</Text>
                 <Text variant="small" numberOfLines={1}>{item.author}</Text>
