@@ -139,7 +139,7 @@ const BookUpdateModal: FC = () => {
   }, [isOpen, book])
 
   useEffect(() => {
-    if (isOpen) setTags(workTags?.mine ?? EMPTY_TAGS)
+    if (isOpen) setTags(workTags?.mine ? { ...EMPTY_TAGS, ...workTags.mine } : EMPTY_TAGS)
   }, [isOpen, workTags])
 
   if (!book) return null
@@ -271,7 +271,7 @@ const BookUpdateModal: FC = () => {
     // counts from a reader the server already sees as finished. The rating and shelf change don't wait on it.
     const saveTags = () => (isClosed || finished || stopping) && tagsChanged
       ? axios.put("/api/works/tags", { bookId: book.id, ...tags }).then(() => tagsMutate())
-        .catch((err) => notify.error(apiError(err, "Couldn't save your moods, spice and warnings.")))
+        .catch((err) => notify.error(apiError(err, "Couldn't save your tags for this book.")))
       : Promise.resolve()
 
     // Read now: by the time the toast's action is pressed, this modal has closed and moved on.
@@ -566,7 +566,7 @@ const BookUpdateModal: FC = () => {
         disabled={isSaving}
         accent={accent}
       />
-      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} canReportSpice={(status === "COMPLETED" || finished) && spiceAskable(workTags, tags.warnings)} />
+      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} canReportSpice={(status === "COMPLETED" || finished) && spiceAskable(workTags, tags.warnings)} canReportCliffhanger={status === "COMPLETED" || finished} />
     </div>
   )
 

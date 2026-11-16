@@ -192,6 +192,12 @@ test("StoryGraph: detection, quarter stars, multiple reads, DNF and paused", () 
   assert.equal(day(piranesi.startedAt), "2025-02-14");
   assert.equal(day(piranesi.completedAt), "2025-02-20");
 
+  // Moods, pace and story focus come along as the reader's tags (BOO-104).
+  assert.deepEqual(piranesi.bookTags, { moods: ["MYSTERIOUS", "REFLECTIVE"], pace: "MEDIUM", focus: "CHARACTER" });
+  assert.deepEqual(babel.bookTags, { moods: ["DARK"], pace: "SLOW", focus: "PLOT" });
+  assert.equal(tomorrow.bookTags, null, "a row with no answers has no tags");
+  assert.equal(zine.bookTags, null);
+
   assert.equal(babel.status, "DNF");
   assert.equal(babel.author, "R.F. Kuang");
   assert.equal(babel.rating, 2.25);

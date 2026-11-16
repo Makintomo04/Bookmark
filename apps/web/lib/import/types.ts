@@ -1,5 +1,6 @@
 import type { EditionFormat, Status } from "@prisma/client";
 import type { Series } from "../catalog/normalise.ts";
+import type { Mood, Pace, StoryFocus } from "../workTags.ts";
 
 // Kept free of "@/" imports (type-only imports are fine) so scripts/test/import.test.ts runs under plain Node.
 
@@ -18,6 +19,14 @@ export const SOURCE_LABEL: Record<ImportSource, string> = {
 export interface ImportedRead {
   startedAt: string | null;
   finishedAt: string | null;
+}
+
+// What a StoryGraph export says the reader felt about a book: its moods, pace and story focus. Saved as
+// the reader's ReaderTags on the book's Work, so a StoryGraph reader's answers count from day one.
+export interface ImportedTags {
+  moods: Mood[];
+  pace: Pace | null;
+  focus: StoryFocus | null;
 }
 
 // One CSV row, mapped onto Bookmark's model but not yet matched or saved.
@@ -60,6 +69,8 @@ export interface ImportRow {
   // Known up front for Bookmark's own export, which needs no Open Library lookup.
   workKey: string | null;
   coverUrl: string | null;
+  // StoryGraph only. Optional so rows saved in an ImportJob before BOO-104 still load.
+  bookTags?: ImportedTags | null;
 }
 
 // An Open Library work that could be a row's book: what the search returned, kept so the reader (or the

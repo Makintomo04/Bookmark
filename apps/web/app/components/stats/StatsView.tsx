@@ -5,6 +5,7 @@ import type { ReadingStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 import { formatPace } from '@/lib/goals'
 import { ratingGlyphs } from '@bookmark/shared/rating'
+import { PACE_LABEL } from '@bookmark/shared/workTags'
 import { ColumnChart, Datum, RankedBars } from './Charts'
 import { shelfParams, type ShelfFilter } from '@/lib/shelfFilter'
 
@@ -91,6 +92,9 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
   const lengthData: Datum[] = stats.lengths.map((l) => ({ label: l.label, value: l.count, detail: plural(l.count, 'book') }))
   const listenData: Datum[] = stats.listenLengths.map((l) => ({ label: l.label, value: l.count, detail: plural(l.count, 'audiobook') }))
   const days = stats.daysToFinish
+  const paces = stats.paces ?? []
+  const paceData: Datum[] = paces.map((p) => ({ label: PACE_LABEL[p.pace], value: p.count, detail: plural(p.count, 'book') }))
+  const anyPace = paces.some((p) => p.count > 0)
 
   const yearPicker = stats.years.length > 1 && (
     <nav aria-label="Year" className="flex flex-wrap gap-1">
@@ -214,7 +218,7 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
         </Section>
       </div>
 
-      {(decadeData.length > 0 || stats.lengths.some((l) => l.count > 0) || days || stats.mostReread) && (
+      {(decadeData.length > 0 || stats.lengths.some((l) => l.count > 0) || anyPace || days || stats.mostReread) && (
         <div className="grid gap-6 lg:grid-cols-2">
           <Section title="How long">
             {stats.lengths.some((l) => l.count > 0) ? <ColumnChart data={lengthData} label="Books finished by page count" unit="books" /> : <Quiet>Books with a page count will be sorted by length here.</Quiet>}
@@ -222,6 +226,12 @@ const StatsView: FC<StatsViewProps> = ({ stats, year, yearHref, wrappedYears, mo
               <div className="mt-8">
                 <h3 className="mb-3 text-sm font-medium text-muted-foreground">Audiobooks</h3>
                 <ColumnChart data={listenData} label="Audiobooks finished by running time" unit="audiobooks" />
+              </div>
+            )}
+            {anyPace && (
+              <div className="mt-8">
+                <h3 className="mb-3 text-sm font-medium text-muted-foreground">Pace</h3>
+                <ColumnChart data={paceData} label="Books finished by the pace you tagged them" unit="books" />
               </div>
             )}
           </Section>
