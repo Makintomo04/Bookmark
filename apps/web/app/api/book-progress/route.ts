@@ -12,6 +12,7 @@ import { Prisma, type ActivityType, type Book, type Status } from "@prisma/clien
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ASK_HABIT_DAYS, type AskReason } from "@bookmark/shared/reminders";
+import { isStaleProgress, progressMoment } from "@bookmark/shared/offlineShelf";
 
 const ACTIONS = ["start", "progress", "complete", "rate", "pause", "resume", "dnf", "restart", "wantToRead", "notInterested", "reshelve"] as const
 type Action = typeof ACTIONS[number]
@@ -93,6 +94,9 @@ const bodySchema = z.object({
   // complete defaults to today; reshelve falls back to finishedThisYear.
   finishedOn: optionalDaySchema.optional(),
   startedOn: optionalDaySchema.optional(),
+  // progress logged on a phone without a connection and sent later (BOO-105): when the reader logged it, so the
+  // reading day and progressAt are theirs rather than the moment it arrived (@bookmark/shared/offlineShelf).
+  loggedAt: z.string().datetime({ offset: true }).optional(),
   // Older clients sent flags instead of an action.
   isStarted: z.boolean().optional(),
   isComplete: z.boolean().optional(),
@@ -175,6 +179,13 @@ export async function POST(req: Request) {
   const filledPages = (action === "start" || action === "restart") && !book.pages && !onMinutes ? await editionPageCount(book.editionId) : null
 
   const now = new Date()
+  // A late progress save: skipped when the book has moved on since (logged on the web or another phone),
+  // otherwise dated when the reader logged it. Only progress can arrive late; other actions ignore it.
+  const loggedAt = action === "progress" && body.loggedAt ? new Date(body.loggedAt) : undefined
+  if (isStaleProgress(loggedAt, book.progressAt)) {
+    return NextResponse.json({ error: "Newer progress was logged since.", code: "stale" }, { status: 409 })
+  }
+  const moment = progressMoment(loggedAt, now)
   const ratingForRead = rating !== undefined ? rating : book.rating
   if (body.startedOn && body.finishedOn && body.startedOn > body.finishedOn) {
     return NextResponse.json({ error: "The start date is after the finish date" }, { status: 400 })
@@ -274,7 +285,8 @@ export async function POST(req: Request) {
         }
       }
       // When the reader last moved their place in the book (lib/recap.ts tells a book left untouched by it).
-      if (action === "start" || action === "restart" || action === "progress" || action === "resume") data.progressAt = now
+      if (action === "start" || action === "restart" || action === "resume") data.progressAt = now
+      if (action === "progress") data.progressAt = moment.at
       if (body.logsPercent !== undefined) data.logsPercent = body.logsPercent
       if (body.logsIn !== undefined) {
         data.logsIn = body.logsIn
@@ -326,6 +338,8 @@ export async function POST(req: Request) {
       rated: activities.includes("RATED_BOOK"),
       reviewed: activities.includes("REVIEWED_BOOK"),
     }),
+    // A late progress save counts for the day it was logged, or for no day when it's over a week old.
+    ...(action === "progress" && { readingAt: moment.readingDay ? moment.at : null }),
   })
   // What this save earned, sent back with the book so the app can celebrate it there and then.
   const finished = action === "complete" || (action === "reshelve" && to === "COMPLETED")

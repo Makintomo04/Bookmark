@@ -45,6 +45,9 @@ export interface AwardOptions {
   // The reader's IANA zone, if the caller has it. Otherwise the browser's `tz` cookie, then the
   // stored User.timeZone, then UTC. See lib/timeZone.ts.
   timeZone?: string;
+  // When the reading happened, for a reading trigger that arrives late (a phone that was offline, BOO-105).
+  // Omitted means now; null records no reading day at all.
+  readingAt?: Date | null;
 }
 
 // ---- Time zone ---------------------------------------------------------------------------
@@ -312,7 +315,7 @@ export async function syncAchievements(
     const clientZone = isValidTimeZone(options.timeZone) ? options.timeZone : await requestTimeZone();
     timeZone = await resolveTimeZone(userId, clientZone);
   }
-  if (isReading && timeZone) await recordReadingDay(userId, timeZone);
+  if (isReading && timeZone && options.readingAt !== null) await recordReadingDay(userId, timeZone, options.readingAt);
 
   const streakRungs = unearned.get("STREAK");
   const caps: StatsContext["caps"] = {};
