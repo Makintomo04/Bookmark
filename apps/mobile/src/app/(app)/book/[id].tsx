@@ -22,6 +22,8 @@ import { Segmented } from "@/components/ui/Segmented";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
+import { OfflineError } from "@/lib/connection";
+import { OfflineNote } from "@/components/library/OfflineNote";
 import { goBack } from "@/lib/navigation";
 import { bookSeriesKey, type BookSeries } from "@/lib/series";
 import { formatDay, saveBook, useBook, type Book, type BookAction, type BookRead } from "@/lib/books";
@@ -52,7 +54,8 @@ export default function BookPage() {
   const { data: book, isLoading } = useBook(id);
   const { colors } = useTheme();
 
-  if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
+  // A book kept on the phone (BOO-105) shows straight away, and offline it's all there is.
+  if (isLoading && !book) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (!book) {
     return (
       <Screen>
@@ -176,7 +179,9 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
     setSaving(true);
     setError(null);
     try {
-      await saveBook({ id: book.id, ...payload });
+      // Progress logged offline is kept on the phone and sent later (`queued`); the Library shows it waiting.
+      const { queued } = await saveBook({ id: book.id, ...payload });
+      if (queued) return goBack();
       // After the shelf change, so a book just finished counts as finished for its spice and cliffhanger.
       if (tagsChanged) {
         try {
@@ -195,7 +200,11 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
       }
       goBack();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Couldn't save. Check your connection and try again.");
+      setError(
+        e instanceof OfflineError ? "This change needs a connection. Try again when you're back online."
+        : e instanceof ApiError ? e.message
+        : "Couldn't save. Check your connection and try again.",
+      );
       setSaving(false);
     }
   };
@@ -288,6 +297,7 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
         </View>
       </View>
 
+      <OfflineNote savedKey={`/api/books/${book.id}`} book />
       {error && <Notice tone="error" message={error} />}
 
       {/* Coming back to a book (or starting the next in a series): the recap offer comes first. */}

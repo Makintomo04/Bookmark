@@ -3,6 +3,8 @@ import { create } from "zustand";
 import { mutate } from "swr";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiError, SUSPENDED, api, clearTokens, postPublic, saveTokens, setSessionEndedHandler, storedRefreshToken, type TokenResponse } from "@/lib/api";
+import { sendQueuedProgress } from "@/lib/books";
+import { clearOffline, loadOffline } from "@/lib/offline";
 import { endPurchases } from "@/lib/purchases";
 import { clearShareCards } from "@/lib/shareCards";
 import { currentPushToken } from "@/lib/push";
@@ -58,12 +60,16 @@ const lastUser = async (): Promise<SessionUser | null> => {
   }
 };
 
-// Forget everything cached for the last account.
+// Forget everything cached for the last account, including the shelves kept for offline (lib/offline.ts).
 const clearCache = async () => {
   await AsyncStorage.removeItem(USER_KEY);
   clearShareCards();
+  clearOffline();
   await mutate(() => true, undefined, { revalidate: false });
 };
+
+// Signing out deletes progress still waiting to be sent, so it gets a few seconds to go first.
+const SEND_BEFORE_SIGN_OUT_MS = 5000;
 
 export const useAuth = create<AuthState>()((set, get) => ({
   status: "loading",
@@ -77,6 +83,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
     try {
       const user = sessionUserOf(await api.get<ApiUser>("/api/user"));
       await rememberUser(user);
+      await loadOffline(user.id);
       set({ status: "signedIn", user });
     } catch (error) {
       // The session was ended (signed out elsewhere, account deleted): sign in again.
@@ -87,8 +94,10 @@ export const useAuth = create<AuthState>()((set, get) => ({
         await clearCache();
         return set({ status: "signedOut", user: null, notice: error.message });
       }
-      // Offline: carry on as the last reader seen; screens show what SWR has and retry when back online.
+      // Offline: carry on as the last reader seen, with their shelves as kept on the phone (lib/offline.ts);
+      // screens retry when the connection is back.
       const cached = await lastUser();
+      if (cached) await loadOffline(cached.id);
       set(cached ? { status: "signedIn", user: cached } : { status: "signedOut", user: null });
     }
   },
@@ -96,6 +105,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   async completeSignIn(response) {
     await saveTokens(response);
     await rememberUser(response.user);
+    await loadOffline(response.user.id);
     set({ status: "signedIn", user: response.user, notice: null });
   },
 
@@ -107,6 +117,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   },
 
   async signOut() {
+    await Promise.race([sendQueuedProgress(), new Promise((resolve) => setTimeout(resolve, SEND_BEFORE_SIGN_OUT_MS))]).catch(() => {});
     const refreshToken = await storedRefreshToken();
     const pushToken = currentPushToken();
     // Best effort: the phone is signed out even if the server can't be reached.

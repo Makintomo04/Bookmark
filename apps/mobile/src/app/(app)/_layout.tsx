@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Stack, router } from "expo-router";
 import { useAuth } from "@/lib/auth";
+import { useOfflineSync } from "@/lib/books";
 import { startPurchases } from "@/lib/purchases";
 import { syncPushPermission, usePushNavigation, usePushPermissionSync } from "@/lib/push";
 import { useTheme } from "@/lib/theme";
@@ -26,6 +27,8 @@ export default function AppLayout() {
     if (userId) void startPurchases(userId);
   }, [userId]);
   usePushNavigation();
+  // Progress logged offline goes once the connection is back (BOO-105).
+  useOfflineSync();
 
   // Arriving from onboarding with somewhere to go (a book to add, a circle to start).
   const pendingPath = useAuth((s) => s.pendingPath);

@@ -23,7 +23,8 @@ import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
 import { api } from "@/lib/api";
 import { FOLLOWED_AUTHORS_KEY } from "@/lib/authors";
-import { useLibrary } from "@/lib/books";
+import { LIBRARY_KEY, useLibrary } from "@/lib/books";
+import { OfflineNote } from "@/components/library/OfflineNote";
 import { SERIES_TRACKER_KEY } from "@/lib/series";
 import { webUrl } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
@@ -67,8 +68,10 @@ export default function Library() {
         <FollowRequests />
         <GoalCard accent={accent} />
         <Divider />
-        {isLoading && <ActivityIndicator color={colors.mutedForeground} />}
-        {error && (
+        {/* Offline, the shelves are the copy kept on the phone (BOO-105), with a line saying so. */}
+        <OfflineNote savedKey={LIBRARY_KEY} />
+        {isLoading && !library && <ActivityIndicator color={colors.mutedForeground} />}
+        {error && !library && (
           <View style={{ gap: 8 }}>
             <Notice tone="error" message="We couldn't load your shelves. Check your connection." />
             <Button title="Try again" variant="outline" onPress={() => mutate()} />

@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { API_URL } from "@/lib/config";
+import { OfflineError, noteOffline, noteOnline } from "@/lib/connection";
 import { secureStorage } from "@/lib/secureStorage";
 
 // Every call to the Bookmark API goes through apiFetch. It sends the access token as a bearer token
@@ -92,7 +93,25 @@ async function send(path: string, init: RequestInit) {
     ...(init.headers as Record<string, string> | undefined),
     ...(accessToken && { authorization: `Bearer ${accessToken}` }),
   };
-  return fetch(path.startsWith("http") ? path : `${API_URL}${path}`, { ...init, headers });
+  // A request that can't get through (no signal, or given up on: see timeoutSignal) means offline, and says
+  // so as an OfflineError, which a save can tell apart from the server saying no (lib/connection.ts).
+  let res: Response;
+  try {
+    res = await fetch(path.startsWith("http") ? path : `${API_URL}${path}`, { ...init, headers });
+  } catch {
+    noteOffline();
+    throw new OfflineError();
+  }
+  noteOnline();
+  return res;
+}
+
+// Gives up on a request after `ms`. A train with one bar of signal can leave a save hanging for minutes;
+// past this the save is treated as offline.
+export function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
@@ -122,7 +141,7 @@ async function parse<T>(res: Response): Promise<T> {
 
 export const api = {
   get: <T>(path: string) => apiFetch(path).then((r) => parse<T>(r)),
-  post: <T>(path: string, body?: unknown) => apiFetch(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
+  post: <T>(path: string, body?: unknown, init?: RequestInit) => apiFetch(path, { ...init, method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
   put: <T>(path: string, body?: unknown) => apiFetch(path, { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),
   patch: <T>(path: string, body: unknown) => apiFetch(path, { method: "PATCH", body: JSON.stringify(body) }).then((r) => parse<T>(r)),
   delete: <T>(path: string, body?: unknown) => apiFetch(path, { method: "DELETE", body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => parse<T>(r)),

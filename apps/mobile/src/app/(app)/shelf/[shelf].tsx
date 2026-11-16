@@ -20,6 +20,8 @@ import { Notice } from "@/components/ui/Notice";
 import { Sheet } from "@/components/ui/Sheet";
 import { Text } from "@/components/ui/Text";
 import { shelfPageKey, type Book, type ShelfOptions, type ShelfPage } from "@/lib/books";
+import { remember, useOffline } from "@/lib/offline";
+import { OfflineNote } from "@/components/library/OfflineNote";
 import { useTheme } from "@/lib/theme";
 
 // One shelf (/shelf/finished), or every shelf (/shelf/all), as a grid: the Library tab's See all and its
@@ -64,7 +66,17 @@ export default function ShelfScreen() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<ShelfPage>(shelfPageKey(filter, reader), fetcher);
+  // Your own shelf, opened as it is (no search or filter), keeps its first page on the phone (BOO-105). The
+  // infinite list doesn't see the app's SWRConfig (above), so the copy is handed to it here, and each fresh
+  // first page saved; remember skips any key it doesn't keep.
+  const firstKey = shelfPageKey(filter, reader)(0, null)!;
+  const savedFirst = useOffline((s) => (reader ? undefined : (s.saved[firstKey]?.data as ShelfPage | undefined)));
+  const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<ShelfPage>(shelfPageKey(filter, reader), fetcher, { fallbackData: savedFirst ? [savedFirst] : undefined });
+  const fresh = data?.[0];
+  useEffect(() => {
+    if (!reader && fresh && fresh !== savedFirst) remember(firstKey, fresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fresh]);
   // A new search starts from an empty first page: keep showing the last results (and menus) until it lands,
   // so the grid doesn't blank between keystrokes.
   const last = useRef<{ pages: ShelfPage[]; options: ShelfOptions | null; counts: ShelfPage["counts"] | null }>({ pages: [], options: null, counts: null });
@@ -219,6 +231,7 @@ export default function ShelfScreen() {
           </Pressable>
         )}
       </View>
+      {!reader && <OfflineNote savedKey={savedFirst ? firstKey : undefined} />}
       {error && !data && (
         <View style={{ gap: 8 }}>
           <Notice tone="error" message="We couldn't load this shelf. Check your connection." />

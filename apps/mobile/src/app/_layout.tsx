@@ -9,6 +9,7 @@ import { Literata_400Regular_Italic, Literata_600SemiBold } from "@expo-google-f
 import { SWRConfig } from "swr";
 import { fetcher } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { rememberAnswers, useOffline } from "@/lib/offline";
 import { useTheme } from "@/lib/theme";
 
 // The app's root: fonts, theme, data fetching, and which part of the app the reader can reach.
@@ -23,6 +24,9 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Literata_600SemiBold, Literata_400Regular_Italic });
   const { status, user, restore } = useAuth();
   const { scheme, colors } = useTheme();
+  // The shelves kept on the phone (lib/offline.ts), loaded with the account: screens open with them and fetch
+  // as usual, so offline they still have something to show.
+  const fallback = useOffline((s) => s.fallback);
 
   useEffect(() => {
     void restore();
@@ -47,7 +51,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      <SWRConfig value={{ fetcher, shouldRetryOnError: (e) => !(e && typeof e === "object" && "status" in e && (e as { status: number }).status < 500) }}>
+      <SWRConfig value={{ fetcher, fallback, use: [rememberAnswers], shouldRetryOnError: (e) => !(e && typeof e === "object" && "status" in e && (e as { status: number }).status < 500) }}>
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
           <Stack.Protected guard={signedIn && !!user?.onboarded}>

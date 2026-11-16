@@ -1,6 +1,11 @@
+import { useEffect, useRef } from "react";
+import { AppState } from "react-native";
 import useSWR, { mutate } from "swr";
 import type { ProgressBook } from "@bookmark/shared/progress";
-import { api } from "@/lib/api";
+import { isSavedKey } from "@bookmark/shared/offlineShelf";
+import { ApiError, api, timeoutSignal } from "@/lib/api";
+import { OfflineError, useConnection } from "@/lib/connection";
+import { dropQueued, dropQueuedFor, queueBookProgress, setSending, useOffline } from "@/lib/offline";
 import type { EarnMoment } from "@bookmark/shared/earnMoment";
 import type { AskReason } from "@bookmark/shared/reminders";
 import { BULK_MAX } from "@bookmark/shared/bulkRules";
@@ -66,7 +71,8 @@ export interface Library {
   counts: Record<ShelfKey, number>;
   rereading: string[];
 }
-export const useLibrary = () => useSWR<Library>(`/api/books?shelves=${LIBRARY_PREVIEW}`);
+export const LIBRARY_KEY = `/api/books?shelves=${LIBRARY_PREVIEW}`;
+export const useLibrary = () => useSWR<Library>(LIBRARY_KEY);
 
 // One of your books, with its blurb and whether it's a re-read (GET /api/books/<id>).
 export const useBook = (id: string | undefined) => useSWR<Book & { rereading?: boolean }>(id ? `/api/books/${encodeURIComponent(id)}` : null);
@@ -129,11 +135,107 @@ export function refreshAfterBookChange() {
 
 export type BookAction = "start" | "progress" | "complete" | "rate" | "pause" | "resume" | "dnf" | "restart" | "wantToRead" | "notInterested";
 
-// Celebrates whatever the save earned (lib/earnMoment.ts).
-export async function saveBook(payload: { id: string; action: BookAction } & Record<string, unknown>) {
-  const saved = await api.post<{ earnMoment?: EarnMoment | null; askReminders?: AskReason | false }>("/api/book-progress", payload);
+type SaveAnswer = { earnMoment?: EarnMoment | null; askReminders?: AskReason | false };
+// How long a progress save waits before it's kept on the phone instead (lib/api.ts timeoutSignal).
+const PROGRESS_TIMEOUT_MS = 15_000;
+
+// Celebrates whatever the save earned (lib/earnMoment.ts). Progress logged without a connection is kept on the
+// phone and sent when it's back (lib/offline.ts, BOO-105): `queued` says so. Every other change needs a
+// connection, and throws OfflineError without one.
+export async function saveBook(payload: { id: string; action: BookAction } & Record<string, unknown>): Promise<{ queued: boolean }> {
+  let saved: SaveAnswer;
+  if (payload.action === "progress") {
+    try {
+      saved = await api.post<SaveAnswer>("/api/book-progress", payload, { signal: timeoutSignal(PROGRESS_TIMEOUT_MS) });
+    } catch (e) {
+      if (!(e instanceof OfflineError)) throw e;
+      const { id, action: _action, ...place } = payload;
+      await queueBookProgress(id, place);
+      return { queued: true };
+    }
+    dropQueuedFor(payload.id);
+  } else {
+    saved = await api.post<SaveAnswer>("/api/book-progress", payload);
+  }
   await refreshAfterBookChange();
   celebrate(saved?.earnMoment, saved?.askReminders);
+  return { queued: false };
+}
+
+// Sends the progress kept while offline, oldest first, each with when it was logged. One that can't go (the
+// book was finished or removed meanwhile, or newer progress was logged on the web) is dropped; the server
+// says why and the reader's place is already where it should be. Stops at the first sign of being offline
+// or of the server struggling, to try again later. One run at a time.
+let sending: Promise<void> | null = null;
+export function sendQueuedProgress(): Promise<void> {
+  sending ??= (async () => {
+    const queue = useOffline.getState().queue;
+    if (queue.length === 0) return;
+    setSending(true);
+    let sent = 0;
+    let earned: EarnMoment | null = null;
+    let ask: AskReason | false = false;
+    try {
+      for (const item of queue) {
+        try {
+          const saved = await api.post<SaveAnswer>("/api/book-progress", { id: item.bookId, action: "progress", ...item.place, loggedAt: item.loggedAt });
+          sent += 1;
+          earned = saved?.earnMoment ?? earned;
+          ask = saved?.askReminders || ask;
+          dropQueued(item);
+        } catch (e) {
+          if (e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 401 && e.status !== 429) {
+            dropQueued(item);
+            continue;
+          }
+          break;
+        }
+      }
+    } finally {
+      setSending(false);
+    }
+    if (sent > 0) {
+      await refreshAfterBookChange();
+      celebrate(earned, ask);
+    }
+  })().finally(() => { sending = null; });
+  return sending;
+}
+
+// How often to look for the connection again while offline.
+const RECHECK_MS = 20_000;
+
+// For the signed-in app (app/(app)/_layout.tsx): while offline, checks the connection every so often and when
+// the app comes back to the front; once it's back, sends what's waiting and refreshes the kept screens.
+export function useOfflineSync() {
+  const online = useConnection((s) => s.online);
+  const waiting = useOffline((s) => s.queue.length);
+
+  // Back online: what's waiting goes first, then the kept screens look again (they'd stopped retrying).
+  const wasOffline = useRef(false);
+  useEffect(() => {
+    if (!online) {
+      wasOffline.current = true;
+      return;
+    }
+    if (!wasOffline.current) return;
+    wasOffline.current = false;
+    void sendQueuedProgress().then(() => mutate((key) => typeof key === "string" && isSavedKey(key)));
+  }, [online]);
+
+  // Updates left from last time (the app was closed offline), or kept after a save timed out: send them.
+  useEffect(() => {
+    if (online && waiting > 0) void sendQueuedProgress();
+  }, [online, waiting]);
+
+  useEffect(() => {
+    if (online) return;
+    // Any answer from the server marks the app online (lib/api.ts); the user endpoint is a small one.
+    const check = () => { api.get("/api/user").catch(() => {}); };
+    const timer = setInterval(check, RECHECK_MS);
+    const sub = AppState.addEventListener("change", (state) => { if (state === "active") check(); });
+    return () => { clearInterval(timer); sub.remove(); };
+  }, [online]);
 }
 
 // One action over any number of books: /api/books/bulk takes BULK_MAX at a time, so a bigger selection goes in
