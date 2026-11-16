@@ -9,9 +9,10 @@ import { notify, apiError } from '@/lib/notify'
 import { readerName } from '@/lib/profile'
 import { isUpgradeRequired } from '@/lib/entitlements'
 import { formatPercent } from '@/lib/buddyReads'
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX, canRemoveFromClub, circleSlotsLeft } from '@/lib/clubs'
+import { CLUB_ABOUT_MAX, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, archiveClubNote, canMuteInClubNow, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubFullNote, clubReadingEmpty, matchesMember } from '@/lib/clubs'
 import type { ClubView as View } from '@/lib/clubsServer'
 import useClub from '@/app/hooks/useClub'
+import useClubVote from '@/app/hooks/useClubVote'
 import ReaderName from '@/app/components/profile/ReaderName'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 import BookCover from '../cards/BookCover'
@@ -21,6 +22,8 @@ import MemberAvatar from '../buddy-reads/MemberAvatar'
 import HandOverDialog from '../buddy-reads/HandOverDialog'
 import UpgradePrompt from '../plus/UpgradePrompt'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
+import { ClearableInput } from '@/app/components/ui/clearable-input'
+import ClubVoteSection from './ClubVoteSection'
 
 type Circle = View["reading"][number]
 
@@ -63,13 +66,21 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
   const [name, setName] = useState(initial.club.name)
   const [about, setAbout] = useState(initial.club.about ?? "")
   const [reopenRefusal, setReopenRefusal] = useState<string | null>(null)
+  // Big clubs (BOO-79): the first MEMBERS_SHOWN, then "Show all", and a search once there are more.
+  const [memberQuery, setMemberQuery] = useState("")
+  const [allMembers, setAllMembers] = useState(false)
+  // The vote section's own data (same key), so the archive confirmation can say a vote is called off.
+  const { view: votes } = useClubVote(id)
+  const voteOn = votes?.vote?.status === "OPEN" || votes?.vote?.status === "TIED"
 
   if (!view) return <FetchErrorState error={isError} what="this club" onRetry={() => mutate()} />
-  const { club, viewer, members, reading, upcoming, past } = view
+  const { club, viewer, members, reading, upcoming, past, memberCount, memberCap, full } = view
   const archived = club.status === "ARCHIVED"
   const isHost = viewer.role === "host"
   const slots = circleSlotsLeft(reading.length + upcoming.length)
   const others = members.filter((m) => !m.isYou)
+  const matching = members.filter((m) => matchesMember(m, memberQuery))
+  const listed = allMembers || memberQuery.trim() ? matching : matching.slice(0, MEMBERS_SHOWN)
 
   const copy = async () => {
     if (!club.inviteCode) return
@@ -100,6 +111,12 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
       .catch((err) => notify.error(apiError(err, "Couldn't change their role.")))
   }
 
+  const setMuted = (userId: string, who: string, muted: boolean) => {
+    if (muted && !window.confirm(`Mute ${who}? They can still read along and vote, but can't comment in the club's books or put books up. You can unmute them any time.`)) return
+    const call = muted ? axios.post(`/api/clubs/${id}/members/${userId}/mute`) : axios.delete(`/api/clubs/${id}/members/${userId}/mute`)
+    call.then(() => mutate()).catch((err) => notify.error(apiError(err, muted ? "Couldn't mute them." : "Couldn't unmute them.")))
+  }
+
   const remove = (userId: string, who: string) => {
     if (!window.confirm(`Remove ${who} from the club? They'll leave the books it's reading now, and the invite link won't let them back in.`)) return
     axios.delete(`/api/clubs/${id}/members/${userId}`).then(() => mutate())
@@ -117,7 +134,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
   }
 
   const setStatus = (status: "ACTIVE" | "ARCHIVED") => {
-    if (status === "ARCHIVED" && !window.confirm("Archive this club? Its invite link stops working, no new books can be started, and the books it's reading are marked finished. Their discussions stay open.")) return
+    if (status === "ARCHIVED" && !window.confirm(`Archive this club? ${archiveClubNote(voteOn)}`)) return
     setReopenRefusal(null)
     axios.patch(`/api/clubs/${id}`, { status }).then(() => mutate())
       .catch((err) => {
@@ -141,7 +158,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
       </Link>
 
       <header className="flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Club{archived ? " · archived" : ""}</p>
+        <p className="text-sm font-mediumr text-muted-foreground">Club{archived ? " · archived" : ""}</p>
         {editing ? (
           <form onSubmit={(e) => { e.preventDefault(); save() }} className="flex max-w-xl flex-col gap-3">
             <label htmlFor="club-name" className="sr-only">Name</label>
@@ -160,9 +177,10 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
           </>
         )}
         <p className="text-sm text-muted-foreground" suppressHydrationWarning>
-          {members.length} {members.length === 1 ? "member" : "members"} · Since {moment(club.createdAt).format("MMMM YYYY")}
+          {memberCount} {memberCount === 1 ? "member" : "members"}{viewer.hostPlus ? ` of ${memberCap}` : ""} · Since {moment(club.createdAt).format("MMMM YYYY")}
           {past.length > 0 ? ` · ${past.length} ${past.length === 1 ? "book" : "books"} read` : ""}
         </p>
+        {viewer.muted && !archived && <p role="status" className="max-w-prose rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 text-sm text-muted-foreground">{CLUB_MUTED_MESSAGE}</p>}
       </header>
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -178,7 +196,7 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
               <ul className="grid gap-4 md:grid-cols-2">{reading.map((c) => <li key={c.id}><CircleCard circle={c} /></li>)}</ul>
             ) : (
               <p className="rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6 text-sm text-muted-foreground">
-                {upcoming.length > 0 ? "Nothing yet: the next book starts soon." : viewer.canManage ? "No book yet. Start one, and everyone in the club is added to it." : "No book yet. The host will start one soon."}
+                {clubReadingEmpty({ archived, isHost, canManage: viewer.canManage, upcoming: upcoming.length })}
               </p>
             )}
           </section>
@@ -189,6 +207,8 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
               <ul className="grid gap-4 md:grid-cols-2">{upcoming.map((c) => <li key={c.id}><CircleCard circle={c} upcoming /></li>)}</ul>
             </section>
           )}
+
+          <ClubVoteSection clubId={id} canManage={viewer.canManage} archived={archived} />
 
           {past.length > 0 && (
             <section aria-labelledby="past-heading" className="flex flex-col gap-3">
@@ -212,8 +232,12 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
           {club.inviteCode && (
             <section aria-labelledby="club-invite-heading" className="flex flex-col gap-3">
               <h2 id="club-invite-heading" className="text-sm font-semibold">Invite readers</h2>
-              {members.length >= CLUB_MAX_MEMBERS ? (
-                <p className="text-sm text-muted-foreground">The club is full ({CLUB_MAX_MEMBERS} readers).</p>
+              {full ? (
+                <>
+                  <p className="text-sm text-muted-foreground">{clubFullNote(memberCount, memberCap)}</p>
+                  {/* Gate hosts, not guests: only the host sees the way to a bigger club. */}
+                  {isHost && !viewer.hostPlus && <UpgradePrompt feature="bigClubs" variant="inline" />}
+                </>
               ) : (
                 <>
                   <button type="button" onClick={copy} className={`${secondaryButtonClass} justify-start w-full`}>
@@ -229,11 +253,21 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
 
           <section aria-labelledby="members-heading" className="flex flex-col gap-3">
             <h2 id="members-heading" className="text-sm font-semibold">Members</h2>
+            {members.length > MEMBERS_SHOWN && (
+              <>
+                <label htmlFor="member-search" className="sr-only">Search members</label>
+                <ClearableInput id="member-search" value={memberQuery} onChange={(e) => setMemberQuery(e.target.value)} placeholder="Search members" className={`${inputClass} h-9`} />
+              </>
+            )}
+            {memberQuery.trim() && matching.length === 0 && <p className="text-sm text-muted-foreground">Nobody here by that name.</p>}
             <ul className="flex flex-col gap-2">
-              {members.map((m) => {
+              {listed.map((m) => {
                 const who = readerName(m) || "this reader"
-                const canRemove = !m.isYou && !archived && canRemoveFromClub(viewer.role, m.role)
-                const canPromote = !m.isYou && !archived && isHost
+                const canRemove = !m.isYou && canRemoveFromClubNow(viewer.role, m.role, !archived)
+                // An archived club's host can still take co-host away and remove readers, but makes no new co-hosts.
+                const canPromote = !m.isYou && m.role === "member" && canSetCoHost(viewer.role, true, !archived)
+                const canDemote = !m.isYou && m.role === "cohost" && canSetCoHost(viewer.role, false, !archived)
+                const canMute = !m.isYou && canMuteInClubNow(viewer.role, m.role, !archived)
                 return (
                   <li key={m.userId} className="flex items-center gap-3">
                     <Link href={m.username ? `/u/${m.username}` : "#"} className="flex min-w-0 flex-1 items-center gap-3">
@@ -242,8 +276,9 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
                         <ReaderName reader={m} badge={m.staffBadge && <StaffSeal kind={m.staffBadge} size={16} pressable={false} className="ml-1 align-[-3px]" />} />
                       </span>
                     </Link>
+                    {m.muted && <span className="shrink-0 text-xs text-muted-foreground">Muted</span>}
                     {ROLE_LABEL[m.role] && <span className="shrink-0 text-xs text-muted-foreground">{ROLE_LABEL[m.role]}</span>}
-                    {(canRemove || canPromote) && (
+                    {(canRemove || canPromote || canDemote || canMute) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button type="button" aria-label={`Options for ${who}`} className="grid size-9 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -251,8 +286,10 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {canPromote && m.role === "member" && <DropdownMenuItem onSelect={() => setCoHost(m.userId, true)}>Make co-host</DropdownMenuItem>}
-                          {canPromote && m.role === "cohost" && <DropdownMenuItem onSelect={() => setCoHost(m.userId, false)}>Remove as co-host</DropdownMenuItem>}
+                          {canPromote && <DropdownMenuItem onSelect={() => setCoHost(m.userId, true)}>Make co-host</DropdownMenuItem>}
+                          {canDemote && <DropdownMenuItem onSelect={() => setCoHost(m.userId, false)}>Remove as co-host</DropdownMenuItem>}
+                          {canMute && !m.muted && <DropdownMenuItem onSelect={() => setMuted(m.userId, who, true)}>Mute</DropdownMenuItem>}
+                          {canMute && m.muted && <DropdownMenuItem onSelect={() => setMuted(m.userId, who, false)}>Unmute</DropdownMenuItem>}
                           {canRemove && <DropdownMenuItem onSelect={() => remove(m.userId, who)} className="text-danger">Remove from club</DropdownMenuItem>}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -261,7 +298,10 @@ const ClubView: FC<{ id: string, initial: View }> = ({ id, initial }) => {
                 )
               })}
             </ul>
-            {isHost && !archived && <p className="text-xs text-muted-foreground">Co-hosts can start the next book, change schedules, and invite and remove members.</p>}
+            {!allMembers && !memberQuery.trim() && matching.length > listed.length && (
+              <button type="button" onClick={() => setAllMembers(true)} className="self-start text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Show all {matching.length}</button>
+            )}
+            {isHost && !archived && <p className="text-xs text-muted-foreground">Co-hosts can start the next book, run votes, change schedules, and invite, mute and remove members.</p>}
           </section>
 
           <section className="flex flex-col items-start gap-2">

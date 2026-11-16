@@ -6,7 +6,8 @@ import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
 import type { BuddyReadView } from '@/lib/buddyReadsServer'
 import Modal from '../modals/Modal'
-import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
+import ModalFooter from '../modals/ModalFooter'
+import { Button } from '../ui/button'
 import MemberAvatar from './MemberAvatar'
 import StaffSeal from '@/app/components/profile-head/StaffSeal'
 
@@ -50,7 +51,7 @@ const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId,
   }
 
   const body = (
-    <div className="flex w-full flex-col gap-4 px-6 pt-4">
+    <div className="flex w-full flex-col gap-4 px-6">
       <p className="text-sm text-muted-foreground">
         {club
           ? "The new host can choose co-hosts, start the next book, invite and remove members, and archive the club. You'll leave the books it's reading now; the ones you've finished stay in your history."
@@ -75,17 +76,14 @@ const HandOverDialog: FC<HandOverDialogProps> = ({ isOpen, onClose, buddyReadId,
       isOpen={isOpen}
       onClose={onClose}
       title="Hand over and leave"
-      size="sm"
-      compact
+      size="s"
       disabled={busy}
       body={body}
       footer={
-        <div className="flex flex-wrap justify-end gap-2 p-6 pt-4">
-          <button type="button" onClick={onClose} disabled={busy} className={secondaryButtonClass}>Stay</button>
-          <button type="button" onClick={leave} disabled={busy || !chosen} className={primaryButtonClass}>
-            {busy ? "Handing over…" : "Hand over and leave"}
-          </button>
-        </div>
+        <ModalFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>Stay</Button>
+          <Button onClick={leave} disabled={!chosen} loading={busy}>Hand over and leave</Button>
+        </ModalFooter>
       }
     />
   )

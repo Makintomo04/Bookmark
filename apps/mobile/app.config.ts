@@ -37,7 +37,8 @@ const config: ExpoConfig = {
   scheme: "bookmark",
   // Dark-first, light fully designed; the reader picks in settings.
   userInterfaceStyle: "automatic",
-  backgroundColor: "#0a0a0a",
+  // The dark ground (tokens.ts dark.background, "Ink blue"), so launch and splash match the first screen.
+  backgroundColor: "#141a22",
   ios: {
     bundleIdentifier: bundleId,
     supportsTablet: false,
@@ -109,7 +110,7 @@ const config: ExpoConfig = {
       granularPermissions: ["photo"],
     }],
     ["expo-notifications", { color: "#F13C3C" }],
-    ["expo-splash-screen", { backgroundColor: "#0a0a0a", image: "./assets/images/splash-icon.png", imageWidth: 96 }],
+    ["expo-splash-screen", { backgroundColor: "#141a22", image: "./assets/images/splash-icon.png", imageWidth: 96 }],
     // Error monitoring (BOO-54): uploads source maps and native debug symbols during EAS builds, using the
     // SENTRY_AUTH_TOKEN secret. The DSN the app reports to is EXPO_PUBLIC_SENTRY_DSN (src/lib/sentry.ts).
     ["@sentry/react-native/expo", { organization: process.env.SENTRY_ORG, project: process.env.SENTRY_PROJECT }],

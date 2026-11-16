@@ -23,11 +23,18 @@ export async function DELETE(req: Request, props: { params: Promise<{ id: string
   if (!isObjectId(params.userId)) return buddyReadError("Reader not found", 404);
   if (!leaving && params.userId === buddyRead.hostId) return buddyReadError("The host can't be removed.", 403);
   // In a club's book the club's roles decide, whoever started it: a co-host can't remove the club's host or
-  // another co-host (lib/clubs.ts canRemoveFromClubBook).
+  // another co-host, and once the club is archived only its host removes anyone (lib/clubs.ts canRemoveFromClubBook).
   if (!leaving && buddyRead.clubId) {
-    const [actor, target] = await Promise.all([clubRoleOf(buddyRead.clubId, currentUser.id), clubRoleOf(buddyRead.clubId, params.userId)]);
-    if (!canRemoveFromClubBook(actor, target, false)) {
-      return buddyReadError("Co-hosts can remove members, but not the club's host or another co-host.", 403);
+    const [actor, target, club] = await Promise.all([
+      clubRoleOf(buddyRead.clubId, currentUser.id),
+      clubRoleOf(buddyRead.clubId, params.userId),
+      prisma.club.findUnique({ where: { id: buddyRead.clubId }, select: { status: true } }),
+    ]);
+    const active = club?.status === "ACTIVE";
+    if (!canRemoveFromClubBook(actor, target, false, active)) {
+      return buddyReadError(!active && actor === "cohost"
+        ? "The club is archived, so only its host can remove readers."
+        : "Co-hosts can remove members, but not the club's host or another co-host.", 403);
     }
   }
 

@@ -78,13 +78,19 @@ export function StarRating({ value, onChange, size = 32, disabled, label = "Rati
     onChange?.(!touch.current.dragging && next === value ? 0 : next);
   };
 
-  const adjust = (by: number) => onChange?.(value + by <= 0 ? 0 : snapRating(value + by));
   const active = !!onChange && !disabled;
+  const adjust = (by: number) => {
+    if (active) onChange?.(value + by <= 0 ? 0 : snapRating(Math.min(5, value + by)));
+  };
   return (
+    // One element for screen readers, read-only or not: editable, it's an adjustable control that a swipe up
+    // or down moves by a quarter star (the touch row inside is hidden from them).
     <View
-      accessible={!onChange}
+      accessible
       accessibilityRole={onChange ? "adjustable" : "text"}
-      accessibilityLabel={`${label}: ${value ? `${value} out of 5` : "none"}`}
+      accessibilityLabel={onChange ? label : `${label}: ${value ? `${value} out of 5` : "none"}`}
+      accessibilityValue={onChange ? { min: 0, max: 5, now: value, text: value ? `${value} out of 5` : "Not rated" } : undefined}
+      accessibilityState={onChange ? { disabled: !!disabled } : undefined}
       accessibilityActions={onChange ? [{ name: "increment" }, { name: "decrement" }] : undefined}
       onAccessibilityAction={(e) => adjust(e.nativeEvent.actionName === "increment" ? RATING_STEP : -RATING_STEP)}
       style={styles.row}

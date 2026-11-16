@@ -8,9 +8,11 @@ import { getReadingStreak } from "@/lib/achievements";
 import { getReaderTier } from "@/lib/readerTier";
 import { DEFAULT_TIME_ZONE, finishDay, isValidTimeZone, localDay } from "@/lib/timeZone";
 import { isWrappedSeason } from "@/lib/wrappedSeason";
-import { isProfilePublic, sharedBookWhere } from "@/lib/privacy";
+import { canViewUser, isProfilePublic, privacyOf, privacySelect, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
-import type { Mood } from "@bookmark/shared/workTags";
+import { PACES, type Mood } from "@bookmark/shared/workTags";
+import { cardPeriodKeys } from "@bookmark/shared/wrapCards";
+import { averageRating, latestRatingByBook } from "@bookmark/shared/rating";
 import type { DateRange, ExplorerFinish, ExplorerFormat } from "@bookmark/shared/statsExplorer";
 export type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData };
 
@@ -277,13 +279,22 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     years.push({ year: y, books: months[y].reduce((s, m) => s + m.books, 0), pages: months[y].reduce((s, m) => s + m.pages, 0) });
   }
 
-  // Ratings are the reader's current rating for each book. The chart has a column per half star, so a
-  // quarter counts with the half below it (4¾ under 4½), and ¼ under ½.
-  const rated = books.filter((b) => b.rating && b.rating > 0);
+  // Ratings follow the one rule the explorer and the cards use (@bookmark/shared/rating latestRatingByBook):
+  // each finished book once, with its latest rating. The chart has a column per half star, so a quarter
+  // counts with the half below it (4¾ under 4½), and ¼ under ½.
+  const rated = Array.from(latestRatingByBook([...completed].sort((a, b) => (a.at?.getTime() ?? 0) - (b.at?.getTime() ?? 0)).map((f) => ({ bookId: f.book.id, rating: f.rating }))).values());
   const bucket = (rating: number) => Math.max(0.5, Math.floor(rating * 2) / 2);
-  const ratings = STAR_STEPS.map((rating) => ({ rating, count: rated.filter((b) => bucket(b.rating!) === rating).length }));
+  const ratings = STAR_STEPS.map((rating) => ({ rating, count: rated.filter((r) => bucket(r) === rating).length }));
 
   const finishesInYear = (year: number) => completed.filter((f) => f.year === year).length;
+
+  // The pace the reader tagged each finished book, once per book.
+  const workOf = new Map(books.map((b) => [b.id, b.workId]));
+  const finishedWorks = Array.from(new Set(finished.map((b) => workOf.get(b.id)).filter((id): id is string => !!id)));
+  const paced = finishedWorks.length
+    ? await prisma.readerTags.findMany({ where: { userId, workId: { in: finishedWorks }, pace: { not: null } }, select: { pace: true } })
+    : [];
+  const paces = PACES.map((pace) => ({ pace, count: paced.filter((t) => t.pace === pace).length }));
 
   return {
     timeZone,
@@ -292,6 +303,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     pagesRead: completed.reduce((sum, f) => sum + f.pages, 0),
     minutesListened: completed.reduce((sum, f) => sum + f.minutes, 0),
     undatedFinishes: completed.filter((f) => f.year === null).length,
+    undatedPages: completed.filter((f) => f.year === null).reduce((sum, f) => sum + f.pages, 0),
     rereads: rereadCounts.reduce((sum, n) => sum + n - 1, 0),
     rereadBooks: rereadCounts.length,
     dnf,
@@ -299,7 +311,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     averagePages: averageLength(finished),
     longestBook: longest(finished),
     ratedBooks: rated.length,
-    averageRating: rated.length ? Math.round((rated.reduce((s, b) => s + b.rating!, 0) / rated.length) * 10) / 10 : null,
+    averageRating: averageRating(rated),
     ratings,
     genres: tally(finished.map((b) => b.genre)),
     authors: tally(finished.map((b) => b.author)),
@@ -328,6 +340,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
       })
       .sort((a, b) => b.year - a.year),
     streak,
+    paces,
     ...shelfShape(completed),
   };
 }
@@ -480,8 +493,7 @@ async function wrapCardOf(userId: string, data: Awaited<ReturnType<typeof readin
     .filter((f) => f.outcome === "COMPLETED" && inPeriod(f))
     .sort((a, b) => a.at!.getTime() - b.at!.getTime());
 
-  const rated = new Map<string, number | null>();
-  for (const f of completed) rated.set(f.book.id, f.rating && f.rating > 0 ? f.rating : rated.get(f.book.id) ?? null);
+  const rated = latestRatingByBook(completed.map((f) => ({ bookId: f.book.id, rating: f.rating })));
   const finished = distinctBooks(completed);
 
   const workOf = new Map(books.map((b) => [b.id, b.workId]));
@@ -500,7 +512,6 @@ async function wrapCardOf(userId: string, data: Awaited<ReturnType<typeof readin
   // Whole stars, rounded down: a 4¾ counts with the fours.
   const ratings = [0, 0, 0, 0, 0];
   for (const r of rated.values()) if (r) ratings[Math.min(5, Math.max(1, Math.floor(r))) - 1]++;
-  const ratingValues = Array.from(rated.values()).filter((r): r is number => !!r);
 
   return {
     books: finished.map((b) => {
@@ -511,10 +522,17 @@ async function wrapCardOf(userId: string, data: Awaited<ReturnType<typeof readin
     pages: completed.reduce((sum, f) => sum + f.pages, 0),
     minutes: completed.reduce((sum, f) => sum + f.minutes, 0),
     ratings,
-    averageRating: ratingValues.length ? Math.round((ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length) * 100) / 100 : null,
+    averageRating: averageRating(rated.values()),
     genres: tally(finished.map((b) => b.genre), 3),
     moods,
   };
+}
+
+// The years and months a Wrap card has books for (packages/shared/src/wrapCards.ts cardPeriodKeys): shared
+// finishes only, as getWrapCard draws them, so a year of only private books isn't offered.
+export async function getCardPeriods(userId: string): Promise<string[]> {
+  const { finishes } = await readingData(userId, true);
+  return cardPeriodKeys(finishes.flatMap((f) => (f.outcome === "COMPLETED" && f.year !== null && f.month !== null ? [{ year: f.year, month: f.month + 1 }] : [])));
 }
 
 // ---- The stats explorer (Plus) ---------------------------------------------------------------
@@ -597,8 +615,18 @@ export function parseWrappedYear(raw: string, now = new Date()): number | null {
 // Whether a signed-out visitor may see this reader's Wrapped (metadata and share images, which
 // crawlers fetch). Wrapped is public exactly when the profile is. The page itself also lets in
 // signed-in viewers the profile settings allow, via canViewUser.
-export function isWrappedPublic(owner: { id: string }): Promise<boolean> {
-  return isProfilePublic(owner.id);
+// A public profile whose Finished shelf isn't kept private (BOO-92): Wrapped is their finished books.
+export async function isWrappedPublic(owner: { id: string }): Promise<boolean> {
+  return (await isProfilePublic(owner.id)) && (await canViewUser(null, owner.id, "finished"));
+}
+
+// Who a reader's Wrapped link opens for, so their share buttons can say so before they send it (BOO-94):
+// nobody else while Finished is private, their followers on a profile that isn't public, else anyone.
+export type WrappedAudience = "everyone" | "followers" | "you";
+export async function wrappedAudience(userId: string): Promise<WrappedAudience> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: privacySelect });
+  const privacy = privacyOf(user ?? {});
+  return privacy.hideFinished ? "you" : privacy.profileVisibility === "PUBLIC" ? "everyone" : "followers";
 }
 
 // The reader a /u/<username>/wrapped URL names. Callers still check isWrappedPublic (the owner can

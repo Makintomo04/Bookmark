@@ -26,7 +26,7 @@ interface Props {
 }
 
 const FEED_SHOWN = 6
-const heading = "text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+const heading = "text-sm font-mediumst text-muted-foreground"
 
 // People you may know (BOO-81): readers to follow, each with why. The ✕ dismisses someone for good,
 // with Undo. The server decides who may turn up (lib/peopleSuggest.ts).

@@ -95,7 +95,7 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-sm font-semibold text-brand-fill dark:text-brand">
           <Crown size={14} aria-hidden /> Bookmark Plus
         </span>
-        <h1 className="display-hero mt-4">All your stats are free.</h1>
+        <h1 className="display-hero mt-4">All your stats are free</h1>
         <p className={cn('mt-4 text-base md:text-lg', mutedClassName)}>
           Plus lets you host more circles, set extra goals and use Ask the shelf and Catch me up more often. It never gates your stats, your import, or the circles your friends invite you to.
         </p>
@@ -139,8 +139,8 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
 
       <div className="grid gap-6 md:grid-cols-2">
         <section aria-labelledby="free-heading" className={cn('flex flex-col p-6 sm:p-8', cardClassName)}>
-          <h2 id="free-heading" className="text-lg font-bold">Free</h2>
-          <p className="mt-3 flex items-baseline gap-1.5"><span className="text-4xl font-bold tracking-tight">{formatPrice(currency, 0)}</span><span className={mutedClassName}>forever</span></p>
+          <h2 id="free-heading" className="text-lg font-semibold">Free</h2>
+          <p className="mt-3 flex items-baseline gap-1.5"><span className="text-4xl font-semibold">{formatPrice(currency, 0)}</span><span className={mutedClassName}>forever</span></p>
           <p className={cn('mt-2 text-sm', mutedClassName)}>The best free tracker we can make. No ads, no Amazon.</p>
           <ul className="mt-6 flex flex-col gap-3">
             {FREE.map((f) => <Feature key={f}>{f}</Feature>)}
@@ -151,11 +151,11 @@ const PlusPricing: FC<PlusPricingProps> = ({ signedIn, status, checkout, currenc
 
         <section aria-labelledby="plus-heading" className="relative flex flex-col rounded-[20px] border-2 border-brand/60 p-6 shadow-sm sm:p-8">
           <div className="flex items-center justify-between gap-3">
-            <h2 id="plus-heading" className="flex items-center gap-2 text-lg font-bold"><Crown size={18} aria-hidden className="text-brand" /> Plus</h2>
+            <h2 id="plus-heading" className="flex items-center gap-2 text-lg font-semibold"><Crown size={18} aria-hidden className="text-brand" /> Plus</h2>
             {badge && <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand-fill dark:text-brand">{badge}</span>}
           </div>
           <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-4xl font-bold tracking-tight tabular-nums">{money(price)}</span>
+            <span className="text-4xl font-semibold tabular-nums">{money(price)}</span>
             {foundingOffer && <s className={cn('text-lg tabular-nums', mutedClassName)} aria-label={`usually ${money(prices.yearly)}`}>{money(prices.yearly)}</s>}
             <span className={mutedClassName}>a {per}</span>
           </p>

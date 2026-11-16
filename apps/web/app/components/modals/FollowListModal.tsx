@@ -202,7 +202,7 @@ const FollowListModal: FC = () => {
       onClose={onClose}
       title={profile ? readerName(profile) : username}
       body={bodyContent}
-      compact
+      size="m"
     />
   )
 }

@@ -48,6 +48,7 @@ export interface ReadingStats {
   pagesRead: number; // pages across every finish
   minutesListened: number; // audiobook running time across every finish of one
   undatedFinishes: number;
+  undatedPages: number; // pages of those finishes: in pagesRead, but in no year or month chart
   rereads: number; // finishes beyond each book's first
   rereadBooks: number;
   dnf: number;
@@ -77,6 +78,9 @@ export interface ReadingStats {
   daysToFinish: { reads: number; average: number; fastest: { book: BookSummary; days: number }; slowest: { book: BookSummary; days: number } } | null;
   // The book finished most often, when one was finished more than once.
   mostReread: { book: BookSummary; times: number } | null;
+  // Books finished, by the pace the reader tagged them (BOO-104): slow, medium, fast, every one listed.
+  // Optional so a cached or older response without it still reads.
+  paces?: { pace: "SLOW" | "MEDIUM" | "FAST"; count: number }[];
 }
 
 export interface WrappedMedal {

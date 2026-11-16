@@ -1,6 +1,7 @@
 "use client"
 import { FC, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { emphasisParts } from '@/lib/emphasis'
 import { Skeleton } from '../ui/skeleton'
 
 interface BookBlurbProps {
@@ -12,6 +13,11 @@ interface BookBlurbProps {
   hideHeading?: boolean
   className?: string
 }
+
+// The description's *italics* as emphasis rather than asterisks.
+const Emphasised: FC<{ text: string }> = ({ text }) => (
+  <>{emphasisParts(text).map((part, i) => (part.em ? <em key={i}>{part.text}</em> : part.text))}</>
+)
 
 // "About this book", clamped to a few lines with a toggle when it runs long.
 // Renders nothing when there's no blurb, so books Open Library knows little about aren't cluttered.
@@ -45,8 +51,8 @@ const BookBlurb: FC<BookBlurbProps> = ({ description, headline, isLoading, hideH
             className={cn(!hideHeading && "mt-1.5", "text-sm leading-relaxed text-muted-foreground whitespace-pre-line", !expanded && "line-clamp-4")}
           >
             {headline && description?.startsWith(headline)
-              ? <><strong className="font-semibold text-foreground">{headline}</strong>{description.slice(headline.length)}</>
-              : description}
+              ? <><strong className="font-semibold text-foreground">{headline}</strong><Emphasised text={description.slice(headline.length)} /></>
+              : description && <Emphasised text={description} />}
           </p>
           {(overflows || expanded) && (
             <button

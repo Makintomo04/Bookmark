@@ -4,10 +4,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
 import { Check, Ellipsis, Plus, Share2 } from "lucide-react-native";
 import { formatPercent } from "@bookmark/shared/buddyReads";
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX, canRemoveFromClub, circleSlotsLeft, type ClubRole } from "@bookmark/shared/clubs";
-import { isUpgradeRequired } from "@bookmark/shared/entitlements";
+import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_MUTED_MESSAGE, CLUB_NAME_MAX, MEMBERS_SHOWN, archiveClubNote, canMuteInClubNow, canRemoveFromClubNow, canSetCoHost, circleSlotsLeft, clubFullNote, clubReadingEmpty, matchesMember, type ClubRole } from "@bookmark/shared/clubs";
+import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { readerName } from "@bookmark/shared/profile";
 import { BookCover } from "@/components/books/BookCover";
+import { ClubVote } from "@/components/clubs/ClubVote";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
 import { Button } from "@/components/ui/Button";
@@ -17,7 +18,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Text } from "@/components/ui/Text";
 import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
-import { ROLE_LABEL, shareClubInvite, type ClubCircle, type ClubMember, type ClubView } from "@/lib/clubs";
+import { ROLE_LABEL, shareClubInvite, type ClubCircle, type ClubMember, type ClubView, type ClubVoteView } from "@/lib/clubs";
 import { goBack } from "@/lib/navigation";
 import { useTheme } from "@/lib/theme";
 
@@ -37,6 +38,9 @@ export default function ClubScreen() {
   const { data: view, error, isLoading, mutate } = useSWR<ClubView>(`/api/clubs/${id}`);
   const [editing, setEditing] = useState(false);
   const [handingOver, setHandingOver] = useState(false);
+  // Big clubs (BOO-79): the first MEMBERS_SHOWN, then "Show all", and a search once there are more.
+  const [memberQuery, setMemberQuery] = useState("");
+  const [allMembers, setAllMembers] = useState(false);
 
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !view) {
@@ -55,6 +59,10 @@ export default function ClubScreen() {
   const isHost = viewer.role === "host";
   const slots = circleSlotsLeft(reading.length + upcoming.length);
   const others = members.filter((m) => !m.isYou);
+  const memberCount = view.memberCount ?? members.length;
+  const memberCap = view.memberCap ?? CLUB_MAX_MEMBERS;
+  const matching = members.filter((m) => matchesMember(m, memberQuery));
+  const listed = allMembers || memberQuery.trim() ? matching : matching.slice(0, MEMBERS_SHOWN);
   // The club and the lists it shows up in.
   const refresh = () => {
     void mutate();
@@ -79,9 +87,10 @@ export default function ClubScreen() {
           </>
         )}
         <Text variant="small">
-          {members.length} {members.length === 1 ? "member" : "members"} · Since {monthYear(club.createdAt)}
+          {memberCount} {memberCount === 1 ? "member" : "members"}{viewer.hostPlus ? ` of ${memberCap}` : ""} · Since {monthYear(club.createdAt)}
           {past.length > 0 ? ` · ${past.length} ${past.length === 1 ? "book" : "books"} read` : ""}
         </Text>
+        {viewer.muted && !archived && <Notice message={CLUB_MUTED_MESSAGE} />}
       </View>
 
       <View style={{ gap: 10 }}>
@@ -90,7 +99,7 @@ export default function ClubScreen() {
           ? reading.map((c) => <CircleRow key={c.id} circle={c} />)
           : (
             <Text variant="muted">
-              {upcoming.length > 0 ? "Nothing yet: the next book starts soon." : viewer.canManage ? "No book yet. Start one, and everyone in the club is added to it." : "No book yet. The host will start one soon."}
+              {clubReadingEmpty({ archived, isHost, canManage: viewer.canManage, upcoming: upcoming.length })}
             </Text>
           )}
         {viewer.canManage && slots > 0 && (
@@ -104,6 +113,8 @@ export default function ClubScreen() {
           {upcoming.map((c) => <CircleRow key={c.id} circle={c} upcoming />)}
         </View>
       )}
+
+      <ClubVote clubId={club.id} canManage={viewer.canManage} archived={archived} />
 
       {past.length > 0 && (
         <View style={{ gap: 10 }}>
@@ -125,15 +136,22 @@ export default function ClubScreen() {
       )}
 
       {club.inviteCode && (
-        <InviteSection clubId={club.id} code={club.inviteCode} name={club.name} full={members.length >= CLUB_MAX_MEMBERS} canReset={viewer.canManage} onReset={refresh} />
+        <InviteSection clubId={club.id} code={club.inviteCode} name={club.name} full={view.full ?? memberCount >= memberCap} members={memberCount} cap={memberCap} offerPlus={isHost && !viewer.hostPlus} canReset={viewer.canManage} onReset={refresh} />
       )}
 
       <View style={{ gap: 10 }}>
         <Text variant="title">Members</Text>
-        {members.map((m) => (
+        {members.length > MEMBERS_SHOWN && (
+          <TextField label="Search members" value={memberQuery} onChangeText={setMemberQuery} autoComplete="off" autoCorrect={false} autoCapitalize="none" />
+        )}
+        {memberQuery.trim() && matching.length === 0 && <Text variant="muted">Nobody here by that name.</Text>}
+        {listed.map((m) => (
           <MemberRow key={m.userId} clubId={club.id} member={m} viewerRole={viewer.role} archived={archived} onChange={refresh} />
         ))}
-        {isHost && !archived && <Text variant="small">Co-hosts can start the next book, change schedules, and invite and remove members.</Text>}
+        {!allMembers && !memberQuery.trim() && matching.length > listed.length && (
+          <Button title={`Show all ${matching.length}`} variant="ghost" style={{ alignSelf: "flex-start" }} onPress={() => setAllMembers(true)} />
+        )}
+        {isHost && !archived && <Text variant="small">Co-hosts can start the next book, run votes, change schedules, and invite, mute and remove members.</Text>}
       </View>
 
       <View style={{ gap: 4, alignItems: "flex-start" }}>
@@ -221,7 +239,7 @@ function EditClub({ clubId, name: initialName, about: initialAbout, onDone }: { 
   );
 }
 
-function InviteSection({ clubId, code, name, full, canReset, onReset }: { clubId: string; code: string; name: string; full: boolean; canReset: boolean; onReset: () => void }) {
+function InviteSection({ clubId, code, name, full, members, cap, offerPlus, canReset, onReset }: { clubId: string; code: string; name: string; full: boolean; members: number; cap: number; offerPlus: boolean; canReset: boolean; onReset: () => void }) {
   const { colors } = useTheme();
   const [confirming, setConfirming] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -246,7 +264,12 @@ function InviteSection({ clubId, code, name, full, canReset, onReset }: { clubId
     <View style={{ gap: 8 }}>
       <Text variant="title">Invite readers</Text>
       {full ? (
-        <Text variant="muted">The club is full ({CLUB_MAX_MEMBERS} readers).</Text>
+        <>
+          <Text variant="muted">{clubFullNote(members, cap)}</Text>
+          {/* Gate hosts, not guests: only the host sees the way to a bigger club. */}
+          {offerPlus && <Notice message={FEATURE_COPY.bigClubs.message} />}
+          {offerPlus && <Button title="Bookmark Plus" variant="outline" onPress={() => router.push("/plus")} />}
+        </>
       ) : (
         <>
           <Button title="Share invite link" variant="outline" icon={<Share2 size={18} color={colors.foreground} />} onPress={() => shareClubInvite(code, name)} />
@@ -270,13 +293,31 @@ function InviteSection({ clubId, code, name, full, canReset, onReset }: { clubId
 
 function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId: string; member: ClubMember; viewerRole: ClubRole; archived: boolean; onChange: () => void }) {
   const { colors } = useTheme();
-  const [mode, setMode] = useState<"view" | "menu" | "remove">("view");
+  const [mode, setMode] = useState<"view" | "menu" | "remove" | "mute">("view");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const who = readerName(member) || "this reader";
-  const canRemove = !member.isYou && !archived && canRemoveFromClub(viewerRole, member.role);
-  const canPromote = !member.isYou && !archived && viewerRole === "host";
+  const canRemove = !member.isYou && canRemoveFromClubNow(viewerRole, member.role, !archived);
+  // An archived club's host can still take co-host away and remove readers, but makes no new co-hosts.
+  const canPromote = !member.isYou && member.role === "member" && canSetCoHost(viewerRole, true, !archived);
+  const canDemote = !member.isYou && member.role === "cohost" && canSetCoHost(viewerRole, false, !archived);
+  const canMute = !member.isYou && canMuteInClubNow(viewerRole, member.role, !archived);
   const label = ROLE_LABEL[member.role];
+
+  const setMuted = async (muted: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (muted) await api.post(`/api/clubs/${clubId}/members/${member.userId}/mute`);
+      else await api.delete(`/api/clubs/${clubId}/members/${member.userId}/mute`);
+      setMode("view");
+      onChange();
+    } catch (e) {
+      setError(errorText(e, muted ? "Couldn't mute them." : "Couldn't unmute them."));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const setCoHost = async (coHost: boolean) => {
     setBusy(true);
@@ -320,8 +361,9 @@ function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId:
             {!member.isYou && member.staffBadge ? <StaffSeal kind={member.staffBadge} size={16} pressable={false} style={styles.seal} /> : null}
           </Text>
         </Pressable>
+        {member.muted && <Text variant="small">Muted</Text>}
         {label && <Text variant="small">{label}</Text>}
-        {(canRemove || canPromote) && (
+        {(canRemove || canPromote || canDemote || canMute) && (
           <Pressable accessibilityRole="button" accessibilityLabel={`Options for ${who}`} hitSlop={8} onPress={() => setMode(mode === "view" ? "menu" : "view")} style={styles.more}>
             <Ellipsis size={18} color={colors.mutedForeground} />
           </Pressable>
@@ -329,9 +371,20 @@ function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId:
       </View>
       {mode === "menu" && (
         <View style={styles.actionRow}>
-          {canPromote && member.role === "member" && <Button title="Make co-host" variant="ghost" disabled={busy} onPress={() => setCoHost(true)} />}
-          {canPromote && member.role === "cohost" && <Button title="Remove as co-host" variant="ghost" disabled={busy} onPress={() => setCoHost(false)} />}
+          {canPromote && <Button title="Make co-host" variant="ghost" disabled={busy} onPress={() => setCoHost(true)} />}
+          {canDemote && <Button title="Remove as co-host" variant="ghost" disabled={busy} onPress={() => setCoHost(false)} />}
+          {canMute && !member.muted && <Button title="Mute" variant="ghost" disabled={busy} onPress={() => setMode("mute")} />}
+          {canMute && member.muted && <Button title="Unmute" variant="ghost" disabled={busy} onPress={() => setMuted(false)} />}
           {canRemove && <Button title="Remove from club" variant="ghost" disabled={busy} onPress={() => setMode("remove")} />}
+        </View>
+      )}
+      {mode === "mute" && (
+        <View style={{ gap: 8 }}>
+          <Text>Mute {who}? They can still read along and vote, but can{"’"}t comment in the club{"’"}s books or put books up. You can unmute them any time.</Text>
+          <View style={styles.actionRow}>
+            <Button title="Mute" variant="outline" loading={busy} onPress={() => setMuted(true)} />
+            <Button title="Not now" variant="ghost" disabled={busy} onPress={() => setMode("view")} />
+          </View>
         </View>
       )}
       {mode === "remove" && (
@@ -348,10 +401,14 @@ function MemberRow({ clubId, member, viewerRole, archived, onChange }: { clubId:
   );
 }
 
-// Host only: archiving closes the link and leaves the club's circles as they are. Reopening counts against
-// the hosting limit again, so it can come back refused with the Plus prompt.
+// Host only: archiving closes the link, marks the club's books finished and calls off a vote. Reopening counts
+// against the hosting limit again, so it can come back refused with the Plus prompt. The confirmation is a
+// sheet, since the button sits at the foot of a long page and the words would fall below the fold.
 function ClubStatusButton({ clubId, archived, onChange }: { clubId: string; archived: boolean; onChange: () => void }) {
   const [confirming, setConfirming] = useState(false);
+  // The same key ClubVote loads, so this is already in the cache.
+  const { data: votes } = useSWR<ClubVoteView>(archived ? null : `/api/clubs/${clubId}/votes`);
+  const voteOn = votes?.vote?.status === "OPEN" || votes?.vote?.status === "TIED";
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<{ message: string; upgrade: boolean } | null>(null);
 
@@ -373,18 +430,20 @@ function ClubStatusButton({ clubId, archived, onChange }: { clubId: string; arch
     <View style={{ gap: 8, alignSelf: "stretch" }}>
       {archived ? (
         <Button title="Reopen the club" variant="outline" loading={busy} onPress={() => setStatus("ACTIVE")} />
-      ) : confirming ? (
-        <View style={{ gap: 8 }}>
-          <Text>Archive this club? Its invite link stops working, no new books can be started, and the books it's reading are marked finished. Their discussions stay open.</Text>
-          <View style={styles.actionRow}>
-            <Button title="Archive" variant="outline" loading={busy} onPress={() => setStatus("ARCHIVED")} />
-            <Button title="Keep it" variant="ghost" disabled={busy} onPress={() => setConfirming(false)} />
-          </View>
-        </View>
       ) : (
         <Button title="Archive the club" variant="ghost" style={{ alignSelf: "flex-start" }} onPress={() => setConfirming(true)} />
       )}
-      {refusal && <Notice tone={refusal.upgrade ? "info" : "error"} message={refusal.message} />}
+      {confirming && !archived && (
+        <Sheet title="Archive this club?" onClose={() => !busy && setConfirming(false)}>
+          <View style={{ gap: 12 }}>
+            <Text>{archiveClubNote(voteOn)}</Text>
+            {refusal && <Notice tone="error" message={refusal.message} />}
+            <Button title="Archive" variant="outline" loading={busy} onPress={() => setStatus("ARCHIVED")} />
+            <Button title="Keep it" variant="ghost" disabled={busy} onPress={() => setConfirming(false)} />
+          </View>
+        </Sheet>
+      )}
+      {refusal && !confirming && <Notice tone={refusal.upgrade ? "info" : "error"} message={refusal.message} />}
       {refusal?.upgrade && <Button title="Bookmark Plus" variant="outline" onPress={() => router.push("/plus")} />}
     </View>
   );

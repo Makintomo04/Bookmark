@@ -5,9 +5,10 @@ import type { Prisma } from "@prisma/client";
 import { QUEST_MEDAL_PREFIX } from "@/lib/achievements-catalog";
 import { ladders } from "@bookmark/shared/medals";
 import { computeAchievementStats } from "@/lib/achievements";
-import { canView, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, type PrivacySettings, type Relation } from "@/lib/privacy";
+import { canView, getRelation, privacyOf, privacySelect, sharedBookWhere, visibleReview, visibleStatuses, type PrivacySettings, type Relation } from "@/lib/privacy";
+import { reviewedBooks } from "@/lib/reviewedBooks";
 import { isFinishedBook } from "@/lib/readerTier";
-import { resolveBanner } from "@/lib/banners";
+import { uploadedBanner } from "@/lib/banners";
 import { supporterOf, supporterSelect } from "@/lib/supporter";
 import { staffBadgeOf, staffBadgeSelect, type StaffBadgeKind } from "@/lib/staffBadge";
 import { workIdsWithPages } from "@/lib/workPages";
@@ -107,6 +108,9 @@ export type RestrictedReason =
   // They blocked the viewer. Shown as "not available", so a block isn't announced.
   | "unavailable";
 
+// The statuses a shelf's privacy covers; anything else (Did not finish, Will not read) is filtered upstream.
+const SHELF_STATUSES = new Set<string>(["STARTED", "PAUSED", "COMPLETED", "NOT_STARTED"]);
+
 // The central serializer: the profile as this viewer may see it. Private books, Want to read, reviews
 // and follow counts are filtered here, so callers can't forget a rule.
 type FavouriteBook = Prisma.BookGetPayload<{ select: typeof publicBookSelect & { isPrivate: true } }>;
@@ -127,12 +131,13 @@ async function favouritesForViewer(record: ProfileRecord, relation: Relation, pr
 }
 
 function profileForViewer(record: ProfileRecord, relation: Relation, privacy: PrivacySettings, favourites: Awaited<ReturnType<typeof favouritesForViewer>> = [], withPages: Set<string> = new Set()) {
-  const showWantToRead = canView(relation, privacy, "wantToRead");
   const showCounts = canView(relation, privacy, "followCounts");
+  // A shelf kept private (Want to read, Reading, Finished) never leaves, its books' reviews included.
+  const shelved = new Set<string>(visibleStatuses(relation, privacy));
   const books = record.books
     // Private books are the owner's alone: they see them on their own profile, marked, and nobody else does.
     .filter((b) => !b.isPrivate || relation.isSelf)
-    .filter((b) => b.status !== "NOT_STARTED" || showWantToRead)
+    .filter((b) => !SHELF_STATUSES.has(b.status) || shelved.has(b.status))
     .map(({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt, isPrivate, ...book }) => ({
       ...pageWorkIdOf(book, withPages),
       isPrivate: !!isPrivate,
@@ -145,8 +150,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     // Shown like the bio, to whoever can see the profile.
     profileLinks: record.profileLinks ?? [],
     image: record.image,
-    // A reader who hasn't chosen a banner gets the preset seeded from their id, same as they see themselves.
-    banner: resolveBanner(record.banner, record.id),
+    // Only an uploaded picture; without one the profile draws the strip in favColour (BOO-99).
+    banner: uploadedBanner(record.banner),
     favColour: record.favColour,
     // The plan itself never leaves; the supporter badge is the public part of it.
     ...supporterOf(record),
@@ -154,6 +159,8 @@ function profileForViewer(record: ProfileRecord, relation: Relation, privacy: Pr
     staffBadge: staffBadgeOf(record),
     createdAt: record.createdAt,
     books,
+    // False when they keep Finished to themselves: there's no books read count to show, rather than a 0.
+    finishedShown: shelved.has("COMPLETED"),
     achievements: record.achievements,
     // Authors they follow. Shown to whoever can see the profile, like their shelves.
     followedAuthors: record.authorFollows,
@@ -210,33 +217,49 @@ export const getProfileView = cache(async (username: string, viewerId: string | 
 // One shelf of a profile (Finished, Want to read, or the books with a review), by the same rules
 // profileForViewer applies, without loading the rest of it: the phone's See all pages
 // (app/api/users/<username>/shelf and /reviews) ask for one page at a time, so each reads only that shelf's
-// rows, with review text only for the reviews. null when there's no such reader; `unavailable` when they
-// blocked the viewer (said as not found); `restricted` (no books) when the viewer can't see the profile.
+// rows. With `reviewPage`, the reviews are ordered and counted from their flags alone (reviewedBooks' order:
+// newest finish first), and text is read only for that page's. null when there's no such reader;
+// `unavailable` when they blocked the viewer (said as not found); `restricted` (no books) when the viewer
+// can't see the profile.
 export type ProfileShelf = "finished" | "want" | "reviews";
-export async function getProfileShelf(username: string, viewerId: string | null | undefined, shelf: ProfileShelf) {
+export async function getProfileShelf(username: string, viewerId: string | null | undefined, shelf: ProfileShelf, reviewPage?: { from: number; take: number }) {
   if (!username) return null;
   const owner = await findUserByUsername(username, { id: true, username: true, ...privacySelect });
   if (!owner?.username) return null;
   const [relation, privacy] = [await getRelation(viewerId, owner.id), privacyOf(owner)];
   if (!canView(relation, privacy, "profile")) return { access: "restricted" as const, unavailable: relation.blocked === "byOwner" };
 
-  const showWantToRead = canView(relation, privacy, "wantToRead");
+  const visible = visibleStatuses(relation, privacy);
+  const showWantToRead = visible.includes("NOT_STARTED");
+  const showFinished = visible.includes("COMPLETED");
   // Private books are the owner's alone, as on the profile.
   const own: Prisma.BookWhereInput = { userId: owner.id, ...(!relation.isSelf && sharedBookWhere) };
   const statuses = shelf === "finished" ? ["COMPLETED"] : shelf === "want" ? ["NOT_STARTED"] : ["STARTED", "COMPLETED", "NOT_STARTED"];
-  const shown = statuses.filter((s) => s !== "NOT_STARTED" || showWantToRead) as ("STARTED" | "COMPLETED" | "NOT_STARTED")[];
+  const shown = statuses.filter((s) => (visible as string[]).includes(s)) as ("STARTED" | "COMPLETED" | "NOT_STARTED")[];
   const reviews = shelf === "reviews";
-  const [rows, finished, want] = await Promise.all([
+  const reviewFlags = { reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true } as const;
+  const [listed, finished, want] = await Promise.all([
     shown.length
       ? prisma.book.findMany({
         where: { AND: [own, { status: { in: shown } }, ...(reviews ? [{ review: { not: null } }] : [])] },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        select: { ...publicBookSelect, isPrivate: true, ...(reviews && { review: true, reviewSpoiler: true, reviewPrivate: true, reviewHiddenAt: true }) },
+        select: { ...publicBookSelect, isPrivate: true, ...(reviews && { ...reviewFlags, review: !reviewPage }) },
       })
       : Promise.resolve([]),
-    prisma.book.count({ where: { AND: [own, { status: "COMPLETED" }] } }),
+    showFinished ? prisma.book.count({ where: { AND: [own, { status: "COMPLETED" }] } }) : Promise.resolve(0),
     showWantToRead ? prisma.book.count({ where: { AND: [own, { status: "NOT_STARTED" }] } }) : Promise.resolve(0),
   ]);
+  let rows = listed;
+  let total: number | undefined;
+  if (reviews && reviewPage) {
+    // The reviews this viewer may read, in order, from their flags (visibleReview, with a stand-in for the text,
+    // which is never empty here); then the text of this page's only.
+    const readable = reviewedBooks(listed.filter((b) => visibleReview({ ...b, review: "-" }, relation, privacy).review).map((b) => ({ ...b, review: "-" })));
+    total = readable.length;
+    const page = readable.slice(reviewPage.from, reviewPage.from + reviewPage.take);
+    const text = new Map((page.length ? await prisma.book.findMany({ where: { id: { in: page.map((b) => b.id) } }, select: { id: true, review: true } }) : []).map((b) => [b.id, b.review]));
+    rows = page.map((b) => ({ ...b, review: text.get(b.id) ?? null }));
+  }
   const withPages = await workIdsWithPages(rows.map((b) => (b.workKey ? null : b.workId)));
   const books = rows.map(({ isPrivate, ...row }) => {
     const { review, reviewSpoiler, reviewPrivate, reviewHiddenAt, ...book } = row as typeof row & { review?: string | null; reviewSpoiler?: boolean | null; reviewPrivate?: boolean | null; reviewHiddenAt?: Date | null };
@@ -246,7 +269,7 @@ export async function getProfileShelf(username: string, viewerId: string | null 
       ...(reviews ? visibleReview({ review, reviewSpoiler, reviewPrivate, reviewHiddenAt }, relation, privacy) : {}),
     };
   });
-  return { access: "full" as const, books, counts: { finished, want } };
+  return { access: "full" as const, books, counts: { finished, want }, total };
 }
 
 // The profile as a signed-out visitor (or a crawler) sees it: for metadata and the share image.

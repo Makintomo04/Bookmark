@@ -32,7 +32,7 @@ const AuthorBooks: FC<{ author: Author, initial: AuthorBooksPage }> = ({ author,
     axios.get(`/api/authors/${encodeURIComponent(author.slug)}?offset=${nextOffset}`)
       .then((res) => {
         const page: AuthorBooksPage = res.data
-        if (page.failed) throw new Error("Open Library failed")
+        if (page.failed && page.books.length === 0) throw new Error("Open Library failed")
         // The first page carries catalog books too, so later pages can repeat them.
         setBooks((current) => [...current, ...page.books.filter((b) => !current.some((c) => sameBook(c, b)))])
         setNextOffset(page.nextOffset)
@@ -45,7 +45,7 @@ const AuthorBooks: FC<{ author: Author, initial: AuthorBooksPage }> = ({ author,
     <div className="flex flex-col gap-10">
       {user?.id && mine.length > 0 && (
         <section aria-labelledby="mine-heading">
-          <h2 id="mine-heading" className="text-xl font-bold">On your shelf</h2>
+          <h2 id="mine-heading" className="text-lg font-semibold">On your shelf</h2>
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-8">
             {mine.map((book) => <BookCoverCard key={book.id} book={book} accentColour={user.favColour} />)}
           </div>
@@ -53,7 +53,7 @@ const AuthorBooks: FC<{ author: Author, initial: AuthorBooksPage }> = ({ author,
       )}
 
       <section aria-labelledby="more-heading">
-        <h2 id="more-heading" className="text-xl font-bold">{mine.length > 0 ? `More by ${author.name}` : `Books by ${author.name}`}</h2>
+        <h2 id="more-heading" className="text-lg font-semibold">{mine.length > 0 ? `More by ${author.name}` : `Books by ${author.name}`}</h2>
         {more.length > 0 ? (
           <>
             <p className="mt-1 text-sm text-muted-foreground">Most read first.</p>

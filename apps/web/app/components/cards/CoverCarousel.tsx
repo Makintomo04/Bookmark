@@ -3,15 +3,26 @@ import { FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Half a cover (112px wide, 2:3, or 64px when compact) down from the row's top padding: where the arrows sit.
-const ARROW_TOP = "top-[88px]"
-const COMPACT_ARROW_TOP = "top-[52px]"
+// Half a cover (2:3) down from the row's top padding, where the arrows sit, for each size of card the rows use:
+// 64px wide (compact), 112px (a series), and 128px, 144px from sm (a book page's More by and Readers also liked).
+const ARROW_TOP = { compact: "top-[52px]", default: "top-[88px]", large: "top-[100px] sm:top-[112px]" }
 
-// The row of a series' books, opened at the page's own book (the one marked aria-current) so book 7 of a
-// long series isn't off the edge on a phone. Only the row scrolls, never the page. No scrollbar: a phone
-// swipes, and with a mouse, arrows over the edges page through it. The edge that hides more fades out.
-const SeriesRow: FC<{ label: string, children: ReactNode, compact?: boolean }> = ({ label, children, compact = false }) => {
-  const row = useRef<HTMLOListElement>(null)
+// A row of book covers to swipe through: a series' books, or a book page's More by and Readers also liked.
+// It opens at the item marked aria-current, if any, so book 7 of a long series isn't off the edge on a phone.
+// Only the row scrolls, never the page. No scrollbar: a phone swipes, and with a mouse, arrows over the edges
+// page through it. The edge that hides more fades out.
+const CoverCarousel: FC<{
+  label: string
+  children: ReactNode
+  size?: keyof typeof ARROW_TOP
+  // What the arrows say they show, e.g. "Earlier books in the series".
+  previousLabel?: string
+  nextLabel?: string
+  ordered?: boolean
+}> = ({ label, children, size = "default", previousLabel = "Previous books", nextLabel = "More books", ordered = true }) => {
+  const row = useRef<HTMLOListElement & HTMLUListElement>(null)
+  const compact = size === "compact"
+  const List = ordered ? "ol" : "ul"
   const [more, setMore] = useState({ left: false, right: false })
 
   const measure = useCallback(() => {
@@ -53,18 +64,18 @@ const SeriesRow: FC<{ label: string, children: ReactNode, compact?: boolean }> =
 
   return (
     <div className="relative">
-      <ol ref={row} aria-label={label} onScroll={measure}
+      <List ref={row} aria-label={label} onScroll={measure}
         className={cn("-mx-4 px-4 scroll-px-4 flex overflow-x-auto", compact ? "gap-3" : "gap-4", "snap-x pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", fade)}>
         {children}
-      </ol>
+      </List>
       {/* Mouse and trackpad only: touch swipes the row itself. Keyboard users tab through the books. */}
       {more.left && (
-        <button type="button" aria-label="Earlier books in the series" tabIndex={-1} onClick={() => page(-1)} className={cn(arrow, compact ? COMPACT_ARROW_TOP : ARROW_TOP, "-left-3")}>
+        <button type="button" aria-label={previousLabel} tabIndex={-1} onClick={() => page(-1)} className={cn(arrow, ARROW_TOP[size], "-left-3")}>
           <ChevronLeft size={18} aria-hidden />
         </button>
       )}
       {more.right && (
-        <button type="button" aria-label="Later books in the series" tabIndex={-1} onClick={() => page(1)} className={cn(arrow, compact ? COMPACT_ARROW_TOP : ARROW_TOP, "-right-3")}>
+        <button type="button" aria-label={nextLabel} tabIndex={-1} onClick={() => page(1)} className={cn(arrow, ARROW_TOP[size], "-right-3")}>
           <ChevronRight size={18} aria-hidden />
         </button>
       )}
@@ -72,4 +83,4 @@ const SeriesRow: FC<{ label: string, children: ReactNode, compact?: boolean }> =
   )
 }
 
-export default SeriesRow
+export default CoverCarousel

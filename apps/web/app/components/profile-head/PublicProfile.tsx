@@ -17,9 +17,9 @@ import ProfileShowcase from './ProfileShowcase'
 import { shelfPageHref } from '@/lib/shelfFilter'
 import ProfileAuthors from './ProfileAuthors'
 import PublicShelves from './PublicShelves'
-import { type ProfileLayout } from './Band'
+import { BANDS_REVIEWS, SECTIONS, type ProfileLayout } from './Band'
 import ContinueReading from './ContinueReading'
-import MedalShowcase from '../achievements/MedalShowcase'
+import ProfileLinkRows from './ProfileLinkRows'
 import type { SharedCircle } from '@/lib/sharedCircles'
 import FavouritesRow from './FavouritesRow'
 import ProfileLists from '../discover/ProfileLists'
@@ -39,8 +39,7 @@ interface PublicProfileProps {
   justJoined?: boolean
 }
 
-// How many reviews and followed authors show in bands before "Show more" and "+N more".
-const BANDS_REVIEWS = 3
+// How many followed authors show in bands before "+N more".
 const BANDS_AUTHORS = 8
 
 // Someone else's profile, rendered on the server. Following, sharing, the follow lists
@@ -61,19 +60,13 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
   ) : (
     <PublicShelves username={profile.username} wantToRead={wantToRead} finished={finished} counts={shelfCounts} accentColour={profile.favColour} />
   )
-  // With nothing to put beside the header (no reading, favourites or lists), the shelves take that space rather
-  // than leaving it empty, and nothing sits under the header.
-  const shelvesBeside = reading.length === 0 && favourites.length === 0 && !hasLists
-  // In bands, everything but the shelves sits beside the header from lg up, in the order a phone shows it:
-  // favourites, what they're reading (a circle you share first), lists, then reviews and the authors they follow
-  // below lg (from lg up they end the header's column). A short column of cards never leaves the rest of the page empty beside it.
-  // On a phone the authors they follow come last, under the shelves; from lg up they're in the header's column.
-  const phoneAuthors = (
-    <div className="lg:hidden empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
-  )
+  // In bands, beside the header from lg up (under it below lg): their favourites first, as they say most about
+  // who this reader is, then what they're reading (a circle you share first), their lists, and their shelves to
+  // end the column. Below lg the favourites open the profile from the header instead (`lead`), so they're still
+  // first.
   const besides = (
     <div className="flex flex-col gap-10">
-      <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half />
+      {favourites.length > 0 && <div className="hidden lg:block"><FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half /></div>}
       {reading.length > 0 && (
         <section aria-labelledby="public-now">
           <h2 id="public-now" className="mb-4 flex min-h-10 items-baseline gap-2 text-lg font-semibold">
@@ -83,19 +76,13 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         </section>
       )}
       {hasLists && <div className="empty:hidden"><ProfileLists username={profile.username} isSelf={false} flush swipe /></div>}
-      {/* Below lg the reviews follow the lists; from lg up they end the header's column (identityFooter, below).
-          Only when there are some: an empty wrapper still takes a gap in this column, a band of nothing on a phone. */}
-      {reviewCount > 0 && (
-        <div className="flex flex-col gap-12 lg:hidden">
-          <ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />
-        </div>
-      )}
-      {shelvesBeside && <><div className="empty:hidden">{shelves}</div>{phoneAuthors}</>}
+      <div className="border-t border-neutral-200 pt-10 first:border-t-0 first:pt-0 dark:border-neutral-800">{shelves}</div>
     </div>
   )
   // Re-reads sit under Currently reading but still count as read.
   const completedCount = profile.booksRead
   const achievementCount = profile.achievements.length
+  const linkRows = [{ label: "Achievements", href: achievementsHref, count: achievementCount }]
 
   // Signed out, the same Follow button, which asks them to join (JoinToFollow).
   const actions = viewer ? (
@@ -128,30 +115,33 @@ const PublicProfile: FC<PublicProfileProps> = ({ profile, viewer, layout = 'band
         staffBadge={profile.staffBadge}
         compact={bands}
         besides={bands ? besides : undefined}
-        // From lg up the column ends with their reviews, the authors they follow, then their top medals, as on your own profile.
+        // Below lg their favourites open the profile: beside the header from md, under it on a phone.
+        lead={bands && favourites.length > 0 ? <FavouritesRow books={favourites} href={`/u/${encodeURIComponent(profile.username)}/favourites`} readOnly half /> : undefined}
+        // From lg up the column ends with their reviews, then the way to their achievements; below lg both are further down.
         identityFooter={bands ? (
-          <div className="flex flex-col gap-8 pt-8">
-            <div className="empty:hidden"><ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>
-            <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
-            <div className="[&>section]:!mt-0"><MedalShowcase earned={profile.achievements} href={achievementsHref} stacked /></div>
+          <div className="mt-10 flex flex-col gap-8">
+            {reviewCount > 0 && <ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} />}
+            <ProfileLinkRows rows={linkRows} />
           </div>
         ) : undefined}
         share={<ShareProfileButton username={profile.username} />}
         actions={actions}
         stats={[
-          { value: completedCount, label: completedCount === 1 ? "book read" : "books read" },
+          ...(profile.finishedShown === false ? [] : [{ value: completedCount, label: completedCount === 1 ? "book read" : "books read" }]),
           // Only reviews this viewer may read arrive, so none (or all hidden) leaves the stat out.
-          ...(reviewCount > 0 ? [{ value: reviewCount, label: reviewCount === 1 ? "review" : "reviews", href: `/u/${encodeURIComponent(profile.username)}/reviews` }] : []),
           ...followStats,
-          { value: achievementCount, label: achievementCount === 1 ? "achievement" : "achievements", href: achievementsHref },
         ]}
       >
         {viewer && justJoined && !viewer.isFollowing && <WelcomeBack username={profile.username} name={name} />}
       </ProfileHeader>
       {bands ? (
-        // In bands, everything else sits beside the header (besides, above), so this is the shelves, unless
-        // they've taken the space beside it.
-        !shelvesBeside && <div className="mt-12 flex flex-col gap-12">{shelves}{phoneAuthors}</div>
+        // In bands, what they're reading, favourites, lists and shelves sit beside the header (besides, above); then,
+        // each under a hairline: below lg their reviews, the authors they follow, and below lg the way to their achievements.
+        <div className={SECTIONS}>
+          {reviewCount > 0 && <div className="lg:hidden"><ProfileReviews books={profile.books} total={reviewCount} accentColour={profile.favColour} first={BANDS_REVIEWS} href={`/u/${encodeURIComponent(profile.username)}/reviews`} /></div>}
+          <div className="empty:hidden"><ProfileAuthors authors={profile.followedAuthors} cap={BANDS_AUTHORS} /></div>
+          <div className="lg:hidden"><ProfileLinkRows className="!border-t-0" rows={linkRows} /></div>
+        </div>
       ) : (
       <div className="mt-8">
         <ProfileShowcase username={profile.username} favourites={profile.favourites as unknown as Book[]} />

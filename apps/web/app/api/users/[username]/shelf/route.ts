@@ -3,6 +3,8 @@ import { handleOf } from "@/lib/handle";
 import { getProfileShelf } from "@/lib/publicProfile";
 import { filterOptions, pageShelf, parseShelfParams } from "@/lib/shelfFilter";
 import { NextResponse } from "next/server";
+import { requestTimeZone } from "@/lib/achievements";
+import { DEFAULT_TIME_ZONE } from "@/lib/timeZone";
 
 //   GET /api/users/<username>/shelf?shelf=finished&take=60&cursor=60&sort=title&q=…&facets=1
 // One page of someone's Finished or Want to read, as their profile may show it to this viewer: the phone's
@@ -25,11 +27,13 @@ export async function GET(req: Request, props: { params: Promise<{ username: str
   }
   // A restricted profile shows no shelf.
   const books = view.access === "restricted" || !shelf ? [] : view.books.filter((b) => b.status === SHOWN[shelf]);
-  const page = pageShelf(books, { ...filter, shelf }, { take: Number(search.get("take")), cursor: search.get("cursor") });
+  // "Finished in" on the viewer's calendar, as the web's profile shelf filters it in their browser.
+  const zone = (await requestTimeZone()) ?? DEFAULT_TIME_ZONE;
+  const page = pageShelf(books, { ...filter, shelf }, { take: Number(search.get("take")), cursor: search.get("cursor"), zone });
   return NextResponse.json({
     ...page,
     ...(search.get("facets") === "1" && {
-      options: filterOptions(books),
+      options: filterOptions(books, zone),
       counts: view.access === "restricted" ? { finished: 0, want: 0 } : view.counts,
     }),
   });

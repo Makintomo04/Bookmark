@@ -20,7 +20,13 @@ import { pageArgs, pages, zoneOf, type JobContext } from "./common";
 // hours end if they run past it.
 
 // Members without the app (no phone registered) get the same reminder by email, to a confirmed address:
-// it's how a web-only member hears before a section is due, not just on Sunday.
+// it's how a web-only member hears before a section is due, not just on Sunday. So do members whose phone has
+// notifications switched off for Bookmark: the app takes its token back when it sees that (apps/mobile
+// src/lib/push.ts syncPushPermission), so it no longer counts as a way to reach them.
+// Emails a tick may send, as the weekly email has (DIGEST_BUDGET): the rest are left unclaimed and go on a later
+// tick inside the due window, so a busy morning can't run a tick past its time or flood the mail provider.
+export const CHECKPOINT_EMAIL_BUDGET = 200;
+
 export async function runCheckpointReminders(ctx: JobContext): Promise<{ checkpoints: number; checkpointEmails: number }> {
   let sent = 0;
   let emailed = 0;
@@ -36,6 +42,7 @@ export async function runCheckpointReminders(ctx: JobContext): Promise<{ checkpo
     for (const user of users) {
       const byPush = user.pushTokens.length > 0;
       if (!byPush && !(canEmail && user.email && user.emailVerified)) continue;
+      if (!byPush && emailed >= CHECKPOINT_EMAIL_BUDGET) continue;
       const clock = localClock(ctx.now, zoneOf(user.timeZone));
       const quiet = quietHoursOf(user.quietStartMinute, user.quietEndMinute);
       if (!isDue(checkpointMinute(quiet), clock.minute) || inQuietHours(clock.minute, quiet)) continue;
@@ -56,6 +63,7 @@ export async function runCheckpointReminders(ctx: JobContext): Promise<{ checkpo
         const book = await prisma.book.findUnique({ where: { id: m.bookId }, select: { userId: true, ...progressSelect } });
         const progress = circleProgress(book && book.userId === user.id ? progressPercent(book) : 0, m.notifiedProgress);
         if (progress >= until) continue;
+        if (!byPush && emailed >= CHECKPOINT_EMAIL_BUDGET) break;
         if (!(await claimSend(user.id, "checkpoint", `${m.buddyRead.id}:${due}`, byPush ? "push" : "email"))) continue;
 
         // Replies included, like the circle page's locked "N comments ahead" row.

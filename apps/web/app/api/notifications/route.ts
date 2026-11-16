@@ -5,6 +5,7 @@ import { bookHref, sameBook } from "@/lib/workKey";
 import { hasPage } from "@/lib/workPages";
 import { staffBadgeOf, staffBadgeSelect } from "@/lib/staffBadge";
 import { NextResponse } from "next/server";
+import { dismissedPickFilters } from "@/lib/clubVotesServer";
 
 // The bell shows the newest 20. /notifications pages back through the rest with ?after=<the last one's id>,
 // up to 50 at a time. Ordered by date then id, so two made in the same moment never fall between pages.
@@ -20,8 +21,10 @@ export async function GET(req: Request) {
   const after = params.get("after")
   const afterId = after && /^[a-f0-9]{24}$/i.test(after) ? after : null
 
-  // Quests were cut before launch; any old quest-medal notifications are left out.
-  const shown = { userId: currentUser.id, type: { not: "QUEST_COMPLETED" as const } }
+  // Quests were cut before launch; any old quest-medal notifications are left out. So are "the club picked X"
+  // rows for a winner its host has since put away (BOO-92), which the club page no longer mentions.
+  const dismissed = await dismissedPickFilters(currentUser.id)
+  const shown = { userId: currentUser.id, type: { not: "QUEST_COMPLETED" as const }, ...(dismissed.length > 0 && { NOT: dismissed }) }
   const [page, unreadCount] = await Promise.all([
     prisma.notification.findMany({
       where: shown,
@@ -44,7 +47,15 @@ export async function GET(req: Request) {
     ? await prisma.buddyRead.findMany({ where: { id: { in: buddyReadIds } }, select: { id: true, title: true, inviteCode: true, status: true } })
     : []
   const buddyReadById = new Map(buddyReads.map((b) => [b.id, b]))
-  const withBuddyReads = notifications.map((n) => (n.buddyReadId ? { ...n, buddyRead: buddyReadById.get(n.buddyReadId) ?? null } : n))
+  // Club votes name the club. A club the reader has left still has a name; the page itself will say they're out.
+  const clubIds = Array.from(new Set(notifications.flatMap((n) => (n.clubId ? [n.clubId] : []))))
+  const clubs = clubIds.length > 0 ? await prisma.club.findMany({ where: { id: { in: clubIds } }, select: { id: true, name: true } }) : []
+  const clubById = new Map(clubs.map((c) => [c.id, c]))
+  const withBuddyReads = notifications.map((n) => ({
+    ...n,
+    ...(n.buddyReadId && { buddyRead: buddyReadById.get(n.buddyReadId) ?? null }),
+    ...(n.clubId && { club: clubById.get(n.clubId) ?? null }),
+  }))
 
   // Recommendations name the sender's copy of the book, or the catalogue Work when they sent it from its page
   // without shelving it, link to its page, and say whether it's already on the reader's shelf.

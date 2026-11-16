@@ -32,7 +32,7 @@ function paletteOf(tokens: ThemeTokens) {
     // One red per role: `brand` is the mark (logo, your progress, stars), `brandFill` is buttons with
     // white text, `brandText` is red words and links.
     brand: brand.DEFAULT,
-    brandFill: brand.fill,
+    brandFill: hex(tokens.primary),
     brandFillPressed: brand["fill-hover"],
     brandText: hex(tokens["brand-text"]),
     onBrand: "#ffffff",

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import useSWR, { useSWRConfig } from "swr";
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX } from "@bookmark/shared/clubs";
+import { BIG_CLUB_MAX_MEMBERS, CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX } from "@bookmark/shared/clubs";
 import { isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -47,7 +47,7 @@ export default function NewClub() {
     <Screen>
       <Text variant="display">Start a club</Text>
       <Text variant="muted">
-        A club keeps the same readers from one book to the next. Share one link, and everyone who joins is added to each book you start. Up to {CLUB_MAX_MEMBERS} readers.
+        A club keeps the same readers from one book to the next. Share one link, and everyone who joins is added to each book you start. Up to {CLUB_MAX_MEMBERS} readers, or {BIG_CLUB_MAX_MEMBERS} if you have Plus.
       </Text>
       {blocked && blockedMessage ? <Notice message={blockedMessage} /> : null}
       {blocked && upgrade && <Button title="Bookmark Plus" variant="outline" onPress={() => router.push("/plus")} />}

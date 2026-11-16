@@ -21,7 +21,7 @@ test("landing → register → onboarding → add a book → start a circle → 
   await expect(page.getByText("Your shelf is empty")).toBeVisible()
 
   await addBookAndStartCircle(page, { title: `Smoke Test Novel ${reader.username}`, author: "A. Tester", pages: 300 })
-  await expect(page.getByRole("heading", { name: "Invite readers" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Invite", exact: true })).toBeVisible()
   await copyInvite(page)
   await expectAccessible(page, testInfo, "circle")
 

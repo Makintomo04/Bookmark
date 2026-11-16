@@ -288,12 +288,13 @@ function ScrollGroup({ label, options, chosen, onChange }: { label: string; opti
 function ChartFor({ chart, period, accent, heading }: { chart: ExplorerChart; period: ExplorerPeriod; accent: string; heading?: string }) {
   const body = (() => {
     if (period.finishes === 0) return <Text variant="muted">No finished books here.</Text>;
+    // The bars count reads (a re-read finishes again), so they say "reads"; ratings count each book once.
     if (chart === "timeline") {
-      const data: Datum[] = period.timeline.map((t) => ({ label: t.label, value: t.books, detail: `${plural(t.books, "book")} · ${plural(t.pages, "page")}` }));
-      return <ColumnChart data={data} accent={accent} label={`Books finished, ${period.label}`} />;
+      const data: Datum[] = period.timeline.map((t) => ({ label: t.label, value: t.books, detail: `${plural(t.books, "read")} · ${plural(t.pages, "page")}` }));
+      return <ColumnChart data={data} accent={accent} label={`Reads finished, ${period.label}`} />;
     }
     if (chart === "spice" || chart === "ratings") {
-      const data: Datum[] = period[chart].map((t) => ({ label: chart === "ratings" ? `${t.name}★` : t.name, name: chart === "ratings" ? `${t.name} stars` : `Spice ${t.name}`, value: t.count, detail: plural(t.count, "read") }));
+      const data: Datum[] = period[chart].map((t) => ({ label: chart === "ratings" ? `${t.name}★` : t.name, name: chart === "ratings" ? `${t.name} ${t.name === "1" ? "star" : "stars"}` : `Spice ${t.name}`, value: t.count, detail: plural(t.count, chart === "ratings" ? "book" : "read") }));
       return <ColumnChart data={data} accent={accent} label={`${EXPLORER_CHART_LABEL[chart]}, ${period.label}`} />;
     }
     const rows = period[chart].filter((t) => t.count > 0);

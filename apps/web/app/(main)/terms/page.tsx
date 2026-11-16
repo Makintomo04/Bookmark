@@ -15,7 +15,7 @@ const LAST_UPDATED = "23 October 2026"
 
 const Section: FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="flex flex-col gap-2 mb-8">
-    <h2 className="text-xl font-bold">{title}</h2>
+    <h2 className="text-lg font-semibold">{title}</h2>
     <div className="text-sm text-neutral-600 dark:text-neutral-300/90 flex flex-col gap-3">{children}</div>
   </div>
 )

@@ -2,10 +2,9 @@ import { useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import useSWR, { mutate } from "swr";
 import { Image } from "expo-image";
-import { bannerPresetOf, bannerPresetValue, resolveBanner, type BannerPresetId } from "@bookmark/shared/banners";
+import { bannerTint, uploadedBanner } from "@bookmark/shared/banners";
 import { BIO_MAX, DEFAULT_COLOUR, DISPLAY_NAME_MAX, PROFILE_LINKS_MAX, displayNameProblem, normaliseDisplayName, normaliseProfileLink, normaliseUsername, usernameProblem } from "@bookmark/shared/profile";
-import { BannerPattern } from "@/components/profile/BannerPattern";
-import { BannerPicker, ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
+import { BannerUpload, ColourPicker, PhotoPicker, usernameHint, useUsernameAvailability } from "@/components/profile/ProfileFields";
 import type { ProfileUser } from "@/components/profile/ProfileHeader";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
@@ -17,8 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { goBack } from "@/lib/navigation";
 import { useTheme } from "@/lib/theme";
 
-// Edit profile (the web's EditProfileModal): picture, username, bio, links, colour and banner. A banner
-// photo uploaded on the web is kept unless a pattern is chosen here.
+// Edit profile (the web's EditProfileModal): picture, username, bio, links, colour and banner.
 const LINK_HINTS = ["tiktok.com/@you", "instagram.com/you", "you.substack.com", "yourwebsite.com"];
 export default function EditProfile() {
   const { colors } = useTheme();
@@ -37,9 +35,9 @@ function ProfileForm({ user }: { user: ProfileUser }) {
   const [links, setLinks] = useState<string[]>([...(user.profileLinks ?? []), ...Array(PROFILE_LINKS_MAX).fill("")].slice(0, PROFILE_LINKS_MAX));
   const [colour, setColour] = useState(user.favColour || DEFAULT_COLOUR);
   const [image, setImage] = useState<string | null>(user.image || null);
-  const savedBanner = resolveBanner(user.banner, user.id);
-  const [banner, setBanner] = useState<string>(savedBanner);
-  const preset = bannerPresetOf(banner);
+  // Only an uploaded picture; an old pattern ("preset:…") shows, and saves, as none, so the profile gets the
+  // strip of your colour (BOO-99).
+  const [banner, setBanner] = useState<string | null>(uploadedBanner(user.banner));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,8 +68,8 @@ function ProfileForm({ user }: { user: ProfileUser }) {
 
   return (
     <Screen>
-      <View style={[styles.banner, { borderRadius: radii.lg }]}>
-        {preset ? <BannerPattern preset={preset} colour={colour} /> : <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />}
+      <View style={[styles.banner, { borderRadius: radii.lg, backgroundColor: banner ? colour : bannerTint(colour, colors.background) }]}>
+        {banner && <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />}
       </View>
       <PhotoPicker image={image} name={name} colour={colour} onChange={setImage} />
       {error && <Notice tone="error" message={error} />}
@@ -106,7 +104,7 @@ function ProfileForm({ user }: { user: ProfileUser }) {
         ))}
       </View>
       <ColourPicker value={colour} onChange={setColour} />
-      <BannerPicker value={preset as BannerPresetId | null} colour={colour} onChange={(id) => setBanner(bannerPresetValue(id))} />
+      <BannerUpload banner={banner} onChange={setBanner} />
       <Button title="Save" loading={saving} disabled={availability === "checking"} onPress={save} />
     </Screen>
   );

@@ -1,13 +1,12 @@
 import { Linking, Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { Link2 } from "lucide-react-native";
-import { bannerPresetOf, resolveBanner } from "@bookmark/shared/banners";
+import { bannerTint, uploadedBanner } from "@bookmark/shared/banners";
 import { DEFAULT_COLOUR, profileLinkLabel, readerName } from "@bookmark/shared/profile";
 import type { StaffBadgeKind } from "@bookmark/shared/staffBadge";
 import { Avatar } from "@/components/profile/Avatar";
 import { StaffSeal } from "@/components/profile/StaffSeal";
 import { MedalShowcase } from "@/components/achievements/MedalShowcase";
-import { BannerPattern } from "@/components/profile/BannerPattern";
 import { Text } from "@/components/ui/Text";
 import { useTheme } from "@/lib/theme";
 
@@ -29,21 +28,24 @@ export interface ProfileUser {
 // The top of a profile: banner, picture, name and bio (the web's ProfileHead, without its menus yet).
 // staffBadge: "Bookmark team" or "Librarian", a seal on the avatar's corner (packages/shared/src/staffBadge.ts).
 // medals: earned milestone keys for the top-three showcase, with where pressing it goes.
-export function ProfileHeader({ user, staffBadge, medals }: {
+export function ProfileHeader({ user, staffBadge, medals, belowBar = false }: {
   user: ProfileUser;
+  // Under the Library's app bar the banner starts below it; elsewhere it runs up under the screen's header.
+  belowBar?: boolean;
   staffBadge?: StaffBadgeKind | null;
   medals?: { earned: { key: string }[]; onPress: () => void };
 }) {
   const { colors } = useTheme();
   const colour = user.favColour || DEFAULT_COLOUR;
-  const banner = resolveBanner(user.banner, user.id);
-  const preset = bannerPresetOf(banner);
+  // Every profile has a banner (BOO-99): their uploaded picture, or a strip of their colour mixed well into
+  // the page. The avatar overlaps it.
+  const banner = uploadedBanner(user.banner);
   // Only when known: a restricted profile doesn't say how much they read.
   const booksRead = user._count?.books;
   return (
     <View>
-      <View style={styles.banner}>
-        {preset ? <BannerPattern preset={preset} colour={colour} /> : <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />}
+      <View style={[styles.banner, belowBar && { marginTop: 0 }, { backgroundColor: banner ? colour : bannerTint(colour, colors.background) }]}>
+        {banner && <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />}
       </View>
       <View style={styles.identity}>
         <View style={styles.avatar}>

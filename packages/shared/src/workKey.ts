@@ -11,6 +11,9 @@ const normalise = (s?: string | null) => (s ?? "").toLowerCase().replace(/[^a-z0
 
 type Comparable = { workKey?: string | null, title: string, author: string }
 
+// The same title by the same author, whatever their keys say: two Open Library works for one book are common.
+export const sameTitleAndAuthor = (a: Comparable, b: Comparable) => normalise(a.title) === normalise(b.title) && normalise(a.author) === normalise(b.author)
+
 // Books without a work key (added by hand, or before keys were stored) fall back to title + author.
 export function sameBook(a: Comparable, b: Comparable) {
   if (a.workKey && b.workKey) return a.workKey === b.workKey

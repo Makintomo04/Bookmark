@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import useSWR, { mutate as globalMutate } from "swr";
+import { router } from "expo-router";
 import { AlertTriangle, BookCheck, Star, UsersRound } from "lucide-react-native";
 import { FEATURE_COPY, isUpgradeRequired } from "@bookmark/shared/entitlements";
 import { MOOD_LABEL, SPICE_LABEL, SPICE_MAX, WARNING_LEVEL_LABEL, spiceRangeText, type Mood, type MoodCount, type SpiceLevel, type SpiceSummary, type WarningSummary } from "@bookmark/shared/workTags";
@@ -222,7 +223,13 @@ export default function AskTheShelf() {
           </View>
         </View>
       )}
-      {upgrade && <Notice message={`${FEATURE_COPY.askShelfSearches.title}. ${FEATURE_COPY.askShelfSearches.message}`} />}
+      {/* Out of free searches says so on arrival, with the way to Plus, not only after a refused search (BOO-94). */}
+      {(upgrade || (outOfSearches && !status.isPlus)) && (
+        <View style={{ gap: 8 }}>
+          <Notice message={`${FEATURE_COPY.askShelfSearches.title}. ${FEATURE_COPY.askShelfSearches.message}`} />
+          <Button title="See Bookmark Plus" variant="outline" onPress={() => router.push("/plus" as never)} />
+        </View>
+      )}
       {error && <Notice tone="error" message={error} />}
 
       {outcome && (

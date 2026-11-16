@@ -18,7 +18,7 @@ const Page = async () => {
     <div className="mt-6 sm:mt-8">
       <Container className="flex flex-col gap-8">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold">Your notes</h1>
+          <h1 className="page-title">Your notes</h1>
           <p className="mt-1 max-w-2xl text-muted-foreground">
             Every note you&apos;ve written, in one place.
           </p>

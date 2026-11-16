@@ -388,6 +388,8 @@ export async function importStep(job: ImportJob) {
   const reads: ReadInsert[] = [];
   const notes: NoteInsert[] = [];
   const favourites: string[] = [];
+  // StoryGraph moods, pace and story focus, by the Work the book was filed under.
+  const bookTags = new Map<string, NonNullable<ImportRow["bookTags"]>>();
 
   for (let i = start; i < end; i++) {
     const row = rows[i];
@@ -413,6 +415,8 @@ export async function importStep(job: ImportJob) {
       reads.push(...records.reads);
       notes.push(...records.notes);
       if (row.favourite) favourites.push(bookId);
+      const workId = filed.get(i)?.workId;
+      if (workId && row.bookTags && !bookTags.has(workId)) bookTags.set(workId, row.bookTags);
     }
 
     result.created++;
@@ -439,6 +443,7 @@ export async function importStep(job: ImportJob) {
   if (books.length) await prisma.book.createMany({ data: books });
   if (reads.length) await prisma.bookRead.createMany({ data: reads });
   if (notes.length) await prisma.note.createMany({ data: notes });
+  if (bookTags.size) await saveImportedTags(job.userId, bookTags);
   if (favourites.length) {
     // Each takes its place as a new favourite would (lib/favourites.ts), after any the reader already has.
     const current = await prisma.user.findUnique({ where: { id: job.userId }, select: { favouriteIds: true } });
@@ -452,6 +457,27 @@ export async function importStep(job: ImportJob) {
     data: { importCursor: end, result: json(result) },
   });
   return finished ? finishImport(updated) : updated;
+}
+
+// A StoryGraph reader's moods, pace and story focus, as their tags on each book's Work. A book they've
+// already tagged here keeps its tags: what they said in Bookmark is newer than the file.
+async function saveImportedTags(userId: string, byWork: Map<string, NonNullable<ImportRow["bookTags"]>>) {
+  const workIds = Array.from(byWork.keys());
+  const tagged = new Set(
+    (await prisma.readerTags.findMany({ where: { userId, workId: { in: workIds } }, select: { workId: true } })).map((t) => t.workId)
+  );
+  const data = workIds
+    .filter((workId) => !tagged.has(workId))
+    .map((workId) => {
+      const t = byWork.get(workId)!;
+      return { workId, userId, moods: t.moods, warnings: [], pace: t.pace, focus: t.focus };
+    });
+  try {
+    if (data.length) await prisma.readerTags.createMany({ data });
+  } catch (err) {
+    // Tags are a bonus on top of the books: a failure here doesn't fail the import.
+    console.warn("import: couldn't save StoryGraph tags:", err instanceof Error ? err.message : err);
+  }
 }
 
 // Awards achievements once, for the whole library, and clears the rows (they hold every review).

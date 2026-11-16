@@ -67,7 +67,7 @@ const RoleWelcome: FC = () => {
   const body = (
     <div className="flex w-full flex-col items-center px-6 pb-6 text-center">
       <StaffSeal kind={emblem.seal} size={80} shine pressable={false} className="mb-5" />
-      <p className="text-2xl font-bold">{welcome.title}</p>
+      <p className="text-2xl font-semibold">{welcome.title}</p>
       <p className="mt-1 text-sm text-muted-foreground">{welcome.lede}</p>
 
       <div className="mt-6 w-full text-left">
@@ -91,7 +91,7 @@ const RoleWelcome: FC = () => {
     </div>
   )
 
-  return <Modal isOpen onClose={closeFromModal}title={welcome.heading} body={body} compact size="sm" />
+  return <Modal isOpen onClose={closeFromModal} title={welcome.heading} body={body} size="s" />
 }
 
 export default RoleWelcome

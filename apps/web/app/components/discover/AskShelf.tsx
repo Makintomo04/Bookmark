@@ -31,7 +31,7 @@ const formatRating = (rating: number) => (Number.isInteger(rating) ? String(rati
 
 // Marks every piece of text the model wrote. The strategy's rule: AI is always labelled.
 export const AiLabel: FC<{ className?: string }> = ({ className }) => (
-  <span className={cn("inline-flex items-center gap-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand", className)}>
+  <span className={cn("inline-flex items-center gap-1 rounded-md border border-neutral-300 dark:border-neutral-700 px-1.5 py-0.5 text-xs font-medium text-muted-foreground", className)}>
     <Feather size={10} aria-hidden />AI
   </span>
 )
@@ -415,7 +415,7 @@ const AskShelf: FC<AskShelfProps> = ({ available, enabled: initiallyEnabled, ini
         <section aria-labelledby="ask-results-heading" className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
-              <h2 id="ask-results-heading" className="text-xl font-bold">
+              <h2 id="ask-results-heading" className="text-lg font-semibold">
                 {outcome.results.length > 0 ? `${outcome.results.length} ${outcome.results.length === 1 ? "book" : "books"} from the catalog` : "Nothing in the catalog fits yet"}
               </h2>
               {chips.length > 0 && (

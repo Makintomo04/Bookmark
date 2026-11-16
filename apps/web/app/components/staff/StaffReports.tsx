@@ -107,7 +107,7 @@ const CommentThread = ({ commentId }: { commentId: string }) => {
                   <p className="text-xs text-muted-foreground">
                     {c.authorUsername ? `@${c.authorUsername}` : 'A deleted account'} · {where}{c.reported && <span className="font-medium text-foreground"> · Reported</span>}
                   </p>
-                  {c.deleted ? <p className="mt-0.5 italic text-muted-foreground">Removed</p> : <p className="mt-0.5 whitespace-pre-line line-clamp-6">{c.body}</p>}
+                  {c.deleted ? <p className="mt-0.5 text-muted-foreground">Removed</p> : <p className="mt-0.5 whitespace-pre-line line-clamp-6">{c.body}</p>}
                 </>
               )}
             </li>

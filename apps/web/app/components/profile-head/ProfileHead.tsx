@@ -1,48 +1,51 @@
 "use client"
 import { FC, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Plus } from 'lucide-react'
 import { Lightbox } from "react-modal-image"
 import { Book } from '@prisma/client'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
 import useUser from '@/app/hooks/useUser'
 import { useBooksReadFor } from '@/app/hooks/useTierPreview'
 import useBooks from '@/app/hooks/useBooks'
 import useAchievements from '@/app/hooks/useAchievements'
 import usePublicProfile from '@/app/hooks/usePublicProfile'
-import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useEditProfileModal from '@/app/hooks/useEditProfileModal'
+import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import ProfileSkeleton, { ReadingNowSkeleton } from './ProfileSkeleton'
-import ProfileHeader, { primaryButtonClass, secondaryButtonClass } from './ProfileHeader'
-import { shelfReviewCount } from '@/lib/reviewedBooks'
+import ProfileHeader, { secondaryButtonClass } from './ProfileHeader'
 import ReadingGoalWidget from './ReadingGoalWidget'
 import ContinueReading from './ContinueReading'
 import UpNext from './UpNext'
 import ShelfSearch from './ShelfSearch'
-import ProfileAuthors from './ProfileAuthors'
+import ProfileLinkRows from './ProfileLinkRows'
 import OwnReviews from './OwnReviews'
 import BandsShowcase, { ProfileFavourites } from './BandsShowcase'
 import BookList from '../books/BookList'
-import MedalShowcase from '../achievements/MedalShowcase'
+import { BANDS_AUTHORS, OwnAuthors } from './ProfileAuthors'
 import { useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
 import { isNarrowed } from '@/lib/shelfFilter'
 import { groupShelf } from '../books/shelf'
-import useSWR from 'swr'
-import { fetcher, swrOptions } from '@/lib/fetcher'
-import type { FollowedAuthor } from '@/lib/authorFollows'
-import type { ProfileLayout } from './Band'
+import { BANDS_REVIEWS, type ProfileLayout } from './Band'
 import ShareProfileButton from './ShareProfileButton'
 import FetchErrorState from '../FetchErrorState'
 import { isFinishedBook } from '@/lib/readerTier'
-import { resolveBanner } from '@/lib/banners'
 import { supporterOf } from '@/lib/supporter'
 import { staffBadgeOf } from '@/lib/staffBadge'
 import { milestoneKey, type AchievementKey } from '@/lib/achievements-catalog'
 
-// Followed authors in your header's column before "+N more".
-const FOLLOWED_SHOWN = 8
-// Your reviews in that column show three before "Show more", as they do below it.
-const REVIEWS_SHOWN = 3
+// Your achievements and your stats, as rows: under your header's column from lg up, at the end of the page below it.
+export const ownLinkRows = (earned: number) => [
+  { label: "Achievements", href: "/achievements", count: earned },
+  { label: "Stats and streaks", href: "/stats" },
+]
+
+// The same rows at the end of your profile below lg, counted from your achievements alone.
+export const OwnLinkRows: FC = () => {
+  const { achievements } = useAchievements()
+  const earned = achievements.reduce((n, a) => n + a.milestones.filter((m) => m.earned).length, 0)
+  return <ProfileLinkRows className="!border-t-0" rows={ownLinkRows(earned)} />
+}
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -54,20 +57,29 @@ const BooksTop: FC = () => {
   const { user } = useUser()
   const { books } = useBooks()
   const shared = useSharedShelfFilter()
+  const bookEntryModal = useBookEntryModal()
   if (!Array.isArray(books)) return <ReadingNowSkeleton progress heading="w-44" />
   const { reading, finished } = groupShelf(books as Book[])
   const searching = !!shared && (isNarrowed(shared.filter) || shared.filtersOpen)
   return (
     <>
-    {/* From lg up your favourites lead this column, above what you're reading; below lg they're a band of their own
-        (OwnerProfile). Out of the way while you search, so the results stay right under the field. */}
+    {/* From lg up your favourites lead this column, above what you're reading; below lg they open the profile
+        (`lead`). Out of the way while you search, so the results stay right under the field. */}
     {!searching && <div className="hidden lg:block"><ProfileFavourites /></div>}
     <section aria-labelledby="continue-reading">
       <div className="mb-4 flex min-h-10 items-center justify-between gap-4">
         <h2 id="continue-reading" className="flex items-baseline gap-2 text-lg font-semibold">
           {searching ? "Your shelf" : reading.length > 0 ? <>Continue reading <span className="text-sm font-normal text-muted-foreground tabular-nums">{reading.length}</span></> : "Up next"}
         </h2>
-        <ShelfSearch />
+        {/* Adding a book heads the first books section, high on the page and beside the books it joins (BOO-97). */}
+        <div className="flex shrink-0 items-center gap-2">
+          <ShelfSearch />
+          {/* "Add" on a phone, so "Continue reading" stays on one line beside it. */}
+          <button type="button" onClick={() => bookEntryModal.onOpen()} aria-label="Add a book"
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-neutral-300 px-3.5 text-sm font-medium transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-fine:h-9 dark:border-neutral-700 dark:hover:bg-neutral-900">
+            <Plus size={16} aria-hidden /><span className="sm:hidden">Add</span><span className="hidden sm:inline">Add a book</span>
+          </button>
+        </div>
       </div>
       {searching ? <BookList slot="results" /> : reading.length > 0
         ? <><ContinueReading books={reading} finished={finished} accentColour={user?.favColour} /><div className="lg:hidden"><UpNext /></div></>
@@ -79,28 +91,20 @@ const BooksTop: FC = () => {
           Can&apos;t decide? <Link href="/first-book" className="font-medium text-foreground underline-offset-4 hover:underline">Help me pick a book</Link>
         </p>
       )}
-      {/* From lg up the rest of this column is Up next (three) beside your lists, so they sit beside your reviews
-          rather than under them. Below lg they stay bands of their own (OwnerProfile). */}
-      {!searching && user && (
-        <div className={cn("hidden lg:block", reading.length > 0 ? "mt-8" : "mt-12")}>
-          <BandsShowcase username={user.username} column withUpNext={reading.length > 0} />
-        </div>
+      {/* On a phone your favourites come after what you're reading and what's next, before your shelves; from md
+          they're beside your header (`lead`). */}
+      {!searching && <div className="mt-12 md:hidden"><ProfileFavourites half /></div>}
+      {/* Your shelves end this column: beside your header from lg up, and straight after Up next on a phone, rather
+          than a full-width band at the foot of the page. Out of the way while you search, as the results take their place. */}
+      {!searching && (
+        // From lg up no rule above them: the tabs' own underline already starts the section.
+        <div className="mt-10 border-t border-neutral-200 pt-10 dark:border-neutral-800 lg:mt-12 lg:border-t-0 lg:pt-0"><BookList slot="shelves" /></div>
       )}
+      {/* From lg up the authors you follow come after your shelves, in this column rather than a band under both;
+          below lg they're further down the page (OwnerProfile). */}
+      {!searching && <div className="mt-10 hidden border-t border-neutral-200 pt-10 dark:border-neutral-800 lg:block lg:empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>}
     </section>
     </>
-  )
-}
-
-// Under your stats in bands, when you're reading nothing: said once, with the way to start.
-const NothingOnTheGo: FC = () => {
-  const { books } = useBooks()
-  const bookEntryModal = useBookEntryModal()
-  if (!Array.isArray(books) || groupShelf(books as Book[]).reading.length > 0) return null
-  return (
-    <p className="mt-2 text-sm text-muted-foreground">
-      Not reading anything right now ·{" "}
-      <button type="button" onClick={() => bookEntryModal.onOpen(undefined, { shelf: "STARTED" })} className="inline-flex items-center gap-1 font-medium text-foreground hover:underline underline-offset-2"><Plus size={14} aria-hidden />Start a book</button>
-    </p>
   )
 }
 
@@ -115,11 +119,8 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
   const { achievements, isLoading: achievementsLoading } = useAchievements()
   // Only its counts and medals: your books are on your shelf (useBooks), which comes with the page.
   const { profile } = usePublicProfile(user?.username ?? "", { books: false })
-  const bookEntryModal = useBookEntryModal()
   const editProfileModal = useEditProfileModal()
   const [showLightbox, setShowLightbox] = useState(false)
-  // The same list as Authors you follow further down, so it's one request.
-  const { data: followed } = useSWR<{ authors: FollowedAuthor[] }>(bands ? '/api/user/authors' : null, fetcher, swrOptions)
 
   // SWR reports isLoading while it revalidates server-provided fallback data too, so check for data.
   if (isLoading && !user) return <ProfileSkeleton own shelves={false} />
@@ -130,6 +131,8 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
 
   // Until the shelf and achievements load, use the counts that came with the server render, so the stats don't flash 0.
   const booksRead = books ? books.filter(isFinishedBook).length : user._count?.books ?? 0
+  // How many you're reading, for whether Up next sits in your header's column (identityFooter).
+  const reading = Array.isArray(books) ? groupShelf(books as Book[]).reading.length : 0
   const earnedKeys = achievementsLoading
     ? profile?.achievements ?? []
     : achievements.flatMap((a) => a.milestones.filter((m) => m.earned).map((m) => ({ key: milestoneKey(a.key as AchievementKey, m.value) })))
@@ -138,9 +141,6 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
   const following = profile?.followingCount ?? 0
   // Calm social: with counts hidden, even the owner just gets the links to the lists.
   const hideCounts = !!user.hideFollowCounts
-  // Your reviews: finished books with one, as your reviews section and page count them. Until the shelf
-  // loads, the count that came with the page.
-  const reviews = books ? shelfReviewCount(books as Book[]) : profile?.reviewCount ?? 0
 
   return (
     <>
@@ -151,50 +151,41 @@ const ProfileHead: FC<{ layout?: ProfileLayout }> = ({ layout = 'bands' }) => {
         bio={user.bio}
         links={user.profileLinks}
         image={user.image}
-        banner={resolveBanner(user.banner, user.id)}
+        banner={user.banner}
         colour={user.favColour}
         {...supporterOf(user)}
         staffBadge={staffBadgeOf(user)}
         compact={bands}
         besides={bands ? <BooksTop /> : undefined}
-        // From lg up the column ends with your reviews, the authors you follow, then your top medals (below lg,
-        // the reviews and authors come after what you're reading, and the medals are on the achievements page).
+        // From md to lg your favourites sit beside your header. On a phone what you're reading comes first, as it's
+        // what you come here to update, and they follow it (BooksTop).
+        lead={bands ? <ProfileFavourites half /> : undefined}
+        leadOnPhone={false}
+        // From lg up the column ends with Up next, your reviews, your lists, then the ways further in; below lg
+        // they're further down the page (OwnerProfile, BooksTop).
         identityFooter={bands ? (
-          // 32px under the buttons and between every block; the medals' own 20px top margin is dropped so theirs matches.
-          <div className="flex flex-col gap-8 pt-8">
-            <div className="empty:hidden"><OwnReviews first={REVIEWS_SHOWN} /></div>
-            {followed && <div><ProfileAuthors authors={followed.authors} isSelf cap={FOLLOWED_SHOWN} /></div>}
-            <div className="[&>section]:!mt-0"><MedalShowcase earned={earnedKeys} href="/achievements" stacked /></div>
+          <div className="mt-10 flex flex-col gap-8">
+            {/* What to start next, three across, at the top of the column while something's on the go. With nothing on
+                the go Up next leads the books column instead (BooksTop). */}
+            {reading > 0 && <UpNext cap={3} />}
+            <div className="empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
+            {/* Your lists, two across, under your reviews. Below lg they're a band of their own (OwnerProfile). */}
+            <div className="empty:hidden"><BandsShowcase username={user.username} column /></div>
+            <ProfileLinkRows rows={ownLinkRows(earned)} />
           </div>
         ) : undefined}
         onAvatarClick={user.image ? () => setShowLightbox(true) : undefined}
         stats={[
           { value: booksRead, label: plural(booksRead, "book read", "books read") },
-          { value: reviews, label: plural(reviews, "review"), href: `/u/${encodeURIComponent(user.username)}/reviews` },
           { value: hideCounts ? null : followers, label: hideCounts ? "Followers" : plural(followers, "follower"), followList: { username: user.username, kind: "followers" } },
           { value: hideCounts ? null : following, label: hideCounts ? "Following" : "following", followList: { username: user.username, kind: "following" } },
-          { value: earned, label: plural(earned, "achievement"), href: "/achievements" },
         ]}
         share={<ShareProfileButton username={user.username} />}
-        actions={
-          <>
-            <button type="button" onClick={editProfileModal.onOpen} className={`${secondaryButtonClass} max-sm:px-3 lg:flex-1`}>
-              <span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit profile</span>
-            </button>
-            <button type="button" onClick={() => bookEntryModal.onOpen()} className={`${primaryButtonClass} max-sm:px-3 lg:flex-1`}>
-              <Plus size={16} aria-hidden /><span className="sm:hidden">Add</span><span className="hidden sm:inline">Add a book</span>
-            </button>
-          </>
-        }
+        // One button: adding a book is in the site header and on your shelf, not beside your name (BOO-97).
+        actions={<button type="button" onClick={editProfileModal.onOpen} className={secondaryButtonClass}>Edit profile</button>}
       >
-        {/* One slim line, so the first cover on the shelf is in view without scrolling, even on a phone. */}
-        {bands ? (
-          <>
-            <NothingOnTheGo />
-            <div className="lg:hidden"><ReadingGoalWidget variant="lines" /></div>
-            <div className="hidden lg:block"><ReadingGoalWidget variant="block" /></div>
-          </>
-        ) : <ReadingGoalWidget />}
+        {/* One line and a thin bar; the month, pages and average are on /stats. */}
+        {bands ? <ReadingGoalWidget variant="bar" /> : <ReadingGoalWidget />}
       </ProfileHeader>
 
       {showLightbox && user.image && (

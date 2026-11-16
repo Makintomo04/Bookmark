@@ -6,6 +6,7 @@ import { createBuddyReadSchema } from "@/lib/buddyReads";
 import { CIRCLE_SLOTS_MESSAGE, circleSlotsLeft } from "@/lib/clubs";
 import { createCircle, isObjectId, parseBody } from "@/lib/buddyReadsServer";
 import { addClubToCircle, clubError, requireClubMembership } from "@/lib/clubsServer";
+import { settleNewClubBook } from "@/lib/clubLimits";
 
 // The host or a co-host starts the club's next book, from their own shelf: a reading circle in the club,
 // with every member added (a new copy goes in Want to read if it hasn't started yet) and told. It counts
@@ -32,6 +33,9 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   if (circleSlotsLeft(open) === 0) return clubError(CIRCLE_SLOTS_MESSAGE, 409);
 
   const circle = await createCircle(book, currentUser.id, { startsAt, schedule, clubId: membership.club.id });
-  await addClubToCircle(circle, membership.club.id, currentUser.id);
-  return NextResponse.json({ id: circle.id });
+  const { leftOut } = await addClubToCircle(circle, membership.club.id, currentUser.id);
+  // Archived meanwhile: the book is finished with the rest, so it doesn't run outside every limit.
+  await settleNewClubBook(membership.club.id, prisma);
+  // leftOut: members there wasn't room for, so the starter is told (lib/clubs.ts clubBookLeftOutMessage).
+  return NextResponse.json({ id: circle.id, leftOut });
 }

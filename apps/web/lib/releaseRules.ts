@@ -80,3 +80,17 @@ export function takesSeriesPlace(had: { seriesName: string | null; seriesPositio
   if (!had.seriesName) return true;
   return had.seriesPosition == null && seriesKey(had.seriesName, author) === seriesKey(name, author);
 }
+
+// What lib/seriesFill.ts fileSeriesBooks does with a catalogue work Hardcover lists as one of a series' books:
+// whether it takes the place (takesSeriesPlace), the place it gets, and whether that place is held back from
+// the series' highest book because the book isn't out by either date. A work whose series a librarian set
+// keeps it, place and all, but its place is still held back, so nobody hears it's new in the series early.
+// No database.
+export function companionPlace(
+  had: { seriesName: string | null; seriesPosition: number | null; curatedFields: string[]; releaseDate: string | null },
+  book: { position: number; releaseDate?: string | null },
+  name: string, author: string, today: string,
+): { takes: boolean; position: number | null; held: boolean } {
+  const position = placeWhileUpcoming(placeWhileUpcoming(book.position, had.releaseDate, today), book.releaseDate, today);
+  return { takes: takesSeriesPlace(had, name, author), position, held: position == null };
+}

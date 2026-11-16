@@ -5,11 +5,10 @@ import Link from 'next/link'
 import { ChevronRight, Crown, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowListKind } from '@/lib/follows'
-import { bannerPresetOf, resolveBanner } from '@/lib/banners'
+import { bannerTintCss, uploadedBanner } from '@/lib/banners'
 import type { SupporterBadgeKind } from '@/lib/supporter'
 import type { StaffBadgeKind } from '@/lib/staffBadge'
 import { profileLinkLabel, readerName } from '@/lib/profile'
-import BannerPattern from '../profile/BannerPattern'
 import TierAvatar from './TierAvatar'
 import StaffSeal from './StaffSeal'
 import FollowListStat from './FollowListStat'
@@ -34,31 +33,35 @@ interface ProfileHeaderProps {
   // Their links (TikTok, a newsletter…), as chips under the bio.
   links?: string[]
   image?: string | null
-  // An uploaded image URL or a "preset:<id>" pattern. Callers resolve the seeded default from the
-  // user's id; with nothing passed, the username seeds one so the header never renders bare.
+  // Their uploaded picture, if any. Anything else (empty, an old "preset:<id>") gets the strip of their colour.
   banner?: string | null
   colour?: string | null
   stats: ProfileStat[]
   actions?: ReactNode
-  // The share icon, beside the display name.
+  // The share icon, after the buttons.
   share?: ReactNode
   children?: ReactNode
   onAvatarClick?: () => void
   booksRead: number
-  // A Bookmark Plus account: shows the supporter badge beside the name.
+  // A Bookmark Plus account: says so, in words, after the handle.
   supporter?: boolean
   // A founder on Plus: the badge reads "Founding Reader".
   founding?: boolean
   // Which supporter badge, when the profile has one. Takes over from supporter/founding.
   badge?: SupporterBadgeKind | null
-  // "Bookmark team" or "Librarian" (lib/staffBadge.ts): a seal on the avatar's corner.
+  // "Bookmark team" or "Librarian" (lib/staffBadge.ts): a seal beside the name, as on their other pages.
   staffBadge?: StaffBadgeKind | null
   // The profile in bands (Band.tsx). `besides` (what they're reading, what's next) sits beside the
-  // header from lg up, which becomes a column; `identityFooter` ends that column from lg up (top medals,
-  // when the books beside it run longer);
-  // `follows` puts the first authors they follow under the bio; `compact` keeps the banner shorter on a
-  // wide screen, so the first band starts higher.
+  // header from lg up, which becomes a column; `identityFooter` ends that column from lg up;
+  // `follows` puts the first authors they follow under the bio; `compact` keeps a banner shorter
+  // on a wide screen, so the first band starts higher.
   besides?: ReactNode
+  // Below lg only: the books that open the profile (their favourites, BOO-99). Under the header on a phone, beside
+  // it from md, where the header alone would leave half the width empty. From lg up they're in `besides`.
+  lead?: ReactNode
+  // False keeps `lead` off a phone, for a caller that places it lower there (your own profile, where what you're
+  // reading comes first).
+  leadOnPhone?: boolean
   identityFooter?: ReactNode
   follows?: { name: string; slug: string }[]
   // Your own profile: with no followed authors, a line pointing you to some instead of nothing.
@@ -96,6 +99,17 @@ const BADGE: Record<SupporterBadgeKind, { label: string; title: string }> = {
   supporter: { label: "Supporter", title: "Supports Bookmark with Plus" },
 }
 
+// The Plus badge beside the name: a pill in the brand colour, linking to what Plus is.
+const SupporterBadge: FC<{ kind: SupporterBadgeKind }> = ({ kind }) => (
+  <Link
+    href="/plus"
+    title={BADGE[kind].title}
+    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 align-middle text-xs font-medium text-brand-fill transition hover:bg-brand/15 dark:text-brand"
+  >
+    <Crown size={12} aria-hidden /> {BADGE[kind].label}
+  </Link>
+)
+
 // 44px tall on touch screens, compact with a mouse (see the pointer-fine variant in tailwind.config.ts).
 export const primaryButtonClass = "inline-flex items-center justify-center gap-2 h-11 pointer-fine:h-9 px-4 rounded-md text-sm font-medium bg-foreground text-background hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
 export const secondaryButtonClass = "inline-flex items-center justify-center gap-2 h-11 pointer-fine:h-9 px-4 rounded-md text-sm font-medium border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
@@ -112,16 +126,6 @@ const Stat: FC<{ stat: ProfileStat }> = ({ stat }) => {
   return <span className={className}>{content}</span>
 }
 
-export const SupporterBadge: FC<{ founding?: boolean; kind?: SupporterBadgeKind }> = ({ founding, kind = founding ? "founding" : "supporter" }) => (
-  <Link
-    href="/plus"
-    title={BADGE[kind].title}
-    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 align-middle text-xs font-medium text-brand-fill dark:text-brand transition hover:bg-brand/15"
-  >
-    <Crown size={12} aria-hidden /> {BADGE[kind].label}
-  </Link>
-)
-
 // A reader's links, labelled by where they go. They lead off Bookmark, so they open in a new tab and
 // carry no endorsement (nofollow ugc); `me` lets sites that check it verify the profile.
 const ProfileLinks: FC<{ links: string[] }> = ({ links }) => (
@@ -136,75 +140,103 @@ const ProfileLinks: FC<{ links: string[] }> = ({ links }) => (
   </ul>
 )
 
-const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, links, image, banner, colour, stats, actions, share, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, identityFooter, follows, followsPrompt = false, compact = false }) => {
+const ProfileHeader: FC<ProfileHeaderProps> = ({ username, displayName, bio, links, image, banner, colour, stats, actions, share, children, onAvatarClick, booksRead, supporter, founding, badge, staffBadge, besides, lead, leadOnPhone = true, identityFooter, follows, followsPrompt = false, compact = false }) => {
   const accent = colour || "#F13C3C"
-  const shownBanner = resolveBanner(banner, username)
-  const preset = bannerPresetOf(shownBanner)
-  const plus = !!(badge || supporter)
+  // Every profile has a banner (BOO-99): their picture, or a strip of their colour mixed well into the page, so
+  // the covers stay the brightest thing on it. The avatar rides up over it and the name sits underneath.
+  const upload = uploadedBanner(banner)
+  const badgeKind: SupporterBadgeKind | null = badge ?? (supporter ? (founding ? "founding" : "supporter") : null)
   const name = readerName({ username, displayName })
+  const split = name.lastIndexOf(" ") + 1
+  const leadingWords = name.slice(0, split)
+  const lastWord = name.slice(split)
+  // A rounded square for a Plus supporter (the badge beside the handle says so too), a circle for everyone else,
+  // in the full frame from before BOO-97: an edge of the page lifts it off the banner, then a band of their tier's
+  // metal.
+  const plus = !!badgeKind
   const avatar = (
     <TierAvatar image={image} username={username} colour={accent} alt={`${name}'s avatar`} booksRead={booksRead} square={plus} className="size-20 sm:size-28" />
+  )
+  const avatarButton = onAvatarClick ? (
+    <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
+      {avatar}
+    </button>
+  ) : avatar
+  const nameBlock = (
+    <div className="min-w-0">
+      <h1 className="page-title break-words">
+        {/* The seal is held to the name's last word, or a line break can fall before it and leave it alone on the
+            next line. A very long last word (a 30-letter username) is left free to break instead. */}
+        {staffBadge && lastWord.length <= 14 ? (
+          <>{leadingWords}<span className="whitespace-nowrap">{lastWord}<StaffSeal kind={staffBadge} name={name} size={22} className="ml-2 align-[-2px]" /></span></>
+        ) : (
+          <>{name}{staffBadge && <StaffSeal kind={staffBadge} name={name} size={22} className="ml-2 align-[-2px]" />}</>
+        )}
+      </h1>
+      {/* Under the name: the handle (it's the /u/ address and how friends find them) and the Plus badge. */}
+      {(displayName || badgeKind) && (
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          {displayName && <span className="break-all">@{username}</span>}
+          {badgeKind && <SupporterBadge kind={badgeKind} />}
+        </p>
+      )}
+    </div>
   )
 
   return (
     <header>
-      {/* Shorter on a phone, with the buttons beside the avatar, so the shelf's first cover is in view. The banner
-          reaches the page's outer edge (edge to edge on a phone); everything else sits on the inner line. */}
-      <div className={cn("relative h-24 sm:h-44 overflow-hidden sm:rounded-2xl", compact && "lg:h-32", BLEED)} style={{ background: accent }}>
-        {preset
-          ? <BannerPattern preset={preset} colour={accent} />
-          : <Image src={shownBanner} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
+      <div className={cn("relative h-24 sm:h-44 overflow-hidden sm:rounded-2xl", compact && "lg:h-32", BLEED)} style={{ background: upload ? accent : bannerTintCss(accent) }}>
+        {upload && <Image src={upload} alt="" fill priority sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover" />}
       </div>
 
       {/* In bands (`besides`), from lg up this is the left third of a grid and the books sit in the other two
-          thirds; the buttons drop under the stats. Below lg it's the header as ever, with the books under it. */}
-      <div data-top-grid className={cn(besides && "lg:grid lg:grid-cols-12 lg:gap-10")}>
-      <div data-identity className={cn(besides && "lg:col-span-4 lg:flex lg:flex-col lg:self-start")}>
-        <div className={cn("-mt-9 sm:-mt-14 flex items-end justify-between gap-3 sm:gap-4", besides && "lg:contents")}>
-          {/* The seal sits beside the avatar's button, not in it, so it can be pressed on its own. */}
-          <div className={cn("relative shrink-0", besides && "lg:-mt-14 lg:self-start")}>
-            {onAvatarClick ? (
-              <button type="button" onClick={onAvatarClick} aria-label="View profile picture" className={cn("block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", plus ? "rounded-[32px]" : "rounded-full")}>
-                {avatar}
-              </button>
-            ) : avatar}
-            {staffBadge && <StaffSeal kind={staffBadge} name={name} size={30} cutOut shine className={cn("absolute", plus ? "-right-1.5 bottom-0.5" : "right-0 bottom-[6%]")} />}
-          </div>
-          {/* On a phone the buttons are shorter, so beside the smaller avatar they clear the banner by 12px. */}
-          {actions && <div className={cn("flex min-w-0 items-center gap-2 sm:pb-1 max-sm:[&>*]:h-8", besides && "lg:order-last lg:mt-5 lg:w-full lg:flex-wrap lg:pb-0")}>{actions}</div>}
-        </div>
+          thirds. Below lg it's the header as ever, with the books under it. */}
+      <div data-top-grid className={cn(besides && "lg:grid lg:grid-cols-12 lg:gap-16")}>
+      {/* From md to lg, the header and `lead` side by side. From lg up this wrapper always steps aside (contents), with
+          or without a lead, so the header's column is a cell of the grid above, not this wrapper. */}
+      <div className={cn("lg:contents", lead && "md:grid md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] md:gap-8")}>
+      <div data-identity className={cn("min-w-0 sm:max-w-md lg:max-w-none", besides && "lg:col-span-4 lg:flex lg:flex-col lg:self-start")}>
+        <div className="relative -mt-10 sm:-mt-14 w-fit">{avatarButton}</div>
+        <div className="mt-3">{nameBlock}</div>
 
-        <div className="mt-3 sm:mt-4 min-w-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="page-title break-words">{name}</h1>
-            {share}
-            {(badge || supporter) && (
-              // Centring on the line box leaves the pills riding high beside Literata's lowercase,
-              // so drop them to the middle of the name's x-height.
-              <div className="flex flex-wrap items-center gap-2 translate-y-1">
-                {badge ? <SupporterBadge kind={badge} /> : supporter && <SupporterBadge founding={founding} />}
-              </div>
-            )}
+        {bio && <p className="mt-4 max-w-xl text-sm text-foreground/80">{bio}</p>}
+        {links && links.length > 0 && <ProfileLinks links={links} />}
+        {/* One line of counts, the dots between them out of the way of screen readers. */}
+        {stats.length > 0 && (
+          <p className="mt-3 flex flex-wrap items-center gap-x-1.5">
+            {stats.map((stat, i) => (
+              <span key={stat.label} className="inline-flex items-center gap-x-1.5">
+                {i > 0 && <span aria-hidden className="text-sm text-muted-foreground">·</span>}
+                <Stat stat={stat} />
+              </span>
+            ))}
+          </p>
+        )}
+        {follows && follows.length > 0 && <FollowsLine authors={follows} />}
+        {follows && follows.length === 0 && followsPrompt && (
+          <Link href="/discover" className="mt-2 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">
+            Follow authors you love<ChevronRight size={14} aria-hidden />
+          </Link>
+        )}
+        {/* The first button takes the width (Edit profile, Follow); the share icon and the menu sit after it. */}
+        {(actions || share) && (
+          <div className="mt-5 flex min-w-0 items-center gap-2 [&>*:first-child]:flex-1">
+            {actions}{share}
           </div>
-          {/* The handle, under a display name: it's the /u/ address and how friends find them. */}
-          {displayName && <p className="mt-1 text-sm text-muted-foreground break-all">@{username}</p>}
-          {bio && <p className="mt-2 max-w-xl text-sm text-muted-foreground">{bio}</p>}
-          {links && links.length > 0 && <ProfileLinks links={links} />}
-          {follows && follows.length > 0 && <FollowsLine authors={follows} />}
-          {follows && follows.length === 0 && followsPrompt && (
-            <Link href="/discover" className="mt-2 inline-flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground">
-              Follow authors you love<ChevronRight size={14} aria-hidden />
-            </Link>
-          )}
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
-            {stats.map((stat) => <Stat key={stat.label} stat={stat} />)}
-          </div>
-        </div>
+        )}
 
         {children}
-        {besides && identityFooter && <div className="hidden lg:block lg:order-last">{identityFooter}</div>}
+        {besides && identityFooter && <div className="hidden lg:block">{identityFooter}</div>}
       </div>
-      {besides && <div data-books className="mt-8 min-w-0 lg:col-span-8 lg:mt-6 lg:self-start">{besides}</div>}
+      {lead && (
+        // Its heading starts level with the name, under the overlapping photo (mt-16), rather than floating between
+        // the two.
+        <div data-lead className={cn("mt-6 min-w-0 border-t border-neutral-200 pt-6 dark:border-neutral-800 md:mt-16 md:border-t-0 md:pt-0 lg:hidden", !leadOnPhone && "max-md:hidden")}>
+          {lead}
+        </div>
+      )}
+      </div>
+      {besides && <div data-books className={cn("mt-10 min-w-0 border-t border-neutral-200 pt-10 dark:border-neutral-800 lg:col-span-8 lg:self-start lg:mt-16 lg:border-t-0 lg:pt-0")}>{besides}</div>}
       </div>
     </header>
   )

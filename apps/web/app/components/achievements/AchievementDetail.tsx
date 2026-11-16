@@ -86,7 +86,7 @@ const AchievementDetail: FC<AchievementDetailProps> = ({ achievement, onClose, r
                 {m.earned
                   ? <Check size={16} strokeWidth={3} />
                   : isNext
-                    ? <span className="text-[10px] font-bold tabular-nums">{formatPill(m.value)}</span>
+                    ? <span className="text-[11px] font-semibold tabular-nums">{formatPill(m.value)}</span>
                     : <Lock size={13} />}
               </span>
               <div className={cn("min-w-0 flex-1 pt-1", !m.earned && !isNext && "opacity-60")}>
@@ -108,7 +108,7 @@ const AchievementDetail: FC<AchievementDetailProps> = ({ achievement, onClose, r
     </div>
   )
 
-  return <Modal isOpen onClose={onClose} title={achievement.title} body={body} compact size="sm" />
+  return <Modal isOpen onClose={onClose} title={achievement.title} body={body} size="s" />
 }
 
 export default AchievementDetail

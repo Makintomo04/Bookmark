@@ -6,12 +6,15 @@ export interface Genre {
   label: string
   subject: string
   colour: string
+  // Subjects whose books are left out of this genre's trending row: Open Library tags any love story
+  // "romance", so without these Romance trended Jane Eyre, The Great Gatsby and Agatha Christie (BOO-92).
+  notSubjects?: string[]
 }
 
 export const GENRES: Genre[] = [
   { slug: "fantasy", label: "Fantasy", subject: "fantasy", colour: "#5F3DC4" },
   { slug: "sci-fi", label: "Sci-Fi", subject: "science_fiction", colour: "#1864AB" },
-  { slug: "romance", label: "Romance", subject: "romance", colour: "#C2255C" },
+  { slug: "romance", label: "Romance", subject: "romance", colour: "#C2255C", notSubjects: ["classic_literature", "classics", "classic_fiction", "detective_and_mystery_stories", "mystery"] },
   // Its own genre so readers who want it can say so: the genre picks keep it (and other explicit books)
   // out of everyone else's suggestions (lib/genrePicks.ts MATURE_SUBJECTS).
   { slug: "dark-romance", label: "Dark Romance", subject: "dark_romance", colour: "#5C1A33" },

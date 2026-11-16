@@ -170,7 +170,7 @@ const DiscoverSearch: FC<{ children?: React.ReactNode }> = ({ children }) => {
   }
 
   const retry = <button type="button" onClick={() => setSearchAttempt((n) => n + 1)} className="font-medium text-foreground underline underline-offset-4">Try again</button>
-  const heading = "text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+  const heading = "text-sm font-mediumst text-muted-foreground"
 
   let results: React.ReactNode = null
   if (isActive) {
@@ -329,7 +329,7 @@ const RecentSearches: FC<RecentSearchesProps> = ({ entries, onOpen, onOpenBook, 
 
   return (
     <section aria-labelledby="recent-searches-heading" className="flex max-w-2xl flex-col gap-2">
-      <h2 id="recent-searches-heading" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Recent</h2>
+      <h2 id="recent-searches-heading" className="text-sm font-mediumst text-muted-foreground">Recent</h2>
       <ul className="flex flex-wrap items-center gap-2">
         {entries.map((entry) => {
           const label = entry.kind === "query" ? entry.q : entry.book.title

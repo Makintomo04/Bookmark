@@ -2,13 +2,14 @@
 import { FC, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Book } from '@prisma/client'
-import { ArrowUpDown, LayoutGrid, Grid3x3, ListChecks, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowUpDown, LayoutGrid, Grid3x3, ListChecks, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import useUser from '@/app/hooks/useUser'
+import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useViewMode from '@/app/hooks/useViewMode'
 import useShelfPreview from '@/app/hooks/useShelfPreview'
 import useCollapsedSections from '@/app/hooks/useCollapsedSections'
@@ -20,6 +21,8 @@ import BulkBar from './BulkBar'
 import { useShelfFilterState, useSharedShelfFilter } from '@/app/hooks/useShelfFilter'
 import ShelfToolbar, { PillSelect, pillClass } from './ShelfToolbar'
 import GrowingList from './GrowingList'
+import useScrollRow from '@/app/hooks/useScrollRow'
+import RowArrows from '../RowArrows'
 import {
   EMPTY_FILTER, SHELF_SORTS, SHELF_TITLE, SORT_LABEL, isNarrowed, matchesFilter, shelfOf, shelfPageHref, shelfParams, sortBooks,
   type ShelfKey, type ShelfSort,
@@ -51,6 +54,7 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
   const preview = useShelfPreview()
   const { viewMode, setViewMode } = useViewMode()
   const { user } = useUser()
+  const bookEntryModal = useBookEntryModal()
   const accent = user?.favColour ?? null
   // On your profile each shelf folds up and stays that way. A shelf's own page (and the flat grid) is
   // one shelf, which stays open.
@@ -83,7 +87,10 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
   const [tab, setTab] = useState<ShelfKey | 'all' | null>(null)
   const [phoneSearch, setPhoneSearch] = useState(false)
   // The shelves' tab row scrolls on a phone: keep the open tab in view, clear of the fade at its edge.
-  const tablist = useRef<HTMLDivElement>(null)
+  const tablist = useRef<HTMLDivElement | null>(null)
+  // It drags with a mouse too, with arrows while there are tabs out of sight (useScrollRow).
+  const tabRow = useScrollRow<HTMLDivElement>()
+  const tablistRef = (el: HTMLDivElement | null) => { tablist.current = el; tabRow.ref(el) }
   useEffect(() => {
     const row = tablist.current
     const active = row?.querySelector<HTMLElement>('[aria-selected="true"]')
@@ -283,8 +290,9 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
             aria-label={phoneSearch ? "Close search" : "Search your shelf"} className={cn(iconButton, "sm:hidden")}>
             {phoneSearch ? <X size={18} aria-hidden /> : <Search size={18} aria-hidden />}
           </button>
-          <div ref={tablist} role="tablist" aria-label="Shelves"
-            className={cn("relative flex min-w-0 flex-1 gap-1 overflow-x-auto max-sm:px-5 max-sm:[mask-image:linear-gradient(to_right,transparent,black_20px,black_calc(100%-24px),transparent)]", phoneSearch && "max-sm:hidden")}>
+          <div className={cn("relative min-w-0 flex-1", phoneSearch && "max-sm:hidden")}>
+          <div ref={tablistRef} role="tablist" aria-label="Shelves"
+            className={cn("scrollbar-none relative flex gap-1 overflow-x-auto max-sm:px-5 max-sm:[mask-image:linear-gradient(to_right,transparent,black_20px,black_calc(100%-24px),transparent)]")}>
             {tabs.map((key) => (
               <button key={key} type="button" role="tab" aria-selected={key === current} onClick={() => chooseTab(key)}
                 className={cn(
@@ -295,13 +303,17 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
               </button>
             ))}
           </div>
-          <div className="hidden shrink-0 items-center gap-2 sm:flex">
+          <RowArrows row={tabRow} label="shelves" inside />
+          </div>
+          {/* Sort, Select and the view switch sit in the row from xl up, where there's room for them beside the tabs;
+              narrower (and in the profile's right-hand column) they're in the menu, as on a phone. */}
+          <div className="hidden shrink-0 items-center gap-2 xl:flex">
             <PillSelect label="Sort" icon={<ArrowUpDown size={15} aria-hidden className="shrink-0" />} value={filter.sort}
               options={SHELF_SORTS.map((s) => ({ value: s, label: SORT_LABEL[s] }))} onChange={(v) => setFilter({ ...filter, sort: v as ShelfSort })} />
             {viewToggle}
           </div>
           <DropdownMenu>
-            <DropdownMenuTrigger aria-label="Sort, view and filter" className={cn(iconButton, "sm:hidden")}>
+            <DropdownMenuTrigger aria-label="Sort, view and filter" className={cn(iconButton, "xl:hidden")}>
               <SlidersHorizontal size={18} aria-hidden />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -320,6 +332,10 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
               <DropdownMenuItem onSelect={() => (selecting ? stopSelecting() : setSelecting(true))}>{selecting ? "Done selecting" : "Select books"}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {/* Adding a book sits with your shelves now, not beside your name (BOO-97). */}
+          <button type="button" onClick={() => bookEntryModal.onOpen()} aria-label="Add a book" title="Add a book" className={iconButton}>
+            <Plus size={18} aria-hidden />
+          </button>
         </div>
         {shared?.filtersOpen && <div className="sm:hidden"><ShelfToolbar books={books} filter={filter} onChange={setFilter} searchless /></div>}
         {narrowed && <div className="sm:hidden">{results}</div>}
@@ -345,7 +361,9 @@ const BookGrid: FC<BookGridProps> = ({ books, flat = false, shelf: onlyShelf, sl
         {toolbar}
         <section id="profile-shelf" aria-labelledby="shelf-results">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4 min-h-10">
-            <h2 id="shelf-results" className="text-lg font-semibold tabular-nums">{title}</h2>
+            {/* The shelf's own page already counts it in the header (ShelfHeader); the count shows here once a
+                search or filter narrows it. Screen readers still get the heading. */}
+            <h2 id="shelf-results" className={cn("text-lg font-semibold tabular-nums", !narrowed && "sr-only")}>{title}</h2>
             {selectAll(matches)}
           </div>
           {matches.length > 0

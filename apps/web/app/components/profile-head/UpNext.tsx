@@ -13,17 +13,21 @@ import type { GenrePicks } from '@/lib/genrePicks'
 import useBooks from '@/app/hooks/useBooks'
 import useSettings from '@/app/hooks/useSettings'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
+import useStartDateModal from '@/app/hooks/useStartDateModal'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { groupShelf } from '../books/shelf'
 import BookCover from '../cards/BookCover'
 import { SERIES_TRACKER_KEY } from '../series/FollowSeriesButton'
+import useScrollRow from '@/app/hooks/useScrollRow'
+import RowArrows from '../RowArrows'
 
 // Covers in the row: eight fill the books column on a wide screen; a phone swipes through them.
 const MOST = 8
 
 // One suggestion. On your shelf (`bookId`), Start moves it to Reading; off it (the next in a series you haven't
 // shelved, a pick for you), Start adds it to Reading. Either way it's one tap with Undo, never a form: a book
-// whose page count isn't known yet is logged in percent, chapters or location until it is.
+// whose page count isn't known yet is logged in percent, chapters or location until it is. The toast's
+// "Change date" is for a book started before today (BOO-92).
 interface Pick {
   key: string
   title: string
@@ -40,27 +44,33 @@ interface Pick {
   discover: DiscoverBook
 }
 
-// How long Start says "Reading" before the tile leaves the row.
-const STARTED_MS = 1500
-
 const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
   const { mutate } = useBooks()
   const openDetails = useBookDetailsModal((s) => s.onOpen)
+  const openStartDate = useStartDateModal((s) => s.onOpen)
   const [state, setState] = useState<'idle' | 'starting' | 'started'>('idle')
   const refresh = async () => { await mutate(); refreshAfterBookChange() }
   const paused = pick.status === "PAUSED"
 
   // Starts it straight away and offers Undo, as the app does everywhere, rather than asking first. A paused
   // book picks up where it was; one from your Want to read starts from the beginning; one not on your shelf
-  // goes onto Reading, and Undo takes it off again.
+  // goes onto Reading, and Undo takes it off again. The shelf you see changes at once (a shelved book moves to
+  // Reading before the save returns, a new one joins it as soon as it's saved), and the full refetch follows
+  // in the background, rather than the book appearing in Continue reading only after that refetch.
   const start = async () => {
     setState('starting')
     let undo: () => Promise<unknown>
+    // The shelf copy that was started, for "Change date". A paused book picks its read back up, so its
+    // start date isn't today's to change.
+    let startedId: string | null = null
     try {
       if (pick.bookId) {
         const id = pick.bookId
+        mutate((books: Book[] | undefined) => books?.map((b) => b.id !== id ? b
+          : { ...b, status: "STARTED", ...(!paused && { startedAt: new Date() }) }), { revalidate: false })
         await axios.post("/api/book-progress", paused ? { id, action: "resume" } : { id, action: "start" })
         undo = () => axios.post("/api/book-progress", { id, action: paused ? "pause" : "wantToRead" })
+        if (!paused) startedId = id
       } else {
         const { discover: book } = pick
         const { data: saved } = await axios.post("/api/books", {
@@ -69,11 +79,15 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           isbn10: book.isbn10 ?? undefined, hardcoverId: book.hardcoverId ?? undefined,
           description: book.description ?? undefined, status: "STARTED",
         })
+        mutate((books: Book[] | undefined) => books && saved?.id ? [saved, ...books] : books, { revalidate: false })
         copyCoverLater(saved?.id)
         undo = () => axios.delete(`/api/books/${saved.id}`)
+        startedId = saved?.id ?? null
       }
     } catch (err) {
       setState('idle')
+      // Puts back a book moved to Reading before the save failed.
+      if (pick.bookId) mutate()
       // Shelved in another tab since the row loaded: the refresh moves it up to Continue reading.
       if (axios.isAxiosError(err) && err.response?.status === 409) { refresh(); return notify.info(apiError(err, "Already on your shelf")) }
       return notify.error(apiError(err, `Couldn't start ${pick.title}. Try again.`))
@@ -84,8 +98,9 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
         label: "Undo",
         onClick: () => { undo().then(refresh).catch((err) => notify.error(apiError(err, "Couldn't undo that"))) },
       },
+      ...(startedId && { secondaryAction: { label: "Change date", onClick: () => openStartDate(startedId!, pick.title) } }),
     })
-    setTimeout(refresh, STARTED_MS)
+    refresh()
   }
 
   return (
@@ -100,7 +115,7 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
           variant="thumb" sizes="(min-width: 1024px) 72px, 96px" className="w-full shadow-sm" />
         {/* A series book says where it sits, on the cover rather than in a line under the title. */}
         {pick.position != null && (
-          <span title={pick.tag} className="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-black/75 px-1.5 text-[10px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-white/20">
+          <span title={pick.tag} className="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-black/75 px-1.5 text-[11px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-white/20">
             #{Number(pick.position.toFixed(2))}
           </span>
         )}
@@ -142,6 +157,8 @@ const PickTile: FC<{ pick: Pick; row?: boolean }> = ({ pick, row = false }) => {
 const UpNext: FC<{ bare?: boolean; row?: boolean; cap?: number; after?: { title: string; author: string } }> = ({ bare = false, row = false, cap, after }) => {
   const { books } = useBooks()
   const { settings } = useSettings()
+  // Draggable with a mouse, with arrows while there's more to see (useScrollRow); a phone swipes it.
+  const scroller = useScrollRow<HTMLUListElement>()
   const { data: series } = useSWR<{ series: SeriesTrack[] }>(SERIES_TRACKER_KEY, fetcher, swrOptions)
   const { data: genre } = useSWR<GenrePicks>('/api/discover/for-you', fetcher, swrOptions)
   // Fetched once per finished book; empty (and the row left out) when there aren't two or three good matches.
@@ -193,23 +210,26 @@ const UpNext: FC<{ bare?: boolean; row?: boolean; cap?: number; after?: { title:
       {after && similar.length > 0 && (
         <div className="mb-4">
           <p className="mb-2 text-xs font-medium text-muted-foreground">Because you finished {after.title}</p>
-          <ul className="relative flex gap-3 overflow-x-auto overflow-y-hidden pb-2">
+          <ul className="scrollbar-none relative flex gap-3 overflow-x-auto overflow-y-hidden pb-2">
             {similar.map((pick) => <PickTile key={pick.key} pick={pick} row />)}
           </ul>
         </div>
       )}
       {after && similar.length > 0 && picks.length > 0 && <p className="mb-2 text-xs font-medium text-muted-foreground">More to read</p>}
-      <ul className={cap ? "grid grid-cols-3 gap-3" : cn(
+      <div className="relative">
+      <ul ref={cap ? undefined : scroller.ref} className={cap ? "grid grid-cols-3 gap-3" : cn(
         // Relative, so the Start buttons' screen-reader text stays inside the scroller instead of widening the page.
         // Out to the screen's edges on a phone, with the page's 16px kept as scroll padding too: without it each
         // tile snaps to the scroller's very edge and the first cover touches the side of the screen.
         // overflow-y-hidden: overflow-x-auto alone makes it a vertical scroller too, and the Start pills' tap areas
         // reaching past the bottom let the row be dragged up and down. pb-2 keeps those tap areas inside it.
-        "relative flex gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x pb-2 max-sm:-mx-4 max-sm:px-4 max-sm:scroll-px-4",
+        "scrollbar-none relative flex gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x pb-2 max-sm:-mx-4 max-sm:px-4 max-sm:scroll-px-4",
         !row && "sm:grid sm:grid-cols-6 sm:overflow-visible lg:grid-cols-7 sm:max-lg:[&>li:nth-child(n+7)]:hidden lg:[&>li:nth-child(n+8)]:hidden",
       )}>
         {picks.map((pick) => <PickTile key={pick.key} pick={pick} row={row} />)}
       </ul>
+      {!cap && <RowArrows row={scroller} label="Up next" top="top-[38%]" />}
+      </div>
     </section>
   )
 }

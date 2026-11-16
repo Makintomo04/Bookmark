@@ -2,6 +2,8 @@ import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
+// Its own fetcher: see the shelf screen (swr/infinite may not see the app's SWRConfig).
+import { fetcher } from "@/lib/api";
 import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
 import { pagedBooks } from "@bookmark/shared/shelfFilter";
 import { BookCover } from "@/components/books/BookCover";
@@ -40,7 +42,7 @@ export default function ReaderReviewsScreen() {
   const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<ReviewsPage>((index, previous: ReviewsPage | null) => {
     if (!username || (previous && !previous.nextCursor)) return null;
     return `/api/users/${name}/reviews?take=${PAGE}${previous?.nextCursor ? `&cursor=${previous.nextCursor}` : ""}`;
-  });
+  }, fetcher);
   const books = pagedBooks(data ?? []);
   const total = data?.[0]?.total;
   const more = !!data?.[data.length - 1]?.nextCursor;
@@ -68,7 +70,7 @@ export default function ReaderReviewsScreen() {
         renderItem={({ item }) => (
           <View style={{ gap: 6, paddingVertical: 14 }}>
             <View style={styles.row}>
-              <BookCover book={item} width={36} fallbackColour={accent} />
+              <BookCover book={item} width={36} />
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1}>{item.title}</Text>
                 <Text variant="small" numberOfLines={1}>{item.author}</Text>

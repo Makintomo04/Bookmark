@@ -13,7 +13,6 @@ import {
   Lock,
   NotebookPen,
   Rss,
-  Sparkles,
   Users,
 } from 'lucide-react'
 
@@ -112,13 +111,13 @@ const faqs = [
 ]
 
 const ctaClassName = "bg-brand-fill hover:bg-brand-fill-hover text-white h-12 px-7 text-base font-semibold w-full sm:w-auto"
-const cardClassName = "rounded-[20px] border border-neutral-200 dark:border-neutral-800"
+const cardClassName = "rounded-2xl border border-neutral-200 dark:border-neutral-800"
 const mutedClassName = "text-neutral-600 dark:text-neutral-300/90"
 
 // Stills of the two halves of the app, side by side in the hero: a year of tracking, then a circle.
 const TrackerStill: FC = () => (
   <div className={`w-full p-5 text-left ${cardClassName} bg-background shadow-sm`} aria-hidden>
-    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your year</p>
+    <p className="text-sm font-mediumr text-muted-foreground">Your year</p>
     <div className="mt-3 grid grid-cols-3 gap-3">
       {[["31", "books"], ["9,840", "pages"], ["12", "day streak"]].map(([value, label]) => (
         <div key={label}>
@@ -148,8 +147,8 @@ const CircleStill: FC = () => (
   <div className={`w-full p-5 text-left ${cardClassName} bg-background shadow-sm`} aria-hidden>
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reading circle</p>
-        <p className="font-bold truncate">The Night We Read Together</p>
+        <p className="text-sm font-mediumr text-muted-foreground">Reading circle</p>
+        <p className="font-semibold truncate">The Night We Read Together</p>
       </div>
       <span className="shrink-0 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 text-xs font-medium">3 readers</span>
     </div>
@@ -172,11 +171,9 @@ const CircleStill: FC = () => (
 )
 
 const FeatureCard: FC<{ icon: typeof Lock; title: string; description: string }> = ({ icon: Icon, title, description }) => (
-  <div className={`flex flex-col items-start gap-3 p-6 ${cardClassName}`}>
-    <div className="h-12 w-12 rounded-full bg-brand/10 flex items-center justify-center">
-      <Icon size={24} className="text-brand" />
-    </div>
-    <h3 className="text-lg font-bold">{title}</h3>
+  <div className={`flex flex-col items-start gap-2 p-6 ${cardClassName}`}>
+    <Icon size={20} strokeWidth={1.5} aria-hidden className="mb-2 text-muted-foreground" />
+    <h3 className="text-lg font-semibold">{title}</h3>
     <p className={`text-sm ${mutedClassName}`}>{description}</p>
   </div>
 )
@@ -216,11 +213,9 @@ const Landing: FC = () => {
       {/* Switching is the biggest hurdle for anyone who already tracks their reading elsewhere. */}
       <section className="px-6">
         <div className={`max-w-5xl mx-auto p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-5 md:gap-8 ${cardClassName}`}>
-          <div className="h-12 w-12 shrink-0 rounded-full bg-brand/10 flex items-center justify-center">
-            <FileInput size={24} className="text-brand" />
-          </div>
+          <FileInput size={20} strokeWidth={1.5} aria-hidden className="shrink-0 text-muted-foreground" />
           <div className="flex-1">
-            <h2 className="text-lg md:text-xl font-bold">Using both? Bring both.</h2>
+            <h2 className="text-lg md:text-xl font-semibold">Using both? Bring both.</h2>
             <p className={`text-sm md:text-base mt-1 ${mutedClassName}`}>
               Import your shelves, ratings, reviews and reading dates from Goodreads and StoryGraph. Books already on your shelf are skipped, so nothing doubles up, and you can export it all again any time.
             </p>
@@ -236,7 +231,7 @@ const Landing: FC = () => {
 
       <section className="px-6 pt-20 md:pt-28 max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Everything you track on your own</h2>
+          <h2 className="page-title">Everything you track on your own</h2>
           <p className={`text-base md:text-lg mt-4 ${mutedClassName}`}>
             Log a book, update your page, and the rest fills itself in. Every stat is free, and stays free.
           </p>
@@ -244,12 +239,9 @@ const Landing: FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {tracking.map((f) => <FeatureCard key={f.title} {...f} />)}
         </div>
-        <div className={`mt-6 p-6 md:p-8 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 ${cardClassName}`}>
-          <div className="h-12 w-12 shrink-0 rounded-full bg-brand/10 flex items-center justify-center">
-            <Sparkles size={24} className="text-brand" />
-          </div>
+        <div className={`mt-6 p-6 md:p-8 ${cardClassName}`}>
           <div>
-            <h3 className="text-lg font-bold">Your year, wrapped</h3>
+            <h3 className="text-lg font-semibold">Your year, wrapped</h3>
             <p className={`text-sm md:text-base mt-1 ${mutedClassName}`}>
               Every December, a look back at what you read, how much and what you loved, ready to share. Free, like everything above.
             </p>
@@ -259,7 +251,7 @@ const Landing: FC = () => {
 
       <section className="px-6 py-20 md:py-28 max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">And the friends you read with</h2>
+          <h2 className="page-title">And the friends you read with</h2>
           <p className={`text-base md:text-lg mt-4 ${mutedClassName}`}>
             React to the twist the moment it happens. Friends who are behind see only that you said something, not what.
           </p>
@@ -270,14 +262,14 @@ const Landing: FC = () => {
       </section>
 
       <section className="px-6 pb-20 md:pb-28 max-w-5xl mx-auto">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center mb-12">From two apps to one</h2>
+        <h2 className="page-title text-center mb-12">From two apps to one</h2>
         <ol className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10">
           {steps.map(({ title, description }, i) => (
             <li key={title} className="flex flex-col items-center text-center md:items-start md:text-left gap-3">
-              <span className="h-10 w-10 rounded-full bg-brand-fill text-white font-bold flex items-center justify-center">
+              <span className="font-display text-3xl font-semibold leading-none tabular-nums text-muted-foreground">
                 {i + 1}
               </span>
-              <h3 className="text-lg font-bold">{title}</h3>
+              <h3 className="text-lg font-semibold">{title}</h3>
               <p className={`text-sm ${mutedClassName}`}>{description}</p>
             </li>
           ))}
@@ -290,7 +282,7 @@ const Landing: FC = () => {
       </section>
 
       <section className="px-6 pb-20 md:pb-28 max-w-3xl mx-auto">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center mb-10">Questions readers ask</h2>
+        <h2 className="page-title text-center mb-10">Questions readers ask</h2>
         <div className="flex flex-col gap-3">
           {faqs.map(({ question, answer }) => (
             <details key={question} className={`group px-6 py-5 ${cardClassName}`}>
@@ -305,7 +297,7 @@ const Landing: FC = () => {
       </section>
 
       <section className="flex flex-col items-center text-center px-6 py-16 md:py-24 border-t border-neutral-200 dark:border-neutral-800">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Bring your shelf. Bring your friends.</h2>
+        <h2 className="page-title">Bring your shelf and your friends</h2>
         <p className={`text-base md:text-lg mt-4 max-w-md ${mutedClassName}`}>
           Import your history, start a reading circle, and send the link to whoever&apos;s reading with you.
         </p>

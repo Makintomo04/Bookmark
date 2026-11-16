@@ -10,6 +10,7 @@ import { refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { reviewHiddenMessage } from '@/lib/reviewReports'
 import { seriesNewsText } from '@/lib/series'
 import { newBookText, publicationDayText } from '@bookmark/shared/releases'
+import { clubVoteText, isClubVoteNotification } from '@/lib/clubVotes'
 import { escalationCopy, escalationResolvedText, reviewRestoredText, roleChangedText, staffNoticeWebPath, staffReportText } from '@bookmark/shared/staffNotices'
 import type { StaffBadgeKind } from '@/lib/staffBadge'
 import BookCover from '../cards/BookCover'
@@ -28,6 +29,8 @@ export type NotificationLike = {
   achievementKey?: string | null
   count?: number | null
   buddyRead?: { id: string; title: string; inviteCode: string; status?: string } | null
+  // CLUB_VOTE_*: the club.
+  club?: { id: string; name: string } | null
   book?: { id: string; title: string; author: string; coverImage: string; onShelf: boolean; href?: string | null } | null
   // REVIEW_COMMENT / REVIEW_REPLY: the review commented on, and its page.
   review?: { title: string; href: string | null } | null
@@ -69,6 +72,7 @@ export const notificationHref = (n: NotificationLike) => {
   if (n.type === "BOOK_RECOMMENDED" && n.book?.href) return n.book.href
   if (n.type === "BUDDY_READ_INVITE" && n.buddyRead) return `/circles/join/${n.buddyRead.inviteCode}`
   if (n.buddyRead) return `/circles/${n.buddyRead.id}`
+  if (isClubVoteNotification(n.type)) return n.club ? `/clubs/${n.club.id}#club-vote` : "/circles"
   return `/u/${encodeURIComponent(n.actor.username)}`
 }
 
@@ -86,7 +90,10 @@ export const NotificationLead: FC<{ n: NotificationLike; size?: "sm" | "md" }> =
 export const NotificationText: FC<{ n: NotificationLike; full?: boolean }> = ({ n, full = false }) => {
   return (
     <div className="min-w-0">
-      {n.type === "COMMENTS_UNLOCKED" ? (
+      {isClubVoteNotification(n.type) ? (
+        // The club's vote, not one person's doing, so nobody is named.
+        <p className={`text-sm ${full ? "" : "line-clamp-2"}`}>{clubVoteText(n.type, n.club?.name ?? null, n.message)}</p>
+      ) : n.type === "COMMENTS_UNLOCKED" ? (
         // Not one person's doing: "3 comments to read in Dune", reached or newly posted.
         <p className="text-sm">{n.count ?? 1} {n.count === 1 ? "comment" : "comments"} to read in <span className="font-semibold">{n.buddyRead?.title ?? "your reading circle"}</span></p>
       ) : n.type === "NEW_IN_SERIES" ? (

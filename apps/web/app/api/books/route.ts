@@ -1,7 +1,7 @@
 import { bookFieldsProblem } from "@/lib/bookInput";
 import { requireUser } from "@/lib/apiAuth";
 import prisma from "@/lib/db";
-import { syncAchievements } from "@/lib/achievements";
+import { requestTimeZone, resolveTimeZone, syncAchievements } from "@/lib/achievements";
 import { earnMomentFor } from "@/lib/earnMomentServer";
 import { catalogIds, linkCatalog, type Resolved } from "@/lib/catalog";
 import { shareableCover, uploadersOf } from "@/lib/uploads";
@@ -16,8 +16,15 @@ import { z } from "zod";
 import { parseAudioMinutes } from "@/lib/bookInput";
 import { fillWorkSeriesQuietly } from "@/lib/seriesFill";
 import { alreadyShelved, shelfCopies } from "@/lib/shelfCopy";
+import { workPageCount } from "@/lib/catalog/pageCount";
 
 const statusSchema = z.nativeEnum(Status)
+// Matches PATCH /api/book-progress, where a review is written on finishing a book already on the shelf.
+const reviewSchema = z.object({
+  review: z.string().max(2000, "Review must be 2000 characters or fewer").optional(),
+  reviewSpoiler: z.boolean().optional(),
+  reviewPrivate: z.boolean().optional(),
+})
 const optionalText = z.string().max(40).nullish()
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
 
@@ -88,7 +95,9 @@ async function shelfPage(userId: string, params: URLSearchParams) {
   // In id order, so the same shelf always reaches pageShelf the same way (its sort breaks ties on id as well).
   const light = (await prisma.book.findMany({ where: { userId }, select: shelfBookSelect, orderBy: { id: "asc" } }))
     .map(({ edition, ...b }) => ({ ...b, format: edition?.format ?? null }))
-  const page = pageShelf(light, filter, { take: Number(params.get("take")), cursor: params.get("cursor") })
+  // "Finished in" counts on the reader's calendar, not the server's.
+  const zone = await resolveTimeZone(userId, await requestTimeZone())
+  const page = pageShelf(light, filter, { take: Number(params.get("take")), cursor: params.get("cursor"), zone })
   const ids = page.books.map((b) => b.id)
   const rows = ids.length > 0
     ? await prisma.book.findMany({ where: { userId, id: { in: ids } }, include: { edition: { select: { format: true } } } })
@@ -101,7 +110,7 @@ async function shelfPage(userId: string, params: URLSearchParams) {
     total: page.total,
     nextCursor: page.nextCursor,
     ...(facets && {
-      options: filterOptions(onShelf),
+      options: filterOptions(onShelf, zone),
       counts: Object.fromEntries((Object.keys(SHELF_STATUS) as ShelfKey[]).map((k) => [k, light.filter((b) => b.status === SHELF_STATUS[k]).length])),
     }),
   })
@@ -141,7 +150,7 @@ const { user: currentUser, response } = await requireUser();
 if (response) return response;
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, finishedOn, startedOn, rating, genre, workKey, description, editionKey, isbn13, isbn10, hardcoverId, format, audioMinutes, isPrivate } = body
+  const { title, author, coverImgSrc, pages, status, currentPage, currentMinute, finishedThisYear, finishedOn, startedOn, rating, review, reviewSpoiler, reviewPrivate, genre, workKey, description, editionKey, isbn13, isbn10, hardcoverId, format, audioMinutes, isPrivate } = body
 
 if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {
   return NextResponse.json({ error: "Title and author are required" }, { status: 400 })
@@ -170,10 +179,15 @@ const parsedRating = ratingSchema.optional().safeParse(rating)
 if (!parsedRating.success) {
   return NextResponse.json({ error: RATING_ERROR }, { status: 400 })
 }
+const parsedReview = reviewSchema.safeParse({ review, reviewSpoiler, reviewPrivate })
+if (!parsedReview.success) {
+  return NextResponse.json({ error: parsedReview.error.issues[0]?.message ?? "Invalid review" }, { status: 400 })
+}
 
 const now = new Date()
 const shelf = parsedStatus.data
 const isCompleted = shelf === "COMPLETED"
+const reviewText = parsedReview.data.review?.trim() || null
 // A finished book's dates, as picked ("2024-03-01", or null for "I don't remember"). Older clients send
 // finishedThisYear instead, which means today.
 const finishedDay = optionalDaySchema.optional().safeParse(finishedOn)
@@ -216,7 +230,9 @@ const catalog = await linkCatalog(
   },
   { lookup: true, describe: true },
 )
-const totalPages = givenPages || (!isAudiobook && catalog?.edition.pages) || 0
+// Failing the edition's own length, another print edition of the work's: Up next starts a book from just its
+// title and author, which files it under a generic edition with no page count.
+const totalPages = givenPages || (!isAudiobook && (catalog?.edition.pages || await workPageCount(catalog?.work.id))) || 0
 // Adding from someone else's list or pick can bring their uploaded cover along. Uploads stay on the
 // uploader's own copy (lib/uploads.ts), so this copy takes the catalogue's cover instead.
 const ownCover = await shareableCover(str(coverImgSrc), currentUser.id)
@@ -249,6 +265,8 @@ const book = await prisma.book.create({
     stoppedAt: isStopped ? now : null,
     timesRead: isCompleted ? 1 : 0,
     rating: (isCompleted || shelf === "DNF") && parsedRating.data ? parsedRating.data : null,
+    // A review written as the finished book is added, like one written when finishing it later.
+    ...(isCompleted && reviewText && { review: reviewText, reviewSpoiler: !!parsedReview.data.reviewSpoiler, reviewPrivate: !!parsedReview.data.reviewPrivate }),
     // Added privately: only the reader sees it (lib/privacy.ts sharedBookWhere).
     ...(isPrivate === true && { isPrivate: true }),
   }
@@ -273,6 +291,7 @@ if (shelf !== "NOT_INTERESTED") await prisma.activity.create({
     type: shelf === "STARTED" ? "STARTED_BOOK" : finishedThisYearNow ? "COMPLETED_BOOK" : "ADDED_BOOK",
   }
 })
+if (book.review) await prisma.activity.create({ data: { userId: currentUser.id, bookId: book.id, type: "REVIEWED_BOOK" } })
 // Adding a finished book can earn medals; the app celebrates what comes back.
 const earnMoment = isCompleted ? await earnMomentFor(currentUser, await syncAchievements(currentUser.id), { finished: finishedThisYearNow }) : null
 await seriesFilled

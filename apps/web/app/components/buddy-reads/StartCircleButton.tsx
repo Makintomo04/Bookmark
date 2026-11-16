@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { askToJoin } from '@/app/hooks/useJoinPrompt'
 import axios from 'axios'
 import { notify, apiError } from '@/lib/notify'
-import { Loader2, Users } from 'lucide-react'
+import { Crown, Loader2, Users } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { sameBook } from '@/lib/workKey'
@@ -13,29 +13,27 @@ import useUser from '@/app/hooks/useUser'
 import useBooks from '@/app/hooks/useBooks'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
+import useHostingGate from '@/app/hooks/useHostingGate'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 
 const base = "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 const outline = "border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900"
 
-// "Start a circle for this book" from a Discover book page: the book goes on the shelf (Want to read)
-// if it isn't there, then straight to the new-circle form with it chosen.
-// Signed out it asks to join: in place through `onJoin` inside a dialog (book details), else the join sheet.
-const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (heading: string) => void }> = ({ book, className, onJoin }) => {
+// "Start a circle for this book": the book goes on the shelf (Want to read) if it isn't there, then straight
+// to the new-circle form with it chosen. Signed out it asks to join: in place through `onJoin` inside a
+// dialog (book details), else the join sheet. Shared by the button below and the book page's "…" menu.
+export function useStartCircle(book: DiscoverBook, onJoin?: (heading: string) => void) {
   const { user } = useUser()
   const router = useRouter()
   const { books, mutate } = useBooks()
   const bookEntryModal = useBookEntryModal()
   const closeDetails = useBookDetailsModal((s) => s.onClose)
   const [isWorking, setIsWorking] = useState(false)
+  const gate = useHostingGate(!!user?.id)
 
   if (!user?.id) {
     const heading = `Join to start a reading circle for ${book.title}`
-    return (
-      <button type="button" onClick={() => (onJoin ? onJoin(heading) : askToJoin(heading))} className={cn(base, outline, className)}>
-        <Users size={14} aria-hidden />Start a reading circle
-      </button>
-    )
+    return { start: () => (onJoin ? onJoin(heading) : askToJoin(heading)), isWorking: false, upgrade: false, signedIn: false }
   }
 
   const onShelf = Array.isArray(books) ? (books as Book[]).find((b) => sameBook(b, book)) : undefined
@@ -45,6 +43,8 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (
   }
 
   const start = () => {
+    // At the hosting limit it says so here, before the book goes on the shelf (BOO-94).
+    if (gate.blocked) return gate.refuse()
     if (onShelf) {
       go(onShelf.id)
       return
@@ -84,15 +84,29 @@ const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (
     })
   }
 
+  return { start, isWorking, upgrade: gate.upgrade, signedIn: true }
+}
+
+const StartCircleButton: FC<{ book: DiscoverBook, className?: string, onJoin?: (heading: string) => void }> = ({ book, className, onJoin }) => {
+  const { start, isWorking, upgrade, signedIn } = useStartCircle(book, onJoin)
+
+  if (!signedIn) {
+    return (
+      <button type="button" onClick={start} className={cn(base, outline, className)}>
+        <Users size={14} aria-hidden />Start a reading circle
+      </button>
+    )
+  }
+
   return (
     <button
       type="button"
       onClick={start}
       disabled={isWorking}
-      aria-label={`Start a reading circle for ${book.title}`}
+      aria-label={upgrade ? `Start a reading circle for ${book.title}: more circles need Plus` : `Start a reading circle for ${book.title}`}
       className={cn(base, outline, "disabled:opacity-60", className)}
     >
-      {isWorking ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Users size={14} aria-hidden />}
+      {isWorking ? <Loader2 size={14} className="animate-spin" aria-hidden /> : upgrade ? <Crown size={14} aria-hidden className="text-brand-text" /> : <Users size={14} aria-hidden />}
       Start a reading circle
     </button>
   )

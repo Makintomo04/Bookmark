@@ -13,14 +13,16 @@ import { aggregateTags, readerTagsSchema, spiceApplies, type SpiceContext, type 
 //
 //   GET /api/works/tags?bookId=<shelf book>   the aggregate plus the reader's own tags (owner only)
 //   GET /api/works/tags?workKey=OL45883W      the aggregate for a Discover book; public, like search (or a catalogue Work id)
-//   PUT /api/works/tags { bookId, moods, warnings, spice? }   the reader's tags for that book's work
+//   PUT /api/works/tags { bookId, moods, warnings, spice?, pace?, focus?, cliffhanger? }   the reader's tags for that book's work
 //
 // Spice only counts from a reader who has finished the book, now or on an earlier read, and only for a
 // book spice applies to (spiceApplies in lib/workTags.ts). Otherwise it's ignored and what they reported
-// before is kept, as it is when `spice` is left out.
+// before is kept, as it is when `spice` is left out. Pace and story focus count from a reader who has
+// started the book (or read it before); a cliffhanger only from one who finished it. The same goes for
+// them: an answer the reader can't give yet, or one left out, keeps what's stored.
 
 const empty = (workId: string | null, about?: SpiceContext): TagAggregate & { workId: string | null } =>
-  ({ workId, readers: 0, moods: [], warnings: [], spice: { level: null, early: null, reports: 0 }, spiceApplies: spiceApplies(about, []), mine: null })
+  ({ workId, ...aggregateTags([], null, about) })
 
 // The Work a shelf book belongs to, filing it in the catalog if the backfill hasn't got to it yet
 // (by title and author only: no Open Library call on the way to saving a review).
@@ -42,7 +44,10 @@ async function spiceContext(workId: string): Promise<SpiceContext> {
 }
 
 async function loadAggregate(workId: string, viewerId: string | null, about: SpiceContext) {
-  const rows = await prisma.readerTags.findMany({ where: { workId }, take: 1000, select: { userId: true, moods: true, warnings: true, spice: true } })
+  const rows = await prisma.readerTags.findMany({
+    where: { workId }, take: 1000,
+    select: { userId: true, moods: true, warnings: true, spice: true, pace: true, focus: true, cliffhanger: true },
+  })
   // Tags from deleted accounts don't count.
   const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true } })
   const live = new Set(users.map((u) => u.id))
@@ -90,23 +95,28 @@ export async function PUT(req: Request) {
   if (!workId) return NextResponse.json({ error: "Couldn't file this book in the catalog. Try again later." }, { status: 503 })
 
   const about = await spiceContext(workId)
-  const [before, earlierFinishes] = await Promise.all([
+  const [before, earlierFinishes, earlierReads] = await Promise.all([
     loadAggregate(workId, user.id, about),
     prisma.bookRead.count({ where: { bookId: book.id, status: "COMPLETED" } }),
+    prisma.bookRead.count({ where: { bookId: book.id } }),
   ])
   const finished = book.status === "COMPLETED" || earlierFinishes > 0
+  const started = finished || earlierReads > 0 || ["STARTED", "PAUSED", "DNF"].includes(book.status)
   // The reader's own warnings count too, so flagging sexual content and giving a spice level save together,
   // and so does an earlier answer, which they can always change or clear (spiceAskable says the same).
   const applies = before.spiceApplies || before.mine?.spice != null || spiceApplies(about, warnings)
   const spice = finished && applies && parsed.data.spice !== undefined ? parsed.data.spice : before.mine?.spice ?? null
+  const pace = started && parsed.data.pace !== undefined ? parsed.data.pace : before.mine?.pace ?? null
+  const focus = started && parsed.data.focus !== undefined ? parsed.data.focus : before.mine?.focus ?? null
+  const cliffhanger = finished && parsed.data.cliffhanger !== undefined ? parsed.data.cliffhanger : before.mine?.cliffhanger ?? null
 
-  if (moods.length === 0 && warnings.length === 0 && spice === null) {
+  if (moods.length === 0 && warnings.length === 0 && spice === null && !pace && !focus && cliffhanger === null) {
     await prisma.readerTags.deleteMany({ where: { workId, userId: user.id } })
   } else {
     await prisma.readerTags.upsert({
       where: { workId_userId: { workId, userId: user.id } },
-      create: { workId, userId: user.id, moods, warnings, spice },
-      update: { moods, warnings, spice },
+      create: { workId, userId: user.id, moods, warnings, spice, pace, focus, cliffhanger },
+      update: { moods, warnings, spice, pace, focus, cliffhanger },
     })
   }
   return NextResponse.json(await loadAggregate(workId, user.id, about))

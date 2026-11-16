@@ -6,7 +6,7 @@ import { BookCover } from "@/components/books/BookCover";
 import { ListCard } from "@/components/discover/ListCard";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
-import { addBook, type ListSummary } from "@/lib/discover";
+import { openOrAdd, tileAction, useOnShelf, type ListSummary } from "@/lib/discover";
 import type { FoundBook } from "@/lib/useBookSearch";
 import { useTheme } from "@/lib/theme";
 
@@ -16,6 +16,7 @@ export default function Genre() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { colors, radii } = useTheme();
   const { data, isLoading } = useSWR<{ genre: { label: string }; lists: ListSummary[]; books: FoundBook[] }>(`/api/discover/genre/${slug}`);
+  const onShelf = useOnShelf(data?.books);
   const colour = genreBySlug(slug ?? "")?.colour ?? colors.brandFill;
 
   return (
@@ -36,9 +37,10 @@ export default function Genre() {
           <Text variant="title">Trending</Text>
           <View style={styles.grid}>
             {data.books.map((book, i) => (
-              <Pressable key={`${book.workKey ?? book.title}-${i}`} accessibilityRole="button" accessibilityLabel={`${book.title} by ${book.author}. Add it.`} onPress={() => addBook(book)} style={styles.book}>
+              <Pressable key={`${book.workKey ?? book.title}-${i}`} accessibilityRole="button" accessibilityLabel={`${book.title} by ${book.author}. ${tileAction(onShelf(i))}`} onPress={() => openOrAdd(book, onShelf(i))} style={styles.book}>
                 <BookCover book={{ title: book.title, author: book.author, coverImage: book.coverUrl }} width={100} />
                 <Text variant="small" numberOfLines={2}>{book.title}</Text>
+                {onShelf(i) && <Text variant="small" style={{ color: colors.mutedForeground }}>On your shelf</Text>}
               </Pressable>
             ))}
           </View>

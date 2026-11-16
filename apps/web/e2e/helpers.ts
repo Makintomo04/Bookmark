@@ -120,12 +120,17 @@ export async function addBookAndStartCircle(page: Page, book: { title: string; a
   await expect(page.getByRole("heading", { level: 1, name: book.title })).toBeVisible()
 }
 
-// Clicks "Copy invite link" and returns the copied URL's path.
+// From a circle page: opens the Invite sheet, clicks "Copy invite link", closes the sheet and returns the copied URL's path.
 export async function copyInvite(page: Page) {
-  await page.getByRole("button", { name: "Copy invite link" }).click()
-  await expect(page.getByText("Link copied")).toBeVisible()
+  await page.getByRole("button", { name: "Invite", exact: true }).click()
+  const sheet = page.getByRole("dialog", { name: "Invite readers" })
+  await expect(sheet).toBeVisible()
+  await sheet.getByRole("button", { name: "Copy invite link" }).click()
+  await expect(sheet.getByText("Link copied")).toBeVisible()
   const link: string = await page.evaluate(() => navigator.clipboard.readText())
   expect(link).toMatch(/\/circles\/join\/[a-z0-9]{6,20}$/)
+  await sheet.getByRole("button", { name: "Close" }).click()
+  await expect(sheet).toBeHidden()
   return new URL(link).pathname
 }
 

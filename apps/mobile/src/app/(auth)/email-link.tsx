@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { emailSchema } from "@bookmark/shared/authSchemas";
+import { CheckInbox } from "@/components/auth/CheckInbox";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
@@ -34,19 +35,18 @@ export default function EmailLink() {
 
   if (sentTo) {
     return (
-      <Screen>
-        <Text variant="display">Check your inbox</Text>
-        <Text>We sent a sign-in link to {sentTo}. Open it on this phone.</Text>
-        <Text variant="muted">It works once and expires in 1 hour. Can{"’"}t find it? Check your spam folder. No account yet? The link creates one.</Text>
+      <CheckInbox message={`We sent a sign-in link to ${sentTo}. Open it on this phone.`} note={"It works once and expires in 1 hour. Can’t find it? Check your spam folder. No account yet? The link creates one."}>
         <Button title="Use a different email" variant="ghost" onPress={() => setSentTo(null)} />
-      </Screen>
+      </CheckInbox>
     );
   }
 
   return (
     <Screen>
-      <Text variant="display">Sign in with a link</Text>
-      <Text variant="muted">We{"’"}ll email you a link that signs you in. No password needed.</Text>
+      <View style={{ gap: 6 }}>
+        <Text variant="display" accessibilityRole="header">Sign in with a link</Text>
+        <Text variant="muted">We{"’"}ll email you a link that signs you in. No password needed.</Text>
+      </View>
       {error && <Notice tone="error" message={error} />}
       <View style={styles.form}>
         <TextField

@@ -107,6 +107,10 @@ model User {
   favColour              String?
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
+  // Where they were when they chose to join, from the ?from= mark on that page (packages/shared/src/signupSource.ts),
+  // e.g. "card" for a Wrap card's link. Set once, at sign-up or first onboarding; unset for everyone else.
+  // Counted on /staff. Carried in the address, never a cookie.
+  signupSource           String?
   favGenres              String[]                 @db.String
   // Hid the genre picks ("Somewhere to start") on their own shelf (it still shows on Discover). Unset reads as shown.
   hideShelfPicks         Boolean?
@@ -149,6 +153,9 @@ model User {
   // Who can comment on their reviews, among those who can see them (lib/reviewComments.ts). Unset reads as EVERYONE.
   reviewComments         ReviewCommentAudience?
   hideWantToRead         Boolean?
+  // Currently reading and Finished kept to themselves (packages/shared/src/privacyRules.ts). Unset reads as shown.
+  hideReading            Boolean?
+  hideFinished           Boolean?
   // Keep "stopped reading" out of followers' feeds. The Did not finish shelf itself never shows to others.
   hideDidNotFinish       Boolean?
   hideFollowCounts       Boolean?
@@ -610,6 +617,19 @@ enum Mood {
   TENSE
 }
 
+enum Pace {
+  SLOW
+  MEDIUM
+  FAST
+}
+
+// What drives the story: the plot, the characters, or both about evenly.
+enum StoryFocus {
+  PLOT
+  CHARACTER
+  MIX
+}
+
 enum WarningLevel {
   MINOR
   MODERATE
@@ -617,16 +637,21 @@ enum WarningLevel {
 }
 
 model ReaderTags {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  workId    String   @db.ObjectId
-  userId    String   @db.ObjectId
-  moods     Mood[]
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  workId      String      @db.ObjectId
+  userId      String      @db.ObjectId
+  moods       Mood[]
   // [{ "topic": "Sexual assault", "level": "GRAPHIC" }], topics from WARNING_TOPICS in lib/workTags.ts.
-  warnings  Json?
+  warnings    Json?
   // 0 to 5 (SPICE_MAX in lib/workTags.ts), only from a reader who finished the book. Unset: not reported.
-  spice     Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  spice       Int?
+  // How the story moves and what drives it (StoryGraph's two questions), from readers who've started it,
+  // and whether it ends on a cliffhanger, from readers who finished it. Unset: not answered.
+  pace        Pace?
+  focus       StoryFocus?
+  cliffhanger Boolean?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
 
@@ -792,6 +817,8 @@ model Notification {
   achievementKey String?
   // Reading circle notifications: which reading circle, and how many joins or unlocked comments one row stands for.
   buddyReadId    String?          @db.ObjectId
+  // Club notifications that aren't about one of its books (CLUB_VOTE_*): which club.
+  clubId         String?          @db.ObjectId
   count          Int?
   // BOOK_RECOMMENDED: the sender's optional note. bookId is the sender's own copy of the book.
   message        String?
@@ -833,6 +860,16 @@ enum NotificationType {
   // A host or co-host started your club's next book, and you were added to its reading circle (BOO-49).
   // actorId is whoever started it; buddyReadId the new circle.
   CLUB_CIRCLE_ADDED
+  // A host or co-host opened a vote on the club's next book. actorId is who opened it; clubId the club.
+  CLUB_VOTE_OPENED
+  // A club vote closed with a winner. actorId is you (a vote is nobody's doing); clubId the club, message the
+  // winning book's title.
+  CLUB_VOTE_PICKED
+  // To the club's host and co-hosts: a vote closed level, and one of them picks the winner. actorId is you.
+  CLUB_VOTE_TIED
+  // A host or co-host called the vote off, or archived the club while it was on. actorId is you; clubId the
+  // club, message ARCHIVED_MESSAGE when archiving did it. The vote's "cast your vote" rows are taken down.
+  CLUB_VOTE_CANCELLED
   // Someone asked to follow your followers-only or private profile (lib/followRequests.ts).
   FOLLOW_REQUEST
   // You finished a seasonal quest (cut before launch; old rows are left out of the bell).
@@ -1100,6 +1137,9 @@ model BuddyReadMember {
   mutedAt          DateTime?
   // When they last had the circle open, so a comment posted while they're reading it isn't pushed too.
   lastSeenAt       DateTime?
+  // Their progress when their last weekly email went out, so the next counts the comments they've reached
+  // since (lib/jobs/weeklyDigest.ts). Unset until the first.
+  digestProgress   Float?
 
   buddyRead BuddyRead @relation(fields: [buddyReadId], references: [id], onDelete: Cascade)
 
@@ -1229,6 +1269,7 @@ model Club {
   members  ClubMember[]
   removals ClubRemoval[]
   circles  BuddyRead[]
+  votes    ClubVote[]
 
   // The host's clubs, and their active-club limit.
   @@index([hostId, status])
@@ -1241,6 +1282,9 @@ model ClubMember {
   // A co-host can start the next book, edit schedules, and invite and remove members. The host is Club.hostId.
   coHost   Boolean  @default(false)
   joinedAt DateTime @default(now())
+  // Set while a host or co-host has muted them (BOO-79): they can still read and vote, but can't comment in
+  // the club's books or nominate. Not BuddyReadMember.mutedAt, which is a reader quietening a circle for themselves.
+  hostMutedAt DateTime?
 
   club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
@@ -1261,6 +1305,90 @@ model ClubRemoval {
 
   @@unique([clubId, userId])
   @@index([userId])
+}
+
+// ---- Club votes (BOO-49 phase 2) -------------------------------------------------------------
+// The club picks its next book: members nominate books from their shelves, everyone votes once, and the
+// winner is started as the club's next book by a host. Rules in packages/shared/src/clubVotes.ts; database
+// work in lib/clubVotesServer.ts.
+
+enum ClubVoteStatus {
+  OPEN
+  // Closed level: a host or co-host picks between the tied books (tiedIds).
+  TIED
+  CLOSED
+  CANCELLED
+}
+
+model ClubVote {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  clubId      String         @db.ObjectId
+  openedById  String         @db.ObjectId
+  status      ClubVoteStatus @default(OPEN)
+  // Only the host and co-hosts nominate (a shortlist); otherwise every member may nominate one book.
+  hostsOnly   Boolean        @default(false)
+  closesAt    DateTime
+  closedAt    DateTime?
+  // One vote at a time per club: the club's id while it's open or tied, the vote's own id once it's settled.
+  // (MongoDB can't index only some rows, so the settled ones get a value of their own.)
+  openKey     String         @unique
+  // TIED: the nominations level at the top.
+  tiedIds     String[]       @db.ObjectId
+  // CLOSED: the winning nomination.
+  winnerId    String?        @db.ObjectId
+  // CLOSED: a host put the winner card away without starting the book, so the club page stops showing it.
+  dismissedAt DateTime?
+  // Hosts-only: when members were told the shortlist is up (its first book). Set once, so two hosts putting
+  // books up at the same moment tell them once.
+  shortlistUpAt DateTime?
+  createdAt   DateTime       @default(now())
+
+  club        Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  nominations ClubNomination[]
+  ballots     ClubBallot[]
+
+  // The club's votes, newest first.
+  @@index([clubId, createdAt])
+  // The cron tick closes the ones due.
+  @@index([status, closesAt])
+}
+
+// A book put up for the vote: a snapshot of the nominator's shelf copy, like BuddyRead's, so the vote
+// doesn't depend on anyone's shelf.
+model ClubNomination {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  voteId       String   @db.ObjectId
+  userId       String   @db.ObjectId
+  workKey      String?
+  title        String
+  author       String
+  coverImage   String?
+  cardColour   String?
+  pages        Int
+  audioMinutes Int?
+  // Unset when every member may put a book up, so the index below holds them to one each (MongoDB counts
+  // missing values as equal). A hosts-only shortlist gives each book its own, so a host can put up several.
+  slot         String?
+  createdAt    DateTime @default(now())
+
+  vote ClubVote @relation(fields: [voteId], references: [id], onDelete: Cascade)
+
+  // One book each, except on a hosts' shortlist (slot).
+  @@unique([voteId, userId, slot])
+}
+
+model ClubBallot {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  voteId       String   @db.ObjectId
+  userId       String   @db.ObjectId
+  nominationId String   @db.ObjectId
+  updatedAt    DateTime @updatedAt
+
+  vote ClubVote @relation(fields: [voteId], references: [id], onDelete: Cascade)
+
+  // One vote each, changed in place until the vote closes.
+  @@unique([voteId, userId])
+  @@index([nominationId])
 }
 
 // ---- Follow requests --------------------------------------------------------------------------

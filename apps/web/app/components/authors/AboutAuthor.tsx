@@ -1,13 +1,11 @@
 "use client"
 import { FC, useState } from 'react'
-import Image from 'next/image'
+import AuthorPhoto from './AuthorPhoto'
 import { AtSign, Globe } from 'lucide-react'
 import { FaInstagram, FaTiktok, FaXTwitter } from 'react-icons/fa6'
 import { cn } from '@/lib/utils'
 import type { AuthorAbout } from '@/lib/authors'
 import type { AuthorLink, AuthorLinkKind } from '@/lib/authorLinks'
-
-const initials = (name: string) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
 // Bluesky has no icon in our react-icons version, so it gets lucide's "@".
 const LINK_ICONS: Record<AuthorLinkKind, FC<{ className?: string }>> = {
@@ -30,20 +28,19 @@ const LINK_NAMES: Record<AuthorLinkKind, string> = {
 // have are left out.
 const AboutAuthor: FC<{ name: string; about: AuthorAbout; bookCount: number | null }> = ({ name, about, bookCount }) => {
   const [open, setOpen] = useState(false)
-  const { photoUrl, bio, links } = about
+  // A photo Open Library hasn't got (a 404) falls back to the initials.
+  const [photoFailed, setPhotoFailed] = useState(false)
+  const { bio, links } = about
+  const photoUrl = photoFailed ? null : about.photoUrl
   const long = bio.length > 1 || (bio[0]?.length ?? 0) > 320
   // Nothing to say beyond the name already in the heading: leave the section out rather than show an empty box.
   if (!photoUrl && bio.length === 0 && !bookCount && links.length === 0) return null
 
   return (
     <section aria-labelledby="about-author-heading" className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-800 sm:p-6">
-      <h2 id="about-author-heading" className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">About the author</h2>
+      <h2 id="about-author-heading" className="mb-4 text-lg font-semibold">About the author</h2>
       <div className="flex items-center gap-4">
-        {photoUrl ? (
-          <Image src={photoUrl} alt={`Photo of ${name}`} width={72} height={72} className="size-[72px] shrink-0 rounded-full object-cover bg-neutral-100 dark:bg-neutral-900" />
-        ) : (
-          <span aria-hidden className="grid size-[72px] shrink-0 place-items-center rounded-full bg-neutral-100 text-xl font-semibold text-muted-foreground dark:bg-neutral-900">{initials(name)}</span>
-        )}
+        <AuthorPhoto name={name} photoUrl={photoUrl} size={72} onFail={() => setPhotoFailed(true)} />
         <div className="min-w-0">
           <p className="text-lg font-semibold leading-tight">{name}</p>
           {!!bookCount && <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{bookCount.toLocaleString('en-GB')} {bookCount === 1 ? 'book' : 'books'}</p>}

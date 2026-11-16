@@ -44,7 +44,7 @@ const SHELF_NAMES = { NOT_STARTED: "Want to read", STARTED: "Reading", COMPLETED
 
 // Re-files a book the reader put on the wrong shelf, as if it had been added to the right one.
 // Resolves to the saved book (with anything it earned), or null if the move failed.
-export async function reshelveBook(bookId: string, to: keyof typeof SHELF_NAMES, extra: { finishedThisYear?: boolean, finishedOn?: string | null, startedOn?: string | null, rating?: number } = {}) {
+export async function reshelveBook(bookId: string, to: keyof typeof SHELF_NAMES, extra: { finishedThisYear?: boolean, finishedOn?: string | null, startedOn?: string | null, rating?: number, review?: string, reviewSpoiler?: boolean, reviewPrivate?: boolean } = {}) {
   try {
     const { data } = await axios.post("/api/book-progress", { id: bookId, action: "reshelve", to, ...extra })
     return data

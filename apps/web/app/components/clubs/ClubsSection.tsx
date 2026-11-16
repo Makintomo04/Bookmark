@@ -2,8 +2,10 @@
 import { FC } from 'react'
 import Link from 'next/link'
 import moment from 'moment'
-import { Plus, Users } from 'lucide-react'
+import { Crown, Plus, Users } from 'lucide-react'
 import useClubs, { type ClubSummary } from '@/app/hooks/useClubs'
+import { askToUpgrade } from '@/app/hooks/useUpgradePrompt'
+import { notify } from '@/lib/notify'
 import BookCover from '../cards/BookCover'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 
@@ -16,7 +18,7 @@ const ClubCard: FC<{ club: ClubSummary }> = ({ club }) => {
       href={`/clubs/${club.id}`}
       className="flex gap-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {book ? (
+      {book && !club.archived ? (
         <BookCover book={{ title: book.title, author: book.author, coverImage: book.coverImage ?? "", cardColour: book.cardColour }} variant="thumb" sizes="48px" className="w-12 shrink-0 self-start shadow-sm" />
       ) : (
         <span aria-hidden className="flex aspect-[2/3] w-12 shrink-0 items-center justify-center self-start rounded-sm bg-neutral-100 dark:bg-neutral-900 text-muted-foreground">
@@ -26,7 +28,7 @@ const ClubCard: FC<{ club: ClubSummary }> = ({ club }) => {
       <div className="min-w-0 flex-1">
         <p className="font-semibold leading-snug line-clamp-2">{club.name}</p>
         <p className="text-sm text-muted-foreground truncate" suppressHydrationWarning>
-          {book ? (book.upcoming ? `Next: ${book.title}, from ${moment(book.startsAt).format("D MMMM")}` : `Reading ${book.title}`) : "No book yet"}
+          {club.archived ? "Archived" : book ? (book.upcoming ? `Next: ${book.title}, from ${moment(book.startsAt).format("D MMMM")}` : `Reading ${book.title}`) : "No book yet"}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {club.memberCount} {club.memberCount === 1 ? "member" : "members"}{ROLE_LABEL[club.role] ? ` · ${ROLE_LABEL[club.role]}` : ""}
@@ -38,8 +40,11 @@ const ClubCard: FC<{ club: ClubSummary }> = ({ club }) => {
 
 // On the reading circles page: the reader's clubs, each a group that reads one book after another.
 const ClubsSection: FC = () => {
-  const { clubs } = useClubs()
+  const { clubs, hosting } = useClubs()
   if (!clubs) return null
+  // At the limit the button asks here (BOO-94): the Plus prompt when Plus lifts it, else the reason.
+  const blocked = !!hosting && !hosting.allowed
+  const refuse = () => (hosting?.upgrade ? askToUpgrade("canHostUnlimited") : notify.info(hosting?.message ?? "You can't start another club right now."))
 
   return (
     <section aria-labelledby="clubs-heading" className="flex flex-col gap-3">
@@ -52,8 +57,13 @@ const ClubsSection: FC = () => {
             </p>
           )}
         </div>
-        {/* Shown past the limit too: the form says why, with the Plus prompt. */}
-        <Link href="/clubs/new" className={secondaryButtonClass}><Plus size={16} aria-hidden />Start a club</Link>
+        {blocked ? (
+          <button type="button" onClick={refuse} className={secondaryButtonClass}>
+            {hosting?.upgrade ? <Crown size={16} aria-hidden className="text-brand-text" /> : <Plus size={16} aria-hidden />}Start a club
+          </button>
+        ) : (
+          <Link href="/clubs/new" className={secondaryButtonClass}><Plus size={16} aria-hidden />Start a club</Link>
+        )}
       </div>
       {clubs.length > 0 && (
         <ul className="grid gap-4 md:grid-cols-2">

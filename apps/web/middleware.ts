@@ -6,6 +6,15 @@ import { normaliseUsername } from "@/lib/profile";
 const safeDecode = (segment: string) => { try { return decodeURIComponent(segment); } catch { return segment; } };
 
 export async function middleware(request:NextRequest){
+ // The short address printed on Wrap cards (/w/bigshelf): on to the reader's profile, marked so a sign-up
+ // that starts there is counted (packages/shared/src/wrapCards.ts cardProfilePath).
+ if (request.nextUrl.pathname.startsWith("/w/")) {
+   const segment = request.nextUrl.pathname.split("/")[2];
+   const url = request.nextUrl.clone();
+   url.pathname = segment ? "/u/" + encodeURIComponent(normaliseUsername(safeDecode(segment))) : "/";
+   url.search = segment ? "?from=card" : "";
+   return NextResponse.redirect(url, 307);
+ }
  // Profiles live at a lowercase address (lib/handle.ts): /u/Persona goes to /u/persona for good, so share
  // links and search engines see one address per reader. Nothing else here applies to /u/: profiles are public.
  if (request.nextUrl.pathname.startsWith("/u/")) {
@@ -47,5 +56,6 @@ export const config = {
   "/reset-password",
   "/verify-email",
   "/u/:path*",
+  "/w/:path*",
 ],
 }

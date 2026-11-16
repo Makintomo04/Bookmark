@@ -14,8 +14,8 @@ import { BookFallback } from '../cards/BookCover'
 const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
 
 // Up to four covers fanned out, so a list reads as a stack of books at a glance. A short list's covers sit in
-// the middle of the card rather than at its left with the rest empty.
-const CoverStack: FC<{ covers: ListSummary["items"] }> = ({ covers }) => (
+// the middle of the card rather than at its left with the rest empty. The book page's similar authors use it too.
+export const CoverStack: FC<{ covers: ListSummary["items"] }> = ({ covers }) => (
   <div className="relative h-36 sm:h-40 rounded-xl bg-neutral-100 dark:bg-neutral-900 overflow-hidden">
     {covers.length === 0 ? (
       <p className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">No books yet</p>

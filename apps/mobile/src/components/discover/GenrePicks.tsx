@@ -5,7 +5,7 @@ import { EyeOff, SlidersHorizontal } from "lucide-react-native";
 import { joinLabels } from "@bookmark/shared/genres";
 import { BookCover } from "@/components/books/BookCover";
 import { Text } from "@/components/ui/Text";
-import { addBook } from "@/lib/discover";
+import { openOrAdd, tileAction, useOnShelf } from "@/lib/discover";
 import type { FoundBook } from "@/lib/useBookSearch";
 import { useTheme } from "@/lib/theme";
 
@@ -21,6 +21,7 @@ export interface GenrePicksData {
 export function GenrePicks({ placement, onHide }: { placement: "shelf" | "discover"; onHide?: () => void }) {
   const { colors, fonts } = useTheme();
   const { data } = useSWR<GenrePicksData>("/api/discover/for-you");
+  const onShelf = useOnShelf(data?.books);
   if (!data || data.books.length === 0) return null;
 
   return (
@@ -42,13 +43,15 @@ export function GenrePicks({ placement, onHide }: { placement: "shelf" | "discov
       <FlatList
         horizontal
         data={data.books}
+        extraData={onShelf}
         keyExtractor={(book, i) => `${book.workKey ?? book.title}-${i}`}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 12 }}
-        renderItem={({ item: book }) => (
-          <Pressable accessibilityRole="button" accessibilityLabel={`${book.title} by ${book.author}. Add it.`} onPress={() => addBook(book)} style={styles.book}>
+        renderItem={({ item: book, index }) => (
+          <Pressable accessibilityRole="button" accessibilityLabel={`${book.title} by ${book.author}. ${tileAction(onShelf(index))}`} onPress={() => openOrAdd(book, onShelf(index))} style={styles.book}>
             <BookCover book={{ title: book.title, author: book.author, coverImage: book.coverUrl }} width={100} />
             <Text variant="small" numberOfLines={2}>{book.title}</Text>
+            {onShelf(index) && <Text variant="small" style={{ color: colors.mutedForeground }}>On your shelf</Text>}
           </Pressable>
         )}
       />

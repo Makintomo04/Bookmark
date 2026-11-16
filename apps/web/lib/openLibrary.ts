@@ -1,4 +1,5 @@
 import { normaliseWorkKey } from "./workKey.ts"
+import { GENRES } from "./genres.ts"
 import { workMatchKey } from "./catalog/normalise.ts"
 import { collapseDuplicates, duplicateGroups } from "./workDuplicates.ts"
 
@@ -254,6 +255,12 @@ const TRENDING_FIELDS = `key,title,author_name,${DAYS.map((d) => `trending_score
 const TRENDING_POOL = 200
 const weekScore = (doc: any) => DAYS.reduce((sum, d) => sum + (doc[`trending_score_daily_${d}`] || 0), 0)
 
+// A genre's own subject, without the subjects it lists in `notSubjects` (packages/shared/src/genres.ts).
+export function trendingQuery(subject: string) {
+  const not = GENRES.find((g) => g.subject === subject)?.notSubjects ?? []
+  return [`subject_key:"${subject}"`, "language:eng", ...not.map((s) => `-subject_key:"${s}"`)].join(" ")
+}
+
 // Ranked by reader activity over the past week. Search can't sort by that directly (its "trending"
 // sort is a spike score that favours obscure titles), so this takes the books most active in the last
 // day and re-ranks them by their seven-day total. Pages beyond the pool come back empty.
@@ -261,7 +268,7 @@ const weekScore = (doc: any) => DAYS.reduce((sum, d) => sum + (doc[`trending_sco
 // asking for edition details across all 200 takes Open Library 7–11s, often past the timeout.
 // Cached for six hours: the daily counts only move once a day.
 export async function trendingSubjectBooks(subject: string, offset = 0, limit = 24): Promise<DiscoverBook[]> {
-  const q = `subject_key:"${subject}" language:eng`
+  const q = trendingQuery(subject)
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&sort=trending_score_hourly_sum&fields=${TRENDING_FIELDS}&limit=${TRENDING_POOL}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } })
   if (!res.ok) return []

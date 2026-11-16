@@ -157,22 +157,42 @@ export const REMINDER_COPY = {
   checkpoints: { title: "Circle checkpoints", hint: "Two days before a section is due, if you're behind. On your phone, or by email if you don't have the app." },
   weekly: { title: "Weekly email", hint: "“Your week in books” every Sunday: your reading, your circles and your friends. One click to stop." },
   quiet: { title: "Quiet hours", hint: "Reminders never arrive between these times." },
-  // On the web, where the daily reminder and streak alert can't reach.
-  phoneOnly: "The daily reminder and streak alert arrive on your phone through the Bookmark app.",
+  // On the web without the app, in place of the daily reminder and streak alert switches.
+  phoneOnly: { title: "Daily reminder and streak alert", hint: "These come with the Bookmark app on your phone. Sign in there to turn them on." },
   unverified: "Confirm your email address first: Bookmark only emails a confirmed address.",
   // Push is switched off for Bookmark in the phone's settings.
-  blocked: "Notifications are off for Bookmark on this phone. Turn them on in your phone's settings, or use the weekly email.",
+  blocked: "Notifications are off for Bookmark on this phone. Turn them on in your phone's settings, or use the weekly email. Circle checkpoints come by email meanwhile, once your address is confirmed.",
+  openSettings: "Open phone settings",
+  // A build or device that can't get pushes at all (an emulator, or a build made before `eas init`).
+  unavailable: "Notifications can't reach Bookmark on this phone, so the daily reminder and streak alert can't either. The weekly email can, and circle checkpoints come by email once your address is confirmed.",
+  // A push-only reminder turned on in Settings when the phone's permission prompt was refused.
+  noPush: "Notifications aren't on for Bookmark on this phone, so that reminder can't reach you. Turn them on in your phone's settings, or use the weekly email.",
 } as const;
 
 // Why the reminders sheet is offered, once (User.remindersPromptedAt): the first book finished here, a
 // third day of reading, or a reading goal set. Whichever comes first; never at sign-up.
-export type AskReason = "finished" | "habit" | "goal";
+export type AskReason = "finished" | "habit" | "goal" | "joined";
 export const ASK_HABIT_DAYS = 3;
 export const SHEET_INTRO: Record<AskReason, string> = {
   finished: "Well done on finishing.",
-  habit: "Three days of reading already.",
+  habit: "Three days of reading this week.",
   goal: "Your goal is set.",
+  joined: "You're in. A circle checkpoint can tell you two days before a section is due.",
 };
+
+// Joining a club or a reading circle (not one you were in already) is a moment to offer reminders too, if
+// they've never been offered: checkpoints are what a member needs. No database.
+export const askOnJoin = (joined: { alreadyMember: boolean }, promptedAt: Date | null | undefined): AskReason | false =>
+  !joined.alreadyMember && !promptedAt ? "joined" : false;
+
+// What the reminders sheet suggests turning on. After joining, circle checkpoints first; otherwise the daily
+// reminder and streak alert too. Without the app, or with notifications off on this phone, what can still
+// reach them by email: checkpoints and the weekly email.
+export function suggestedReminders(asked: AskReason, canPush: boolean, dailyAt: string | null, defaultAt: string): NotificationChange {
+  if (!canPush) return { reminders: { checkpoints: true }, email: { weekly: true } };
+  if (asked === "joined") return { reminders: { checkpoints: true } };
+  return { reminders: { dailyAt: dailyAt ?? defaultAt, streak: true, checkpoints: true } };
+}
 
 // Every time the daily reminder may be set to: quarter hours outside quiet hours.
 export const reminderTimes = (quiet: QuietHours): number[] =>

@@ -7,6 +7,7 @@ import { REMOVED_MESSAGE, buddyReadError, joinBuddyRead, loadInvite, parseBody, 
 import { BUDDY_READ_MAX_MEMBERS } from "@/lib/buddyReads";
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { joinClub } from "@/lib/clubsServer";
+import { askOnJoin } from "@bookmark/shared/reminders";
 
 const joinSchema = z.object({ code: z.string().trim().regex(/^[a-z0-9]{6,20}$/, "That invite link doesn't look right.") });
 
@@ -60,11 +61,11 @@ export async function POST(req: Request) {
       const joined = await joinClub(club, currentUser.id);
       if (!joined.ok) return buddyReadError(joined.error, joined.status);
       const isMember = await prisma.buddyReadMember.findUnique({ where: { buddyReadId_userId: { buddyReadId: buddyRead.id, userId: currentUser.id } }, select: { id: true } });
-      if (isMember) return NextResponse.json({ ok: true, buddyReadId: buddyRead.id, clubId: club.id, alreadyMember: false, addedToShelf: false });
+      if (isMember) return NextResponse.json({ ok: true, buddyReadId: buddyRead.id, clubId: club.id, alreadyMember: false, addedToShelf: false, askReminders: askOnJoin(joined, currentUser.remindersPromptedAt) });
     }
   }
 
   const result = await joinBuddyRead(buddyRead, currentUser.id);
   if (!result.ok) return buddyReadError(result.error, result.status);
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, askReminders: askOnJoin(result, currentUser.remindersPromptedAt) });
 }

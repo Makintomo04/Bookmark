@@ -27,6 +27,7 @@ export const PLUS = [
   'Explore your stats: any dates, two periods side by side, and filters by format, genre, mood, spice, author and re-reads',
   'Saved stat views, a CSV of any chart, and Wrap cards for any dates you pick',
   'Host as many active circles as you like',
+  'Host clubs of up to 150 readers. Members never pay',
   'A page goal and your own monthly target',
   'Two more designs for your Wrap cards: Paper and your own colour',
   `Ask the shelf: up to ${MONTHLY_ALLOWANCES.askShelfSearches.plus} mood searches a month`,

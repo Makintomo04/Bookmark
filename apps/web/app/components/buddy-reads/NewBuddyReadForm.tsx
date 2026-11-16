@@ -14,6 +14,7 @@ import useBuddyReads from '@/app/hooks/useBuddyReads'
 import useBookSearch from '@/app/hooks/useBookSearch'
 import { copyCoverLater, refreshAfterBookChange } from '@/app/hooks/refreshAfterBookChange'
 import { LABEL_MAX, SCHEDULE_MAX } from '@/lib/buddyReads'
+import { clubBookLeftOutMessage } from '@/lib/clubs'
 import { formatLength, progressScale } from '@/lib/progress'
 import BookCover from '../cards/BookCover'
 import BookSearchResults, { BookSearchResult } from '../modals/BookSearchResults'
@@ -24,6 +25,9 @@ import { ClearableInput } from '@/app/components/ui/clearable-input'
 
 // Books worth reading together: not ones already finished or given up on.
 const SHELVES: Record<string, string> = { STARTED: "Reading", PAUSED: "Paused", NOT_STARTED: "Want to read" }
+// A book brought here from its page ("Start a reading circle") may be one you've finished, to read again with
+// friends: it's kept as chosen rather than dropped (BOO-92), though the picker still doesn't list those shelves.
+const ENDED: Record<string, string> = { COMPLETED: "Finished", DNF: "Did not finish" }
 // How the shelf groups its covers, in this order.
 const GROUPS: { status: string, label: string }[] = [
   { status: "STARTED", label: "Reading now" },
@@ -70,6 +74,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: 
   }, [candidates, query])
 
   const chosen = found ? null : candidates.find((b) => b.id === bookId)
+    ?? (bookId && bookId === initialBookId ? shelf.find((b) => b.id === bookId && b.status in ENDED) : undefined)
   // Pages or minutes: either works, as long as the book has a length to measure progress against.
   const chosenHasLength = chosen ? progressScale(chosen).total > 0 : !!found?.pages
   const blocked = hosting !== null && !hosting.allowed
@@ -162,6 +167,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: 
       startsAt: moment(startsOn, "YYYY-MM-DD").toISOString(),
       schedule,
     })).then(({ data }) => {
+      if (club && data.leftOut > 0) notify.info(clubBookLeftOutMessage(data.leftOut))
       router.push(`/circles/${data.id}`)
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't start the reading circle."))
@@ -217,7 +223,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: 
                 <span className="block font-medium leading-snug line-clamp-2">{chosenTitle}</span>
                 <span className="block text-sm text-muted-foreground line-clamp-2 sm:line-clamp-1">
                   {chosen
-                    ? `${chosen.author} · ${SHELVES[chosen.status]}${formatLength(chosen) ? ` · ${formatLength(chosen)}` : ""}`
+                    ? `${chosen.author} · ${SHELVES[chosen.status] ?? ENDED[chosen.status]}${formatLength(chosen) ? ` · ${formatLength(chosen)}` : ""}`
                     : `${found!.author} · Goes on your shelf as Want to read`}
                 </span>
               </span>
@@ -247,7 +253,7 @@ const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: 
               ) : isError && !books ? (
                 <FetchErrorState error={isError} what="your shelf" onRetry={() => mutate()} />
               ) : !books ? (
-                <div className="h-48 rounded-xl bg-neutral-100 dark:bg-neutral-900 animate-pulse" aria-busy="true" />
+                <div className="h-48 rounded-xl bg-neutral-100 dark:bg-neutral-900 motion-safe:animate-pulse" aria-busy="true" />
               ) : candidates.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nothing in Want to read or Reading yet.{" "}
@@ -308,6 +314,9 @@ const NewBuddyReadForm: FC<{ initialBookId?: string, club?: { id: string, name: 
             </>
           )}
           {foundNotice && <p role="status" className="px-1 text-sm text-muted-foreground">{foundNotice}</p>}
+          {chosen?.status === "COMPLETED" && !picking && (
+            <p className="px-1 text-sm text-muted-foreground">You&apos;ve finished this one, so the circle starts you at 100% and you&apos;ll see every comment as it&apos;s posted.</p>
+          )}
           {chosen && !chosenHasLength && (
             <p className="text-sm text-muted-foreground">This book has no page count, so everyone logs their progress as a percent.</p>
           )}

@@ -1,5 +1,4 @@
 import { FC } from 'react'
-import { BLEED } from '../Container'
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
 import type { RestrictedProfile as RestrictedProfileData, RestrictedReason } from '@/lib/publicProfile'
@@ -32,32 +31,33 @@ const RestrictedProfile: FC<RestrictedProfileProps> = ({ profile, reason, viewer
 
   return (
     <div className="w-full">
-      <div className={`h-24 sm:h-44 sm:rounded-2xl ${BLEED}`} style={{ background: accent }} />
-      <div>
-        <div className="-mt-9 sm:-mt-14 flex items-end justify-between gap-4">
-          {/* No tier frame: it would give away how many books they've read. */}
-          <div className="relative shrink-0">
-            <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${name}'s avatar`} booksRead={0} className="size-24 sm:size-28" />
-            {profile.staffBadge && <StaffSeal kind={profile.staffBadge} name={name} size={30} cutOut shine className="absolute right-0 bottom-[6%]" />}
-          </div>
-          {viewer && <div className="pb-1"><ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} /></div>}
+      {/* No banner and no tier ring: either would say something about a reader who has chosen not to. */}
+      <div className="flex items-center gap-4">
+        <TierAvatar image={profile.image} username={profile.username} colour={accent} alt={`${name}'s avatar`} booksRead={0} thin className="size-16 sm:size-20" />
+        <div className="min-w-0 flex-1">
+          <h1 className="page-title break-words">
+            {name}
+            {profile.staffBadge && <StaffSeal kind={profile.staffBadge} name={name} size={22} className="ml-2 align-[-2px]" />}
+          </h1>
+          {profile.displayName && <p className="mt-0.5 text-sm text-muted-foreground break-all">@{profile.username}</p>}
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="page-title break-words">{name}</h1>
-        </div>
-        {profile.displayName && <p className="mt-0.5 text-sm text-muted-foreground break-all">@{profile.username}</p>}
+        {viewer && <ProfileMenu username={profile.username} isBlocked={reason === "blockedByViewer"} />}
+      </div>
 
-        <div className="mt-10 max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 p-6">
-          <Lock size={20} className="text-muted-foreground" aria-hidden />
-          <h2 className="mt-3 font-semibold">{copy.title}</h2>
+      {reason !== "blockedByViewer" && (
+        <div className="mt-5 flex sm:max-w-sm [&>*]:flex-1">
+          {viewer
+            ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval followsYou={viewer.followsYou} />
+            : <Link href="/register" className={primaryButtonClass}>Sign up to ask to follow</Link>}
+        </div>
+      )}
+
+      {/* One line under a hairline, not a card. */}
+      <div className="mt-10 flex max-w-md gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800">
+        <Lock size={18} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
+        <div>
+          <h2 className="text-sm font-medium">{copy.title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{copy.body}</p>
-          {reason !== "blockedByViewer" && (
-            <div className="mt-5">
-              {viewer
-                ? <FollowButton username={profile.username} initialFollowing={viewer.isFollowing} initialRequested={viewer.requested} needsApproval followsYou={viewer.followsYou} />
-                : <Link href="/register" className={primaryButtonClass}>Sign up to ask to follow</Link>}
-            </div>
-          )}
         </div>
       </div>
     </div>

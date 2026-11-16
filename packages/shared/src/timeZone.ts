@@ -32,12 +32,17 @@ export function localDay(date: Date, zone: string): string {
   return format.format(date);
 }
 
-// The day a finish counts on. A day the reader picked on a date picker is stored at exactly noon UTC
-// (apps/web/lib/readHistory.ts dayInputSchema), and is that day wherever they are: at UTC+13 or +14 noon UTC
-// is already the next morning, so its UTC day is taken, not `zone`'s. Any other moment is placed in `zone`.
+// The day a finish counts on. Two kinds of stored date are a calendar day, not a moment, and count on their
+// UTC day wherever the reader is:
+// - a day picked on a date picker, stored at exactly noon UTC (apps/web/lib/readHistory.ts dayInputSchema).
+//   At UTC+13 or +14 noon UTC is already the next morning.
+// - an imported day, stored at exactly midnight UTC (apps/web/lib/import/formats.ts parseDate). West of UTC
+//   midnight is still the evening before, so 1 January would count in the previous year.
+// Any other moment is placed in `zone`. A real "finished now" landing on either exact millisecond is too rare to matter.
 export function finishDay(date: Date, zone: string): string {
-  const pickedDay = date.getUTCHours() === 12 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
-  return pickedDay ? date.toISOString().slice(0, 10) : localDay(date, zone);
+  const exactHour = date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0;
+  const calendarDay = exactHour && (date.getUTCHours() === 12 || date.getUTCHours() === 0);
+  return calendarDay ? date.toISOString().slice(0, 10) : localDay(date, zone);
 }
 
 // The "YYYY-MM-DD" day before `day`. Pure calendar arithmetic, so no zone is involved.

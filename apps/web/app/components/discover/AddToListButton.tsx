@@ -22,18 +22,16 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 
-const AddToListButton: FC<{ book: DiscoverBook, className?: string }> = ({ book, className }) => {
+// The reader's lists to add the book to, and a new list with it: the inside of a menu, so the book page's
+// "…" menu can show the same thing as a submenu. `active` while it's open: the lists are only fetched then,
+// not for every card on the page.
+export const AddToListItems: FC<{ book: DiscoverBook, active: boolean, label?: boolean, itemClassName?: string }> = ({ book, active, label = true, itemClassName }) => {
   const { user } = useUser()
-  const signedIn = !!user?.id
-  const [open, setOpen] = useState(false)
-  // Only fetch the reader's lists once they open the menu, not for every card on the page.
-  const { lists, isLoading } = useMyLists(signedIn && open)
+  const { lists, isLoading } = useMyLists(!!user?.id && active)
   const router = useRouter()
   const { mutate } = useSWRConfig()
   const { onOpen } = useListEditorModal()
   const [addingTo, setAddingTo] = useState<string | null>(null)
-
-  if (!signedIn) return null
 
   const add = (listId: string, title: string) => {
     setAddingTo(listId)
@@ -50,6 +48,41 @@ const AddToListButton: FC<{ book: DiscoverBook, className?: string }> = ({ book,
     onOpen({ ...emptyList(can(user, "lists.curate"), user ? preferencesOf(user).defaultListVisibility : undefined), items: [{ workKey: book.workKey, title: book.title, author: book.author, coverUrl: book.coverUrl, pages: book.pages, note: "" }] })
 
   return (
+    <>
+      {label && <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Add to list</DropdownMenuLabel>}
+      {isLoading ? (
+        <p className="px-2 py-1.5 text-sm text-muted-foreground">Loading your lists…</p>
+      ) : lists.length === 0 ? (
+        <p className="px-2 py-1.5 text-sm text-muted-foreground">You don&apos;t have any lists yet.</p>
+      ) : (
+        <div className="max-h-64 overflow-y-auto">
+          {lists.map((list) => {
+            const onList = list.items.some((item) => sameBook(item, book))
+            return (
+              <DropdownMenuItem key={list.id} disabled={onList || addingTo !== null} onSelect={() => add(list.id, list.title)} className={cn("gap-2 cursor-pointer", itemClassName)}>
+                <span className="min-w-0 flex-1 truncate">{list.title}</span>
+                {list.visibility === "PRIVATE" && <Lock size={12} className="shrink-0 text-muted-foreground" aria-label="Private" />}
+                {onList && <Check size={14} className="shrink-0" aria-label="Already on this list" />}
+              </DropdownMenuItem>
+            )
+          })}
+        </div>
+      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onSelect={newListWithBook} className={cn("gap-2 cursor-pointer", itemClassName)}>
+        <Plus size={14} aria-hidden />New list with this book
+      </DropdownMenuItem>
+    </>
+  )
+}
+
+const AddToListButton: FC<{ book: DiscoverBook, className?: string }> = ({ book, className }) => {
+  const { user } = useUser()
+  const [open, setOpen] = useState(false)
+
+  if (!user?.id) return null
+
+  return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         aria-label={`Add ${book.title} to a list`}
@@ -58,29 +91,7 @@ const AddToListButton: FC<{ book: DiscoverBook, className?: string }> = ({ book,
         <ListPlus size={15} aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Add to list</DropdownMenuLabel>
-        {isLoading ? (
-          <p className="px-2 py-1.5 text-sm text-muted-foreground">Loading your lists…</p>
-        ) : lists.length === 0 ? (
-          <p className="px-2 py-1.5 text-sm text-muted-foreground">You don&apos;t have any lists yet.</p>
-        ) : (
-          <div className="max-h-64 overflow-y-auto">
-            {lists.map((list) => {
-              const onList = list.items.some((item) => sameBook(item, book))
-              return (
-                <DropdownMenuItem key={list.id} disabled={onList || addingTo !== null} onSelect={() => add(list.id, list.title)} className="gap-2 cursor-pointer">
-                  <span className="min-w-0 flex-1 truncate">{list.title}</span>
-                  {list.visibility === "PRIVATE" && <Lock size={12} className="shrink-0 text-muted-foreground" aria-label="Private" />}
-                  {onList && <Check size={14} className="shrink-0" aria-label="Already on this list" />}
-                </DropdownMenuItem>
-              )
-            })}
-          </div>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={newListWithBook} className="gap-2 cursor-pointer">
-          <Plus size={14} aria-hidden />New list with this book
-        </DropdownMenuItem>
+        <AddToListItems book={book} active={open} />
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -4,7 +4,7 @@ import { workMatchKey } from "@/lib/catalog/normalise"
 import { hardcoverConfigured, hardcoverSeriesBooks, hardcoverSeriesOf, type HardcoverSeriesBook } from "@/lib/hardcover"
 import { seriesKey } from "@/lib/series"
 import { recordSeriesCheck } from "@/lib/seriesNews"
-import { placeWhileUpcoming, placedPositions, takesSeriesPlace } from "@/lib/releaseRules"
+import { companionPlace, placeWhileUpcoming, placedPositions } from "@/lib/releaseRules"
 
 // Gives catalogue works their series, from Hardcover. Open Library's search results carry no series, so a
 // book added from search was filed without one, and the series tracker, Follow series and Catch me up had
@@ -29,14 +29,20 @@ export const SERIES_FILL_REQUESTS: Record<SeriesFillResult, number> = { series: 
 export const SERIES_CURATED = "seriesName"
 const seriesCurated = (w: { curatedFields: string[] }) => w.curatedFields.includes(SERIES_CURATED)
 
+// Whether a fill leaves a work alone without asking Hardcover: it has no first author to ask with, it was
+// asked already, or its series is a librarian's. The backfill picks every unchecked work, so a curated one
+// comes round on each run, and this is what keeps it from being refilled.
+export const seriesFillSkips = (work: { authors: string[]; seriesCheckedAt: Date | null; curatedFields: string[] }) =>
+  !work.authors[0] || work.seriesCheckedAt != null || seriesCurated(work)
+
 // One work. Throws when Hardcover fails, like lib/hardcover.ts.
 export async function fillWorkSeries(workId: string): Promise<SeriesFillResult> {
   const work = await prisma.work.findUnique({
     where: { id: workId },
     select: { id: true, title: true, authors: true, seriesName: true, seriesPosition: true, seriesCheckedAt: true, curatedFields: true, releaseDate: true },
   })
-  const author = work?.authors[0]
-  if (!work || !author || work.seriesCheckedAt || seriesCurated(work) || !hardcoverConfigured()) return "skipped"
+  if (!work || seriesFillSkips(work) || !hardcoverConfigured()) return "skipped"
+  const author = work.authors[0]
 
   const found = await hardcoverSeriesOf(work.title, author)
   if (!found) {
@@ -106,9 +112,10 @@ export async function fileSeriesBooks(name: string, author: string, companions: 
   // this series without a place (announced before it was out, lib/authorNews.ts) takes its place now.
   for (const { book, matchKey } of keyed) {
     for (const had of byMatch.get(matchKey) ?? []) {
-      if (!takesSeriesPlace(had, name, author)) continue
-      const position = placeWhileUpcoming(placeWhileUpcoming(book.position, had.releaseDate, today), book.releaseDate, today)
-      if (position == null) held.add(book.position)
+      // A librarian's series (lib/catalogueFix.ts createWorkByHand) is left as it is, but its place is held back too.
+      const { takes, position, held: notOut } = companionPlace(had, book, name, author, today)
+      if (notOut) held.add(book.position)
+      if (!takes) continue
       await prisma.work.update({ where: { id: had.id }, data: { seriesName: had.seriesName ?? name, seriesPosition: position, seriesCheckedAt: checkedAt } })
     }
   }

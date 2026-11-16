@@ -58,7 +58,6 @@ export function SeriesSection({ track, workId, position, refreshKey, accent }: {
               <BookCover
                 book={{ title: entry.title, author: entry.author, coverImage: entry.coverUrl }}
                 width={COVER}
-                fallbackColour={accent}
                 style={isHere ? { borderWidth: 2, borderColor: colors.foreground } : undefined}
               />
               {place ? <Text variant="small">{place}</Text> : null}

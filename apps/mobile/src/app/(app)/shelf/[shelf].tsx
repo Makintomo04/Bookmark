@@ -4,6 +4,9 @@ import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router
 import { SafeAreaView } from "react-native-safe-area-context";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
+// Passed to useSWRInfinite by hand: Metro can load swr/infinite with its own copy of SWR's internals, which
+// doesn't see the app's SWRConfig. Without a fetcher it never asked for a page and handed back [undefined].
+import { fetcher } from "@/lib/api";
 import { ArrowUpDown, Check, ChevronDown, Search, X } from "lucide-react-native";
 import { DEFAULT_COLOUR, readerName } from "@bookmark/shared/profile";
 import { ratingGlyphs } from "@bookmark/shared/rating";
@@ -61,7 +64,7 @@ export default function ShelfScreen() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<ShelfPage>(shelfPageKey(filter, reader));
+  const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<ShelfPage>(shelfPageKey(filter, reader), fetcher);
   // A new search starts from an empty first page: keep showing the last results (and menus) until it lands,
   // so the grid doesn't blank between keystrokes.
   const last = useRef<{ pages: ShelfPage[]; options: ShelfOptions | null; counts: ShelfPage["counts"] | null }>({ pages: [], options: null, counts: null });
@@ -289,7 +292,7 @@ function Tile({ book, width, accent, showShelf, readOnly }: { book: Book; width:
   if (readOnly) {
     return (
       <View style={{ width, gap: 6 }} accessible accessibilityLabel={`${book.title} by ${book.author}`}>
-        <BookCover book={book} width={width} fallbackColour={accent} />
+        <BookCover book={book} width={width} />
         <Text variant="small" numberOfLines={2}>{book.title}</Text>
       </View>
     );
@@ -301,7 +304,7 @@ function Tile({ book, width, accent, showShelf, readOnly }: { book: Book; width:
       onPress={() => router.push(`/book/${book.id}`)}
       style={{ width, gap: 6 }}
     >
-      <BookCover book={book} width={width} fallbackColour={accent} />
+      <BookCover book={book} width={width} />
       <Text variant="small" numberOfLines={2}>{book.title}</Text>
       {showShelf && <Text variant="small" numberOfLines={1}>{shelf}</Text>}
     </Pressable>

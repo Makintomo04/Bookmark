@@ -25,7 +25,7 @@ const ListNotes: FC<{ notes: ListNote[] }> = ({ notes }) => {
 
   return (
     <section aria-labelledby="list-notes-heading" className="flex flex-col gap-4">
-      <h2 id="list-notes-heading" className="text-xl font-bold">Why they made the list</h2>
+      <h2 id="list-notes-heading" className="text-lg font-semibold">Why they made the list</h2>
       <ol className="grid lg:grid-cols-2 gap-x-10 border-t border-neutral-200 dark:border-neutral-800">
         {notes.map(({ rank, book, reason, borrowed }) => (
           <li key={rank} className="flex gap-4 py-5 border-b border-neutral-200 dark:border-neutral-800">
@@ -40,7 +40,7 @@ const ListNotes: FC<{ notes: ListNote[] }> = ({ notes }) => {
                 variant="thumb"
                 sizes="48px"
               />
-              <span className="absolute -left-2 -top-2 grid size-6 place-items-center rounded-full bg-background text-[11px] font-bold tabular-nums shadow ring-1 ring-neutral-200 dark:ring-neutral-800">{rank}</span>
+              <span className="absolute -left-2 -top-2 grid size-6 place-items-center rounded-full bg-background text-[11px] font-semibold tabular-nums shadow ring-1 ring-neutral-200 dark:ring-neutral-800">{rank}</span>
             </button>
             <div className="min-w-0 flex-1">
               <p className="text-sm min-w-0 truncate">

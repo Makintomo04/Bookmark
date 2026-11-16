@@ -8,6 +8,8 @@ import type { Book } from '@prisma/client'
 import getCurrentUser from '@/app/actions/getCurrentUser'
 import { restrictedViewerFlags } from '@/lib/friends'
 import { getProfileView, getPublicProfile } from '@/lib/publicProfile'
+import { visibleStatuses } from '@/lib/privacy'
+import ShelfHeader from '@/app/components/books/ShelfHeader'
 import { SHELF_SLUG, SHELF_STATUS, SHELF_TITLE, shelfFromSlug, sortBooks, type ShelfKey } from '@/lib/shelfFilter'
 import Container from '@/app/components/Container'
 import RestrictedProfile from '@/app/components/profile-head/RestrictedProfile'
@@ -63,6 +65,8 @@ export default async function Page(props: PageProps) {
     const isSelf = data.relation.isSelf
     // Hidden shelves (Want to read, when the reader keeps it to themselves) never arrive in the payload.
     if (!isSelf && !PUBLIC_SHELVES.includes(shelf)) notFound()
+    // A shelf they keep to themselves (Settings, or the shelf's own menu) says so, rather than looking empty.
+    const keptPrivate = !isSelf && !(visibleStatuses(data.relation, data.privacy) as string[]).includes(SHELF_STATUS[shelf])
     const books = isSelf ? [] : sortBooks(profile.books.filter((b) => b.status === SHELF_STATUS[shelf]), "recent")
     const profileHref = `/u/${encodeURIComponent(profile.username)}`
     content = (
@@ -70,13 +74,17 @@ export default async function Page(props: PageProps) {
         <Link href={profileHref} className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground">
           <ChevronLeft size={16} aria-hidden />{isSelf ? "Your profile" : readerName(profile)}
         </Link>
-        <h1 className="page-title mt-2 mb-8 break-words">
-          {isSelf ? SHELF_TITLE[shelf] : `${readerName(profile)}’s ${SHELF_TITLE[shelf]}`}
-          {!isSelf && profile.staffBadge && <StaffSeal kind={profile.staffBadge} name={readerName(profile)} size={26} className="ml-2 align-[-2px]" />}
-          {!isSelf && <span className="ml-3 text-lg font-normal text-muted-foreground tabular-nums">{books.length.toLocaleString('en-GB')}</span>}
-        </h1>
+        {isSelf ? <ShelfHeader shelf={shelf} username={readerName(profile)} /> : (
+          <h1 className="page-title mt-2 mb-8 break-words">
+            {`${readerName(profile)}’s ${SHELF_TITLE[shelf]}`}
+            {profile.staffBadge && <StaffSeal kind={profile.staffBadge} name={readerName(profile)} size={26} className="ml-2 align-[-2px]" />}
+            {!keptPrivate && <span className="ml-3 text-lg font-normal text-muted-foreground tabular-nums">{books.length.toLocaleString('en-GB')}</span>}
+          </h1>
+        )}
         {isSelf
           ? <OwnerShelf shelf={shelf} />
+          : keptPrivate
+            ? <p className="text-sm text-muted-foreground">{readerName(profile)} keeps this shelf to themselves.</p>
           : books.length > 0
             // The cards take a Book; the public payload is the subset of it they read.
             ? <PublicShelf books={JSON.parse(JSON.stringify(books)) as Book[]} shelf={shelf} accentColour={profile.favColour} />

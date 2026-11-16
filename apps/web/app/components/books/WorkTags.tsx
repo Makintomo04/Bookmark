@@ -1,11 +1,12 @@
 "use client"
 import { FC, useState } from 'react'
-import { ChevronDown, Flame, ShieldAlert } from 'lucide-react'
+import { ChevronDown, Flame, Gauge, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import {
-  MOODS, MOOD_LABEL, MOODS_MAX, SPICE_HINT, SPICE_LABEL, SPICE_LEVELS, SPICE_MAX, SPICE_MIN_REPORTS, WARNING_LEVELS,
-  WARNING_LEVEL_LABEL, WARNING_TOPICS, shownMoods,
+  MOODS, MOOD_LABEL, MOODS_MAX, MOOD_PERCENT_MIN_READERS, PACES, PACE_LABEL, SPICE_HINT, SPICE_LABEL, SPICE_LEVELS, SPICE_MAX,
+  SPICE_MIN_REPORTS, STORY_FOCUSES, STORY_FOCUS_LABEL, VERDICT_MIN_REPORTS, WARNING_LEVELS, WARNING_LEVEL_LABEL, WARNING_TOPICS,
+  readsLike, shownMoods,
   type ContentWarning, type Mood, type ReaderTagsInput, type SpiceLevel, type TagAggregate, type WarningLevel, type WarningTopic,
 } from '@/lib/workTags'
 
@@ -22,8 +23,9 @@ const levelClass: Record<WarningLevel, string> = {
 // "emotional · tense · dark": the moods most readers gave a book, strongest first.
 export const MoodChips: FC<{ moods: TagAggregate["moods"], readers: number, className?: string }> = ({ moods, readers, className }) => {
   if (moods.length === 0) return null
+  const percents = readers >= MOOD_PERCENT_MIN_READERS
   return (
-    <ul className={cn("flex flex-wrap gap-1.5", className)} aria-label="Moods">
+    <ul className={cn("flex flex-wrap items-center gap-1.5", className)} aria-label="Moods">
       {shownMoods(moods, readers, 6).map(({ mood, count }) => (
         <li
           key={mood}
@@ -31,9 +33,10 @@ export const MoodChips: FC<{ moods: TagAggregate["moods"], readers: number, clas
           className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2.5 h-7 text-xs font-medium"
         >
           {MOOD_LABEL[mood]}
-          {readers > 1 && <span className="text-muted-foreground tabular-nums">{Math.round((count / readers) * 100)}%</span>}
+          {percents && <span className="text-muted-foreground tabular-nums">{Math.round((count / readers) * 100)}%</span>}
         </li>
       ))}
+      {!percents && <li className="px-1 text-xs text-muted-foreground">from {plural(readers, "reader")}</li>}
     </ul>
   )
 }
@@ -116,12 +119,43 @@ export const SpiceLine: FC<{ spice: TagAggregate["spice"] | undefined, className
   )
 }
 
+// "Fast-paced · Character-driven · Ends on a cliffhanger": how the book reads, from readers' answers. An
+// answer from fewer than VERDICT_MIN_REPORTS readers is early: alone, the line says so up front, as spice
+// does; beside settled answers, it's muted and says how many readers gave it on hover.
+export const ReadsLikeLine: FC<{ tags: Pick<TagAggregate, "pace" | "focus" | "cliffhanger"> | undefined, className?: string }> = ({ tags, className }) => {
+  const parts = readsLike(tags)
+  if (parts.length === 0) return null
+  const allEarly = parts.every((p) => p.early)
+  const most = Math.max(...parts.map((p) => p.reports))
+  return (
+    <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-sm", className)} aria-label="How it reads">
+      <Gauge size={16} aria-hidden className="shrink-0 text-muted-foreground" />
+      <span>
+        {allEarly && <span className="font-medium">Early: </span>}
+        {parts.map((p, i) => (
+          <span key={p.key}>
+            {i > 0 && <span className="text-muted-foreground"> · </span>}
+            <span
+              title={p.early ? `Early: from ${plural(p.reports, "reader")}. Shows for sure once ${VERDICT_MIN_REPORTS} readers have answered.` : undefined}
+              className={cn(allEarly ? "font-medium" : p.early ? "text-muted-foreground" : "font-medium")}
+            >
+              {i === 0 || !allEarly ? p.text : p.text.toLowerCase()}
+            </span>
+          </span>
+        ))}
+        {allEarly && <span className="text-muted-foreground"> · from {plural(most, "reader")}</span>}
+      </span>
+    </p>
+  )
+}
+
 // Moods, spice and warnings together, for a book page. Renders nothing until someone has tagged the book.
 export const WorkTagsSummary: FC<{ tags: TagAggregate | undefined, className?: string }> = ({ tags, className }) => {
   if (!tags || tags.readers === 0) return null
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       <MoodChips moods={tags.moods} readers={tags.readers} />
+      <ReadsLikeLine tags={tags} />
       {tags.spiceApplies && <SpiceLine spice={tags.spice} />}
       <ContentWarnings warnings={tags.warnings} readers={tags.readers} />
     </div>
@@ -137,16 +171,54 @@ interface ReaderTagsEditorProps {
   accent?: string
   // Spice is only asked of a reader who finished a book it applies to (spiceAskable in lib/workTags.ts).
   canReportSpice?: boolean
+  // Whether it ends on a cliffhanger is only asked of a reader who finished it. Pace and story focus are
+  // asked whenever the editor shows, which is only once a book is started.
+  canReportCliffhanger?: boolean
 }
 
-export const EMPTY_TAGS: ReaderTagsInput = { moods: [], warnings: [], spice: null }
+export const EMPTY_TAGS: ReaderTagsInput = { moods: [], warnings: [], spice: null, pace: null, focus: null, cliffhanger: null }
 const tagsKey = (t: ReaderTagsInput) =>
-  JSON.stringify({ m: [...t.moods].sort(), w: [...t.warnings].sort((x, y) => x.topic.localeCompare(y.topic)), s: t.spice ?? null })
+  JSON.stringify({
+    m: [...t.moods].sort(), w: [...t.warnings].sort((x, y) => x.topic.localeCompare(y.topic)), s: t.spice ?? null,
+    p: t.pace ?? null, f: t.focus ?? null, c: t.cliffhanger ?? null,
+  })
 export const sameTags = (a: ReaderTagsInput, b: ReaderTagsInput) => tagsKey(a) === tagsKey(b)
 
 const chipBase = "inline-flex items-center h-8 px-3 rounded-full text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
 
-export const ReaderTagsEditor: FC<ReaderTagsEditorProps> = ({ value, onChange, disabled, accent, canReportSpice }) => {
+// One answer from a few, as chips: tapping the chosen one again clears it.
+function ChoiceChips<T extends string | boolean>({ label, options, value, onChange, disabled, accent }: {
+  label: string
+  options: { value: T, text: string }[]
+  value: T | null | undefined
+  onChange: (next: T | null) => void
+  disabled?: boolean
+  accent?: string
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
+      {options.map((o) => {
+        const on = value === o.value
+        return (
+          <button
+            key={String(o.value)}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={disabled}
+            onClick={() => onChange(on ? null : o.value)}
+            style={on && accent ? { background: accent, borderColor: accent, color: readableInk(accent) } : undefined}
+            className={cn(chipBase, "border", on ? "border-foreground bg-foreground text-background" : "border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900")}
+          >
+            {o.text}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export const ReaderTagsEditor: FC<ReaderTagsEditorProps> = ({ value, onChange, disabled, accent, canReportSpice, canReportCliffhanger }) => {
   const [adding, setAdding] = useState(false)
   const [topic, setTopic] = useState<WarningTopic | "">("")
   const [level, setLevel] = useState<WarningLevel>("MODERATE")
@@ -195,6 +267,47 @@ export const ReaderTagsEditor: FC<ReaderTagsEditorProps> = ({ value, onChange, d
             )
           })}
         </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 text-sm font-medium">
+          How did it read? <span className="font-normal text-muted-foreground">· optional</span>
+        </legend>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm text-muted-foreground">Pace</span>
+          <ChoiceChips
+            label="Pace"
+            options={PACES.map((p) => ({ value: p, text: PACE_LABEL[p] }))}
+            value={value.pace}
+            onChange={(pace) => onChange({ ...value, pace })}
+            disabled={disabled}
+            accent={accent}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm text-muted-foreground">Driven by</span>
+          <ChoiceChips
+            label="Driven by"
+            options={STORY_FOCUSES.map((f) => ({ value: f, text: STORY_FOCUS_LABEL[f] }))}
+            value={value.focus}
+            onChange={(focus) => onChange({ ...value, focus })}
+            disabled={disabled}
+            accent={accent}
+          />
+        </div>
+        {canReportCliffhanger && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm text-muted-foreground">Does it end on a cliffhanger?</span>
+            <ChoiceChips
+              label="Ends on a cliffhanger"
+              options={[{ value: true, text: "yes" }, { value: false, text: "no" }]}
+              value={value.cliffhanger}
+              onChange={(cliffhanger) => onChange({ ...value, cliffhanger })}
+              disabled={disabled}
+              accent={accent}
+            />
+          </div>
+        )}
       </fieldset>
 
       {canReportSpice && (

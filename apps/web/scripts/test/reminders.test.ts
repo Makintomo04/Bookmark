@@ -24,6 +24,8 @@ import {
   streakAlertPush,
   streakState,
   type NudgeInput,
+  askOnJoin,
+  suggestedReminders,
 } from "@bookmark/shared/reminders";
 
 const at = (hhmm: string) => parseMinute(hhmm)!;
@@ -159,4 +161,16 @@ test("the words use only the reader's own book and numbers", () => {
     path: "/circles/c1",
   });
   assert.equal(checkpointPush({ circleId: "c1", label: "Part 2", due: "2026-11-01", progress: 41, until: 55, waiting: 0 }).body, "You're at 41% and it ends at 55%.");
+});
+
+test("joining a club or circle offers reminders once, with checkpoints first", () => {
+  assert.equal(askOnJoin({ alreadyMember: false }, null), "joined");
+  // Not for a circle they were in already, and never once they've been asked.
+  assert.equal(askOnJoin({ alreadyMember: true }, null), false);
+  assert.equal(askOnJoin({ alreadyMember: false }, new Date("2026-10-01")), false);
+  // A new member is offered checkpoints; a finish the daily reminder and streak too.
+  assert.deepEqual(suggestedReminders("joined", true, null, "20:00"), { reminders: { checkpoints: true } });
+  assert.deepEqual(suggestedReminders("finished", true, null, "20:00"), { reminders: { dailyAt: "20:00", streak: true, checkpoints: true } });
+  // With no phone to push to, what can arrive by email.
+  assert.deepEqual(suggestedReminders("joined", false, null, "20:00"), { reminders: { checkpoints: true }, email: { weekly: true } });
 });

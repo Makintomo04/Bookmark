@@ -10,8 +10,10 @@ import { usePathname } from 'next/navigation'
 import useUser from '@/app/hooks/useUser'
 import NotificationBell from './NotificationBell'
 import Link from 'next/link'
-import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, ShieldCheck, Sparkles, Users, Wrench, X, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronRight, Compass, Crown, Heart, Home, LogOut, Rss, Settings, ShieldCheck, BookHeart, Users, Wrench, X, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { withCallback } from '@/lib/callbackUrl'
+import { signupSourceFrom } from '@bookmark/shared/signupSource'
 import { isWrappedSeason } from '@/lib/wrappedSeason'
 import { tierPreviewEnabled } from '@/app/hooks/useTierPreview'
 import { isStaffRole } from '@/lib/roles'
@@ -69,16 +71,25 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [showMenu])
+  // A page reached from a Wrap card's link (?from=card) goes through sign-up and sign-in as the callback, so a
+  // sign-up from here is counted (packages/shared/src/signupSource.ts) and they come back to it. Read after
+  // mount: the address isn't known on the server.
+  const [marked, setMarked] = useState<string | null>(null)
+  useEffect(() => {
+    const here = `${window.location.pathname}${window.location.search}`
+    setMarked(signupSourceFrom(here) ? here : null)
+  }, [pathname])
   if (user) {
     const booksRead = booksReadFor(user.username, booksReadOf(user))
     const { tier, next, remaining, progress } = tierProgress(booksRead)
     const barTier = next ?? tier
     const secondary: NavItem[] = wrappedYear
-      ? [...SECONDARY, { href: `/wrapped/${wrappedYear}`, label: `Your ${wrappedYear} Wrapped`, icon: Sparkles }]
+      ? [...SECONDARY, { href: `/wrapped/${wrappedYear}`, label: `Your ${wrappedYear} Wrapped`, icon: BookHeart }]
       : SECONDARY
 
-    const avatar = (className?: string) => (
-      <Avatar className={className} style={{background: avatarColour(user?.favColour), ...tierRingStyle(booksRead)}}>
+    // The tier ring shows in the menu, beside the tier it stands for; the header's own avatar stays plain.
+    const avatar = (className?: string, ring = true) => (
+      <Avatar className={className} style={{background: avatarColour(user?.favColour), ...(ring ? tierRingStyle(booksRead) : {})}}>
         {user?.image && <AvatarImage src={user.image} alt='' />}
         {/* Also covers a photo that fails to load. */}
         <AvatarFallback className='bg-transparent'><InitialAvatar username={user?.username} favColour={user?.favColour} label='' /></AvatarFallback>
@@ -102,8 +113,7 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
 
     return (
       <>
-        {/* gap-3: room between the bell's badge and the avatar's ring. */}
-        <div className="flex gap-3 relative items-center">
+        <div className="flex gap-1.5 relative items-center">
             {wrappedYear && (
               <Link href={`/wrapped/${wrappedYear}`} className="hidden sm:inline-flex h-9 items-center px-3 rounded-full text-sm font-semibold text-white bg-brand-fill hover:bg-brand-fill-hover transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 Your {wrappedYear} Wrapped
@@ -111,13 +121,11 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
             )}
             <NotificationBell/>
 
-        {/* mr-1: the tier ring is drawn 4px outside the avatar, so this keeps it inside the page's edge. */}
-        {/* A dot on the avatar while reports are waiting on this person, so staff needn't open the menu to know. */}
+        {/* Reports waiting on staff are in the label and on Staff in the menu, not a dot on the avatar. */}
         <button type="button" aria-label={staffWaiting > 0 ? `Open menu, ${staffWaiting} ${staffWaiting === 1 ? "report" : "reports"} waiting` : "Open menu"}
           aria-expanded={showMenu} onClick={()=>setShowMenu((state)=>!state)}
-          className="relative mr-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
-          {avatar()}
-          {staffWaiting > 0 && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-brand-fill ring-2 ring-background" />}
+          className="relative grid size-11 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {avatar("size-8", false)}
         </button>
         {showMenu && <>
           {/* Catches clicks outside the dropdown on wider screens. */}
@@ -178,10 +186,10 @@ const UserMenu: FC<UserMenuProps> = ({}) => {
   const onProfile = pathname?.startsWith('/u/') ?? false
   return (
     <div className="flex items-center gap-2 sm:gap-4">
-      <Link href="/signin" className="inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <Link href={withCallback("/signin", marked)} className="inline-flex h-9 items-center px-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         Sign in
       </Link>
-      <Link href="/register" className={cn("inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      <Link href={withCallback("/register", marked)} className={cn("inline-flex h-9 items-center px-4 rounded-md text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         onProfile ? "border border-neutral-300 text-foreground hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900" : "text-white bg-brand-fill hover:bg-brand-fill-hover")}>
         Sign up
       </Link>

@@ -1,4 +1,7 @@
-import { MOODS, MOOD_LABEL, SPICE_LABEL, SPICE_MAX, WARNING_TOPICS, shownMoods, type Mood, type MoodCount, type SpiceLevel, type SpiceSummary, type WarningSummary, type WarningTopic } from "@/lib/workTags";
+import {
+  MOODS, MOOD_LABEL, PACE_LABEL, SPICE_LABEL, SPICE_MAX, WARNING_TOPICS, shownMoods,
+  type Mood, type MoodCount, type Pace as TagPace, type SpiceLevel, type SpiceSummary, type Verdict, type WarningSummary, type WarningTopic,
+} from "@/lib/workTags";
 import { AiError, type AskJson } from "@/lib/ai/client";
 
 // Ask the shelf: a reader describes what they're in the mood for, and gets books from Bookmark's own
@@ -202,6 +205,8 @@ export interface CatalogCandidate {
   moods: MoodCount[];
   warnings: WarningSummary[];
   spice: SpiceSummary;
+  // Readers' pace answers (BOO-104). A book nobody has given one falls back on its moods.
+  pace: Verdict<TagPace>;
 }
 
 // A book on the asking reader's shelf.
@@ -279,7 +284,20 @@ const GENRE_WORDS = new Set([...Object.keys(GENRE_GROUPS), ...Object.values(GENR
 
 const moodShare = (c: CatalogCandidate, mood: Mood) => c.moods.find((m) => m.mood === mood)?.share ?? 0;
 
+// The intent's pace as readers tag it.
+export const TAG_PACE: Record<Pace, TagPace> = { slow: "SLOW", medium: "MEDIUM", fast: "FAST" };
+// Before readers answered pace, it was guessed from moods; still the guess for a book with no answers.
 const PACE_MOODS: Record<Pace, Mood[]> = { fast: ["TENSE", "ADVENTUROUS"], medium: [], slow: ["REFLECTIVE"] };
+// The other end of the scale: a slow book for a fast request, and the reverse.
+const OPPOSITE_PACE: Record<Pace, TagPace | null> = { fast: "SLOW", medium: null, slow: "FAST" };
+
+// How well readers' pace answers fit the wanted pace: up to +4 for everyone agreeing, down to -2 for
+// everyone saying the opposite, scaled by the share. Null with no answers, so the mood guess steps in.
+export function paceScore(pace: Verdict<TagPace> | undefined, want: Pace): number | null {
+  if (!pace || pace.reports === 0) return null;
+  const share = (p: TagPace | null) => (p ? pace.counts[p] / pace.reports : 0);
+  return 4 * share(TAG_PACE[want]) - 2 * share(OPPOSITE_PACE[want]);
+}
 
 // Warnings the reader ruled out, as words that would show up in subjects when no reader has tagged it.
 const WARNING_SUBJECT_WORDS: Partial<Record<WarningTopic, string[]>> = {
@@ -384,7 +402,18 @@ export function scoreCandidate(intent: ShelfIntent, candidate: CatalogCandidate)
       matched.push(MOOD_LABEL[mood]);
     }
   }
-  if (intent.pace) for (const mood of PACE_MOODS[intent.pace]) score += 1.5 * moodShare(candidate, mood);
+  if (intent.pace) {
+    const fit = paceScore(candidate.pace, intent.pace);
+    if (fit === null) for (const mood of PACE_MOODS[intent.pace]) score += 1.5 * moodShare(candidate, mood);
+    else {
+      score += fit;
+      // Most readers agreeing is a real match worth naming.
+      if (candidate.pace.counts[TAG_PACE[intent.pace]] / candidate.pace.reports >= 0.5) {
+        beyondGenre++;
+        matched.push(`${PACE_LABEL[TAG_PACE[intent.pace]]} pace`);
+      }
+    }
+  }
   for (const mood of intent.avoidMoods) score -= 4 * moodShare(candidate, mood);
   // A spice range was asked for: readers putting it in range is a real match. Unknown counts against a
   // little but is still shown, since most books have no spice reports yet.
@@ -544,6 +573,7 @@ export function reasonsPromptFor(intent: ShelfIntent, results: Ranked[]) {
       moods: shownMoods(c.moods, c.tagReaders, 4).map((m) => MOOD_LABEL[m.mood]),
       // Readers' median, 0 to 5, once enough have reported it.
       spice: c.spice.level,
+      pace: c.pace?.value ? PACE_LABEL[c.pace.value] : null,
     })),
   });
 }
@@ -656,13 +686,26 @@ const toResult = (r: Ranked, reason: string | null): AskResult => ({
   shelf: r.shelf,
 });
 
+// A book the reader named as the yardstick ("like Fourth Wing but spicier") isn't an answer to it (BOO-92).
+// A title of two or more words counts wherever it appears in the query; a one-word title ("Dune",
+// "Piranesi") only straight after like, than, to or as, so "a book about grief" doesn't hide one called Grief.
+const plainWords = (text: string) => text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+export function namedInQuery(query: string, title: string): boolean {
+  const q = ` ${plainWords(query)} `;
+  const words = plainWords(title).replace(/^(the|a|an) /, "").split(" ").filter(Boolean);
+  if (words.length === 0) return false;
+  const name = words.join(" ");
+  if (words.length > 1) return q.includes(` ${name} `) || q.includes(` the ${name} `);
+  return name.length >= 4 && new RegExp(` (like|than|to|as) (the )?${name} `).test(q);
+}
+
 // The search. Throws an AiError when the intent call fails (the caller refunds the allowance); a
 // failed reasons call only costs the reasons.
 export async function askShelf(userId: string, query: string, deps: AskShelfDeps): Promise<AskShelfResponse> {
   const intent = await parseIntent(query, deps.ask);
   if (!hasSearchableIntent(intent)) return { intent, results: [], reasons: "none" };
 
-  const candidates = await deps.catalog.candidates(intent);
+  const candidates = (await deps.catalog.candidates(intent)).filter((c) => !namedInQuery(query, c.title));
   const [shelf, signals] = await Promise.all([deps.catalog.shelf(userId), deps.catalog.signals(userId, candidates)]);
   const ranked = rankCandidates(intent, candidates, shelf, signals);
   if (ranked.length === 0) return { intent, results: [], reasons: "none" };

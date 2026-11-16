@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client"
 import prisma from "@/lib/db"
 import { createNotifications } from "@/lib/notifications"
 import { BOOK_NEWS_TYPES } from "@/lib/releaseRules"
+import { isUpcoming } from "@bookmark/shared/releases"
 import { seriesKey } from "@/lib/series"
 
 // Telling readers when a new book comes out in a series they follow or have started. Each series Hardcover
@@ -73,7 +74,7 @@ export const highestPosition = (positions: (number | null | undefined)[]) => {
 async function seriesWorks(series: SeriesId) {
   const works = await prisma.work.findMany({
     where: { seriesName: { equals: series.name, mode: "insensitive" } },
-    select: { id: true, seriesName: true, seriesPosition: true, authors: true },
+    select: { id: true, seriesName: true, seriesPosition: true, authors: true, releaseDate: true },
     take: 500,
   })
   return works.filter((w) => w.seriesName && w.authors[0] && seriesKey(w.seriesName, w.authors[0]) === series.key)
@@ -84,10 +85,12 @@ export const ANNOUNCE_BATCH = 500
 
 // Tells the series' followers and readers about its books placed after `after`, up to `limit` readers.
 // Readers already told are skipped, so calling it again carries on where it stopped; `done` says nobody is
-// left.
+// left. A book the catalogue dates ahead is never announced as out, even with a place (a librarian's, or a later
+// book raising the series' highest past it): telling readers early is worse than telling them late.
 export async function announceSeriesBooks(series: SeriesId, after: number, limit = ANNOUNCE_BATCH): Promise<{ told: number, done: boolean }> {
   const works = await seriesWorks(series)
-  const newWorks = works.flatMap((w) => (w.seriesPosition != null && w.seriesPosition > after && Number.isInteger(w.seriesPosition)
+  const today = new Date().toISOString().slice(0, 10)
+  const newWorks = works.flatMap((w) => (w.seriesPosition != null && w.seriesPosition > after && Number.isInteger(w.seriesPosition) && !isUpcoming(w.releaseDate, today)
     ? [{ id: w.id, position: w.seriesPosition }]
     : []))
   if (newWorks.length === 0) return { told: 0, done: true }

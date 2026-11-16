@@ -1,12 +1,10 @@
 "use client"
 import { FC } from 'react'
-import { Bookmark } from 'lucide-react'
 import type { Book } from '@prisma/client'
 import useBooks from '@/app/hooks/useBooks'
 import useFavourite from '@/app/hooks/useFavourite'
 import ProfileLists from '../discover/ProfileLists'
 import FavouritesRow, { FavouritesRowSkeleton } from './FavouritesRow'
-import UpNext from './UpNext'
 
 // Your own favourites as books, newest first, once the shelf they're drawn from has loaded.
 const useFavouriteBooks = () => {
@@ -19,36 +17,19 @@ const useFavouriteBooks = () => {
 
 // Your favourites in your header's right column, above what you're reading: four to a row, in covers larger than
 // Up next's (BooksTop, from lg up).
-export const ProfileFavourites: FC = () => {
-  const { loading, pending, favs } = useFavouriteBooks()
+// With no favourites yet but books on your shelf, the same spot holds the heading and how to add one.
+// `half`: no margin of its own, where its container spaces it (beside your header below lg).
+export const ProfileFavourites: FC<{ half?: boolean }> = ({ half = false }) => {
+  const { loading, pending, books, favs } = useFavouriteBooks()
   if (loading) return pending ? <FavouritesRowSkeleton /> : null
-  return favs.length > 0 ? <FavouritesRow books={favs} href="/favourites" collapsible /> : null
+  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} half={half} />
 }
 
-// Your favourites and lists in bands, above the shelves. With no favourites yet, the way to add one is a line
-// under the lists' heading rather than a section of its own.
-// `column`: your header's right column from lg up, where the favourites sit above what you're reading
-// (ProfileFavourites) and this is what's under it: Up next (three) beside your lists, or your lists alone.
-const BandsShowcase: FC<{ username: string; column?: boolean; withUpNext?: boolean }> = ({ username, column = false, withUpNext = false }) => {
-  const { loading, pending, books, favs } = useFavouriteBooks()
-  if (loading && !column) return pending ? <FavouritesRowSkeleton /> : null
-  const hint = !loading && favs.length === 0 && books.length > 0 && (
-    <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Bookmark size={14} aria-hidden />No favourites yet. Use the bookmark on any cover to add one.</p>
-  )
-  if (column) {
-    return withUpNext ? (
-      <div className="grid grid-cols-2 items-start gap-10">
-        <UpNext cap={3} />
-        <ProfileLists username={username} isSelf half footnote={hint || undefined} />
-      </div>
-    ) : <ProfileLists username={username} isSelf flush footnote={hint || undefined} />
-  }
-  return (
-    <div className="flex flex-col gap-12">
-      {favs.length > 0 && <FavouritesRow books={favs} href="/favourites" collapsible />}
-      <ProfileLists username={username} isSelf flush swipe footnote={hint || undefined} />
-    </div>
-  )
+// Your lists in bands, above the shelves, below lg (your favourites open the profile there: ProfileHead's `lead`).
+// `column`: your header's column from lg up, under your reviews: two across.
+const BandsShowcase: FC<{ username: string; column?: boolean }> = ({ username, column = false }) => {
+  if (column) return <ProfileLists username={username} isSelf half />
+  return <ProfileLists username={username} isSelf flush swipe />
 }
 
 export default BandsShowcase

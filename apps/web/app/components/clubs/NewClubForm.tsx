@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { ArrowLeft, Lock } from 'lucide-react'
 import { notify, apiError } from '@/lib/notify'
-import { CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX } from '@/lib/clubs'
+import { BIG_CLUB_MAX_MEMBERS, CLUB_ABOUT_MAX, CLUB_MAX_MEMBERS, CLUB_NAME_MAX } from '@/lib/clubs'
 import useClubs from '@/app/hooks/useClubs'
 import { primaryButtonClass, secondaryButtonClass } from '../profile-head/ProfileHeader'
 import UpgradePrompt from '../plus/UpgradePrompt'
@@ -40,7 +40,7 @@ const NewClubForm: FC = () => {
           </Link>
           <h1 className="page-title">Start a club</h1>
           <p className="max-w-prose text-muted-foreground">
-            A club keeps the same readers from one book to the next. Share one link, and everyone who joins is added to each book you start. Up to {CLUB_MAX_MEMBERS} readers.
+            A club keeps the same readers from one book to the next. Share one link, and everyone who joins is added to each book you start. Up to {CLUB_MAX_MEMBERS} readers, or {BIG_CLUB_MAX_MEMBERS} if you have Plus.
           </p>
         </div>
 

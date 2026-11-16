@@ -14,6 +14,8 @@ const bodySchema = z.object({
   reviewVisibility: z.enum(["EVERYONE", "FOLLOWERS", "ONLY_ME"]),
   reviewComments: z.enum(["EVERYONE", "FRIENDS", "OFF"]),
   hideWantToRead: z.boolean(),
+  hideReading: z.boolean(),
+  hideFinished: z.boolean(),
   hideDidNotFinish: z.boolean(),
   hideFollowCounts: z.boolean(),
   hideFavourites: z.boolean(),

@@ -37,10 +37,11 @@ export interface AuthorBooksPage {
   books: DiscoverBook[]
   // Where the next page starts in the tidied list, or null when this was the last.
   nextOffset: number | null
-  // Open Library failed, as opposed to having nothing.
+  // Open Library failed, as opposed to having nothing. Our catalogue's books can still fill `books`, so only
+  // say it couldn't load when the list is empty.
   failed: boolean
   // How many books the list holds once every page is loaded, so "About the author" says the number the
-  // reader can scroll through. Null when Open Library failed.
+  // reader can scroll through. Null when Open Library failed and our catalogue had none either.
   total: number | null
 }
 
@@ -77,7 +78,7 @@ export async function authorBooksPage(author: Author, offset = 0): Promise<Autho
   // A librarian's fix (title, author, cover) wins over Open Library's own, as on book pages.
   const books = await withCatalogueFixesOrAsIs(await filledIn(all.slice(offset, offset + AUTHOR_PAGE_SIZE), catalog, author))
   const nextOffset = offset + AUTHOR_PAGE_SIZE < all.length ? offset + AUTHOR_PAGE_SIZE : null
-  return { books, nextOffset, failed: found.failed, total: found.failed ? null : all.length }
+  return { books, nextOffset, failed: found.failed, total: found.failed && all.length === 0 ? null : all.length }
 }
 
 // Open Library often lists a book with no cover or page count (Kate Posey's Serial Killer Games). Our
@@ -127,7 +128,8 @@ export async function authorAbout(author: Author): Promise<AuthorAbout> {
   const photoId = record?.photoIds[0]
   // A librarian's bio or photo, where they set one, wins over Open Library's.
   return {
-    photoUrl: curated?.photoUrl ?? (photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg` : null),
+    // default=false: a photo Open Library doesn't have is a 404, not a blank image, so the page can leave it out.
+    photoUrl: curated?.photoUrl ?? (photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg?default=false` : null),
     bio: curated?.bio ? bioParagraphs(curated.bio) : cleanBio(record?.bio),
     links: mergeAuthorLinks(linksFromWikidata(entity), linksFromOpenLibrary(record?.links)),
   }

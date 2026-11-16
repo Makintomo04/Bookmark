@@ -5,6 +5,7 @@ import { BookPlus, Lock, Search, Users } from 'lucide-react'
 import { askToCatalogue } from '../books/catalogueRequest'
 import CoverLinkInput from '../books/CoverLinkInput'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import useUser from '@/app/hooks/useUser'
 import { UploadButton } from '@/utils/uploadthing'
 import { notify, apiError } from '@/lib/notify'
@@ -14,6 +15,7 @@ import { Input } from '../ui/input'
 import { ClearableInput } from '@/app/components/ui/clearable-input'
 import { Textarea } from '../ui/textarea'
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form'
+import useHostingGate from '@/app/hooks/useHostingGate'
 import useBookEntryModal from '@/app/hooks/useBookEntryModal'
 import { Button } from '../ui/button'
 import axios from 'axios'
@@ -21,6 +23,9 @@ import BookSearchResults, { BookSearchResult } from './BookSearchResults'
 import useBookSearch from '@/app/hooks/useBookSearch'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
+import { FavouriteChoice } from '../cards/BookActions'
+import useFavourite from '@/app/hooks/useFavourite'
+import ReviewFields, { EMPTY_REVIEW, reviewBody, type ReviewValue } from '../books/ReviewFields'
 import { GENRES } from '@/utils/helpers'
 import { readableInk } from '@/lib/colour'
 import BookBlurb from '../books/BookBlurb'
@@ -73,6 +78,8 @@ const BookEntryModal: FC = () => {
   const [format, setFormat] = useState<FormatChoice>("PRINT")
   // "Start a circle for this book": after adding, go straight to the new-circle form with it chosen.
   const [startCircle, setStartCircle] = useState(false)
+  // At the hosting limit the switch asks first (BOO-94) rather than leading to a form that says no.
+  const gate = useHostingGate(bookEntryModal.isOpen)
   // Private: on the reader's shelf as usual, but left off their profile and out of followers' feeds.
   const [isPrivate, setIsPrivate] = useState(false)
   // A hand-typed, shared book: ask a librarian to add it to the catalogue once it's on the shelf.
@@ -87,6 +94,10 @@ const BookEntryModal: FC = () => {
   // A finished book's dates: today by default, or the day picked, or undated.
   const [finishDates, setFinishDates] = useState<FinishDatesValue>(defaultFinishDates)
   const [rating, setRating] = useState(0)
+  const [review, setReview] = useState<ReviewValue>(EMPTY_REVIEW)
+  // A book added to Finished can be a favourite straight away; it's added once the book is saved and has an id.
+  const [favourite, setFavourite] = useState(false)
+  const { mutate: mutateFav } = useFavourite()
 
   const [query, setQuery] = useState("")
   const [searchAttempt, setSearchAttempt] = useState(0)
@@ -118,6 +129,8 @@ const BookEntryModal: FC = () => {
     setShelf("NOT_STARTED")
     setFinishDates(defaultFinishDates())
     setRating(0)
+    setReview(EMPTY_REVIEW)
+    setFavourite(false)
     setPublished(null)
     setGivenBlurb(null)
     setHardcoverId(null)
@@ -214,6 +227,7 @@ const BookEntryModal: FC = () => {
       currentPage: shelf === "STARTED" ? data.currentPage : undefined,
       ...(shelf === "COMPLETED" && finishDatesBody(finishDates)),
       rating: shelf === "COMPLETED" && rating > 0 ? rating : undefined,
+      ...(shelf === "COMPLETED" && reviewBody(review)),
       isPrivate: isPrivate || undefined,
     }).then(({ data: saved }) => {
       const label = SHELVES.find((s) => s.value === shelf)?.label
@@ -221,10 +235,14 @@ const BookEntryModal: FC = () => {
       if (isManual && askToAdd && !isPrivate && saved?.workId) {
         askToCatalogue(saved.workId).catch(() => notify.error("Added, but your request didn't send. Ask again from the book."))
       }
+      if (shelf === "COMPLETED" && favourite && saved?.id) {
+        axios.post(`/api/favourites/${saved.id}`).then(() => mutateFav())
+          .catch(() => notify.error("Added, but it didn't go into your favourites. Use the bookmark on its cover."))
+      }
       refreshAfterBookChange()
       copyCoverLater(saved?.id)
       bookEntryModal.onClose()
-      if (startCircle && saved?.id && shelf !== "COMPLETED") router.push(`/circles/new?bookId=${saved.id}`)
+      if (startCircle && !gate.blocked && saved?.id && shelf !== "COMPLETED") router.push(`/circles/new?bookId=${saved.id}`)
     }).catch((err) => {
       notify.error(apiError(err, "Couldn't add that book. Try again."))
     }).finally(() => {
@@ -274,7 +292,7 @@ const BookEntryModal: FC = () => {
           className="w-[72px] shrink-0"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-lg font-bold leading-tight break-words">{title || "Untitled"}</p>
+          <p className="text-lg font-semibold leading-tight break-words">{title || "Untitled"}</p>
           <p className="text-sm text-muted-foreground">
             {[author || "Unknown author", published, lengthText].filter(Boolean).join(" · ")}
           </p>
@@ -441,20 +459,20 @@ const BookEntryModal: FC = () => {
         <button
           type="button"
           role="switch"
-          aria-checked={startCircle}
-          onClick={() => setStartCircle((v) => !v)}
+          aria-checked={startCircle && !gate.blocked}
+          onClick={() => (gate.blocked ? gate.refuse() : setStartCircle((v) => !v))}
           disabled={isLoading}
           className="flex items-start gap-3 text-left w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <span
-            className={cn("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", !startCircle && "bg-neutral-300 dark:bg-neutral-700")}
-            style={startCircle ? { background: user?.favColour || "#D92D2D" } : undefined}
+            className={cn("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", (!startCircle || gate.blocked) && "bg-neutral-300 dark:bg-neutral-700")}
+            style={startCircle && !gate.blocked ? { background: user?.favColour || "#D92D2D" } : undefined}
           >
-            <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", startCircle && "translate-x-5")} />
+            <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", startCircle && !gate.blocked && "translate-x-5")} />
           </span>
           <span>
             <span className="flex items-center gap-1.5 text-sm font-medium"><Users size={14} aria-hidden /> Start a reading circle for this book</span>
-            <span className="block text-sm text-muted-foreground">Read it with friends: you&apos;ll get an invite link right after adding it.</span>
+            <span className="block text-sm text-muted-foreground">{gate.blocked && gate.message ? gate.message : <>Read it with friends: you&apos;ll get an invite link right after adding it.</>}</span>
           </span>
         </button>
       )}
@@ -465,24 +483,22 @@ const BookEntryModal: FC = () => {
           <div className="flex flex-col gap-2">
             <Label>Rating <span className="font-normal text-muted-foreground">· optional</span></Label>
             <StarRating value={rating} onChange={setRating} disabled={isLoading} />
+            <FavouriteChoice value={favourite} onChange={setFavourite} disabled={isLoading} className="mt-2" />
           </div>
+          <ReviewFields value={review} onChange={setReview} disabled={isLoading} accent={user?.favColour || '#D92D2D'} id="add-finish-review" />
         </div>
       )}
     </div>
   )
 
-  const footer = (
-    <div className="w-full h-full mt-auto p-6">
-      <div className="flex items-center gap-3 justify-end mt-auto">
-        <Button onClick={bookEntryModal.onClose} variant="outline" className="border-neutral-700 rounded-md py-2" disabled={isLoading}>Cancel</Button>
-        {stage === "shelf" && (
-          <Button style={{ background: user?.favColour || '#D92D2D', color: readableInk(user?.favColour || '#D92D2D') }} onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading} loading={isAdding}>
-            {SHELVES.find((s) => s.value === shelf)?.action}
-          </Button>
-        )}
-      </div>
-    </div>
-  )
+  const footer = stage === "shelf" ? (
+    <ModalFooter>
+      <Button onClick={bookEntryModal.onClose} variant="ghost" disabled={isLoading}>Cancel</Button>
+      <Button onClick={handleSubmit(onSubmit, onInvalid)} disabled={isLoading} loading={isAdding}>
+        {SHELVES.find((s) => s.value === shelf)?.action}
+      </Button>
+    </ModalFooter>
+  ) : undefined
 
   return (
     <Modal
@@ -492,6 +508,7 @@ const BookEntryModal: FC = () => {
       onClose={bookEntryModal.onClose}
       isOpen={bookEntryModal.isOpen}
       disabled={isLoading}
+      size="l"
     />
   )
 }

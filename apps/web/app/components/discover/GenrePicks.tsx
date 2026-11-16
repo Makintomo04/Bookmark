@@ -80,7 +80,7 @@ const GenrePicks: FC<{ placement: 'shelf' | 'discover', className?: string, onHi
     <section aria-labelledby="genre-picks-heading" className={className}>
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h2 id="genre-picks-heading" className="text-xl font-bold">{placement === 'shelf' ? 'Somewhere to start' : 'From the genres you picked'}</h2>
+          <h2 id="genre-picks-heading" className="text-lg font-semibold">{placement === 'shelf' ? 'Somewhere to start' : 'From the genres you picked'}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {placement === 'shelf' ? 'Popular with readers who love' : 'What readers shelve most in'} {joinLabels(data.genres.map((g) => g.label))}.
           </p>

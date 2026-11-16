@@ -10,8 +10,8 @@ import {
 } from "@bookmark/shared/releases";
 import { heldInQuietHours, pushContentFor, pushGroupOf, pushGroupsFor, pushedToSelf } from "@bookmark/shared/push";
 import { buildWeeklyDigest, type DigestData } from "@bookmark/shared/digest";
-import { announcementBatches, authorNewsNotifications, freshReleases, isAnnounced, seenIdsOf } from "@/lib/authorNews";
-import { BOOK_NEWS_TYPES, HEADS_UP_TYPES, bookNewsSections, isFirstRelease, newlyUpcoming, placeWhileUpcoming, placedPositions, publicationDayReaders, takesSeriesPlace } from "@/lib/releaseRules";
+import { announcementBatches, authorNewsNotifications, batchQueuedAt, freshReleases, isAnnounced, seenIdsOf, sentBatchWhere } from "@/lib/authorNews";
+import { BOOK_NEWS_TYPES, HEADS_UP_TYPES, bookNewsSections, companionPlace, isFirstRelease, newlyUpcoming, placeWhileUpcoming, placedPositions, publicationDayReaders, takesSeriesPlace } from "@/lib/releaseRules";
 import { heldPushPlan } from "@/lib/jobs/heldPushes";
 import { isQuietFor } from "@/lib/notifications";
 import { parseWorkFix } from "@/lib/catalogueFixRules";
@@ -97,7 +97,7 @@ test("an author's followers hear of every new book, a series' followers of its o
     seriesFollowers: new Map([["riftwake|brandon-sanderson", ["seriesFan", "fan"]]]),
     books,
     shelved: new Set(["hasOne|w-soon"]),
-    alreadyTold: new Set(["told|w-later"]),
+    toldByBatch: new Set(["told|w-later"]),
   });
   const byUser = Object.fromEntries(rows.map((r) => [r.userId, r]));
   assert.deepEqual(Object.keys(byUser).sort(), ["fan", "hasOne", "seriesFan"]);
@@ -226,6 +226,27 @@ test("a later check's books are their own batch, so a reader told about the firs
   assert.deepEqual(second.map((r) => [r.workId, r.count]), [["b", 2]]);
 });
 
+test("a reader told about one of a batch's books before it was queued still hears about the others", () => {
+  // A librarian's date announced book four; a week later Hardcover lists it in the same batch as a novella.
+  const books = [{ workId: "four", seriesKey: null, releaseDate: "2027-03-01" }, { workId: "novella", seriesKey: null, releaseDate: "2027-05-01" }];
+  const rows = authorNewsNotifications({ authorFollowers: ["reader"], seriesFollowers: new Map(), books, alreadyTold: new Set(["reader|four"]) });
+  assert.deepEqual(rows.map((r) => [r.userId, r.workId, r.count]), [["reader", "novella", 1]]);
+  // But this batch's own notification, from a run that stopped part way, isn't sent again.
+  assert.deepEqual(authorNewsNotifications({ authorFollowers: ["reader"], seriesFollowers: new Map(), books, toldByBatch: new Set(["reader|four"]) }), []);
+  // When a batch was queued, from its key; none for books queued before batches.
+  assert.equal(batchQueuedAt("2026-10-31T00:30:00.000Z")?.toISOString(), "2026-10-31T00:30:00.000Z");
+  assert.equal(batchQueuedAt("librarian:2026-10-31T09:15:00.000Z")?.toISOString(), "2026-10-31T09:15:00.000Z");
+  assert.equal(batchQueuedAt(null), null);
+  assert.equal(batchQueuedAt("nonsense"), null);
+});
+
+test("a told batch leaves the queue by its own key, so books queued meanwhile stay", () => {
+  // Only the books of that batch: the same book queued again since, in a newer batch, isn't taken out.
+  assert.deepEqual(sentBatchWhere([{ workId: "a", batch: "b1" }, { workId: "c", batch: "b1" }]), { workId: { in: ["a", "c"] }, batch: "b1" });
+  // Books queued before batches have none.
+  assert.deepEqual(sentBatchWhere([{ workId: "old" }]), { workId: { in: ["old"] }, OR: [{ batch: null }, { batch: { isSet: false } }] });
+});
+
 test("a book not out yet takes its series but not its place, until it's out", () => {
   assert.equal(placeWhileUpcoming(4, "2027-06-01", TODAY), null);
   assert.equal(placeWhileUpcoming(4, "2026-10-01", TODAY), 4);
@@ -237,6 +258,18 @@ test("a book not out yet takes its series but not its place, until it's out", ()
   assert.equal(takesSeriesPlace({ seriesName: "Riftwake", seriesPosition: 1, curatedFields: [] }, "Riftwake", "Brandon Sanderson"), false);
   assert.equal(takesSeriesPlace({ seriesName: "Mistborn", seriesPosition: null, curatedFields: [] }, "Riftwake", "Brandon Sanderson"), false);
   assert.equal(takesSeriesPlace({ seriesName: null, seriesPosition: null, curatedFields: ["seriesName"] }, "Riftwake", "Brandon Sanderson"), false);
+});
+
+test("a book a librarian filed in its series by hand keeps its place, but the place is held back until it's out", () => {
+  // "Add a book by hand": book 4, dated next June, series set by the librarian. Hardcover lists it undated.
+  const byHand = { seriesName: "Riftwake", seriesPosition: 4, curatedFields: ["seriesName", "seriesPosition", "releaseDate"], releaseDate: "2027-06-01" };
+  assert.deepEqual(companionPlace(byHand, { position: 4 }, "Riftwake", "Brandon Sanderson", TODAY), { takes: false, position: null, held: true });
+  // Once it's out the place counts, so the next re-check raises the series' highest and tells its readers.
+  assert.deepEqual(companionPlace(byHand, { position: 4 }, "Riftwake", "Brandon Sanderson", "2027-06-02"), { takes: false, position: 4, held: false });
+  // A work filed without a place takes it once out, and is held while Hardcover itself dates it ahead.
+  const unplaced = { seriesName: "Riftwake", seriesPosition: null, curatedFields: [], releaseDate: null };
+  assert.deepEqual(companionPlace(unplaced, { position: 4 }, "Riftwake", "Brandon Sanderson", TODAY), { takes: true, position: 4, held: false });
+  assert.deepEqual(companionPlace(unplaced, { position: 4, releaseDate: "2027-06-01" }, "Riftwake", "Brandon Sanderson", TODAY), { takes: true, position: null, held: true });
 });
 
 test("the weekly email names a book in one section only: out, then new in a series, then announced", () => {

@@ -21,3 +21,20 @@ const FRACTIONS: Record<number, string> = { 0.25: "¼", 0.5: "½", 0.75: "¾" };
 
 // 4.75 → "4¾", 0.5 → "½", 3 → "3".
 export const ratingGlyphs = (n: number) => `${Math.floor(n) || ""}${FRACTIONS[n % 1] ?? ""}`;
+
+// ---- Averages -----------------------------------------------------------------------------
+
+// One rule for "average rating" wherever it's shown: /stats, the stats explorer and the share cards. Each
+// book counts once, with its latest rating among the reads counted (a re-read's rating replaces the
+// first one's), so a book read three times doesn't weigh three times. `reads` in the order they ended.
+export function latestRatingByBook(reads: { bookId: string, rating: number | null }[]): Map<string, number> {
+  const latest = new Map<string, number>()
+  for (const r of reads) if (r.rating && r.rating > 0) latest.set(r.bookId, r.rating)
+  return latest
+}
+
+// Their mean, to one decimal place (what every screen shows), or null with nothing rated.
+export function averageRating(ratings: Iterable<number>): number | null {
+  const all = Array.from(ratings)
+  return all.length ? Math.round((all.reduce((s, r) => s + r, 0) / all.length) * 10) / 10 : null
+}

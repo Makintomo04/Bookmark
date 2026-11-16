@@ -1,7 +1,7 @@
 import { joinLabels } from "./genres";
 import { sameBook } from "./workKey";
 
-// "Help me pick my first book" (BOO-52): a new reader's starting points, without AI. What they already
+// The book picker (BOO-52, onboarding's "Help me pick my first book" and "Help me pick a book" after): starting points, without AI. What they already
 // saved to Want to read, what people they follow loved, the team's picks, and what's popular in the genres
 // they chose at sign-up. Pure, shared by GET /api/first-book and both apps' picker screens.
 

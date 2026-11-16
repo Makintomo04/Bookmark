@@ -6,18 +6,28 @@ import { clubAbout, clubRole, clubShelf, createClubSchema } from "@/lib/clubs";
 import { hostingRefusal, parseBody } from "@/lib/buddyReadsServer";
 import { canHostAnotherClub, clubError, newClubInviteCode } from "@/lib/clubsServer";
 
-// The reader's clubs (newest first): each one's name, their role, how many are in it, and the cover of
-// what it's reading. And whether they may start another, so the list says so before the server has to.
+// The reader's clubs (newest first, archived ones after): each one's name, their role, how many are in it,
+// and the cover of what it's reading. Archived clubs stay listed, so a host can still reach Reopen and
+// Unmute. And whether they may start another, so the list says so before the server has to.
 export async function GET() {
   const { user: currentUser, response } = await requireUser();
   if (response) return response;
 
-  const mine = await prisma.clubMember.findMany({
+  // Active clubs first, then archived ones in what room is left, so a long list never loses an active club.
+  const LIMIT = 50;
+  const active = await prisma.clubMember.findMany({
     where: { userId: currentUser.id, club: { status: "ACTIVE" } },
     orderBy: { joinedAt: "desc" },
-    take: 50,
+    take: LIMIT,
     include: { club: true },
   });
+  const archived = active.length < LIMIT ? await prisma.clubMember.findMany({
+    where: { userId: currentUser.id, club: { status: "ARCHIVED" } },
+    orderBy: { joinedAt: "desc" },
+    take: LIMIT - active.length,
+    include: { club: true },
+  }) : [];
+  const mine = [...active, ...archived];
   const clubIds = mine.map((m) => m.clubId);
   const [counts, circles, hosting] = await Promise.all([
     prisma.clubMember.groupBy({ by: ["clubId"], where: { clubId: { in: clubIds } }, _count: { _all: true } }),
@@ -40,6 +50,7 @@ export async function GET() {
         about: club.about,
         role: clubRole(m, club.hostId),
         memberCount: countById.get(club.id) ?? 0,
+        archived: club.status === "ARCHIVED",
         current: book && {
           id: book.id,
           title: book.title,

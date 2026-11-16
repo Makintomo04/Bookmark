@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Platform, Share, StyleSheet, Switch, View } from "react-native";
 import { Image } from "expo-image";
-import { File, Paths } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 import useSWR from "swr";
@@ -10,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Sheet } from "@/components/ui/Sheet";
 import { Text } from "@/components/ui/Text";
-import { apiFetch } from "@/lib/api";
+import { downloadShareCard } from "@/lib/shareCards";
 import { useTheme } from "@/lib/theme";
 
 // Save or share a card the web draws (a Wrapped story, a monthly Wrap card, a medal) as a real image,
@@ -30,22 +29,14 @@ export interface ShareImage {
   hasRatings?: boolean;
   // API path that says how many private books the card leaves out (/api/wrap/left-out).
   leftOutPath?: string;
-  link: { label: string; url: string; message: string };
+  // Left off when nobody else could open it (a Wrapped while Finished is private, BOO-94); linkNote says why.
+  link?: { label: string; url: string; message: string };
+  linkNote?: string;
 }
 
 type Status = { kind: "idle" } | { kind: "saving" } | { kind: "saved" } | { kind: "error"; message: string };
 
 const withRatings = (path: string, hide: boolean) => (hide ? `${path}${path.includes("?") ? "&" : "?"}ratings=hide` : path);
-
-async function download(path: string, name: string): Promise<string> {
-  const res = await apiFetch(path, { headers: { accept: "image/png" } });
-  if (!res.ok) throw new Error(res.status === 404 ? "There's nothing to draw for this yet." : "We couldn't make the image. Try again in a moment.");
-  const file = new File(Paths.cache, `${name}.png`);
-  if (file.exists) file.delete();
-  file.create();
-  await file.write(await res.arrayBuffer());
-  return file.uri;
-}
 
 export function ShareImageSheet({ image, onClose }: { image: ShareImage; onClose: () => void }) {
   const { colors, radii } = useTheme();
@@ -63,8 +54,7 @@ export function ShareImageSheet({ image, onClose }: { image: ShareImage; onClose
     setUri(null);
     setLoadError(null);
     setStatus({ kind: "idle" });
-    // A new name per variant, so the preview never shows the other version from the image cache.
-    download(withRatings(image.imagePath, hideRatings), `${image.fileName}${hideRatings ? "-no-ratings" : ""}`)
+    downloadShareCard(withRatings(image.imagePath, hideRatings), `${image.fileName}${hideRatings ? "-no-ratings" : ""}`)
       .then((u) => live && setUri(u))
       .catch((e: unknown) => live && setLoadError(e instanceof Error ? e.message : "We couldn't make the image."));
     return () => {
@@ -94,7 +84,7 @@ export function ShareImageSheet({ image, onClose }: { image: ShareImage; onClose
     await Sharing.shareAsync(uri, { mimeType: "image/png", UTI: "public.png", dialogTitle: image.title }).catch(() => {});
   };
 
-  const shareLink = () => void Share.share({ message: image.link.message, url: image.link.url }).catch(() => {});
+  const shareLink = () => image.link && void Share.share({ message: image.link.message, url: image.link.url }).catch(() => {});
   const privateBooks = leftOut?.privateBooks ?? 0;
 
   return (
@@ -103,7 +93,7 @@ export function ShareImageSheet({ image, onClose }: { image: ShareImage; onClose
         {native && (
           <View style={[styles.preview, { aspectRatio: image.aspect, maxHeight: image.aspect < 1 ? 360 : undefined, borderRadius: radii.lg, backgroundColor: colors.muted, borderColor: colors.border }]}>
             {uri ? (
-              <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={`Preview of ${image.title}`} />
+              <Image source={{ uri }} cachePolicy="none" style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={`Preview of ${image.title}`} />
             ) : loadError ? (
               <Text variant="muted" style={{ textAlign: "center", padding: 16 }}>{loadError}</Text>
             ) : (
@@ -139,7 +129,8 @@ export function ShareImageSheet({ image, onClose }: { image: ShareImage; onClose
             <Button title="Share image" variant="outline" icon={<Share2 size={16} color={colors.foreground} />} disabled={!uri} onPress={() => void shareImage()} />
           </>
         )}
-        <Button title={image.link.label} variant={native ? "ghost" : "primary"} icon={<Link2 size={16} color={native ? colors.brandText : colors.onBrand} />} onPress={shareLink} />
+        {image.link && <Button title={image.link.label} variant={native ? "ghost" : "primary"} icon={<Link2 size={16} color={native ? colors.brandText : colors.onBrand} />} onPress={shareLink} />}
+        {image.linkNote && <Text variant="small" style={{ textAlign: "center" }}>{image.linkNote}</Text>}
       </View>
     </Sheet>
   );

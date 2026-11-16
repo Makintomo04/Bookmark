@@ -1,10 +1,9 @@
 "use client"
-import { FC, ReactNode } from 'react'
+import { FC } from 'react'
 import { Plus } from 'lucide-react'
 import { useOwnerLists } from '@/app/hooks/useLists'
 import useListEditorModal, { emptyList } from '@/app/hooks/useListEditorModal'
 import useUser from '@/app/hooks/useUser'
-import useCollapsedSections from '@/app/hooks/useCollapsedSections'
 import { preferencesOf } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
 import { SeeAllLink, ShelfSection } from '../books/shelf'
@@ -12,6 +11,8 @@ import { ListsSkeleton } from '../profile-head/ProfileSkeleton'
 import { secondaryButtonClass } from '../profile-head/ProfileHeader'
 import ListCard from './ListCard'
 import FetchErrorState from '../FetchErrorState'
+import useScrollRow from '@/app/hooks/useScrollRow'
+import RowArrows from '../RowArrows'
 
 interface ProfileListsProps {
   username: string
@@ -25,8 +26,6 @@ interface ProfileListsProps {
   // In bands: on a phone the lists are a row you swipe rather than a grid (with `half`, more than the two
   // it shows from sm up).
   swipe?: boolean
-  // A line under the heading (your profile in bands: how to add a favourite, when you have none).
-  footnote?: ReactNode
 }
 
 // Lists shown before "See all": two when they share a row with favourites, four when they have a row to themselves.
@@ -35,11 +34,12 @@ const FULL_SHOWN = 4
 // Lists in the row you swipe on a phone.
 const SWIPE_SHOWN = 8
 
-const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, flush = false, swipe = false, footnote }) => {
+const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, flush = false, swipe = false }) => {
   const { lists, isLoading, isError, mutate } = useOwnerLists(username)
   const { onOpen } = useListEditorModal()
   const { user } = useUser()
-  const collapse = useCollapsedSections()
+  // On a phone the swipe row drags with a mouse too, with arrows while there's more (useScrollRow).
+  const scroller = useScrollRow<HTMLDivElement>()
 
   if (isLoading) return <ListsSkeleton half={half} swipe={swipe} className={half || flush ? undefined : "mt-12"} />
   if (isError) {
@@ -68,8 +68,7 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
 
   return (
     <div className={half || flush ? undefined : "mt-12"}>
-      <ShelfSection id="profile-lists" title="Lists" count={lists.length} action={action} {...(isSelf ? collapse("profile-lists") : {})}>
-        {footnote && <div className="-mt-3 mb-4">{footnote}</div>}
+      <ShelfSection id="profile-lists" title="Lists" count={lists.length} action={action}>
         {lists.length === 0 ? (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-6">
             <div>
@@ -79,12 +78,15 @@ const ProfileLists: FC<ProfileListsProps> = ({ username, isSelf, half = false, f
             <div className="shrink-0">{newList}</div>
           </div>
         ) : (
-          <div className={cn(
+          <div className="relative">
+          <div ref={swipe ? scroller.ref : undefined} className={cn(
             half ? "grid grid-cols-2 gap-x-5 gap-y-8" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8",
-            swipe && "max-sm:relative max-sm:flex max-sm:overflow-x-auto max-sm:snap-x max-sm:-mx-4 max-sm:px-4 max-sm:pb-1 max-sm:[&>*]:w-[44%] max-sm:[&>*]:shrink-0 max-sm:[&>*]:snap-start",
+            swipe && "scrollbar-none max-sm:relative max-sm:flex max-sm:overflow-x-auto max-sm:snap-x max-sm:-mx-4 max-sm:px-4 max-sm:pb-1 max-sm:[&>*]:w-[44%] max-sm:[&>*]:shrink-0 max-sm:[&>*]:snap-start",
             swipe && (half ? "sm:[&>*:nth-child(n+3)]:hidden" : "sm:[&>*:nth-child(n+5)]:hidden"),
           )}>
             {shown.map((list) => <ListCard key={list.id} list={list} hideOwner />)}
+          </div>
+          {swipe && <div className="sm:hidden"><RowArrows row={scroller} label="lists" top="top-[30%]" /></div>}
           </div>
         )}
       </ShelfSection>

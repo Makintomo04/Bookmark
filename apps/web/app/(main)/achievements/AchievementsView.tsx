@@ -6,7 +6,7 @@ import MedalList from '@/app/components/achievements/MedalList'
 import UpNext from '@/app/components/achievements/UpNext'
 import { Skeleton } from '@/app/components/ui/skeleton'
 import FetchErrorState from '@/app/components/FetchErrorState'
-import ReaderTierCard from '@/app/components/achievements/ReaderTierCard'
+import TierCarousel from '@/app/components/achievements/TierCarousel'
 
 // Top to bottom: the reader's tier, the three rungs they're closest to, then every medal.
 const AchievementsView: FC = () => {
@@ -16,7 +16,7 @@ const AchievementsView: FC = () => {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-10">
-        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-[26rem] w-full rounded-2xl" />
         <div className="grid gap-3 sm:grid-cols-3">
           {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
         </div>
@@ -33,7 +33,7 @@ const AchievementsView: FC = () => {
 
   return (
     <div className="flex flex-col gap-10">
-      <ReaderTierCard achievements={achievements} />
+      <TierCarousel achievements={achievements} />
       <UpNext achievements={achievements} onSelect={setSelectedKey} />
       <MedalList achievements={achievements} onSelect={setSelectedKey} />
       <AchievementDetail achievement={selected} onClose={() => setSelectedKey(null)} />

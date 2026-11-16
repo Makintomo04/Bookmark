@@ -1,5 +1,5 @@
 "use client"
-import { FC, useEffect, useMemo, useState } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { Crown, Download, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import UpgradePrompt from '@/app/components/plus/UpgradePrompt'
@@ -14,6 +14,7 @@ import {
   cardFileName,
   cardMonths,
   cardPath,
+  cardPeriodKey,
   cardYears,
   type CardDesign,
   type CardKind,
@@ -23,14 +24,15 @@ import {
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const button = 'inline-flex h-9 items-center gap-2 rounded-md px-3.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
-type Period = { year: number; month: number | null; label: string }
+type Period = { year: number; month: number | null; label: string; empty: boolean }
 
 // Every year back to the reader's first finish, newest first, each as the whole year and then its months, in
 // the profile's time zone (`today`, packages/shared/src/wrapCards.ts cardToday), as the server counts them.
-function periods(today: { year: number; month: number }, years: number[]): Period[] {
+// A period with no shared finishes (`filled`, cardPeriodKeys) is listed, but can't be picked.
+function periods(today: { year: number; month: number }, years: number[], filled: Set<string>): Period[] {
   return cardYears(today, years).flatMap((year) => [
-    { year, month: null, label: year === today.year ? `${year} so far` : `All of ${year}` },
-    ...cardMonths(year, today).map((month) => ({ year, month, label: `${MONTHS[month - 1]} ${year}` })),
+    { year, month: null, label: year === today.year ? `${year} so far` : `All of ${year}`, empty: !filled.has(cardPeriodKey(year, null)) },
+    ...cardMonths(year, today).map((month) => ({ year, month, label: `${MONTHS[month - 1]} ${year}`, empty: !filled.has(cardPeriodKey(year, month)) })),
   ])
 }
 
@@ -60,13 +62,52 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
   )
 }
 
+// How far along a draw probably is, as a whole percentage. The card comes back in one piece, so this is a
+// guess paced by how long draws have been taking (`expected`, ms): about 90 by then, then creeping on to 99, so
+// it never sits still and never reaches 100 before the card lands.
+function useDrawProgress(expected: number) {
+  const [percent, setPercent] = useState(0)
+  useEffect(() => {
+    const start = performance.now()
+    const tick = () => setPercent(Math.min(99, Math.floor(100 * (1 - Math.exp((-2.3 * (performance.now() - start)) / expected)))))
+    const timer = setInterval(tick, 100)
+    return () => clearInterval(timer)
+  }, [expected])
+  return percent
+}
+
+// The preview while the card draws: a dot grid in the reader's colour, lit where light drifts beneath it,
+// until the card comes through (the card-brew styles in globals.css; the colour is the stats page's --accent).
+const Brewing = ({ expected }: { expected: number }) => {
+  const percent = useDrawProgress(expected)
+  return (
+    <div className="card-brew absolute inset-0 overflow-hidden">
+      <div aria-hidden className="card-brew-dots absolute inset-0" />
+      <div aria-hidden className="card-brew-glow absolute inset-0">
+        <div className="card-brew-blob absolute left-[8%] top-[18%] size-[42%] rounded-full opacity-90" />
+        <div className="card-brew-blob absolute right-[2%] top-[45%] size-[38%] rounded-full opacity-70" />
+        <div className="card-brew-blob absolute bottom-[6%] left-[22%] size-[30%] rounded-full opacity-50" />
+        <div className="card-brew-band absolute inset-x-0 top-0 h-1/3" />
+      </div>
+      <span className="sr-only">Drawing your card…</span>
+      <span aria-hidden className="absolute bottom-3 right-3 rounded-full bg-black/50 px-3 py-1 text-sm font-semibold tabular-nums text-white">
+        {percent}%
+      </span>
+    </div>
+  )
+}
+
 // Wrap cards on /stats (BOO-50): the cover grid or the stats card for a month or a year, in 9:16, 4:5 or
 // 1:1, drawn by /api/wrap/card. Midnight is free; the other designs are Plus.
-// `years`: the years with stats (lib/stats.ts), for how far back to offer.
-const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month: number }; years: number[] }> = ({ canPickDesigns, today, years }) => {
-  const options = useMemo(() => periods(today, years), [today, years])
-  // This month first, as before.
-  const [picked, setPicked] = useState(() => Math.max(0, options.findIndex((o) => o.month !== null)))
+// `filled`: the periods with shared finishes (lib/stats.ts getCardPeriods), for how far back to offer and which to grey out.
+const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month: number }; filled: string[] }> = ({ canPickDesigns, today, filled }) => {
+  const years = useMemo(() => filled.filter((k) => k.length === 4).map(Number), [filled])
+  const options = useMemo(() => periods(today, years, new Set(filled)), [today, years, filled])
+  // The latest month with books first, else the latest year with any, else this month.
+  const [picked, setPicked] = useState(() => {
+    const first = [options.findIndex((o) => o.month !== null && !o.empty), options.findIndex((o) => !o.empty), options.findIndex((o) => o.month !== null)].find((i) => i >= 0)
+    return first ?? 0
+  })
   const [kind, setKind] = useState<CardKind>('grid')
   const [size, setSize] = useState<CardSize>('story')
   const [design, setDesign] = useState<CardDesign>(DEFAULT_CARD_DESIGN)
@@ -74,6 +115,8 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
   const [upsell, setUpsell] = useState(false)
   const [preview, setPreview] = useState<Preview>({ kind: 'loading' })
   const [leftOut, setLeftOut] = useState(0)
+  // How long cards have been taking to draw, which paces the next one's percentage. A first draw takes about this.
+  const lastDraw = useRef(5000)
 
   const { year, month, label } = options[picked]
   const path = cardPath({ kind, size, design, year, month, hideRatings })
@@ -84,6 +127,7 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
     let live = true
     let url: string | null = null
     setPreview({ kind: 'loading' })
+    const start = performance.now()
     fetch(path)
       .then(async (res) => {
         if (res.status === 404) throw new Error(`No finished books in ${label} yet. Try another month or year.`)
@@ -92,6 +136,7 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
           throw new Error(body?.error ?? "We couldn't draw this card. Try again in a moment.")
         }
         url = URL.createObjectURL(await res.blob())
+        lastDraw.current = Math.max(1500, (lastDraw.current + performance.now() - start) / 2)
         if (live) setPreview({ kind: 'ready', url })
       })
       .catch((e: Error) => live && setPreview({ kind: 'error', message: e.message }))
@@ -140,11 +185,16 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
               onChange={(e) => setPicked(Number(e.target.value))}
               className="h-9 w-full max-w-xs rounded-md border border-neutral-300 dark:border-neutral-700 bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {cardYears(today, years).map((y) => (
-                <optgroup key={y} label={String(y)}>
-                  {options.map((o, i) => (o.year === y ? <option key={o.label} value={i}>{o.label}</option> : null))}
-                </optgroup>
-              ))}
+              {/* Only periods with books to draw (BOO-92): a list of empty months buries the few that have them.
+                  The one already picked stays, so the select always shows its value. */}
+              {cardYears(today, years).map((y) => {
+                const shown = options.flatMap((o, i) => (o.year === y && (!o.empty || i === picked) ? [{ o, i }] : []))
+                return shown.length ? (
+                  <optgroup key={y} label={String(y)}>
+                    {shown.map(({ o, i }) => <option key={o.label} value={i}>{o.empty ? `${o.label} · no books` : o.label}</option>)}
+                  </optgroup>
+                ) : null
+              })}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -192,11 +242,11 @@ const WrapCardMaker: FC<{ canPickDesigns: boolean; today: { year: number; month:
         >
           {preview.kind === 'ready' ? (
             // eslint-disable-next-line @next/next/no-img-element -- a blob URL the reader just drew
-            <img src={preview.url} alt={`Your ${CARD_KIND_LABEL[kind].toLowerCase()} card for ${label}`} className="absolute inset-0 size-full object-contain" />
+            <img key={preview.url} src={preview.url} alt={`Your ${CARD_KIND_LABEL[kind].toLowerCase()} card for ${label}`} className="card-brew-reveal absolute inset-0 size-full object-contain" />
+          ) : preview.kind === 'loading' ? (
+            <Brewing key={path} expected={lastDraw.current} />
           ) : (
-            <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-muted-foreground">
-              {preview.kind === 'loading' ? 'Drawing your card…' : preview.message}
-            </p>
+            <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-muted-foreground">{preview.message}</p>
           )}
         </div>
       </div>

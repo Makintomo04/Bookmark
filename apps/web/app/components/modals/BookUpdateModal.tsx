@@ -5,11 +5,13 @@ import moment from 'moment'
 import { notify, apiError } from '@/lib/notify'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
-import { BookPlus, Check, Lock, Send, Unlock } from 'lucide-react'
+import { BookPlus, Lock, Send, Unlock } from 'lucide-react'
 import { askToCatalogue } from '../books/catalogueRequest'
 import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 import BookCover from '../cards/BookCover'
 import StarRating from '../StarRating'
+import { FavouriteChoice, useToggleFavourite } from '../cards/BookActions'
 import { Button } from '../ui/button'
 import { isRereading } from '../books/shelf'
 import { moveBook, setBookPrivacy, type ShelfAction } from '../books/ShelfMenuItems'
@@ -43,6 +45,7 @@ import { fetcher, swrOptions } from '@/lib/fetcher'
 import FinishDates, { defaultFinishDates, finishDatesProblem, type FinishDatesValue } from '../books/FinishDates'
 import ReadHistory from '../books/ReadHistory'
 import ShelfTagsEditor from '../books/ShelfTagsEditor'
+import ReviewFields from '../books/ReviewFields'
 
 const PACE_MIN_DAYS = 7
 
@@ -56,26 +59,6 @@ const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}
 // Quiet text actions under the cover. The padding gives each a full-height target and room for the focus
 // ring; the negative margin keeps the text lined up with the title above.
 const bookActionClass = "-mx-1.5 inline-flex h-9 sm:h-8 items-center gap-1.5 rounded-md px-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-
-// Drawn rather than left to the browser: a native box takes its fill from the browser and OS theme, so it
-// came out grey-filled on the light theme. A real input underneath keeps the keyboard and screen readers.
-const AccentCheckbox: FC<{ checked: boolean, onChange: (checked: boolean) => void, disabled?: boolean, accent: string, label: string }> =
-  ({ checked, onChange, disabled, accent, label }) => (
-    <label className={cn("inline-flex items-center gap-2", disabled ? "opacity-60" : "cursor-pointer")}>
-      <span className="relative inline-flex size-4 shrink-0">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          disabled={disabled}
-          style={checked ? { background: accent, borderColor: accent } : undefined}
-          className="peer size-4 appearance-none rounded-[4px] border border-neutral-400 dark:border-neutral-600 bg-background transition-colors cursor-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        />
-        <Check size={12} strokeWidth={3} aria-hidden style={{ color: readableInk(accent) }} className="pointer-events-none absolute inset-0 m-auto hidden peer-checked:block" />
-      </span>
-      {label}
-    </label>
-  )
 
 const BookUpdateModal: FC = () => {
   const { user, mutate } = useUser()
@@ -117,6 +100,9 @@ const BookUpdateModal: FC = () => {
   const [isPrivate, setIsPrivate] = useState(false)
   // Asked a librarian to add this hand-typed book to the catalogue, this time the modal is open.
   const [askedToAdd, setAskedToAdd] = useState(false)
+  // Finishing can make it a favourite too: it starts as it is, and applies with Save.
+  const { isFavourite, toggleFavourite } = useToggleFavourite({ id: book?.id ?? "" })
+  const [favourite, setFavourite] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   // Which footer button started the save, so only that one shows the spinner.
   const [savingAction, setSavingAction] = useState<"save" | ShelfAction | null>(null)
@@ -147,10 +133,13 @@ const BookUpdateModal: FC = () => {
     setReviewPrivate(!!book.reviewPrivate)
     setIsPrivate(!!book.isPrivate)
     setAskedToAdd(false)
+    setFavourite(isFavourite)
+    // Not on isFavourite: once open, the choice is the reader's until they save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, book])
 
   useEffect(() => {
-    if (isOpen) setTags(workTags?.mine ?? EMPTY_TAGS)
+    if (isOpen) setTags(workTags?.mine ? { ...EMPTY_TAGS, ...workTags.mine } : EMPTY_TAGS)
   }, [isOpen, workTags])
 
   if (!book) return null
@@ -282,7 +271,7 @@ const BookUpdateModal: FC = () => {
     // counts from a reader the server already sees as finished. The rating and shelf change don't wait on it.
     const saveTags = () => (isClosed || finished || stopping) && tagsChanged
       ? axios.put("/api/works/tags", { bookId: book.id, ...tags }).then(() => tagsMutate())
-        .catch((err) => notify.error(apiError(err, "Couldn't save your moods, spice and warnings.")))
+        .catch((err) => notify.error(apiError(err, "Couldn't save your tags for this book.")))
       : Promise.resolve()
 
     // Read now: by the time the toast's action is pressed, this modal has closed and moved on.
@@ -293,7 +282,9 @@ const BookUpdateModal: FC = () => {
 
     setIsSaving(true)
     setSavingAction("save")
+    const favouriteChanged = isActive && finished && favourite !== isFavourite
     axios.post("/api/book-progress", payload).then(async ({ data: saved }) => {
+      if (favouriteChanged) toggleFavourite()
       await saveTags()
       celebrate(saved?.earnMoment, success ? { message: success, ...sendAction } : null, saved?.askReminders)
       mutate()
@@ -360,7 +351,7 @@ const BookUpdateModal: FC = () => {
     <div className="flex items-baseline gap-2">
       {/* The hidden copy sets the width; the input sits over it so it hugs its digits. */}
       <span className="relative inline-block">
-        <span aria-hidden="true" className="invisible block border-b-2 px-1 text-5xl font-bold tabular-nums leading-tight whitespace-pre">{pageInput || "0"}</span>
+        <span aria-hidden="true" className="invisible block border-b-2 px-1 text-5xl font-semibold tabular-nums leading-tight whitespace-pre">{pageInput || "0"}</span>
         <input
           id="current-page"
           type="text"
@@ -380,7 +371,7 @@ const BookUpdateModal: FC = () => {
             save()
           }}
           disabled={isSaving || finished}
-          className="absolute inset-0 w-full rounded-t-md border-b-2 border-dashed border-neutral-300 dark:border-neutral-600 bg-transparent px-1 text-5xl font-bold tabular-nums leading-tight hover:border-neutral-500 focus-visible:outline-none focus-visible:border-solid focus-visible:border-neutral-500 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="absolute inset-0 w-full rounded-t-md border-b-2 border-dashed border-neutral-300 dark:border-neutral-600 bg-transparent px-1 text-5xl font-semibold tabular-nums leading-tight hover:border-neutral-500 focus-visible:outline-none focus-visible:border-solid focus-visible:border-neutral-500 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
       </span>
       <span id="page-total" className="text-lg text-muted-foreground tabular-nums whitespace-nowrap">
@@ -566,27 +557,16 @@ const BookUpdateModal: FC = () => {
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">Rating <span className="font-normal text-muted-foreground">· optional</span></span>
         <StarRating value={rating} onChange={setRating} disabled={isSaving} label="Your rating" />
+        {/* Only while finishing: a finished book's favourite is the bookmark on its cover. */}
+        {isActive && finished && <FavouriteChoice value={favourite} onChange={setFavourite} disabled={isSaving} className="mt-2" />}
       </div>
-      <div className="flex flex-col gap-2">
-        <label htmlFor="review" className="text-sm font-medium">
-          Review <span className="font-normal text-muted-foreground">· optional</span>
-        </label>
-        <textarea
-          id="review"
-          value={review}
-          onChange={(e) => setReview(e.target.value)}
-          maxLength={2000}
-          rows={4}
-          placeholder="What did you think?"
-          disabled={isSaving}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
-        />
-        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-          <AccentCheckbox checked={reviewSpoiler} onChange={setReviewSpoiler} disabled={isSaving} accent={accent} label="Contains spoilers" />
-          <AccentCheckbox checked={reviewPrivate} onChange={setReviewPrivate} disabled={isSaving} accent={accent} label="Only me" />
-        </div>
-      </div>
-      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} canReportSpice={(status === "COMPLETED" || finished) && spiceAskable(workTags, tags.warnings)} />
+      <ReviewFields
+        value={{ review, reviewSpoiler, reviewPrivate }}
+        onChange={(next) => { setReview(next.review); setReviewSpoiler(next.reviewSpoiler); setReviewPrivate(next.reviewPrivate) }}
+        disabled={isSaving}
+        accent={accent}
+      />
+      <ReaderTagsEditor value={tags} onChange={setTags} disabled={isSaving} accent={accent} canReportSpice={(status === "COMPLETED" || finished) && spiceAskable(workTags, tags.warnings)} canReportCliffhanger={status === "COMPLETED" || finished} />
     </div>
   )
 
@@ -612,7 +592,7 @@ const BookUpdateModal: FC = () => {
       <div className="flex md:flex-col gap-4 md:gap-5 md:w-44 shrink-0">
         <BookCover book={book} variant="thumb" sizes="(min-width: 768px) 176px, 72px" className="w-[72px] md:w-full shrink-0 self-start shadow-sm" />
         <div className="min-w-0">
-          <p className="text-lg md:text-xl font-bold leading-snug break-words">
+          <p className="text-lg md:text-xl font-semibold leading-snug break-words">
             {pageHref ? <Link href={pageHref} onClick={close} className="rounded-sm hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">{book.title}</Link> : book.title}
           </p>
           <p className="mt-0.5 text-sm text-muted-foreground"><AuthorLink author={book.author} onNavigate={close} /></p>
@@ -687,30 +667,26 @@ const BookUpdateModal: FC = () => {
 
   // On phones every button stretches, so a row that wraps reads as a second row rather than a stray button,
   // and the shelf moves' group dissolves so they wrap alongside Close instead of stacking on their own.
-  const footerButton = "rounded-md flex-1 sm:flex-none"
-  const footer = (
-    <div className="w-full p-6 flex flex-wrap items-center justify-end gap-3">
-      {isClosed && (
-        <div className="contents sm:flex flex-wrap gap-3 sm:mr-auto">
-          <Button onClick={() => move("restart")} variant="outline" className={footerButton} disabled={isSaving} loading={savingAction === "restart"}>Read again</Button>
-          {status === "DNF" && (
-            <Button onClick={() => move("wantToRead")} variant="outline" className={footerButton} disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
-          )}
-        </div>
+  const moves = isClosed ? (
+    <>
+      <Button onClick={() => move("restart")} variant="outline" disabled={isSaving} loading={savingAction === "restart"}>Read again</Button>
+      {status === "DNF" && (
+        <Button onClick={() => move("wantToRead")} variant="outline" disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
       )}
-      {status === "NOT_INTERESTED" && (
-        <Button onClick={() => move("wantToRead")} variant="outline" className={cn(footerButton, "sm:mr-auto")} disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
-      )}
-      <Button onClick={close} variant="outline" className={footerButton} disabled={isSaving}>
-        {showPrimary ? "Cancel" : "Close"}
-      </Button>
+    </>
+  ) : status === "NOT_INTERESTED" ? (
+    <Button onClick={() => move("wantToRead")} variant="outline" disabled={isSaving} loading={savingAction === "wantToRead"}>Move to Want to read</Button>
+  ) : undefined
+  const footer = showPrimary || moves ? (
+    <ModalFooter start={moves}>
       {showPrimary && (
-        <Button style={{ background: accent, color: accentInk }} onClick={save} disabled={!canSave} loading={savingAction === "save"} className={footerButton}>
-          {primaryLabel}
-        </Button>
+        <>
+          <Button onClick={close} variant="ghost" disabled={isSaving}>Cancel</Button>
+          <Button onClick={save} disabled={!canSave} loading={savingAction === "save"}>{primaryLabel}</Button>
+        </>
       )}
-    </div>
-  )
+    </ModalFooter>
+  ) : undefined
 
   return (
     <Modal
@@ -726,7 +702,7 @@ const BookUpdateModal: FC = () => {
       isOpen={isOpen}
       disabled={isSaving}
       closeOnBackdrop={!hasChanges}
-      compact
+      size="l"
     />
   )
 }

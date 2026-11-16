@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Check } from "lucide-react-native";
 import { readerName } from "@bookmark/shared/profile";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
@@ -13,6 +14,7 @@ import { Notice } from "@/components/ui/Notice";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { ApiError, api } from "@/lib/api";
+import { useShelfCopy } from "@/lib/books";
 import { addBook } from "@/lib/discover";
 import type { Person } from "@/lib/social";
 import { useTheme } from "@/lib/theme";
@@ -39,6 +41,7 @@ export default function ListScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const { data: list, error, isLoading, mutate } = useSWR<ListDetail>(`/api/lists/${id}`);
+  const shelfCopy = useShelfCopy();
 
   if (isLoading) return <Screen><ActivityIndicator color={colors.mutedForeground} /></Screen>;
   if (error || !list) {
@@ -86,7 +89,11 @@ export default function ListScreen() {
                 </View>
               )}
               <View style={{ alignItems: "flex-start" }}>
-                <Button title="Add to my shelf" variant="ghost" onPress={() => addBook(item)} />
+                {shelfCopy(item) ? (
+                  <Button title="On your shelf" variant="ghost" icon={<Check size={16} color={colors.foreground} />} accessibilityHint="Opens your copy" onPress={() => router.push(`/book/${shelfCopy(item)!.id}` as never)} />
+                ) : (
+                  <Button title="Add to my shelf" variant="ghost" onPress={() => addBook(item)} />
+                )}
               </View>
             </View>
           </View>

@@ -15,6 +15,7 @@ import { TextField } from "@/components/ui/TextField";
 import { ApiError, api } from "@/lib/api";
 import { goBack } from "@/lib/navigation";
 import { copyCoverLater, refreshAfterBookChange } from "@/lib/books";
+import { useOnShelf } from "@/lib/discover";
 import { useBookSearch, type FoundBook } from "@/lib/useBookSearch";
 import { useTheme } from "@/lib/theme";
 import type { EarnMoment } from "@bookmark/shared/earnMoment";
@@ -31,6 +32,8 @@ const SHELVES: { value: Shelf; label: string }[] = [
   { value: "COMPLETED", label: "Finished" },
 ];
 const ADDED: Record<Shelf, string> = { NOT_STARTED: "Want to read", STARTED: "Reading", COMPLETED: "Finished" };
+// Every shelf a copy can be on (the web's lib/shelfCopy.ts), for "Already on your shelf, in …".
+const SHELF_NAMES: Record<string, string> = { STARTED: "Currently reading", PAUSED: "Paused", NOT_STARTED: "Want to read", COMPLETED: "Finished", DNF: "Did not finish", NOT_INTERESTED: "Will not read" };
 
 type Draft = { title: string; author: string; pages: string; coverUrl: string | null; found: FoundBook | null };
 
@@ -120,6 +123,9 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, clubId, onBack 
   const runningTime = runningTimeOf(hours, minutes);
   // A reading circle is for a book you're reading or about to; Finished isn't offered then.
   const shelves = startCircle ? SHELVES.filter((s) => s.value !== "COMPLETED") : SHELVES;
+  // A book picked from search or a page that's already on the shelf: say so now, not after Add is turned away.
+  // (One typed in by hand is checked by the server when it's added.)
+  const copy = useOnShelf(draft.found ? [{ title: draft.title, author: draft.author, workKey: draft.found.workKey }] : undefined)(0);
 
   const add = async () => {
     if (!draft.title.trim() || !draft.author.trim()) return setError("Add the title and author.");
@@ -166,6 +172,12 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, clubId, onBack 
         </View>
       </View>
       {error && <Notice tone="error" message={error} />}
+      {copy && !startCircle && (
+        <View style={{ gap: 8 }}>
+          <Notice message={SHELF_NAMES[copy.status] ? `Already on your shelf, in ${SHELF_NAMES[copy.status]}.` : "Already on your shelf."} />
+          <Button title="Open your copy" variant="outline" onPress={() => router.replace(`/book/${copy.bookId}` as never)} />
+        </View>
+      )}
       {manual && (
         <View style={{ gap: 12 }}>
           <TextField label="Title" value={draft.title} onChangeText={(title) => setDraft({ ...draft, title })} />
@@ -195,7 +207,11 @@ function ShelfStep({ draft, setDraft, initialShelf, startCircle, clubId, onBack 
           </View>
         </View>
       )}
-      <Button title={startCircle ? "Add and start the circle" : `Add to ${ADDED[shelf]}`} loading={saving} onPress={add} />
+      {copy && startCircle ? (
+        <Button title="Start the circle with your copy" loading={saving} onPress={() => router.replace(`/circles/new?bookId=${copy.bookId}${clubId ? `&clubId=${clubId}` : ""}`)} />
+      ) : !copy ? (
+        <Button title={startCircle ? "Add and start the circle" : `Add to ${ADDED[shelf]}`} loading={saving} onPress={add} />
+      ) : null}
       <Button title="Back to search" variant="ghost" disabled={saving} onPress={onBack} />
     </Screen>
   );

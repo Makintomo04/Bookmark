@@ -39,6 +39,20 @@ const PrivacySettings: FC<{ disabled?: boolean }> = ({ disabled = false }) => {
           disabled={busy}
         />
         <Toggle
+          label="Hide my Reading shelf"
+          hint="Others won't see what you're reading or when you start a book. Your reading circles still show where you are."
+          checked={settings.hideReading}
+          onChange={(v) => save("hideReading", v)}
+          disabled={busy}
+        />
+        <Toggle
+          label="Hide my Finished shelf"
+          hint="Others won't see what you've read, your books read count, your Wrapped or the reviews on your profile. Reviews still show on each book's page if your review settings allow."
+          checked={settings.hideFinished}
+          onChange={(v) => save("hideFinished", v)}
+          disabled={busy}
+        />
+        <Toggle
           label="Keep Did not finish to myself"
           hint="Nobody else sees that shelf anyway. This also keeps “stopped reading” out of your followers' feeds."
           checked={settings.hideDidNotFinish}

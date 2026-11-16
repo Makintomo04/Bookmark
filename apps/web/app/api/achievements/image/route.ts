@@ -19,5 +19,7 @@ export async function GET(req: Request) {
 
   const image = await medalOgImage({ username: user.username, displayName: user.displayName, achievement: medal.achievement, milestone: medal.milestone });
   image.headers.set("Cache-Control", "private, max-age=300");
+  // The signed-in reader's own medal card, so never one cached for someone else (wrap/monthly says why).
+  image.headers.set("Vary", "Authorization, Cookie");
   return image;
 }

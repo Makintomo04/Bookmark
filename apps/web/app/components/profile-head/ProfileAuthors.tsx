@@ -2,7 +2,10 @@
 import { FC, useState } from 'react'
 import Link from 'next/link'
 import { ShelfSection } from '../books/shelf'
+import useSWR from 'swr'
 import useCollapsedSections from '@/app/hooks/useCollapsedSections'
+import type { FollowedAuthor } from '@/lib/authorFollows'
+import { fetcher, swrOptions } from '@/lib/fetcher'
 
 interface ProfileAuthorsProps {
   authors: { name: string; slug: string }[]
@@ -45,5 +48,16 @@ const ProfileAuthors: FC<ProfileAuthorsProps> = ({ authors, isSelf = false, cap 
     </ShelfSection>
   )
 }
+
+// The authors you follow, from your own list so an unfollow elsewhere shows on the next visit.
+export const OwnAuthors: FC<{ cap?: number }> = ({ cap }) => {
+  const { data } = useSWR<{ authors: FollowedAuthor[] }>('/api/user/authors', fetcher, swrOptions)
+  if (!data) return null
+  if (cap) return <ProfileAuthors authors={data.authors} isSelf cap={cap} />
+  return <div className="mt-12"><ProfileAuthors authors={data.authors} isSelf /></div>
+}
+
+// How many followed authors show in bands before "+N more".
+export const BANDS_AUTHORS = 8
 
 export default ProfileAuthors

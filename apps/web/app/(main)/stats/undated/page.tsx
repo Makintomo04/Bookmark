@@ -32,7 +32,7 @@ const Page = async () => {
           <Link href="/stats" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft size={14} aria-hidden />Reading stats
           </Link>
-          <h1 className="mt-4 text-2xl font-semibold">Add dates to past reads</h1>
+          <h1 className="mt-4 page-title">Add dates to past reads</h1>
           <p className="mt-2 text-muted-foreground">
             These finishes have no date, so they count toward your books read but not toward any year, month or goal.
             Add the day you finished (a rough one is fine), or leave any you don&apos;t remember.

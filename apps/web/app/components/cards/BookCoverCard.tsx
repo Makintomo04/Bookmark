@@ -3,17 +3,16 @@ import { FC } from 'react'
 import moment from 'moment'
 import type { Book } from '@prisma/client'
 import { Status } from '@/lib/bookStatus'
-import { Bookmark, Check, Star } from 'lucide-react'
+import { Check, Star } from 'lucide-react'
 import PrivateBadge from '../books/PrivateBadge'
 import { cn } from '@/lib/utils'
 import { readableInk } from '@/lib/colour'
 import { formatLength, formatPosition, formatStoppedAt, progressWhole } from '@/lib/progress'
-import useFavourite from '@/app/hooks/useFavourite'
 import useBookUpdateModal from '@/app/hooks/useBookUpdateModal'
 import useBookDetailsModal from '@/app/hooks/useBookDetailsModal'
 import { discoverBookOf } from '@/lib/openLibrary'
 import BookCover from './BookCover'
-import BookActions from './BookActions'
+import BookActions, { FavouriteChip } from './BookActions'
 import { recommendedByOf } from '@/lib/recommendRules'
 import AuthorLink from '@/app/components/AuthorLink'
 
@@ -33,7 +32,6 @@ interface BookCoverCardProps {
 }
 
 const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, onUpdateProgress }) => {
-  const { hasFavourited } = useFavourite()
   return (
     <>
       {/* Darkens the cover slightly on hover so the actions read clearly over light covers. */}
@@ -41,11 +39,11 @@ const OwnerOverlay: FC<{ book: Book; onUpdateProgress: () => void }> = ({ book, 
       <BookActions
         book={book}
         onUpdateProgress={onUpdateProgress}
+        favourite={false}
         className="absolute top-2 right-2 transition md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100"
       />
-      {hasFavourited(book.id) && (
-        <Bookmark size={18} aria-hidden className="absolute top-0 left-3 fill-[#F13C3C] text-[#F13C3C] md:group-hover:opacity-0 transition" />
-      )}
+      {/* The favourite stays in its corner on hover; only the menu appears, in the other. */}
+      <FavouriteChip book={book} className="absolute top-2 left-2" />
     </>
   )
 }

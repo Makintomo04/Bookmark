@@ -49,6 +49,17 @@ test("the book being read is next, and Will not read counts as done", () => {
   assert.ok(done.finished);
 });
 
+test("a book filed in its place before it's out is listed, but never next", () => {
+  const works = [...WORKS, work("5", 5, { releaseDate: "2027-06-01" })];
+  const caughtUp = buildTrack(SERIES, works, ["1", "2", "2.5", "3", "4"].map((id) => shelved(id, "COMPLETED")), false, "2026-10-31");
+  assert.deepEqual(caughtUp.entries.map((e) => e.workId), ["1", "2", "2.5", "3", "4", "5"]);
+  assert.equal(caughtUp.next, null);
+  // Once it's out it's next.
+  assert.equal(buildTrack(SERIES, works, ["1", "2", "2.5", "3", "4"].map((id) => shelved(id, "COMPLETED")), false, "2027-06-01").next?.workId, "5");
+  // And it's never next ahead of a skipped book that is out.
+  assert.equal(buildTrack(SERIES, works, ["1", "3", "4"].map((id) => shelved(id, "COMPLETED")), false, "2026-10-31").next?.workId, "2");
+});
+
 test("want to read alone doesn't start a series", () => {
   const track = buildTrack(SERIES, WORKS, [shelved("1", "NOT_STARTED")], true);
   assert.ok(!track.started);

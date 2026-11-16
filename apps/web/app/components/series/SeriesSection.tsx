@@ -5,7 +5,7 @@ import { bookHref } from '@/lib/workKey'
 import { entryState, isPageBook, positionLabel, progressLabel, seriesHref, seriesPlaceLabel, type SeriesTrack } from '@/lib/series'
 import BookCover from '../cards/BookCover'
 import FollowSeriesButton from './FollowSeriesButton'
-import SeriesRow from './SeriesRow'
+import CoverCarousel from '../cards/CoverCarousel'
 
 interface SeriesSectionProps {
   track: SeriesTrack
@@ -51,7 +51,7 @@ const SeriesSection: FC<SeriesSectionProps> = ({ track, workId, position, signed
           className="shrink-0"
         />}
       </div>
-      <SeriesRow label={`Books in ${track.name}`} compact={compact}>
+      <CoverCarousel label={`Books in ${track.name}`} size={compact ? "compact" : "default"} previousLabel="Earlier books in the series" nextLabel="Later books in the series">
         {track.entries.map((entry) => {
           const isHere = isPageBook(entry, { workId, position })
           const href = isHere ? null : bookHref({ workKey: entry.workKey, pageWorkId: entry.pageWorkId, title: entry.title })
@@ -77,7 +77,7 @@ const SeriesSection: FC<SeriesSectionProps> = ({ track, workId, position, signed
             </li>
           )
         })}
-      </SeriesRow>
+      </CoverCarousel>
       {!compact && !track.started && !track.following && (
         <p className="text-sm text-muted-foreground">Follow it to keep it in your series tracker before you&apos;ve started.</p>
       )}

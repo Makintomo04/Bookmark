@@ -1,13 +1,13 @@
 "use client"
 import { FC, useEffect, useState } from 'react'
 import { Bookmark } from 'lucide-react'
-import useSWR, { SWRConfig } from 'swr'
+import { SWRConfig } from 'swr'
 import { Book } from '@prisma/client'
 import useBooks from '@/app/hooks/useBooks'
 import useUser from '@/app/hooks/useUser'
 import useSettings from '@/app/hooks/useSettings'
 import { notify } from '@/lib/notify'
-import ProfileHead from './ProfileHead'
+import ProfileHead, { OwnLinkRows } from './ProfileHead'
 import OwnReviews from './OwnReviews'
 import BandsShowcase from './BandsShowcase'
 import BookList from '../books/BookList'
@@ -18,11 +18,9 @@ import ProfileLists from '../discover/ProfileLists'
 import GenrePicks from '../discover/GenrePicks'
 import { GENRE_PICKS_SHELF_LIMIT } from '@/lib/genres'
 import FollowRequests from './FollowRequests'
-import ProfileAuthors from './ProfileAuthors'
+import { BANDS_AUTHORS, OwnAuthors } from './ProfileAuthors'
 import SeriesTracker from '../series/SeriesTracker'
-import type { FollowedAuthor } from '@/lib/authorFollows'
-import { fetcher, swrOptions } from '@/lib/fetcher'
-import { type ProfileLayout } from './Band'
+import { BANDS_REVIEWS, SECTIONS, type ProfileLayout } from './Band'
 import { ShelfFilterProvider } from '@/app/hooks/useShelfFilter'
 
 interface OwnerProfileProps {
@@ -54,13 +52,13 @@ const OwnShowcase: FC<{ username: string }> = ({ username }) => {
   if (favs.length > 0 && lists.length > 0) {
     return (
       <div className="mb-12 grid gap-12 lg:grid-cols-2 lg:gap-10">
-        <FavouritesRow books={favs} href="/favourites" half collapsible />
+        <FavouritesRow books={favs} href="/favourites" half />
         <div><ProfileLists username={username} isSelf half /></div>
       </div>
     )
   }
   if (lists.length > 0) return <div className="mb-12"><ProfileLists username={username} isSelf flush /></div>
-  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} collapsible />
+  return <FavouritesRow books={favs} href="/favourites" hintWhenEmpty={books.length > 0} />
 }
 
 // With no lists yet, "Make your first list" stays down the page rather than pushing the shelf down; once
@@ -71,35 +69,24 @@ const OwnListsPrompt: FC<{ username: string }> = ({ username }) => {
   return <ProfileLists username={username} isSelf />
 }
 
-// The authors you follow, from your own list so an unfollow elsewhere shows on the next visit.
-const OwnAuthors: FC<{ cap?: number }> = ({ cap }) => {
-  const { data } = useSWR<{ authors: FollowedAuthor[] }>('/api/user/authors', fetcher, swrOptions)
-  if (!data) return null
-  if (cap) return <ProfileAuthors authors={data.authors} isSelf cap={cap} />
-  return <div className="mt-12"><ProfileAuthors authors={data.authors} isSelf /></div>
-}
-
-// How many reviews and followed authors show in bands before "Show more" and "+N more".
-const BANDS_REVIEWS = 3
-const BANDS_AUTHORS = 8
-
 // Your profile in bands, as the reader panel and designer settled it (docs/profile-layout-spike.html,
-// Iterations 2 and 3). Your header is a column from lg up with what you're reading and what's next beside it,
-// and the shelf search at the top; its results open right under it, in place of what you're reading. Then your
-// reviews beside the authors you follow, your favourites and lists, and your shelves as tabs. One filter serves
-// the search, the results and the tabs.
+// Iterations 2 and 3), calmed in BOO-97. Your header is a column from lg up with what you're reading and what's
+// next beside it, and the shelf search at the top; its results open right under it, in place of what you're
+// reading, and your shelves as tabs end that column. Then, each under a hairline rather than in a box: your
+// reviews, your favourites and lists, the authors you follow, and (below lg, where your header's column ends with them) your
+// achievements and stats. One filter serves the search, the results and the tabs.
 const OwnerBands: FC<{ username: string }> = ({ username }) => (
   <ShelfFilterProvider>
     <ProfileHead layout="bands" />
-    <div className="mt-10 flex flex-col gap-12 [&>*]:!mb-0">
+    <div className={SECTIONS}>
       <FollowRequests />
-      {/* From lg up your reviews are in your header's column too, under the authors you follow (ProfileHead). */}
+      {/* From lg up your reviews are in your header's column (ProfileHead). */}
       <div className="lg:hidden empty:hidden"><OwnReviews first={BANDS_REVIEWS} /></div>
-      {/* From lg up your favourites and lists sit in your header's right column, under Up next (ProfileHead). */}
-      <div className="lg:hidden"><BandsShowcase username={username} /></div>
-      <BookList slot="shelves" />
-      {/* From lg up the authors you follow are in your header's column, under your medals (ProfileHead); on a phone they come last. */}
+      {/* From lg up your lists sit in your header's right column, under Up next (ProfileHead). */}
+      <div className="lg:hidden empty:hidden"><BandsShowcase username={username} /></div>
+      {/* From lg up the authors you follow end the books column, under your shelves (ProfileHead). */}
       <div className="lg:hidden empty:hidden"><OwnAuthors cap={BANDS_AUTHORS} /></div>
+      <div className="lg:hidden"><OwnLinkRows /></div>
     </div>
   </ShelfFilterProvider>
 )
