@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/reportError";
 import { requireUser } from "@/lib/apiAuth";
 import { uploadImage } from "@/lib/covers";
 import { UPLOAD_KINDS, recordUpload, type UploadKind } from "@/lib/uploads";
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ url });
   } catch (error) {
     console.error("[mobile-upload]", error);
-    Sentry.captureException(error);
+    reportError(error);
     return NextResponse.json({ error: "Couldn't upload the image. Try again." }, { status: 502 });
   }
 }

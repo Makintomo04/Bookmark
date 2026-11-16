@@ -12,7 +12,10 @@ personal data. Everything is off until the DSNs below are set, so local developm
 | Browser | `apps/web/instrumentation-client.ts`, plus `global-error.tsx` and `ErrorState.tsx` for errors React boundaries catch | same commit | `NEXT_PUBLIC_VERCEL_ENV` |
 | iOS and Android | `apps/mobile/src/lib/sentry.ts`, `Sentry.wrap` in `src/app/_layout.tsx` | `<bundle id>@<version>+<build>` | `EXPO_PUBLIC_SENTRY_ENVIRONMENT`, set per profile in `eas.json` |
 
-Shared options are in `apps/web/lib/sentry.ts`. `next.config.mjs` wraps the config in `withSentryConfig`,
+Shared options are in `apps/web/lib/sentry.ts`. Code that catches an error itself reports it with
+`reportError` (`apps/web/lib/reportError.ts`). The SDK is only loaded when `NEXT_PUBLIC_SENTRY_DSN` is set:
+`next.config.mjs` always defines it, so without a DSN (local dev, the e2e suite) the SDK isn't even compiled,
+which keeps `next dev` as fast as it was before Sentry. `next.config.mjs` wraps the config in `withSentryConfig`,
 which instruments route handlers and pages, injects the release, and uploads source maps when
 `SENTRY_AUTH_TOKEN` is set. It then deletes them from the deploy so they're never public. On mobile, the
 `@sentry/react-native/expo` plugin (`app.config.ts`) and `getSentryExpoConfig` (`metro.config.js`) upload

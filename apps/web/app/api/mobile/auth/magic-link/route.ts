@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/reportError";
 import { z } from "zod";
 import { sendMobileMagicLink } from "@/lib/mobileMagicLink";
 import { clientIp, rateLimit, tooManyRequestsMessage } from "@/lib/rateLimit";
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === tooManyRequestsMessage) return mobileAuthError(error.message, 429);
     console.error("[mobile-auth] couldn't send the sign-in link", error);
-    Sentry.captureException(error);
+    reportError(error);
     return mobileAuthError("We couldn't send the email. Try again in a minute.", 500);
   }
   return NextResponse.json({ sent: true });

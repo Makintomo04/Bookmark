@@ -1,5 +1,5 @@
 import prisma from '@/lib/db'
-import * as Sentry from '@sentry/nextjs';
+import { reportError } from '@/lib/reportError';
 import { sanitizeUser } from '@/lib/sanitizeUser';
 import { registerSchema } from '@/lib/authSchemas';
 import { sendVerificationEmail } from '@/lib/emailVerification';
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       await sendVerificationEmail(existingUser.email, callbackPath);
     } catch (error) {
       console.error('Failed to resend verification email', error);
-      Sentry.captureException(error);
+      reportError(error);
     }
     return NextResponse.json({ resent: true });
   }
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   } catch (error) {
     // The account exists either way; the sign-in page can resend the link.
     console.error('Failed to send verification email', error);
-    Sentry.captureException(error);
+    reportError(error);
   }
   return NextResponse.json(sanitizeUser(user));
 }

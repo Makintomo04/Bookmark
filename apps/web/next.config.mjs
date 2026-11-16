@@ -4,6 +4,9 @@ import { withSentryConfig } from '@sentry/nextjs/config';
 const nextConfig = {
   // packages/shared ships TypeScript source, so Next compiles it like the app's own files.
   transpilePackages: ['@bookmark/shared'],
+  // Always defined, even when unset, so Next writes it into the code and builds without a DSN drop the
+  // Sentry SDK entirely (lib/reportError.ts, instrumentation.ts, instrumentation-client.ts).
+  env: { NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN ?? '' },
   // Lets a second dev server use its own build folder (see scripts/dev-isolated.mjs).
   distDir: process.env.NEXT_DIST_DIR || '.next',
   images: {
