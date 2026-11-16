@@ -7,9 +7,9 @@ import useSWR from "swr";
 import { BookCover } from "@/components/books/BookCover";
 import { StarRating } from "@/components/books/StarRating";
 import { Avatar } from "@/components/profile/Avatar";
-import { NotificationBell } from "@/components/social/NotificationBell";
 import { ReviewText } from "@/components/social/ReviewText";
 import { ReportReview } from "@/components/social/ReportReview";
+import { AppBar } from "@/components/ui/AppBar";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { Text } from "@/components/ui/Text";
@@ -40,13 +40,12 @@ export default function Feed() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.mutedForeground} />}
         ListHeaderComponent={
-          <View style={{ gap: 16, marginBottom: 8 }}>
-            <View style={styles.header}>
-              <Text variant="display">Feed</Text>
-              <NotificationBell />
-            </View>
+          <View style={{ gap: 16, marginBottom: 16 }}>
+            <AppBar />
+            <Text variant="display" accessibilityRole="header">Feed</Text>
             {/* While you follow only a few people (BOO-81). */}
             <PeopleYouMayKnow variant="feed" />
+            {activities.length > 0 && <Text variant="title" accessibilityRole="header" style={{ marginTop: 8 }}>Activity</Text>}
             {isLoading && <ActivityIndicator color={colors.mutedForeground} />}
             {error && (
               <View style={{ gap: 8 }}>
@@ -61,7 +60,7 @@ export default function Feed() {
             <View style={{ gap: 10 }}>
               <Text variant="title">Nothing here yet</Text>
               <Text variant="muted">Follow readers to see what they{"’"}re reading, finishing and loving.</Text>
-              <Button title="Find readers" variant="outline" onPress={() => router.push("/search")} />
+              <Button title="Find readers" variant="inverse" onPress={() => router.push("/search")} />
             </View>
           ) : undefined
         }
@@ -97,7 +96,6 @@ const styles = StyleSheet.create({
   seal: { marginLeft: 4, transform: [{ translateY: 2 }] },
   fill: { flex: 1 },
   content: { width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   item: { flexDirection: "row", gap: 12, paddingVertical: 14, alignItems: "flex-start" },
   separator: { height: StyleSheet.hairlineWidth },
 });

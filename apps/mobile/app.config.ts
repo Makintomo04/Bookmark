@@ -35,7 +35,8 @@ const config: ExpoConfig = {
   scheme: "bookmark",
   // Dark-first, light fully designed; the reader picks in settings.
   userInterfaceStyle: "automatic",
-  backgroundColor: "#0a0a0a",
+  // The dark ground (tokens.ts dark.background, "Ink blue"), so launch and splash match the first screen.
+  backgroundColor: "#141a22",
   ios: {
     bundleIdentifier: bundleId,
     supportsTablet: false,
@@ -107,7 +108,7 @@ const config: ExpoConfig = {
       granularPermissions: ["photo"],
     }],
     ["expo-notifications", { color: "#F13C3C" }],
-    ["expo-splash-screen", { backgroundColor: "#0a0a0a", image: "./assets/images/splash-icon.png", imageWidth: 96 }],
+    ["expo-splash-screen", { backgroundColor: "#141a22", image: "./assets/images/splash-icon.png", imageWidth: 96 }],
     ...(googleIosUrlScheme ? [["@react-native-google-signin/google-signin", { iosUrlScheme: googleIosUrlScheme }] as [string, object]] : []),
   ],
   experiments: {

@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
-import { Check, ChevronRight } from "lucide-react-native";
+import { Check, ChevronRight, Plus } from "lucide-react-native";
 import { formatPosition, progressWhole } from "@bookmark/shared/progress";
 import { SHELF_STATUS, type ShelfKey } from "@bookmark/shared/shelfFilter";
 import { BookCover } from "@/components/books/BookCover";
+import { Button } from "@/components/ui/Button";
+import { cardStyle } from "@/components/ui/Section";
 import { Text } from "@/components/ui/Text";
 import { shelfSelection, type Book, type Library, type PickedBook } from "@/lib/books";
 import { useTheme } from "@/lib/theme";
@@ -49,13 +51,20 @@ export type BookSelection = ReturnType<typeof useBookSelection>;
 
 // Currently reading, as cards with progress; the other shelves as rows of covers (the web's BookList). Each
 // shows the start of the shelf (useLibrary) with its full count, and See all opens the rest.
-export function Shelves({ library, accent, selection }: { library: Library; accent: string; selection: BookSelection }) {
+// `onAdd` puts the web's + Add pill beside Currently reading.
+export function Shelves({ library, accent, selection, onAdd }: { library: Library; accent: string; selection: BookSelection; onAdd?: () => void }) {
   const { shelves, counts } = library;
   const rereading = new Set(library.rereading);
   const { colors } = useTheme();
   return (
-    <View style={{ gap: 28 }}>
-      <Section title="Currently reading" shelf="reading" total={counts.reading} selection={selection}>
+    <View style={{ gap: 32 }}>
+      <Section
+        title="Currently reading"
+        shelf="reading"
+        total={counts.reading}
+        selection={selection}
+        action={onAdd && !selection.selecting ? <Button title="Add" variant="outline" size="sm" icon={<Plus size={16} color={colors.foreground} />} accessibilityLabel="Add a book" onPress={onAdd} /> : undefined}
+      >
         {shelves.reading.length === 0 ? (
           <View style={{ gap: 6 }}>
             <Text variant="muted">Nothing on the go. Add a book or start one from Want to read.</Text>
@@ -81,7 +90,8 @@ export function Shelves({ library, accent, selection }: { library: Library; acce
 
 // `total` is the whole shelf, so Select all picks every book on it (fetched then), not just the ones showing.
 // Out of select mode the same corner opens the shelf's own screen.
-function Section({ title, shelf, total, selection, children }: { title: string; shelf: ShelfKey; total: number; selection: BookSelection; children: React.ReactNode }) {
+function Section({ title, shelf, total, selection, action, children }: { title: string; shelf: ShelfKey; total: number; selection: BookSelection; action?: React.ReactNode; children: React.ReactNode }) {
+  const { colors } = useTheme();
   const [fetching, setFetching] = useState(false);
   const pickedHere = Array.from(selection.picked.values()).filter((b) => b.status === SHELF_STATUS[shelf]).length;
   const all = total > 0 && pickedHere >= total;
@@ -98,16 +108,20 @@ function Section({ title, shelf, total, selection, children }: { title: string; 
   return (
     <View style={{ gap: 12 }}>
       <View style={styles.heading} accessibilityRole="header">
-        <Text variant="title">{title}</Text>
-        <Text variant="muted">{count(total)}</Text>
+        <View style={styles.titleRow}>
+          <Text variant="title">{title}</Text>
+          <Text variant="muted">{count(total)}</Text>
+        </View>
         {selection.selecting && total > 0 && (
           <Pressable accessibilityRole="button" disabled={fetching} onPress={() => void selectAll()} hitSlop={8} style={{ marginLeft: "auto" }}>
             <Text variant="small" style={{ textDecorationLine: "underline", opacity: fetching ? 0.5 : 1 }}>{all ? "Deselect all" : `Select all ${count(total)}`}</Text>
           </Pressable>
         )}
+        {action && <View style={{ marginLeft: "auto" }}>{action}</View>}
         {!selection.selecting && total > 0 && (
-          <Pressable accessibilityRole="link" accessibilityLabel={`See all ${count(total)} in ${title}`} onPress={() => openShelf(shelf)} hitSlop={8} style={{ marginLeft: "auto" }}>
-            <Text variant="small" style={{ textDecorationLine: "underline" }}>See all {count(total)}</Text>
+          <Pressable accessibilityRole="link" accessibilityLabel={`See all ${count(total)} in ${title}`} onPress={() => openShelf(shelf)} hitSlop={10} style={[styles.seeAll, !action && { marginLeft: "auto" }]}>
+            <Text variant="muted">See all</Text>
+            <ChevronRight size={16} color={colors.mutedForeground} />
           </Pressable>
         )}
       </View>
@@ -125,11 +139,11 @@ function ReadingCard({ book, accent, rereading, selection }: { book: Book; accen
       accessibilityLabel={`${book.title} by ${book.author}, ${percent}%`}
       accessibilityState={selection.selecting ? { selected: selection.picked.has(book.id) } : undefined}
       onPress={() => (selection.selecting ? selection.toggle(book) : openBook(book))}
-      style={({ pressed }) => [styles.card, { borderRadius: radii.lg, borderColor: colors.border, backgroundColor: pressed ? colors.muted : "transparent" }]}
+      style={({ pressed }) => [styles.card, cardStyle(colors, radii.lg, pressed, colors.muted)]}
     >
-      <Pick book={book} selection={selection} accent={accent}><BookCover book={book} width={64} fallbackColour={accent} /></Pick>
+      <Pick book={book} selection={selection} accent={accent}><BookCover book={book} width={64} /></Pick>
       <View style={{ flex: 1, gap: 4 }}>
-        <Text style={{ fontSize: 16 }} numberOfLines={2}>{book.title}</Text>
+        <Text variant="title" style={{ fontSize: 16, lineHeight: 22 }} numberOfLines={2}>{book.title}</Text>
         <Text variant="muted" numberOfLines={1}>{book.author}{rereading ? " · rereading" : ""}</Text>
         <View style={[styles.track, { backgroundColor: colors.muted }]}>
           <View style={[styles.fill, { width: `${percent}%`, backgroundColor: accent }]} />
@@ -166,7 +180,7 @@ function CoverRow({ title, shelf, books, total, accent, selection }: { title: st
             onPress={() => (selection.selecting ? selection.toggle(item) : openBook(item))}
             style={{ width: COVER, gap: 6 }}
           >
-            <Pick book={item} selection={selection} accent={accent}><BookCover book={item} width={COVER} fallbackColour={accent} /></Pick>
+            <Pick book={item} selection={selection} accent={accent}><BookCover book={item} width={COVER} /></Pick>
             <Text variant="small" numberOfLines={2}>{item.title}</Text>
           </Pressable>
         )}
@@ -205,9 +219,11 @@ function Pick({ book, selection, accent, children }: { book: Book; selection: Bo
 
 const styles = StyleSheet.create({
   check: { position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: "#ffffff", alignItems: "center", justifyContent: "center" },
-  heading: { flexDirection: "row", alignItems: "baseline", gap: 8 },
-  card: { flexDirection: "row", gap: 14, padding: 12, borderWidth: 1, alignItems: "center" },
-  track: { height: 6, borderRadius: 3, overflow: "hidden", marginTop: 6 },
-  fill: { height: 6, borderRadius: 3 },
+  heading: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 34 },
+  titleRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
+  card: { flexDirection: "row", gap: 14, padding: 12, alignItems: "center" },
+  track: { height: 4, borderRadius: 2, overflow: "hidden", marginTop: 8 },
+  fill: { height: 4, borderRadius: 2 },
   more: { borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 6 },
 });
