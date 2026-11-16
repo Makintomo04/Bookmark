@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 import { followedPeople, publicPerson } from "@/lib/lists";
 import { blockedUserIds, canView, countedRatingWhere, privacyOf, privacySelect } from "@/lib/privacy";
 import { SPICE_MAX, aggregateTags } from "@/lib/workTags";
-import { hasSpiceRange, isShapeOnly, searchTerms, type AskFormat, type CatalogCandidate, type CatalogSource, type FriendSignal, type ShelfIntent, type SignalPerson } from "@/lib/askShelf";
+import { TAG_PACE, hasSpiceRange, isShapeOnly, searchTerms, type AskFormat, type CatalogCandidate, type CatalogSource, type FriendSignal, type ShelfIntent, type SignalPerson } from "@/lib/askShelf";
 
 // The database side of Ask the shelf (lib/askShelf.ts): which works might match, the reader's shelf,
 // and the friend signals.
@@ -82,6 +82,12 @@ async function candidateIds(intent: ShelfIntent): Promise<string[]> {
     for (const t of tagged) if (ids.size < CANDIDATES_MAX) ids.add(t.workId);
   }
 
+  // "Something fast-paced": works readers said were that pace.
+  if (intent.pace && intent.pace !== "medium" && ids.size < CANDIDATES_MAX) {
+    const paced = await prisma.readerTags.findMany({ where: { pace: TAG_PACE[intent.pace] }, select: { workId: true }, take: CANDIDATES_MAX });
+    for (const t of paced) if (ids.size < CANDIDATES_MAX) ids.add(t.workId);
+  }
+
   // "Something spicy": works someone reported in range. The median decides when it's scored.
   if (hasSpiceRange(intent) && ids.size < CANDIDATES_MAX) {
     const reported = await prisma.readerTags.findMany({
@@ -104,7 +110,7 @@ async function loadCandidates(intent: ShelfIntent): Promise<CatalogCandidate[]> 
       select: { id: true, openLibraryKey: true, title: true, authors: true, description: true, subjects: true, coverUrl: true, firstPublishYear: true, seriesName: true, seriesPosition: true },
     }),
     prisma.edition.findMany({ where: { workId: { in: ids } }, select: { workId: true, pages: true, format: true } }),
-    prisma.readerTags.findMany({ where: { workId: { in: ids } }, select: { workId: true, userId: true, moods: true, warnings: true, spice: true }, take: TAG_ROWS_MAX }),
+    prisma.readerTags.findMany({ where: { workId: { in: ids } }, select: { workId: true, userId: true, moods: true, warnings: true, spice: true, pace: true }, take: TAG_ROWS_MAX }),
   ]);
 
   // Tags from deleted accounts don't count (the same rule as /api/works/tags).
@@ -145,6 +151,7 @@ async function loadCandidates(intent: ShelfIntent): Promise<CatalogCandidate[]> 
       moods: tags.moods,
       warnings: tags.warnings,
       spice: tags.spice,
+      pace: tags.pace,
     };
   });
 }

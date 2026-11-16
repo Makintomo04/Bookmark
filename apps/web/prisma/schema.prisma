@@ -617,6 +617,19 @@ enum Mood {
   TENSE
 }
 
+enum Pace {
+  SLOW
+  MEDIUM
+  FAST
+}
+
+// What drives the story: the plot, the characters, or both about evenly.
+enum StoryFocus {
+  PLOT
+  CHARACTER
+  MIX
+}
+
 enum WarningLevel {
   MINOR
   MODERATE
@@ -624,16 +637,21 @@ enum WarningLevel {
 }
 
 model ReaderTags {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  workId    String   @db.ObjectId
-  userId    String   @db.ObjectId
-  moods     Mood[]
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  workId      String      @db.ObjectId
+  userId      String      @db.ObjectId
+  moods       Mood[]
   // [{ "topic": "Sexual assault", "level": "GRAPHIC" }], topics from WARNING_TOPICS in lib/workTags.ts.
-  warnings  Json?
+  warnings    Json?
   // 0 to 5 (SPICE_MAX in lib/workTags.ts), only from a reader who finished the book. Unset: not reported.
-  spice     Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  spice       Int?
+  // How the story moves and what drives it (StoryGraph's two questions), from readers who've started it,
+  // and whether it ends on a cliffhanger, from readers who finished it. Unset: not answered.
+  pace        Pace?
+  focus       StoryFocus?
+  cliffhanger Boolean?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
 

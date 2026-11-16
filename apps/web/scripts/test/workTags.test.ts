@@ -4,7 +4,10 @@
 //   node --import ./scripts/test/register.mjs --test scripts/test/workTags.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MOODS, MOODS_MAX, MOOD_FLOOR_READERS, aggregateTags, shownMoods, moodsFromStoryGraph, parseWarnings, readerTagsSchema, spiceAskable, spiceApplies, spiceMedian } from "@/lib/workTags";
+import {
+  MOODS, MOODS_MAX, MOOD_FLOOR_READERS, aggregateTags, focusFromStoryGraph, shownMoods, moodsFromStoryGraph, paceFromStoryGraph,
+  parseWarnings, readerTagsSchema, readsLike, spiceAskable, spiceApplies, spiceMedian,
+} from "@/lib/workTags";
 import { hostingAllowance, inheritedAllowance } from "@/lib/buddyReads";
 
 test("the mood set is StoryGraph's twelve", () => {
@@ -51,7 +54,7 @@ test("the aggregate counts readers, ranks moods and picks each warning's commone
   assert.equal(agg.moods[0].share, 1);
   // Violence: two moderate, one graphic → moderate. Grief: one minor, one moderate → tie goes to the more serious.
   assert.deepEqual(agg.warnings.map((w) => [w.topic, w.level, w.count]), [["Violence", "MODERATE", 3], ["Grief", "MODERATE", 2]]);
-  assert.deepEqual(agg.mine, { moods: ["DARK", "FUNNY"], warnings: [{ topic: "Violence", level: "MODERATE" }, { topic: "Grief", level: "MODERATE" }], spice: null });
+  assert.deepEqual(agg.mine, { moods: ["DARK", "FUNNY"], warnings: [{ topic: "Violence", level: "MODERATE" }, { topic: "Grief", level: "MODERATE" }], spice: null, pace: null, focus: null, cliffhanger: null });
   assert.equal(aggregateTags(rows, "zz").mine, null);
   assert.equal(aggregateTags([]).readers, 0);
 });
@@ -158,4 +161,74 @@ test("a reader is asked for spice on a book it applies to, or one they've alread
   const reported = aggregateTags([{ userId: "a", moods: [], warnings: [], spice: 2 }], "a", { subjects: ["Thrillers"] });
   assert.equal(spiceAskable(reported, []), true, "so they can clear an earlier answer");
   assert.equal(spiceAskable(undefined, []), false);
+});
+
+// ---- Pace, story focus and cliffhanger (BOO-104) ---------------------------------------------
+
+const answers = (rows: { pace?: string | null; focus?: string | null; cliffhanger?: boolean | null }[]) =>
+  aggregateTags(rows.map((r, i) => ({ userId: `r${i}`, moods: [], warnings: [], ...r })), "r0");
+
+test("pace, focus and cliffhanger are optional, so an older client leaves them alone", () => {
+  const old = readerTagsSchema.parse({ moods: [], warnings: [], spice: 2 });
+  assert.equal(old.pace, undefined);
+  assert.equal(old.focus, undefined);
+  assert.equal(old.cliffhanger, undefined);
+  const cleared = readerTagsSchema.parse({ moods: [], warnings: [], pace: null, focus: null, cliffhanger: null });
+  assert.equal(cleared.pace, null);
+  assert.equal(readerTagsSchema.parse({ moods: [], warnings: [], pace: "FAST", focus: "MIX", cliffhanger: true }).focus, "MIX");
+  assert.equal(readerTagsSchema.safeParse({ moods: [], warnings: [], pace: "speedy" }).success, false);
+});
+
+test("an answer alone makes a reader, and the viewer's own answers come back", () => {
+  const agg = answers([{ pace: "FAST", cliffhanger: false }, { focus: "PLOT" }, {}]);
+  assert.equal(agg.readers, 2, "a row with nothing in it isn't a reader");
+  assert.deepEqual(agg.mine, { moods: [], warnings: [], spice: null, pace: "FAST", focus: null, cliffhanger: false });
+  assert.equal(agg.pace.counts.FAST, 1);
+  assert.equal(agg.cliffhanger.counts.no, 1);
+});
+
+test("pace is the middle answer, shown from five readers and early from two", () => {
+  assert.equal(answers([{ pace: "FAST" }]).pace.early, null, "one reader alone sets nothing");
+  const two = answers([{ pace: "FAST" }, { pace: "FAST" }]).pace;
+  assert.deepEqual([two.value, two.early, two.reports], [null, "FAST", 2]);
+  const five = answers(["SLOW", "FAST", "FAST", "FAST", "MEDIUM"].map((pace) => ({ pace }))).pace;
+  assert.deepEqual([five.value, five.early], ["FAST", null]);
+  // Two different middles meet at medium.
+  assert.equal(answers(["SLOW", "SLOW", "FAST", "FAST"].map((pace) => ({ pace }))).pace.early, "MEDIUM");
+  assert.equal(answers(["SLOW", "MEDIUM"].map((pace) => ({ pace }))).pace.early, "MEDIUM");
+});
+
+test("story focus is the commonest answer, a tie reading as a mix", () => {
+  assert.equal(answers(["PLOT", "PLOT", "CHARACTER"].map((focus) => ({ focus }))).focus.early, "PLOT");
+  assert.equal(answers(["PLOT", "CHARACTER"].map((focus) => ({ focus }))).focus.early, "MIX");
+});
+
+test("a cliffhanger tie warns, and no answers say nothing", () => {
+  assert.equal(answers([{ cliffhanger: true }, { cliffhanger: false }]).cliffhanger.early, "yes");
+  assert.equal(answers([{ cliffhanger: false }, { cliffhanger: false }, { cliffhanger: true }]).cliffhanger.early, "no");
+  const none = answers([]);
+  assert.deepEqual([none.pace.value, none.focus.value, none.cliffhanger.value, none.pace.reports], [null, null, null, 0]);
+});
+
+test("the book page line puts pace, focus and cliffhanger in order, marking early answers", () => {
+  const settled = answers([...Array(5)].map(() => ({ pace: "FAST", focus: "CHARACTER", cliffhanger: true })));
+  assert.deepEqual(readsLike(settled).map((p) => [p.text, p.early]), [
+    ["Fast-paced", false], ["Character-driven", false], ["Ends on a cliffhanger", false],
+  ]);
+  const mixed = answers([...[...Array(5)].map(() => ({ pace: "SLOW" })), { cliffhanger: false }, { cliffhanger: false }]);
+  assert.deepEqual(readsLike(mixed).map((p) => [p.text, p.early]), [["Slow-paced", false], ["No cliffhanger", true]]);
+  assert.deepEqual(readsLike(answers([])), []);
+  // An older aggregate without these fields.
+  assert.deepEqual(readsLike({} as never), []);
+});
+
+test("StoryGraph's pace and story-focus columns", () => {
+  assert.equal(paceFromStoryGraph("fast"), "FAST");
+  assert.equal(paceFromStoryGraph(" Medium "), "MEDIUM");
+  assert.equal(paceFromStoryGraph("N/A"), null);
+  assert.equal(paceFromStoryGraph(""), null);
+  assert.equal(focusFromStoryGraph("Character"), "CHARACTER");
+  assert.equal(focusFromStoryGraph("Plot"), "PLOT");
+  assert.equal(focusFromStoryGraph("A mix"), "MIX");
+  assert.equal(focusFromStoryGraph("N/A"), null);
 });

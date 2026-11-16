@@ -10,6 +10,7 @@ import { AuthorNames } from "@/components/authors/AuthorNames";
 import { BookCover } from "@/components/books/BookCover";
 import { CatchMeUp } from "@/components/books/CatchMeUp";
 import { ReadHistory } from "@/components/books/ReadHistory";
+import { ReadsLikeLine, ReadsLikePicker, type ReadsLikeValue } from "@/components/books/ReadsLike";
 import { SpiceLine, SpicePicker } from "@/components/books/Spice";
 import { StarRating } from "@/components/books/StarRating";
 import { FollowSeries } from "@/components/series/FollowSeries";
@@ -91,8 +92,10 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
   const [review, setReview] = useState(book.review ?? "");
   const [reviewSpoiler, setReviewSpoiler] = useState(!!book.reviewSpoiler);
   const [reviewPrivate, setReviewPrivate] = useState(!!book.reviewPrivate);
-  // Spice: reported here; moods and warnings are kept as they are, since this screen doesn't edit them yet.
+  // Spice, pace, story focus and cliffhanger: reported here; moods and warnings are kept as they are,
+  // since this screen doesn't edit them yet.
   const [spice, setSpice] = useState<SpiceLevel | null>(null);
+  const [readsLike, setReadsLike] = useState<ReadsLikeValue>({ pace: null, focus: null, cliffhanger: null });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,7 +106,10 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
     setPageInput(String(percent ? Math.round(progressPercent(book)) : startPage));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startPage, book.currentPercent, book.logsPercent]);
-  useEffect(() => setSpice(tags?.mine?.spice ?? null), [tags]);
+  useEffect(() => {
+    setSpice(tags?.mine?.spice ?? null);
+    setReadsLike({ pace: tags?.mine?.pace ?? null, focus: tags?.mine?.focus ?? null, cliffhanger: tags?.mine?.cliffhanger ?? null });
+  }, [tags]);
   // A read's rating fixed in the history below can change the book's own: start again from it.
   useEffect(() => setRating(book.rating ?? 0), [book.rating]);
 
@@ -122,8 +128,13 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
   // Spice is only asked of a reader who finished a book it applies to (the server holds the same line).
   const canReportSpice = (status === "COMPLETED" || finished) && spiceAskable(tags, tags?.mine?.warnings ?? []);
   const spiceChanged = canReportSpice && spice !== (tags?.mine?.spice ?? null);
+  // Pace and story focus are asked wherever the review is; the cliffhanger only of a reader who finished.
+  const canReportCliffhanger = status === "COMPLETED" || finished;
+  const readsLikeChanged = readsLike.pace !== (tags?.mine?.pace ?? null) || readsLike.focus !== (tags?.mine?.focus ?? null)
+    || (canReportCliffhanger && readsLike.cliffhanger !== (tags?.mine?.cliffhanger ?? null));
+  const tagsChanged = spiceChanged || readsLikeChanged;
   const modeChanged = hasPageCount && inPercent !== entersPercent(book);
-  const hasChanges = isActive ? delta !== 0 || modeChanged || finished || stopping : isClosed ? ratingChanged || reviewChanged || spiceChanged : false;
+  const hasChanges = isActive ? delta !== 0 || modeChanged || finished || stopping : isClosed ? ratingChanged || reviewChanged || tagsChanged : false;
   const canSave = !saving && (status === "NOT_STARTED" || status === "PAUSED" || hasChanges);
   function at(n: number) { return onMinutes ? { currentMinute: n } : { currentPage: n }; }
   // Where the reader is, as the API takes it: a percent (and the choice to keep logging one), or a position.
@@ -166,13 +177,18 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
     setError(null);
     try {
       await saveBook({ id: book.id, ...payload });
-      // After the shelf change, so a book just finished counts as finished for its spice.
-      if (spiceChanged) {
+      // After the shelf change, so a book just finished counts as finished for its spice and cliffhanger.
+      if (tagsChanged) {
         try {
-          await api.put("/api/works/tags", { bookId: book.id, moods: tags?.mine?.moods ?? [], warnings: tags?.mine?.warnings ?? [], spice });
+          await api.put("/api/works/tags", {
+            bookId: book.id, moods: tags?.mine?.moods ?? [], warnings: tags?.mine?.warnings ?? [],
+            ...(spiceChanged && { spice }),
+            pace: readsLike.pace, focus: readsLike.focus,
+            ...(canReportCliffhanger && { cliffhanger: readsLike.cliffhanger }),
+          });
           void tagsMutate();
         } catch (e) {
-          setError(e instanceof ApiError ? e.message : "Saved, but your spice level didn't save. Try again.");
+          setError(e instanceof ApiError ? e.message : "Saved, but your tags for this book didn't save. Try again.");
           setSaving(false);
           return;
         }
@@ -278,6 +294,7 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
       {(isActive || status === "NOT_STARTED") && !finished && !stopping && <CatchMeUp bookId={book.id} />}
 
       {/* What other readers say, for anyone who hasn't given their own answer yet. */}
+      {!isClosed && !finished && !stopping && <ReadsLikeLine tags={tags} />}
       {!isClosed && !finished && !stopping && tags?.spiceApplies && <SpiceLine spice={tags.spice} />}
 
       {status === "NOT_STARTED" && (
@@ -392,6 +409,7 @@ function BookEditor({ book }: { book: Book & { rereading?: boolean } }) {
               <Switch value={reviewPrivate} onValueChange={setReviewPrivate} disabled={saving} trackColor={{ true: accent }} accessibilityLabel="Only me" />
             </View>
           </View>
+          <ReadsLikePicker value={readsLike} onChange={setReadsLike} canReportCliffhanger={canReportCliffhanger} disabled={saving} />
           {canReportSpice && <SpicePicker value={spice} onChange={setSpice} disabled={saving} />}
         </View>
       )}
