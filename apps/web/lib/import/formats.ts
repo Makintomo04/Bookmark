@@ -5,6 +5,7 @@ import type { ImportRow, ImportSource, ImportedRead, ParsedImport } from "./type
 import { seriesFromTitle, yearFrom } from "../catalog/normalise.ts";
 import { cleanCsvText, cleanRecords, detectFormat } from "./clean.ts";
 import { tagsFromShelves } from "../shelfTags.ts";
+import { focusFromStoryGraph, moodsFromStoryGraph, paceFromStoryGraph } from "../workTags.ts";
 
 // Detects Goodreads, StoryGraph and Bookmark CSV exports and maps each row onto Bookmark's model.
 // Kept free of "@/" imports so scripts/test/import.test.ts can load it with plain Node.
@@ -263,7 +264,19 @@ function storygraphRow(r: Record<string, string>, line: number): ImportRow {
     completedAt: latest?.finishedAt ?? null,
     stoppedAt: status === "DNF" ? current?.finishedAt ?? lastRead : null,
     completedReads,
+    bookTags: storygraphTags(r, status, completedReads.length),
   };
+}
+
+// The reader's moods, pace and story focus for the book. Pace and focus only count from a reader who
+// started it, as in the app (/api/works/tags); StoryGraph asks them alongside the review, so a to-read
+// row rarely has them anyway. Null when the row says nothing.
+function storygraphTags(r: Record<string, string>, status: Status, reads: number): ImportRow["bookTags"] {
+  const started = reads > 0 || status === "COMPLETED" || status === "DNF" || status === "STARTED" || status === "PAUSED";
+  const moods = moodsFromStoryGraph(r["Moods"]);
+  const pace = started ? paceFromStoryGraph(r["Pace"]) : null;
+  const focus = started ? focusFromStoryGraph(r["Character- or Plot-Driven?"]) : null;
+  return moods.length || pace || focus ? { moods, pace, focus } : null;
 }
 
 // ---- Bookmark ----------------------------------------------------------------------------

@@ -17,15 +17,15 @@ import { MONTHLY_ALLOWANCES } from "@/lib/entitlements";
 
 // ---- Fixtures ------------------------------------------------------------------------------------
 
-type Tags = { moods?: string[]; warnings?: { topic: string; level: string }[]; spice?: number }[];
+type Tags = { moods?: string[]; warnings?: { topic: string; level: string }[]; spice?: number; pace?: string }[];
 
 function work(id: string, fields: Partial<CatalogCandidate> & { tags?: Tags } = {}): CatalogCandidate {
   const { tags = [], ...rest } = fields;
-  const agg = aggregateTags(tags.map((t, i) => ({ userId: `tagger${i}`, moods: t.moods ?? [], warnings: t.warnings ?? [], spice: t.spice ?? null })));
+  const agg = aggregateTags(tags.map((t, i) => ({ userId: `tagger${i}`, moods: t.moods ?? [], warnings: t.warnings ?? [], spice: t.spice ?? null, pace: t.pace ?? null })));
   return {
     workId: id, workKey: `OL${id}W`, title: `Book ${id}`, authors: ["An Author"], description: null, subjects: [],
     coverUrl: null, pages: 350, formats: ["print"], year: 2020, seriesName: null, seriesPosition: null,
-    tagReaders: agg.readers, moods: agg.moods, warnings: agg.warnings, spice: agg.spice,
+    tagReaders: agg.readers, moods: agg.moods, warnings: agg.warnings, spice: agg.spice, pace: agg.pace,
     ...rest,
   };
 }
@@ -427,4 +427,22 @@ test("when no book meets any theme the reader named, mood matches are only the c
   assert.equal(rankCandidates(want, works, [], new Map())[0].strong, false);
   // A genre-only request has nothing finer to judge by.
   assert.equal(rankCandidates(intent({ genres: ["fantasy"] }), works, [], new Map())[0].strong, true);
+});
+
+test("pace scores on readers' pace answers, and falls back on moods for a book with none (BOO-104)", () => {
+  const fast = intent({ subjects: ["dragons"], pace: "fast" });
+  const score = (c: CatalogCandidate) => {
+    const s = scoreCandidate(fast, c);
+    assert.ok(!("excluded" in s));
+    return s;
+  };
+  const paced = score(work("fast", { subjects: ["Dragons"], tags: [{ pace: "FAST" }, { pace: "FAST" }, { pace: "MEDIUM" }] }));
+  const slow = score(work("slow", { subjects: ["Dragons"], tags: [{ pace: "SLOW" }, { pace: "SLOW" }] }));
+  const guessed = score(work("tense", { subjects: ["Dragons"], tags: [{ moods: ["TENSE"] }] }));
+  const plain = score(work("plain", { subjects: ["Dragons"] }));
+  assert.ok(paced.score > guessed.score, "readers saying fast beat a mood guess");
+  assert.ok(guessed.score > plain.score, "the mood guess still counts with no pace answers");
+  assert.ok(slow.score < plain.score, "readers saying slow count against a fast request");
+  assert.ok(paced.matched.includes("fast pace"));
+  assert.ok(!slow.matched.includes("fast pace"));
 });

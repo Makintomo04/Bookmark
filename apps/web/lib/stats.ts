@@ -10,7 +10,7 @@ import { DEFAULT_TIME_ZONE, finishDay, isValidTimeZone, localDay } from "@/lib/t
 import { isWrappedSeason } from "@/lib/wrappedSeason";
 import { canViewUser, isProfilePublic, privacyOf, privacySelect, sharedBookWhere } from "@/lib/privacy";
 import type { BookSummary, Tally, PeriodCount, GoalResult, ReadingStats, WrappedMedal, WrappedData, WrapCardData } from "@bookmark/shared/statsTypes";
-import type { Mood } from "@bookmark/shared/workTags";
+import { PACES, type Mood } from "@bookmark/shared/workTags";
 import { cardPeriodKeys } from "@bookmark/shared/wrapCards";
 import { averageRating, latestRatingByBook } from "@bookmark/shared/rating";
 import type { DateRange, ExplorerFinish, ExplorerFormat } from "@bookmark/shared/statsExplorer";
@@ -288,6 +288,14 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
 
   const finishesInYear = (year: number) => completed.filter((f) => f.year === year).length;
 
+  // The pace the reader tagged each finished book, once per book.
+  const workOf = new Map(books.map((b) => [b.id, b.workId]));
+  const finishedWorks = Array.from(new Set(finished.map((b) => workOf.get(b.id)).filter((id): id is string => !!id)));
+  const paced = finishedWorks.length
+    ? await prisma.readerTags.findMany({ where: { userId, workId: { in: finishedWorks }, pace: { not: null } }, select: { pace: true } })
+    : [];
+  const paces = PACES.map((pace) => ({ pace, count: paced.filter((t) => t.pace === pace).length }));
+
   return {
     timeZone,
     booksRead: finished.length,
@@ -332,6 +340,7 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
       })
       .sort((a, b) => b.year - a.year),
     streak,
+    paces,
     ...shelfShape(completed),
   };
 }
